@@ -259,10 +259,11 @@ interface ItemDao {
           AND COALESCE(s.isArchived, 0) = 0 AND i.collectionId IS NULL
           AND (i.cacheStatus IS NULL OR i.cacheStatus <> 'PERMANENT')
           AND NOT EXISTS (SELECT 1 FROM highlights h WHERE h.itemId = i.id)
+          AND (:keepUnread = 0 OR COALESCE(s.isRead, 0) = 1)
           AND COALESCE(i.publishedAt, i.savedAt) < :cutoff
         """
     )
-    suspend fun prunableOlderThan(cutoff: Long): List<String>
+    suspend fun prunableOlderThan(cutoff: Long, keepUnread: Int): List<String>
 
     @Query("UPDATE item_states SET isStarred = :starred, updatedAt = :ts WHERE itemId = :id")
     suspend fun setStarred(id: String, starred: Boolean, ts: Long)
@@ -301,10 +302,11 @@ interface ItemDao {
           AND COALESCE(s.isArchived, 0) = 0 AND i.collectionId IS NULL
           AND (i.cacheStatus IS NULL OR i.cacheStatus <> 'PERMANENT')
           AND NOT EXISTS (SELECT 1 FROM highlights h WHERE h.itemId = i.id)
+          AND (:keepUnread = 0 OR COALESCE(s.isRead, 0) = 1)
         ORDER BY COALESCE(i.publishedAt, i.savedAt) ASC
         """
     )
-    suspend fun prunableOldestFirst(sourceId: String): List<String>
+    suspend fun prunableOldestFirst(sourceId: String, keepUnread: Int): List<String>
 
     @Query("DELETE FROM items WHERE id = :id")
     suspend fun deleteItem(id: String)

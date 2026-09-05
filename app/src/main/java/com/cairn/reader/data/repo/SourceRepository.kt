@@ -19,6 +19,7 @@ class SourceRepository @Inject constructor(
     suspend fun setNotify(id: String, enabled: Boolean) = sourceDao.setNotify(id, enabled)
     suspend fun setPodcast(id: String, enabled: Boolean) = sourceDao.setPodcast(id, enabled)
     suspend fun setOpenIn(id: String, mode: String) = sourceDao.setOpenIn(id, mode)
+    suspend fun setMaxItems(id: String, maxItems: Int?) = sourceDao.setMaxItems(id, maxItems)
 
     /** Change where a feed pulls from. Normalises http→https-friendly input and resets sync state. */
     suspend fun setFeedUrl(id: String, feedUrl: String) {

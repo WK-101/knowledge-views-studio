@@ -118,6 +118,7 @@ class FeedsViewModel @Inject constructor(
     fun setNotify(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setNotify(id, enabled) }
     fun setPodcast(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setPodcast(id, enabled) }
     fun setOpenIn(id: String, mode: String) = viewModelScope.launch { sourceRepository.setOpenIn(id, mode) }
+    fun setMaxItems(id: String, maxItems: Int?) = viewModelScope.launch { sourceRepository.setMaxItems(id, maxItems) }
     fun setFeedUrl(id: String, url: String) = viewModelScope.launch {
         sourceRepository.setFeedUrl(id, url)
         _snacks.emit("Feed link updated — syncing…")

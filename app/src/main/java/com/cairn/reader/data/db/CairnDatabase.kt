@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TombstoneEntity::class,
         SyncOpEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class CairnDatabase : RoomDatabase() {
@@ -54,5 +54,12 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
 val MIGRATION_3_4 = object : Migration(3, 4) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE sources ADD COLUMN isPodcast INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** v4 → v5: per-feed retention override. Nullable, so existing feeds keep the global cap. */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE sources ADD COLUMN maxItems INTEGER")
     }
 }

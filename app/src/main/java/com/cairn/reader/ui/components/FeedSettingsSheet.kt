@@ -54,6 +54,7 @@ fun FeedSettingsSheet(
     onPodcast: (Boolean) -> Unit = {},
     onFeedUrl: (String) -> Unit = {},
     onOpenIn: (String) -> Unit = {},
+    onMaxItems: (Int?) -> Unit = {},
 ) {
     var title by remember(source.id) { mutableStateOf(source.title) }
     var folder by remember(source.id) { mutableStateOf(source.folder.orEmpty()) }
@@ -62,6 +63,7 @@ fun FeedSettingsSheet(
     var notify by remember(source.id) { mutableStateOf(source.notify) }
     var podcast by remember(source.id) { mutableStateOf(source.isPodcast) }
     var openIn by remember(source.id) { mutableStateOf(source.openIn) }
+    var maxItems by remember(source.id) { mutableStateOf(source.maxItems) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         Column(
@@ -141,6 +143,29 @@ fun FeedSettingsSheet(
                 }
                 Switch(checked = podcast, onCheckedChange = { podcast = it; onPodcast(it) })
             }
+
+            Spacer(Modifier.height(16.dp))
+            Text("Keep at most", style = MaterialTheme.typography.labelLarge)
+            Spacer(Modifier.height(6.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                data class KeepOpt(val value: Int?, val label: String)
+                listOf(
+                    KeepOpt(null, "Default"),
+                    KeepOpt(0, "All"),
+                    KeepOpt(25, "25"),
+                    KeepOpt(50, "50"),
+                    KeepOpt(100, "100"),
+                    KeepOpt(200, "200"),
+                    KeepOpt(500, "500"),
+                ).forEach { opt ->
+                    FilterChip(selected = maxItems == opt.value, onClick = { maxItems = opt.value; onMaxItems(opt.value) }, label = { Text(opt.label) })
+                }
+            }
+            Text(
+                "Older, un-engaged items beyond this are pruned on sync. \"Default\" follows the global limit in Settings.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
 
             Spacer(Modifier.height(16.dp))
             Text("Open articles in", style = MaterialTheme.typography.labelLarge)

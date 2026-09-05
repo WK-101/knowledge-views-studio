@@ -35,6 +35,8 @@ data class SourceEntity(
     val remoteId: String? = null,
     val lastSyncedAt: Long? = null,
     val sortOrder: Int = 0,
+    /** Per-feed retention override: null = use the global cap, 0 = keep everything, N = keep newest N. */
+    val maxItems: Int? = null,
 )
 
 @Entity(

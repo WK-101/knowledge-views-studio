@@ -108,6 +108,7 @@ class SettingsViewModel @Inject constructor(
     fun setImagesWifiOnly(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setImagesWifiOnly(enabled) }
     fun setMaxItemsPerFeed(max: Int) = viewModelScope.launch { preferencesRepository.setMaxItemsPerFeed(max) }
     fun setMaxAgeDays(days: Int) = viewModelScope.launch { preferencesRepository.setMaxAgeDays(days) }
+    fun setKeepUnread(on: Boolean) = viewModelScope.launch { preferencesRepository.setKeepUnread(on) }
 
     fun setBottomTab(name: String, enabled: Boolean) = viewModelScope.launch { preferencesRepository.setBottomTab(name, enabled) }
 

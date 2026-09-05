@@ -285,6 +285,7 @@ fun FeedsScreen(
             onPodcast = { viewModel.setPodcast(source.id, it) },
             onFeedUrl = { viewModel.setFeedUrl(source.id, it) },
             onOpenIn = { viewModel.setOpenIn(source.id, it) },
+            onMaxItems = { viewModel.setMaxItems(source.id, it) },
             onOpenSite = { source.siteUrl?.let(onOpenWeb) },
             onRemove = { viewModel.delete(source.id) },
             onDismiss = { editing = null },

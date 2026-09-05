@@ -139,17 +139,40 @@ fun OfflineScreen(
                         FilterChip(
                             selected = prefs.maxAgeDays == d,
                             onClick = { viewModel.setMaxAgeDays(d) },
-                            label = { Text(if (d == 0) "Never" else "$d days") },
+                            label = { Text(ageLabel(d)) },
                         )
                     }
                 }
             }
+            ToggleRow(
+                title = "Never delete unread",
+                subtitle = "Retention only removes articles you've already read. Unread ones stay until you read them.",
+                checked = prefs.keepUnread,
+                onCheckedChange = viewModel::setKeepUnread,
+            )
+            Text(
+                "Tip: each feed can override the per-feed limit from its own settings (Manage feeds → a feed → Keep at most).",
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            )
         }
     }
 }
 
-private val KeepOptions = listOf(0, 50, 100, 200, 500)
-private val AgeOptions = listOf(0, 7, 14, 30, 90)
+private val KeepOptions = listOf(0, 25, 50, 100, 200, 500, 1000)
+private val AgeOptions = listOf(0, 3, 7, 14, 30, 90, 180, 365)
+
+private fun ageLabel(d: Int): String = when (d) {
+    0 -> "Forever"
+    7 -> "1 week"
+    14 -> "2 weeks"
+    30 -> "1 month"
+    90 -> "3 months"
+    180 -> "6 months"
+    365 -> "1 year"
+    else -> "$d days"
+}
 
 private fun formatBytes(bytes: Long): String = when {
     bytes < 1024 -> "$bytes B"

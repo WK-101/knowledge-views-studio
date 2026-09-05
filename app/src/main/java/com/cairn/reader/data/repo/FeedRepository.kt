@@ -153,26 +153,29 @@ class FeedRepository @Inject constructor(
         val prefs = runCatching { preferencesRepository.preferences.first() }.getOrNull()
         val limit = prefs?.maxItemsPerFeed ?: 0
         val maxAgeDays = prefs?.maxAgeDays ?: 0
+        val keepUnread = if (prefs?.keepUnread == true) 1 else 0
         val fresh = mutableListOf<com.cairn.reader.notifications.NewArticle>()
         sourceDao.getAll().forEach { source ->
             runCatching { syncSource(source, now, if (source.notify) fresh else null) }
-            if (limit > 0) runCatching { pruneSource(source.id, limit) }
+            // Per-feed override wins: null → global cap, 0 → keep everything, N → keep newest N.
+            val effLimit = source.maxItems ?: limit
+            if (effLimit > 0) runCatching { pruneSource(source.id, effLimit, keepUnread) }
         }
-        if (maxAgeDays > 0) runCatching { pruneOlderThan(now - maxAgeDays * 86_400_000L) }
+        if (maxAgeDays > 0) runCatching { pruneOlderThan(now - maxAgeDays * 86_400_000L, keepUnread) }
         return fresh
     }
 
     /** Enforce the per-feed retention cap: drop the oldest items the user never engaged with,
      *  freeing their offline blobs and tombstoning them so a re-sync won't resurrect them. */
-    private suspend fun pruneSource(sourceId: String, limit: Int) {
+    private suspend fun pruneSource(sourceId: String, limit: Int, keepUnread: Int) {
         val over = itemDao.countBySource(sourceId) - limit
         if (over <= 0) return
-        itemDao.prunableOldestFirst(sourceId).take(over).forEach { deleteItemFully(it) }
+        itemDao.prunableOldestFirst(sourceId, keepUnread).take(over).forEach { deleteItemFully(it) }
     }
 
     /** Age-based retention: drop un-engaged items older than [cutoff] across all feeds. */
-    private suspend fun pruneOlderThan(cutoff: Long) {
-        itemDao.prunableOlderThan(cutoff).forEach { deleteItemFully(it) }
+    private suspend fun pruneOlderThan(cutoff: Long, keepUnread: Int) {
+        itemDao.prunableOlderThan(cutoff, keepUnread).forEach { deleteItemFully(it) }
     }
 
     private suspend fun deleteItemFully(id: String) {
