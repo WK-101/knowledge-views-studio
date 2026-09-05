@@ -29,8 +29,17 @@ class SiteFeedBuilder @Inject constructor(
         val origin = "${http.scheme}://${http.host}"
         buildFromJsonFeed(origin)?.let { return it }
         buildFromWordPress(origin)?.let { return it }
-        buildFromSitemap(input)?.let { return it }
-        return buildFromScrape(input)
+        // Path-aware ordering: when the user points at a specific section/index page (e.g.
+        // /insights, /research), scrape THAT page's article links first — it's exactly what they
+        // asked to follow, and beats a generic whole-site sitemap. For a bare domain, the sitemap
+        // is the better reverse-chronological source, so try it first.
+        val hasSectionPath = http.pathSegments.any { it.isNotBlank() } &&
+            !(input.contains("sitemap", ignoreCase = true) && input.endsWith(".xml"))
+        return if (hasSectionPath) {
+            buildFromScrape(input) ?: buildFromSitemap(input)
+        } else {
+            buildFromSitemap(input) ?: buildFromScrape(input)
+        }
     }
 
     /** Teach-by-example: build a feed from the links matched by a user-chosen CSS [selector]. */
@@ -258,12 +267,19 @@ class SiteFeedBuilder @Inject constructor(
         val segs = http.pathSegments.filter { it.isNotBlank() }
         if (segs.isEmpty()) return false
         val path = "/" + segs.joinToString("/")
-        val bad = Regex("(?i)/(tag|tags|category|categories|author|authors|page|topic|topics|feed|about|contact|privacy|terms|search)(/|$)")
+        // Skip static assets and CMS plumbing that carry hyphenated/long file names (Drupal's
+        // /sites/…, /themes/…, /files/…; hashed CSS/JS; fonts and images) — these were slipping
+        // through the slug heuristic and polluting scraped feeds.
+        val asset = Regex("(?i)/(sites|themes|modules|libraries|assets|static|_next|wp-content|wp-includes|files|media|css|js|fonts?|images?|img)(/|$)")
+        if (asset.containsMatchIn(path)) return false
+        val last = segs.last()
+        if (Regex("(?i)\\.(css|js|json|xml|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot|mp4|mp3|pdf|zip)$").containsMatchIn(last)) return false
+        val bad = Regex("(?i)/(tag|tags|category|categories|author|authors|page|topic|topics|feed|about|contact|privacy|terms|search|login|subscribe|donate|careers?|events?|programs?|regions?)(/|$)")
         if (bad.containsMatchIn(path)) return false
-        val last = segs.last().substringBeforeLast('.')
+        val slug = last.substringBeforeLast('.')
         // An article slug tends to be a few words (hyphenated) or to sit under a dated path.
         val dated = Regex("/20\\d\\d/").containsMatchIn(path)
-        return dated || last.contains('-') || last.length > 12
+        return dated || slug.contains('-') || slug.length > 12
     }
 
     private fun titleFromUrl(url: String): String {

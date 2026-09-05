@@ -11,10 +11,25 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+
+/** How the Offline list is ordered. */
+enum class OfflineSort(val label: String) {
+    RECENT("Recently saved"),
+    OLDEST("Oldest saved"),
+    TITLE("Title A–Z"),
+    SOURCE("Source A–Z"),
+    LONGEST("Longest read"),
+    SHORTEST("Shortest read"),
+}
+
+/** Which offline copies to show: everything, only permanent archives, or only read-cached. */
+enum class OfflineKind(val label: String) { ALL("All"), PERMANENT("Permanent"), CACHED("Cached") }
 
 /**
  * The Offline surface: the concrete list of articles readable without a network — explicit
@@ -27,8 +42,61 @@ class OfflineViewModel @Inject constructor(
     private val blobStore: BlobStore,
 ) : ViewModel() {
 
-    val items: StateFlow<List<ItemListRow>> =
+    private val raw: StateFlow<List<ItemListRow>> =
         feedRepository.observeCached().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Full count regardless of filters, for the header readout. */
+    val totalCount: StateFlow<Int> =
+        raw.map { it.size }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    private val _query = MutableStateFlow("")
+    val query: StateFlow<String> = _query.asStateFlow()
+    private val _sort = MutableStateFlow(OfflineSort.RECENT)
+    val sort: StateFlow<OfflineSort> = _sort.asStateFlow()
+    private val _typeFilter = MutableStateFlow<String?>(null)
+    val typeFilter: StateFlow<String?> = _typeFilter.asStateFlow()
+    private val _kind = MutableStateFlow(OfflineKind.ALL)
+    val kind: StateFlow<OfflineKind> = _kind.asStateFlow()
+    private val _groupBySource = MutableStateFlow(false)
+    val groupBySource: StateFlow<Boolean> = _groupBySource.asStateFlow()
+
+    fun setQuery(v: String) { _query.value = v }
+    fun setSort(s: OfflineSort) { _sort.value = s }
+    fun setTypeFilter(t: String?) { _typeFilter.value = t }
+    fun setKind(k: OfflineKind) { _kind.value = k }
+    fun setGroupBySource(v: Boolean) { _groupBySource.value = v }
+    fun clearFilters() { _query.value = ""; _typeFilter.value = null; _kind.value = OfflineKind.ALL }
+
+    val availableTypes: StateFlow<List<String>> =
+        raw.map { list -> list.map { it.type }.distinct().sorted() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val filters = combine(_query, _sort, _typeFilter, _kind) { q, s, t, k -> Quad(q, s, t, k) }
+    private data class Quad(val q: String, val s: OfflineSort, val t: String?, val k: OfflineKind)
+
+    val items: StateFlow<List<ItemListRow>> =
+        combine(raw, filters) { list, f ->
+            var out = list
+            val q = f.q.trim()
+            if (q.length >= 2) out = out.filter {
+                it.title.contains(q, true) || (it.sourceTitle?.contains(q, true) == true) ||
+                    (it.siteName?.contains(q, true) == true) || (it.excerpt?.contains(q, true) == true)
+            }
+            f.t?.let { t -> out = out.filter { it.type == t } }
+            when (f.k) {
+                OfflineKind.PERMANENT -> out = out.filter { it.cacheStatus == "PERMANENT" }
+                OfflineKind.CACHED -> out = out.filter { it.cacheStatus != "PERMANENT" }
+                OfflineKind.ALL -> {}
+            }
+            when (f.s) {
+                OfflineSort.RECENT -> out.sortedByDescending { it.savedAt }
+                OfflineSort.OLDEST -> out.sortedBy { it.savedAt }
+                OfflineSort.TITLE -> out.sortedBy { it.title.lowercase() }
+                OfflineSort.SOURCE -> out.sortedBy { (it.sourceTitle ?: it.siteName ?: "").lowercase() }
+                OfflineSort.LONGEST -> out.sortedByDescending { it.readingMinutes }
+                OfflineSort.SHORTEST -> out.sortedBy { it.readingMinutes }
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _storageBytes = MutableStateFlow(-1L)
     val storageBytes: StateFlow<Long> = _storageBytes.asStateFlow()

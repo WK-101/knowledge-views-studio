@@ -3,6 +3,7 @@
 package com.cairn.reader.ui.discover
 
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -18,11 +19,14 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Forum
@@ -51,6 +55,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -158,6 +163,10 @@ private fun DiscoverBody(padding: PaddingValues, viewModel: DiscoverViewModel) {
     val addable by viewModel.queryIsAddable.collectAsStateWithLifecycle()
     val scheme = MaterialTheme.colorScheme
     var platformSheet by remember { mutableStateOf<PlatformFeed?>(null) }
+    // Categories are folded by default; a tap expands one. While searching, everything is forced
+    // open so matches aren't hidden behind a collapsed header.
+    val expanded = remember { mutableStateMapOf<String, Boolean>() }
+    val searching = query.isNotBlank()
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -199,28 +208,52 @@ private fun DiscoverBody(padding: PaddingValues, viewModel: DiscoverViewModel) {
                 }
             }
         }
-        catalog.forEach { category ->
-            item(key = "hdr-${category.name}") {
-                Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 2.dp)) {
-                    SectionLabel(category.name.uppercase())
-                }
-            }
-            items(category.feeds, key = { it.url }) { feed ->
-                val added = feed.url.trimEnd('/') in subscribed
+        // Category indices make every LazyColumn key globally unique — the catalog has a few feeds
+        // that appear under two categories, and a repeated key crashes the list on scroll.
+        catalog.forEachIndexed { ci, category ->
+            val isOpen = searching || (expanded[category.name] == true)
+            item(key = "hdr-$ci") {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = !searching) { expanded[category.name] = !(expanded[category.name] ?: false) }
+                        .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                        Text(feed.title, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(feed.site, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    SectionLabel(category.name.uppercase(), Modifier.weight(1f))
+                    Text(
+                        "${category.feeds.size}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = scheme.onSurfaceVariant,
+                        modifier = Modifier.padding(end = 6.dp),
+                    )
+                    if (!searching) {
+                        Icon(
+                            if (isOpen) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                            contentDescription = if (isOpen) "Collapse" else "Expand",
+                            tint = scheme.onSurfaceVariant,
+                        )
                     }
-                    if (added) {
-                        Icon(Icons.Filled.Check, contentDescription = "Subscribed", tint = scheme.tertiary)
-                    } else {
-                        TextButton(onClick = { viewModel.addCatalogFeed(feed) }, enabled = !busy) {
-                            Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.height(18.dp))
-                            Spacer(Modifier.width(4.dp)); Text("Add")
+                }
+            }
+            if (isOpen) {
+                itemsIndexed(category.feeds, key = { fi, _ -> "f-$ci-$fi" }) { _, feed ->
+                    val added = feed.url.trimEnd('/') in subscribed
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text(feed.title, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(feed.site, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        if (added) {
+                            Icon(Icons.Filled.Check, contentDescription = "Subscribed", tint = scheme.tertiary)
+                        } else {
+                            TextButton(onClick = { viewModel.addCatalogFeed(feed) }, enabled = !busy) {
+                                Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.height(18.dp))
+                                Spacer(Modifier.width(4.dp)); Text("Add")
+                            }
                         }
                     }
                 }
@@ -274,12 +307,13 @@ private fun platformIcon(p: PlatformFeed): androidx.compose.ui.graphics.vector.I
 }
 
 @Composable
-private fun SectionLabel(text: String) {
+private fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         letterSpacing = 1.4.sp,
         fontWeight = FontWeight.Medium,
+        modifier = modifier,
     )
 }

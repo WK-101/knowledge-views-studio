@@ -93,8 +93,8 @@ fun FeedDrawerContent(
 
     // Folder expansion state, keyed by folder name; folders start expanded so counts show.
     val expanded = remember { mutableStateMapOf<String, Boolean>() }
-    // The whole FEEDS section folds away as one, for people with long feed lists.
-    var feedsExpanded by remember { mutableStateOf(true) }
+    // The whole FEEDS section folds away as one; it starts folded so the drawer opens compact.
+    var feedsExpanded by remember { mutableStateOf(false) }
 
     // Split feeds into folders (preserving first-seen order) and loose, ungrouped feeds.
     val grouped = feeds.filter { !it.folder.isNullOrBlank() }.groupBy { it.folder!! }

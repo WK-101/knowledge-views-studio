@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 package com.cairn.reader.ui.settings
 
@@ -22,13 +22,19 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Article
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.OfflinePin
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -70,27 +76,90 @@ fun OfflineScreen(
     val items by viewModel.items.collectAsStateWithLifecycle()
     val storage by viewModel.storageBytes.collectAsStateWithLifecycle()
     val picked by viewModel.picked.collectAsStateWithLifecycle()
+    val totalCount by viewModel.totalCount.collectAsStateWithLifecycle()
+    val query by viewModel.query.collectAsStateWithLifecycle()
+    val sort by viewModel.sort.collectAsStateWithLifecycle()
+    val typeFilter by viewModel.typeFilter.collectAsStateWithLifecycle()
+    val kind by viewModel.kind.collectAsStateWithLifecycle()
+    val groupBySource by viewModel.groupBySource.collectAsStateWithLifecycle()
+    val availableTypes by viewModel.availableTypes.collectAsStateWithLifecycle()
     val selecting = picked.isNotEmpty()
     val scheme = MaterialTheme.colorScheme
     var actionRow by remember { mutableStateOf<com.cairn.reader.data.db.ItemListRow?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf<com.cairn.reader.data.db.ItemListRow?>(null) }
+    var searchOpen by remember { mutableStateOf(false) }
+    var sortMenu by remember { mutableStateOf(false) }
+    val filtersActive = query.isNotBlank() || typeFilter != null || kind != OfflineKind.ALL
 
     androidx.activity.compose.BackHandler(enabled = selecting) { viewModel.clearPicks() }
 
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text(if (items.isEmpty()) "Offline" else "Offline · ${items.size}", fontWeight = FontWeight.SemiBold) },
+            title = {
+                if (searchOpen) {
+                    com.cairn.reader.ui.components.CairnSearchField(
+                        value = query, onValueChange = viewModel::setQuery,
+                        placeholder = "Search offline", autofocus = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    Text(if (totalCount == 0) "Offline" else "Offline · $totalCount", fontWeight = FontWeight.SemiBold)
+                }
+            },
             navigationIcon = {
                 IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
             },
             actions = {
-                IconButton(onClick = { showSettings = true }) {
-                    Icon(Icons.Outlined.Tune, contentDescription = "Storage & sync settings")
+                if (searchOpen) {
+                    IconButton(onClick = { viewModel.setQuery(""); searchOpen = false }) {
+                        Icon(Icons.Outlined.Close, contentDescription = "Close search")
+                    }
+                } else {
+                    IconButton(onClick = { searchOpen = true }) { Icon(Icons.Outlined.Search, contentDescription = "Search") }
+                    androidx.compose.foundation.layout.Box {
+                        IconButton(onClick = { sortMenu = true }) { Icon(Icons.Outlined.SwapVert, contentDescription = "Sort & group") }
+                        DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                            Text("SORT", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                            OfflineSort.entries.forEach { s ->
+                                DropdownMenuItem(
+                                    text = { Text(s.label, fontWeight = if (s == sort) FontWeight.SemiBold else FontWeight.Normal) },
+                                    onClick = { viewModel.setSort(s); sortMenu = false },
+                                )
+                            }
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Group by source") },
+                                trailingIcon = { if (groupBySource) Icon(Icons.Filled.Check, contentDescription = null) },
+                                onClick = { viewModel.setGroupBySource(!groupBySource); sortMenu = false },
+                            )
+                        }
+                    }
+                    IconButton(onClick = { showSettings = true }) {
+                        Icon(Icons.Outlined.Tune, contentDescription = "Storage & sync settings")
+                    }
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = scheme.surface),
         )
+        // Filter chips: kind (all / permanent / cached) + item types.
+        if (!selecting && totalCount > 0) {
+            androidx.compose.foundation.layout.FlowRow(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(selected = !filtersActive, onClick = { viewModel.clearFilters() }, label = { Text("All") })
+                FilterChip(selected = kind == OfflineKind.PERMANENT, onClick = { viewModel.setKind(if (kind == OfflineKind.PERMANENT) OfflineKind.ALL else OfflineKind.PERMANENT) }, label = { Text("Permanent") })
+                FilterChip(selected = kind == OfflineKind.CACHED, onClick = { viewModel.setKind(if (kind == OfflineKind.CACHED) OfflineKind.ALL else OfflineKind.CACHED) }, label = { Text("Cached") })
+                availableTypes.forEach { t ->
+                    FilterChip(
+                        selected = typeFilter == t,
+                        onClick = { viewModel.setTypeFilter(if (typeFilter == t) null else t) },
+                        label = { Text(t.lowercase().replaceFirstChar(Char::uppercase)) },
+                    )
+                }
+            }
+        }
         if (selecting) {
             com.cairn.reader.ui.components.SelectionActionBar(
                 count = picked.size,
@@ -120,32 +189,57 @@ fun OfflineScreen(
             ) {
                 Icon(Icons.Outlined.OfflinePin, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(40.dp))
                 Spacer(Modifier.height(14.dp))
-                Text("Nothing saved offline yet", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Open an article to cache it for offline reading, or choose “Save offline” from any item's menu to keep a permanent, self-contained copy — text and images — that survives even if the source changes or deletes it.",
-                    style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                )
+                if (filtersActive && totalCount > 0) {
+                    Text("No matches", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Nothing offline matches your search or filters.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Spacer(Modifier.height(12.dp))
+                    TextButton(onClick = { viewModel.clearFilters() }) { Text("Clear filters") }
+                } else {
+                    Text("Nothing saved offline yet", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Open an article to cache it for offline reading, or choose “Save offline” from any item's menu to keep a permanent, self-contained copy — text and images — that survives even if the source changes or deletes it.",
+                        style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                }
             }
         } else {
+            val cell: @Composable (com.cairn.reader.data.db.ItemListRow) -> Unit = { row ->
+                com.cairn.reader.ui.components.FeedItemCell(
+                    row = row,
+                    mode = com.cairn.reader.data.prefs.ListViewMode.LIST,
+                    onOpen = { if (selecting) viewModel.togglePick(row.id) else onOpenItem(row.id) },
+                    onLongPress = { if (selecting) viewModel.togglePick(row.id) else actionRow = row },
+                    selected = row.id in picked,
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 16.dp),
+                    thickness = 0.6.dp,
+                    color = scheme.outlineVariant.copy(alpha = 0.5f),
+                )
+            }
             LazyColumn(
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(top = 2.dp, bottom = padding.calculateBottomPadding() + 24.dp),
             ) {
-                items(items, key = { it.id }) { row ->
-                    com.cairn.reader.ui.components.FeedItemCell(
-                        row = row,
-                        mode = com.cairn.reader.data.prefs.ListViewMode.LIST,
-                        onOpen = { if (selecting) viewModel.togglePick(row.id) else onOpenItem(row.id) },
-                        onLongPress = { if (selecting) viewModel.togglePick(row.id) else actionRow = row },
-                        selected = row.id in picked,
-                    )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(start = 16.dp),
-                        thickness = 0.6.dp,
-                        color = scheme.outlineVariant.copy(alpha = 0.5f),
-                    )
+                if (groupBySource) {
+                    val groups = items.groupBy { it.sourceTitle ?: it.siteName ?: "Unknown" }.toSortedMap()
+                    groups.forEach { (source, rows) ->
+                        item(key = "hdr-$source") {
+                            Text(
+                                "$source · ${rows.size}",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = scheme.primary,
+                                modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 4.dp),
+                            )
+                        }
+                        items(rows, key = { it.id }) { row -> cell(row) }
+                    }
+                } else {
+                    items(items, key = { it.id }) { row -> cell(row) }
                 }
             }
         }
