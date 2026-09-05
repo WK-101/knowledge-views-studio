@@ -16,8 +16,8 @@ android {
         applicationId = "com.cairn.reader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 32
-        versionName = "3.1.0"
+        versionCode = 33
+        versionName = "3.5.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -105,6 +105,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.readability4j)
     implementation(libs.jsoup)
+    implementation("androidx.documentfile:documentfile:1.0.1")
 
     testImplementation(libs.junit)
 }

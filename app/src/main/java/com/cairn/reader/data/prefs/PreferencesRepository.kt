@@ -68,6 +68,10 @@ data class AppPreferences(
     val maxAgeDays: Int = 0,
     /** Which bottom-nav tabs are enabled, by destination name. Empty falls back to a sane default. */
     val bottomTabs: Set<String> = setOf("Inbox", "Library", "Discover", "Settings"),
+    /** SAF tree URI where automatic backups are written; null = not configured. */
+    val backupFolderUri: String? = null,
+    /** How often to auto-back-up, in hours. 0 = off. */
+    val backupFrequencyHours: Int = 0,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -99,6 +103,8 @@ class PreferencesRepository @Inject constructor(
         val MAX_ITEMS_PER_FEED = intPreferencesKey("max_items_per_feed")
         val MAX_AGE_DAYS = intPreferencesKey("max_age_days")
         val BOTTOM_TABS = stringSetPreferencesKey("bottom_tabs")
+        val BACKUP_FOLDER = stringPreferencesKey("backup_folder_uri")
+        val BACKUP_FREQ = intPreferencesKey("backup_frequency_hours")
     }
 
     /** Per-scope view entries are stored as "scopeKey<sep>MODE" in a string set. */
@@ -133,6 +139,8 @@ class PreferencesRepository @Inject constructor(
             maxItemsPerFeed = p[Keys.MAX_ITEMS_PER_FEED] ?: 0,
             maxAgeDays = p[Keys.MAX_AGE_DAYS] ?: 0,
             bottomTabs = (p[Keys.BOTTOM_TABS] ?: setOf("Inbox", "Library", "Discover", "Settings")),
+            backupFolderUri = p[Keys.BACKUP_FOLDER],
+            backupFrequencyHours = p[Keys.BACKUP_FREQ] ?: 0,
         )
     }
 
@@ -157,6 +165,11 @@ class PreferencesRepository @Inject constructor(
     suspend fun setImagesWifiOnly(enabled: Boolean) = context.dataStore.edit { it[Keys.IMAGES_WIFI_ONLY] = enabled }
     suspend fun setMaxItemsPerFeed(max: Int) = context.dataStore.edit { it[Keys.MAX_ITEMS_PER_FEED] = max.coerceAtLeast(0) }
     suspend fun setMaxAgeDays(days: Int) = context.dataStore.edit { it[Keys.MAX_AGE_DAYS] = days.coerceAtLeast(0) }
+
+    suspend fun setBackupFolder(uri: String?) = context.dataStore.edit {
+        if (uri == null) it.remove(Keys.BACKUP_FOLDER) else it[Keys.BACKUP_FOLDER] = uri
+    }
+    suspend fun setBackupFrequency(hours: Int) = context.dataStore.edit { it[Keys.BACKUP_FREQ] = hours.coerceAtLeast(0) }
 
     /** Enable/disable a bottom-nav tab by destination name; never lets the bar drop below one tab. */
     suspend fun setBottomTab(name: String, enabled: Boolean) = context.dataStore.edit { p ->

@@ -20,6 +20,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -102,6 +103,27 @@ class SettingsViewModel @Inject constructor(
     fun setMaxAgeDays(days: Int) = viewModelScope.launch { preferencesRepository.setMaxAgeDays(days) }
 
     fun setBottomTab(name: String, enabled: Boolean) = viewModelScope.launch { preferencesRepository.setBottomTab(name, enabled) }
+
+    /** Point automatic backups at a folder the user picked (SAF tree URI), default to daily, run one now. */
+    fun setBackupFolder(uri: String) = viewModelScope.launch {
+        preferencesRepository.setBackupFolder(uri)
+        val current = preferencesRepository.preferences.first().backupFrequencyHours
+        val hours = if (current <= 0) 24 else current
+        preferencesRepository.setBackupFrequency(hours)
+        CairnWork.scheduleBackup(context, hours)
+        CairnWork.backupNow(context)
+    }
+
+    fun setBackupFrequency(hours: Int) = viewModelScope.launch {
+        preferencesRepository.setBackupFrequency(hours)
+        CairnWork.scheduleBackup(context, hours)
+    }
+
+    fun disableBackup() = viewModelScope.launch {
+        preferencesRepository.setBackupFrequency(0)
+        preferencesRepository.setBackupFolder(null)
+        CairnWork.scheduleBackup(context, 0)
+    }
 
     /** Bytes on disk used by cached article bodies, offline images, and imported PDFs. */
     suspend fun storageBytes(): Long = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { blobStore.storageBytes() }

@@ -37,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -94,6 +95,19 @@ fun SettingsScreen(
             } else {
                 Toast.makeText(context, "Couldn't read that file", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    val backupFolderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            }
+            viewModel.setBackupFolder(uri.toString())
+            Toast.makeText(context, "Auto-backup on — a copy was saved", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -191,6 +205,25 @@ fun SettingsScreen(
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
                 )
+                Spacer(Modifier.height(16.dp))
+                Text("Automatic backup", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                Text(
+                    if (prefs.backupFolderUri == null) "Off — pick a folder and Cairn writes a dated backup there on a schedule."
+                    else "On — writing to your chosen folder ${if (prefs.backupFrequencyHours >= 168) "weekly" else "daily"}; the last few are kept.",
+                    style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp),
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(onClick = { backupFolderLauncher.launch(null) }) {
+                        Text(if (prefs.backupFolderUri == null) "Choose folder" else "Change folder")
+                    }
+                    if (prefs.backupFolderUri != null) {
+                        FilterChip(selected = prefs.backupFrequencyHours in 1..47, onClick = { viewModel.setBackupFrequency(24) }, label = { Text("Daily") })
+                        FilterChip(selected = prefs.backupFrequencyHours >= 48, onClick = { viewModel.setBackupFrequency(168) }, label = { Text("Weekly") })
+                        TextButton(onClick = { viewModel.disableBackup() }) { Text("Off") }
+                    }
+                }
+
                 Spacer(Modifier.height(16.dp))
                 OutlinedButton(onClick = { pdfLauncher.launch(arrayOf("application/pdf")) }) {
                     Icon(Icons.Outlined.PictureAsPdf, contentDescription = null, modifier = Modifier.height(18.dp))
@@ -408,7 +441,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(24.dp))
                 SectionLabel("ABOUT")
                 Spacer(Modifier.height(8.dp))
-                Text("Cairn 3.1.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Text("Cairn 3.5.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
                 Text("One reader for everything you read.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
             }
         }

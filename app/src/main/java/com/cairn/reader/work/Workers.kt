@@ -17,6 +17,7 @@ import com.cairn.reader.notifications.Notifier
 import com.cairn.reader.widget.CairnWidgetProvider
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
 /** Refreshes every subscribed feed (conditional GET; unchanged feeds cost nothing),
@@ -38,6 +39,37 @@ class SyncWorker @AssistedInject constructor(
                 },
                 onFailure = { Result.retry() },
             )
+}
+
+/** Writes an encrypted-free JSON backup into the user's chosen SAF folder, keeping the last few. */
+@HiltWorker
+class BackupWorker @AssistedInject constructor(
+    @Assisted private val context: Context,
+    @Assisted params: WorkerParameters,
+    private val backupManager: com.cairn.reader.data.backup.BackupManager,
+    private val preferencesRepository: com.cairn.reader.data.prefs.PreferencesRepository,
+) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        val uriStr = preferencesRepository.preferences.first().backupFolderUri
+            ?: return Result.success()
+        return runCatching {
+            val tree = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, android.net.Uri.parse(uriStr))
+            if (tree == null || !tree.canWrite()) return Result.success()
+            val json = backupManager.export()
+            val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(java.util.Date())
+            val file = tree.createFile("application/json", "cairn-backup-$stamp.json") ?: return Result.retry()
+            context.contentResolver.openOutputStream(file.uri)?.use { it.write(json.toByteArray()) }
+            // Keep only the most recent few backups.
+            tree.listFiles()
+                .filter { it.name?.startsWith("cairn-backup-") == true }
+                .sortedBy { it.name }
+                .dropLast(KEEP)
+                .forEach { runCatching { it.delete() } }
+            Result.success()
+        }.getOrElse { Result.retry() }
+    }
+
+    companion object { private const val KEEP = 5 }
 }
 
 /** Saves a shared/pasted URL and extracts a clean offline copy. */
@@ -62,6 +94,26 @@ class SaveUrlWorker @AssistedInject constructor(
 object CairnWork {
     private const val UNIQUE_PERIODIC = "cairn-periodic-sync"
     private const val UNIQUE_SYNC_NOW = "cairn-sync-now"
+    private const val UNIQUE_BACKUP = "cairn-periodic-backup"
+
+    /** (Re)schedule automatic backup every [hours], or cancel it when hours <= 0. */
+    fun scheduleBackup(context: Context, hours: Int) {
+        val wm = WorkManager.getInstance(context)
+        if (hours <= 0) {
+            wm.cancelUniqueWork(UNIQUE_BACKUP)
+            return
+        }
+        val request = PeriodicWorkRequestBuilder<BackupWorker>(hours.toLong(), TimeUnit.HOURS)
+            .setBackoffCriteria(androidx.work.BackoffPolicy.EXPONENTIAL, 60, TimeUnit.SECONDS)
+            .build()
+        wm.enqueueUniquePeriodicWork(UNIQUE_BACKUP, ExistingPeriodicWorkPolicy.UPDATE, request)
+    }
+
+    /** Run a backup immediately (e.g. right after the user picks a folder). */
+    fun backupNow(context: Context) {
+        val request = OneTimeWorkRequestBuilder<BackupWorker>().build()
+        WorkManager.getInstance(context).enqueue(request)
+    }
 
     private fun constraints(wifiOnly: Boolean) = Constraints.Builder()
         .setRequiredNetworkType(if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED)
