@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -108,9 +109,16 @@ fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
     val settings by vm.settings.collectAsState()
     // Re-parse whenever the persisted JSON changes so add/edit/delete reflect immediately.
     val routines = remember(settings.routinesJson) { vm.routines() }
+    val runs = remember(settings.routineRunsJson) { vm.routineRuns() }
+    val dayLogs by vm.dayLogs.collectAsState()
+    val today = LocalDate.now().toEpochDay()
+    val onThisDay = remember(settings.routineRunsJson, settings.routinesJson, today) {
+        com.todocompanion.app.domain.RoutineInsights.onThisDay(routines, runs, today)
+    }
 
     var running by remember { mutableStateOf<Routine?>(null) }
     var editing by remember { mutableStateOf<Routine?>(null) }
+    var insightsFor by remember { mutableStateOf<Routine?>(null) }
     var browseCatalog by remember { mutableStateOf(false) }
 
     Scaffold(topBar = {
@@ -123,6 +131,17 @@ fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
             item {
                 Text("A named, ordered ritual you press play on — a morning primer, an evening shutdown, a deep-work start. Each step guides you; finishing ticks the linked habits and tasks.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
+            }
+            if (onThisDay.isNotEmpty()) item {
+                Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .5f), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text("📅 On this day", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        onThisDay.take(3).forEach { o ->
+                            Text("${o.emoji} ${o.yearsAgo} year${if (o.yearsAgo == 1) "" else "s"} ago you ran “${o.routineName}”.",
+                                style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 3.dp))
+                        }
+                    }
+                }
             }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -152,6 +171,9 @@ fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
                             val timeLabel = if (r.plannedSec > 0) " · ${minLabel(r.plannedSec)}" else ""
                             Text(stepsLabel + timeLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                        if (runs.any { it.routineId == r.id }) {
+                            IconButton(onClick = { insightsFor = r }) { Icon(Icons.Filled.QueryStats, "Routine insights", tint = MaterialTheme.colorScheme.outline) }
+                        }
                         if (r.isRunnable) {
                             FilledTonalButton(onClick = { running = r }) {
                                 Icon(Icons.Filled.PlayArrow, null, Modifier.size(18.dp))
@@ -174,7 +196,58 @@ fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
             onDelete = { vm.deleteRoutine(r.id); editing = null })
     }
     if (browseCatalog) CatalogDialog(onDismiss = { browseCatalog = false }, onAdd = { vm.upsertRoutine(templateToRoutine(it)); browseCatalog = false })
+    insightsFor?.let { r -> RoutineInsightsDialog(r, runs, dayLogs, today, onDismiss = { insightsFor = null }) }
 }
+
+/** Per-routine analytics (adherence, best time, drop-off step, keystone) + a "this year" summary.
+ *  All derived on-device from the run history + felt-state — nothing a single-purpose runner can show. */
+@Composable
+private fun RoutineInsightsDialog(
+    r: Routine,
+    runs: List<RoutineRun>,
+    dayLogs: List<com.todocompanion.app.data.entity.DayLogEntity>,
+    today: Long,
+    onDismiss: () -> Unit,
+) {
+    val stat = remember(r, runs, dayLogs, today) { com.todocompanion.app.domain.RoutineInsights.forRoutine(r, runs, dayLogs, today) }
+    val year = remember(runs) { com.todocompanion.app.domain.RoutineInsights.yearSummary(listOf(r), runs, LocalDate.ofEpochDay(today).year) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        title = { Text("${r.emoji} ${r.name}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                InsightRow("Kept", "${stat.runs30} of the last 30 days" + (if (stat.currentStreak > 1) " · ${stat.currentStreak}-day streak" else ""))
+                if (stat.bestStreak > 1) InsightRow("Best streak", "${stat.bestStreak} days")
+                stat.bestHour?.let { InsightRow("Usual time", "%02d:00".format(it)) }
+                stat.dropOffStepTitle?.let { InsightRow("Drop-off step", it, hint = "the step you skip most") }
+                if (stat.keystoneMetric.isNotBlank() && kotlin.math.abs(stat.keystoneDelta) >= 0.2) {
+                    val sign = if (stat.keystoneDelta > 0) "+" else ""
+                    InsightRow("Keystone", "On days you run this, your ${stat.keystoneMetric} is $sign${oneDp(stat.keystoneDelta)}",
+                        hint = "vs days you don't", accent = true)
+                }
+                if (year.totalRuns > 0) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                    InsightRow("This year", "${year.totalRuns} runs · ${year.totalMinutes / 60}h ${year.totalMinutes % 60}m" + (if (year.bestStreak > 1) " · best ${year.bestStreak}-day streak" else ""))
+                }
+                if (stat.totalRuns < 4) Text("More insight arrives as you run this a few more times.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            }
+        },
+    )
+}
+
+@Composable
+private fun InsightRow(label: String, value: String, hint: String? = null, accent: Boolean = false) {
+    Column {
+        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, letterSpacing = 0.8.sp)
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = if (accent) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (accent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+        hint?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
+    }
+}
+
+private fun oneDp(v: Double): String = "%.1f".format(v)
 
 // ── The runner ──────────────────────────────────────────────────────────────────────────────────────
 @Composable
@@ -183,7 +256,11 @@ private fun RoutineRunner(vm: AppViewModel, routine: Routine, onExit: () -> Unit
     val haptic = LocalHapticFeedback.current
     val today = LocalDate.now().toEpochDay()
 
-    var lite by remember { mutableStateOf(false) }
+    // Felt-state gating (moat #6): on a low-energy day, default to the 2-minute Lite version — never-miss-
+    // twice becomes a kind recovery, not a shame event. The user can still flip it back to the full run.
+    val todayEnergy = vm.dayLogs.collectAsState().value.firstOrNull { it.epochDay == today }?.energy ?: 0
+    val autoLite = todayEnergy in 1..2
+    var lite by remember { mutableStateOf(autoLite) }
     val steps = remember(lite, routine) { if (lite) Routines.lite(routine).steps else routine.steps }
 
     var started by remember { mutableStateOf(false) }
@@ -230,7 +307,7 @@ private fun RoutineRunner(vm: AppViewModel, routine: Routine, onExit: () -> Unit
             }
             when {
                 finished -> FinishContent(completed.size, skipped.size, lite, onDone = onExit)
-                !started -> PreStart(routine, steps, lite, onToggleLite = { lite = it }, onStart = {
+                !started -> PreStart(routine, steps, lite, autoSuggested = autoLite, onToggleLite = { lite = it }, onStart = {
                     started = true; startedAt = System.currentTimeMillis(); idx = 0
                     secsLeft = steps.getOrNull(0)?.durationSec ?: 0; paused = false; completed.clear(); skipped.clear()
                     if (routine.activityId.isNotBlank() || routine.habitCategory.isNotBlank()) vm.runRoutine(routine)
@@ -256,7 +333,7 @@ private fun RoutineRunner(vm: AppViewModel, routine: Routine, onExit: () -> Unit
 
 @Composable
 private fun androidx.compose.foundation.layout.ColumnScope.PreStart(
-    routine: Routine, steps: List<RoutineStep>, lite: Boolean, onToggleLite: (Boolean) -> Unit, onStart: () -> Unit,
+    routine: Routine, steps: List<RoutineStep>, lite: Boolean, autoSuggested: Boolean = false, onToggleLite: (Boolean) -> Unit, onStart: () -> Unit,
 ) {
     Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp)) {
         Spacer(Modifier.height(16.dp))
@@ -290,6 +367,10 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreStart(
                 Text("Keep only the essentials and cap timers at 2 minutes — never miss twice, kindly.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Switch(checked = lite, onCheckedChange = onToggleLite)
+        }
+        if (autoSuggested && lite) {
+            Spacer(Modifier.height(6.dp))
+            Text("Suggested — your energy read low today.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         }
         Spacer(Modifier.height(16.dp))
     }
