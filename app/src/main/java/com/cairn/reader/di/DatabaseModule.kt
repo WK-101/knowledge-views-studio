@@ -60,4 +60,7 @@ object DatabaseModule {
 
     @Provides
     fun provideRuleDao(db: CairnDatabase): RuleDao = db.ruleDao()
+
+    @Provides
+    fun provideInsightsDao(db: CairnDatabase): com.cairn.reader.data.db.InsightsDao = db.insightsDao()
 }

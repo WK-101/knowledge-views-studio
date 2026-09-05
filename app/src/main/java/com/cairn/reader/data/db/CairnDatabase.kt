@@ -31,6 +31,7 @@ abstract class CairnDatabase : RoomDatabase() {
     abstract fun highlightDao(): HighlightDao
     abstract fun syncDao(): SyncDao
     abstract fun ruleDao(): RuleDao
+    abstract fun insightsDao(): InsightsDao
 }
 
 /** v1 → v2: the Raindrop-style library. Adds nullable columns only, so existing

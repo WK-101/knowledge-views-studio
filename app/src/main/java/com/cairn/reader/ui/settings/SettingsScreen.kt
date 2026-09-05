@@ -32,6 +32,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.CloudDownload
+import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.CleaningServices
@@ -86,6 +87,7 @@ fun SettingsScreen(
     onOpenNotebook: () -> Unit = {},
     onOpenOffline: () -> Unit = {},
     onOpenRules: () -> Unit = {},
+    onOpenInsights: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val sources by viewModel.sources.collectAsStateWithLifecycle()
@@ -419,6 +421,21 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = scheme.onSurfaceVariant,
                         )
+                    }
+                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = scheme.onSurfaceVariant)
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenInsights)
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.Insights, contentDescription = null, tint = scheme.primary)
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Insights", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("Private reading stats, top picks for you, and feed hygiene", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = scheme.onSurfaceVariant)
                 }
