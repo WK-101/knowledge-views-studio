@@ -174,6 +174,10 @@ class SettingsViewModel @Inject constructor(
     fun setMarkReadOnScroll(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setMarkReadOnScroll(enabled) }
     fun setStartDestination(name: String) = viewModelScope.launch { preferencesRepository.setStartDestination(name) }
     fun setStartFilter(name: String) = viewModelScope.launch { preferencesRepository.setStartFilter(name) }
+    fun setShowThumbnail(on: Boolean) = viewModelScope.launch { preferencesRepository.setShowThumbnail(on) }
+    fun setShowExcerpt(on: Boolean) = viewModelScope.launch { preferencesRepository.setShowExcerpt(on) }
+    fun setShowReadingTime(on: Boolean) = viewModelScope.launch { preferencesRepository.setShowReadingTime(on) }
+    fun setStickyDateHeaders(on: Boolean) = viewModelScope.launch { preferencesRepository.setStickyDateHeaders(on) }
     fun setTrashRetentionDays(days: Int) = viewModelScope.launch { preferencesRepository.setTrashRetentionDays(days) }
     fun moveBottomTab(name: String, up: Boolean) = viewModelScope.launch { preferencesRepository.moveBottomTab(name, up) }
 

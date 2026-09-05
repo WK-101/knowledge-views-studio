@@ -133,6 +133,12 @@ data class AppPreferences(
     val syncChargingOnly: Boolean = false,
     /** Background sync interval in minutes (0 = the app default cadence). */
     val syncIntervalMinutes: Int = 0,
+    // -- List row density (per-element visibility) --
+    val showThumbnail: Boolean = true,
+    val showExcerpt: Boolean = true,
+    val showReadingTime: Boolean = true,
+    /** Sticky Today / Yesterday / date headers in the Inbox list. */
+    val stickyDateHeaders: Boolean = false,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -192,6 +198,10 @@ class PreferencesRepository @Inject constructor(
         val START_FILTER = stringPreferencesKey("start_filter")
         val SYNC_CHARGING_ONLY = booleanPreferencesKey("sync_charging_only")
         val SYNC_INTERVAL_MINUTES = intPreferencesKey("sync_interval_minutes")
+        val SHOW_THUMBNAIL = booleanPreferencesKey("show_thumbnail")
+        val SHOW_EXCERPT = booleanPreferencesKey("show_excerpt")
+        val SHOW_READING_TIME = booleanPreferencesKey("show_reading_time")
+        val STICKY_DATE_HEADERS = booleanPreferencesKey("sticky_date_headers")
     }
 
     /** Per-scope view entries are stored as "scopeKey<sep>MODE" in a string set. */
@@ -257,6 +267,10 @@ class PreferencesRepository @Inject constructor(
             startFilter = p[Keys.START_FILTER] ?: "",
             syncChargingOnly = p[Keys.SYNC_CHARGING_ONLY] ?: false,
             syncIntervalMinutes = p[Keys.SYNC_INTERVAL_MINUTES] ?: 0,
+            showThumbnail = p[Keys.SHOW_THUMBNAIL] ?: true,
+            showExcerpt = p[Keys.SHOW_EXCERPT] ?: true,
+            showReadingTime = p[Keys.SHOW_READING_TIME] ?: true,
+            stickyDateHeaders = p[Keys.STICKY_DATE_HEADERS] ?: false,
         )
     }
 
@@ -397,6 +411,11 @@ class PreferencesRepository @Inject constructor(
     suspend fun setSyncIntervalMinutes(min: Int) =
         context.dataStore.edit { it[Keys.SYNC_INTERVAL_MINUTES] = min.coerceIn(0, 1440) }
 
+    suspend fun setShowThumbnail(on: Boolean) = context.dataStore.edit { it[Keys.SHOW_THUMBNAIL] = on }
+    suspend fun setShowExcerpt(on: Boolean) = context.dataStore.edit { it[Keys.SHOW_EXCERPT] = on }
+    suspend fun setShowReadingTime(on: Boolean) = context.dataStore.edit { it[Keys.SHOW_READING_TIME] = on }
+    suspend fun setStickyDateHeaders(on: Boolean) = context.dataStore.edit { it[Keys.STICKY_DATE_HEADERS] = on }
+
     // -- Settings backup -------------------------------------------------------
     //
     // A full backup includes every app setting so a restore reproduces the app exactly. The
@@ -454,6 +473,10 @@ class PreferencesRepository @Inject constructor(
             put("startFilter", p.startFilter)
             put("syncChargingOnly", p.syncChargingOnly)
             put("syncIntervalMinutes", p.syncIntervalMinutes)
+            put("showThumbnail", p.showThumbnail)
+            put("showExcerpt", p.showExcerpt)
+            put("showReadingTime", p.showReadingTime)
+            put("stickyDateHeaders", p.stickyDateHeaders)
         }
     }
 
@@ -509,6 +532,10 @@ class PreferencesRepository @Inject constructor(
             if (json.has("startFilter")) e[Keys.START_FILTER] = json.getString("startFilter")
             if (json.has("syncChargingOnly")) e[Keys.SYNC_CHARGING_ONLY] = json.getBoolean("syncChargingOnly")
             if (json.has("syncIntervalMinutes")) e[Keys.SYNC_INTERVAL_MINUTES] = json.getInt("syncIntervalMinutes").coerceIn(0, 1440)
+            if (json.has("showThumbnail")) e[Keys.SHOW_THUMBNAIL] = json.getBoolean("showThumbnail")
+            if (json.has("showExcerpt")) e[Keys.SHOW_EXCERPT] = json.getBoolean("showExcerpt")
+            if (json.has("showReadingTime")) e[Keys.SHOW_READING_TIME] = json.getBoolean("showReadingTime")
+            if (json.has("stickyDateHeaders")) e[Keys.STICKY_DATE_HEADERS] = json.getBoolean("stickyDateHeaders")
         }
     }
 }

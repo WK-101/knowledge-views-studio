@@ -29,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,6 +41,16 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.ui.util.formatAgo
+
+/** Per-element list-row visibility, provided app-wide so every surface honours the user's density
+ *  choices (Settings → List). Defaults show everything. */
+data class ListRowOptions(
+    val showThumbnail: Boolean = true,
+    val showExcerpt: Boolean = true,
+    val showReadingTime: Boolean = true,
+)
+
+val LocalListRowOptions = staticCompositionLocalOf { ListRowOptions() }
 
 /** True when the row carries any status worth a glyph (saved / PDF / offline copy). */
 internal fun ItemListRow.hasStatusGlyph(): Boolean =
@@ -82,6 +93,7 @@ fun ItemRow(
     onOpenSource: ((String) -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val opts = LocalListRowOptions.current
     val source = row.sourceTitle ?: row.siteName ?: "Unknown"
     val thumbW = if (compact) 84.dp else 104.dp
     Row(
@@ -129,7 +141,7 @@ fun ItemRow(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (!row.excerpt.isNullOrBlank()) {
+            if (opts.showExcerpt && !row.excerpt.isNullOrBlank()) {
                 Spacer(Modifier.height(3.dp))
                 Text(
                     text = row.excerpt,
@@ -139,10 +151,11 @@ fun ItemRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (row.readingMinutes > 0 || row.hasStatusGlyph()) {
+            val showTime = opts.showReadingTime && row.readingMinutes > 0
+            if (showTime || row.hasStatusGlyph()) {
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (row.readingMinutes > 0) {
+                    if (showTime) {
                         Text("${row.readingMinutes} min read", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
                         if (row.hasStatusGlyph()) Spacer(Modifier.width(8.dp))
                     }
@@ -150,7 +163,7 @@ fun ItemRow(
                 }
             }
         }
-        if (row.leadImage != null) {
+        if (opts.showThumbnail && row.leadImage != null) {
             AsyncImage(
                 model = row.leadImage,
                 contentDescription = null,

@@ -1,6 +1,9 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.cairn.reader.ui
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -214,6 +217,13 @@ fun CairnApp(
         }
     }
 
+    androidx.compose.runtime.CompositionLocalProvider(
+        com.cairn.reader.ui.components.LocalListRowOptions provides com.cairn.reader.ui.components.ListRowOptions(
+            showThumbnail = appPrefs.showThumbnail,
+            showExcerpt = appPrefs.showExcerpt,
+            showReadingTime = appPrefs.showReadingTime,
+        ),
+    ) {
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -468,6 +478,7 @@ fun CairnApp(
         }
     }
     }
+    }
 
     if (showAddFeed) {
         AddFeedDialog(
@@ -516,9 +527,25 @@ private fun InboxScreen(
     val selection by viewModel.selection.collectAsStateWithLifecycle()
     val picked by viewModel.picked.collectAsStateWithLifecycle()
     val markReadOnScroll by viewModel.markReadOnScroll.collectAsStateWithLifecycle()
+    val stickyDates by viewModel.stickyDateHeaders.collectAsStateWithLifecycle()
+    val openModes by viewModel.openModes.collectAsStateWithLifecycle()
     val selecting = picked.isNotEmpty()
     var sheetRow by remember { mutableStateOf<ItemListRow?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
+
+    // Route a tapped item per its feed's chosen open mode (Reader / in-app Browser / External).
+    fun openRow(row: ItemListRow) {
+        when (openModes[row.sourceId]) {
+            "BROWSER" -> onOpenWeb(row.url)
+            "EXTERNAL" -> runCatching {
+                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(row.url)))
+            }.onFailure { onOpenWeb(row.url) }
+            else -> {
+                com.cairn.reader.ui.reader.ReaderQueue.set(state.items.map { it.id })
+                onOpenItem(row.id)
+            }
+        }
+    }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
 
     // Mark-as-read-on-scroll: as items pass above the top of the list, mark them read (no undo
@@ -526,10 +553,13 @@ private fun InboxScreen(
     // items drop out of the Unread lens.
     if (markReadOnScroll) {
         LaunchedEffect(listState, state.items) {
-            snapshotFlow { listState.firstVisibleItemIndex }
-                .collect { first ->
-                    if (first > 0) {
-                        val toMark = state.items.take(first).filter { !it.isRead }.map { it.id }
+            // Key off the first visible item's id (not the raw index) so it stays correct even
+            // when sticky date headers are interleaved into the list.
+            snapshotFlow { listState.layoutInfo.visibleItemsInfo.firstOrNull()?.key }
+                .collect { key ->
+                    val idx = state.items.indexOfFirst { it.id == key }
+                    if (idx > 0) {
+                        val toMark = state.items.take(idx).filter { !it.isRead }.map { it.id }
                         if (toMark.isNotEmpty()) viewModel.markReadSilent(toMark)
                     }
                 }
@@ -627,39 +657,44 @@ private fun InboxScreen(
             if (!state.loading && state.items.isEmpty()) {
                 EmptyState(state.filter)
             } else {
+                val inboxRow: @Composable (ItemListRow) -> Unit = { row ->
+                    SwipeableItemRow(
+                        row = row,
+                        onOpen = { if (selecting) viewModel.togglePick(row.id) else openRow(row) },
+                        onLongPress = { if (selecting) viewModel.togglePick(row.id) else sheetRow = row },
+                        selected = row.id in picked,
+                        swipeEnabled = !selecting,
+                        rightHalf = swipeCfg.rightHalf,
+                        rightFull = swipeCfg.rightFull,
+                        leftHalf = swipeCfg.leftHalf,
+                        leftFull = swipeCfg.leftFull,
+                        onAction = { action -> onSwipe(row, action) },
+                        mode = viewMode,
+                        compact = compact,
+                        onOpenSource = { sid -> viewModel.selectFeed(sid, row.sourceTitle ?: row.siteName ?: "Feed") },
+                    )
+                    if (viewMode != ListViewMode.MAGAZINE) {
+                        androidx.compose.material3.HorizontalDivider(
+                            modifier = Modifier.padding(start = 16.dp),
+                            thickness = 0.6.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        )
+                    }
+                }
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = 2.dp, bottom = padding.calculateBottomPadding() + 96.dp),
                 ) {
-                    items(state.items, key = { it.id }) { row ->
-                        SwipeableItemRow(
-                            row = row,
-                            onOpen = {
-                                if (selecting) viewModel.togglePick(row.id) else {
-                                    com.cairn.reader.ui.reader.ReaderQueue.set(state.items.map { it.id })
-                                    onOpenItem(row.id)
-                                }
-                            },
-                            onLongPress = { if (selecting) viewModel.togglePick(row.id) else sheetRow = row },
-                            selected = row.id in picked,
-                            swipeEnabled = !selecting,
-                            rightHalf = swipeCfg.rightHalf,
-                            rightFull = swipeCfg.rightFull,
-                            leftHalf = swipeCfg.leftHalf,
-                            leftFull = swipeCfg.leftFull,
-                            onAction = { action -> onSwipe(row, action) },
-                            mode = viewMode,
-                            compact = compact,
-                            onOpenSource = { sid -> viewModel.selectFeed(sid, row.sourceTitle ?: row.siteName ?: "Feed") },
-                        )
-                        if (viewMode != ListViewMode.MAGAZINE) {
-                            androidx.compose.material3.HorizontalDivider(
-                                modifier = Modifier.padding(start = 16.dp),
-                                thickness = 0.6.dp,
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                            )
+                    if (stickyDates) {
+                        // Group the (already time-sorted) list by day; LinkedHashMap keeps order.
+                        val groups = state.items.groupBy { inboxDateLabel(it.publishedAt ?: it.savedAt) }
+                        groups.forEach { (label, rows) ->
+                            stickyHeader(key = "date-$label") { InboxDateHeader(label) }
+                            items(rows, key = { it.id }) { row -> inboxRow(row) }
                         }
+                    } else {
+                        items(state.items, key = { it.id }) { row -> inboxRow(row) }
                     }
                 }
             }
@@ -710,6 +745,36 @@ private fun AddFeedDialog(onDismiss: () -> Unit, onAdd: (String) -> Unit) {
         },
         confirmButton = { TextButton(onClick = { onAdd(text) }, enabled = text.isNotBlank()) { Text("Add") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/** A human day label ("Today", "Yesterday", or a date) for the Inbox sticky headers. */
+private fun inboxDateLabel(millis: Long): String {
+    if (millis <= 0L) return "Earlier"
+    val now = java.util.Calendar.getInstance()
+    val then = java.util.Calendar.getInstance().apply { timeInMillis = millis }
+    fun dayKey(c: java.util.Calendar) = c.get(java.util.Calendar.YEAR) * 1000 + c.get(java.util.Calendar.DAY_OF_YEAR)
+    val diff = dayKey(now) - dayKey(then)
+    return when {
+        diff == 0 -> "Today"
+        diff == 1 -> "Yesterday"
+        now.get(java.util.Calendar.YEAR) == then.get(java.util.Calendar.YEAR) ->
+            java.text.SimpleDateFormat("EEEE, MMM d", java.util.Locale.getDefault()).format(java.util.Date(millis))
+        else -> java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.getDefault()).format(java.util.Date(millis))
+    }
+}
+
+@Composable
+private fun InboxDateHeader(label: String) {
+    Text(
+        label,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 6.dp),
     )
 }
 

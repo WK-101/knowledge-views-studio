@@ -148,6 +148,11 @@ class InboxViewModel @Inject constructor(
         preferencesRepository.preferences.map { it.markReadOnScroll }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    /** Whether the Inbox groups items under sticky Today / Yesterday / date headers. */
+    val stickyDateHeaders: StateFlow<Boolean> =
+        preferencesRepository.preferences.map { it.stickyDateHeaders }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     /** Mark several items read with no snackbar — used by scroll-to-read so it doesn't spam undo. */
     fun markReadSilent(ids: List<String>) = viewModelScope.launch {
         ids.forEach { itemRepository.setRead(it, true) }
@@ -168,6 +173,11 @@ class InboxViewModel @Inject constructor(
 
     val feeds: StateFlow<List<FeedUnread>> =
         itemRepository.feedUnread().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** sourceId → open mode (READER / BROWSER / EXTERNAL), so a tap can route per the feed's choice. */
+    val openModes: StateFlow<Map<String, String>> =
+        sourceRepository.sources().map { list -> list.associate { it.id to it.openIn } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     private val _snacks = MutableSharedFlow<Snack>(extraBufferCapacity = 8)
     val snacks = _snacks.asSharedFlow()

@@ -427,6 +427,32 @@ fun SettingsScreen(
 
         item {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                SectionLabel("LIST")
+                Spacer(Modifier.height(4.dp))
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Show thumbnails", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
+                    androidx.compose.material3.Switch(checked = prefs.showThumbnail, onCheckedChange = { viewModel.setShowThumbnail(it) })
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Show excerpts", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
+                    androidx.compose.material3.Switch(checked = prefs.showExcerpt, onCheckedChange = { viewModel.setShowExcerpt(it) })
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Show reading time", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
+                    androidx.compose.material3.Switch(checked = prefs.showReadingTime, onCheckedChange = { viewModel.setShowReadingTime(it) })
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Sticky date headers", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("Group the Inbox under Today / Yesterday / date headers.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    androidx.compose.material3.Switch(checked = prefs.stickyDateHeaders, onCheckedChange = { viewModel.setStickyDateHeaders(it) })
+                }
+            }
+        }
+
+        item {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                 SectionLabel("STARTUP")
                 Spacer(Modifier.height(12.dp))
                 val startDests = listOf(

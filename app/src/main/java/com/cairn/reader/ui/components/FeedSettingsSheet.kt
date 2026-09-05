@@ -172,7 +172,8 @@ fun FeedSettingsSheet(
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = openIn == "READER", onClick = { openIn = "READER"; onOpenIn("READER") }, label = { Text("Reader") })
-                FilterChip(selected = openIn == "BROWSER", onClick = { openIn = "BROWSER"; onOpenIn("BROWSER") }, label = { Text("Browser") })
+                FilterChip(selected = openIn == "BROWSER", onClick = { openIn = "BROWSER"; onOpenIn("BROWSER") }, label = { Text("In-app browser") })
+                FilterChip(selected = openIn == "EXTERNAL", onClick = { openIn = "EXTERNAL"; onOpenIn("EXTERNAL") }, label = { Text("External") })
             }
 
             Spacer(Modifier.height(16.dp))
