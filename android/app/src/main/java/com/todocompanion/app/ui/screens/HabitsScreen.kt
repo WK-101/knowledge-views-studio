@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.ColumnScope
@@ -245,15 +246,18 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
             vm.rewardCelebration.value = null
         }
     }
-    // R33 F6 — the "shine": a haptic + brief celebratory phrase the moment a habit is completed.
+    // R33 F6 / Fogg's Tiny Habits — the "shine": the immediate celebration that wires the habit in. A
+    // haptic pulse plus an animated affirmation card the moment a habit is completed. Fogg's finding is
+    // that the *emotion* right after the behaviour is what creates the habit — so we make it a felt beat,
+    // not a fleeting toast. Calm mode silences it entirely to protect intrinsic motivation.
     val shine by vm.habitShine.collectAsState()
     val shineHaptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    var shineShown by remember { mutableStateOf<AppViewModel.HabitShine?>(null) }
     LaunchedEffect(shine) {
         shine?.let { s ->
-            // R34 · calm mode silences the celebration (haptic + phrase) to protect intrinsic motivation.
             if (!appSettings.calmMode) {
                 shineHaptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                android.widget.Toast.makeText(rewardCtx, "${s.emoji ?: "✨"}  ${s.phrase}", android.widget.Toast.LENGTH_SHORT).show()
+                shineShown = s
             }
             vm.habitShine.value = null
         }
@@ -365,6 +369,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
         }
       }
       if (showConfetti) ConfettiOverlay(onDone = { showConfetti = false })
+      shineShown?.let { HabitShineOverlay(it, onDone = { shineShown = null }) }
     }
 
     if (quickAddOpen) HabitQuickAddDialog(
@@ -709,6 +714,37 @@ private fun HabitRow(
             }
         }
       }
+    }
+}
+
+/** Fogg's "shine" — an animated affirmation card that pops in the moment a habit is completed, holds
+ *  briefly, then fades. Theme-correct (primaryContainer / onPrimaryContainer) so it reads in every mode. */
+@Composable
+private fun HabitShineOverlay(shine: AppViewModel.HabitShine, onDone: () -> Unit) {
+    val p = remember { Animatable(0f) }
+    LaunchedEffect(shine) {
+        p.animateTo(1f, tween(240))
+        delay(1200)
+        p.animateTo(0f, tween(280))
+        onDone()
+    }
+    Box(Modifier.fillMaxWidth().padding(top = 10.dp, start = 24.dp, end = 24.dp), contentAlignment = Alignment.TopCenter) {
+        Surface(
+            modifier = Modifier.graphicsLayer {
+                val s = 0.85f + 0.15f * p.value
+                scaleX = s; scaleY = s; alpha = p.value.coerceIn(0f, 1f)
+            },
+            shape = RoundedCornerShape(22.dp),
+            color = MaterialTheme.colorScheme.primaryContainer,
+            tonalElevation = 3.dp,
+            shadowElevation = 4.dp,
+        ) {
+            Row(Modifier.padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(shine.emoji ?: "✨", style = MaterialTheme.typography.headlineSmall)
+                Spacer(Modifier.width(10.dp))
+                Text(shine.phrase, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+        }
     }
 }
 

@@ -216,8 +216,10 @@ data class AppSettings(
     val multiTimer: Boolean = false,
     // U2: when a time-blocked task's start time arrives, post a notification to start tracking it.
     val autoTrackPrompt: Boolean = false,
-    // U8: forgiving streaks — count a rolling completion rate with grace days instead of brittle chains.
-    val forgivingStreaks: Boolean = false,
+    // U8 / 1.6 calm default: forgiving streaks — count a rolling completion rate with grace days instead
+    // of a brittle chain, so one missed day never resets to zero and never shames. On by default; the
+    // "never miss twice" recovery is kinder than "don't break the chain".
+    val forgivingStreaks: Boolean = true,
     // U14: shade the calendar day-column gaps between tracked intervals so uncounted time is visible.
     val untrackedReveal: Boolean = false,
     // U12: lightweight on-device automation rules, JSON-encoded (see domain/AutomationRules.kt).
@@ -812,7 +814,7 @@ data class AppSettings(
             timelineFill = m[Keys.TIMELINE_FILL]?.toBooleanStrictOrNull() ?: false,
             multiTimer = m[Keys.MULTI_TIMER]?.toBooleanStrictOrNull() ?: false,
             autoTrackPrompt = m[Keys.AUTO_TRACK_PROMPT]?.toBooleanStrictOrNull() ?: false,
-            forgivingStreaks = m[Keys.FORGIVING_STREAKS]?.toBooleanStrictOrNull() ?: false,
+            forgivingStreaks = m[Keys.FORGIVING_STREAKS]?.toBooleanStrictOrNull() ?: true,
             untrackedReveal = m[Keys.UNTRACKED_REVEAL]?.toBooleanStrictOrNull() ?: false,
             automationRulesJson = m[Keys.AUTOMATION_RULES] ?: "",
             rewardsJson = m[Keys.REWARDS] ?: "",

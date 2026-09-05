@@ -2567,8 +2567,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             repo.awardPoints(1)
             // R35 · reward taper — a graduated habit has eased off celebration; it runs on its own now.
             if (!h.graduated) {
+                // Fogg's Tiny Habits: the celebration right after the behaviour is what wires it in —
+                // an immediate hit of "shine". Prefer the user's own words; else a warm, identity-shaped line.
                 val phrase = h.encouragementList().takeIf { it.isNotEmpty() }?.random()
-                    ?: listOf("Nice — that's a vote for who you're becoming.", "Done. Small wins compound.", "Kept it going 💪", "That's the one.").random()
+                    ?: listOf(
+                        "Yes! That's a vote for who you're becoming.",
+                        "Nailed it. 💪",
+                        "That's who you are now.",
+                        "Done — small wins compound.",
+                        "Look at you go. ✨",
+                        "Kept the promise to yourself.",
+                        "That's the one. 🔥",
+                        "Another brick laid.",
+                    ).random()
                 habitShine.value = HabitShine(h.name, h.emoji, phrase, h.colorArgb)
             }
             // F10 auto ramp-up — bump the daily target once consistency holds over the step window.
