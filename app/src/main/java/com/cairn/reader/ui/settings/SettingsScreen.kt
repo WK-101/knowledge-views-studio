@@ -7,7 +7,13 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -359,6 +365,47 @@ fun SettingsScreen(
                     }
                     Switch(checked = prefs.dynamicColor, onCheckedChange = viewModel::setDynamicColor)
                 }
+                Spacer(Modifier.height(14.dp))
+                Text("Accent", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
+                Text(
+                    "A colour theme for the whole app. Overrides dynamic color when set.",
+                    style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    com.cairn.reader.ui.theme.AppAccent.entries.forEach { a ->
+                        val selected = prefs.appAccent == a.name
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(56.dp)) {
+                            Box(
+                                Modifier
+                                    .size(40.dp)
+                                    .clip(androidx.compose.foundation.shape.CircleShape)
+                                    .background(a.swatch)
+                                    .border(
+                                        width = if (selected) 3.dp else 1.dp,
+                                        color = if (selected) scheme.onSurface else scheme.outlineVariant,
+                                        shape = androidx.compose.foundation.shape.CircleShape,
+                                    )
+                                    .clickable { viewModel.setAppAccent(a.name) },
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                a.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (selected) scheme.onSurface else scheme.onSurfaceVariant,
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Pure black (AMOLED)", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("True-black backgrounds in dark mode to save power on OLED screens", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    Switch(checked = prefs.trueBlack, onCheckedChange = viewModel::setTrueBlack)
+                }
                 Spacer(Modifier.height(10.dp))
                 LabeledChips(
                     label = "Reading font",
@@ -524,7 +571,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(24.dp))
                 SectionLabel("ABOUT")
                 Spacer(Modifier.height(8.dp))
-                Text("Cairn 3.37.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Text("Cairn 3.38.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
                 Text("One reader for everything you read.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
             }
         }

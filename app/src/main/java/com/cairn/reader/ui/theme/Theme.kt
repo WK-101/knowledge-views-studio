@@ -16,15 +16,23 @@ import androidx.compose.ui.platform.LocalContext
 fun CairnTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
+    accent: AppAccent = AppAccent.DEFAULT,
+    trueBlack: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
+        // A chosen accent is an explicit request and takes precedence over Material You.
+        accent != AppAccent.DEFAULT -> cairnScheme(accent, darkTheme, trueBlack)
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            val scheme = if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            if (darkTheme && trueBlack) scheme.copy(
+                background = androidx.compose.ui.graphics.Color.Black,
+                surface = androidx.compose.ui.graphics.Color.Black,
+                surfaceContainerLowest = androidx.compose.ui.graphics.Color.Black,
+            ) else scheme
         }
-        darkTheme -> CairnDarkColors
-        else -> CairnLightColors
+        else -> cairnScheme(AppAccent.DEFAULT, darkTheme, trueBlack)
     }
 
     MaterialTheme(

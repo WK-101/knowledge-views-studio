@@ -41,6 +41,10 @@ enum class SwipeAction(val label: String) {
 data class AppPreferences(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
+    /** Accent theme (see AppAccent); "DEFAULT" keeps the Cairn teal / Material You. */
+    val appAccent: String = "DEFAULT",
+    /** Pure-black backgrounds in dark mode (AMOLED). */
+    val trueBlack: Boolean = false,
     val listViewMode: ListViewMode = ListViewMode.CARD,
     val libraryViewMode: LibraryViewMode = LibraryViewMode.GRID,
     val readerFontScale: Float = 1.0f,
@@ -97,6 +101,8 @@ class PreferencesRepository @Inject constructor(
     private object Keys {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val DYNAMIC = booleanPreferencesKey("dynamic_color")
+        val APP_ACCENT = stringPreferencesKey("app_accent")
+        val TRUE_BLACK = booleanPreferencesKey("true_black")
         val LIST_VIEW = stringPreferencesKey("list_view_mode")
         val LIBRARY_VIEW = stringPreferencesKey("library_view_mode")
         val FONT_SCALE = floatPreferencesKey("reader_font_scale")
@@ -136,6 +142,8 @@ class PreferencesRepository @Inject constructor(
         AppPreferences(
             themeMode = p[Keys.THEME_MODE]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
             dynamicColor = p[Keys.DYNAMIC] ?: true,
+            appAccent = p[Keys.APP_ACCENT] ?: "DEFAULT",
+            trueBlack = p[Keys.TRUE_BLACK] ?: false,
             listViewMode = p[Keys.LIST_VIEW]?.let { runCatching { ListViewMode.valueOf(it) }.getOrNull() } ?: ListViewMode.CARD,
             libraryViewMode = p[Keys.LIBRARY_VIEW]?.let { runCatching { LibraryViewMode.valueOf(it) }.getOrNull() } ?: LibraryViewMode.GRID,
             readerFontScale = p[Keys.FONT_SCALE] ?: 1.0f,
@@ -188,6 +196,8 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun setThemeMode(mode: ThemeMode) = context.dataStore.edit { it[Keys.THEME_MODE] = mode.name }
     suspend fun setDynamicColor(enabled: Boolean) = context.dataStore.edit { it[Keys.DYNAMIC] = enabled }
+    suspend fun setAppAccent(name: String) = context.dataStore.edit { it[Keys.APP_ACCENT] = name }
+    suspend fun setTrueBlack(enabled: Boolean) = context.dataStore.edit { it[Keys.TRUE_BLACK] = enabled }
     suspend fun setListViewMode(mode: ListViewMode) = context.dataStore.edit { it[Keys.LIST_VIEW] = mode.name }
     suspend fun setLibraryViewMode(mode: LibraryViewMode) = context.dataStore.edit { it[Keys.LIBRARY_VIEW] = mode.name }
     suspend fun setReaderFontScale(scale: Float) = context.dataStore.edit { it[Keys.FONT_SCALE] = scale.coerceIn(0.8f, 1.8f) }
