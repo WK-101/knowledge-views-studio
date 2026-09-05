@@ -120,6 +120,25 @@ class FeedRepository @Inject constructor(
         return Result.success(sourceId)
     }
 
+    /** Teach-by-example (P3 collector): subscribe to a feed built from a CSS selector the user
+     *  chose by tapping a headline on the page. Re-scraped with that selector each sync. */
+    suspend fun followViaSelector(rawUrl: String, selector: String): Result<String> {
+        val url = normalize(rawUrl) ?: return Result.failure(IllegalStateException("That doesn't look like a valid web address."))
+        val feed = runCatching { siteFeedBuilder.buildWithSelector(url, selector) }.getOrNull()
+            ?: return Result.failure(IllegalStateException("That selection didn't match any links."))
+        val now = System.currentTimeMillis()
+        val origin = url.toHttpUrlOrNull()?.let { "${it.scheme}://${it.host}" } ?: url
+        val sourceId = deterministicId("taught|$url|$selector")
+        val source = SourceEntity(
+            id = sourceId, kind = "SITEMAP", feedUrl = url, siteUrl = feed.siteUrl ?: origin,
+            title = (feed.title?.takeIf { it.isNotBlank() } ?: hostOf(origin)) + " · custom",
+            scrapeSelector = selector,
+        )
+        sourceDao.upsert(source)
+        feed.items.forEach { insertParsed(source, it, now) }
+        return Result.success(sourceId)
+    }
+
     /** Watch any page for changes (P3 collector): each time its main text changes, a new item
      *  appears linking to the page. Great for release notes, job boards, or list pages with no feed. */
     suspend fun watchPage(rawUrl: String): Result<String> {
@@ -286,9 +305,9 @@ class FeedRepository @Inject constructor(
             sourceDao.setContentHash(source.id, hash, now)
             return
         }
-        // Sitemap-derived feeds are rebuilt from the site's sitemap each sync (no RSS to poll).
+        // Sitemap / scraped / taught feeds are rebuilt from the site each sync (no RSS to poll).
         if (source.kind == "SITEMAP") {
-            val feed = runCatching { siteFeedBuilder.build(source.feedUrl) }.getOrNull()
+            val feed = runCatching { siteFeedBuilder.build(source.feedUrl, source.scrapeSelector) }.getOrNull()
             if (feed == null) { sourceDao.markError(source.id, null); return }
             feed.items.forEach { insertParsed(source, it, now, newItems) }
             sourceDao.markSynced(source.id, null, null, now)

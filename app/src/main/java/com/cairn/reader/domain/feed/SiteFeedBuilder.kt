@@ -23,7 +23,8 @@ class SiteFeedBuilder @Inject constructor(
      * Build a feed from [input] using the collector ladder, richest first: JSON Feed, then the
      * WordPress REST API (both carry full content), then the sitemap (URLs only). First hit wins.
      */
-    suspend fun build(input: String): ParsedFeed? {
+    suspend fun build(input: String, selector: String? = null): ParsedFeed? {
+        if (!selector.isNullOrBlank()) return buildWithSelector(input, selector)
         val http = input.toHttpUrlOrNull() ?: return null
         val origin = "${http.scheme}://${http.host}"
         buildFromJsonFeed(origin)?.let { return it }
@@ -31,6 +32,31 @@ class SiteFeedBuilder @Inject constructor(
         buildFromSitemap(input)?.let { return it }
         return buildFromScrape(input)
     }
+
+    /** Teach-by-example: build a feed from the links matched by a user-chosen CSS [selector]. */
+    suspend fun buildWithSelector(pageUrl: String, selector: String): ParsedFeed? {
+        val http = pageUrl.toHttpUrlOrNull() ?: return null
+        val origin = "${http.scheme}://${http.host}"
+        val host = http.host.removePrefix("www.")
+        val body = runCatching { fetcher.fetch(pageUrl) }.getOrNull()?.let { it.body ?: return null } ?: return null
+        val doc = runCatching { Jsoup.parse(body, pageUrl) }.getOrNull() ?: return null
+        val els = runCatching { doc.select(selector) }.getOrNull() ?: return null
+        val seen = HashSet<String>()
+        val items = els.mapNotNull { el ->
+            val a = if (el.tagName() == "a" && el.hasAttr("href")) el else el.selectFirst("a[href]")
+            val url = a?.absUrl("href")?.substringBefore('#')?.trim().orEmptyNull() ?: return@mapNotNull null
+            if (!seen.add(url.trimEnd('/'))) return@mapNotNull null
+            val text = el.text().trim().ifBlank { a.text().trim() }
+            ParsedItem(
+                guid = url, title = (if (text.isBlank()) titleFromUrl(url) else text).take(200),
+                link = url, author = null, publishedAt = null, contentHtml = null, summary = null, imageUrl = null,
+            )
+        }.take(40)
+        if (items.isEmpty()) return null
+        return ParsedFeed(host, origin, items)
+    }
+
+    private fun String?.orEmptyNull(): String? = this?.ifBlank { null }
 
     // -- Scrape-to-feed: synthesise a feed from an index page's article links --------------
     private suspend fun buildFromScrape(input: String): ParsedFeed? {

@@ -90,6 +90,17 @@ fun CairnRoot(
                 FeedsScreen(
                     onBack = { navController.popBackStack() },
                     onOpenWeb = openWeb,
+                    onTeach = { url -> navController.navigate("picker/${WebRoute.encode(url)}") },
+                )
+            }
+            composable(
+                route = "picker/{data}",
+                arguments = listOf(navArgument("data") { type = NavType.StringType }),
+            ) { entry ->
+                com.cairn.reader.ui.picker.SelectorPickerScreen(
+                    url = WebRoute.decode(entry.arguments?.getString("data").orEmpty()),
+                    onBack = { navController.popBackStack() },
+                    onCreated = { navController.popBackStack() },
                 )
             }
             composable("offline") {

@@ -84,6 +84,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 fun FeedsScreen(
     onBack: () -> Unit,
     onOpenWeb: (String) -> Unit,
+    onTeach: (String) -> Unit = {},
     viewModel: FeedsViewModel = hiltViewModel(),
 ) {
     val allSources by viewModel.sources.collectAsStateWithLifecycle()
@@ -306,6 +307,7 @@ fun FeedsScreen(
             onAdd = { viewModel.addFeed(it) },
             onGoogleNews = { viewModel.followViaGoogleNews(it) },
             onWatchPage = { viewModel.watchPage(it) },
+            onTeach = { showAdd = false; onTeach(it) },
             onDismiss = { showAdd = false },
         )
     }
@@ -447,6 +449,7 @@ private fun AddFeedSheet(
     onAdd: (String) -> Unit,
     onGoogleNews: (String) -> Unit,
     onWatchPage: (String) -> Unit,
+    onTeach: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var text by remember { mutableStateOf("") }
@@ -503,6 +506,22 @@ private fun AddFeedSheet(
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = { onWatchPage(text); onDismiss() }, enabled = text.isNotBlank() && !busy, modifier = Modifier.fillMaxWidth()) {
                 Text("Watch this page for changes")
+            }
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "Nothing works? Teach Cairn by example.",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Open the page and tap a headline — Cairn learns the pattern and builds a feed from every matching link.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { onTeach(text) }, enabled = text.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+                Text("Teach a feed by tapping a headline")
             }
         }
     }
