@@ -13,22 +13,29 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.cairn.reader.data.repo.FeedRepository
+import com.cairn.reader.notifications.Notifier
 import com.cairn.reader.widget.CairnWidgetProvider
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
 
-/** Refreshes every subscribed feed (conditional GET; unchanged feeds cost nothing). */
+/** Refreshes every subscribed feed (conditional GET; unchanged feeds cost nothing),
+ *  then raises notifications for new items from notify-enabled feeds. */
 @HiltWorker
 class SyncWorker @AssistedInject constructor(
     @Assisted private val context: Context,
     @Assisted params: WorkerParameters,
     private val feedRepository: FeedRepository,
+    private val notifier: Notifier,
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result =
         runCatching { feedRepository.syncAll() }
             .fold(
-                onSuccess = { CairnWidgetProvider.refresh(context); Result.success() },
+                onSuccess = { newItems ->
+                    runCatching { notifier.notifyNewArticles(newItems) }
+                    CairnWidgetProvider.refresh(context)
+                    Result.success()
+                },
                 onFailure = { Result.retry() },
             )
 }

@@ -146,13 +146,17 @@ class FeedRepository @Inject constructor(
 
     suspend fun exportOpml(): String = Opml.build(sourceDao.getAll())
 
-    suspend fun syncAll() {
+    /** Sync every feed. Returns the new items from notify-enabled feeds, so a background
+     *  sync can raise notifications; foreground callers can ignore the result. */
+    suspend fun syncAll(): List<com.cairn.reader.notifications.NewArticle> {
         val now = System.currentTimeMillis()
         val limit = runCatching { preferencesRepository.preferences.first().maxItemsPerFeed }.getOrDefault(0)
+        val fresh = mutableListOf<com.cairn.reader.notifications.NewArticle>()
         sourceDao.getAll().forEach { source ->
-            runCatching { syncSource(source, now) }
+            runCatching { syncSource(source, now, if (source.notify) fresh else null) }
             if (limit > 0) runCatching { pruneSource(source.id, limit) }
         }
+        return fresh
     }
 
     /** Enforce the per-feed retention cap: drop the oldest items the user never engaged with,
@@ -177,7 +181,11 @@ class FeedRepository @Inject constructor(
         caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
     }.getOrDefault(true)
 
-    private suspend fun syncSource(source: SourceEntity, now: Long) {
+    private suspend fun syncSource(
+        source: SourceEntity,
+        now: Long,
+        newItems: MutableList<com.cairn.reader.notifications.NewArticle>? = null,
+    ) {
         val res = fetcher.fetch(source.feedUrl, source.etag, source.lastModified)
         if (res.notModified) {
             sourceDao.markSynced(source.id, source.etag, source.lastModified, now)
@@ -189,11 +197,16 @@ class FeedRepository @Inject constructor(
             sourceDao.markError(source.id, null)
             return
         }
-        feed.items.forEach { insertParsed(source, it, now) }
+        feed.items.forEach { insertParsed(source, it, now, newItems) }
         sourceDao.markSynced(source.id, res.etag, res.lastModified, now)
     }
 
-    private suspend fun insertParsed(source: SourceEntity, p: ParsedItem, now: Long) {
+    private suspend fun insertParsed(
+        source: SourceEntity,
+        p: ParsedItem,
+        now: Long,
+        newItems: MutableList<com.cairn.reader.notifications.NewArticle>? = null,
+    ) {
         val key = p.guid ?: p.link ?: p.title ?: UUID.randomUUID().toString()
         val itemId = deterministicId("${source.id}|$key")
         if (syncDao.isTombstoned(itemId)) return
@@ -238,6 +251,16 @@ class FeedRepository @Inject constructor(
         // complete and offline before they're ever opened. Opt-in, so most feeds stay cheap.
         if (isNew && source.fullTextByDefault) {
             p.link?.takeIf { it.isNotBlank() }?.let { runCatching { extractInto(itemId, it) } }
+        }
+        // Collect genuinely-new items for notification (only when the caller asked, i.e. a
+        // background sync of a notify-enabled feed).
+        if (isNew && newItems != null) {
+            newItems += com.cairn.reader.notifications.NewArticle(
+                id = itemId,
+                title = p.title?.takeIf { it.isNotBlank() } ?: "(untitled)",
+                source = source.title,
+                excerpt = excerpt,
+            )
         }
     }
 

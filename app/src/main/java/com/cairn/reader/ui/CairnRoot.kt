@@ -24,7 +24,10 @@ import com.cairn.reader.ui.web.WebScreen
 
 /** Applies the user's theme preference, then hosts navigation. */
 @Composable
-fun CairnRoot() {
+fun CairnRoot(
+    openItemId: String? = null,
+    onOpenConsumed: () -> Unit = {},
+) {
     val appViewModel: AppViewModel = hiltViewModel()
     val prefs by appViewModel.preferences.collectAsStateWithLifecycle()
 
@@ -41,6 +44,13 @@ fun CairnRoot() {
         }
         val navController = rememberNavController()
         val openWeb: (String) -> Unit = { url -> navController.navigate("web/${WebRoute.encode(url)}") }
+        // A notification tap arrives as openItemId — open that article once.
+        androidx.compose.runtime.LaunchedEffect(openItemId) {
+            openItemId?.let {
+                navController.navigate("reader/$it")
+                onOpenConsumed()
+            }
+        }
         NavHost(navController = navController, startDestination = "home") {
             composable("home") {
                 CairnApp(

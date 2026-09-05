@@ -57,6 +57,11 @@
                 android:resource="@xml/cairn_widget_info" />
         </receiver>
 
+        <!-- Handles Mark-read / Save quick actions on new-article notifications. -->
+        <receiver
+            android:name=".notifications.NotificationActionReceiver"
+            android:exported="false" />
+
         <!-- Shares imported PDFs out to other apps via a content:// URI. -->
         <provider
             android:name="androidx.core.content.FileProvider"
