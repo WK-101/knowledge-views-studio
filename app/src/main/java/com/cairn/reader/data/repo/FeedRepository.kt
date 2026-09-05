@@ -95,6 +95,19 @@ class FeedRepository @Inject constructor(
         return Result.success(sourceId)
     }
 
+    /** Search far beyond what's stored locally: a Google News RSS query returns matching
+     *  articles from across the web (well past a feed's short recent window). Just a public
+     *  fetch — no account — so it stays within the privacy model. Empty on any failure. */
+    suspend fun webSearch(query: String): List<com.cairn.reader.domain.feed.ParsedItem> {
+        val q = query.trim()
+        if (q.isBlank()) return emptyList()
+        val url = "https://news.google.com/rss/search?q=" +
+            java.net.URLEncoder.encode(q, "UTF-8") + "&hl=en-US&gl=US&ceid=US:en"
+        val res = runCatching { fetcher.fetch(url) }.getOrNull() ?: return emptyList()
+        val feed = res.body?.let { parser.parse(it, res.finalUrl) } ?: return emptyList()
+        return feed.items
+    }
+
     /** On first run, subscribe to a few well-known feeds so the app has real content
      *  after the first sync. Returns true if it seeded (i.e. there were no sources). */
     suspend fun seedDefaultFeedsIfEmpty(): Boolean {

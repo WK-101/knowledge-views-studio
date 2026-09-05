@@ -83,6 +83,7 @@ fun CairnRoot(
                 SearchScreen(
                     onBack = { navController.popBackStack() },
                     onOpenItem = { itemId -> navController.navigate("reader/$itemId") },
+                    onOpenWeb = openWeb,
                 )
             }
             composable("feeds") {
