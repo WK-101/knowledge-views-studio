@@ -79,8 +79,6 @@ fun SearchScreen(
     val archive by viewModel.archive.collectAsStateWithLifecycle()
     val archiveBusy by viewModel.archiveBusy.collectAsStateWithLifecycle()
     val scheme = MaterialTheme.colorScheme
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
 
     Column(Modifier.fillMaxSize()) {
             TopAppBar(

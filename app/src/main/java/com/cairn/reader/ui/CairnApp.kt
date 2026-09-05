@@ -184,6 +184,11 @@ fun CairnApp(
                 message = snack.message,
                 actionLabel = snack.actionLabel,
                 withDismissAction = true,
+                // Material 3 makes an action snackbar Indefinite by default (it would never
+                // auto-dismiss). Force a finite duration so the Undo bar always goes away —
+                // a bit longer when there's an action so there's time to tap Undo.
+                duration = if (snack.actionLabel != null) androidx.compose.material3.SnackbarDuration.Long
+                           else androidx.compose.material3.SnackbarDuration.Short,
             )
             if (result == SnackbarResult.ActionPerformed) snack.onAction?.invoke()
         }
