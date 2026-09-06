@@ -51,6 +51,7 @@ import com.todocompanion.app.data.entity.EventCalendarEntity
 import com.todocompanion.app.data.entity.EventEntity
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppTextField
+import com.todocompanion.app.ui.components.ConfirmDialog
 import com.todocompanion.app.ui.components.OptionChips
 import java.time.Instant
 import java.time.ZoneId
@@ -222,23 +223,23 @@ fun CalendarEntriesSheet(
     }
 
     pendingDelete?.let { e ->
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            confirmButton = { TextButton(onClick = { vm.deleteEvent(e.id); pendingDelete = null }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } },
-            title = { Text("Delete event?") },
-            text = { Text("“${e.title.ifBlank { "(untitled)" }}”${if (e.rrule.isNotBlank()) " and its whole repeating series" else ""} will be permanently deleted.") },
+        ConfirmDialog(
+            title = "Delete event?",
+            body = "“${e.title.ifBlank { "(untitled)" }}”${if (e.rrule.isNotBlank()) " and its whole repeating series" else ""} will be permanently deleted.",
+            confirmLabel = "Delete",
+            onConfirm = { vm.deleteEvent(e.id); pendingDelete = null },
+            onDismiss = { pendingDelete = null },
         )
     }
     if (confirmBulk) {
-        AlertDialog(
-            onDismissRequest = { confirmBulk = false },
-            confirmButton = { TextButton(onClick = {
+        ConfirmDialog(
+            title = "Delete ${selected.size} events?",
+            body = "The selected events (and any repeating series among them) will be permanently deleted. This can't be undone.",
+            confirmLabel = "Delete ${selected.size}",
+            onConfirm = {
                 selected.forEach { vm.deleteEvent(it) }; confirmBulk = false; selectMode = false; selected = emptySet()
-            }) { Text("Delete ${selected.size}", color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { confirmBulk = false }) { Text("Cancel") } },
-            title = { Text("Delete ${selected.size} events?") },
-            text = { Text("The selected events (and any repeating series among them) will be permanently deleted. This can't be undone.") },
+            },
+            onDismiss = { confirmBulk = false },
         )
     }
     if (moveTarget) {

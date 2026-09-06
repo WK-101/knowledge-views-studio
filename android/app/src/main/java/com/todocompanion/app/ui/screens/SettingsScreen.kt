@@ -108,6 +108,7 @@ import com.todocompanion.app.data.entity.FlagEntity
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.AppTextField
+import com.todocompanion.app.ui.components.ConfirmDialog
 import com.todocompanion.app.ui.components.MiniCheck
 import com.todocompanion.app.ui.components.FLAG_COLORS
 import com.todocompanion.app.ui.components.FlagIcons
@@ -1262,21 +1263,18 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             },
         )
         confirming?.let { sf ->
-            AlertDialog(
-                onDismissRequest = { confirming = null },
-                confirmButton = {
-                    TextButton(onClick = {
-                        val target = sf; confirming = null; restoreOpen = false
-                        vm.restoreSaved(target) { ok, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
-                    }) { Text(if (sf.name.endsWith(".json", true)) "Restore" else "Import") }
+            ConfirmDialog(
+                title = if (sf.name.endsWith(".json", true)) "Restore this file?" else "Import this file?",
+                body = if (sf.name.endsWith(".json", true))
+                    "Restoring ${sf.name} replaces ALL current data with the contents of this backup. This can't be undone."
+                else "Import tasks from ${sf.name} into your current data.",
+                confirmLabel = if (sf.name.endsWith(".json", true)) "Restore" else "Import",
+                onConfirm = {
+                    val target = sf; confirming = null; restoreOpen = false
+                    vm.restoreSaved(target) { ok, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
                 },
-                dismissButton = { TextButton(onClick = { confirming = null }) { Text("Cancel") } },
-                title = { Text(if (sf.name.endsWith(".json", true)) "Restore this file?" else "Import this file?") },
-                text = {
-                    Text(if (sf.name.endsWith(".json", true))
-                        "Restoring ${sf.name} replaces ALL current data with the contents of this backup. This can't be undone."
-                    else "Import tasks from ${sf.name} into your current data.")
-                },
+                onDismiss = { confirming = null },
+                destructive = false,
             )
         }
     }

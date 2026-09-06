@@ -133,6 +133,7 @@ import com.todocompanion.app.domain.priority.PriorityLevel
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.CardLabel
+import com.todocompanion.app.ui.components.ConfirmDialog
 import com.todocompanion.app.ui.components.OptionChips
 import com.todocompanion.app.ui.components.Stepper
 import com.todocompanion.app.ui.components.ToggleRow
@@ -764,17 +765,19 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     }
                 }
                 confirmDel?.let { a ->
-                    AlertDialog(onDismissRequest = { confirmDel = null },
-                        confirmButton = { TextButton(onClick = { vm.deleteActivityEntry(a.id); confirmDel = null }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
-                        dismissButton = { TextButton(onClick = { confirmDel = null }) { Text("Cancel") } },
-                        title = { Text("Delete this entry?") },
-                        text = { Text("Removes “${activityLabel(a.type, a.detail)}” from this task's history. Only the log is edited — the task itself is unchanged.") })
+                    ConfirmDialog(
+                        title = "Delete this entry?",
+                        body = "Removes “${activityLabel(a.type, a.detail)}” from this task's history. Only the log is edited — the task itself is unchanged.",
+                        confirmLabel = "Delete",
+                        onConfirm = { vm.deleteActivityEntry(a.id); confirmDel = null },
+                        onDismiss = { confirmDel = null })
                 }
-                if (confirmClear) AlertDialog(onDismissRequest = { confirmClear = false },
-                    confirmButton = { TextButton(onClick = { vm.clearTaskActivity(task.id); confirmClear = false }) { Text("Clear all", color = MaterialTheme.colorScheme.error) } },
-                    dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } },
-                    title = { Text("Clear activity history?") },
-                    text = { Text("Deletes every recorded event for this task, including “created”. The task and its data are untouched — only the history log is cleared.") })
+                if (confirmClear) ConfirmDialog(
+                    title = "Clear activity history?",
+                    body = "Deletes every recorded event for this task, including “created”. The task and its data are untouched — only the history log is cleared.",
+                    confirmLabel = "Clear all",
+                    onConfirm = { vm.clearTaskActivity(task.id); confirmClear = false },
+                    onDismiss = { confirmClear = false })
             }
 
                     com.todocompanion.app.domain.EditorField.ADVANCED ->
@@ -1253,12 +1256,12 @@ private fun ActivityEditDialog(
             }
         },
     )
-    if (confirmDelete) AlertDialog(
-        onDismissRequest = { confirmDelete = false },
-        confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
-        dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
-        title = { Text("Delete activity?") },
-        text = { Text("Removes \"${activity.name}\" and unlinks it from tasks. Time already tracked under it is kept.") },
+    if (confirmDelete) ConfirmDialog(
+        title = "Delete activity?",
+        body = "Removes \"${activity.name}\" and unlinks it from tasks. Time already tracked under it is kept.",
+        confirmLabel = "Delete",
+        onConfirm = { confirmDelete = false; onDelete() },
+        onDismiss = { confirmDelete = false },
     )
 }
 

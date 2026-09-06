@@ -77,6 +77,7 @@ import com.todocompanion.app.domain.StepKind
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.AppTextField
+import com.todocompanion.app.ui.components.ConfirmDialog
 import com.todocompanion.app.ui.components.appCardColor
 import com.todocompanion.app.ui.components.DoneTick
 import com.todocompanion.app.ui.components.EmojiGridPicker
@@ -702,11 +703,12 @@ private fun RoutineEditor(
             text = { EmojiGridPicker(current = steps[i].emoji.ifBlank { null }, onPick = { steps[i] = steps[i].copy(emoji = it ?: ""); pickStepEmoji = null }) },
             confirmButton = { TextButton(onClick = { pickStepEmoji = null }) { Text("Close") } })
     }
-    if (confirmDelete) AlertDialog(onDismissRequest = { confirmDelete = false },
-        title = { Text("Delete routine?") },
-        text = { Text("“${routine.name}” and its run history stay, but the routine itself is removed. This can't be undone.") },
-        confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
-        dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } })
+    if (confirmDelete) ConfirmDialog(
+        title = "Delete routine?",
+        body = "“${routine.name}” and its run history stay, but the routine itself is removed. This can't be undone.",
+        confirmLabel = "Delete",
+        onConfirm = { confirmDelete = false; onDelete() },
+        onDismiss = { confirmDelete = false })
 }
 
 @Composable

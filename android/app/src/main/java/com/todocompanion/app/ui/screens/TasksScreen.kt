@@ -125,6 +125,7 @@ import com.todocompanion.app.domain.priority.PriorityLevel
 import com.todocompanion.app.domain.view.SmartKind
 import com.todocompanion.app.domain.view.ViewRef
 import com.todocompanion.app.ui.AppViewModel
+import com.todocompanion.app.ui.components.ConfirmDialog
 import com.todocompanion.app.ui.components.FlagStar
 import com.todocompanion.app.ui.components.PriorityCheckbox
 import com.todocompanion.app.ui.components.TaskMeta
@@ -303,21 +304,21 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
             modifier = Modifier.align(Alignment.BottomCenter),
         )
         pendingPermanentDelete?.let { t ->
-            AlertDialog(
-                onDismissRequest = { pendingPermanentDelete = null },
-                confirmButton = { androidx.compose.material3.TextButton(onClick = { vm.deleteForever(t); pendingPermanentDelete = null }) { Text("Delete forever", color = MaterialTheme.colorScheme.error) } },
-                dismissButton = { androidx.compose.material3.TextButton(onClick = { pendingPermanentDelete = null }) { Text("Cancel") } },
-                title = { Text("Delete permanently?") },
-                text = { Text("“${t.title.ifBlank { "Untitled" }}” and its subtasks will be erased for good. This can't be undone.") },
+            ConfirmDialog(
+                title = "Delete permanently?",
+                body = "“${t.title.ifBlank { "Untitled" }}” and its subtasks will be erased for good. This can't be undone.",
+                confirmLabel = "Delete forever",
+                onConfirm = { vm.deleteForever(t); pendingPermanentDelete = null },
+                onDismiss = { pendingPermanentDelete = null },
             )
         }
         pendingBulkDelete?.let { ids ->
-            AlertDialog(
-                onDismissRequest = { pendingBulkDelete = null },
-                confirmButton = { androidx.compose.material3.TextButton(onClick = { vm.deleteForeverMany(ids); pendingBulkDelete = null; selected = emptySet() }) { Text("Delete forever", color = MaterialTheme.colorScheme.error) } },
-                dismissButton = { androidx.compose.material3.TextButton(onClick = { pendingBulkDelete = null }) { Text("Cancel") } },
-                title = { Text("Delete ${ids.size} permanently?") },
-                text = { Text("These ${ids.size} item${if (ids.size == 1) "" else "s"} and their subtasks will be erased for good. This can't be undone.") },
+            ConfirmDialog(
+                title = "Delete ${ids.size} permanently?",
+                body = "These ${ids.size} item${if (ids.size == 1) "" else "s"} and their subtasks will be erased for good. This can't be undone.",
+                confirmLabel = "Delete forever",
+                onConfirm = { vm.deleteForeverMany(ids); pendingBulkDelete = null; selected = emptySet() },
+                onDismiss = { pendingBulkDelete = null },
             )
         }
         pendingMove?.let { ids ->

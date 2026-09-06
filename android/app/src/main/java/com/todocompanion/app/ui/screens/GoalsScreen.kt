@@ -68,6 +68,7 @@ import com.todocompanion.app.domain.KeyResult
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.AppTextField
+import com.todocompanion.app.ui.components.ConfirmDialog
 import com.todocompanion.app.ui.components.DateOnlyPickerDialog
 import com.todocompanion.app.ui.components.DoneTick
 import com.todocompanion.app.ui.components.EmojiGridPicker
@@ -714,11 +715,12 @@ private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, on
     pickMilestoneDate?.let { i ->
         DateOnlyPickerDialog(initial = if (milestones[i].targetEpochDay > 0) epochDayToMillis(milestones[i].targetEpochDay) else null, onDismiss = { pickMilestoneDate = null }, onConfirm = { milestones[i] = milestones[i].copy(targetEpochDay = millisToEpochDay(it)); pickMilestoneDate = null })
     }
-    if (confirmDelete) AlertDialog(onDismissRequest = { confirmDelete = false },
-        title = { Text("Delete goal?") },
-        text = { Text("“${goal.name}” is removed. Your tasks, habit and tracked time stay — only the goal that ties them together goes. This can't be undone.") },
-        confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
-        dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } })
+    if (confirmDelete) ConfirmDialog(
+        title = "Delete goal?",
+        body = "“${goal.name}” is removed. Your tasks, habit and tracked time stay — only the goal that ties them together goes. This can't be undone.",
+        confirmLabel = "Delete",
+        onConfirm = { confirmDelete = false; onDelete() },
+        onDismiss = { confirmDelete = false })
 }
 
 // ── The weekly review dialog — log execution + commitments, feeding the scoreboard & integrity chain ─

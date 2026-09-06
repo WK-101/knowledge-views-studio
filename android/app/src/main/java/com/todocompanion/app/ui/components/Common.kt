@@ -490,6 +490,35 @@ fun ToggleRow(
     }
 }
 
+/**
+ * The one confirm / destructive dialog. A yes-no AlertDialog with the primary action in the
+ * confirmButton slot (a [destructive] action is tinted `error`) and Cancel in the dismiss slot — so
+ * every "delete / discard / reset?" prompt reads the same, with the action button always in the same
+ * place. For a field-bearing or 3-way dialog, use a bespoke dialog; this is strictly yes/no.
+ */
+@Composable
+fun ConfirmDialog(
+    title: String,
+    body: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    destructive: Boolean = true,
+    dismissLabel: String = "Cancel",
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = onConfirm) {
+                Text(confirmLabel, color = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+            }
+        },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text(dismissLabel) } },
+        title = { Text(title) },
+        text = { Text(body) },
+    )
+}
+
 /** A white rounded card on the grey ground — the app's one card grammar. [verticalArrangement]
  *  spaces the card's children (defaults to flush, i.e. the caller inserts its own Spacers). Pass
  *  [onClick] for a tappable card, [shape]/[color] only to deviate from the canonical look. */

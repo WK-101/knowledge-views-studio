@@ -125,6 +125,7 @@ import com.todocompanion.app.domain.view.SortMode
 import com.todocompanion.app.domain.view.ViewRef
 import com.todocompanion.app.reminders.AlarmScheduler
 import com.todocompanion.app.ui.components.AppDrawer
+import com.todocompanion.app.ui.components.ConfirmDialog
 import com.todocompanion.app.domain.OmegaCommand
 import com.todocompanion.app.ui.screens.CalendarScreen
 import com.todocompanion.app.ui.screens.CommandPaletteDialog
@@ -1734,12 +1735,12 @@ private fun EmojiPicker(current: String?, onPick: (String?) -> Unit) {
 /** A destructive-action confirmation. Deleting a list/folder is not undoable, so always ask first. */
 @Composable
 private fun ConfirmDeleteDialog(kind: String, name: String, onCancel: () -> Unit, onConfirm: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onCancel,
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
-        dismissButton = { TextButton(onClick = onCancel) { Text("Cancel") } },
-        title = { Text("Delete $kind?") },
-        text = { Text("“$name” and its contents will be removed. This can't be undone.") },
+    ConfirmDialog(
+        title = "Delete $kind?",
+        body = "“$name” and its contents will be removed. This can't be undone.",
+        confirmLabel = "Delete",
+        onConfirm = onConfirm,
+        onDismiss = onCancel,
     )
 }
 
