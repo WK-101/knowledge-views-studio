@@ -85,7 +85,7 @@ object RoutineInsights {
         val createdDay = if (r.createdAt > 0) dayOf(r.createdAt, zone).toEpochDay() else today - 29
         val window = (today - createdDay + 1).coerceIn(1L, 30L).toInt()
         return Stat(
-            routineId = r.id, runs30 = runs30, adherencePct = (runs30 * 100 / window),
+            routineId = r.id, runs30 = runs30, adherencePct = (runs30 * 100 / window).coerceAtMost(100),
             currentStreak = cur, bestStreak = best, bestHour = bestHour,
             dropOffStepTitle = dropOff, keystoneDelta = kDelta, keystoneMetric = kMetric,
             totalRuns = runs.size, window = window,

@@ -1976,10 +1976,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Record one review sitting (portfolio when goalId is blank). */
     fun logGoalReview(goalId: String, executionPct: Int, commitmentsKept: Int, commitmentsTotal: Int, note: String) {
         val today = java.time.LocalDate.now(zone).toEpochDay()
+        val total = commitmentsTotal.coerceAtLeast(0)
         val r = com.todocompanion.app.domain.GoalReview(
             id = java.util.UUID.randomUUID().toString(), goalId = goalId, epochDay = today,
-            executionPct = executionPct.coerceIn(0, 100), commitmentsKept = commitmentsKept,
-            commitmentsTotal = commitmentsTotal, note = note.trim(), createdAt = System.currentTimeMillis(),
+            executionPct = executionPct.coerceIn(0, 100), commitmentsKept = commitmentsKept.coerceIn(0, total),
+            commitmentsTotal = total, note = note.trim(), createdAt = System.currentTimeMillis(),
         )
         saveGoalReviews(com.todocompanion.app.domain.GoalReviews.append(goalReviews(), r))
     }

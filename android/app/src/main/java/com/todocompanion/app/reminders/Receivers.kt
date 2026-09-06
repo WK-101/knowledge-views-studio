@@ -360,7 +360,7 @@ class ReminderReceiver : BroadcastReceiver() {
                         // Self-heal: only fire + re-arm while a routine with this id still asks for this minute.
                         val routines = com.todocompanion.app.domain.Routines.parse(app.repository.settingsSnapshot().routinesJson)
                         val r = routines.firstOrNull { it.id == routineId }
-                        if (r != null && r.whenReminderMin == min) {
+                        if (r != null && r.whenReminderMin == min && r.steps.isNotEmpty()) {
                             if (AlarmScheduler.quietDeferUntil(System.currentTimeMillis()) == null)
                                 Notifications.showRoutine(context, routineId, name)
                             AlarmScheduler.rescheduleRoutine(context, routineId, name, min)

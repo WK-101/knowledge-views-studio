@@ -385,8 +385,9 @@ private fun ReviewsScreen(vm: AppViewModel, onBack: () -> Unit) {
         if (kind == "weekly") Triple(td - 6, "This week", "${today.year}-W${today.get(java.time.temporal.WeekFields.ISO.weekOfWeekBasedYear())}")
         else Triple(today.withDayOfYear(1).toEpochDay(), "${today.year} in review", "${today.year}")
     }
-    val review = remember(kind, habits, checkins, tasks, values, td) {
-        LifeSystems.review(kind, label, startDay, td, habits, checkins, tasks, values)
+    val dayLogs by vm.dayLogs.collectAsState()   // the review keystone reads mood/energy from the daily review too
+    val review = remember(kind, habits, checkins, tasks, values, dayLogs, td) {
+        LifeSystems.review(kind, label, startDay, td, habits, checkins, tasks, values, dayLogs = dayLogs)
     }
     var note by remember(kind) { mutableStateOf("") }
     LSScaffold("Integrity review", onBack) { pad ->

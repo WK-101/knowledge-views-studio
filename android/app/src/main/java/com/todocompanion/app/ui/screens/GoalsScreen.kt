@@ -383,7 +383,11 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
                 if (g.hasHabit || g.hasBudget) AppCard {
                     Text("LEAD MEASURES", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text("The practice that carries it — what you control day to day.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (g.hasHabit) { Spacer(Modifier.height(6.dp)); MeasureLine("↻ Habit", "${h.habitStrength}% automaticity · ${h.habitStreak}-day streak", (h.habitStrength / 100f)) }
+                    if (g.hasHabit) {
+                        Spacer(Modifier.height(6.dp))
+                        val isKeystone = g.habitId.isNotBlank() && g.habitId == remember(checkins) { vm.keystoneHabitId() }
+                        MeasureLine((if (isKeystone) "🗝️ " else "") + "↻ Habit", "${h.habitStrength}% automaticity · ${h.habitStreak}-day streak", (h.habitStrength / 100f))
+                    }
                     if (g.hasBudget) { Spacer(Modifier.height(6.dp)); MeasureLine("⏱ Time budget", "${fmtH(h.minutesTracked)} of ${fmtH(h.budgetMin)} banked", if (h.budgetMin == 0) 0f else h.minutesTracked.toFloat() / h.budgetMin) }
                 }
 
@@ -572,7 +576,7 @@ private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, on
                 AppCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("12-week cycle", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text("${cycleWeeks}-week cycle", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                             Text(if (cycleOn) "A sprint, not a someday — from ${dayLabel(cycleStart)}" else "Off", style = MaterialTheme.typography.labelSmall, color = faint)
                         }
                         Switch(checked = cycleOn, onCheckedChange = { cycleOn = it })
@@ -620,6 +624,12 @@ private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, on
                 Text("KEY RESULTS (OKR)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = faint)
                 keyResults.forEachIndexed { i, kr ->
                     AppCard {
+                        // Back each numeric field with its own raw string so a decimal point (or an empty field
+                        // mid-edit) survives — binding straight to trimNum(model) would revert every keystroke.
+                        var startRaw by remember(kr.id) { mutableStateOf(trimNum(kr.start)) }
+                        var nowRaw by remember(kr.id) { mutableStateOf(trimNum(kr.current)) }
+                        var targetRaw by remember(kr.id) { mutableStateOf(trimNum(kr.target)) }
+                        fun clean(s: String) = s.filter { it.isDigit() || it == '.' }.take(9)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(kr.title, { keyResults[i] = kr.copy(title = it) }, label = { Text("Result ${i + 1}") }, singleLine = true, modifier = Modifier.weight(1f))
                             IconButton(onClick = { keyResults.removeAt(i) }) { Icon(Icons.Filled.Delete, "Delete", tint = faint) }
@@ -627,12 +637,12 @@ private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, on
                         Spacer(Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             // Start is the baseline the fraction measures from (a "run 2→5 km" KR is 0% at 2, not at 0).
-                            OutlinedTextField(trimNum(kr.start), { s -> keyResults[i] = kr.copy(start = s.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 0.0) }, label = { Text("Start") }, singleLine = true, modifier = Modifier.weight(1f))
-                            OutlinedTextField(trimNum(kr.current), { s -> keyResults[i] = kr.copy(current = s.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 0.0) }, label = { Text("Now") }, singleLine = true, modifier = Modifier.weight(1f))
+                            OutlinedTextField(startRaw, { s -> startRaw = clean(s); keyResults[i] = kr.copy(start = startRaw.toDoubleOrNull() ?: 0.0) }, label = { Text("Start") }, singleLine = true, modifier = Modifier.weight(1f))
+                            OutlinedTextField(nowRaw, { s -> nowRaw = clean(s); keyResults[i] = kr.copy(current = nowRaw.toDoubleOrNull() ?: 0.0) }, label = { Text("Now") }, singleLine = true, modifier = Modifier.weight(1f))
                         }
                         Spacer(Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(trimNum(kr.target), { s -> keyResults[i] = kr.copy(target = s.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 100.0) }, label = { Text("Target") }, singleLine = true, modifier = Modifier.weight(1f))
+                            OutlinedTextField(targetRaw, { s -> targetRaw = clean(s); keyResults[i] = kr.copy(target = targetRaw.toDoubleOrNull() ?: 100.0) }, label = { Text("Target") }, singleLine = true, modifier = Modifier.weight(1f))
                             OutlinedTextField(kr.unit, { keyResults[i] = kr.copy(unit = it.take(8)) }, label = { Text("Unit") }, singleLine = true, modifier = Modifier.weight(1f))
                         }
                     }

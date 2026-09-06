@@ -145,8 +145,10 @@ fun HabitDetailScreen(
     // Z8 correction: the headline strength honours the graded-strength opt-in, matching Momentum & goals.
     val strength = vm.strengthOf(h)
     val forgivingStreaks = vm.settings.collectAsState().value.forgivingStreaks
-    val current = HabitStats.displayStreak(h, doneDays, skipDays, relapseDays, today, forgivingStreaks)
-    val best = HabitStats.displayBestStreak(h, doneDays, skipDays, relapseDays, today, forgivingStreaks)
+    // Wrapped in remember: the forgiving branch re-scans every done-day, so an unmemoized recompute of a
+    // multi-year habit runs on each recomposition.
+    val current = remember(h, doneDays, skipDays, relapseDays, today, forgivingStreaks) { HabitStats.displayStreak(h, doneDays, skipDays, relapseDays, today, forgivingStreaks) }
+    val best = remember(h, doneDays, skipDays, relapseDays, today, forgivingStreaks) { HabitStats.displayBestStreak(h, doneDays, skipDays, relapseDays, today, forgivingStreaks) }
     val rate = HabitStats.rate(h, doneDays, skipDays, today, 30)
     val weekday = HabitStats.weekdayRates(doneDays, skipDays, today, 180)
     val trend = remember(doneDays, skipDays, relapseDays, today, h) {
@@ -385,7 +387,9 @@ fun HabitDetailScreen(
                         }
                         if (showReward) {
                             Spacer(Modifier.height(if (h.freezeTokens > 0) 8.dp else 0.dp))
-                            val reached = best >= h.rewardAtStreak
+                            // Base "earned" on the same streak the progress line shows (and the celebration
+                            // fires on), so the badge can't read "earned" while no celebration ever fired.
+                            val reached = current >= h.rewardAtStreak
                             Text((if (reached) "🎉 " else "🎁 ") + "Reward: ${h.rewardText} — ${current.coerceAtMost(h.rewardAtStreak)}/${h.rewardAtStreak}" + if (reached) " · earned!" else "",
                                 style = MaterialTheme.typography.bodySmall, fontWeight = if (reached) FontWeight.SemiBold else FontWeight.Normal,
                                 color = if (reached) color else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -986,7 +990,7 @@ private fun BuilderSection(
                 Text("Clean time", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 Text("${q.cleanDays} day${if (q.cleanDays == 1) "" else "s"}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                    if (q.moneySaved > 0) Column { Text("Money saved", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .8f)); Text("${"%,.0f".format(q.moneySaved)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer) }
+                    if (q.moneySaved > 0) Column { Text("Money saved", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .8f)); Text(runCatching { java.text.NumberFormat.getCurrencyInstance().apply { maximumFractionDigits = 0 }.format(q.moneySaved) }.getOrDefault("%,.0f".format(q.moneySaved)), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer) }
                     if (q.minutesSaved > 0) Column { Text("Time reclaimed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .8f)); Text("${q.minutesSaved / 60}h", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer) }
                 }
                 Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1454,20 +1458,14 @@ private fun FourthWaveHabitCards(
         }
     }
 
-    // FW-3 · adaptive automaticity horizon (build).
+    // FW-3 · adaptive automaticity ETA (build). The "Becoming automatic" card above owns the single
+    // automaticity % + bar; this one carries only the time-to-automatic forecast, so there aren't two
+    // competing percentage meters for the same concept on one screen.
     if (!isBreak) FW.adaptiveHorizon(h, hc, today)?.let { hz ->
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        if (hz.repsToTarget > 0) Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
             Column(Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Automaticity horizon", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    Text("${hz.pct}%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
-                }
-                Box(Modifier.fillMaxWidth().height(8.dp).padding(top = 6.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
-                    Box(Modifier.fillMaxWidth(hz.pct / 100f).height(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
-                }
-                Text(
-                    if (hz.repsToTarget == 0) "Automatic — this one runs itself now."
-                    else "~${hz.etaDays} days to automatic at your current pace (${hz.adherence}% adherence, ${hz.repsToTarget} more reps). Not a fixed 66 days — it's tuned to you.",
+                Text("Time to automatic", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text("~${hz.etaDays} days at your current pace (${hz.adherence}% adherence, ${hz.repsToTarget} more reps). Not a fixed 66 days — it's tuned to you.",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
             }
         }

@@ -174,6 +174,7 @@ object LifeSystems {
         kind: String, label: String, startDay: Long, endDay: Long,
         habits: List<HabitEntity>, checkins: List<HabitCheckinEntity>, tasks: List<TaskEntity>,
         values: List<com.todocompanion.app.data.entity.CoreValueEntity>,
+        dayLogs: List<com.todocompanion.app.data.entity.DayLogEntity> = emptyList(),
     ): Review {
         val inRange = { d: Long -> d in startDay..endDay }
         val doneInRange = checkins.filter { it.status == "done" && inRange(it.epochDay) }
@@ -189,7 +190,7 @@ object LifeSystems {
             val bs = HabitStats.bestStreak(h, done, skip, relapse, endDay)
             if (bs > best) { best = bs; bestName = h.name }
         }
-        val corr = correlations(habits, checkins, tasks, endDay)
+        val corr = correlations(habits, checkins, tasks, endDay, dayLogs = dayLogs)
         val keystone = keystone(corr)?.name
         val valueLines = values.map { v ->
             val ids = habits.filter { it.valueId == v.id }.map { it.id }.toSet()

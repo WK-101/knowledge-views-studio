@@ -341,20 +341,26 @@ private fun RoutineRunner(vm: AppViewModel, routine: Routine, onExit: () -> Unit
         secsLeft = 0
         advance(complete = true)
     }
+    // Wall-clock elapsed capped to a sane ceiling: because a run can now be resumed hours after a kill,
+    // the raw (now − startedAt) span would log those idle hours. Bound it to the planned time plus an hour
+    // of grace (covers untimed steps + overrun) so a paused/resumed run never inflates the yearly total.
+    fun elapsedSec(): Int {
+        val plannedSec = steps.sumOf { it.durationSec ?: 0 }
+        val raw = ((System.currentTimeMillis() - startedAt) / 1000).toInt().coerceAtLeast(0)
+        return raw.coerceAtMost(plannedSec + 3600)
+    }
     // On finish: a haptic flourish, tick linked habits/tasks and log the run.
     LaunchedEffect(finished) {
         if (finished) {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            val totalSec = ((System.currentTimeMillis() - startedAt) / 1000).toInt().coerceAtLeast(0)
-            vm.logRoutineRun(RoutineRun(routine.id, today, startedAt, completed.toList(), skipped.toList(), totalSec, lite, finished = true))
+            vm.logRoutineRun(RoutineRun(routine.id, today, startedAt, completed.toList(), skipped.toList(), elapsedSec(), lite, finished = true))
         }
     }
 
     // Back / close while a run is in progress logs a partial run (was a silent discard) and clears the resume.
     fun exitRun() {
         if (started && !finished) {
-            val totalSec = ((System.currentTimeMillis() - startedAt) / 1000).toInt().coerceAtLeast(0)
-            vm.logRoutineRun(RoutineRun(routine.id, today, startedAt, completed.toList(), skipped.toList(), totalSec, lite, finished = false))
+            vm.logRoutineRun(RoutineRun(routine.id, today, startedAt, completed.toList(), skipped.toList(), elapsedSec(), lite, finished = false))
             vm.clearActiveRoutineRun()
         }
         onExit()
@@ -376,8 +382,8 @@ private fun RoutineRunner(vm: AppViewModel, routine: Routine, onExit: () -> Unit
                     secsLeft = d0 ?: 0
                     stepEndMillis = if (d0 != null) System.currentTimeMillis() + d0 * 1000L else 0L
                     // Start the routine's own activity only when step 0 doesn't already carry one (avoids a
-                    // double time-tracker start); habitCategory surfacing still runs via runRoutine.
-                    if (steps.getOrNull(0)?.startActivityId.isNullOrBlank() && (routine.activityId.isNotBlank() || routine.habitCategory.isNotBlank())) vm.runRoutine(routine)
+                    // double time-tracker start).
+                    if (steps.getOrNull(0)?.startActivityId.isNullOrBlank() && routine.activityId.isNotBlank()) vm.runRoutine(routine)
                     persist()
                 })
                 else -> steps.getOrNull(idx)?.let { step ->
