@@ -113,7 +113,7 @@ fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
     val dayLogs by vm.dayLogs.collectAsState()
     val today = vm.today()
     val onThisDay = remember(settings.routineRunsJson, settings.routinesJson, today) {
-        com.todocompanion.app.domain.RoutineInsights.onThisDay(routines, runs, today)
+        com.todocompanion.app.domain.RoutineInsights.onThisDay(routines, runs, today, vm.zoneId)
     }
 
     var running by remember { mutableStateOf<Routine?>(null) }
@@ -205,7 +205,7 @@ fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
             onDelete = { vm.deleteRoutine(r.id); editing = null })
     }
     if (browseCatalog) CatalogDialog(onDismiss = { browseCatalog = false }, onAdd = { vm.upsertRoutine(templateToRoutine(it)); browseCatalog = false })
-    insightsFor?.let { r -> RoutineInsightsDialog(r, runs, dayLogs, today, onDismiss = { insightsFor = null }) }
+    insightsFor?.let { r -> RoutineInsightsDialog(r, runs, dayLogs, today, vm.zoneId, onDismiss = { insightsFor = null }) }
 }
 
 /** Per-routine analytics (adherence, best time, drop-off step, keystone) + a "this year" summary.
@@ -216,9 +216,10 @@ private fun RoutineInsightsDialog(
     runs: List<RoutineRun>,
     dayLogs: List<com.todocompanion.app.data.entity.DayLogEntity>,
     today: Long,
+    zone: java.time.ZoneId,
     onDismiss: () -> Unit,
 ) {
-    val stat = remember(r, runs, dayLogs, today) { com.todocompanion.app.domain.RoutineInsights.forRoutine(r, runs, dayLogs, today) }
+    val stat = remember(r, runs, dayLogs, today) { com.todocompanion.app.domain.RoutineInsights.forRoutine(r, runs, dayLogs, today, zone) }
     // Only this routine's runs — otherwise the per-routine "This year" would sum across every routine.
     val year = remember(runs, r) { com.todocompanion.app.domain.RoutineInsights.yearSummary(listOf(r), runs.filter { it.routineId == r.id }, LocalDate.ofEpochDay(today).year) }
     AlertDialog(

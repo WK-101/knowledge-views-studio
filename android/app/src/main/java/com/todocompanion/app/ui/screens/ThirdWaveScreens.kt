@@ -120,7 +120,7 @@ private fun ExperimentsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit:
             items(exps.size) { i ->
                 val e = exps[i]
                 val h = habits.firstOrNull { it.id == e.habitId }
-                val res = remember(e, checkins, tasks, dayLogs, today) { ThirdWave.analyzeExperiment(e, h ?: return@remember null, checkins, tasks, today, dayLogs = dayLogs) }
+                val res = remember(e, checkins, tasks, dayLogs, today) { ThirdWave.analyzeExperiment(e, h ?: return@remember null, checkins, tasks, today, zone = vm.zoneId, dayLogs = dayLogs) }
                 Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
                     modifier = Modifier.fillMaxWidth().clickable { h?.let { onOpenHabit(it.id) } }) {
                     Column(Modifier.padding(16.dp)) {
@@ -175,7 +175,7 @@ private fun ValuesTimeScreen(vm: AppViewModel, onBack: () -> Unit) {
     val values by vm.coreValues.collectAsState()
     val habits by vm.habits.collectAsState()
     val entries by vm.timeEntries.collectAsState()
-    val today = LocalDate.now().toEpochDay()
+    val today = vm.today()
     val audit = remember(values, habits, entries, today) { ThirdWave.valuesTimeAudit(values, habits, entries, today - 27) }
     val total = audit.sumOf { it.minutes }.coerceAtLeast(1)
     TWScaffold("Values-time mirror", onBack) { pad ->
@@ -212,7 +212,7 @@ private fun ValuesTimeScreen(vm: AppViewModel, onBack: () -> Unit) {
 private fun ActivationScreen(vm: AppViewModel, onBack: () -> Unit) {
     val items by vm.activationItems.collectAsState()
     val values by vm.coreValues.collectAsState()
-    val today = LocalDate.now().toEpochDay()
+    val today = vm.today()
     var text by remember { mutableStateOf("") }
     var valueId by remember { mutableStateOf<String?>(null) }
     var rating by remember { mutableStateOf<com.todocompanion.app.data.entity.ActivationItemEntity?>(null) }
@@ -311,7 +311,7 @@ private fun FocusLockScreen(vm: AppViewModel, onBack: () -> Unit) {
 private fun LifeHeatmapScreen(vm: AppViewModel, onBack: () -> Unit) {
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
-    val today = LocalDate.now().toEpochDay()
+    val today = vm.today()
     val grid = remember(habits, checkins, today) { ThirdWave.compositeHeatmap(habits, checkins, today, 182) }
     val memory = remember(checkins, today) { ThirdWave.onThisDay(checkins, today) }
     val base = MaterialTheme.colorScheme.primary
@@ -351,7 +351,7 @@ private fun CompanionScreen(vm: AppViewModel, onBack: () -> Unit) {
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
     val settings by vm.settings.collectAsState()
-    val today = LocalDate.now().toEpochDay()
+    val today = vm.today()
     val c = remember(habits, checkins, today) { ThirdWave.companion(habits, checkins, today) }
     TWScaffold("Your garden", onBack) { pad ->
         Column(Modifier.padding(pad).fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {

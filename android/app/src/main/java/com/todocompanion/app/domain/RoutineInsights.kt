@@ -65,7 +65,9 @@ object RoutineInsights {
             val done = run.completedStepIds.toSet()
             (done + run.skippedStepIds).forEach { id -> if (id !in done) missCount[id] = (missCount[id] ?: 0) + 1 }
         }
-        val dropOff = missCount.entries.filter { it.value > 0 }.maxByOrNull { it.value }?.key?.let { stepTitle[it] }
+        // Only steps that STILL exist can be named — otherwise a since-deleted top-missed step would blank
+        // the whole drop-off row instead of falling back to the next-most-missed existing step.
+        val dropOff = missCount.entries.filter { it.value > 0 && it.key in stepTitle }.maxByOrNull { it.value }?.let { stepTitle[it.key] }
 
         // Keystone: compare a felt metric on run-days vs other-days (needs ≥3 of each with the metric).
         val runSet = runDays

@@ -223,7 +223,7 @@ private fun PortfolioHeader(vm: AppViewModel, goals: List<Goal>, reviews: List<c
     val overCommit = remember(goals, timeEntries) {
         val caps = goals.mapNotNull { vm.goalCapacity(it) }
         val need = caps.sumOf { it.weeklyNeedH }; val have = caps.firstOrNull()?.weeklyHaveH ?: 0.0
-        if (have > 0.0 && need > have) "⚠︎ Goals want ~${"%.0f".format(need)}h/wk vs ~${"%.0f".format(have)}h of real focus — the whole set may be over budget." else null
+        if (have > 0.0 && need > have + 0.5) "⚠︎ Goals want ~${"%.1f".format(need)}h/wk vs ~${"%.1f".format(have)}h of real focus — the whole set may be over budget." else null
     }
     AppCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -372,9 +372,11 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
                                 style = MaterialTheme.typography.labelSmall, color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
                         }
                     }
-                    if (cap != null) {
+                    // Once the cycle is complete there are 0 days left, which inflates the per-week "needed"
+                    // figure — the honest message then is "re-set", not a capacity number. Suppress it.
+                    if (cap != null && cycle?.complete != true) {
                         Spacer(Modifier.height(8.dp))
-                        Text("Capacity: ~${"%.1f".format(cap.weeklyNeedH)}h/week needed vs ~${"%.0f".format(cap.weeklyHaveH)}h of real focus.",
+                        Text("Capacity: ~${"%.1f".format(cap.weeklyNeedH)}h/week needed vs ~${"%.1f".format(cap.weeklyHaveH)}h of real focus.",
                             style = MaterialTheme.typography.labelSmall, color = if (cap.overcommitted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }

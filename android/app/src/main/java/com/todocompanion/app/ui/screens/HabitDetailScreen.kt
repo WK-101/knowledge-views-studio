@@ -157,9 +157,13 @@ fun HabitDetailScreen(
 
     val isBreak = h.habitType == "break"
     val streakLabel = if (isBreak) "Days clean" else "Current streak"
+    // Break-habit "Days clean" is the SAME clean-time the quit dashboard shows — anchored at the user's
+    // "Start clean-time" mark (quitSinceMillis) when set. Compute it once, here and below, via quitStats
+    // so the header tile and the quit card can never disagree.
+    val cleanDays = if (isBreak) remember(h, hc, today) { com.todocompanion.app.domain.habit.HabitBuilder.quitStats(h, hc, today, vm.zoneId).cleanDays } else current
     val tiles = buildList {
         add("Consistency (30d)" to "${(rate * 100).toInt()}%")
-        add(streakLabel to "$current")
+        add(streakLabel to "${if (isBreak) cleanDays else current}")
         add("Best streak" to "$best")
         add("Days tracked" to "${hc.size}")
         // V1: time-since — for a build habit, how long since the last done day + the average gap.
@@ -1488,7 +1492,7 @@ private fun FourthWaveHabitCards(
     }
 
     // FW-4 · red-chain counter (break).
-    if (isBreak) FW.redChain(h, hc, today)?.let { rc ->
+    if (isBreak) FW.redChain(h, hc, today, vm.zoneId)?.let { rc ->
         Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
             color = if (rc.redDays > 0) MaterialTheme.colorScheme.errorContainer.copy(alpha = .45f) else MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
             Column(Modifier.padding(16.dp)) {

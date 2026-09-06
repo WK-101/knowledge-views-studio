@@ -729,7 +729,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             repo.habitCredited.collect { ev ->
                 habits.value.firstOrNull { it.id == ev.habitId }?.let { h ->
-                    celebrateIfRewardReached(h); awardIfNewlyDone(h, ev.epochDay, ev.oldCount)
+                    celebrateIfRewardReached(h, ev.epochDay); awardIfNewlyDone(h, ev.epochDay, ev.oldCount)
                 }
             }
         }
@@ -2244,7 +2244,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val gs = goals().filter { it.hasBudget }
         val actName = timeActivities.value.associate { it.id to ((it.emoji?.plus(" ") ?: "") + it.name) }
         return gs.groupBy { it.activityId }.filter { it.value.size >= 2 }
-            .map { (act, list) -> "‘${list[0].name}’ and ‘${list[1].name}’ both draw on ${actName[act] ?: "the same activity"} — they compete for the same hours." }
+            .map { (act, list) ->
+                val (label, verb) = if (list.size == 2) "‘${list[0].name}’ and ‘${list[1].name}’" to "both draw"
+                    else list.joinToString(", ") { "‘${it.name}’" } to "all draw"
+                "$label $verb on ${actName[act] ?: "the same activity"} — they compete for the same hours."
+            }
             .take(2)
     }
 
@@ -2542,17 +2546,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     // N2: reward-unlock celebration — surfaced to the Habits screen (confetti + toast) and a notification.
     val rewardCelebration = MutableStateFlow<String?>(null)
-    private fun celebrateIfRewardReached(h: com.todocompanion.app.data.entity.HabitEntity) {
+    private fun celebrateIfRewardReached(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long) {
         if (h.rewardText.isBlank() || h.rewardAtStreak <= 0 || h.habitType == "break") return
+        // Only a live action *today* earns the celebration — backfilling a past day recomputes streaks but
+        // must not pop the reward toast/notification (mirrors awardIfNewlyDone's today-gate).
+        val t = today()
+        if (epochDay != t) return
         viewModelScope.launch {
             val hs = com.todocompanion.app.domain.habit.HabitStats
+            val forgiving = settings.value.forgivingStreaks
             val cks = repo.getHabitCheckinsOnce().filter { it.habitId == h.id }
             val done = cks.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
             val skip = cks.filter { it.status == "skip" }.map { it.epochDay }.toSet()
             val rel = cks.filter { hs.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
-            val streak = hs.currentStreak(h, done, skip, rel, today())
-            if (streak == h.rewardAtStreak) {
-                com.todocompanion.app.reminders.Notifications.showReward(appCtx, h.name, h.rewardText, streak)
+            // Use the SAME streak the detail-screen reward badge shows (forgiving-aware) so "· earned!" and
+            // the celebration can't disagree; fire once, on the day the streak first crosses the target.
+            val streakToday = hs.displayStreak(h, done, skip, rel, t, forgiving)
+            val streakYesterday = hs.displayStreak(h, done, skip, rel, t - 1, forgiving)
+            if (streakToday >= h.rewardAtStreak && streakYesterday < h.rewardAtStreak) {
+                com.todocompanion.app.reminders.Notifications.showReward(appCtx, h.name, h.rewardText, streakToday)
                 rewardCelebration.value = h.rewardText
             }
         }
@@ -2566,13 +2578,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun cycleHabit(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, current: Int) = viewModelScope.launch {
         if (beforeStart(h, epochDay)) return@launch
         repo.cycleCheckin(h.id, epochDay, h.targetPerDay, current, h.clickIncrement, h.extraTarget)
-        refreshHabitWidgets(); celebrateIfRewardReached(h); awardIfNewlyDone(h, epochDay, current)
+        refreshHabitWidgets(); celebrateIfRewardReached(h, epochDay); awardIfNewlyDone(h, epochDay, current)
     }
     /** Numeric / exact value entry for a day (also used to record a break-habit relapse amount). */
     fun setHabitValue(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, count: Int) = viewModelScope.launch {
         if (beforeStart(h, epochDay)) return@launch
         val old = repo.getHabitCheckinsOnce().firstOrNull { it.habitId == h.id && it.epochDay == epochDay }?.count ?: 0
-        repo.setCheckinValue(h.id, epochDay, count); refreshHabitWidgets(); celebrateIfRewardReached(h); awardIfNewlyDone(h, epochDay, old)
+        repo.setCheckinValue(h.id, epochDay, count); refreshHabitWidgets(); celebrateIfRewardReached(h, epochDay); awardIfNewlyDone(h, epochDay, old)
     }
     /** R33 F6 — the "shine": a celebratory pulse surfaced to the Habits screen when a habit is completed. */
     data class HabitShine(val name: String, val emoji: String?, val phrase: String, val colorArgb: Long?)
@@ -3087,14 +3099,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             id = java.util.UUID.randomUUID().toString(), habitId = null, taskId = taskId, description = d, kind = kind,
             milestoneKind = "taskdone", milestoneValue = 1, createdAt = System.currentTimeMillis(), workspaceId = activeWorkspace()))
         toast(if (kind == "stake") "Stake locked on shipping this. It's real now." else "Reward escrowed — earn it by finishing this.")
-    }
-
-    /** Port 4 — record that a task reminder (variant v) was shown, for the reminder-wording MRT. */
-    fun logTaskNudgeShown(taskId: String, variant: Int, day: Long) = viewModelScope.launch {
-        if (repo.nudgeForHabitDay(taskId, day) != null) return@launch
-        repo.upsertNudgeEvent(com.todocompanion.app.data.entity.NudgeEventEntity(
-            id = java.util.UUID.randomUUID().toString(), habitId = taskId, variant = variant, epochDay = day,
-            targetKind = "task", createdAt = System.currentTimeMillis(), workspaceId = activeWorkspace()))
     }
 
     /** Port 8 — fresh-start task planning: pull every stale overdue task onto today, so the week's plan
@@ -4655,7 +4659,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             add("progress" to "${(h.overall * 100).toInt()}%")
             if (g.hasTasks) add("tasks" to "${h.taskDone}/${h.taskTotal}")
             if (g.hasHabit) add("streak" to "${h.habitStreak}d")
-            if (g.hasBudget) add("time" to "${h.minutesTracked / 60}h/${(h.budgetMin / 60)}h")
+            if (g.hasBudget) add("time" to "${"%.1f".format(h.minutesTracked / 60.0)}h/${h.budgetMin / 60}h")
         }.take(4)
         val res = withContext(Dispatchers.IO) {
             val bmp = com.todocompanion.app.util.ProgressCard.renderStatsCard("${g.emoji} ${g.name}", "Goal progress", stats)

@@ -225,8 +225,8 @@ private fun ValuesScreen(vm: AppViewModel, onBack: () -> Unit) {
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
     val tasks by vm.tasks.collectAsState()   // R37 · Port 9 — real work counts toward values (R64: this workspace's work only)
-    val zone = java.time.ZoneId.systemDefault()
-    val today = LocalDate.now().toEpochDay()
+    val zone = vm.zoneId
+    val today = vm.today()
     val weekStart = today - 6
     var editing by remember { mutableStateOf<CoreValueEntity?>(null) }
     var addOpen by remember { mutableStateOf(false) }
@@ -360,7 +360,7 @@ private fun CorrelationsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit
     val tasks by vm.tasks.collectAsState()
     val dayLogs by vm.dayLogs.collectAsState()   // the daily review's felt-state feeds mood/energy correlations
     val today = vm.today()
-    val corr = remember(habits, checkins, tasks, dayLogs, today) { LifeSystems.correlations(habits, checkins, tasks, today, dayLogs = dayLogs) }
+    val corr = remember(habits, checkins, tasks, dayLogs, today) { LifeSystems.correlations(habits, checkins, tasks, today, zone = vm.zoneId, dayLogs = dayLogs) }
     val keystone = remember(corr) { LifeSystems.keystone(corr) }
     LSScaffold("Correlation engine", onBack) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -370,10 +370,13 @@ private fun CorrelationsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit
             }
             if (keystone != null) item {
                 Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth().clickable { onOpenHabit(keystone.id) }) {
+                    // "Keystone" is reserved for the task-output selector (Reasoning.bestKeystone) that drives
+                    // the habit badge/Insights/Goals. This card ranks by lift across ALL felt signals, a broader
+                    // and genuinely different question, so it gets its own name — never two "keystones" at once.
                     Column(Modifier.padding(16.dp)) {
-                        Text("KEYSTONE HABIT", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text("MOST CONNECTED HABIT", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         Text((keystone.emoji?.plus(" ") ?: "") + keystone.name, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Text("Its good days lift the most across everything else. Protect this one.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text("Its good days lift the most across everything else — mood, energy and output. Protect this one.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 }
             }
@@ -407,7 +410,7 @@ private fun ReviewsScreen(vm: AppViewModel, onBack: () -> Unit) {
     val tasks by vm.tasks.collectAsState()
     val values by vm.coreValues.collectAsState()
     val saved by vm.integrityReviews.collectAsState()
-    val today = LocalDate.now()
+    val today = LocalDate.ofEpochDay(vm.today())
     val td = today.toEpochDay()
     var kind by remember { mutableStateOf("weekly") }
     val (startDay, label, periodKey) = remember(kind, td) {
@@ -432,7 +435,7 @@ private fun ReviewsScreen(vm: AppViewModel, onBack: () -> Unit) {
                         StatRow("Completions", "${review.completions}")
                         StatRow("Habits kept active", "${review.activeHabits}")
                         if (review.bestStreakName != null) StatRow("Best streak", "${review.bestStreak} · ${review.bestStreakName}")
-                        if (review.keystoneName != null) StatRow("Keystone", review.keystoneName!!)
+                        if (review.keystoneName != null) StatRow("Most connected", review.keystoneName!!)
                         if (review.automaticityGainName != null) StatRow("Most repetitions", "${review.automaticityGain} · ${review.automaticityGainName}")
                         if (review.values.any { it.actions > 0 }) {
                             Spacer(Modifier.height(6.dp)); HorizontalDivider(); Spacer(Modifier.height(6.dp))
@@ -451,7 +454,7 @@ private fun ReviewsScreen(vm: AppViewModel, onBack: () -> Unit) {
                     val snap = buildString {
                         append("${review.completions} completions · ${review.activeHabits} habits kept")
                         if (review.bestStreakName != null) append(" · best ${review.bestStreak}d (${review.bestStreakName})")
-                        if (review.keystoneName != null) append(" · keystone ${review.keystoneName}")
+                        if (review.keystoneName != null) append(" · most-connected ${review.keystoneName}")
                     }
                     vm.saveIntegrityReview(kind, periodKey, note, snap); note = ""
                 }, enabled = note.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Save to my ledger") }
@@ -606,8 +609,8 @@ private fun LoadBalancerScreen(vm: AppViewModel, onBack: () -> Unit) {
     val tasks by vm.tasks.collectAsState()
     val habits by vm.habits.collectAsState()
     val settings by vm.settings.collectAsState()
-    val today = LocalDate.now().toEpochDay()
-    val forecast = remember(tasks, habits, settings) { FourthWave.lifeLoadForecast(tasks, habits, settings, today, 7) }
+    val today = vm.today()
+    val forecast = remember(tasks, habits, settings) { FourthWave.lifeLoadForecast(tasks, habits, settings, today, 7, vm.zoneId, settings.dayStartMinuteOfDay()) }
     LSScaffold("Life-load balancer", onBack) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
@@ -647,13 +650,14 @@ private fun CausalGraphScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit:
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
     val tasks by vm.tasks.collectAsState()   // R64 — this workspace's task output only
-    val today = LocalDate.now().toEpochDay()
-    val edges = remember(habits, checkins) { FourthWave.causalPrecursors(habits, checkins, today) }
-    val outEdges = remember(habits, checkins, tasks) { FourthWave.causalOutput(habits, checkins, tasks, today) }
+    val dayLogs by vm.dayLogs.collectAsState()   // the daily review's mood feeds the "good day" outcome
+    val today = vm.today()
+    val edges = remember(habits, checkins, dayLogs) { FourthWave.causalPrecursors(habits, checkins, today, dayLogs) }
+    val outEdges = remember(habits, checkins, tasks) { FourthWave.causalOutput(habits, checkins, tasks, today, vm.zoneId) }
     LSScaffold("Causal trigger graph", onBack) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (edges.isEmpty()) item {
-                EmptyBlock("🕸️", "Not enough signal yet", "Log a daily mood on your check-ins for a couple of weeks. Then this shows which habit, done today, most often precedes a good day tomorrow — your own lagged patterns. Correlation, not proof.", null)
+                EmptyBlock("🕸️", "Not enough signal yet", "Log a daily mood — on your check-ins or in the daily review — for a couple of weeks. Then this shows which habit, done today, most often precedes a good day tomorrow — your own lagged patterns. Correlation, not proof.", null)
             } else item {
                 Text("On days after you did these, your next-day mood was better than usual. Suggestive, not proof — a lead to test in the Causal Life Lab.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
@@ -705,7 +709,7 @@ private fun CausalGraphScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit:
 private fun ReceptivityScreen(vm: AppViewModel, onBack: () -> Unit) {
     val checkins by vm.habitCheckins.collectAsState()
     val tasks by vm.tasks.collectAsState()   // R64 — this workspace's task rhythm only
-    val rec = remember(checkins, tasks) { FourthWave.receptivity(checkins, tasks) }
+    val rec = remember(checkins, tasks) { FourthWave.receptivity(checkins, tasks, vm.zoneId) }
     LSScaffold("Receptivity model", onBack) { pad ->
         if (rec == null) {
             Column(Modifier.padding(pad).fillMaxSize()) {
@@ -1104,7 +1108,7 @@ private fun ValuesSortScreen(vm: AppViewModel, onBack: () -> Unit) {
 @Composable
 private fun FreshStartScreen(vm: AppViewModel, onBack: () -> Unit) {
     val settings by vm.settings.collectAsState()
-    val today = LocalDate.now().toEpochDay()
+    val today = vm.today()
     val landmark = remember(today) { FourthWave.temporalLandmark(today) }
     val transition = remember(settings, today) { FourthWave.transitionWindow(settings, today) }
     var declareOpen by remember { mutableStateOf(false) }

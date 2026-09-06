@@ -100,11 +100,14 @@ object FourthWave {
      *  A visible red chain interrupts the "one more won't hurt" story. */
     data class RedChain(val cleanDays: Int, val redDays: Int, val longestClean: Int, val relapses: Int)
 
-    fun redChain(habit: HabitEntity, checkins: List<HabitCheckinEntity>, today: Long): RedChain? {
+    fun redChain(habit: HabitEntity, checkins: List<HabitCheckinEntity>, today: Long, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): RedChain? {
         if (habit.habitType != "break") return null
         val mine = checkins.filter { it.habitId == habit.id }
         val relapseDays = mine.filter { HabitStats.isRelapse(habit, it.count) }.map { it.epochDay }.toSet()
-        val startDay = habit.startEpochDay()
+        // Anchor the clean chain at the user's "Start clean-time" mark (quitSinceMillis) when set, exactly
+        // like HabitBuilder.quitStats, so the red-chain card and the quit dashboard show the same clean count.
+        val quitAnchor = habit.quitSinceMillis?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() }
+        val startDay = maxOf(habit.startEpochDay(zone), quitAnchor ?: Long.MIN_VALUE)
         if (today < startDay) return RedChain(0, 0, 0, 0)
         // Clean streak: consecutive days up to today with no relapse.
         var clean = 0; var d = today
@@ -304,9 +307,16 @@ object FourthWave {
      *  within-person co-occurrence lift over the app's own logs. Correlational, honestly labelled. */
     data class CausalEdge(val habitId: String, val habitName: String, val emoji: String, val lift: Double, val nWith: Int)
 
-    fun causalPrecursors(habits: List<HabitEntity>, checkins: List<HabitCheckinEntity>, today: Long): List<CausalEdge> {
-        // "Good day" = next day's average check-in mood ≥ 4.
-        val moodByDay = checkins.filter { it.ctxMood > 0 }.groupBy { it.epochDay }.mapValues { e -> e.value.map { it.ctxMood }.average() }
+    fun causalPrecursors(
+        habits: List<HabitEntity>, checkins: List<HabitCheckinEntity>, today: Long,
+        dayLogs: List<com.todocompanion.app.data.entity.DayLogEntity> = emptyList(),
+    ): List<CausalEdge> {
+        // "Good day" = that day's mood ≥ 4. The daily review's DayLog is the PRIMARY mood source (the same
+        // felt-state join the correlation engine uses), with check-in ctxMood filling any gap — so a user who
+        // logs mood only in the review still gets a causal graph.
+        val dlMood = dayLogs.mapNotNull { dl -> (dl.pmMood.takeIf { it > 0 } ?: dl.dayRating.takeIf { it > 0 } ?: dl.amMood.takeIf { it > 0 })?.let { dl.epochDay to it.toDouble() } }.toMap()
+        val ciMood = checkins.filter { it.ctxMood > 0 }.groupBy { it.epochDay }.mapValues { e -> e.value.map { it.ctxMood }.average() }
+        val moodByDay = ciMood + dlMood
         if (moodByDay.size < 8) return emptyList()
         val goodDays = moodByDay.filterValues { it >= 4.0 }.keys
         val baseRate = goodDays.size.toDouble() / moodByDay.size
