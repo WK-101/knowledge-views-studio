@@ -329,8 +329,9 @@ private fun CorrelationsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
     val tasks by vm.tasks.collectAsState()
-    val today = LocalDate.now().toEpochDay()
-    val corr = remember(habits, checkins, tasks, today) { LifeSystems.correlations(habits, checkins, tasks, today) }
+    val dayLogs by vm.dayLogs.collectAsState()   // the daily review's felt-state feeds mood/energy correlations
+    val today = vm.today()
+    val corr = remember(habits, checkins, tasks, dayLogs, today) { LifeSystems.correlations(habits, checkins, tasks, today, dayLogs = dayLogs) }
     val keystone = remember(corr) { LifeSystems.keystone(corr) }
     LSScaffold("Correlation engine", onBack) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

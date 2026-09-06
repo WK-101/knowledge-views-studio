@@ -1811,6 +1811,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** A routine to auto-open in the runner (set by the reminder deep-link; RoutinesScreen consumes it). */
     val pendingRoutineRun = MutableStateFlow<String?>(null)
     fun requestRoutineRun(id: String) { pendingRoutineRun.value = id }
+
+    /** The single in-progress run persisted so a routine survives the app being killed mid-run. */
+    fun activeRoutineRun(): com.todocompanion.app.domain.ActiveRoutineRun? =
+        com.todocompanion.app.domain.ActiveRoutineRuns.parse(settings.value.activeRoutineRunJson)
+    fun saveActiveRoutineRun(run: com.todocompanion.app.domain.ActiveRoutineRun) = viewModelScope.launch {
+        repo.saveSettings(settings.value.copy(activeRoutineRunJson = com.todocompanion.app.domain.ActiveRoutineRuns.encode(run)))
+    }
+    fun clearActiveRoutineRun() = viewModelScope.launch {
+        if (settings.value.activeRoutineRunJson.isNotBlank())
+            repo.saveSettings(settings.value.copy(activeRoutineRunJson = ""))
+    }
     fun runRoutine(r: com.todocompanion.app.domain.Routine) = viewModelScope.launch {
         if (r.activityId.isNotBlank() && timeActivities.value.any { it.id == r.activityId && !it.archived }) {
             repo.startTimeTracking(r.activityId, stopFirst = !settings.value.multiTimer)
@@ -2591,9 +2602,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (h.habitType == "break") return
         val newCount = repo.getHabitCheckinsOnce().firstOrNull { it.habitId == h.id && it.epochDay == epochDay }?.count ?: 0
         if (hs.meetsGoal(h, newCount) && !hs.meetsGoal(h, oldCount)) {
-            repo.awardPoints(1)
+            // Celebration is for completing the behaviour *now* — editing a past day to "done" (backfill on
+            // the month calendar) recomputes streaks/aggregates but must not pop the shine or grant a point.
+            val isToday = epochDay == java.time.LocalDate.now(zone).toEpochDay()
+            if (isToday) repo.awardPoints(1)
             // R35 · reward taper — a graduated habit has eased off celebration; it runs on its own now.
-            if (!h.graduated) {
+            if (!h.graduated && isToday) {
                 // Fogg's Tiny Habits: the celebration right after the behaviour is what wires it in —
                 // an immediate hit of "shine". Prefer the user's own words; else a warm, identity-shaped line.
                 val phrase = h.encouragementList().takeIf { it.isNotEmpty() }?.random()

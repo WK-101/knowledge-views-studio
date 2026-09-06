@@ -42,26 +42,31 @@ object LifeSystems {
     fun correlations(
         habits: List<HabitEntity>, checkins: List<HabitCheckinEntity>, tasks: List<TaskEntity>,
         today: Long, minSample: Int = 5, zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+        dayLogs: List<com.todocompanion.app.data.entity.DayLogEntity> = emptyList(),
     ): List<Correlation> {
         val (_, _, tasksByDay) = dailySignals(checkins, tasks, zone)
+        // The daily review's felt-state is the cleanest mood/energy signal: it's per-day and habit-independent,
+        // so it can't be biased by the very habit being correlated, and it works even for a single-habit user
+        // (where the "other habits" fallback yields nothing). Prefer DayLog; fall back to other habits' tags.
+        val dlMood = dayLogs.mapNotNull { dl -> (dl.pmMood.takeIf { it > 0 } ?: dl.dayRating.takeIf { it > 0 } ?: dl.amMood.takeIf { it > 0 })?.let { dl.epochDay to it.toDouble() } }.toMap()
+        val dlEnergy = dayLogs.filter { it.energy > 0 }.associate { it.epochDay to it.energy.toDouble() }
         val out = ArrayList<Correlation>()
         habits.filter { !it.archived }.forEach { h ->
             val start = h.startEpochDay()
             val mine = checkins.filter { it.habitId == h.id }
             val done = mine.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
             if (done.size < minSample) return@forEach
-            // De-bias mood/energy: draw the day's felt-state from OTHER habits' check-ins only, so a habit
-            // never "predicts" a mood it tagged at its own check-in (the self-fulfilling trap). Tasks are
-            // habit-independent, so they stay global.
+            // Tasks are habit-independent, so they stay global. Mood/energy come from DayLog first, then a
+            // de-biased fallback (OTHER habits' check-in tags — never this habit's own, the self-fulfilling trap).
             val others = checkins.filter { it.habitId != h.id }
-            val moodH = others.filter { it.ctxMood > 0 }.groupBy { it.epochDay }.mapValues { e -> e.value.map { it.ctxMood }.average() }
-            val energyH = others.filter { it.ctxEnergy > 0 }.groupBy { it.epochDay }.mapValues { e -> e.value.map { it.ctxEnergy }.average() }
+            val moodH = others.filter { it.ctxMood > 0 }.groupBy { it.epochDay }.mapValues { e -> e.value.map { it.ctxMood }.average() } + dlMood
+            val energyH = others.filter { it.ctxEnergy > 0 }.groupBy { it.epochDay }.mapValues { e -> e.value.map { it.ctxEnergy }.average() } + dlEnergy
             val signals = listOf("mood" to moodH, "energy" to energyH, "tasks done" to tasksByDay)
             signals.forEach { (name, series) ->
                 val onVals = series.filterKeys { it in done }.values
-                // Off-baseline: only days the habit was already active (>= its start), never pre-history —
-                // otherwise the comparison is diluted by days the habit didn't yet exist.
-                val offVals = series.filterKeys { it !in done && it in start..today }.values
+                // Off-baseline: only the habit's own EXPECTED days that it wasn't done (never pre-history and
+                // never rest days) — otherwise the comparison is diluted by days the habit wasn't even due.
+                val offVals = series.filterKeys { it !in done && it in start..today && HabitStats.isExpectedDay(h, it) }.values
                 if (onVals.size >= minSample && offVals.size >= minSample) {
                     val on = onVals.average(); val off = offVals.average()
                     val delta = on - off

@@ -209,10 +209,22 @@ fun GoalsScreen(vm: AppViewModel, onBack: () -> Unit) {
 /** 0.4 / moat #5 — the portfolio scoreboard: overall health, integrity chain, and the review nudge. */
 @Composable
 private fun PortfolioHeader(vm: AppViewModel, goals: List<Goal>, reviews: List<com.todocompanion.app.domain.GoalReview>, today: Long, onReview: () -> Unit) {
-    val overall = remember(goals, reviews) { if (goals.isEmpty()) 0.0 else goals.map { vm.goalHealth(it).overall }.average() }
+    // Live-key the portfolio % so a completed task / tracked minute refreshes it (matching GoalRow).
+    val tasks by vm.tasks.collectAsState()
+    val checkins by vm.habitCheckins.collectAsState()
+    val timeEntries by vm.timeEntries.collectAsState()
+    val overall = remember(goals, tasks, checkins, timeEntries) { if (goals.isEmpty()) 0.0 else goals.map { vm.goalHealth(it).overall }.average() }
     val chain = remember(reviews) { GoalScore.integrityChain(reviews, 7, today, "") }
     val due = remember(reviews) { GoalScore.reviewDue(reviews, 7, today, "") }
     val trend = remember(reviews) { GoalScore.executionTrend(reviews, "", 10) }
+    // Contention (goals fighting for the same tracked hours) + aggregate over-commit (many goals each in
+    // budget but summing past your real weekly focus) — surfaced here, on the canonical Goals surface.
+    val contention = remember(goals, timeEntries) { vm.goalContention() }
+    val overCommit = remember(goals, timeEntries) {
+        val caps = goals.mapNotNull { vm.goalCapacity(it) }
+        val need = caps.sumOf { it.weeklyNeedH }; val have = caps.firstOrNull()?.weeklyHaveH ?: 0.0
+        if (have > 0.0 && need > have) "⚠︎ Goals want ~${"%.0f".format(need)}h/wk vs ~${"%.0f".format(have)}h of real focus — the whole set may be over budget." else null
+    }
     AppCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -239,6 +251,8 @@ private fun PortfolioHeader(vm: AppViewModel, goals: List<Goal>, reviews: List<c
             else Text("Reviewed recently — nice.", Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             FilledTonalButton(onClick = onReview) { Icon(Icons.Filled.CalendarMonth, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Weekly review") }
         }
+        overCommit?.let { Text(it, Modifier.padding(top = 6.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }
+        contention.forEach { Text("⚠︎ $it", Modifier.padding(top = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }
     }
 }
 
@@ -254,6 +268,7 @@ private fun GoalRow(vm: AppViewModel, g: Goal, reviews: List<com.todocompanion.a
     val cycle = remember(g, today) { GoalScore.cycle(g, today) }
     val cap = remember(g, timeEntries) { vm.goalCapacity(g) }
     val coach = remember(g, h) { vm.goalCoaching(g) }
+    val keystone = remember(checkins) { vm.keystoneHabitId() }   // the one habit whose data most predicts good days
     AppCard(modifier = Modifier.clickable { onOpen() }) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(g.emoji, fontSize = 24.sp, modifier = Modifier.padding(end = 10.dp))
@@ -268,7 +283,7 @@ private fun GoalRow(vm: AppViewModel, g: Goal, reviews: List<com.todocompanion.a
         Spacer(Modifier.height(6.dp))
         // Lead vs lag chips — the language of execution.
         val leadBits = buildList {
-            if (g.hasHabit) add("↻ ${h.habitStrength}% · ${h.habitStreak}d")
+            if (g.hasHabit) add((if (g.habitId.isNotBlank() && g.habitId == keystone) "🗝️ " else "") + "↻ ${h.habitStrength}% · ${h.habitStreak}d")
             if (g.hasBudget) add("⏱ ${fmtH(h.minutesTracked)}/${fmtH(h.budgetMin)}")
         }
         val lagBits = buildList {
@@ -282,7 +297,7 @@ private fun GoalRow(vm: AppViewModel, g: Goal, reviews: List<com.todocompanion.a
         Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             cycle?.let {
                 if (it.complete) {
-                    Text("12-week cycle complete · ${(h.overall * 100).toInt()}% — time to review & re-set",
+                    Text("${it.totalWeeks}-week cycle complete · ${(h.overall * 100).toInt()}% — time to review & re-set",
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 } else {
                     val on = GoalScore.onTrack(h.overall, it.elapsedFraction)
@@ -314,10 +329,15 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
     BackHandler(onBack = onBack)
     val today = goalToday()
     val settings by vm.settings.collectAsState()
+    // Key health/capacity on the live stores (like GoalRow) so completing a task or tracking time
+    // refreshes the detail card too — keying on `settings` alone left both stale.
+    val tasks by vm.tasks.collectAsState()
+    val checkins by vm.habitCheckins.collectAsState()
+    val timeEntries by vm.timeEntries.collectAsState()
     val reviews = remember(settings.goalReviewsJson) { vm.goalReviews() }
-    val h = remember(g, settings) { vm.goalHealth(g) }
+    val h = remember(g, tasks, checkins, timeEntries) { vm.goalHealth(g) }
     val cycle = remember(g, today) { GoalScore.cycle(g, today) }
-    val cap = remember(g, settings) { vm.goalCapacity(g) }
+    val cap = remember(g, timeEntries) { vm.goalCapacity(g) }
     var krEdit by remember { mutableStateOf<KeyResult?>(null) }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
@@ -343,10 +363,14 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
                     Spacer(Modifier.height(8.dp)); ProgressTrack(h.overall.toFloat(), height = 10)
                     cycle?.let {
                         Spacer(Modifier.height(10.dp))
-                        val on = GoalScore.onTrack(h.overall, it.elapsedFraction)
-                        Text("12-week cycle · week ${it.weekIndex} of ${it.totalWeeks} · ${it.daysLeft} days left", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
-                        Text(if (on) "On pace — health is keeping up with the calendar." else "Behind pace — health trails the time elapsed.",
-                            style = MaterialTheme.typography.labelSmall, color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                        if (it.complete) {
+                            Text("${it.totalWeeks}-week cycle complete — time to review & re-set.", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary)
+                        } else {
+                            val on = GoalScore.onTrack(h.overall, it.elapsedFraction)
+                            Text("${it.totalWeeks}-week cycle · week ${it.weekIndex} of ${it.totalWeeks} · ${it.daysLeft} days left", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
+                            Text(if (on) "On pace — health is keeping up with the calendar." else "Behind pace — health trails the time elapsed.",
+                                style = MaterialTheme.typography.labelSmall, color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                        }
                     }
                     if (cap != null) {
                         Spacer(Modifier.height(8.dp))
@@ -405,6 +429,20 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
                             val last = GoalScore.lastReview(reviews, g.id)
                             Text(if (last == null) "Not yet reviewed" else "Last review ${dayLabel(last.epochDay)} · 🔗 $chain kept",
                                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            // Commitments kept vs made, summed over the last few reviews (was logged but never shown).
+                            val recent = reviews.filter { it.goalId == g.id }.sortedByDescending { it.epochDay }.take(6)
+                            val made = recent.sumOf { it.commitmentsTotal }
+                            if (made > 0) {
+                                val kept = recent.sumOf { it.commitmentsKept }
+                                Text("Commitments kept $kept/$made", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            // Review-due signal on the goal's own cadence.
+                            if (GoalScore.reviewDue(reviews, g.reviewCadenceDays, today, g.id)) {
+                                Text("⏰ Review due", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
+                            } else {
+                                val d = GoalScore.daysUntilReview(reviews, g.reviewCadenceDays, today, g.id)
+                                if (d in 1..2) Text("Next review in ${d}d", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                         FilledTonalButton(onClick = onReview) { Text("Review") }
                     }
@@ -588,7 +626,12 @@ private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, on
                         }
                         Spacer(Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Start is the baseline the fraction measures from (a "run 2→5 km" KR is 0% at 2, not at 0).
+                            OutlinedTextField(trimNum(kr.start), { s -> keyResults[i] = kr.copy(start = s.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 0.0) }, label = { Text("Start") }, singleLine = true, modifier = Modifier.weight(1f))
                             OutlinedTextField(trimNum(kr.current), { s -> keyResults[i] = kr.copy(current = s.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 0.0) }, label = { Text("Now") }, singleLine = true, modifier = Modifier.weight(1f))
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(trimNum(kr.target), { s -> keyResults[i] = kr.copy(target = s.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 100.0) }, label = { Text("Target") }, singleLine = true, modifier = Modifier.weight(1f))
                             OutlinedTextField(kr.unit, { keyResults[i] = kr.copy(unit = it.take(8)) }, label = { Text("Unit") }, singleLine = true, modifier = Modifier.weight(1f))
                         }
@@ -654,8 +697,8 @@ private fun WeeklyReviewDialog(vm: AppViewModel, scope: String, goals: List<Goal
                 Stepper(execution, { execution = it }, min = 0, max = 100, step = 5, label = "Execution", display = { "$it%" })
                 Spacer(Modifier.height(8.dp))
                 Text("Commitments you kept vs made — the 4DX cadence of accountability.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Stepper(kept, { kept = it.coerceAtMost(total.coerceAtLeast(it)) }, min = 0, max = 20, step = 1, label = "Kept", display = { "$it" })
-                Stepper(total, { total = it }, min = 0, max = 20, step = 1, label = "Made", display = { "$it" })
+                Stepper(kept, { kept = it.coerceAtMost(total) }, min = 0, max = 20, step = 1, label = "Kept", display = { "$it" })
+                Stepper(total, { total = it; if (kept > total) kept = total }, min = 0, max = 20, step = 1, label = "Made", display = { "$it" })
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(note, { note = it }, label = { Text("One line: what's the next lead measure?") }, modifier = Modifier.fillMaxWidth())
             }

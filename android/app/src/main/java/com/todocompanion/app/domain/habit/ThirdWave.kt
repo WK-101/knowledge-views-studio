@@ -102,12 +102,17 @@ object ThirdWave {
     // ── TW-C · n-of-1 experiment analysis ────────────────────────────────────────────────────────
     data class ExperimentResult(val onMean: Double, val offMean: Double, val effect: Double, val nOn: Int, val nOff: Int, val confident: Boolean, val outcomeLabel: String)
 
-    fun analyzeExperiment(exp: ExperimentEntity, habit: HabitEntity, checkins: List<HabitCheckinEntity>, tasks: List<TaskEntity>, today: Long, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): ExperimentResult? {
+    fun analyzeExperiment(exp: ExperimentEntity, habit: HabitEntity, checkins: List<HabitCheckinEntity>, tasks: List<TaskEntity>, today: Long, zone: java.time.ZoneId = java.time.ZoneId.systemDefault(), dayLogs: List<com.todocompanion.app.data.entity.DayLogEntity> = emptyList()): ExperimentResult? {
         val end = minOf(exp.endDay(), today)
         val days = (exp.startDay..end).toList()
         if (days.isEmpty()) return null
-        val moodByDay = checkins.filter { it.ctxMood > 0 }.groupBy { it.epochDay }.mapValues { e -> e.value.map { it.ctxMood }.average() }
-        val energyByDay = checkins.filter { it.ctxEnergy > 0 }.groupBy { it.epochDay }.mapValues { e -> e.value.map { it.ctxEnergy }.average() }
+        // Draw the felt-state outcome from the daily review first, then OTHER habits' tags — never the
+        // manipulated habit's own check-in mood, which would circularly inflate the ON-block effect.
+        val dlMood = dayLogs.mapNotNull { dl -> (dl.pmMood.takeIf { it > 0 } ?: dl.dayRating.takeIf { it > 0 } ?: dl.amMood.takeIf { it > 0 })?.let { dl.epochDay to it.toDouble() } }.toMap()
+        val dlEnergy = dayLogs.filter { it.energy > 0 }.associate { it.epochDay to it.energy.toDouble() }
+        val others = checkins.filter { it.habitId != habit.id }
+        val moodByDay = others.filter { it.ctxMood > 0 }.groupBy { it.epochDay }.mapValues { e -> e.value.map { it.ctxMood }.average() } + dlMood
+        val energyByDay = others.filter { it.ctxEnergy > 0 }.groupBy { it.epochDay }.mapValues { e -> e.value.map { it.ctxEnergy }.average() } + dlEnergy
         val tasksByDay = tasks.filter { it.completed && it.completedAt != null }
             .groupBy { java.time.Instant.ofEpochMilli(it.completedAt!!).atZone(zone).toLocalDate().toEpochDay() }.mapValues { it.value.size.toDouble() }
         val series: Map<Long, Double> = when (exp.outcome) { "mood" -> moodByDay; "energy" -> energyByDay; else -> tasksByDay }

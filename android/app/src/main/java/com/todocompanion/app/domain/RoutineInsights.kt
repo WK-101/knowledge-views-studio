@@ -27,6 +27,7 @@ object RoutineInsights {
         val keystoneDelta: Double,  // avg metric on run-days minus other-days (0 = not enough data)
         val keystoneMetric: String, // "day rating" | "energy" | ""
         val totalRuns: Int,
+        val window: Int = 30,       // the days the routine has existed, capped at 30 — the adherence denominator
     )
 
     private fun dayOf(millis: Long, zone: ZoneId) = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
@@ -59,7 +60,10 @@ object RoutineInsights {
         val stepTitle = r.steps.associate { it.id to it.title }
         val missCount = HashMap<String, Int>()
         runs.filter { it.finished && !it.lite }.forEach { run ->
-            r.steps.forEach { s -> if (s.id !in run.completedStepIds) missCount[s.id] = (missCount[s.id] ?: 0) + 1 }
+            // Scope to the steps that existed at run time (completed ∪ skipped), so a step added *after*
+            // a run isn't spuriously counted "missing" on it. A finished run's missing steps = its skips.
+            val done = run.completedStepIds.toSet()
+            (done + run.skippedStepIds).forEach { id -> if (id !in done) missCount[id] = (missCount[id] ?: 0) + 1 }
         }
         val dropOff = missCount.entries.filter { it.value > 0 }.maxByOrNull { it.value }?.key?.let { stepTitle[it] }
 
@@ -84,7 +88,7 @@ object RoutineInsights {
             routineId = r.id, runs30 = runs30, adherencePct = (runs30 * 100 / window),
             currentStreak = cur, bestStreak = best, bestHour = bestHour,
             dropOffStepTitle = dropOff, keystoneDelta = kDelta, keystoneMetric = kMetric,
-            totalRuns = runs.size,
+            totalRuns = runs.size, window = window,
         )
     }
 

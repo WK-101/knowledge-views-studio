@@ -388,6 +388,7 @@ object AlarmScheduler {
         routines.forEach { r ->
             val min = r.whenReminderMin ?: return@forEach
             if (min !in 0..1439) return@forEach
+            if (r.steps.isEmpty()) return@forEach   // a stepless routine has no runner to open — don't nudge into a dead tap
             var next = LocalDate.now(zone).atTime(LocalTime.of(min / 60, min % 60)).atZone(zone).toInstant().toEpochMilli()
             if (next <= now) next += 86_400_000L
             setAlarm(context, next, broadcast(context, ACTION_ROUTINE, routineReqCode(r.id, min),

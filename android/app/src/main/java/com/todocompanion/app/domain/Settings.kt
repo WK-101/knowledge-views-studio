@@ -231,6 +231,7 @@ data class AppSettings(
     // W6: routine tags — named bundles (activity + habit group) launched by one NFC/QR tap or shortcut.
     val routinesJson: String = "",
     val routineRunsJson: String = "",   // capped press-play run history (adherence, keystone, on-this-day)
+    val activeRoutineRunJson: String = "",  // the single in-progress run, so a routine survives being killed mid-run
     // R41 calendar: reusable event templates (JSON), a pinned secondary time-zone rail, and remembered
     // per-place travel minutes (JSON map) for auto travel buffers. All local; round-trip in the backup.
     val eventTemplatesJson: String = "",
@@ -489,6 +490,7 @@ data class AppSettings(
         Keys.POINTS to pointsBalance.toString(),
         Keys.ROUTINES to routinesJson,
         Keys.ROUTINE_RUNS to routineRunsJson,
+        Keys.ACTIVE_ROUTINE_RUN to activeRoutineRunJson,
         Keys.EVENT_TEMPLATES to eventTemplatesJson,
         Keys.SECONDARY_ZONE to secondaryZoneId,
         Keys.TRAVEL_TIMES to travelTimesJson,
@@ -670,6 +672,7 @@ data class AppSettings(
         const val POINTS = "points_balance"
         const val ROUTINES = "routines"
         const val ROUTINE_RUNS = "routine_runs"
+        const val ACTIVE_ROUTINE_RUN = "active_routine_run"
         const val EVENT_TEMPLATES = "event_templates"
         const val SECONDARY_ZONE = "secondary_zone"
         const val TRAVEL_TIMES = "travel_times"
@@ -821,6 +824,7 @@ data class AppSettings(
             pointsBalance = m[Keys.POINTS]?.toIntOrNull() ?: 0,
             routinesJson = m[Keys.ROUTINES] ?: "",
             routineRunsJson = m[Keys.ROUTINE_RUNS] ?: "",
+            activeRoutineRunJson = m[Keys.ACTIVE_ROUTINE_RUN] ?: "",
             eventTemplatesJson = m[Keys.EVENT_TEMPLATES] ?: "",
             secondaryZoneId = m[Keys.SECONDARY_ZONE] ?: "",
             travelTimesJson = m[Keys.TRAVEL_TIMES] ?: "",

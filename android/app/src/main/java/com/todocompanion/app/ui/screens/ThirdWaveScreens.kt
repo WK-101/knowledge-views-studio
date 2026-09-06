@@ -107,7 +107,8 @@ private fun ExperimentsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit:
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
     val tasks by vm.tasks.collectAsState()
-    val today = LocalDate.now().toEpochDay()
+    val dayLogs by vm.dayLogs.collectAsState()   // felt-state outcome for the experiment, de-biased from the habit itself
+    val today = vm.today()
     var addOpen by remember { mutableStateOf(false) }
     TWScaffold("Causal Life Lab", onBack, actions = { IconButton(onClick = { addOpen = true }) { Icon(Icons.Filled.Add, "New experiment") } }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -119,7 +120,7 @@ private fun ExperimentsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit:
             items(exps.size) { i ->
                 val e = exps[i]
                 val h = habits.firstOrNull { it.id == e.habitId }
-                val res = remember(e, checkins, tasks, today) { ThirdWave.analyzeExperiment(e, h ?: return@remember null, checkins, tasks, today) }
+                val res = remember(e, checkins, tasks, dayLogs, today) { ThirdWave.analyzeExperiment(e, h ?: return@remember null, checkins, tasks, today, dayLogs = dayLogs) }
                 Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
                     modifier = Modifier.fillMaxWidth().clickable { h?.let { onOpenHabit(it.id) } }) {
                     Column(Modifier.padding(16.dp)) {

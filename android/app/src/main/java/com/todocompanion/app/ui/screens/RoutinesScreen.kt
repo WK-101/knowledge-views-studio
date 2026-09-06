@@ -227,7 +227,7 @@ private fun RoutineInsightsDialog(
         title = { Text("${r.emoji} ${r.name}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                InsightRow("Kept", "${stat.runs30} of the last 30 days" + (if (stat.currentStreak > 1) " · ${stat.currentStreak}-day streak" else ""))
+                InsightRow("Kept", "${stat.adherencePct}% · ${stat.runs30} of the last ${stat.window} days" + (if (stat.currentStreak > 1) " · ${stat.currentStreak}-day streak" else ""))
                 if (stat.bestStreak > 1) InsightRow("Best streak", "${stat.bestStreak} days")
                 stat.bestHour?.let { InsightRow("Usual time", "%02d:00".format(it)) }
                 stat.dropOffStepTitle?.let { InsightRow("Drop-off step", it, hint = "the step you skip most") }
@@ -262,7 +262,6 @@ private fun oneDp(v: Double): String = "%.1f".format(v)
 // ── The runner ──────────────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun RoutineRunner(vm: AppViewModel, routine: Routine, onExit: () -> Unit) {
-    BackHandler(onBack = onExit)
     val haptic = LocalHapticFeedback.current
     val today = vm.today()
 
@@ -279,24 +278,67 @@ private fun RoutineRunner(vm: AppViewModel, routine: Routine, onExit: () -> Unit
     var secsLeft by remember { mutableIntStateOf(0) }
     var paused by remember { mutableStateOf(false) }
     var startedAt by remember { mutableLongStateOf(0L) }
+    var stepEndMillis by remember { mutableLongStateOf(0L) }   // wall-clock end of the current timed step (0 = untimed/paused)
     val completed = remember { mutableStateListOf<String>() }
     val skipped = remember { mutableStateListOf<String>() }
+
+    // Persist the in-progress run so a background/kill mid-routine doesn't lose it (durability, moat).
+    fun persist() {
+        if (!started || finished) return
+        vm.saveActiveRoutineRun(com.todocompanion.app.domain.ActiveRoutineRun(
+            routineId = routine.id, lite = lite, idx = idx, startedAtMillis = startedAt,
+            stepEndMillis = if (paused) 0L else stepEndMillis, remainingSec = if (paused) secsLeft else 0,
+            paused = paused, completedStepIds = completed.toList(), skippedStepIds = skipped.toList()))
+    }
+
+    // Restore a persisted run for THIS routine once, on entry — resuming the timer from the stored end time.
+    var restored by remember { mutableStateOf(false) }
+    LaunchedEffect(routine.id) {
+        if (restored) return@LaunchedEffect
+        restored = true
+        val a = vm.activeRoutineRun()?.takeIf { it.routineId == routine.id } ?: return@LaunchedEffect
+        lite = a.lite
+        val restSteps = if (a.lite) Routines.lite(routine).steps else routine.steps
+        if (a.idx !in restSteps.indices) { vm.clearActiveRoutineRun(); return@LaunchedEffect }
+        completed.clear(); completed.addAll(a.completedStepIds)
+        skipped.clear(); skipped.addAll(a.skippedStepIds)
+        idx = a.idx; startedAt = a.startedAtMillis; paused = a.paused
+        val dur = restSteps[a.idx].durationSec
+        when {
+            dur == null -> { secsLeft = 0; stepEndMillis = 0L }
+            a.paused -> { secsLeft = a.remainingSec.coerceAtLeast(0); stepEndMillis = 0L }
+            else -> { stepEndMillis = a.stepEndMillis; secsLeft = (((a.stepEndMillis - System.currentTimeMillis()) + 999) / 1000).toInt().coerceAtLeast(0) }
+        }
+        started = true
+    }
 
     fun advance(complete: Boolean) {
         val step = steps.getOrNull(idx) ?: return
         if (complete) { if (step.id !in completed) completed.add(step.id) } else { if (step.id !in skipped) skipped.add(step.id) }
-        if (idx < steps.lastIndex) { idx += 1; secsLeft = steps[idx].durationSec ?: 0; paused = false } else finished = true
+        if (idx < steps.lastIndex) {
+            idx += 1; paused = false
+            val d = steps[idx].durationSec
+            secsLeft = d ?: 0
+            stepEndMillis = if (d != null) System.currentTimeMillis() + d * 1000L else 0L
+            persist()
+        } else { finished = true; vm.clearActiveRoutineRun() }
     }
 
     // Entering a step whose startActivityId is set starts the time-tracker for it.
     LaunchedEffect(idx, started) {
         if (started && !finished) steps.getOrNull(idx)?.startActivityId?.takeIf { it.isNotBlank() }?.let { vm.startTimeTracking(it) }
     }
-    // Countdown for a timed step; auto-advances at 0. Untimed steps just wait for a Done tap.
-    LaunchedEffect(idx, started) {
-        if (!started || finished) return@LaunchedEffect
-        if ((steps.getOrNull(idx)?.durationSec) == null) return@LaunchedEffect
-        while (secsLeft > 0) { kotlinx.coroutines.delay(1000); if (!paused) secsLeft -= 1 }
+    // Wall-clock countdown for a timed step; auto-advances at the stored end time (survives doze/background,
+    // resumes correctly after a kill). Untimed steps just wait for a Done tap.
+    LaunchedEffect(idx, started, paused, stepEndMillis) {
+        if (!started || finished || paused) return@LaunchedEffect
+        if ((steps.getOrNull(idx)?.durationSec) == null || stepEndMillis <= 0L) return@LaunchedEffect
+        while (System.currentTimeMillis() < stepEndMillis) {
+            kotlinx.coroutines.delay(250)
+            if (paused) return@LaunchedEffect
+            secsLeft = (((stepEndMillis - System.currentTimeMillis()) + 999) / 1000).toInt().coerceAtLeast(0)
+        }
+        secsLeft = 0
         advance(complete = true)
     }
     // On finish: a haptic flourish, tick linked habits/tasks and log the run.
@@ -308,32 +350,48 @@ private fun RoutineRunner(vm: AppViewModel, routine: Routine, onExit: () -> Unit
         }
     }
 
+    // Back / close while a run is in progress logs a partial run (was a silent discard) and clears the resume.
+    fun exitRun() {
+        if (started && !finished) {
+            val totalSec = ((System.currentTimeMillis() - startedAt) / 1000).toInt().coerceAtLeast(0)
+            vm.logRoutineRun(RoutineRun(routine.id, today, startedAt, completed.toList(), skipped.toList(), totalSec, lite, finished = false))
+            vm.clearActiveRoutineRun()
+        }
+        onExit()
+    }
+
+    BackHandler(onBack = { exitRun() })
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxSize().systemBarsPadding()) {
             // Slim top bar with a back / close.
             Row(Modifier.fillMaxWidth().padding(start = 4.dp, top = 4.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onExit) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Close") }
+                IconButton(onClick = { exitRun() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Close") }
                 Text(routine.emoji + "  " + routine.name.ifBlank { "Routine" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             when {
                 finished -> FinishContent(completed.size, skipped.size, lite, onDone = onExit)
                 !started -> PreStart(routine, steps, lite, autoSuggested = autoLite, onToggleLite = { lite = it }, onStart = {
-                    started = true; startedAt = System.currentTimeMillis(); idx = 0
-                    secsLeft = steps.getOrNull(0)?.durationSec ?: 0; paused = false; completed.clear(); skipped.clear()
-                    if (routine.activityId.isNotBlank() || routine.habitCategory.isNotBlank()) vm.runRoutine(routine)
+                    started = true; startedAt = System.currentTimeMillis(); idx = 0; paused = false; completed.clear(); skipped.clear()
+                    val d0 = steps.getOrNull(0)?.durationSec
+                    secsLeft = d0 ?: 0
+                    stepEndMillis = if (d0 != null) System.currentTimeMillis() + d0 * 1000L else 0L
+                    // Start the routine's own activity only when step 0 doesn't already carry one (avoids a
+                    // double time-tracker start); habitCategory surfacing still runs via runRoutine.
+                    if (steps.getOrNull(0)?.startActivityId.isNullOrBlank() && (routine.activityId.isNotBlank() || routine.habitCategory.isNotBlank())) vm.runRoutine(routine)
+                    persist()
                 })
                 else -> steps.getOrNull(idx)?.let { step ->
                     Running(
                         step = step, idx = idx, total = steps.size, secsLeft = secsLeft, paused = paused,
-                        onPauseResume = { paused = !paused },
-                        onSkip = { advance(complete = false) },
-                        onAddMinute = { secsLeft += 60 },
-                        onDone = { advance(complete = true) },
-                        onEnd = {
-                            val totalSec = ((System.currentTimeMillis() - startedAt) / 1000).toInt().coerceAtLeast(0)
-                            vm.logRoutineRun(RoutineRun(routine.id, today, startedAt, completed.toList(), skipped.toList(), totalSec, lite, finished = false))
-                            onExit()
+                        onPauseResume = {
+                            if (paused) { stepEndMillis = System.currentTimeMillis() + secsLeft * 1000L; paused = false }
+                            else { paused = true; stepEndMillis = 0L }   // freeze: secsLeft holds the remainder
+                            persist()
                         },
+                        onSkip = { advance(complete = false) },
+                        onAddMinute = { secsLeft += 60; if (!paused && step.durationSec != null) stepEndMillis += 60_000L; persist() },
+                        onDone = { advance(complete = true) },
+                        onEnd = { exitRun() },
                     )
                 }
             }

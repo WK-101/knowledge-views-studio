@@ -94,7 +94,9 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
         }
         val avgStrength = perHabit.map { it.strength }.average().toInt()
         val monthStart = today - 29
-        val checkinsThisMonth = checkins.count { it.epochDay in monthStart..today && it.status == "done" }
+        val habitById = habits.associateBy { it.id }
+        // Count genuine successes only — a break-habit slip is stored as status="done" but must not inflate "Done".
+        val checkinsThisMonth = checkins.count { c -> c.epochDay in monthStart..today && habitById[c.habitId]?.let { HabitStats.isSuccessDay(it, c) } == true }
         val bestStreakOverall = perHabit.maxOfOrNull { it.streak } ?: 0
 
         // Weekday aggregate (average completion rate across build habits).

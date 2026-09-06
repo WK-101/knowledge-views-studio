@@ -104,6 +104,32 @@ object RoutineRuns {
 }
 
 /**
+ * A single in-progress run, persisted so a routine survives the app being backgrounded or killed mid-run
+ * (very likely during a 50–90-minute sprint). The countdown is anchored to [stepEndMillis] (wall clock),
+ * not a tick counter, so it resumes correctly after doze/kill instead of freezing or drifting. Held as one
+ * settings-JSON value; cleared on finish or exit. Only the most recent run is kept (a single active run).
+ */
+@Serializable
+data class ActiveRoutineRun(
+    val routineId: String,
+    val lite: Boolean,
+    val idx: Int,
+    val startedAtMillis: Long,
+    val stepEndMillis: Long,        // wall-clock end of the current timed step (0 = untimed / paused)
+    val remainingSec: Int,          // frozen remaining seconds while paused (used when stepEndMillis == 0)
+    val paused: Boolean = false,
+    val completedStepIds: List<String> = emptyList(),
+    val skippedStepIds: List<String> = emptyList(),
+)
+
+object ActiveRoutineRuns {
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    fun parse(s: String): ActiveRoutineRun? =
+        if (s.isBlank()) null else runCatching { json.decodeFromString<ActiveRoutineRun>(s) }.getOrNull()
+    fun encode(run: ActiveRoutineRun?): String = if (run == null) "" else runCatching { json.encodeToString(run) }.getOrDefault("")
+}
+
+/**
  * Shipped starter catalog — data only, mirroring HabitJourneys. Each is a named, ordered, timed ritual the
  * user can add in one tap. Durations are seconds. Verbal-cue steps (Newport's "shutdown complete") are
  * plain check-off steps. IDs are assigned fresh when a catalog routine is added to the user's own list.
