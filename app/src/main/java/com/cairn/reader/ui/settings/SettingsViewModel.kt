@@ -40,6 +40,7 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     highlightRepository: HighlightRepository,
     ruleRepository: com.cairn.reader.data.repo.RuleRepository,
+    itemRepository: com.cairn.reader.data.repo.ItemRepository,
 ) : ViewModel() {
 
     val sources: StateFlow<List<SourceEntity>> =
@@ -47,6 +48,11 @@ class SettingsViewModel @Inject constructor(
 
     val highlightCount: StateFlow<Int> =
         highlightRepository.observeCount().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    /** Total articles held on this device — the "your data is safe here" figure. */
+    val savedCount: StateFlow<Int> =
+        itemRepository.libraryCounts().map { it.allCount }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     /** How many automation rules are enabled — shown as the Rules row subtitle. */
     val ruleCount: StateFlow<Int> =

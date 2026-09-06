@@ -54,7 +54,7 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "One quiet, private home for everything you read.",
+            "One quiet, private home for everything you read — and it's yours forever.",
             style = MaterialTheme.typography.bodyLarge,
             color = scheme.onSurfaceVariant,
         )
@@ -74,8 +74,8 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
         Spacer(Modifier.height(20.dp))
         Pillar(
             icon = Icons.Outlined.Lock,
-            title = "Private",
-            body = "Everything stays on your device. No account, no servers, no tracking — it just works offline.",
+            title = "Yours forever",
+            body = "No account, no servers, no tracking — everything stays on your device. And nothing's locked in: export to Markdown, EPUB or a full backup any time. If Cairn ever vanished, your library wouldn't.",
         )
 
         Spacer(Modifier.height(40.dp))

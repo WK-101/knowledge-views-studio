@@ -46,6 +46,7 @@ import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.RssFeed
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.MarkEmailRead
 import androidx.compose.material.icons.outlined.MoreVert
@@ -144,6 +145,7 @@ private enum class Destination(val label: String, val icon: ImageVector, val isP
     Offline("Offline", Icons.Outlined.OfflinePin),
     Rules("Rules", Icons.Outlined.Bolt),
     Insights("Insights", Icons.Outlined.Insights),
+    DataForever("Your Data", Icons.Outlined.Shield, shortLabel = "Data"),
     Settings("Settings", Icons.Outlined.Settings);
 
     /** A compact label for the bottom nav bar, where six items must each fit on one line. */
@@ -155,7 +157,7 @@ private enum class Destination(val label: String, val icon: ImageVector, val isP
 private val OWN_TOP_BAR = setOf(
     Destination.Library, Destination.Discover, Destination.ReadLater, Destination.Highlights,
     Destination.Feeds, Destination.Search, Destination.Trash, Destination.Offline, Destination.Rules, Destination.Insights,
-    Destination.Brief, Destination.Triage, Destination.Review,
+    Destination.Brief, Destination.Triage, Destination.Review, Destination.DataForever,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -283,6 +285,7 @@ fun CairnApp(
                     onManageFeeds = { goTo(Destination.Feeds) },
                     onTrash = { goTo(Destination.Trash) },
                     trashCount = trashCount,
+                    onDataForever = { goTo(Destination.DataForever) },
                     onSettings = { goTo(Destination.Settings) },
                 )
             }
@@ -482,7 +485,8 @@ fun CairnApp(
                 Destination.Brief -> com.cairn.reader.ui.brief.BriefScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
                 Destination.Triage -> com.cairn.reader.ui.triage.TriageScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
                 Destination.Review -> com.cairn.reader.ui.review.ReviewScreen(padding, onOpenDrawer = openDrawer)
-                Destination.Settings -> SettingsScreen(padding, onOpenNotebook = { goTo(Destination.Highlights) }, onOpenOffline = { goTo(Destination.Offline) }, onOpenRules = { goTo(Destination.Rules) }, onOpenInsights = { goTo(Destination.Insights) })
+                Destination.DataForever -> com.cairn.reader.ui.settings.DataForeverScreen(padding, onOpenDrawer = openDrawer, onOpenBackupSettings = { goTo(Destination.Settings) })
+                Destination.Settings -> SettingsScreen(padding, onOpenNotebook = { goTo(Destination.Highlights) }, onOpenOffline = { goTo(Destination.Offline) }, onOpenRules = { goTo(Destination.Rules) }, onOpenInsights = { goTo(Destination.Insights) }, onOpenDataForever = { goTo(Destination.DataForever) })
                 // Inbox and any non-pane fallthrough render the Inbox.
                 else -> InboxScreen(padding, inboxViewModel, open, onOpenWeb, inboxViewMode, inboxListState)
             }

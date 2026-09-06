@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.draw.clip
@@ -43,6 +44,7 @@ import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.GridOn
 import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
@@ -91,6 +93,7 @@ fun SettingsScreen(
     onOpenOffline: () -> Unit = {},
     onOpenRules: () -> Unit = {},
     onOpenInsights: () -> Unit = {},
+    onOpenDataForever: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val sources by viewModel.sources.collectAsStateWithLifecycle()
@@ -182,6 +185,27 @@ fun SettingsScreen(
             bottom = padding.calculateBottomPadding() + 32.dp,
         ),
     ) {
+        item {
+            // Anti-shutdown headline: one tap to the "Your data, forever" panel.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(scheme.primaryContainer)
+                    .clickable(onClick = onOpenDataForever)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Outlined.Shield, contentDescription = null, tint = scheme.onPrimaryContainer, modifier = Modifier.size(26.dp))
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Your data, forever", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = scheme.onPrimaryContainer)
+                    Text("No account, no lock-in. Back up and export to Markdown, EPUB, or a full archive — any time.", style = MaterialTheme.typography.bodySmall, color = scheme.onPrimaryContainer.copy(alpha = 0.85f))
+                }
+                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = scheme.onPrimaryContainer)
+            }
+        }
         item {
             Row(
                 modifier = Modifier.fillMaxWidth().clickable { sourcesExpanded = !sourcesExpanded }.padding(horizontal = 20.dp, vertical = 8.dp),

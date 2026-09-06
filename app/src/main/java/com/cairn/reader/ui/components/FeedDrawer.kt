@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Newspaper
 import androidx.compose.material.icons.outlined.School
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.RssFeed
@@ -94,6 +95,7 @@ fun FeedDrawerContent(
     onManageFeeds: () -> Unit,
     onTrash: () -> Unit,
     trashCount: Int = 0,
+    onDataForever: () -> Unit = {},
     onSettings: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -283,6 +285,13 @@ fun FeedDrawerContent(
             icon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
             badge = { if (trashCount > 0) Text("$trashCount") },
             onClick = onTrash,
+            modifier = Modifier.padding(itemPad),
+        )
+        NavigationDrawerItem(
+            label = { Text("Your data, forever") },
+            selected = false,
+            icon = { Icon(Icons.Outlined.Shield, contentDescription = null) },
+            onClick = onDataForever,
             modifier = Modifier.padding(itemPad),
         )
     }
