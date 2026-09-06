@@ -158,6 +158,8 @@ import com.cairn.reader.ui.util.nextSpeed
 import com.cairn.reader.ui.util.speedLabel
 import com.cairn.reader.data.db.CacheStatus
 import com.cairn.reader.data.db.ExtractStatus
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 private val ReaderHPad = 22.dp
 
@@ -1731,6 +1733,7 @@ private fun SheetSectionLabel(text: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         letterSpacing = 1.2.sp,
         fontWeight = FontWeight.Medium,
+        modifier = Modifier.semantics { heading() },
     )
 }
 

@@ -100,6 +100,8 @@ import com.cairn.reader.data.db.TagWithCount
 import com.cairn.reader.data.prefs.LibraryViewMode
 import com.cairn.reader.ui.components.CollectionPickerSheet
 import com.cairn.reader.ui.components.ItemRow
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 @Composable
 fun LibraryScreen(
@@ -847,7 +849,7 @@ private fun HomeSectionLabel(text: String, modifier: Modifier = Modifier) {
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.primary,
-        modifier = modifier.padding(bottom = 2.dp),
+        modifier = modifier.padding(bottom = 2.dp).semantics { heading() },
     )
 }
 

@@ -71,6 +71,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /** Standalone Discover (its own top bar + back), for the drawer route / deep link. */
 @Composable
@@ -317,6 +319,6 @@ private fun SectionLabel(text: String, modifier: Modifier = Modifier) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         letterSpacing = 1.4.sp,
         fontWeight = FontWeight.Medium,
-        modifier = modifier,
+        modifier = modifier.semantics { heading() },
     )
 }

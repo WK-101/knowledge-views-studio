@@ -88,6 +88,8 @@ import com.cairn.reader.data.prefs.ReaderTheme
 import com.cairn.reader.data.prefs.SwipeAction
 import com.cairn.reader.data.prefs.ThemeMode
 import com.cairn.reader.ui.components.FeedSettingsSheet
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 @Composable
 fun SettingsScreen(
@@ -1288,6 +1290,7 @@ private fun SectionLabel(text: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         letterSpacing = 1.5.sp,
         fontWeight = FontWeight.Medium,
+        modifier = Modifier.semantics { heading() },
     )
 }
 

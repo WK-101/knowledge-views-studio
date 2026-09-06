@@ -64,6 +64,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.data.db.CacheStatus
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /**
  * The Offline surface: a dedicated list of everything readable without a network — explicit
@@ -465,7 +467,7 @@ private fun SectionHeader(text: String) {
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 20.dp, top = 18.dp, bottom = 4.dp),
+        modifier = Modifier.padding(start = 20.dp, top = 18.dp, bottom = 4.dp).semantics { heading() },
     )
 }
 

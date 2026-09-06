@@ -46,6 +46,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.data.repo.HygieneIssue
 import com.cairn.reader.data.repo.ReadingAnalytics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 @Composable
 fun InsightsScreen(
@@ -215,7 +217,7 @@ private fun HygieneCard(issue: HygieneIssue, onHeal: (() -> Unit)? = null, heali
 
 @Composable
 private fun SectionLabel(text: String) {
-    Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+    Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold, modifier = Modifier.semantics { heading() })
 }
 
 private fun formatMinutes(min: Int): String = when {

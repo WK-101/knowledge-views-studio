@@ -124,6 +124,8 @@ import com.cairn.reader.ui.inbox.InboxFilter
 import com.cairn.reader.ui.inbox.InboxViewModel
 import com.cairn.reader.ui.library.LibraryScreen
 import com.cairn.reader.ui.settings.SettingsScreen
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /**
  * A top-level destination. Every destination is now a pane rendered in place inside the one shared
@@ -867,7 +869,7 @@ private fun MenuSectionLabel(text: String) {
         text,
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp),
+        modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp).semantics { heading() },
     )
 }
 
