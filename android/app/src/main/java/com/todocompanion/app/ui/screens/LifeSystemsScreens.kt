@@ -150,15 +150,37 @@ private fun HubScreen(vm: AppViewModel, onBack: () -> Unit, listState: androidx.
                 Text("From tracking habits to engineering a life — private, permanent, and entirely on your device.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
             }
-            items(entries.size) { i ->
-                val e = entries[i]
-                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
-                    modifier = Modifier.fillMaxWidth().clickable { vm.lifeSystemsRoute.value = e.route }) {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(e.emoji, fontSize = 26.sp, modifier = Modifier.padding(end = 14.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(e.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text(e.blurb, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // Grouped into meaningful sections so the toolkit reads as a structured system, not a wall of
+            // 20+ undifferentiated cards. Order runs define → understand → act → commit → steady → reflect.
+            val byRoute = entries.associateBy { it.route }
+            val sections = listOf(
+                "Define the direction" to listOf("values", "valuesort", "scorecard"),
+                "Read your own data" to listOf("correlations", "experiments", "causal", "valuestime", "heatmap", "receptivity", "nudgelab"),
+                "Rituals & focus" to listOf("runner", "activation", "focuslock", "freshstart"),
+                "Make it stick" to listOf("ifthen", "bundling", "escrow", "loadbalancer"),
+                "Calm & support" to listOf("grounding", "companion", "buddies"),
+                "Review & identity" to listOf("reviews", "ledger"),
+            )
+            val placed = sections.flatMap { it.second }.toSet()
+            val withOverflow = sections + ("More" to entries.map { it.route }.filter { it !in placed })
+            withOverflow.forEach { (header, routes) ->
+                val group = routes.mapNotNull { byRoute[it] }
+                if (group.isNotEmpty()) {
+                    item(key = "hdr:$header") {
+                        Text(header.uppercase(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp, bottom = 2.dp))
+                    }
+                    items(group.size, key = { "ls:${group[it].route}" }) { i ->
+                        val e = group[i]
+                        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+                            modifier = Modifier.fillMaxWidth().clickable { vm.lifeSystemsRoute.value = e.route }) {
+                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(e.emoji, fontSize = 26.sp, modifier = Modifier.padding(end = 14.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(e.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                    Text(e.blurb, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
                         }
                     }
                 }

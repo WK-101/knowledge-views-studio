@@ -75,7 +75,7 @@ import java.time.ZoneId
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
+fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit, onOpenGoals: () -> Unit = {}) {
     BackHandler(onBack = onBack)
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
@@ -303,15 +303,16 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
             // ── Tier X · the reasoning layer ─────────────────────────────────────────────────────────
 
             // X1 — Unified Goals: one objective across a task list + a habit + a time budget, one health bar.
+            // The full editor lives in the dedicated Goals surface; Momentum shows a read-only summary and
+            // opens that one surface, rather than duplicating a second, weaker goals editor here.
             val goals = remember(settings) { vm.goals() }
-            var showGoals by remember { mutableStateOf(false) }
             AppCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("Goals", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                         Text("One objective across tasks, a habit and a time budget.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    TextButton(onClick = { showGoals = true }) { Text(if (goals.isEmpty()) "Add" else "Manage") }
+                    TextButton(onClick = onOpenGoals) { Text(if (goals.isEmpty()) "Add" else "Manage") }
                 }
                 goals.forEach { g ->
                     val gh = remember(g, tasks, habits, checkins, timeEntries) { vm.goalHealth(g) }
@@ -350,7 +351,6 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
                     Text("⚠︎ $c", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                 }
             }
-            if (showGoals) GoalsEditorDialog(vm) { showGoals = false }
 
             // Y6 — anti-burnout radar (Z2: dismissible). A caring, early signal you can silence.
             val burnout = remember(timeEntries, habits, checkins, settings) { if (vm.isInsightSuppressed("burnout")) null else vm.burnoutSignal() }
@@ -765,83 +765,6 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit) {
 // MTile is gone — Momentum's input tiles and weekly-digest tiles now use the shared StatTile
 // from ui/components/ReviewComponents.kt.
 
-/**
- * X1 — the Unified Goals editor: build a goal from any mix of a task list, a supporting habit, and a
- * time budget against an activity. Only this app can bind all three into one objective. Fully offline.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun GoalsEditorDialog(vm: AppViewModel, onDismiss: () -> Unit) {
-    val goals = remember { mutableStateOf(vm.goals()) }
-    val lists by vm.lists.collectAsState()
-    val habits by vm.habits.collectAsState()
-    val activities by vm.timeActivities.collectAsState()
-    var name by remember { mutableStateOf("") }
-    var emoji by remember { mutableStateOf("🎯") }
-    var listId by remember { mutableStateOf("") }
-    var habitId by remember { mutableStateOf("") }
-    var activityId by remember { mutableStateOf("") }
-    var budgetH by remember { mutableStateOf("") }
-    fun persist(newList: List<com.todocompanion.app.domain.Goal>) { goals.value = newList; vm.saveGoals(newList) }
-    val faint = MaterialTheme.colorScheme.onSurfaceVariant
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
-        title = { Text("Goals") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                goals.value.forEach { g ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("${g.emoji} ${g.name}", Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        TextButton(onClick = { persist(goals.value.filterNot { it.id == g.id }) }) { Text("Remove") }
-                    }
-                }
-                Spacer(Modifier.height(6.dp))
-                Text("New goal", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                // Y5 — the goal library: one tap pre-shapes name, icon and budget.
-                Spacer(Modifier.height(6.dp)); Text("Start from a template", style = MaterialTheme.typography.labelSmall, color = faint)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    com.todocompanion.app.domain.Goals.TEMPLATES.forEach { t ->
-                        FilterChip(selected = false, onClick = { name = t.name; emoji = t.emoji; budgetH = t.budgetHours.toString() }, label = { Text("${t.emoji} ${t.name}") })
-                    }
-                }
-                Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    com.todocompanion.app.ui.components.AppTextField(value = emoji, onValueChange = { emoji = it.take(2) }, modifier = Modifier.width(76.dp), label = { Text("Icon") }, singleLine = true)
-                    com.todocompanion.app.ui.components.AppTextField(value = name, onValueChange = { name = it }, modifier = Modifier.weight(1f), label = { Text("Name") }, singleLine = true)
-                }
-                Spacer(Modifier.height(8.dp)); Text("Task list", style = MaterialTheme.typography.labelSmall, color = faint)
-                com.todocompanion.app.ui.components.OptionChips(listOf("") + lists.map { it.id }, listId, { listId = it }, wrap = false, spacing = 6) { id ->
-                    if (id.isBlank()) "None" else lists.firstOrNull { it.id == id }?.name ?: ""
-                }
-                Spacer(Modifier.height(8.dp)); Text("Supporting habit", style = MaterialTheme.typography.labelSmall, color = faint)
-                com.todocompanion.app.ui.components.OptionChips(listOf("") + habits.filter { !it.archived }.map { it.id }, habitId, { habitId = it }, wrap = false, spacing = 6) { id ->
-                    if (id.isBlank()) "None" else habits.firstOrNull { it.id == id }?.let { (it.emoji?.plus(" ") ?: "") + it.name } ?: ""
-                }
-                Spacer(Modifier.height(8.dp)); Text("Time budget", style = MaterialTheme.typography.labelSmall, color = faint)
-                com.todocompanion.app.ui.components.OptionChips(listOf("") + activities.filter { !it.archived }.map { it.id }, activityId, { activityId = it }, wrap = false, spacing = 6) { id ->
-                    if (id.isBlank()) "None" else activities.firstOrNull { it.id == id }?.let { (it.emoji?.plus(" ") ?: "") + it.name } ?: ""
-                }
-                if (activityId != "") {
-                    Spacer(Modifier.height(6.dp))
-                    com.todocompanion.app.ui.components.AppTextField(value = budgetH, onValueChange = { v -> budgetH = v.filter { it.isDigit() }.take(4) }, label = { Text("Budget (hours)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                }
-                Spacer(Modifier.height(10.dp))
-                FilledTonalButton(
-                    enabled = name.isNotBlank() && (listId != "" || habitId != "" || (activityId != "" && (budgetH.toIntOrNull() ?: 0) > 0)),
-                    onClick = {
-                        val g = com.todocompanion.app.domain.Goal(
-                            id = java.util.UUID.randomUUID().toString(), name = name.trim(), emoji = emoji.ifBlank { "🎯" },
-                            listId = listId, habitId = habitId, activityId = activityId, budgetMinutes = (budgetH.toIntOrNull() ?: 0) * 60,
-                        )
-                        persist(goals.value + g)
-                        name = ""; emoji = "🎯"; listId = ""; habitId = ""; activityId = ""; budgetH = ""
-                    },
-                ) { Text("Add goal") }
-            }
-        },
-    )
-}
 
 /**
  * R3 — the unified capture box. One line in; a live guess ("→ Habit"/"→ Task") the user can flip with a

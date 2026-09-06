@@ -1002,7 +1002,7 @@ fun AppRoot(
         if (showPlan) com.todocompanion.app.ui.screens.PlanYourDayScreen(vm, onOpenTask = { showPlan = false; openTask(it) }, onBack = { showPlan = false })
         if (showReview) com.todocompanion.app.ui.screens.ReviewScreen(vm, onOpenTask = { showReview = false; openTask(it) }, onBack = { showReview = false })
         showDayReview?.let { d -> com.todocompanion.app.ui.screens.DayReviewScreen(vm, d, startInClose = dayReviewStartClose, startInWeekly = dayReviewStartWeekly, onOpenTask = { showDayReview = null; dayReviewStartClose = false; dayReviewStartWeekly = false; openTask(it) }, onBack = { showDayReview = null; dayReviewStartClose = false; dayReviewStartWeekly = false }) }
-        if (showMomentum) com.todocompanion.app.ui.screens.MomentumScreen(vm, onBack = { showMomentum = false })
+        if (showMomentum) com.todocompanion.app.ui.screens.MomentumScreen(vm, onBack = { showMomentum = false }, onOpenGoals = { showGoals = true })
         if (showRoutines) com.todocompanion.app.ui.screens.RoutinesScreen(vm, onBack = { showRoutines = false })
         if (showGoals) com.todocompanion.app.ui.screens.GoalsScreen(vm, onBack = { showGoals = false })
         if (showTimeTracking) com.todocompanion.app.ui.screens.TimeTrackingScreen(vm, onBack = { showTimeTracking = false })
