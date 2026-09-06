@@ -35,12 +35,13 @@ class SyncWorker @AssistedInject constructor(
             .fold(
                 onSuccess = { newItems ->
                     runCatching { notifier.notifyNewArticles(newItems) }
-                    // Opportunistically verify a small batch of saved links each sync (broken-link watchdog).
-                    runCatching { feedRepository.checkLinks(15) }
+                    val prefs = runCatching { preferencesRepository.preferences.first() }.getOrNull()
+                    // Broken-link watchdog reaches publishers' servers, so it only runs when the user
+                    // has explicitly opted in — keeping the default posture fully offline.
+                    if (prefs?.linkCheckEnabled == true) runCatching { feedRepository.checkLinks(15) }
                     // Context automation: if Commute Mode is on, pull the next batch fully offline.
                     // This sync already ran under the user's Wi-Fi/charging constraints, so the
                     // device context is right; image caching still honours the offline-image policy.
-                    val prefs = runCatching { preferencesRepository.preferences.first() }.getOrNull()
                     if (prefs?.autoOfflinePack == true) runCatching { feedRepository.prepareOfflinePack(20) }
                     CairnWidgetProvider.refresh(context)
                     Result.success()
@@ -49,7 +50,9 @@ class SyncWorker @AssistedInject constructor(
             )
 }
 
-/** Writes an encrypted-free JSON backup into the user's chosen SAF folder, keeping the last few. */
+/** Writes a JSON/zip backup into the user's chosen SAF folder (and/or WebDAV), keeping the last few.
+ *  The archive is plaintext by design — it stays on storage the user controls; the one secret it
+ *  could carry (the WebDAV password) is deliberately excluded. */
 @HiltWorker
 class BackupWorker @AssistedInject constructor(
     @Assisted private val context: Context,

@@ -629,6 +629,13 @@ fun SettingsScreen(
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
+                        Text("Check saved links for rot", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text("Off by default. When on, Cairn periodically contacts the original publishers to detect broken (rotted) links — the one automatic feature that reaches third-party servers.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    androidx.compose.material3.Switch(checked = prefs.linkCheckEnabled, onCheckedChange = { viewModel.setLinkCheckEnabled(it) })
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
                         Text("Commute Mode (auto offline)", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
                         Text("After each background sync, pull the next batch of likely-reads fully offline. Uses the same Wi-Fi/charging rules as sync.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }

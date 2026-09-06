@@ -28,8 +28,15 @@ class WebDavClient @Inject constructor(
         val configured: Boolean get() = baseUrl.isNotBlank()
     }
 
-    /** Normalize the folder URL to end in a single slash so file paths append cleanly. */
-    private fun dir(base: String): String = base.trim().trimEnd('/') + "/"
+    /** Normalize the folder URL to end in a single slash so file paths append cleanly, and refuse
+     *  non-HTTPS targets: WebDAV auth is HTTP Basic, so a cleartext URL would leak the credential. */
+    private fun dir(base: String): String {
+        val b = base.trim()
+        require(b.startsWith("https://", ignoreCase = true)) {
+            "WebDAV requires an https:// address — credentials must not be sent over cleartext."
+        }
+        return b.trimEnd('/') + "/"
+    }
 
     private fun Request.Builder.auth(cfg: Config): Request.Builder {
         val u = cfg.user

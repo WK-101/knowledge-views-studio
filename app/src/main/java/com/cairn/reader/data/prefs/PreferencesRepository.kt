@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.cairn.reader.util.SecretStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -129,6 +130,10 @@ data class AppPreferences(
     /** Strip tracking / analytics parameters (utm_*, fbclid, gclid, …) from links Cairn stores,
      *  opens, and shares. On by default — Cairn is privacy-first. */
     val stripTrackingParams: Boolean = true,
+    /** Periodically re-check saved links for rot by contacting the publisher. OFF by default: it is
+     *  the one automatic feature that reaches third-party servers, so it stays opt-in to keep the
+     *  "offline by default" promise honest. */
+    val linkCheckEnabled: Boolean = false,
     /** Strip trackers, beacons and campaign params from stored article bodies (privacy sanitize).
      *  On by default — a saved article should never phone home when you open it. */
     val sanitizeArticles: Boolean = true,
@@ -231,6 +236,7 @@ class PreferencesRepository @Inject constructor(
         val TTS_ENABLED = booleanPreferencesKey("tts_enabled")
         val BOTTOM_TABS_ORDER = stringPreferencesKey("bottom_tabs_order")
         val STRIP_TRACKING = booleanPreferencesKey("strip_tracking_params")
+        val LINK_CHECK_ENABLED = booleanPreferencesKey("link_check_enabled")
         val SANITIZE_ARTICLES = booleanPreferencesKey("sanitize_articles")
         val AUTO_OFFLINE_PACK = booleanPreferencesKey("auto_offline_pack")
         val DAILY_BRIEF_NOTIFY = booleanPreferencesKey("daily_brief_notify")
@@ -312,10 +318,11 @@ class PreferencesRepository @Inject constructor(
             backupIncludeOffline = p[Keys.BACKUP_INCLUDE_OFFLINE] ?: false,
             webdavUrl = p[Keys.WEBDAV_URL],
             webdavUser = p[Keys.WEBDAV_USER],
-            webdavPass = p[Keys.WEBDAV_PASS],
+            webdavPass = p[Keys.WEBDAV_PASS]?.let { SecretStore.decrypt(it) },
             trashRetentionDays = p[Keys.TRASH_RETENTION_DAYS] ?: 30,
             ttsEnabled = p[Keys.TTS_ENABLED] ?: true,
             stripTrackingParams = p[Keys.STRIP_TRACKING] ?: true,
+            linkCheckEnabled = p[Keys.LINK_CHECK_ENABLED] ?: false,
             sanitizeArticles = p[Keys.SANITIZE_ARTICLES] ?: true,
             autoOfflinePack = p[Keys.AUTO_OFFLINE_PACK] ?: false,
             dailyBriefNotify = p[Keys.DAILY_BRIEF_NOTIFY] ?: false,
@@ -388,7 +395,7 @@ class PreferencesRepository @Inject constructor(
         } else {
             it[Keys.WEBDAV_URL] = u
             if (user.isNullOrBlank()) it.remove(Keys.WEBDAV_USER) else it[Keys.WEBDAV_USER] = user.trim()
-            if (pass.isNullOrEmpty()) it.remove(Keys.WEBDAV_PASS) else it[Keys.WEBDAV_PASS] = pass
+            if (pass.isNullOrEmpty()) it.remove(Keys.WEBDAV_PASS) else it[Keys.WEBDAV_PASS] = SecretStore.encrypt(pass)
         }
     }
 
@@ -477,6 +484,9 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun setStripTrackingParams(enabled: Boolean) =
         context.dataStore.edit { it[Keys.STRIP_TRACKING] = enabled }
+
+    suspend fun setLinkCheckEnabled(enabled: Boolean) =
+        context.dataStore.edit { it[Keys.LINK_CHECK_ENABLED] = enabled }
 
     suspend fun setSanitizeArticles(enabled: Boolean) =
         context.dataStore.edit { it[Keys.SANITIZE_ARTICLES] = enabled }
@@ -572,10 +582,12 @@ class PreferencesRepository @Inject constructor(
             put("backupIncludeOffline", p.backupIncludeOffline)
             p.webdavUrl?.let { put("webdavUrl", it) }
             p.webdavUser?.let { put("webdavUser", it) }
-            p.webdavPass?.let { put("webdavPass", it) }
+            // Deliberately NOT exported: the WebDAV password would otherwise travel inside a backup
+            // (and be uploaded to the very server it authenticates to). It is re-entered on restore.
             put("trashRetentionDays", p.trashRetentionDays)
             put("ttsEnabled", p.ttsEnabled)
             put("stripTrackingParams", p.stripTrackingParams)
+            put("linkCheckEnabled", p.linkCheckEnabled)
             put("sanitizeArticles", p.sanitizeArticles)
             put("autoOfflinePack", p.autoOfflinePack)
             put("dailyBriefNotify", p.dailyBriefNotify)
@@ -642,10 +654,12 @@ class PreferencesRepository @Inject constructor(
             if (json.has("backupIncludeOffline")) e[Keys.BACKUP_INCLUDE_OFFLINE] = json.getBoolean("backupIncludeOffline")
             if (json.has("webdavUrl")) json.getString("webdavUrl").let { if (it.isNotBlank()) e[Keys.WEBDAV_URL] = it }
             if (json.has("webdavUser")) json.getString("webdavUser").let { if (it.isNotBlank()) e[Keys.WEBDAV_USER] = it }
-            if (json.has("webdavPass")) json.getString("webdavPass").let { if (it.isNotEmpty()) e[Keys.WEBDAV_PASS] = it }
+            // Legacy backups may still carry a plaintext password; re-encrypt it at rest on restore.
+            if (json.has("webdavPass")) json.getString("webdavPass").let { if (it.isNotEmpty()) e[Keys.WEBDAV_PASS] = SecretStore.encrypt(it) }
             if (json.has("trashRetentionDays")) e[Keys.TRASH_RETENTION_DAYS] = json.getInt("trashRetentionDays").coerceAtLeast(0)
             if (json.has("ttsEnabled")) e[Keys.TTS_ENABLED] = json.getBoolean("ttsEnabled")
             if (json.has("stripTrackingParams")) e[Keys.STRIP_TRACKING] = json.getBoolean("stripTrackingParams")
+            if (json.has("linkCheckEnabled")) e[Keys.LINK_CHECK_ENABLED] = json.getBoolean("linkCheckEnabled")
             if (json.has("sanitizeArticles")) e[Keys.SANITIZE_ARTICLES] = json.getBoolean("sanitizeArticles")
             if (json.has("autoOfflinePack")) e[Keys.AUTO_OFFLINE_PACK] = json.getBoolean("autoOfflinePack")
             if (json.has("dailyBriefNotify")) e[Keys.DAILY_BRIEF_NOTIFY] = json.getBoolean("dailyBriefNotify")

@@ -244,6 +244,7 @@ class SettingsViewModel @Inject constructor(
 
     fun setTtsEnabled(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setTtsEnabled(enabled) }
     fun setStripTrackingParams(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setStripTrackingParams(enabled) }
+    fun setLinkCheckEnabled(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setLinkCheckEnabled(enabled) }
     fun setSanitizeArticles(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setSanitizeArticles(enabled) }
     fun setAutoOfflinePack(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setAutoOfflinePack(enabled) }
     fun setDailyBriefNotify(enabled: Boolean) = viewModelScope.launch {

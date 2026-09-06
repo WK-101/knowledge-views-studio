@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <!-- Cairn keeps everything on-device. Cloud auto-backup is disabled;
-         users export an encrypted archive explicitly (see Settings). -->
+    <!-- Cairn keeps everything on-device. Google cloud auto-backup and device-transfer are
+         disabled for all app data; the user exports their own local archive explicitly (see
+         "Your data, forever" in Settings). The WebDAV credential is stored encrypted via the
+         Android Keystore and is never included in an exported archive. -->
     <exclude domain="database" path="." />
     <exclude domain="file" path="." />
     <exclude domain="sharedpref" path="." />
