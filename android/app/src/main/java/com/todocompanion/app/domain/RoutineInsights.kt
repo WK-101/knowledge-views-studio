@@ -27,7 +27,7 @@ object RoutineInsights {
         val keystoneDelta: Double,  // avg metric on run-days minus other-days (0 = not enough data)
         val keystoneMetric: String, // "day rating" | "energy" | ""
         val totalRuns: Int,
-        val window: Int = 30,       // the days the routine has existed, capped at 30 — the adherence denominator
+        val window: Int = 30,       // scheduled days in the last-30 window the routine has existed — the adherence denominator
     )
 
     private fun dayOf(millis: Long, zone: ZoneId) = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
@@ -41,15 +41,36 @@ object RoutineInsights {
     ): Stat {
         val runs = allRuns.filter { it.routineId == r.id }
         val runDays = runs.map { it.epochDay }.toSortedSet()
-        val runs30 = runDays.count { it in (today - 29)..today }
+        // The window the routine has existed within, capped at 30 days — the adherence denominator's span.
+        val createdDay = if (r.createdAt > 0) dayOf(r.createdAt, zone).toEpochDay() else today - 29
+        val windowStart = maxOf(createdDay, today - 29)
+        // Cadence-aware adherence: the denominator is the SCHEDULED days in the window (7/week for an
+        // every-day ritual, fewer for a Mon/Wed/Fri one), so a routine kept on every scheduled day reads
+        // ~100% instead of being penalised for days it was never meant to run. A run on an off-day is a
+        // bonus and simply doesn't count toward the total.
+        val scheduledInWindow = (windowStart..today).count { r.scheduledOn(it) }.coerceAtLeast(1)
+        val runs30 = runDays.count { it in windowStart..today && r.scheduledOn(it) }
 
-        // Streaks over the set of run-days. The current streak is forgiving of "today not run yet": we
-        // count back from today if it's been run, else from yesterday — so a live streak still shows in
-        // the morning before the day's run, rather than reading 0 exactly when encouragement matters.
+        // Streaks over SCHEDULED run-days: a non-scheduled weekday is neutral (skipped, never a break); a
+        // scheduled day missed ends the run. The current streak is forgiving of "today scheduled but not run
+        // yet" — it looks back from the previous scheduled day, so a live streak still shows in the morning.
         var cur = 0
-        run { var d = if (runDays.contains(today)) today else today - 1; while (runDays.contains(d)) { cur++; d-- } }
-        var best = 0; var chain = 0; var prev: Long? = null
-        for (d in runDays) { chain = if (prev != null && d == prev!! + 1) chain + 1 else 1; best = maxOf(best, chain); prev = d }
+        run {
+            var d = today; var g = 0
+            if (r.scheduledOn(d) && !runDays.contains(d)) d--
+            while (d >= 0 && g++ < 20000) {
+                if (!r.scheduledOn(d)) { d--; continue }
+                if (runDays.contains(d)) { cur++; d-- } else break
+            }
+        }
+        var best = 0
+        runDays.minOrNull()?.let { firstRun ->
+            var chain = 0; var d = firstRun; var g = 0
+            while (d <= today && g++ < 20000) {
+                if (r.scheduledOn(d)) { if (runDays.contains(d)) { chain++; best = maxOf(best, chain) } else chain = 0 }
+                d++
+            }
+        }
 
         val bestHour = runs.map { Instant.ofEpochMilli(it.startedAtMillis).atZone(zone).hour }
             .groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
@@ -82,39 +103,35 @@ object RoutineInsights {
             if (nOn >= 3 && nOff >= 3) { kDelta = onRun - offRun; kMetric = label; break }
         }
 
-        // Adherence is over the days the routine has actually existed (capped at the 30-day window), so a
-        // fresh routine run every day reads ~100%, not "7%" against a fixed 30-day denominator.
-        val createdDay = if (r.createdAt > 0) dayOf(r.createdAt, zone).toEpochDay() else today - 29
-        val window = (today - createdDay + 1).coerceIn(1L, 30L).toInt()
         return Stat(
-            routineId = r.id, runs30 = runs30, adherencePct = (runs30 * 100 / window).coerceAtMost(100),
+            routineId = r.id, runs30 = runs30, adherencePct = (runs30 * 100 / scheduledInWindow).coerceAtMost(100),
             currentStreak = cur, bestStreak = best, bestHour = bestHour,
             dropOffStepTitle = dropOff, keystoneDelta = kDelta, keystoneMetric = kMetric,
-            totalRuns = runs.size, window = window,
+            totalRuns = runs.size, window = scheduledInWindow,
         )
     }
 
     data class Capacity(
-        val scheduledCount: Int,     // runnable rituals with a daily reminder — the ones that recur
-        val dailyPlannedMin: Int,    // planned minutes a full day of those rituals asks of you
-        val weeklyPlannedMin: Int,   // dailyPlannedMin × 7 — the weekly ritual load you've committed to
+        val scheduledCount: Int,     // runnable rituals with a reminder — the ones that recur
+        val weeklyPlannedMin: Int,   // Σ plannedMin × days-per-week — the weekly ritual load you've committed to
+        val perWeekPlannedRuns: Int, // Σ scheduled runs per week across those rituals
         val last7ActualMin: Int,     // minutes actually run in the last 7 days (any routine)
-    ) { val hasLoad get() = scheduledCount > 0 && dailyPlannedMin > 0 }
+    ) { val hasLoad get() = scheduledCount > 0 && weeklyPlannedMin > 0 }
 
     /**
      * Ritual load — the capacity read a single-purpose runner can't give because it doesn't hold the whole
-     * set: how much time a full day of your scheduled (daily-reminder) rituals asks of you, the weekly total
-     * that implies, and how much you actually ran over the last 7 days. Timed steps only; a reminder is a
-     * daily one, so weekly = daily × 7. Pure over the routine set + run history.
+     * set: the weekly time your scheduled (reminder-set) rituals ask of you and how much you actually ran
+     * over the last 7 days. Cadence-aware: a Mon/Wed/Fri ritual counts three runs a week, not seven, so
+     * weekly = Σ(plannedSec × perWeek). Timed steps only. Pure over the routine set + run history.
      */
     fun capacity(routines: List<Routine>, runs: List<RoutineRun>, today: Long): Capacity {
         val scheduled = routines.filter { it.isRunnable && it.whenReminderMin != null }
-        val dailySec = scheduled.sumOf { it.plannedSec }
+        val weeklySec = scheduled.sumOf { it.plannedSec.toLong() * it.perWeek }
         val last7Sec = runs.filter { it.epochDay in (today - 6)..today }.sumOf { it.totalSec }
         return Capacity(
             scheduledCount = scheduled.size,
-            dailyPlannedMin = dailySec / 60,
-            weeklyPlannedMin = dailySec * 7 / 60,
+            weeklyPlannedMin = (weeklySec / 60).toInt(),
+            perWeekPlannedRuns = scheduled.sumOf { it.perWeek },
             last7ActualMin = last7Sec / 60,
         )
     }

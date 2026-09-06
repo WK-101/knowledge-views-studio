@@ -51,6 +51,12 @@ object LifeSystems {
         val dlMood = dayLogs.mapNotNull { dl -> (dl.pmMood.takeIf { it > 0 } ?: dl.dayRating.takeIf { it > 0 } ?: dl.amMood.takeIf { it > 0 })?.let { dl.epochDay to it.toDouble() } }.toMap()
         val dlEnergy = dayLogs.filter { it.energy > 0 }.associate { it.epochDay to it.energy.toDouble() }
         val out = ArrayList<Correlation>()
+        // Days the user was demonstrably active in the app — a habit check-in, a completed task, or a
+        // felt-state log. The "tasks done" zero-fill is bounded to these: an off-day the user never opened
+        // the app must not be counted as a real "0 tasks", or the comparison (on-days are always active, off-
+        // days include never-opened days) is confounded by mere engagement and the tasks signal trends
+        // spuriously positive for almost every habit.
+        val activeDays: Set<Long> = (checkins.map { it.epochDay } + tasksByDay.keys + dayLogs.map { it.epochDay }).toSet()
         habits.filter { !it.archived }.forEach { h ->
             val start = h.startEpochDay()
             val mine = checkins.filter { it.habitId == h.id }
@@ -66,18 +72,27 @@ object LifeSystems {
             // never rest days) — otherwise the comparison is diluted by days the habit wasn't even due.
             val offDays = (start..today).filter { it !in done && HabitStats.isExpectedDay(h, it) }.toSet()
             signals.forEach { (name, series) ->
-                // "tasks done" is a count: a day with no completed task is a genuine 0, not missing data, so
-                // fill absent on/off days with 0 rather than dropping them — otherwise both baselines silently
+                // "tasks done" is a count: a day the user was active but completed no task is a genuine 0, not
+                // missing data, so fill it with 0 rather than dropping it — otherwise both baselines silently
                 // exclude every zero-task day and the delta is measured only over days that already had tasks.
-                // Mood & energy are recorded felt-state; an absent day means "not logged" and can't be imputed
-                // as 0, so those stay filtered to the days that actually carry a value.
+                // The fill is bounded to activeDays on the off-side (the on-side, done-days, is active by
+                // definition) so it stays symmetric and free of the engagement confound. Mood & energy are
+                // recorded felt-state; an absent day means "not logged" and can't be imputed as 0, so those
+                // stay filtered to the days that actually carry a value.
                 val zeroFill = name == "tasks done"
                 val onVals = if (zeroFill) done.map { series[it] ?: 0.0 } else series.filterKeys { it in done }.values.toList()
-                val offVals = if (zeroFill) offDays.map { series[it] ?: 0.0 } else series.filterKeys { it in offDays }.values.toList()
+                val offVals = if (zeroFill) offDays.filter { it in activeDays }.map { series[it] ?: 0.0 } else series.filterKeys { it in offDays }.values.toList()
                 if (onVals.size >= minSample && offVals.size >= minSample) {
                     val on = onVals.average(); val off = offVals.average()
                     val delta = on - off
-                    if (abs(delta) >= 0.2) out += Correlation(h, name, delta, on, off, onVals.size, offVals.size)
+                    // Effect-size guard (Cohen's d ≥ 0.2 — a "small" effect): the delta must clear the pooled
+                    // spread, not just a fixed 0.2 on the metric's raw scale, so a noisy high-variance signal
+                    // doesn't surface as a spurious correlation. Keeps the "a pattern, not proof" claim honest.
+                    val vOn = onVals.sumOf { (it - on) * (it - on) }
+                    val vOff = offVals.sumOf { (it - off) * (it - off) }
+                    val pooledSd = kotlin.math.sqrt((vOn + vOff) / (onVals.size + offVals.size - 2).coerceAtLeast(1).toDouble())
+                    val cohensD = if (pooledSd > 1e-9) abs(delta) / pooledSd else if (abs(delta) > 1e-9) Double.MAX_VALUE else 0.0
+                    if (abs(delta) >= 0.2 && cohensD >= 0.2) out += Correlation(h, name, delta, on, off, onVals.size, offVals.size)
                 }
             }
         }

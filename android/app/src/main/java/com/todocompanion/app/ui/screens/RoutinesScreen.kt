@@ -90,6 +90,9 @@ private fun minLabel(sec: Int): String = "${(sec + 59) / 60} min"
 
 private fun blankRoutine() = Routine(id = UUID.randomUUID().toString(), name = "", createdAt = System.currentTimeMillis())
 
+/** Two-letter label for an ISO weekday (1=Mon … 7=Sun) used by the routine cadence day-picker. */
+private fun dayShort(iso: Int): String = when (iso) { 1 -> "Mo"; 2 -> "Tu"; 3 -> "We"; 4 -> "Th"; 5 -> "Fr"; 6 -> "Sa"; 7 -> "Su"; else -> "" }
+
 private fun templateToRoutine(t: RoutineCatalog.Template): Routine = Routine(
     id = UUID.randomUUID().toString(),
     name = t.name,
@@ -232,7 +235,7 @@ private fun RoutineCapacityCard(cap: com.todocompanion.app.domain.RoutineInsight
                 Text(" a week planned", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 3.dp))
             }
             Text(
-                "${cap.scheduledCount} daily ritual${if (cap.scheduledCount == 1) "" else "s"} · ${hm(cap.dailyPlannedMin)} a day · ${hm(cap.last7ActualMin)} run in the last 7 days",
+                "${cap.scheduledCount} scheduled ritual${if (cap.scheduledCount == 1) "" else "s"} · ${cap.perWeekPlannedRuns} run${if (cap.perWeekPlannedRuns == 1) "" else "s"}/week · ${hm(cap.last7ActualMin)} run in the last 7 days",
                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp),
             )
         }
@@ -575,6 +578,7 @@ private fun RoutineEditor(
     var note by remember { mutableStateOf(routine.note) }
     var reminderOn by remember { mutableStateOf(routine.whenReminderMin != null) }
     var reminderHour by remember { mutableIntStateOf((routine.whenReminderMin ?: 7 * 60) / 60) }
+    var days by remember { mutableStateOf(routine.days) }   // ISO weekdays; empty = every day
     var activityId by remember { mutableStateOf(routine.activityId) }
     var habitCategory by remember { mutableStateOf(routine.habitCategory) }
     val steps = remember { mutableStateListOf<RoutineStep>().apply { addAll(routine.steps) } }
@@ -607,11 +611,35 @@ private fun RoutineEditor(
                 AppCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Daily reminder", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                            Text(if (reminderOn) "Remind me each day" else "Off", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Reminder", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text(
+                                if (!reminderOn) "Off"
+                                else if (days.isEmpty()) "Every day"
+                                else days.sorted().joinToString(" · ") { dayShort(it) },
+                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                         if (reminderOn) com.todocompanion.app.ui.components.HourStepper(reminderHour, onChange = { reminderHour = ((it % 24) + 24) % 24 })
                         Switch(checked = reminderOn, onCheckedChange = { reminderOn = it })
+                    }
+                    if (reminderOn) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("On which days? (none selected = every day)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(6.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            (1..7).forEach { d ->
+                                val on = d in days
+                                Surface(
+                                    Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { days = if (on) days - d else (days + d).sorted() },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f),
+                                ) {
+                                    Text(dayShort(d), Modifier.fillMaxWidth().padding(vertical = 8.dp), textAlign = TextAlign.Center,
+                                        style = MaterialTheme.typography.labelMedium, maxLines = 1,
+                                        color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -653,6 +681,7 @@ private fun RoutineEditor(
                     emoji = emoji.ifBlank { "🔗" },
                     note = note.trim(),
                     whenReminderMin = if (reminderOn) reminderHour.coerceIn(0, 23) * 60 else null,
+                    days = days.filter { it in 1..7 }.distinct().sorted(),
                     activityId = activityId,
                     habitCategory = habitCategory.trim(),
                     steps = steps.toList(),

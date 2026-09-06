@@ -150,7 +150,14 @@ fun HabitDetailScreen(
     val forgivingStreaks = vm.settings.collectAsState().value.forgivingStreaks
     // Wrapped in remember: the forgiving branch re-scans every done-day, so an unmemoized recompute of a
     // multi-year habit runs on each recomposition.
-    val current = remember(h, doneDays, skipDays, relapseDays, today, forgivingStreaks) { HabitStats.displayStreak(h, doneDays, skipDays, relapseDays, today, forgivingStreaks) }
+    // For a break habit the "current" figure is clean-time, and the one authoritative clean-days number is
+    // HabitBuilder.quitStats — the same source the header "Days clean" tile and the clean-time dashboard use
+    // (it honours quitSinceMillis + the last slip). Using displayStreak here instead would ignore a later
+    // quit-clock and disagree with those cards.
+    val current = remember(h, doneDays, skipDays, relapseDays, today, forgivingStreaks, hc) {
+        if (h.habitType == "break") HB.quitStats(h, hc, today, vm.zoneId).cleanDays
+        else HabitStats.displayStreak(h, doneDays, skipDays, relapseDays, today, forgivingStreaks)
+    }
     val best = remember(h, doneDays, skipDays, relapseDays, today, forgivingStreaks) { HabitStats.displayBestStreak(h, doneDays, skipDays, relapseDays, today, forgivingStreaks) }
     val rate = HabitStats.rate(h, doneDays, skipDays, today, 30)
     val weekday = HabitStats.weekdayRates(doneDays, skipDays, today, 180)
@@ -928,15 +935,22 @@ private fun BuilderSection(
     hc: List<com.todocompanion.app.data.entity.HabitCheckinEntity>, doneDays: Set<Long>, skipDays: Set<Long>,
     current: Int, today: Long, color: Color, myCravings: List<com.todocompanion.app.data.entity.CravingEventEntity>,
 ) {
+    // Apply any queued "make it easier" change whose one-week horizon has now passed. This is a write that
+    // must fire whenever the detail opens, so it lives in the always-composed wrapper — never behind the fold.
+    LaunchedEffect(h.id) { vm.applyPendingEaseIfDue(h) }
+
+    // Always-on headline: the signature build metric (automaticity + never-miss-twice) or, for a quit habit,
+    // the clean-time dashboard + the emergency urge tools. These stay above the fold — only the long tail folds.
+    BuilderHeadline(vm, h, hc, doneDays, skipDays, today, color, myCravings)
+
     var expanded by rememberSaveable(h.id) { mutableStateOf(false) }
     Surface(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).clickable { expanded = !expanded },
         shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(if (h.habitType == "break") "🧠 Quit coaching & tools" else "🧠 Coaching & builder insights",
-                    style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Text(if (h.habitType == "break") "Clean-time dashboard, urge log, triggers & next steps"
-                     else "Automaticity, identity votes, never-miss-twice, coach tips",
+                Text("🧠 More coaching & tools", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(if (h.habitType == "break") "Commitments, triggers, WOOP, coach & more"
+                     else "Identity votes, WOOP, commitments, coach & more",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Icon(Icons.Filled.KeyboardArrowDown, if (expanded) "Collapse" else "Expand",
@@ -948,15 +962,16 @@ private fun BuilderSection(
     }
 }
 
+/** The always-on headline of the builder block: for a build habit the automaticity meter + the
+ *  never-miss-twice nudge; for a quit habit the clean-time dashboard + the emergency urge tools. These are
+ *  the differentiating, often time-sensitive surfaces, so they sit above the fold, not inside the collapse. */
 @Composable
-private fun BuilderSectionContent(
+private fun BuilderHeadline(
     vm: com.todocompanion.app.ui.AppViewModel, h: com.todocompanion.app.data.entity.HabitEntity,
     hc: List<com.todocompanion.app.data.entity.HabitCheckinEntity>, doneDays: Set<Long>, skipDays: Set<Long>,
-    current: Int, today: Long, color: Color, myCravings: List<com.todocompanion.app.data.entity.CravingEventEntity>,
+    today: Long, color: Color, myCravings: List<com.todocompanion.app.data.entity.CravingEventEntity>,
 ) {
     val isBreak = h.habitType == "break"
-    val tips = remember(hc, today) { HB.coachTips(h, hc, today) }
-
     if (!isBreak) {
         // F15 — automaticity meter (recency-aware: a lapsed habit decays rather than reading "Automatic").
         val auto = remember(doneDays, today) { HB.automaticity(doneDays, today) }
@@ -973,22 +988,6 @@ private fun BuilderSectionContent(
                 Spacer(Modifier.height(6.dp))
                 Text("${auto.stage} · ${auto.reps} reps. Habits settle in around 66 days (Lally), not on a perfect streak.",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-
-        // F5 — identity votes.
-        if (h.identity.isNotBlank()) {
-            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .5f)) {
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("“${h.identity}”", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                        Text("Every check-in is a vote for this identity.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = .8f))
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("${doneDays.size}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                        Text("votes", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = .8f))
-                    }
-                }
             }
         }
 
@@ -1018,13 +1017,12 @@ private fun BuilderSectionContent(
                 Text("${q.cleanDays} day${if (q.cleanDays == 1) "" else "s"}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                     if (q.moneySaved > 0) Column { Text("Money saved", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .8f)); Text(runCatching { java.text.NumberFormat.getCurrencyInstance().apply { maximumFractionDigits = 0 }.format(q.moneySaved) }.getOrDefault("%,.0f".format(q.moneySaved)), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer) }
-                    if (q.minutesSaved > 0) Column { Text("Time reclaimed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .8f)); Text((q.minutesSaved / 60).let { h -> val m = q.minutesSaved % 60; if (h > 0 && m > 0) "${h}h ${m}m" else if (h > 0) "${h}h" else "${m}m" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer) }
+                    if (q.minutesSaved > 0) Column { Text("Time reclaimed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .8f)); Text((q.minutesSaved / 60).let { hh -> val m = q.minutesSaved % 60; if (hh > 0 && m > 0) "${hh}h ${m}m" else if (hh > 0) "${hh}h" else "${m}m" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer) }
                 }
                 Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val pledgedToday = h.lastPledgeDay == today
                     FilledTonalButton(onClick = { vm.pledgeToday(h) }, enabled = !pledgedToday) {
                         if (pledgedToday) {
-                            // "Pledged" reads with the modern completion mark, not a raw "✓".
                             MiniCheck()
                             Spacer(Modifier.width(6.dp))
                             Text("Pledged")
@@ -1067,6 +1065,33 @@ private fun BuilderSectionContent(
             }
         }
         if (urge) UrgeDialog(competingResponse = h.competingResponse, onDismiss = { urge = false }, onLog = { intensity, trigger, surfed, halt, dur -> vm.logCraving(h, intensity, trigger, surfed, halt, dur); urge = false })
+    }
+}
+
+@Composable
+private fun BuilderSectionContent(
+    vm: com.todocompanion.app.ui.AppViewModel, h: com.todocompanion.app.data.entity.HabitEntity,
+    hc: List<com.todocompanion.app.data.entity.HabitCheckinEntity>, doneDays: Set<Long>, skipDays: Set<Long>,
+    current: Int, today: Long, color: Color, myCravings: List<com.todocompanion.app.data.entity.CravingEventEntity>,
+) {
+    val tips = remember(hc, today) { HB.coachTips(h, hc, today) }
+
+    // F5 — identity votes (build habits only). The automaticity meter, never-miss-twice nudge, quit dashboard
+    // and urge tools moved to BuilderHeadline (always shown above the fold); this tail holds the deeper,
+    // less time-sensitive coaching cards.
+    if (h.habitType != "break" && h.identity.isNotBlank()) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .5f)) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("“${h.identity}”", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Text("Every check-in is a vote for this identity.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = .8f))
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("${doneDays.size}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Text("votes", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = .8f))
+                }
+            }
+        }
     }
 
     // R34 — the life-systems cards for this habit (WOOP, values, commitment, forfeit, urge analytics,
@@ -1159,8 +1184,8 @@ private fun LifeSystemsHabitCards(
     val settings by vm.settings.collectAsState()
     val values by vm.coreValues.collectAsState()
     val witnesses by vm.witnessEvents.collectAsState()
-    // Apply any queued "make it easier" change whose one-week horizon has now passed.
-    LaunchedEffect(h.id) { vm.applyPendingEaseIfDue(h) }
+    // (The queued "make it easier" apply now runs in the always-composed BuilderSection wrapper, so it fires
+    //  even when this collapsed coaching tail isn't shown.)
 
     // LS1 · WOOP plan — the back half of the intention.
     if (h.woopOutcome.isNotBlank() || h.woopObstacle.isNotBlank() || h.woopCoping.isNotBlank()) {

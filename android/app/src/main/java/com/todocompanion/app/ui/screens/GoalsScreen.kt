@@ -333,7 +333,9 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
     // refreshes the detail card too — keying on `settings` alone left both stale.
     val tasks by vm.tasks.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
-    val habits by vm.habits.collectAsState()
+    // Archived-inclusive so the lead-measure hint can tell an archived habit ("practice retired") apart from
+    // a deleted one — vm.habits strips archived, which would mislabel every archived habit as "no longer exists".
+    val habitsAll by vm.habitsWithArchived.collectAsState()
     val timeEntries by vm.timeEntries.collectAsState()
     val reviews = remember(settings.goalReviewsJson) { vm.goalReviews() }
     val h = remember(g, tasks, checkins, timeEntries) { vm.goalHealth(g) }
@@ -392,7 +394,7 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
                         MeasureLine((if (isKeystone) "🗝️ " else "") + "↻ Habit", "${h.habitStrength}% automaticity · ${h.habitStreak}-day streak", (h.habitStrength / 100f))
                         // If the lead habit has been archived (or deleted), its strength/streak freeze — say so,
                         // so a stalled lead measure reads as "the practice retired", not "the goal is failing".
-                        val leadHabit = remember(habits, g.habitId) { habits.firstOrNull { it.id == g.habitId } }
+                        val leadHabit = remember(habitsAll, g.habitId) { habitsAll.firstOrNull { it.id == g.habitId } }
                         if (leadHabit == null || leadHabit.archived) {
                             Text(if (leadHabit == null) "This lead habit no longer exists — edit the goal to relink one."
                                  else "This lead habit is archived, so its strength & streak no longer update.",
@@ -663,12 +665,12 @@ private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, on
                         Spacer(Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             // Start is the baseline the fraction measures from (a "run 2→5 km" KR is 0% at 2, not at 0).
-                            OutlinedTextField(startRaw, { s -> startRaw = clean(s); keyResults[i] = kr.copy(start = startRaw.toDoubleOrNull() ?: 0.0) }, label = { Text("Start") }, singleLine = true, modifier = Modifier.weight(1f))
-                            OutlinedTextField(nowRaw, { s -> nowRaw = clean(s); keyResults[i] = kr.copy(current = nowRaw.toDoubleOrNull() ?: 0.0) }, label = { Text("Now") }, singleLine = true, modifier = Modifier.weight(1f))
+                            OutlinedTextField(startRaw, { s -> startRaw = clean(s); keyResults[i] = kr.copy(start = startRaw.toDoubleOrNull() ?: kr.start) }, label = { Text("Start") }, singleLine = true, modifier = Modifier.weight(1f))
+                            OutlinedTextField(nowRaw, { s -> nowRaw = clean(s); keyResults[i] = kr.copy(current = nowRaw.toDoubleOrNull() ?: kr.current) }, label = { Text("Now") }, singleLine = true, modifier = Modifier.weight(1f))
                         }
                         Spacer(Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(targetRaw, { s -> targetRaw = clean(s); keyResults[i] = kr.copy(target = targetRaw.toDoubleOrNull() ?: 100.0) }, label = { Text("Target") }, singleLine = true, modifier = Modifier.weight(1f))
+                            OutlinedTextField(targetRaw, { s -> targetRaw = clean(s); keyResults[i] = kr.copy(target = targetRaw.toDoubleOrNull() ?: kr.target) }, label = { Text("Target") }, singleLine = true, modifier = Modifier.weight(1f))
                             OutlinedTextField(kr.unit, { keyResults[i] = kr.copy(unit = it.take(8)) }, label = { Text("Unit") }, singleLine = true, modifier = Modifier.weight(1f))
                         }
                     }

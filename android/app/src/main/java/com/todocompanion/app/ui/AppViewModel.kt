@@ -329,6 +329,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         com.todocompanion.app.domain.LifeReadModels.onThisDay(allTasksLive.value, today, zone)
     val filters = combine(repo.allFilters, activeWs) { f, ws -> f.filter { it.workspaceId == ws } }.state(emptyList())
     val habits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.archived } }.state(emptyList())
+    /** Active-workspace habits INCLUDING archived — for surfaces that must tell "archived" apart from
+     *  "deleted" (e.g. a goal's lead-measure hint). The default [habits] flow strips archived habits. */
+    val habitsWithArchived = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws } }.state(emptyList())
     val habitCheckins = repo.allCheckins.state(emptyList())
     val focusSessions = repo.allFocusSessions.scopedBy { it.workspaceId }
     // R37 · Port 5 — the receptive hour (0..23) learned from when you actually finish habits & tasks, or
@@ -1838,7 +1841,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun routinesDueToday(): List<com.todocompanion.app.domain.Routine> {
         val t = today()
         val ranToday = routineRuns().filter { it.epochDay == t }.map { it.routineId }.toSet()
-        return routines().filter { it.isRunnable && it.whenReminderMin != null && it.id !in ranToday }
+        return routines().filter { it.isRunnable && it.whenReminderMin != null && it.scheduledOn(t) && it.id !in ranToday }
     }
     /** Tick a habit for today — the same check-off path the Habits screen uses (setHabitValue). */
     fun completeHabitToday(habitId: String) {
@@ -1932,7 +1935,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             tTotal = inList.size; tDone = inList.count { it.completed }
         }
         var streak = 0; var strength = 0
-        if (g.hasHabit) habits.value.firstOrNull { it.id == g.habitId }?.let { h ->
+        // Archived-inclusive: an archived lead habit's strength/streak should freeze at its last value (its
+        // check-ins simply stop growing), not drop to 0 — otherwise the goal reads as failing the moment the
+        // supporting practice is retired. habits.value strips archived, so use the archived-inclusive flow.
+        if (g.hasHabit) habitsWithArchived.value.firstOrNull { it.id == g.habitId }?.let { h ->
             val hc = habitCheckins.value.filter { it.habitId == h.id }
             val done = hc.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
             val skip = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()

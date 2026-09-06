@@ -361,7 +361,10 @@ class ReminderReceiver : BroadcastReceiver() {
                         val routines = com.todocompanion.app.domain.Routines.parse(app.repository.settingsSnapshot().routinesJson)
                         val r = routines.firstOrNull { it.id == routineId }
                         if (r != null && r.whenReminderMin == min && r.steps.isNotEmpty()) {
-                            if (AlarmScheduler.quietDeferUntil(System.currentTimeMillis()) == null)
+                            // Cadence gate: the alarm re-arms daily, but only notify on the ritual's scheduled
+                            // weekdays (empty days = every day) so a Mon/Wed/Fri routine isn't nudged Tue/Thu.
+                            val todayEpoch = java.time.LocalDate.now().toEpochDay()
+                            if (r.scheduledOn(todayEpoch) && AlarmScheduler.quietDeferUntil(System.currentTimeMillis()) == null)
                                 Notifications.showRoutine(context, routineId, name)
                             AlarmScheduler.rescheduleRoutine(context, routineId, name, min)
                         }

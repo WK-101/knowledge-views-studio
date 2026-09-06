@@ -23,13 +23,21 @@ data class Routine(
     val note: String = "",
     // The guided sequence. Empty = a bare tag (old behaviour); non-empty = a runnable routine.
     val steps: List<RoutineStep> = emptyList(),
-    // Optional daily reminder, minutes-past-midnight (null = no reminder).
+    // Optional reminder, minutes-past-midnight (null = no reminder). Fires on the scheduled [days].
     val whenReminderMin: Int? = null,
+    // ISO weekdays this ritual is scheduled on (1=Mon … 7=Sun). Empty = every day (backward-compatible: old
+    // routines had no cadence and ran daily). Governs the due-today set, the reminder, adherence and capacity.
+    val days: List<Int> = emptyList(),
     val createdAt: Long = 0L,
 ) {
     /** Total planned seconds across timed steps (untimed check-off steps contribute 0). */
     val plannedSec: Int get() = steps.sumOf { it.durationSec ?: 0 }
     val isRunnable: Boolean get() = steps.isNotEmpty()
+    /** Whether this ritual is scheduled on the given local epoch-day. Empty [days] = every day. epochDay is
+     *  already a local day number, so the weekday is zone-independent. */
+    fun scheduledOn(epochDay: Long): Boolean = days.isEmpty() || java.time.LocalDate.ofEpochDay(epochDay).dayOfWeek.value in days
+    /** Scheduled days per week — 7 when [days] is empty, else the count of distinct chosen weekdays. */
+    val perWeek: Int get() = if (days.isEmpty()) 7 else days.distinct().size.coerceIn(1, 7)
 }
 
 enum class StepKind { TIMER, CHECKOFF }
