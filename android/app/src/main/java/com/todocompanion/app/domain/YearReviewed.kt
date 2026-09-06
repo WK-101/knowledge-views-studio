@@ -157,7 +157,7 @@ object YearReviewed {
                 if (!HabitStats.isExpectedDay(h, d)) continue
                 expected++
                 val c = checkinByKey[h.id to d]
-                if (c != null && c.status == "done" && HabitStats.meetsGoal(h, c.count)) kept++
+                if (c != null && HabitStats.isSuccessDay(h, c)) kept++
             }
             HabitConsistency(h.name, h.emoji, kept, expected)
         }.filter { it.expected > 0 }.sortedWith(compareByDescending<HabitConsistency> { it.kept }.thenByDescending { it.pct }).take(MAX_HABITS)

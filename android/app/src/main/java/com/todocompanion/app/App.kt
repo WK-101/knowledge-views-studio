@@ -57,6 +57,8 @@ class App : Application() {
             com.todocompanion.app.reminders.AlarmScheduler.quietEndHour = s0.quietEndHour
             // (Re)arm per-habit reminder alarms for this device's current day. Cheap; self-healing.
             runCatching { com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(this@App, repository) }
+            // (Re)arm press-play routine daily nudges the same way.
+            runCatching { com.todocompanion.app.reminders.AlarmScheduler.scheduleRoutineReminders(this@App, repository) }
             // R38 — (re)arm dedicated-calendar event alerts for the next upcoming occurrence of each event.
             runCatching { com.todocompanion.app.reminders.AlarmScheduler.rescheduleEventAlerts(this@App, repository) }
             // Track 3.4 — (re)arm the reveal notification for each still-sealed letter to your future self.

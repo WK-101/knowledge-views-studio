@@ -31,6 +31,14 @@ import java.util.UUID
 class AppRepository(private val db: AppDatabase) {
 
     /**
+     * A habit auto-credited by a finished time interval (Focus / timer / QS tile / automation).
+     * The VM collects this so a *timed* completion travels the same celebration path as a manual tap —
+     * shine + momentum point + auto-ramp — no matter which surface stopped the timer.
+     */
+    data class HabitCreditEvent(val habitId: String, val epochDay: Long, val oldCount: Int)
+    val habitCredited = kotlinx.coroutines.flow.MutableSharedFlow<HabitCreditEvent>(extraBufferCapacity = 16)
+
+    /**
      * R53 — user-triggered storage maintenance for a DB kept over years: checkpoint the WAL, VACUUM to
      * compact + defragment the file (deletes only free-list pages otherwise), and refresh the query
      * planner's stats. All offline; safe to run occasionally from Settings.
@@ -511,6 +519,8 @@ class AppRepository(private val db: AppDatabase) {
                     else -> cur + mins
                 }
                 setCheckinValue(h.id, day, newCount)
+                // Let the VM celebrate this timed completion exactly like a tap (shine/point/ramp).
+                habitCredited.tryEmit(HabitCreditEvent(h.id, day, cur))
             }
         }
     }

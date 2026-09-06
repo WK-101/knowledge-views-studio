@@ -348,6 +348,26 @@ class ReminderReceiver : BroadcastReceiver() {
                 androidx.core.app.NotificationManagerCompat.from(context).cancel(("habit:$habitId").hashCode())
                 AlarmScheduler.snoozeHabit(context, habitId, name, min, Notifications.snoozeMinutes)
             }
+
+            AlarmScheduler.ACTION_ROUTINE -> {
+                if (app == null) return
+                val routineId = intent.getStringExtra(AlarmScheduler.EXTRA_ROUTINE_ID) ?: return
+                val name = intent.getStringExtra(AlarmScheduler.EXTRA_ROUTINE_NAME) ?: "your routine"
+                val min = intent.getStringExtra(AlarmScheduler.EXTRA_ROUTINE_MIN)?.toIntOrNull() ?: return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        // Self-heal: only fire + re-arm while a routine with this id still asks for this minute.
+                        val routines = com.todocompanion.app.domain.Routines.parse(app.repository.settingsSnapshot().routinesJson)
+                        val r = routines.firstOrNull { it.id == routineId }
+                        if (r != null && r.whenReminderMin == min) {
+                            if (AlarmScheduler.quietDeferUntil(System.currentTimeMillis()) == null)
+                                Notifications.showRoutine(context, routineId, name)
+                            AlarmScheduler.rescheduleRoutine(context, routineId, name, min)
+                        }
+                    } finally { pending.finish() }
+                }
+            }
         }
     }
 }
@@ -362,6 +382,7 @@ class BootReceiver : BroadcastReceiver() {
             try {
                 AlarmScheduler.rescheduleAll(context, app.repository)
                 AlarmScheduler.scheduleHabitReminders(context, app.repository)
+                AlarmScheduler.scheduleRoutineReminders(context, app.repository)
                 val s = app.repository.settingsSnapshot()
                 if (s.dailySummaryEnabled) AlarmScheduler.scheduleDailySummary(context, s.dailySummaryHour, s.dailySummaryMinute)
                 if (s.eveningReviewEnabled) AlarmScheduler.scheduleEveningReviewSmart(context, app.repository)

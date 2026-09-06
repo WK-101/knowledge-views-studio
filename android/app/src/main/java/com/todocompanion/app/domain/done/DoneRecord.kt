@@ -87,10 +87,9 @@ object DoneRecord {
         // Habit check-ins that actually met the day's goal (a skip or a partial isn't an accomplishment).
         val habitById = habits.associateBy { it.id }
         checkins.asSequence()
-            .filter { it.status == "done" }
             .forEach { c ->
                 val h = habitById[c.habitId] ?: return@forEach
-                if (!HabitStats.meetsGoal(h, c.count)) return@forEach
+                if (!HabitStats.isSuccessDay(h, c)) return@forEach
                 val day = LocalDate.ofEpochDay(c.epochDay)
                 val whenMs = day.atStartOfDay(zone).toInstant().toEpochMilli() + (c.doneAtMinute ?: 12 * 60) * 60_000L
                 out += Accomplishment(

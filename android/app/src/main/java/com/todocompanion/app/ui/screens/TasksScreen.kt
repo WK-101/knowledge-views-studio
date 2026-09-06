@@ -110,6 +110,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -555,6 +558,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.taskListHeaders(vm: A
             item(key = "tasklesson") { TaskLessonStrip(vm) } // R37 Port 2: just-in-time productivity micro-lesson
             item(key = "twnudges") { NudgeStrip(vm) }       // R35 TW-B / R36 FW-14: right-now nudges (MRT)
             item(key = "bookend") { BookendCard(vm) }       // R35 TW-E: AM/PM intention-review bookend
+            item(key = "microplans") { PlansStrip(vm) }     // R67: implementation intentions + temptation bundles, at the moment of action
             item(key = "habitsdue") { HabitsDueStrip(vm) }
             item(key = "shutdown") { ShutdownStrip(vm) }    // R36 FW-6: evening shutdown + carry-forward
         }
@@ -882,6 +886,51 @@ private fun HabitsDueStrip(vm: AppViewModel) {
                             Spacer(Modifier.size(7.dp))
                             Text((h.emoji?.plus(" ") ?: "") + h.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** R67 · implementation intentions + temptation bundles surfaced where they act — the top of Today —
+ *  instead of only living on the Life Systems hub. Pre-deciding the moment ("WHEN x, THEN y") roughly
+ *  doubles follow-through; seeing it at the start of the day is the whole point. Foldable, calm-aware. */
+@Composable
+private fun PlansStrip(vm: AppViewModel) {
+    val plans by vm.microPlans.collectAsState()
+    if (plans.isEmpty()) return
+    val ifThen = plans.filter { it.kind == com.todocompanion.app.domain.MicroPlans.IF_THEN }
+    val bundles = plans.filter { it.kind == com.todocompanion.app.domain.MicroPlans.BUNDLE }
+    var expanded by rememberSaveable { mutableStateOf(true) }
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Column(Modifier.padding(12.dp)) {
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { expanded = !expanded }.padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Your plans · ${plans.size}", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Icon(Icons.Filled.KeyboardArrowDown, if (expanded) "Collapse plans" else "Expand plans",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.rotate(if (expanded) 180f else 0f))
+            }
+            if (expanded) {
+                Spacer(Modifier.size(8.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ifThen.forEach { p ->
+                        Text(buildAnnotatedString {
+                            withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)) { append("When ") }
+                            append(p.a.trim())
+                            withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)) { append(" → ") }
+                            append(p.b.trim())
+                        }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                    bundles.forEach { p ->
+                        Text(buildAnnotatedString {
+                            withStyle(SpanStyle(color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.SemiBold)) { append("While ") }
+                            append(p.a.trim())
+                            withStyle(SpanStyle(color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.SemiBold)) { append(", ") }
+                            append(p.b.trim())
+                        }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }

@@ -52,6 +52,10 @@ object AlarmScheduler {
     const val EXTRA_SEALED_ID = "sealedId"          // Track 3.4
     const val EXTRA_SEALED_TITLE = "sealedTitle"
     const val EXTRA_SEALED_CREATED = "sealedCreated" // createdEpochDay (as string)
+    const val ACTION_ROUTINE = "com.todocompanion.app.action.ROUTINE"   // press-play routine daily nudge
+    const val EXTRA_ROUTINE_ID = "routineId"
+    const val EXTRA_ROUTINE_NAME = "routineName"
+    const val EXTRA_ROUTINE_MIN = "routineMin"
 
     private const val SUMMARY_REQ = 918_273
     private const val EVENING_REQ = 918_275
@@ -370,6 +374,33 @@ object AlarmScheduler {
         if (next <= System.currentTimeMillis()) next += 86_400_000L
         setAlarm(context, next, broadcast(context, ACTION_HABIT, habitReqCode(habitId, minute),
             mapOf(EXTRA_HABIT_ID to habitId, EXTRA_HABIT_NAME to habitName, EXTRA_HABIT_MIN to minute.toString())))
+    }
+
+    // ---------- routine reminders (press-play sequences) ----------
+    private fun routineReqCode(routineId: String, minute: Int): Int = (("r:$routineId:$minute").hashCode() and 0x3FFFFFFF) + 5_000_000
+
+    /** Schedule the next occurrence of every routine's daily reminder time. Self-healing like habits:
+     *  a fired alarm re-validates the routine still exists (and still wants that minute) before re-arming.
+     *  Call after any routine change, at startup, and on boot. Routines live in the settings JSON. */
+    suspend fun scheduleRoutineReminders(context: Context, repo: AppRepository, zone: ZoneId = ZoneId.systemDefault()) {
+        val now = System.currentTimeMillis()
+        val routines = com.todocompanion.app.domain.Routines.parse(repo.settingsSnapshot().routinesJson)
+        routines.forEach { r ->
+            val min = r.whenReminderMin ?: return@forEach
+            if (min !in 0..1439) return@forEach
+            var next = LocalDate.now(zone).atTime(LocalTime.of(min / 60, min % 60)).atZone(zone).toInstant().toEpochMilli()
+            if (next <= now) next += 86_400_000L
+            setAlarm(context, next, broadcast(context, ACTION_ROUTINE, routineReqCode(r.id, min),
+                mapOf(EXTRA_ROUTINE_ID to r.id, EXTRA_ROUTINE_NAME to "${r.emoji} ${r.name}".trim(), EXTRA_ROUTINE_MIN to min.toString())))
+        }
+    }
+
+    /** Reschedule a single routine-reminder alarm for the next day (called from the receiver). */
+    fun rescheduleRoutine(context: Context, routineId: String, routineName: String, minute: Int, zone: ZoneId = ZoneId.systemDefault()) {
+        var next = LocalDate.now(zone).atTime(LocalTime.of(minute / 60, minute % 60)).atZone(zone).toInstant().toEpochMilli()
+        if (next <= System.currentTimeMillis()) next += 86_400_000L
+        setAlarm(context, next, broadcast(context, ACTION_ROUTINE, routineReqCode(routineId, minute),
+            mapOf(EXTRA_ROUTINE_ID to routineId, EXTRA_ROUTINE_NAME to routineName, EXTRA_ROUTINE_MIN to minute.toString())))
     }
 
     // ---------- R38 · calendar event alerts ----------

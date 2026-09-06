@@ -314,6 +314,21 @@ object Notifications {
         post(context, ("habit:$habitId").hashCode(), b.build())
     }
 
+    /** A press-play routine's daily nudge. Tapping deep-links straight into the runner for that routine
+     *  (open_routine_run:<id>), so the sequence starts with one tap — the reminder is finally actionable. */
+    fun showRoutine(context: Context, routineId: String, name: String) {
+        ensureChannel(context)
+        val n = builder(context)
+            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setContentTitle("Time for $name")
+            .setContentText("Tap to start the routine.")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(openAppRoute(context, "open_routine_run:$routineId", ("routine:$routineId").hashCode()))
+            .build()
+        post(context, ("routine:$routineId").hashCode(), n)
+    }
+
     fun showSummary(context: Context, dueToday: Int, brief: String? = null, topHabitId: String? = null, topHabitName: String? = null) {
         ensureChannel(context)
         val tasksLine = if (dueToday == 0) "No tasks due today — enjoy!" else "You have $dueToday task${if (dueToday == 1) "" else "s"} due today."

@@ -45,8 +45,8 @@ object WeeklyDigest {
 
         // Check-ins (goal-meeting "done" days) this week vs last.
         fun checkinsIn(days: Set<Long>) = checkins.count { c ->
-            c.epochDay in days && c.status == "done" &&
-                habits.firstOrNull { it.id == c.habitId }?.let { HabitStats.meetsGoal(it, c.count) } == true
+            c.epochDay in days &&
+                habits.firstOrNull { it.id == c.habitId }?.let { HabitStats.isSuccessDay(it, c) } == true
         }
         val ciNow = checkinsIn(thisWeek); val ciPrev = checkinsIn(lastWeek)
 

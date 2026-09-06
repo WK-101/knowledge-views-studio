@@ -160,8 +160,8 @@ object ReviewRollup {
         // ── 1b. Cross-engine period counts folded once, so the recap and the digest read them off the Rollup.
         //    Check-ins meeting goal (across all passed habits) and focus-session minutes are simple day-window folds.
         val checkinsMeetingGoal = checkins.count { c ->
-            c.epochDay in startDay..endDay && c.status == "done" &&
-                habits.firstOrNull { it.id == c.habitId }?.let { HabitStats.meetsGoal(it, c.count) } == true
+            c.epochDay in startDay..endDay &&
+                habits.firstOrNull { it.id == c.habitId }?.let { HabitStats.isSuccessDay(it, c) } == true
         }
         val focusMinutes = focusSessions.filter { it.epochDay in startDay..endDay }.sumOf { it.minutes }
 
@@ -211,7 +211,7 @@ object ReviewRollup {
                 if (!HabitStats.isExpectedDay(h, d)) continue
                 expected++
                 val c = checkinByKey[h.id to d]
-                if (c != null && c.status == "done" && HabitStats.meetsGoal(h, c.count)) kept++
+                if (c != null && HabitStats.isSuccessDay(h, c)) kept++
             }
             HabitConsistency(h.id, h.name, h.emoji, h.colorArgb, kept, expected)
         }.filter { it.expected > 0 }.sortedByDescending { it.pct }

@@ -541,6 +541,10 @@ fun AppRoot(
                     val nm = a.removePrefix(com.todocompanion.app.MainActivity.ACTION_RUN_ROUTINE)
                     vm.runRoutineByName(nm); showTimeTracking = true; launchAction.value = null
                 }
+                // Routine reminder tap → open the Routines screen with the runner already started for it.
+                a != null && a.startsWith("open_routine_run:") -> {
+                    vm.requestRoutineRun(a.removePrefix("open_routine_run:")); showRoutines = true; launchAction.value = null
+                }
                 a != null && a.startsWith("open_context:") -> { vm.select(ViewRef.ContextView(a.removePrefix("open_context:"))); tab = Tab.TASKS; launchAction.value = null }
             }
         }

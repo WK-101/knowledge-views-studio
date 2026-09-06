@@ -121,6 +121,15 @@ fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
     var insightsFor by remember { mutableStateOf<Routine?>(null) }
     var browseCatalog by remember { mutableStateOf(false) }
 
+    // A reminder tap deep-links here asking to run a specific routine — start its runner once, then clear.
+    val pendingRun by vm.pendingRoutineRun.collectAsState()
+    LaunchedEffect(pendingRun, routines) {
+        val id = pendingRun ?: return@LaunchedEffect
+        val r = routines.firstOrNull { it.id == id }
+        if (r != null && r.isRunnable) running = r
+        vm.pendingRoutineRun.value = null
+    }
+
     Scaffold(topBar = {
         TopAppBar(expandedHeight = 52.dp,
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },

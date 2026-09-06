@@ -67,6 +67,16 @@ object HabitStats {
     /** For a *break* habit, a day counts as a relapse when the recorded count exceeds the limit. */
     fun isRelapse(habit: HabitEntity, count: Int): Boolean = habit.habitType == "break" && count > habit.targetPerDay
 
+    /**
+     * The single truth for "does this check-in count as a genuine success" in every aggregate
+     * (weekly digest, year-in-review, the Record, review rollups). A break habit stores its slips as
+     * `status="done"` with a count over the limit, and `meetsGoal` (a >= comparison) would read that as
+     * a hit — so a slip would inflate the completion count. This predicate excludes relapse days, so a
+     * slip never masquerades as a win no matter which surface tallies it.
+     */
+    fun isSuccessDay(habit: HabitEntity, checkin: com.todocompanion.app.data.entity.HabitCheckinEntity): Boolean =
+        checkin.status == "done" && meetsGoal(habit, checkin.count) && !isRelapse(habit, checkin.count)
+
     /** Whether [epochDay] is an "expected" day for weekday/interval frequencies (times_* = any day). */
     fun isExpectedDay(habit: HabitEntity, epochDay: Long): Boolean {
         if (epochDay < habit.startEpochDay()) return false

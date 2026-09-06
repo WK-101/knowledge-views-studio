@@ -725,6 +725,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 groupMode.value = if (v is ViewRef.ListView) GroupMode.NONE else GroupMode.DATE
             }
         }
+        // A habit auto-credited by a finished timer/Focus session celebrates like a manual tap.
+        viewModelScope.launch {
+            repo.habitCredited.collect { ev ->
+                habits.value.firstOrNull { it.id == ev.habitId }?.let { h ->
+                    celebrateIfRewardReached(h); awardIfNewlyDone(h, ev.epochDay, ev.oldCount)
+                }
+            }
+        }
     }
 
     fun currentTitle(): String = when (val v = currentView.value) {
@@ -1088,6 +1096,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val cur = repo.getHabitCheckinsOnce().firstOrNull { it.habitId == habitId && it.epochDay == today }?.count ?: 0
         repo.setCheckinValue(habitId, today, cur + minutes)
         refreshHabitWidgets()
+        // Focus-credited minutes travel the same celebration path as a manual tap: shine + point + ramp.
+        habits.value.firstOrNull { it.id == habitId }?.let { h ->
+            celebrateIfRewardReached(h); awardIfNewlyDone(h, today, cur)
+        }
     }
     fun toggleChecklist(item: ChecklistItemEntity) = viewModelScope.launch { repo.saveChecklistItem(item.copy(checked = !item.checked)) }
     fun deleteChecklistItem(id: String) = viewModelScope.launch { repo.deleteChecklistItem(id) }
@@ -1793,7 +1805,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun routines(): List<com.todocompanion.app.domain.Routine> = com.todocompanion.app.domain.Routines.parse(settings.value.routinesJson)
     fun saveRoutines(list: List<com.todocompanion.app.domain.Routine>) = viewModelScope.launch {
         repo.saveSettings(settings.value.copy(routinesJson = com.todocompanion.app.domain.Routines.encode(list)))
+        // Re-arm the daily routine nudges whenever the set/times change (self-healing, like habits).
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleRoutineReminders(appCtx, repo)
     }
+    /** A routine to auto-open in the runner (set by the reminder deep-link; RoutinesScreen consumes it). */
+    val pendingRoutineRun = MutableStateFlow<String?>(null)
+    fun requestRoutineRun(id: String) { pendingRoutineRun.value = id }
     fun runRoutine(r: com.todocompanion.app.domain.Routine) = viewModelScope.launch {
         if (r.activityId.isNotBlank() && timeActivities.value.any { it.id == r.activityId && !it.archived }) {
             repo.startTimeTracking(r.activityId, stopFirst = !settings.value.multiTimer)

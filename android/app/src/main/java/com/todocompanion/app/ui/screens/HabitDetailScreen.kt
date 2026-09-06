@@ -176,9 +176,8 @@ fun HabitDetailScreen(
         }
         // V4: streak-freeze insurance you've banked.
         if (h.freezeTokens > 0) add("Streak freezes" to "${h.freezeTokens} ❄️")
-        if (isBreak && h.moneyPerUnit != null) {
-            add("Money saved" to ("$" + String.format(Locale.US, "%.2f", h.moneyPerUnit!! * current)))
-        }
+        // (Money/clean-time for a break habit live in the single quit dashboard below — the header no
+        //  longer repeats them with a weaker formula, so there is one authoritative figure per stat.)
     }
 
     val shareCtx = LocalContext.current

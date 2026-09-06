@@ -346,7 +346,7 @@ object ReviewInsights {
     }
 
     private fun keptOn(h: HabitEntity, d: Long, checkinByKey: Map<Pair<String, Long>, HabitCheckinEntity>): Boolean =
-        checkinByKey[h.id to d]?.let { it.status == "done" && HabitStats.meetsGoal(h, it.count) } == true
+        checkinByKey[h.id to d]?.let { HabitStats.isSuccessDay(h, it) } == true
 
     private fun habitsKeptOn(d: Long, habits: List<HabitEntity>, checkinByKey: Map<Pair<String, Long>, HabitCheckinEntity>): Int =
         habits.count { HabitStats.isExpectedDay(it, d) && keptOn(it, d, checkinByKey) }
