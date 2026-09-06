@@ -246,7 +246,11 @@ class ReaderViewModel @Inject constructor(
     fun setDictionaryOnline(enabled: Boolean) =
         viewModelScope.launch { preferencesRepository.setDictionaryOnline(enabled) }
 
-    suspend fun define(word: String) = dictionaryRepository.define(word)
+    /** Defense-in-depth: even if a caller reaches this while the pref is off, no request leaves the
+     *  device. The UI already gates on [dictionaryOnline], but the network call is refused here too. */
+    suspend fun define(word: String): Result<com.cairn.reader.domain.lookup.DictionaryEntry> =
+        if (preferences.value.dictionaryOnline) dictionaryRepository.define(word)
+        else Result.failure(IllegalStateException("Online dictionary look-up is off"))
 
     // -- Images / media --------------------------------------------------------
 
