@@ -63,6 +63,7 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.ExpandableSection
 import com.todocompanion.app.ui.components.StatTile
 import com.todocompanion.app.ui.components.TipBanner
 import java.time.LocalDate
@@ -537,6 +538,59 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit, onOpenGoals: () -> Unit
                 Text(digest.takeaway, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary)
             }
 
+            // U10 — your data is safe: last-backup age + one-tap export, so the local-only trade never bites.
+            AppCard {
+                Text("Your data is safe", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                // The most recent time data left the app — an automatic/manual backup OR a folder sync.
+                // (Auto-backup stamps lastBackupAt; folder sync stamps lastSyncAt.)
+                val lastBk = maxOf(settings.lastBackupAt, settings.lastSyncAt)
+                val ageTxt = if (lastBk <= 0L) "No backup yet." else {
+                    val days = ((nowMs - lastBk) / 86_400_000L).toInt()
+                    when { days <= 0 -> "Last backup today."; days == 1 -> "Last backup yesterday."; else -> "Last backup $days days ago." }
+                }
+                val stale = lastBk <= 0L || (nowMs - lastBk) > 7L * 86_400_000L
+                Text(ageTxt + if (stale) "  Everything lives only on this device — export a copy." else "  You're covered.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (stale) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                FilledTonalButton(onClick = {
+                    vm.exportToDownloads("json") { loc -> android.widget.Toast.makeText(shareCtx, if (loc != null) "Backup saved to $loc" else "Couldn't save backup", android.widget.Toast.LENGTH_SHORT).show() }
+                }) { Icon(Icons.Filled.Save, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Back up now") }
+            }
+
+            // V7 — Reality Replay: a shareable recap across all three modules, rendered on-device.
+            AppCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Your week in review", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text("A shareable recap — tracked time, tasks, habits, momentum.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    FilledTonalButton(onClick = { vm.shareRecap { } }) { Icon(Icons.Filled.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Share") }
+                }
+            }
+
+            // V12 — the rewards wallet: points earned by doing the work, spent on self-chosen treats.
+            val rewardsList = com.todocompanion.app.domain.Rewards.parse(settings.rewardsJson)
+            if (rewardsList.isNotEmpty()) AppCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Rewards", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("⭐ ${settings.pointsBalance} pts", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                }
+                Spacer(Modifier.height(6.dp))
+                rewardsList.forEach { r ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${r.emoji} ${r.name}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        TextButton(enabled = settings.pointsBalance >= r.cost, onClick = { vm.redeemReward(r) }) { Text("Redeem · ${r.cost}") }
+                    }
+                }
+            }
+
+            // PC-D — Progressive disclosure: the retrospective analytics below fold away by default so the
+            // screen opens as a scannable summary. Header + one-line summary stay visible; nothing primary or
+            // actionable lives inside — those cards stay above, always visible.
+            ExpandableSection("Deeper insights", summary = "Correlations, plans vs actual, trends & log") {
+
             // Q6 / U7 — the cross-module correlations, the one thing only a unified store computes.
             val timeLinks = remember(habits, checkins, timeEntries) { if (timeOn && habitsOn) vm.momentumLinks() else emptyList() }
             AppCard {
@@ -592,27 +646,6 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit, onOpenGoals: () -> Unit
                 }
             }
 
-            // U10 — your data is safe: last-backup age + one-tap export, so the local-only trade never bites.
-            AppCard {
-                Text("Your data is safe", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(4.dp))
-                // The most recent time data left the app — an automatic/manual backup OR a folder sync.
-                // (Auto-backup stamps lastBackupAt; folder sync stamps lastSyncAt.)
-                val lastBk = maxOf(settings.lastBackupAt, settings.lastSyncAt)
-                val ageTxt = if (lastBk <= 0L) "No backup yet." else {
-                    val days = ((nowMs - lastBk) / 86_400_000L).toInt()
-                    when { days <= 0 -> "Last backup today."; days == 1 -> "Last backup yesterday."; else -> "Last backup $days days ago." }
-                }
-                val stale = lastBk <= 0L || (nowMs - lastBk) > 7L * 86_400_000L
-                Text(ageTxt + if (stale) "  Everything lives only on this device — export a copy." else "  You're covered.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (stale) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(8.dp))
-                FilledTonalButton(onClick = {
-                    vm.exportToDownloads("json") { loc -> android.widget.Toast.makeText(shareCtx, if (loc != null) "Backup saved to $loc" else "Couldn't save backup", android.widget.Toast.LENGTH_SHORT).show() }
-                }) { Icon(Icons.Filled.Save, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Back up now") }
-            }
-
             // V6 — cross-type tag report: hours + tasks + habit-days grouped by one tag. The zero-permission
             // answer to WHPH's app-usage dashboard, made possible by unified tags across all three modules.
             val tagReport = remember(timeEntries, tasks, habits, checkins) { vm.crossTypeTagReport(7) }
@@ -629,33 +662,6 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit, onOpenGoals: () -> Unit
                             if (t.habitDays > 0) add("${t.habitDays} habit day${if (t.habitDays == 1) "" else "s"}")
                         }
                         Text(parts.joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-
-            // V7 — Reality Replay: a shareable recap across all three modules, rendered on-device.
-            AppCard {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Your week in review", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        Text("A shareable recap — tracked time, tasks, habits, momentum.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    FilledTonalButton(onClick = { vm.shareRecap { } }) { Icon(Icons.Filled.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Share") }
-                }
-            }
-
-            // V12 — the rewards wallet: points earned by doing the work, spent on self-chosen treats.
-            val rewardsList = com.todocompanion.app.domain.Rewards.parse(settings.rewardsJson)
-            if (rewardsList.isNotEmpty()) AppCard {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Rewards", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Text("⭐ ${settings.pointsBalance} pts", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                }
-                Spacer(Modifier.height(6.dp))
-                rewardsList.forEach { r ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("${r.emoji} ${r.name}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        TextButton(enabled = settings.pointsBalance >= r.cost, onClick = { vm.redeemReward(r) }) { Text("Redeem · ${r.cost}") }
                     }
                 }
             }
@@ -742,6 +748,7 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit, onOpenGoals: () -> Unit
                     }
                 }
             }
+            } // end ExpandableSection("Deeper insights")
 
             // R5 — the "how it all fits" guide, in one plain paragraph, so the numbers above are legible.
             AppCard {

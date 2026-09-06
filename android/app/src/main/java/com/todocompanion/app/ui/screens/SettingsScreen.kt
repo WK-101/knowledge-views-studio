@@ -219,7 +219,10 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
 
         // T0: modular module system — pick the primary, switch any module off. Off hides it everywhere
         // (nav, drawer, capture, widgets, Momentum, Today) but never deletes its data.
-        SettingsSectionHeader("General")
+        SettingsSectionHeader("General",
+            "Modules",
+            "Appearance theme dark light mode dynamic color accent palette theme pack background tint density compact spacing fab position swipe actions gestures",
+        )
         SettingsGroup(Icons.Filled.Dashboard, "Modules", open["modules"] == true, { open["modules"] = open["modules"] != true }) {
             Sub("Primary (your home + always shown)")
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -309,7 +312,14 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Text("A short swipe runs the first action; a longer swipe runs the “full” action.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
-        SettingsSectionHeader("Planning")
+        SettingsSectionHeader("Planning",
+            "Do-Next priority computed priority weights importance urgency due start goal overdue boost score",
+            "Startup resume last place default view open launch",
+            "Sidebar & tabs smart lists entry counts bottom bar tabs drawer sections show hide navigation",
+            "Date & time week start clock 24 hour day start rollover timezone capacity working hours deep work goal",
+            "Calendar & planner calendar habits blocks lunar moon phase protected window context mode routine planner defragment reflow",
+            *(if (Modules.isEnabled(s, Modules.TIME)) arrayOf("Time tracking") else emptyArray()),
+        )
         SettingsGroup(Icons.Filled.Tune, "Do-Next priority", open["priority"] == true, { open["priority"] = open["priority"] != true }, keywords = "computed priority weights importance urgency due start goal overdue boost score") {
             Toggle("Use computed priority", s.priorityComputed) { vm.saveSettings(s.copy(priorityComputed = it)) }
             Text(if (s.priorityComputed) "MLO-style score ranks the Do-Next list — importance & urgency compound down the outline, plus a date term."
@@ -586,7 +596,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
         if (Modules.isEnabled(s, Modules.HABITS)) {
-            SettingsSectionHeader("Habits")
+            SettingsSectionHeader("Habits", "Habits streak forgiving strength calm chronotype bookends companion garden wip limit rewards points routines nfc receptivity")
             SettingsGroup(Icons.Filled.Whatshot, "Habits", open["streaks"] == true, { open["streaks"] = open["streaks"] != true }, keywords = "streak forgiving strength calm chronotype bookends companion garden wip limit rewards points routines nfc receptivity") {
                 Toggle("Forgiving streaks", s.forgivingStreaks) { on -> vm.saveSettings(s.copy(forgivingStreaks = on)) }
                 Text("Tolerate the odd missed day (about one a week) instead of resetting to zero — consistency over brittle chains, so one slip never wipes weeks of momentum.",
@@ -738,7 +748,11 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
-        SettingsSectionHeader("Editor & notifications")
+        SettingsSectionHeader("Editor & notifications",
+            "Task editor fields tier always more hidden reorder reflection estimate energy flag attachments",
+            "Sounds sound tone chime beep alarm focus timer stopwatch reminder ringtone audio start completion cue",
+            "Reminders notification daily summary evening review morning brief exact alarm battery optimization intensity gentle persistent insistent snooze duration escalate",
+        )
         SettingsGroup(Icons.Filled.EditNote, "Task editor", open["editor"] == true, { open["editor"] = open["editor"] != true }, keywords = "fields tier always more hidden reorder reflection estimate energy flag attachments") {
             Text("The editor shows a lean set of fields first and reveals the rest under “More fields.” Choose when each appears, or drag the order to match how you work. A field you’ve already filled always shows, whatever you pick here.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
@@ -947,7 +961,12 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Action("Ignore battery optimisation") { openBatterySettings(context) }
         }
 
-        SettingsSectionHeader("Privacy & data")
+        SettingsSectionHeader("Privacy & data",
+            "Privacy app lock biometric fingerprint secure screen screenshot lockscreen encrypt database sqlcipher security trust",
+            "Flags",
+            "Backup export import restore backup json csv markdown ics calendar todoist ticktick mlo habits share copy data",
+            "Backup & sync (folder) automatic backup folder sync across devices shared folder passphrase encryption schedule",
+        )
         SettingsGroup(Icons.Filled.Lock, "Privacy", open["privacy"] == true, { open["privacy"] = open["privacy"] != true }, keywords = "app lock biometric fingerprint secure screen screenshot lockscreen encrypt database sqlcipher security trust") {
             Toggle("Require unlock to open", s.appLockEnabled) { vm.saveSettings(s.copy(appLockEnabled = it)) }
             Text("Ask for your fingerprint, face or device PIN each time the app opens (strong biometric preferred). All checks happen on-device.",
@@ -1151,7 +1170,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        SettingsSectionHeader("About")
+        SettingsSectionHeader("About", "Help & tips")
         SettingsGroup(Icons.Filled.School, "Help & tips", open["help"] == true, { open["help"] = open["help"] != true }) {
             Text("New here, or want a refresher? Replay the guided welcome tour any time.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
@@ -1471,6 +1490,11 @@ private fun FlagEditDialog(initial: FlagEntity?, onDismiss: () -> Unit, onSave: 
     )
 }
 
+/** R28 #7 — the one settings-search match rule, shared by [SettingsGroup] (does this group show?) and
+ *  [SettingsSectionHeader] (does any group under me show?). A blank query matches everything. */
+private fun settingsQueryMatches(query: String, haystack: String): Boolean =
+    query.isBlank() || haystack.contains(query, ignoreCase = true)
+
 /** A collapsible, iconized settings category (TickTick-style): a tidy header row that expands
  *  its controls inline, so the screen reads as a compact list instead of one long lump. */
 @Composable
@@ -1478,7 +1502,7 @@ private fun SettingsGroup(icon: ImageVector, title: String, expanded: Boolean, o
     // R28 #7 — settings search: when a query is active, hide non-matching groups and force-expand the rest,
     // matching against the group title + its keyword hints. Filtering here keeps every group call unchanged.
     val query = LocalSettingsQuery.current
-    if (query.isNotBlank() && !"$title $keywords".contains(query, ignoreCase = true)) return
+    if (!settingsQueryMatches(query, "$title $keywords")) return
     val effExpanded = expanded || query.isNotBlank()
     Surface(shape = RoundedCornerShape(16.dp), color = appCardColor(),
         modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
@@ -1654,9 +1678,13 @@ private fun ThemePackSwatch(pack: ThemePack, size: androidx.compose.ui.unit.Dp =
 }
 
 /** R107 — a small section heading that groups the collapsible category cards, so the screen reads as a few
- *  labelled sections instead of one long list. */
+ *  labelled sections instead of one long list. [groups] are the "title + keyword" haystacks of the category
+ *  cards under this header; when a search filters every one of them away, the header hides too rather than
+ *  leaving an orphaned label over an empty section. */
 @Composable
-private fun SettingsSectionHeader(text: String) {
+private fun SettingsSectionHeader(text: String, vararg groups: String) {
+    val query = LocalSettingsQuery.current
+    if (groups.isNotEmpty() && groups.none { settingsQueryMatches(query, it) }) return
     Text(text.uppercase(), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 6.dp, top = 18.dp, bottom = 2.dp))
 }
