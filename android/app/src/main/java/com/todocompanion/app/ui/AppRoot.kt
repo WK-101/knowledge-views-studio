@@ -164,12 +164,13 @@ private fun CompactBottomBar(
 ) {
     androidx.compose.material3.Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 10.dp, tonalElevation = 2.dp) {
         Row(
-            Modifier.fillMaxWidth().navigationBarsPadding().height(56.dp),
+            Modifier.fillMaxWidth().navigationBarsPadding().height(64.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             tabs.forEachIndexed { idx, t ->
                 val selected = t == current
+                val tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 // Tapping the active tab re-triggers it (Calendar → jump to today). Long-pressing the FIRST
                 // tab jumps to the configured home shortcut (default Inbox).
                 Box(
@@ -179,7 +180,17 @@ private fun CompactBottomBar(
                     ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(t.icon, t.label, tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(25.dp))
+                    // Icon + a small always-on label (M3 navigation convention) so every destination is
+                    // legible, not a guessing game of icons.
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(t.icon, null, tint = tint, modifier = Modifier.size(23.dp))
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            t.label, style = MaterialTheme.typography.labelSmall, color = tint,
+                            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        )
+                    }
                 }
             }
         }

@@ -364,8 +364,6 @@ fun AppDrawer(
             }
 
             if ("views" !in hidden) {
-            SectionHeader("Views", open = open("views"), onToggle = { toggle("views") })
-            if (open("views")) {
                 data class VItem(val key: String, val label: String, val icon: ImageVector, val tab: String)
                 val defaultViews = listOf(
                     VItem("view_calendar", "Calendar", Icons.Filled.CalendarMonth, "CALENDAR"),
@@ -375,17 +373,33 @@ fun AppDrawer(
                     VItem("view_time", "Time", Icons.Filled.Schedule, "TIME"),
                     VItem("view_focus", "Focus", Icons.Filled.Timer, "FOCUS"),
                 )
+                // "Views" is the drawer's access point for destinations that AREN'T already one tap away
+                // on the bottom bar — otherwise it just duplicates the nav bar. A tab shows here only if
+                // the user hid it from the bottom bar; Focus is never a bottom-bar destination (it folds
+                // into the Time hub) so it always belongs here.
+                val primaryHomeTabName = when (com.todocompanion.app.domain.Modules.primary(settings)) {
+                    com.todocompanion.app.domain.Modules.HABITS -> "HABITS"
+                    com.todocompanion.app.domain.Modules.TIME -> "TIME"
+                    else -> "TASKS"
+                }
+                fun onBottomBar(t: String) = t != "FOCUS" && (t == primaryHomeTabName || t !in settings.bottomTabsHidden)
                 val orderedViews = (settings.viewsOrder + defaultViews.map { it.key }).distinct()
                     .mapNotNull { key -> defaultViews.firstOrNull { it.key == key } }
                     .filter { it.key !in hidden }
                     // T0: hide a view whose module is switched off.
                     .filter { v -> com.todocompanion.app.domain.Modules.moduleOfTab(v.tab)?.let { com.todocompanion.app.domain.Modules.isEnabled(settings, it) } ?: true }
-                DragReorderColumn(orderedViews, id = { it.key }, onReorder = { vm.setViewsOrder(it) }) { v ->
-                    // E4: long-press any view to pin it to Favourites (token "view:TAB").
-                    DrawerRow(v.icon, v.label, pinned = vm.isPinned("view:${v.tab}"),
-                        onLongClick = { vm.togglePinnedRef("view:${v.tab}") }, onClick = { onOpenTab(v.tab) })
+                    // De-dup: drop views already reachable on the bottom bar.
+                    .filter { v -> !onBottomBar(v.tab) }
+                if (orderedViews.isNotEmpty()) {
+                    SectionHeader("Views", open = open("views"), onToggle = { toggle("views") })
+                    if (open("views")) {
+                        DragReorderColumn(orderedViews, id = { it.key }, onReorder = { vm.setViewsOrder(it) }) { v ->
+                            // E4: long-press any view to pin it to Favourites (token "view:TAB").
+                            DrawerRow(v.icon, v.label, pinned = vm.isPinned("view:${v.tab}"),
+                                onLongClick = { vm.togglePinnedRef("view:${v.tab}") }, onClick = { onOpenTab(v.tab) })
+                        }
+                    }
                 }
-            }
             }
 
             if ("more" !in hidden) {
