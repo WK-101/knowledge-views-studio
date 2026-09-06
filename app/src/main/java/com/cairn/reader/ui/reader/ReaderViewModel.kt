@@ -235,6 +235,15 @@ class ReaderViewModel @Inject constructor(
 
     // -- Dictionary / thesaurus -----------------------------------------------
 
+    /** Whether the online dictionary look-up is allowed to reach the public API. Off by default —
+     *  it is the only reader feature that sends selected text off-device (a single word, over HTTPS). */
+    val dictionaryOnline: StateFlow<Boolean> =
+        preferences.map { it.dictionaryOnline }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /** Opt in (or out) of online look-ups. Persisted; the reader's "Look up" sheet reads it live. */
+    fun setDictionaryOnline(enabled: Boolean) =
+        viewModelScope.launch { preferencesRepository.setDictionaryOnline(enabled) }
+
     suspend fun define(word: String) = dictionaryRepository.define(word)
 
     // -- Images / media --------------------------------------------------------

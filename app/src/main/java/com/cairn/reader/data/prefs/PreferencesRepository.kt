@@ -137,6 +137,11 @@ data class AppPreferences(
     /** Strip trackers, beacons and campaign params from stored article bodies (privacy sanitize).
      *  On by default — a saved article should never phone home when you open it. */
     val sanitizeArticles: Boolean = true,
+    /** Allow the in-reader "Look up" sheet to fetch definitions from a public dictionary API.
+     *  OFF by default: it is the only feature that sends any text you selected to a third-party
+     *  server (a single word, over HTTPS), so it stays opt-in to keep the "offline by default"
+     *  promise honest. When off, Look up still works for on-device actions (copy, search, share). */
+    val dictionaryOnline: Boolean = false,
     /** Context automation: after a successful background sync, pull the next batch of likely-reads
      *  fully offline (respecting the Wi-Fi/charging sync constraints already in effect). */
     val autoOfflinePack: Boolean = false,
@@ -238,6 +243,7 @@ class PreferencesRepository @Inject constructor(
         val STRIP_TRACKING = booleanPreferencesKey("strip_tracking_params")
         val LINK_CHECK_ENABLED = booleanPreferencesKey("link_check_enabled")
         val SANITIZE_ARTICLES = booleanPreferencesKey("sanitize_articles")
+        val DICTIONARY_ONLINE = booleanPreferencesKey("dictionary_online")
         val AUTO_OFFLINE_PACK = booleanPreferencesKey("auto_offline_pack")
         val DAILY_BRIEF_NOTIFY = booleanPreferencesKey("daily_brief_notify")
         val MARK_READ_ON_SCROLL = booleanPreferencesKey("mark_read_on_scroll")
@@ -324,6 +330,7 @@ class PreferencesRepository @Inject constructor(
             stripTrackingParams = p[Keys.STRIP_TRACKING] ?: true,
             linkCheckEnabled = p[Keys.LINK_CHECK_ENABLED] ?: false,
             sanitizeArticles = p[Keys.SANITIZE_ARTICLES] ?: true,
+            dictionaryOnline = p[Keys.DICTIONARY_ONLINE] ?: false,
             autoOfflinePack = p[Keys.AUTO_OFFLINE_PACK] ?: false,
             dailyBriefNotify = p[Keys.DAILY_BRIEF_NOTIFY] ?: false,
             markReadOnScroll = p[Keys.MARK_READ_ON_SCROLL] ?: false,
@@ -491,6 +498,9 @@ class PreferencesRepository @Inject constructor(
     suspend fun setSanitizeArticles(enabled: Boolean) =
         context.dataStore.edit { it[Keys.SANITIZE_ARTICLES] = enabled }
 
+    suspend fun setDictionaryOnline(enabled: Boolean) =
+        context.dataStore.edit { it[Keys.DICTIONARY_ONLINE] = enabled }
+
     suspend fun setAutoOfflinePack(enabled: Boolean) =
         context.dataStore.edit { it[Keys.AUTO_OFFLINE_PACK] = enabled }
 
@@ -589,6 +599,7 @@ class PreferencesRepository @Inject constructor(
             put("stripTrackingParams", p.stripTrackingParams)
             put("linkCheckEnabled", p.linkCheckEnabled)
             put("sanitizeArticles", p.sanitizeArticles)
+            put("dictionaryOnline", p.dictionaryOnline)
             put("autoOfflinePack", p.autoOfflinePack)
             put("dailyBriefNotify", p.dailyBriefNotify)
             put("bottomTabsOrder", JSONArray(p.bottomTabsOrder))
@@ -661,6 +672,7 @@ class PreferencesRepository @Inject constructor(
             if (json.has("stripTrackingParams")) e[Keys.STRIP_TRACKING] = json.getBoolean("stripTrackingParams")
             if (json.has("linkCheckEnabled")) e[Keys.LINK_CHECK_ENABLED] = json.getBoolean("linkCheckEnabled")
             if (json.has("sanitizeArticles")) e[Keys.SANITIZE_ARTICLES] = json.getBoolean("sanitizeArticles")
+            if (json.has("dictionaryOnline")) e[Keys.DICTIONARY_ONLINE] = json.getBoolean("dictionaryOnline")
             if (json.has("autoOfflinePack")) e[Keys.AUTO_OFFLINE_PACK] = json.getBoolean("autoOfflinePack")
             if (json.has("dailyBriefNotify")) e[Keys.DAILY_BRIEF_NOTIFY] = json.getBoolean("dailyBriefNotify")
             json.optJSONArray("bottomTabsOrder")?.let { arr -> e[Keys.BOTTOM_TABS_ORDER] = (0 until arr.length()).joinToString(",") { arr.getString(it) } }

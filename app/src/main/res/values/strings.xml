@@ -172,6 +172,11 @@
     <string name="listening">Listening</string>
     <string name="load_with_javascript">Load with JavaScript</string>
     <string name="looking_up">Looking up…</string>
+    <string name="lookup_online_off_title">Online dictionary is off</string>
+    <string name="lookup_online_off_body">Defining a word sends only that one word (“%1$s”) to a public dictionary service over an encrypted connection. Cairn keeps this off by default, so nothing you read leaves your device unless you turn it on.</string>
+    <string name="lookup_online_off_body_generic">Defining a word sends only that single word to a public dictionary service over an encrypted connection. Cairn keeps this off by default, so nothing you read leaves your device unless you turn it on.</string>
+    <string name="lookup_enable_online">Enable online look-ups</string>
+    <string name="lookup_online_off_hint">You can turn this off again in Settings → Privacy.</string>
     <string name="manage">Manage</string>
     <string name="manage_collection">Manage collection</string>
     <string name="manage_feeds">Manage feeds</string>
@@ -242,6 +247,8 @@
     <string name="once_a_day_a_quiet_nudge">Once a day, a quiet nudge when your focus-ranked brief is ready to read or listen to.</string>
     <string name="one_quiet_private_home_for_everything">One quiet, private home for everything you read — and it\'s yours forever.</string>
     <string name="one_reader_for_everything_you_read">One reader for everything you read.</string>
+    <string name="online_dictionary_lookups">Online dictionary look-ups</string>
+    <string name="online_dictionary_lookups_desc">Off by default. When on, the reader\'s “Look up” sheet sends the single selected word to a public dictionary service (dictionaryapi.dev) over HTTPS to fetch its definition. Nothing else you read leaves the device.</string>
     <string name="only_failing_feeds">Only failing feeds</string>
     <string name="open">Open</string>
     <string name="open_an_article_to_cache_it">Open an article to cache it for offline reading, or choose “Save offline” from any item\'s menu to keep a permanent, self-contained copy — text and images — that survives even if the source changes or deletes it.</string>

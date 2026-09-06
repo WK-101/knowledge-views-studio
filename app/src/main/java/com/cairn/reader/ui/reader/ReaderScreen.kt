@@ -50,6 +50,7 @@ import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Forum
@@ -770,9 +771,12 @@ fun ReaderScreen(
     }
 
     lookup?.let { term ->
+        val onlineEnabled by viewModel.dictionaryOnline.collectAsStateWithLifecycle()
         LookupSheet(
             term = term,
+            onlineEnabled = onlineEnabled,
             onDefine = { viewModel.define(it) },
+            onEnableOnline = { viewModel.setDictionaryOnline(true) },
             onDismiss = { lookup = null },
         )
     }
@@ -1371,7 +1375,9 @@ private fun PillAction(icon: androidx.compose.ui.graphics.vector.ImageVector, la
 @Composable
 private fun LookupSheet(
     term: String,
+    onlineEnabled: Boolean,
     onDefine: suspend (String) -> Result<com.cairn.reader.domain.lookup.DictionaryEntry>,
+    onEnableOnline: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -1384,6 +1390,40 @@ private fun LookupSheet(
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 28.dp),
         ) {
+            // Online look-up is the one reader feature that sends selected text off-device, so it is
+            // disclosed and opt-in. Until enabled, the sheet explains exactly what will be sent.
+            if (!onlineEnabled) {
+                val firstWord = remember(term) {
+                    term.trim().split(Regex("\\s+")).firstOrNull().orEmpty()
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+                    Icon(Icons.Outlined.CloudOff, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        stringResource(R.string.lookup_online_off_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = scheme.onSurface,
+                    )
+                }
+                Text(
+                    if (firstWord.isNotEmpty()) stringResource(R.string.lookup_online_off_body, firstWord)
+                    else stringResource(R.string.lookup_online_off_body_generic),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = scheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = onEnableOnline, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.lookup_enable_online))
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    stringResource(R.string.lookup_online_off_hint),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = scheme.onSurfaceVariant,
+                )
+                return@Column
+            }
             val entry by produceState<Result<com.cairn.reader.domain.lookup.DictionaryEntry>?>(null, term) {
                 value = onDefine(term)
             }

@@ -650,6 +650,13 @@ fun SettingsScreen(
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.online_dictionary_lookups), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.online_dictionary_lookups_desc), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    }
+                    androidx.compose.material3.Switch(checked = prefs.dictionaryOnline, onCheckedChange = { viewModel.setDictionaryOnline(it) })
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.commute_mode_auto_offline), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
                         Text(stringResource(R.string.after_each_background_sync_pull_the), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
