@@ -40,7 +40,9 @@ object RoutineInsights {
         zone: ZoneId = ZoneId.systemDefault(),
     ): Stat {
         val runs = allRuns.filter { it.routineId == r.id }
-        val runDays = runs.map { it.epochDay }.toSortedSet()
+        // Adherence, streaks and the keystone read only FINISHED runs — a partial/abandoned run (finished=false)
+        // isn't a kept day. bestHour/drop-off/totalRuns below still consider every press-play.
+        val runDays = runs.filter { it.finished }.map { it.epochDay }.toSortedSet()
         // The window the routine has existed within, capped at 30 days — the adherence denominator's span.
         val createdDay = if (r.createdAt > 0) dayOf(r.createdAt, zone).toEpochDay() else today - 29
         val windowStart = maxOf(createdDay, today - 29)
@@ -125,7 +127,8 @@ object RoutineInsights {
      * weekly = Σ(plannedSec × perWeek). Timed steps only. Pure over the routine set + run history.
      */
     fun capacity(routines: List<Routine>, runs: List<RoutineRun>, today: Long): Capacity {
-        val scheduled = routines.filter { it.isRunnable && it.whenReminderMin != null }
+        // A "scheduled" ritual is one that recurs — reminder-set OR with an explicit day cadence.
+        val scheduled = routines.filter { it.isRunnable && (it.whenReminderMin != null || it.days.isNotEmpty()) }
         val weeklySec = scheduled.sumOf { it.plannedSec.toLong() * it.perWeek }
         val last7Sec = runs.filter { it.epochDay in (today - 6)..today }.sumOf { it.totalSec }
         return Capacity(

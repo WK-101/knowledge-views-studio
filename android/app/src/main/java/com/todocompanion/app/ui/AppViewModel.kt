@@ -1840,8 +1840,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      *  Today screen surfaces, so a scheduled ritual is reachable from the daily plan, not only the drawer. */
     fun routinesDueToday(): List<com.todocompanion.app.domain.Routine> {
         val t = today()
-        val ranToday = routineRuns().filter { it.epochDay == t }.map { it.routineId }.toSet()
-        return routines().filter { it.isRunnable && it.whenReminderMin != null && it.scheduledOn(t) && it.id !in ranToday }
+        // Only a FINISHED run clears the ritual from Today — a partial/abandoned run (finished=false) shouldn't
+        // make it disappear as if kept. Surface a ritual that's scheduled today and is either reminder-set OR
+        // has an explicit day cadence, so a cadenced routine reaches the daily plan even without a reminder.
+        val ranToday = routineRuns().filter { it.epochDay == t && it.finished }.map { it.routineId }.toSet()
+        return routines().filter {
+            it.isRunnable && it.scheduledOn(t) && it.id !in ranToday && (it.whenReminderMin != null || it.days.isNotEmpty())
+        }
     }
     /** Tick a habit for today — the same check-off path the Habits screen uses (setHabitValue). */
     fun completeHabitToday(habitId: String) {

@@ -1009,8 +1009,9 @@ private fun BuilderHeadline(
             }
         }
     } else {
-        // F12 — quit dashboard.
-        val q = remember(hc, today) { HB.quitStats(h, hc, today) }
+        // F12 — quit dashboard. Uses vm.zoneId (like the header tile and `current`) so the above-fold
+        // "Clean time" can't disagree with them by a day when the app zone differs from the device zone.
+        val q = remember(hc, today) { HB.quitStats(h, hc, today, vm.zoneId) }
         Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .45f)) {
             Column(Modifier.padding(16.dp)) {
                 Text("Clean time", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)

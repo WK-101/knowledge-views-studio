@@ -622,22 +622,23 @@ private fun RoutineEditor(
                         if (reminderOn) com.todocompanion.app.ui.components.HourStepper(reminderHour, onChange = { reminderHour = ((it % 24) + 24) % 24 })
                         Switch(checked = reminderOn, onCheckedChange = { reminderOn = it })
                     }
-                    if (reminderOn) {
-                        Spacer(Modifier.height(10.dp))
-                        Text("On which days? (none selected = every day)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.height(6.dp))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            (1..7).forEach { d ->
-                                val on = d in days
-                                Surface(
-                                    Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { days = if (on) days - d else (days + d).sorted() },
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f),
-                                ) {
-                                    Text(dayShort(d), Modifier.fillMaxWidth().padding(vertical = 8.dp), textAlign = TextAlign.Center,
-                                        style = MaterialTheme.typography.labelMedium, maxLines = 1,
-                                        color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
+                    // Schedule is independent of the reminder toggle: a routine can have a day cadence (which
+                    // drives adherence, streaks and the Today "Rituals" strip) without a reminder — and when the
+                    // reminder is on, it fires only on these days.
+                    Spacer(Modifier.height(10.dp))
+                    Text("Scheduled days (none = every day)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        (1..7).forEach { d ->
+                            val on = d in days
+                            Surface(
+                                Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { days = if (on) days - d else (days + d).sorted() },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f),
+                            ) {
+                                Text(dayShort(d), Modifier.fillMaxWidth().padding(vertical = 8.dp), textAlign = TextAlign.Center,
+                                    style = MaterialTheme.typography.labelMedium, maxLines = 1,
+                                    color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }

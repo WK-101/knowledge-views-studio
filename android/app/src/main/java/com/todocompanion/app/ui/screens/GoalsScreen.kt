@@ -397,7 +397,7 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
                         val leadHabit = remember(habitsAll, g.habitId) { habitsAll.firstOrNull { it.id == g.habitId } }
                         if (leadHabit == null || leadHabit.archived) {
                             Text(if (leadHabit == null) "This lead habit no longer exists — edit the goal to relink one."
-                                 else "This lead habit is archived, so its strength & streak no longer update.",
+                                 else "This lead habit is archived — it's no longer part of your active practice.",
                                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 3.dp))
                         }
                     }
@@ -472,8 +472,8 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
     }
 
     krEdit?.let { kr ->
-        var cur by remember(kr.id) { mutableStateOf(trimNum(kr.current)) }
-        var tgt by remember(kr.id) { mutableStateOf(trimNum(kr.target)) }
+        var cur by remember(kr.id) { mutableStateOf(editNum(kr.current)) }
+        var tgt by remember(kr.id) { mutableStateOf(editNum(kr.target)) }
         var unit by remember(kr.id) { mutableStateOf(kr.unit) }
         AlertDialog(onDismissRequest = { krEdit = null },
             title = { Text(kr.title.ifBlank { "Key result" }) },
@@ -500,6 +500,10 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
 }
 
 private fun trimNum(d: Double): String = if (d == d.toLong().toDouble()) d.toLong().toString() else "%.1f".format(d)
+
+/** Non-rounding numeric text for an EDITABLE field, so opening a KR editor and saving can't silently round a
+ *  stored value (e.g. 5.25 → 5.3) the way the 1-dp display formatter [trimNum] would. Display keeps trimNum. */
+private fun editNum(d: Double): String = if (d == d.toLong().toDouble()) d.toLong().toString() else d.toString()
 
 /** Sanitize a numeric text-field edit: digits and at most ONE decimal point, capped length. Without the
  *  single-dot guard "1.2.3" is accepted into the field but parses to null, and the edit is then silently
@@ -654,9 +658,9 @@ private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, on
                     AppCard {
                         // Back each numeric field with its own raw string so a decimal point (or an empty field
                         // mid-edit) survives — binding straight to trimNum(model) would revert every keystroke.
-                        var startRaw by remember(kr.id) { mutableStateOf(trimNum(kr.start)) }
-                        var nowRaw by remember(kr.id) { mutableStateOf(trimNum(kr.current)) }
-                        var targetRaw by remember(kr.id) { mutableStateOf(trimNum(kr.target)) }
+                        var startRaw by remember(kr.id) { mutableStateOf(editNum(kr.start)) }
+                        var nowRaw by remember(kr.id) { mutableStateOf(editNum(kr.current)) }
+                        var targetRaw by remember(kr.id) { mutableStateOf(editNum(kr.target)) }
                         fun clean(s: String) = cleanDecimal(s)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(kr.title, { keyResults[i] = kr.copy(title = it) }, label = { Text("Result ${i + 1}") }, singleLine = true, modifier = Modifier.weight(1f))

@@ -50,7 +50,7 @@ object LifeSystems {
         // (where the "other habits" fallback yields nothing). Prefer DayLog; fall back to other habits' tags.
         val dlMood = dayLogs.mapNotNull { dl -> (dl.pmMood.takeIf { it > 0 } ?: dl.dayRating.takeIf { it > 0 } ?: dl.amMood.takeIf { it > 0 })?.let { dl.epochDay to it.toDouble() } }.toMap()
         val dlEnergy = dayLogs.filter { it.energy > 0 }.associate { it.epochDay to it.energy.toDouble() }
-        val out = ArrayList<Correlation>()
+        val candidates = ArrayList<Pair<Correlation, Double>>()   // (correlation, two-sample p-value) for FDR
         // Days the user was demonstrably active in the app — a habit check-in, a completed task, or a
         // felt-state log. The "tasks done" zero-fill is bounded to these: an off-day the user never opened
         // the app must not be counted as a real "0 tasks", or the comparison (on-days are always active, off-
@@ -92,11 +92,36 @@ object LifeSystems {
                     val vOff = offVals.sumOf { (it - off) * (it - off) }
                     val pooledSd = kotlin.math.sqrt((vOn + vOff) / (onVals.size + offVals.size - 2).coerceAtLeast(1).toDouble())
                     val cohensD = if (pooledSd > 1e-9) abs(delta) / pooledSd else if (abs(delta) > 1e-9) Double.MAX_VALUE else 0.0
-                    if (abs(delta) >= 0.2 && cohensD >= 0.2) out += Correlation(h, name, delta, on, off, onVals.size, offVals.size)
+                    if (abs(delta) >= 0.2 && cohensD >= 0.2) {
+                        // Two-sample z p-value (Welch standard error, normal approximation; ≥minSample per side)
+                        // for the FDR step below.
+                        val seSq = (if (onVals.size > 1) vOn / ((onVals.size - 1).toDouble() * onVals.size) else 0.0) +
+                                   (if (offVals.size > 1) vOff / ((offVals.size - 1).toDouble() * offVals.size) else 0.0)
+                        val se = kotlin.math.sqrt(seSq)
+                        val p = if (se > 1e-9) 2.0 * (1.0 - normCdf(abs(delta) / se)) else 0.0
+                        candidates += Correlation(h, name, delta, on, off, onVals.size, offVals.size) to p
+                    }
                 }
             }
         }
-        return out.sortedByDescending { abs(it.delta) }
+        // Benjamini–Hochberg FDR across the whole habit×signal grid (α = 0.10): a fixed effect-size floor alone
+        // still lets a few false links through once a user has many habits, so control the expected false-
+        // discovery rate — keep the correlations whose sorted p-value clears the BH line, drop the rest.
+        val m = candidates.size
+        if (m == 0) return emptyList()
+        val bySig = candidates.sortedBy { it.second }
+        val alpha = 0.10
+        var maxK = 0
+        bySig.forEachIndexed { i, (_, p) -> if (p <= (i + 1).toDouble() / m * alpha) maxK = i + 1 }
+        return bySig.take(maxK).map { it.first }.sortedByDescending { abs(it.delta) }
+    }
+
+    /** Standard-normal CDF (Zelen & Severo rational approximation, |error| < 8e-8) — for the FDR p-values. */
+    private fun normCdf(x: Double): Double {
+        val t = 1.0 / (1.0 + 0.2316419 * abs(x))
+        val d = 0.3989422804014327 * exp(-x * x / 2.0)
+        val prob = d * t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))))
+        return if (x >= 0) 1.0 - prob else prob
     }
 
     /** LS8b · keystone — the habit whose done-days most lift the other signals, across correlations. */
