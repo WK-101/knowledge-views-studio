@@ -81,6 +81,15 @@ android {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     }
 
+    testOptions {
+        unitTests {
+            // Robolectric tests (e.g. the DataStore-backed PreferencesRepository round-trip) need the
+            // merged manifest/resources on the JVM classpath.
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
+        }
+    }
+
     // Per-ABI APK splits: each device downloads only its own native libraries (SQLCipher's
     // libsqlcipher.so alone is ~5.8 MB per ABI). A single-ABI APK is ~10 MB vs the ~25 MB universal.
     // A universal APK is still produced as a fallback for unknown ABIs / manual installs.
