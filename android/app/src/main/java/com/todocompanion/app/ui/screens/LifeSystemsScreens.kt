@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -66,6 +69,11 @@ import com.todocompanion.app.ui.AppViewModel
 import java.time.LocalDate
 
 private val LS_COLORS = listOf(0xFF46618C, 0xFFC15B4A, 0xFF5E8C6A, 0xFF6C4FE0, 0xFFF59E0B, 0xFFEC4899, 0xFF12A594)
+// Reserved semantic status accents (good / bad) for scorecard signs and correlation direction. Material3
+// has no "positive" token, so these are deliberate fixed hues — muted mid-luminance greens/reds that stay
+// legible on both the light and dark chart surfaces (see dataviz: status colors are reserved, not themed).
+private val LS_GOOD = Color(0xFF5E8C6A)
+private val LS_BAD = Color(0xFFC15B4A)
 
 /**
  * R34 — the Life-Systems hub and its screens. One overlay driven by [AppViewModel.lifeSystemsRoute];
@@ -144,46 +152,67 @@ private fun HubScreen(vm: AppViewModel, onBack: () -> Unit, listState: androidx.
         Entry("ifthen", "🎯", "If-then plans", "“When X happens, I will do Y.” Pre-deciding the moment roughly doubles follow-through (Gollwitzer)."),
         Entry("valuesort", "📊", "Rank your values", "A forced card-sort of what matters most — clarity you can't get from a flat list (ACT)."),
     )
+    var query by remember { mutableStateOf("") }
+    val q = query.trim()
+    val matches = if (q.isBlank()) emptyList() else entries.filter {
+        it.title.contains(q, ignoreCase = true) || it.blurb.contains(q, ignoreCase = true)
+    }
+    @Composable
+    fun entryCard(e: Entry) {
+        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth().clickable { vm.lifeSystemsRoute.value = e.route }) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(e.emoji, fontSize = 26.sp, modifier = Modifier.padding(end = 14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(e.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(e.blurb, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
     LSScaffold("Life systems", onBack) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            item {
-                Text("From tracking habits to engineering a life — private, permanent, and entirely on your device.",
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+            item(key = "hub-search") {
+                androidx.compose.material3.OutlinedTextField(
+                    query, { query = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    placeholder = { Text("Search life systems") },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    trailingIcon = { if (q.isNotBlank()) Text("✕", modifier = Modifier.clickable { query = "" }.padding(12.dp)) })
             }
-            // Grouped into meaningful sections so the toolkit reads as a structured system, not a wall of
-            // 20+ undifferentiated cards. Order runs define → understand → act → commit → steady → reflect.
-            val byRoute = entries.associateBy { it.route }
-            val sections = listOf(
-                "Define the direction" to listOf("values", "valuesort", "scorecard"),
-                "Read your own data" to listOf("correlations", "experiments", "causal", "valuestime", "heatmap", "receptivity", "nudgelab"),
-                "Rituals & focus" to listOf("runner", "activation", "focuslock", "freshstart"),
-                "Make it stick" to listOf("ifthen", "bundling", "escrow", "loadbalancer"),
-                "Calm & support" to listOf("grounding", "companion", "buddies"),
-                "Review & identity" to listOf("reviews", "ledger"),
-            )
-            val placed = sections.flatMap { it.second }.toSet()
-            val withOverflow = sections + ("More" to entries.map { it.route }.filter { it !in placed })
-            withOverflow.forEach { (header, routes) ->
-                val group = routes.mapNotNull { byRoute[it] }
-                if (group.isNotEmpty()) {
-                    item(key = "hdr:$header") {
-                        Text(header.uppercase(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp, bottom = 2.dp))
-                    }
-                    items(group.size, key = { "ls:${group[it].route}" }) { i ->
-                        val e = group[i]
-                        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
-                            modifier = Modifier.fillMaxWidth().clickable { vm.lifeSystemsRoute.value = e.route }) {
-                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(e.emoji, fontSize = 26.sp, modifier = Modifier.padding(end = 14.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(e.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                                    Text(e.blurb, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
+            if (q.isBlank()) {
+                item(key = "hub-intro") {
+                    Text("From tracking habits to engineering a life — private, permanent, and entirely on your device.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 4.dp))
+                }
+                // Grouped into meaningful sections so the toolkit reads as a structured system, not a wall of
+                // 20+ undifferentiated cards. Order runs define → understand → act → commit → steady → reflect.
+                val byRoute = entries.associateBy { it.route }
+                val sections = listOf(
+                    "Define the direction" to listOf("values", "valuesort", "scorecard"),
+                    "Read your own data" to listOf("correlations", "experiments", "causal", "valuestime", "heatmap", "receptivity", "nudgelab"),
+                    "Rituals & focus" to listOf("runner", "activation", "focuslock", "freshstart"),
+                    "Make it stick" to listOf("ifthen", "bundling", "escrow", "loadbalancer"),
+                    "Calm & support" to listOf("grounding", "companion", "buddies"),
+                    "Review & identity" to listOf("reviews", "ledger"),
+                )
+                val placed = sections.flatMap { it.second }.toSet()
+                val withOverflow = sections + ("More" to entries.map { it.route }.filter { it !in placed })
+                withOverflow.forEach { (header, routes) ->
+                    val group = routes.mapNotNull { byRoute[it] }
+                    if (group.isNotEmpty()) {
+                        item(key = "hdr:$header") {
+                            Text(header.uppercase(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp, bottom = 2.dp))
                         }
+                        items(group.size, key = { "ls:${group[it].route}" }) { i -> entryCard(group[i]) }
                     }
                 }
+            } else if (matches.isEmpty()) {
+                item(key = "hub-empty") {
+                    Text("Nothing matches “$q”.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 8.dp))
+                }
+            } else {
+                items(matches.size, key = { "lsq:${matches[it].route}" }) { i -> entryCard(matches[i]) }
             }
         }
     }
@@ -301,9 +330,9 @@ private fun ScorecardScreen(vm: AppViewModel, onBack: () -> Unit) {
                                 IconButton(onClick = { vm.deleteScorecardItem(it.id) }) { Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                SignChip("＋ good", it.sign == 1, Color(0xFF5E8C6A)) { vm.setScorecardSign(it, 1) }
+                                SignChip("＋ good", it.sign == 1, LS_GOOD) { vm.setScorecardSign(it, 1) }
                                 SignChip("= neutral", it.sign == 0, MaterialTheme.colorScheme.outline) { vm.setScorecardSign(it, 0) }
-                                SignChip("－ bad", it.sign == -1, Color(0xFFC15B4A)) { vm.setScorecardSign(it, -1) }
+                                SignChip("－ bad", it.sign == -1, LS_BAD) { vm.setScorecardSign(it, -1) }
                                 if (it.sign != 0) {
                                     Spacer(Modifier.weight(1f))
                                     TextButton(onClick = { vm.scorecardToHabit(it) }) { Text(if (it.sign > 0) "Build →" else "Break →") }
@@ -353,7 +382,7 @@ private fun CorrelationsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit
             }
             items(corr.size) { i ->
                 val c = corr[i]
-                val color = if (c.positive) Color(0xFF5E8C6A) else Color(0xFFC15B4A)
+                val color = if (c.positive) LS_GOOD else LS_BAD
                 Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth().clickable { onOpenHabit(c.habit.id) }) {
                     Column(Modifier.padding(14.dp)) {
                         Text("On days you do ${c.habit.emoji?.plus(" ") ?: ""}${c.habit.name}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -973,9 +1002,12 @@ private fun CountdownCircle(totalSecs: Int) {
 private fun MicroPlanScreen(vm: AppViewModel, onBack: () -> Unit, kind: String) {
     val bundle = kind == com.todocompanion.app.domain.MicroPlans.BUNDLE
     val plans by vm.microPlans.collectAsState()
+    val habits by vm.habits.collectAsState()
+    val activeHabits = habits.filter { !it.archived && !it.paused }
     val mine = plans.filter { it.kind == kind }
     var a by remember { mutableStateOf("") }
     var b by remember { mutableStateOf("") }
+    var habitId by remember { mutableStateOf("") }
     val title = if (bundle) "Temptation bundling" else "If-then plans"
     LSScaffold(title, onBack) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -993,8 +1025,20 @@ private fun MicroPlanScreen(vm: AppViewModel, onBack: () -> Unit, kind: String) 
                     Spacer(Modifier.size(8.dp))
                     androidx.compose.material3.OutlinedTextField(b, { b = it }, modifier = Modifier.fillMaxWidth(), singleLine = false,
                         label = { Text(if (bundle) "…only while I (the should: “walk on the treadmill”)" else "…then I will (the action: “write for 10 minutes”)") })
+                    if (activeHabits.isNotEmpty()) {
+                        Spacer(Modifier.size(8.dp))
+                        Text("Protect a habit (optional)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            activeHabits.forEach { h ->
+                                androidx.compose.material3.FilterChip(
+                                    selected = habitId == h.id,
+                                    onClick = { habitId = if (habitId == h.id) "" else h.id },
+                                    label = { Text("${h.emoji} ${h.name}".trim()) })
+                            }
+                        }
+                    }
                     Spacer(Modifier.size(10.dp))
-                    Button(onClick = { vm.addMicroPlan(kind, a, b); a = ""; b = "" }, enabled = a.isNotBlank() && b.isNotBlank()) { Text("Add") }
+                    Button(onClick = { vm.addMicroPlan(kind, a, b, habitId); a = ""; b = ""; habitId = "" }, enabled = a.isNotBlank() && b.isNotBlank()) { Text("Add") }
                 }
             }
             if (mine.isEmpty()) item {
@@ -1011,6 +1055,9 @@ private fun MicroPlanScreen(vm: AppViewModel, onBack: () -> Unit, kind: String) 
                             } else {
                                 Text("When ${p.a}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                 Text("→ I will ${p.b}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                            }
+                            habits.firstOrNull { it.id == p.habitId }?.let { h ->
+                                Text("↻ ${h.name}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
                             }
                         }
                         Text("✕", modifier = Modifier.clickable { vm.deleteMicroPlan(p.id) }.padding(8.dp), color = MaterialTheme.colorScheme.error)

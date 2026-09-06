@@ -1185,6 +1185,24 @@ private fun LifeSystemsHabitCards(
         }
     }
 
+    // LS-plans · implementation intentions / temptation bundles the user tied to this habit.
+    run {
+        val myPlans = vm.microPlans.collectAsState().value.filter { it.habitId == h.id }
+        if (myPlans.isNotEmpty()) {
+            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Your plan for this habit", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    myPlans.forEach { p ->
+                        val isIfThen = p.kind == com.todocompanion.app.domain.MicroPlans.IF_THEN
+                        Text(
+                            if (isIfThen) "When ${p.a} → I will ${p.b}" else "🎁 ${p.a} — only while ${p.b}",
+                            style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
+                    }
+                }
+            }
+        }
+    }
+
     // LS9 · what-if forward simulator (build habits).
     if (!isBreak && doneDays.size >= 4) {
         val proj = remember(doneDays, today) { LS.whatIf(h, doneDays, today) }

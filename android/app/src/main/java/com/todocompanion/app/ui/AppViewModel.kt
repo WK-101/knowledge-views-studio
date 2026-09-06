@@ -160,10 +160,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // R67 — temptation-bundling + implementation-intention micro-plans (settings-JSON, no schema).
     val microPlans: StateFlow<List<com.todocompanion.app.domain.MicroPlan>> =
         settings.map { com.todocompanion.app.domain.MicroPlans.parse(it.microPlansJson) }.state(emptyList())
-    fun addMicroPlan(kind: String, a: String, b: String) = viewModelScope.launch {
+    fun addMicroPlan(kind: String, a: String, b: String, habitId: String = "") = viewModelScope.launch {
         if (a.isBlank() || b.isBlank()) return@launch
         val list = com.todocompanion.app.domain.MicroPlans.parse(settings.value.microPlansJson) +
-            com.todocompanion.app.domain.MicroPlan(UUID.randomUUID().toString(), kind, a.trim(), b.trim(), System.currentTimeMillis())
+            com.todocompanion.app.domain.MicroPlan(UUID.randomUUID().toString(), kind, a.trim(), b.trim(), System.currentTimeMillis(), habitId.trim())
         repo.saveSettings(settings.value.copy(microPlansJson = com.todocompanion.app.domain.MicroPlans.encode(list)))
     }
     fun deleteMicroPlan(id: String) = viewModelScope.launch {

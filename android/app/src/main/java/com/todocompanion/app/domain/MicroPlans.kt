@@ -14,6 +14,8 @@ import kotlinx.serialization.json.Json
  *    will do Y" plan, which roughly doubles follow-through by pre-deciding the moment of action.
  *
  * [a] is the trigger side (the want, or the situation); [b] is the response side (the should, or the action).
+ * [habitId] optionally ties the plan to a habit it protects, so the plan surfaces on that habit's detail
+ * ("your if-then for this one") — blank means a free-standing plan. Defaulted, so old records still parse.
  */
 @Serializable
 data class MicroPlan(
@@ -22,6 +24,7 @@ data class MicroPlan(
     val a: String,
     val b: String,
     val createdAt: Long = 0L,
+    val habitId: String = "",
 )
 
 object MicroPlans {
