@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.first
 import org.jsoup.Jsoup
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.cairn.reader.data.db.ContentSource
+import com.cairn.reader.data.db.ExtractStatus
 
 /**
  * Imports a reading list exported from Pocket, Instapaper, Raindrop or any Netscape-bookmark HTML —
@@ -71,8 +73,8 @@ class BookmarkImporter @Inject constructor(
                     title = e.title?.takeIf { it.isNotBlank() } ?: hostOf(url),
                     savedAt = now,
                     type = "LINK",
-                    extractStatus = "PENDING",
-                    contentSource = "READABLE",
+                    extractStatus = ExtractStatus.PENDING.raw,
+                    contentSource = ContentSource.READABLE.raw,
                 ),
                 now,
             )

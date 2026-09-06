@@ -35,6 +35,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.cairn.reader.data.db.CacheStatus
+import com.cairn.reader.data.db.ExtractStatus
 
 data class ReaderUiState(
     val loading: Boolean = true,
@@ -140,7 +142,7 @@ class ReaderViewModel @Inject constructor(
                 // items that only carry a summary read like the real thing — no button.
                 // Feed content is shown immediately and swapped when extraction returns;
                 // on failure the feed content stays and the status becomes FAILED.
-                if (data.extractStatus == "NONE") {
+                if (data.extractStatus == ExtractStatus.NONE.raw) {
                     _state.update { it.copy(extracting = true) }
                     feedRepository.extractFull(itemId)
                     _state.update { ReaderUiState(loading = false, extracting = false, data = itemRepository.reader(itemId)) }
@@ -149,7 +151,7 @@ class ReaderViewModel @Inject constructor(
                 // background; saveOffline honours the image Wi-Fi-only policy (text always cached),
                 // and marking the copy permanent keeps retention from pruning it away.
                 val fresh = itemRepository.reader(itemId)
-                if (fresh != null && fresh.type != "PDF" && fresh.cacheStatus != "PERMANENT" &&
+                if (fresh != null && fresh.type != "PDF" && !CacheStatus.isPermanent(fresh.cacheStatus) &&
                     preferencesRepository.preferences.first().cacheOnOpen
                 ) {
                     launch { runCatching { feedRepository.saveOffline(itemId) } }

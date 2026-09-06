@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.cairn.reader.data.db.CacheStatus
 
 /** How the Read Later list is ordered. */
 enum class ReadLaterSort(val label: String) {
@@ -75,7 +76,7 @@ class ReadLaterViewModel @Inject constructor(
             }
             if (type != null) out = out.filter { it.type == type }
             if (unreadOnly) out = out.filter { !it.isRead }
-            if (offlineOnly) out = out.filter { it.cacheStatus == "PERMANENT" }
+            if (offlineOnly) out = out.filter { CacheStatus.isPermanent(it.cacheStatus) }
             when (sort) {
                 ReadLaterSort.NEWEST -> out.sortedByDescending { it.savedAt }
                 ReadLaterSort.OLDEST -> out.sortedBy { it.savedAt }

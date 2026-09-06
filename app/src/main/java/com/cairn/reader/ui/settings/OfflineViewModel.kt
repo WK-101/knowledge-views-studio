@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import com.cairn.reader.data.db.CacheStatus
 
 /** How the Offline list is ordered. */
 enum class OfflineSort(val label: String) {
@@ -99,8 +100,8 @@ class OfflineViewModel @Inject constructor(
             }
             f.t?.let { t -> out = out.filter { it.type == t } }
             when (f.k) {
-                OfflineKind.PERMANENT -> out = out.filter { it.cacheStatus == "PERMANENT" }
-                OfflineKind.CACHED -> out = out.filter { it.cacheStatus != "PERMANENT" }
+                OfflineKind.PERMANENT -> out = out.filter { CacheStatus.isPermanent(it.cacheStatus) }
+                OfflineKind.CACHED -> out = out.filter { !CacheStatus.isPermanent(it.cacheStatus) }
                 OfflineKind.ALL -> {}
             }
             when (f.s) {

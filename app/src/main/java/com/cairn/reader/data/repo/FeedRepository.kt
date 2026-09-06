@@ -29,6 +29,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.ceil
 import kotlin.math.max
+import com.cairn.reader.data.db.ContentSource
+import com.cairn.reader.data.db.ExtractStatus
 
 /**
  * Owns capture and sync: discovering feeds from a URL, pulling new items with
@@ -331,7 +333,7 @@ class FeedRepository @Inject constructor(
     suspend fun restoreItem(snapshot: ItemEntity) {
         syncDao.clearTombstone(snapshot.id)
         itemDao.insertItemWithState(
-            snapshot.copy(blobPath = null, extractStatus = if (snapshot.extractStatus == "OK") "NONE" else snapshot.extractStatus),
+            snapshot.copy(blobPath = null, extractStatus = if (snapshot.extractStatus == ExtractStatus.OK.raw) ExtractStatus.NONE.raw else snapshot.extractStatus),
             System.currentTimeMillis(),
         )
     }
@@ -395,7 +397,7 @@ class FeedRepository @Inject constructor(
         blobStore.deleteAllFor(id, item?.blobPath)
         itemDao.setExtracted(
             id = id, blobPath = null, excerpt = item?.excerpt, wordCount = item?.wordCount ?: 0,
-            minutes = item?.readingMinutes ?: 0, leadImage = null, status = "NONE", contentSource = item?.contentSource ?: "FEED",
+            minutes = item?.readingMinutes ?: 0, leadImage = null, status = "NONE", contentSource = item?.contentSource ?: ContentSource.FEED.raw,
         )
         itemDao.setCacheStatus(id, null)
     }
@@ -498,8 +500,8 @@ class FeedRepository @Inject constructor(
             wordCount = words,
             readingMinutes = minutes,
             blobPath = blobPath,
-            extractStatus = "NONE",
-            contentSource = "FEED",
+            extractStatus = ExtractStatus.NONE.raw,
+            contentSource = ContentSource.FEED.raw,
             guid = p.guid ?: p.link,
             enclosureUrl = p.audioUrl,
             commentsUrl = p.commentsUrl?.let { if (stripTrackingEnabled()) com.cairn.reader.data.net.UrlCleaner.strip(it) else it },
@@ -548,8 +550,8 @@ class FeedRepository @Inject constructor(
                 title = hostOf(url),
                 savedAt = now,
                 type = detectType(url, hasBody = false),
-                extractStatus = "PENDING",
-                contentSource = "READABLE",
+                extractStatus = ExtractStatus.PENDING.raw,
+                contentSource = ContentSource.READABLE.raw,
             ),
             now,
         )
@@ -585,8 +587,8 @@ class FeedRepository @Inject constructor(
                 wordCount = words,
                 readingMinutes = max(1, ceil(words / 220.0).toInt()),
                 blobPath = blobPath,
-                extractStatus = "OK",
-                contentSource = "SHARED",
+                extractStatus = ExtractStatus.OK.raw,
+                contentSource = ContentSource.SHARED.raw,
             ),
             now,
         )
@@ -617,8 +619,8 @@ class FeedRepository @Inject constructor(
                 excerpt = "Imported PDF",
                 leadImage = thumb,
                 blobPath = path,
-                extractStatus = "OK",
-                contentSource = "PDF",
+                extractStatus = ExtractStatus.OK.raw,
+                contentSource = ContentSource.PDF.raw,
                 cacheStatus = "PERMANENT",
             ),
             now,
@@ -665,7 +667,7 @@ class FeedRepository @Inject constructor(
             minutes = extracted.readingMinutes,
             leadImage = extracted.leadImage,
             status = "OK",
-            contentSource = "READABLE",
+            contentSource = ContentSource.READABLE.raw,
         )
         itemDao.indexItem(
             ItemFtsEntity(itemId, extracted.title ?: "", extracted.byline, extracted.plainText.take(20_000)),
@@ -695,7 +697,7 @@ class FeedRepository @Inject constructor(
             minutes = extracted.readingMinutes,
             leadImage = extracted.leadImage,
             status = "OK",
-            contentSource = "READABLE",
+            contentSource = ContentSource.READABLE.raw,
         )
         itemDao.indexItem(
             ItemFtsEntity(itemId, extracted.title ?: "", extracted.byline, extracted.plainText.take(20_000)),
@@ -765,7 +767,7 @@ class FeedRepository @Inject constructor(
     suspend fun saveOffline(itemId: String): Result<Int> {
         val item = itemDao.getItem(itemId) ?: return Result.failure(IllegalStateException("Item not found"))
         // Ensure we have the full readable body first (a summary-only item gets promoted).
-        if (item.extractStatus != "OK" || item.blobPath.isNullOrBlank()) {
+        if (item.extractStatus != ExtractStatus.OK.raw || item.blobPath.isNullOrBlank()) {
             runCatching { extractInto(itemId, item.url) }
         }
         val fresh = itemDao.getItem(itemId) ?: return Result.failure(IllegalStateException("Item not found"))
@@ -836,7 +838,7 @@ class FeedRepository @Inject constructor(
         // the Wayback chrome.
         val rawSnapshot = snapshotUrl.replaceFirst(Regex("/web/(\\d+)/"), "/web/$1id_/")
         runCatching { extractInto(itemId, rawSnapshot) }
-        val healed = itemDao.getItem(itemId)?.extractStatus == "OK"
+        val healed = itemDao.getItem(itemId)?.extractStatus == ExtractStatus.OK.raw
         if (healed) itemDao.setLinkStatus(itemId, "OK", System.currentTimeMillis())
         return healed
     }

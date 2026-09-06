@@ -156,6 +156,8 @@ import com.cairn.reader.ui.util.formatAgo
 import com.cairn.reader.ui.util.formatDateTime
 import com.cairn.reader.ui.util.nextSpeed
 import com.cairn.reader.ui.util.speedLabel
+import com.cairn.reader.data.db.CacheStatus
+import com.cairn.reader.data.db.ExtractStatus
 
 private val ReaderHPad = 22.dp
 
@@ -428,7 +430,7 @@ fun ReaderScreen(
                                     onClick = { showMenu = false; viewModel.loadRelated(); showRelated = true },
                                 )
                             }
-                            val permanent = data?.cacheStatus == "PERMANENT"
+                            val permanent = CacheStatus.isPermanent(data?.cacheStatus)
                             DropdownMenuItem(
                                 text = {
                                     Text(
@@ -965,7 +967,7 @@ private fun ArticleBody(
                         if (data.readingMinutes > 0) add("${data.readingMinutes} min read")
                         // Absolute published date + time, honoring the device's 12/24-hour clock.
                         formatDateTime(readerCtx, data.publishedAt).takeIf { it.isNotEmpty() }?.let { add(it) }
-                        if (data.cacheStatus == "PERMANENT") add("Saved offline")
+                        if (CacheStatus.isPermanent(data.cacheStatus)) add("Saved offline")
                         if (data.isArchived) add("Archived")
                     }.joinToString("  ·  ")
                     if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.labelMedium, color = palette.secondary)
@@ -979,7 +981,7 @@ private fun ArticleBody(
                             }
                             Spacer(Modifier.height(8.dp))
                         }
-                        data.extractStatus == "FAILED" -> {
+                        data.extractStatus == ExtractStatus.FAILED.raw -> {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick = onLoadFull) { Text(stringResource(R.string.retry)) }
                                 OutlinedButton(onClick = onLoadWithJs) {

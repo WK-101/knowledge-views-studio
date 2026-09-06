@@ -63,6 +63,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cairn.reader.data.db.CacheStatus
 
 /**
  * The Offline surface: a dedicated list of everything readable without a network — explicit
@@ -268,7 +269,7 @@ fun OfflineScreen(
     }
 
     actionRow?.let { row ->
-        val permanent = row.cacheStatus == "PERMANENT"
+        val permanent = CacheStatus.isPermanent(row.cacheStatus)
         androidx.compose.material3.ModalBottomSheet(onDismissRequest = { actionRow = null }, sheetState = androidx.compose.material3.rememberModalBottomSheetState()) {
             Column(Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
                 Text(row.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp))

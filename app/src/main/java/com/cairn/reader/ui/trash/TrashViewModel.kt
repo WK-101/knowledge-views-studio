@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.cairn.reader.data.db.CacheStatus
 
 /** How the Trash list is ordered. The default keeps the DAO's recently-trashed-first order. */
 enum class TrashSort(val label: String) {
@@ -117,7 +118,7 @@ class TrashViewModel @Inject constructor(
                 TrashReadState.READ -> out = out.filter { it.isRead }
                 TrashReadState.ANY -> {}
             }
-            if (f.offline) out = out.filter { it.cacheStatus == "PERMANENT" }
+            if (f.offline) out = out.filter { CacheStatus.isPermanent(it.cacheStatus) }
             if (f.starred) out = out.filter { it.isStarred }
             when (sort) {
                 // The raw list is already most-recently-trashed first.

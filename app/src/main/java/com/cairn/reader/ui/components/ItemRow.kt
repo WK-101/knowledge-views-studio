@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.ui.util.formatAgo
+import com.cairn.reader.data.db.CacheStatus
 
 /** Per-element list-row visibility, provided app-wide so every surface honours the user's density
  *  choices (Settings → List). Defaults show everything. */
@@ -73,7 +74,7 @@ internal fun StatusGlyphs(row: ItemListRow, size: Dp = 14.dp) {
         if (row.isReadLater) Spacer(Modifier.width(6.dp))
         Icon(Icons.Outlined.PictureAsPdf, contentDescription = stringResource(R.string.pdf), tint = scheme.onSurfaceVariant, modifier = Modifier.size(size))
     }
-    if (row.cacheStatus == "PERMANENT") {
+    if (CacheStatus.isPermanent(row.cacheStatus)) {
         if (row.isReadLater || row.type == "PDF") Spacer(Modifier.width(6.dp))
         Icon(Icons.Outlined.OfflinePin, contentDescription = stringResource(R.string.saved_offline), tint = scheme.primary, modifier = Modifier.size(size))
     }

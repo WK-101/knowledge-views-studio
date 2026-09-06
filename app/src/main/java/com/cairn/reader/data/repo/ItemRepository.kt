@@ -14,6 +14,8 @@ import org.jsoup.Jsoup
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.cairn.reader.data.db.ContentSource
+import com.cairn.reader.data.db.ExtractStatus
 
 /**
  * The app's read/write gateway for items. Mutations update local state immediately and
@@ -221,8 +223,8 @@ class ItemRepository @Inject constructor(
                     type = "ARTICLE",
                     excerpt = s.excerpt,
                     readingMinutes = s.minutes,
-                    extractStatus = "NONE",
-                    contentSource = "FEED",
+                    extractStatus = ExtractStatus.NONE.raw,
+                    contentSource = ContentSource.FEED.raw,
                     guid = id,
                 ),
                 now,

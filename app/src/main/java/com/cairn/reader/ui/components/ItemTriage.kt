@@ -60,6 +60,7 @@ import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.data.prefs.ListViewMode
 import com.cairn.reader.data.prefs.SwipeAction
 import kotlinx.coroutines.launch
+import com.cairn.reader.data.db.CacheStatus
 
 /**
  * A list row with two-stage, user-configurable swipe actions per direction: a short (half)
@@ -243,7 +244,7 @@ fun ItemActionSheet(
         ) { onToggleSave(!row.isReadLater); onDismiss() })
         add(SheetAction(Icons.Filled.Archive, "Archive") { onArchive(); onDismiss() })
         if (onSaveOffline != null && row.type != "PDF") {
-            val permanent = row.cacheStatus == "PERMANENT"
+            val permanent = CacheStatus.isPermanent(row.cacheStatus)
             add(SheetAction(
                 if (permanent) Icons.Outlined.OfflinePin else Icons.Outlined.DownloadForOffline,
                 if (permanent) "Offline ✓" else "Offline",
