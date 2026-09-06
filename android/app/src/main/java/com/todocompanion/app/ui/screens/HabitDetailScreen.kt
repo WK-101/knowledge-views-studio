@@ -768,7 +768,7 @@ private fun MonthCalendar(
     onEdit: (Long) -> Unit,
 ) {
     var monthOffset by remember { mutableIntStateOf(0) }
-    val month = YearMonth.now().plusMonths(monthOffset.toLong())
+    val month = YearMonth.from(LocalDate.ofEpochDay(today)).plusMonths(monthOffset.toLong())
     val first = month.atDay(1)
     val daysInMonth = month.lengthOfMonth()
     val leading = first.dayOfWeek.value - 1
@@ -979,7 +979,7 @@ private fun BuilderSection(
                 Text("${q.cleanDays} day${if (q.cleanDays == 1) "" else "s"}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                     if (q.moneySaved > 0) Column { Text("Money saved", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .8f)); Text(runCatching { java.text.NumberFormat.getCurrencyInstance().apply { maximumFractionDigits = 0 }.format(q.moneySaved) }.getOrDefault("%,.0f".format(q.moneySaved)), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer) }
-                    if (q.minutesSaved > 0) Column { Text("Time reclaimed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .8f)); Text("${q.minutesSaved / 60}h", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer) }
+                    if (q.minutesSaved > 0) Column { Text("Time reclaimed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .8f)); Text((q.minutesSaved / 60).let { h -> val m = q.minutesSaved % 60; if (h > 0 && m > 0) "${h}h ${m}m" else if (h > 0) "${h}h" else "${m}m" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer) }
                 }
                 Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val pledgedToday = h.lastPledgeDay == today

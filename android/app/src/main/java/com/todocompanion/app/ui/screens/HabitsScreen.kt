@@ -223,11 +223,17 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
         val d = daysFor(h, checkins)
         HabitStats.dueToday(h, today, d.done, d.counts[today] ?: 0)
     }
-    // Only habits with a positive daily action count toward "perfect day": exclude paused and break
-    // habits, so the celebration mirrors what's actually completable (and matches [stillDue]).
+    // Only habits with a genuine obligation today count toward "perfect day": exclude paused and break
+    // habits, and count a rolling-quota (times/week|month) habit only when it's actually still due or was
+    // done today — otherwise a satisfied quota keeps padding the denominator and the banner fires on a day
+    // with no action left to take.
     val scheduledCount = habits.count {
-        !it.paused && it.habitType != "break" &&
-            (HabitStats.isExpectedDay(it, today) || it.freqType == HabitStats.FREQ_TIMES_WEEK || it.freqType == HabitStats.FREQ_TIMES_MONTH)
+        if (it.paused || it.habitType == "break") return@count false
+        val d = daysFor(it, checkins)
+        val doneToday = today in d.done
+        val quota = it.freqType == HabitStats.FREQ_TIMES_WEEK || it.freqType == HabitStats.FREQ_TIMES_MONTH
+        HabitStats.isExpectedDay(it, today) || doneToday ||
+            (quota && HabitStats.dueToday(it, today, d.done, d.counts[today] ?: 0))
     }
     val perfectDay = scheduledCount > 0 && stillDue == 0
     var celebrated by remember { mutableStateOf(false) }

@@ -97,7 +97,7 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
         val habitById = habits.associateBy { it.id }
         // Count genuine successes only — a break-habit slip is stored as status="done" but must not inflate "Done".
         val checkinsThisMonth = checkins.count { c -> c.epochDay in monthStart..today && habitById[c.habitId]?.let { HabitStats.isSuccessDay(it, c) } == true }
-        val bestStreakOverall = perHabit.maxOfOrNull { it.streak } ?: 0
+        val bestStreakOverall = perHabit.maxOfOrNull { HabitStats.bestStreak(it.habit, it.done, it.skip, it.relapse, today) } ?: 0
 
         // Weekday aggregate (average completion rate across build habits).
         val weekday = remember(perHabit) {
@@ -117,12 +117,14 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
             }
         }
 
-        // F5: a GitHub-style consistency heatmap — each day's shade is the share of habits kept that day.
+        // F5: a GitHub-style consistency heatmap — each day's shade is the share of BUILD habits kept that day.
+        // Break habits never appear in `done` (a break-habit "done" is a slip), so they must not pad the denominator.
         val heat = remember(perHabit, today) {
-            val n = active.size.coerceAtLeast(1)
+            val buildHabits = perHabit.filter { it.habit.habitType != "break" }
+            val n = buildHabits.size.coerceAtLeast(1)
             (0 until 182).associate { back ->
                 val d = today - back
-                val kept = perHabit.count { d in it.done }
+                val kept = buildHabits.count { d in it.done }
                 d to kept.toFloat() / n
             }
         }

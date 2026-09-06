@@ -47,11 +47,16 @@ object HabitQuickParser {
             Regex("""\bweekends?\b""").containsMatchIn(t) -> { scheduleDays = "6,7"; t = t.replace(Regex("""\bweekends?\b"""), " ") }
             Regex("""\b(every\s*day|daily|each\s*day)\b""").containsMatchIn(t) -> { t = t.replace(Regex("""\b(every\s*day|daily|each\s*day)\b"""), " ") }
         }
-        // Named weekdays: "on mon, wed, fri".
+        // Named weekdays: "on mon, wed, fri". Anchor as a whole weekday word (optionally the full name /
+        // plural) so "every month", "money", "sunny" don't spuriously set — or strip — a weekday.
         val dayMap = mapOf("mon" to 1, "tue" to 2, "wed" to 3, "thu" to 4, "fri" to 5, "sat" to 6, "sun" to 7)
-        val named = dayMap.filter { (k, _) -> Regex("""\b$k""").containsMatchIn(t) }.values.sorted()
+        val dayRegex = mapOf(
+            "mon" to """\bmon(day)?s?\b""", "tue" to """\btue(s|sday)?s?\b""", "wed" to """\bwed(nesday)?s?\b""",
+            "thu" to """\bthu(r|rs|rsday)?s?\b""", "fri" to """\bfri(day)?s?\b""", "sat" to """\bsat(urday)?s?\b""", "sun" to """\bsun(day)?s?\b""",
+        )
+        val named = dayMap.filter { (k, _) -> Regex(dayRegex.getValue(k), RegexOption.IGNORE_CASE).containsMatchIn(t) }.values.sorted()
         if (freqParam == 0 && scheduleDays.isBlank() && named.isNotEmpty()) {
-            scheduleDays = named.joinToString(","); dayMap.keys.forEach { t = t.replace(Regex("""\b$it\w*"""), " ") }
+            scheduleDays = named.joinToString(","); dayRegex.values.forEach { t = t.replace(Regex(it, RegexOption.IGNORE_CASE), " ") }
         }
 
         // Reminder time-of-day.
