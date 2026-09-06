@@ -18,6 +18,8 @@ import com.cairn.reader.domain.feed.FeedDiscovery
 import com.cairn.reader.domain.feed.FeedParser
 import com.cairn.reader.domain.feed.ParsedItem
 import com.cairn.reader.data.net.HttpFetcher
+import com.cairn.reader.util.AppLog
+import com.cairn.reader.util.orLog
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -275,6 +277,7 @@ class FeedRepository @Inject constructor(
         // are the freshest even though a serverless client can't hold a push callback.
         sourceDao.getAll().sortedByDescending { it.hubUrl != null }.forEach { source ->
             runCatching { syncSource(source, now, if (source.notify) fresh else null) }
+                .onFailure { AppLog.w("sync failed for ${source.feedUrl}", it) }
             // Per-feed override wins: null → global cap, 0 → keep everything, N → keep newest N.
             val effLimit = source.maxItems ?: limit
             if (effLimit > 0) runCatching { pruneSource(source.id, effLimit, keepUnread) }
@@ -412,7 +415,8 @@ class FeedRepository @Inject constructor(
     ) {
         // Watched pages: fetch, hash the text, and emit an item only when it changed.
         if (source.kind == "WATCH") {
-            val body = runCatching { fetcher.fetch(source.feedUrl).body }.getOrNull()
+            val body = runCatching { fetcher.fetch(source.feedUrl).body }
+                .orLog("watch fetch ${source.feedUrl}")
             if (body == null) { sourceDao.markError(source.id, null); return }
             val hash = pageTextHash(body)
             if (hash != source.contentHash) insertWatchSnapshot(source, source.feedUrl, now, newItems)
@@ -421,7 +425,8 @@ class FeedRepository @Inject constructor(
         }
         // Sitemap / scraped / taught feeds are rebuilt from the site each sync (no RSS to poll).
         if (source.kind == "SITEMAP") {
-            val feed = runCatching { siteFeedBuilder.build(source.feedUrl, source.scrapeSelector) }.getOrNull()
+            val feed = runCatching { siteFeedBuilder.build(source.feedUrl, source.scrapeSelector) }
+                .orLog("sitemap build ${source.feedUrl}")
             if (feed == null) { sourceDao.markError(source.id, null); return }
             feed.items.forEach { insertParsed(source, it, now, newItems) }
             sourceDao.markSynced(source.id, null, null, now)

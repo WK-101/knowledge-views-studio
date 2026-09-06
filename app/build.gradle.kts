@@ -16,15 +16,16 @@ android {
         applicationId = "com.cairn.reader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 102
-        versionName = "3.79.0"
+        versionCode = 103
+        versionName = "3.80.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
 
     // Release signing is read from environment (CI) or a local keystore.properties.
-    // When neither is present, release builds fall back to the debug key so the
-    // project always assembles for development.
+    // When neither is present, the release build is left UNSIGNED (it still assembles) rather than
+    // falling back to the world-known debug key — a debug-signed "release" would defeat update
+    // integrity, so we never ship one by accident.
     val keystorePropsFile = rootProject.file("keystore.properties")
     val hasReleaseSigning = System.getenv("CAIRN_KEYSTORE_PATH") != null ||
         System.getenv("CAIRN_KEYSTORE_BASE64") != null ||
@@ -49,12 +50,13 @@ android {
             versionNameSuffix = "-debug"
         }
         release {
-            // R8 stays off until the release build is verified on a device; the shipped
-            // v0.1 APK then behaves exactly like the tested debug build, just signed.
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // R8 code shrinking + resource shrinking, guarded by proguard-rules.pro (keeps for
+            // Room / Hilt / WorkManager / OkHttp / readability4j / the app's data & worker classes).
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = if (hasReleaseSigning) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
+            // Only sign when a real key is available; otherwise leave unsigned (never debug-key).
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -64,6 +66,14 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
+    lint {
+        // A missing/legacy-issue baseline keeps CI honest without blocking on pre-existing findings;
+        // new issues fail `lint`. The release assembly isn't slowed by lint (it runs as its own gate).
+        baseline = file("lint-baseline.xml")
+        warningsAsErrors = false
+        abortOnError = true
+        checkReleaseBuilds = false
+    }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     }
@@ -101,12 +111,22 @@ dependencies {
     implementation(libs.androidx.webkit)
     implementation(libs.coil.compose)
     implementation(libs.okhttp)
-    implementation(libs.okhttp.logging)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.readability4j)
     implementation(libs.jsoup)
-    implementation("androidx.documentfile:documentfile:1.0.1")
+    implementation(libs.androidx.documentfile)
     // On-device translation (ML Kit) is planned but removed for now to keep the APK lean.
 
+    // Unit tests (JVM, Robolectric for Android-framework-touching pieces)
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
+    testImplementation(libs.mockk)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.test.ext.junit)
+
+    // Instrumentation tests (Room migrations run on-device/emulator)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.room.testing)
 }

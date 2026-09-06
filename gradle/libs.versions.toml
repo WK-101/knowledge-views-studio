@@ -16,11 +16,16 @@ coil = "2.7.0"
 webkit = "1.12.1"
 okhttp = "4.12.0"
 coroutines = "1.9.0"
-rssparser = "6.1.8"
 readability4j = "1.0.8"
 jsoup = "1.18.1"
+documentfile = "1.0.1"
 splashscreen = "1.0.1"
 junit = "4.13.2"
+turbine = "1.1.0"
+mockk = "1.13.13"
+androidxTestExt = "1.2.1"
+androidxTestCore = "1.6.1"
+robolectric = "4.13"
 
 [libraries]
 # AndroidX core / lifecycle / activity
@@ -64,14 +69,20 @@ androidx-datastore-preferences = { group = "androidx.datastore", name = "datasto
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
-okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
-rssparser = { group = "com.prof18.rssparser", name = "rssparser", version.ref = "rssparser" }
 readability4j = { group = "net.dankito.readability4j", name = "readability4j", version.ref = "readability4j" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
+androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 
 # Test
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
+turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
+androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExt" }
+androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 
 [bundles]
 compose = [

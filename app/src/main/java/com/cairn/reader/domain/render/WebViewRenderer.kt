@@ -60,6 +60,15 @@ class WebViewRenderer @Inject constructor(
                         loadsImagesAutomatically = false
                         blockNetworkImage = true
                         cacheMode = WebSettings.LOAD_NO_CACHE
+                        // This WebView runs untrusted, attacker-controllable page JS off-screen, so
+                        // deny it any access to app-private files/content (the platform default is
+                        // `true` on API 26-29). Universal/file-URL access already defaults off.
+                        allowFileAccess = false
+                        allowContentAccess = false
+                        @Suppress("DEPRECATION")
+                        allowFileAccessFromFileURLs = false
+                        @Suppress("DEPRECATION")
+                        allowUniversalAccessFromFileURLs = false
                         // A desktop-ish UA coaxes some sites into serving their full article markup.
                         userAgentString = "$userAgentString CairnReader"
                     }
@@ -72,6 +81,13 @@ class WebViewRenderer @Inject constructor(
                     }
 
                     wv.webViewClient = object : WebViewClient() {
+                        // Hard-block any navigation that isn't plain web traffic — a hostile page must
+                        // not be able to send this off-screen WebView to file://, content://, intent://, etc.
+                        override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                            val scheme = request?.url?.scheme?.lowercase()
+                            return scheme != "http" && scheme != "https"
+                        }
+
                         override fun onPageFinished(view: WebView, finishedUrl: String?) {
                             if (done.get()) return
                             // Give client-side rendering a moment to populate the DOM, then snapshot it.

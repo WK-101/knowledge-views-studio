@@ -4,10 +4,15 @@ import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.cairn.reader.data.prefs.PreferencesRepository
+import com.cairn.reader.util.AppLog
+import com.cairn.reader.util.orLog
 import com.cairn.reader.work.CairnWork
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -28,24 +33,30 @@ class CairnApplication : Application(), Configuration.Provider {
             .setWorkerFactory(workerFactory)
             .build()
 
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     override fun onCreate() {
         super.onCreate()
-        // Log any uncaught exception (with a breadcrumb) before the platform's default handler
-        // runs, so a crash leaves a trace in logcat instead of vanishing behind a blank screen.
+        AppLog.init(this)
+        // Record any uncaught exception (with a breadcrumb) to Logcat and the local diagnostics log
+        // before the platform's default handler runs, so a crash leaves a trace instead of vanishing.
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            runCatching { android.util.Log.e("CairnCrash", "Uncaught on ${thread.name}", throwable) }
+            AppLog.e("Uncaught on ${thread.name}", throwable)
             previous?.uncaughtException(thread, throwable)
         }
-        // Reading one value from DataStore at startup is quick; it lets the background
-        // sync respect the user's Wi-Fi-only preference from the first schedule.
-        val prefs = runCatching { runBlocking { preferencesRepository.preferences.first() } }.getOrNull()
-        CairnWork.schedulePeriodicSync(
-            this,
-            wifiOnly = prefs?.syncWifiOnly ?: false,
-            chargingOnly = prefs?.syncChargingOnly ?: false,
-            intervalMinutes = prefs?.syncIntervalMinutes ?: 0,
-        )
-        CairnWork.scheduleBackup(this, prefs?.backupFrequencyHours ?: 0)
+        // Read the sync/backup preferences off the main thread, then schedule work. Scheduling is
+        // idempotent (KEEP/REPLACE policies), so doing it a beat after launch is fine and keeps cold
+        // start off the DataStore read.
+        appScope.launch {
+            val prefs = runCatching { preferencesRepository.preferences.first() }.orLog("startup prefs read")
+            CairnWork.schedulePeriodicSync(
+                this@CairnApplication,
+                wifiOnly = prefs?.syncWifiOnly ?: false,
+                chargingOnly = prefs?.syncChargingOnly ?: false,
+                intervalMinutes = prefs?.syncIntervalMinutes ?: 0,
+            )
+            CairnWork.scheduleBackup(this@CairnApplication, prefs?.backupFrequencyHours ?: 0)
+        }
     }
 }

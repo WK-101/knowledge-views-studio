@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cairn fetches feeds and articles from arbitrary user-added hosts, some of which are still
+  HTTP-only, so cleartext cannot be globally forbidden without silently breaking those feeds.
+  This config makes that policy explicit (rather than a bare manifest flag) and pins trust to the
+  system CA store only (no user-added CAs are trusted for app traffic, hardening against
+  locally-installed interception certificates). Sensitive channels (WebDAV) additionally enforce
+  HTTPS in code.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

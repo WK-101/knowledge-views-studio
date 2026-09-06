@@ -1,5 +1,7 @@
 package com.cairn.reader.domain.extract
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import net.dankito.readability4j.extended.Readability4JExtended
 import org.jsoup.Jsoup
 import javax.inject.Inject
@@ -24,17 +26,22 @@ data class ExtractedArticle(
  */
 class ArticleExtractor @Inject constructor() {
 
-    fun extract(url: String, rawHtml: String): ExtractedArticle? {
+    /**
+     * Extract readable content. This does a full DOM build + Readability scoring, which is
+     * CPU-heavy on long articles, so it runs on [Dispatchers.Default] — callers may invoke it
+     * straight from a UI-scoped coroutine without blocking the main thread.
+     */
+    suspend fun extract(url: String, rawHtml: String): ExtractedArticle? = withContext(Dispatchers.Default) {
         val prepared = runCatching { promoteLazyImages(rawHtml, url) }.getOrDefault(rawHtml)
-        val article = runCatching { Readability4JExtended(url, prepared).parse() }.getOrNull() ?: return null
-        val contentHtml = article.content?.takeIf { it.isNotBlank() } ?: return null
+        val article = runCatching { Readability4JExtended(url, prepared).parse() }.getOrNull() ?: return@withContext null
+        val contentHtml = article.content?.takeIf { it.isNotBlank() } ?: return@withContext null
         val plain = article.textContent?.takeIf { it.isNotBlank() }
             ?: runCatching { Jsoup.parse(contentHtml).text() }.getOrDefault("")
         val words = plain.split(WHITESPACE).count { it.isNotBlank() }
         val minutes = max(1, ceil(words / 220.0).toInt())
         val excerpt = article.excerpt?.takeIf { it.isNotBlank() }
             ?: plain.take(280).ifBlank { null }
-        return ExtractedArticle(
+        ExtractedArticle(
             contentHtml = contentHtml,
             title = article.title?.takeIf { it.isNotBlank() },
             excerpt = excerpt,
