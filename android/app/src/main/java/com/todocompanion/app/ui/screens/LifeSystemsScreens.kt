@@ -313,7 +313,7 @@ private fun ScorecardScreen(vm: AppViewModel, onBack: () -> Unit) {
     var text by remember { mutableStateOf("") }
     LSScaffold("Habits scorecard", onBack) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
-            Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f)) {
+            Surface(color = appCardColor()) {
                 Column(Modifier.fillMaxWidth().padding(14.dp)) {
                     Text("List a typical day's behaviours — no judgement yet. Then tag each good (＋), neutral (=) or bad (－). You can't change what you're not aware of.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

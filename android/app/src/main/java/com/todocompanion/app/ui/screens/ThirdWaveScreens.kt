@@ -196,7 +196,7 @@ private fun ValuesTimeScreen(vm: AppViewModel, onBack: () -> Unit) {
                             Text((vt.value.emoji?.plus(" ") ?: "") + vt.value.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                             Text(if (vt.minutes >= 60) "${vt.minutes / 60}h ${vt.minutes % 60}m" else "${vt.minutes}m", style = MaterialTheme.typography.labelLarge, color = color)
                         }
-                        Box(Modifier.fillMaxWidth().height(8.dp).padding(top = 6.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                        Box(Modifier.fillMaxWidth().height(8.dp).padding(top = 6.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
                             Box(Modifier.fillMaxWidth(share.coerceIn(0.02f, 1f)).height(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
                         }
                     }
@@ -217,7 +217,7 @@ private fun ActivationScreen(vm: AppViewModel, onBack: () -> Unit) {
     var rating by remember { mutableStateOf<com.todocompanion.app.data.entity.ActivationItemEntity?>(null) }
     TWScaffold("Behavioral activation", onBack) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
-            Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f)) {
+            Surface(color = appCardColor()) {
                 Column(Modifier.fillMaxWidth().padding(14.dp)) {
                     Text("Schedule a small, values-linked activity for today — and act before motivation shows up. Afterwards, rate it for pleasure and mastery. Doing comes first; the mood follows.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

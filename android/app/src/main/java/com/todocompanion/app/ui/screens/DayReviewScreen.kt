@@ -326,7 +326,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
         Scaffold(topBar = {
             TopAppBar(
                 expandedHeight = 52.dp,
-                title = { Text("Day review") },
+                title = { Text(if (mode == PeriodRange.ALL) "All-time review" else "${mode.label} review") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 actions = {
                     IconButton(onClick = { sharePreselect = SharePeriod.DAY; showShare = true }) { Icon(Icons.Filled.Share, "Share day") }

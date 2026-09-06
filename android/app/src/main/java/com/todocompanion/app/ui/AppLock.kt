@@ -83,7 +83,7 @@ fun AppLockGate(enabled: Boolean, content: @Composable () -> Unit) {
             }
         })
         val info = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Unlock ToDo Companion")
+            .setTitle("Unlock Kairo")
             .setSubtitle("Verify it's you to continue")
             .setAllowedAuthenticators(authenticators)
             .build()
@@ -120,7 +120,7 @@ private fun LockScreen(onUnlock: () -> Unit) {
             Spacer(Modifier.height(16.dp))
             Text("Locked", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(6.dp))
-            Text("Verify it's you to open ToDo Companion.", style = MaterialTheme.typography.bodyMedium,
+            Text("Verify it's you to open Kairo.", style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             Spacer(Modifier.height(24.dp))
             Button(onClick = onUnlock, contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp)) { Text("Unlock") }

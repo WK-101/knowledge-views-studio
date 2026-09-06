@@ -77,6 +77,7 @@ import com.todocompanion.app.domain.StepKind
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.AppTextField
+import com.todocompanion.app.ui.components.appCardColor
 import com.todocompanion.app.ui.components.DoneTick
 import com.todocompanion.app.ui.components.EmojiGridPicker
 import com.todocompanion.app.ui.components.MiniCheck
@@ -226,7 +227,7 @@ private fun RoutineCapacityCard(cap: com.todocompanion.app.domain.RoutineInsight
         min % 60 == 0 -> "${min / 60}h"
         else -> "${min / 60}h ${min % 60}m"
     }
-    Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f), modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = RoundedCornerShape(14.dp), color = appCardColor(), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Text("⏳ RITUAL LOAD", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 0.8.sp)
             Spacer(Modifier.height(6.dp))

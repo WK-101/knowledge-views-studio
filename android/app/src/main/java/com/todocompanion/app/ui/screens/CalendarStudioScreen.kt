@@ -69,7 +69,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.ModalBottomSheet
@@ -520,7 +519,7 @@ internal fun QuickAddDialog(onDismiss: () -> Unit, onAdd: (String) -> Unit) {
         title = { Text("Quick add") },
         text = {
             Column {
-                OutlinedTextField(
+                AppTextField(
                     value = text, onValueChange = { text = it }, modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text("Lunch with Sam Fri 1pm for 90m at Cafe every week") },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -581,7 +580,7 @@ private fun CalendarEditDialog(existing: EventCalendarEntity?, onDismiss: () -> 
         title = { Text(if (existing == null) "New calendar" else "Edit calendar") },
         text = {
             Column {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                AppTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Spacer(Modifier.height(12.dp))
                 ColorRow(color) { color = it }
             }

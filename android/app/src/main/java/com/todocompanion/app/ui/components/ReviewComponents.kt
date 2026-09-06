@@ -51,7 +51,7 @@ internal fun StatTile(
     Column(
         modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f))
+            .background(appTileColor())
             .padding(vertical = 10.dp, horizontal = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -81,7 +81,7 @@ internal fun MetricTile(m: Metric, modifier: Modifier = Modifier) {
     // one tile's name wraps to two lines and its neighbour's doesn't, the shorter tile stretches to match
     // and its value + meter still line up along the bottom with its neighbour's — no ragged, mid-height bars.
     Column(
-        modifier.clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)).padding(12.dp),
+        modifier.clip(RoundedCornerShape(16.dp)).background(appTileColor()).padding(12.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.Top) {
@@ -96,7 +96,7 @@ internal fun MetricTile(m: Metric, modifier: Modifier = Modifier) {
         Column(Modifier.fillMaxWidth().padding(top = 10.dp)) {
             Text(m.value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 1)
             Spacer(Modifier.height(8.dp))
-            Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+            Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
                 Box(Modifier.fillMaxWidth(m.frac.coerceIn(0.04f, 1f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(m.color))
             }
         }
@@ -143,7 +143,7 @@ internal fun MeterRow(leading: @Composable () -> Unit, name: String, trailing: S
             Text(trailing, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.height(5.dp))
-        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
             Box(Modifier.fillMaxWidth(frac.coerceIn(0.03f, 1f)).height(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
         }
     }

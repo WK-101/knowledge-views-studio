@@ -45,7 +45,7 @@ object Export {
         val visible = tasks.filter { !it.trashed && (includeCompleted || (!it.completed && !it.abandoned)) }
         val byParent = visible.groupBy { it.parentId }
         val sb = StringBuilder()
-        sb.append("# ToDo Companion export\n\n")
+        sb.append("# Kairo export\n\n")
         sb.append("_Exported ").append(stamp(System.currentTimeMillis(), zone)).append("_\n\n")
 
         val listOrder = (lists.sortedBy { it.sortOrder })
@@ -162,10 +162,10 @@ object Export {
         fun line(s: String) { sb.append(icsFold(s)).append("\r\n") }
         line("BEGIN:VCALENDAR")
         line("VERSION:2.0")
-        line("PRODID:-//ToDo Companion//Tasks//EN")
+        line("PRODID:-//Kairo//Tasks//EN")
         line("CALSCALE:GREGORIAN")
         line("METHOD:PUBLISH")
-        line("X-WR-CALNAME:ToDo Companion")
+        line("X-WR-CALNAME:Kairo")
         val stampUtc = if (now > 0) Instant.ofEpochMilli(now).atZone(ZoneId.of("UTC")).format(ICS_DTUTC) else "19700101T000000Z"
 
         fun event(uid: String, summary: String, whenMillis: Long, allDay: Boolean, durationMin: Int?, note: String) {

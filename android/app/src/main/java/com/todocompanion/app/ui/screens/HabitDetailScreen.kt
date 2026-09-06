@@ -246,7 +246,7 @@ fun HabitDetailScreen(
                     .entries.sortedByDescending { it.value }.take(6)
             }
             if (skipReasons.isNotEmpty()) {
-                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f)) {
+                Surface(shape = RoundedCornerShape(16.dp), color = appCardColor()) {
                     Column(Modifier.padding(14.dp)) {
                         Text("⏭️ Why you skip", style = MaterialTheme.typography.labelLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                         Spacer(Modifier.size(6.dp))
@@ -523,7 +523,7 @@ private fun Milestones(current: Int, best: Int, isBreak: Boolean, color: Color) 
             val prev = marks.lastOrNull { it <= current } ?: 0
             val frac = if (next > prev) ((current - prev).toFloat() / (next - prev)).coerceIn(0f, 1f) else 0f
             Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)) {
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
                 Box(Modifier.fillMaxWidth(frac).height(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
             }
         } else if (best >= marks.last()) {
@@ -696,7 +696,7 @@ private fun SectionCard(title: String? = null, content: @Composable ColumnScope.
 
 @Composable
 private fun StrengthRing(strength: Int, color: Color) {
-    val track = MaterialTheme.colorScheme.surfaceVariant
+    val track = MaterialTheme.colorScheme.surfaceContainerHighest
     Box(Modifier.size(128.dp), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val stroke = 14.dp.toPx()
@@ -1555,7 +1555,7 @@ private fun FourthWaveHabitCards(
     // FW-4 · red-chain counter (break).
     if (isBreak) FW.redChain(h, hc, today, vm.zoneId)?.let { rc ->
         Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
-            color = if (rc.redDays > 0) MaterialTheme.colorScheme.errorContainer.copy(alpha = .45f) else MaterialTheme.colorScheme.surface) {
+            color = if (rc.redDays > 0) MaterialTheme.colorScheme.errorContainer.copy(alpha = .45f) else appCardColor()) {
             Column(Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Clean streak", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)

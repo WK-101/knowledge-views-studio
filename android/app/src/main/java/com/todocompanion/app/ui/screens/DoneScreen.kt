@@ -594,7 +594,7 @@ private fun DayHeader(day: LocalDate, today: LocalDate, items: List<Accomplishme
 
 @Composable
 private fun AccomplishmentRow(a: Accomplishment, listName: String?, onOpen: () -> Unit, onToggleWin: (() -> Unit)?, onShareReceipt: (() -> Unit)? = null) {
-    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth().clickable(enabled = a.isTaskLike) { onOpen() }) {
+    Surface(shape = RoundedCornerShape(12.dp), color = appCardColor(), modifier = Modifier.fillMaxWidth().clickable(enabled = a.isTaskLike) { onOpen() }) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(28.dp).clip(CircleShape), contentAlignment = Alignment.Center) {
                 // A finished task shows the app's modern completion mark; other kinds keep their glyph.
@@ -726,7 +726,7 @@ private fun buildBrag(items: List<Accomplishment>, listNameById: Map<String, Str
         }
     }
     sb.appendLine()
-    sb.appendLine("_Generated on ${today} from ToDo Companion — The Done Record. Private, on-device._")
+    sb.appendLine("_Generated on ${today} from Kairo — The Done Record. Private, on-device._")
     return sb.toString()
 }
 

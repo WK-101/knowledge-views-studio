@@ -191,7 +191,7 @@ fun AppDrawer(
                         }
                         Spacer(Modifier.width(11.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(activeWs?.name ?: "ToDo Companion", fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(activeWs?.name ?: "Kairo", fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("Workspace · offline · free", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Icon(Icons.Filled.KeyboardArrowDown, "Workspaces", tint = MaterialTheme.colorScheme.onSurfaceVariant)

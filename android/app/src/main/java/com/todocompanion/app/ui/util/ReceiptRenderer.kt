@@ -108,7 +108,7 @@ object ReceiptRenderer {
         c.drawText("VERIFICATION", x, footY - 44f, fpKey)
         c.drawText(Integrity.fingerprint(a), x, footY, fpVal)
         val attr = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = muted; typeface = reg; textSize = 28f }
-        c.drawText("ToDo Companion · sealed on-device", x, footY + 40f, attr)
+        c.drawText("Kairo · sealed on-device", x, footY + 40f, attr)
         // QR of a self-verifying payload — anyone can re-derive the fingerprint and confirm the card is real.
         // Always dark-on-white (on its own white patch) so any scanner reads it, regardless of card colour.
         val qrSize = 168f
@@ -189,7 +189,7 @@ object ReceiptRenderer {
         drawQr(c, "TDCY|$year|$headCount|$chainHead", cx - sealSize / 2f, cardRect.bottom - sealSize - 200f, sealSize, Color.BLACK, Color.WHITE)
         centered("sealed record · ${chainHead.take(16).uppercase()}", cardRect.bottom - 150f,
             Paint(Paint.ANTI_ALIAS_FLAG).apply { color = muted; typeface = Typeface.MONOSPACE; textSize = 26f; letterSpacing = 0.06f })
-        centered("ToDo Companion — generated on-device, $year", cardRect.bottom - 96f,
+        centered("Kairo — generated on-device, $year", cardRect.bottom - 96f,
             Paint(Paint.ANTI_ALIAS_FLAG).apply { color = muted; typeface = Typeface.SERIF; textSize = 28f })
         return bmp
     }

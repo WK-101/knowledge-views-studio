@@ -127,7 +127,7 @@ class RestoreManager(
                 val plain = Crypto.decrypt(t, settings().syncPassphrase) ?: t
                 repo.importJsonReplace(plain); AlarmScheduler.rescheduleAll(context, repo); true
             }.getOrDefault(false)
-            onDone(ok, if (ok) "Restored from pasted backup" else "That text isn't a valid ToDo Companion backup")
+            onDone(ok, if (ok) "Restored from pasted backup" else "That text isn't a valid Kairo backup")
         } else importExternalText(t, onDone)
     }
 
@@ -139,7 +139,7 @@ class RestoreManager(
                 val plain = Crypto.decrypt(text, settings().syncPassphrase) ?: text
                 repo.importJsonReplace(plain); AlarmScheduler.rescheduleAll(context, repo); true
             }.getOrDefault(false)
-            onDone(ok, if (ok) "Restored from ${s.name}" else "Restore failed — is this a ToDo Companion backup?")
+            onDone(ok, if (ok) "Restored from ${s.name}" else "Restore failed — is this a Kairo backup?")
         } else importExternalText(text, onDone)
     }
 
@@ -151,7 +151,7 @@ class RestoreManager(
         val name = (displayNameOf(uri) ?: uri.lastPathSegment ?: "").lowercase()
         val ext = name.substringAfterLast('.', "")
         val text = readImportText(uri = uri)
-        if (text.isNullOrBlank()) { onDone(false, "Couldn't read that file. Try 'Share → ToDo Companion' from your file manager."); return }
+        if (text.isNullOrBlank()) { onDone(false, "Couldn't read that file. Try 'Share → Kairo' from your file manager."); return }
         val external = Importers.parse(text)
         val externalExt = ext in setOf("mlobak", "ml", "mlt", "opml", "csv", "tsv", "xml")
         val jsonExt = ext == "json" || ext == "todobackup"
@@ -171,7 +171,7 @@ class RestoreManager(
                 val verb = if (merge) "Merged" else "Restored"
                 if (ok) onDone(true, "$verb ${name.ifBlank { "your backup" }}")
                 else if (external != null) importExternalText(text, onDone)
-                else onDone(false, "That file isn't a valid ToDo Companion backup")
+                else onDone(false, "That file isn't a valid Kairo backup")
             }
             else -> importExternalText(text, onDone)
         }

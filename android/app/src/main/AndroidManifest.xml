@@ -121,7 +121,7 @@
             </intent-filter>
             <!--
               E9 — the robust import path for de-Googled phones: let the user's OWN file manager hand
-              the backup to us via "Open with → ToDo Companion". The resulting content:// URI carries a
+              the backup to us via "Open with → Kairo". The resulting content:// URI carries a
               temporary read grant, so NO storage permission or system document picker is involved — the
               one channel that survives a stripped-down AOSP ROM. Still fully offline.
             -->
@@ -160,7 +160,7 @@
                 <data android:pathPattern=".*\\.todobackup" />
                 <data android:pathPattern=".*\\.zip" />
             </intent-filter>
-            <!-- Share a backup INTO the app: "Share → ToDo Companion". Non-text SEND only (text/plain stays quick-add). -->
+            <!-- Share a backup INTO the app: "Share → Kairo". Non-text SEND only (text/plain stays quick-add). -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />

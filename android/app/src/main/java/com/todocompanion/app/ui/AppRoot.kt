@@ -549,7 +549,7 @@ fun AppRoot(
             }
         }
 
-        // E9: a backup opened from a file manager ("Open with → ToDo Companion") — confirm, then restore.
+        // E9: a backup opened from a file manager ("Open with → Kairo") — confirm, then restore.
         LaunchedEffect(importUri.value) {
             importUri.value?.let { pendingImport = it; importUri.value = null }
         }

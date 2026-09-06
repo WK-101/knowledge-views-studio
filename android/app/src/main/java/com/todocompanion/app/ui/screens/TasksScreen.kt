@@ -130,6 +130,7 @@ import com.todocompanion.app.ui.components.PriorityCheckbox
 import com.todocompanion.app.ui.components.TaskMeta
 import com.todocompanion.app.ui.components.rowVerticalPadding
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.theme.LocalKairoColors
 
 @Composable
 fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier, onOpenOccasion: (String?) -> Unit = {}, onOpenRoutineRun: (String) -> Unit = {}) {
@@ -1471,13 +1472,14 @@ private fun SwipeActionBox(
     }
 }
 
+@Composable
 private fun swipeVisual(action: SwipeAction, isTrashRestore: Boolean): Pair<Color, androidx.compose.ui.graphics.vector.ImageVector> = when {
-    isTrashRestore -> Color(0xFF12A594) to Icons.Filled.Restore
-    action == SwipeAction.COMPLETE -> Color(0xFF12A594) to Icons.Filled.Check
-    action == SwipeAction.TRASH -> Color(0xFFE5484D) to Icons.Filled.Delete
+    isTrashRestore -> LocalKairoColors.current.good to Icons.Filled.Restore
+    action == SwipeAction.COMPLETE -> LocalKairoColors.current.good to Icons.Filled.Check
+    action == SwipeAction.TRASH -> LocalKairoColors.current.bad to Icons.Filled.Delete
     action == SwipeAction.STAR -> Color(0xFFF5A623) to Icons.Filled.Star
     action == SwipeAction.WONT_DO -> Color(0xFF64748B) to Icons.Filled.Cancel
-    action == SwipeAction.CYCLE_PRIORITY -> Color(0xFF3E7BFA) to Icons.Filled.Flag
+    action == SwipeAction.CYCLE_PRIORITY -> LocalKairoColors.current.info to Icons.Filled.Flag
     action == SwipeAction.SCHEDULE_TOMORROW -> Color(0xFF8B5CF6) to Icons.Filled.Event
     action == SwipeAction.EDIT -> Color(0xFF5B57D9) to Icons.Filled.Edit
     action == SwipeAction.MOVE -> Color(0xFF0EA5A0) to Icons.AutoMirrored.Filled.DriveFileMove
