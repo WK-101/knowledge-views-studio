@@ -114,7 +114,7 @@ object RoutineInsights {
     }
 
     data class Capacity(
-        val scheduledCount: Int,     // runnable rituals with a reminder — the ones that recur
+        val scheduledCount: Int,     // runnable rituals that recur — reminder-set or with an explicit cadence
         val weeklyPlannedMin: Int,   // Σ plannedMin × days-per-week — the weekly ritual load you've committed to
         val perWeekPlannedRuns: Int, // Σ scheduled runs per week across those rituals
         val last7ActualMin: Int,     // minutes actually run in the last 7 days (any routine)

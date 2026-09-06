@@ -55,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -70,10 +71,16 @@ import java.time.LocalDate
 
 private val LS_COLORS = listOf(0xFF46618C, 0xFFC15B4A, 0xFF5E8C6A, 0xFF6C4FE0, 0xFFF59E0B, 0xFFEC4899, 0xFF12A594)
 // Reserved semantic status accents (good / bad) for scorecard signs and correlation direction. Material3
-// has no "positive" token, so these are deliberate fixed hues — muted mid-luminance greens/reds that stay
-// legible on both the light and dark chart surfaces (see dataviz: status colors are reserved, not themed).
-private val LS_GOOD = Color(0xFF5E8C6A)
-private val LS_BAD = Color(0xFFC15B4A)
+// has no "positive" token, so these are deliberate fixed hues. Two steps per hue: a muted mid-luminance
+// green/red for light surfaces, and a lifted (higher-luminance, higher-chroma) step for dark/amoled — per
+// dataviz, dark mode gets its own validated steps against the dark surface, not an automatic flip. Chosen
+// by the active surface luminance so it tracks the app's light/dark/amoled theme, not just the system flag.
+private val LS_GOOD_LIGHT = Color(0xFF5E8C6A)
+private val LS_BAD_LIGHT = Color(0xFFC15B4A)
+private val LS_GOOD_DARK = Color(0xFF8FC79E)
+private val LS_BAD_DARK = Color(0xFFE58B78)
+private val lsGood: Color @Composable get() = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) LS_GOOD_DARK else LS_GOOD_LIGHT
+private val lsBad: Color @Composable get() = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) LS_BAD_DARK else LS_BAD_LIGHT
 
 /**
  * R34 — the Life-Systems hub and its screens. One overlay driven by [AppViewModel.lifeSystemsRoute];
@@ -330,9 +337,9 @@ private fun ScorecardScreen(vm: AppViewModel, onBack: () -> Unit) {
                                 IconButton(onClick = { vm.deleteScorecardItem(it.id) }) { Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                SignChip("＋ good", it.sign == 1, LS_GOOD) { vm.setScorecardSign(it, 1) }
+                                SignChip("＋ good", it.sign == 1, lsGood) { vm.setScorecardSign(it, 1) }
                                 SignChip("= neutral", it.sign == 0, MaterialTheme.colorScheme.outline) { vm.setScorecardSign(it, 0) }
-                                SignChip("－ bad", it.sign == -1, LS_BAD) { vm.setScorecardSign(it, -1) }
+                                SignChip("－ bad", it.sign == -1, lsBad) { vm.setScorecardSign(it, -1) }
                                 if (it.sign != 0) {
                                     Spacer(Modifier.weight(1f))
                                     TextButton(onClick = { vm.scorecardToHabit(it) }) { Text(if (it.sign > 0) "Build →" else "Break →") }
@@ -385,7 +392,7 @@ private fun CorrelationsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit
             }
             items(corr.size) { i ->
                 val c = corr[i]
-                val color = if (c.positive) LS_GOOD else LS_BAD
+                val color = if (c.positive) lsGood else lsBad
                 Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth().clickable { onOpenHabit(c.habit.id) }) {
                     Column(Modifier.padding(14.dp)) {
                         Text("On days you do ${c.habit.emoji?.plus(" ") ?: ""}${c.habit.name}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)

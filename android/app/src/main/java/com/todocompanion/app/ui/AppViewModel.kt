@@ -1836,8 +1836,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Capped press-play run history (adherence, keystone, on-this-day). */
     fun routineRuns(): List<com.todocompanion.app.domain.RoutineRun> =
         com.todocompanion.app.domain.RoutineRuns.parse(settings.value.routineRunsJson)
-    /** Runnable routines with a daily reminder that haven't been run yet today — the "press play" set the
-     *  Today screen surfaces, so a scheduled ritual is reachable from the daily plan, not only the drawer. */
+    /** Runnable routines scheduled today (by cadence) that recur — reminder-set or with explicit days — and
+     *  aren't yet FINISHED today. The "press play" set the Today screen surfaces, so a scheduled ritual is
+     *  reachable from the daily plan, not only the drawer. */
     fun routinesDueToday(): List<com.todocompanion.app.domain.Routine> {
         val t = today()
         // Only a FINISHED run clears the ritual from Today — a partial/abandoned run (finished=false) shouldn't

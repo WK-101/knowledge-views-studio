@@ -220,8 +220,10 @@ private fun PortfolioHeader(vm: AppViewModel, goals: List<Goal>, reviews: List<c
     // Contention (goals fighting for the same tracked hours) + aggregate over-commit (many goals each in
     // budget but summing past your real weekly focus) — surfaced here, on the canonical Goals surface.
     val contention = remember(goals, timeEntries) { vm.goalContention() }
-    val overCommit = remember(goals, timeEntries) {
-        val caps = goals.mapNotNull { vm.goalCapacity(it) }
+    val overCommit = remember(goals, timeEntries, today) {
+        // Completed-cycle goals inflate their weekly need (weeksLeft floors to ~0.5), so exclude them from the
+        // aggregate — otherwise the portfolio reads "over budget" purely because a cycle finished.
+        val caps = goals.filter { GoalScore.cycle(it, today)?.complete != true }.mapNotNull { vm.goalCapacity(it) }
         val need = caps.sumOf { it.weeklyNeedH }; val have = caps.firstOrNull()?.weeklyHaveH ?: 0.0
         if (have > 0.0 && need > have + 0.5) "⚠︎ Goals want ~${"%.1f".format(need)}h/wk vs ~${"%.1f".format(have)}h of real focus — the whole set may be over budget." else null
     }
@@ -311,7 +313,10 @@ private fun GoalRow(vm: AppViewModel, g: Goal, reviews: List<com.todocompanion.a
                 Text(if (it >= 0) "⌛ ${it}d" else "⌛ overdue", style = MaterialTheme.typography.labelSmall, color = if (it >= 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
             }
         }
-        if (cap?.overcommitted == true) {
+        // Suppress on a completed cycle — weeksLeft floors to ~0.5, inflating the weekly need into a false
+        // "over budget"; the honest message then is "re-set", which the cycle badge above already shows. Matches
+        // the detail card's guard so the row and detail agree.
+        if (cap?.overcommitted == true && cycle?.complete != true) {
             Text("⚠︎ ~${"%.1f".format(cap.weeklyNeedH)}h/wk needed vs ~${"%.0f".format(cap.weeklyHaveH)}h of focus — this may be over budget.",
                 Modifier.padding(top = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
         }
