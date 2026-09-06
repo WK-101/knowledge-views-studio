@@ -201,7 +201,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
     val appSettings by vm.settings.collectAsState()
-    val today = LocalDate.now().toEpochDay()
+    val today = vm.today()
     // View-state now lives in the ViewModel so the app's single top bar drives it (see HabitsHeader);
     // the detail screen and the editor are full-screen overlays rendered by AppRoot.
     val matrixMode by vm.habitMatrixMode.collectAsState()
@@ -241,8 +241,10 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
     val rewardCtx = LocalContext.current
     LaunchedEffect(reward) {
         reward?.let { r ->
-            showConfetti = true
-            android.widget.Toast.makeText(rewardCtx, "🎁 Reward unlocked: $r", android.widget.Toast.LENGTH_LONG).show()
+            if (!appSettings.calmMode) {   // calm mode silences celebration everywhere, confetti included
+                showConfetti = true
+                android.widget.Toast.makeText(rewardCtx, "🎁 Reward unlocked: $r", android.widget.Toast.LENGTH_LONG).show()
+            }
             vm.rewardCelebration.value = null
         }
     }
@@ -658,7 +660,8 @@ private fun HabitRow(
                     if (h.paused) { Spacer(Modifier.width(6.dp)); Text("paused", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
                     if (streak in MILESTONES && !calm) { Spacer(Modifier.width(6.dp)); Text("🏅", style = MaterialTheme.typography.labelMedium) }
                 }
-                Text("${strength}% · ${HabitStats.frequencyLabel(h)}" + (h.unit?.let { " · ${h.targetPerDay} $it" } ?: ""),
+                // Calm mode hides the strength % here too, so no number leaks past the mode's intent.
+                Text((if (calm) "" else "${strength}% · ") + HabitStats.frequencyLabel(h) + (h.unit?.let { " · ${h.targetPerDay} $it" } ?: ""),
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (anchor != null && !done) {
                     Text("▸ after ${anchor.name}" + if (anchorDoneToday) " · now's the time" else "",

@@ -128,7 +128,7 @@ fun HabitDetailScreen(
         return
     }
 
-    val today = LocalDate.now().toEpochDay()
+    val today = vm.today()
     val startDay = h.startEpochDay()
     val hc = checkins.filter { it.habitId == h.id }
     val countsByDay = hc.associate { it.epochDay to it.count }
@@ -146,7 +146,7 @@ fun HabitDetailScreen(
     val strength = vm.strengthOf(h)
     val forgivingStreaks = vm.settings.collectAsState().value.forgivingStreaks
     val current = HabitStats.displayStreak(h, doneDays, skipDays, relapseDays, today, forgivingStreaks)
-    val best = HabitStats.bestStreak(h, doneDays, skipDays, relapseDays, today)
+    val best = HabitStats.displayBestStreak(h, doneDays, skipDays, relapseDays, today, forgivingStreaks)
     val rate = HabitStats.rate(h, doneDays, skipDays, today, 30)
     val weekday = HabitStats.weekdayRates(doneDays, skipDays, today, 180)
     val trend = remember(doneDays, skipDays, relapseDays, today, h) {
@@ -928,8 +928,8 @@ private fun BuilderSection(
     val tips = remember(hc, today) { HB.coachTips(h, hc, today) }
 
     if (!isBreak) {
-        // F15 — automaticity meter.
-        val auto = remember(doneDays) { HB.automaticity(doneDays) }
+        // F15 — automaticity meter (recency-aware: a lapsed habit decays rather than reading "Automatic").
+        val auto = remember(doneDays, today) { HB.automaticity(doneDays, today) }
         Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
             Column(Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1402,7 +1402,7 @@ private fun ThirdWaveHabitCards(
 
     // TW-D · reward taper / graduation (build, near-automatic).
     if (!isBreak) {
-        val auto = remember(doneDays) { com.todocompanion.app.domain.habit.HabitBuilder.automaticity(doneDays) }
+        val auto = remember(doneDays, today) { com.todocompanion.app.domain.habit.HabitBuilder.automaticity(doneDays, today) }
         if (h.graduated || auto.pct >= 90) {
             Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .5f)) {
                 Column(Modifier.padding(16.dp)) {

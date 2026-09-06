@@ -60,7 +60,7 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
     val tasks by vm.tasks.collectAsState()
-    val today = LocalDate.now().toEpochDay()
+    val today = vm.today()
     val active = habits.filter { !it.archived }
 
     Scaffold(topBar = {

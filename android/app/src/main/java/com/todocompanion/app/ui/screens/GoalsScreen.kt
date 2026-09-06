@@ -245,9 +245,14 @@ private fun PortfolioHeader(vm: AppViewModel, goals: List<Goal>, reviews: List<c
 /** One goal in the list — the at-a-glance card with health, lead/lag, cycle, milestones and coach. */
 @Composable
 private fun GoalRow(vm: AppViewModel, g: Goal, reviews: List<com.todocompanion.app.domain.GoalReview>, today: Long, onOpen: () -> Unit) {
-    val h = remember(g) { vm.goalHealth(g) }
+    // Key health/capacity on the live stores so completing a task or tracking time refreshes the card
+    // (keying on `g` alone left it stale until the goal JSON itself changed).
+    val tasks by vm.tasks.collectAsState()
+    val checkins by vm.habitCheckins.collectAsState()
+    val timeEntries by vm.timeEntries.collectAsState()
+    val h = remember(g, tasks, checkins, timeEntries) { vm.goalHealth(g) }
     val cycle = remember(g, today) { GoalScore.cycle(g, today) }
-    val cap = remember(g) { vm.goalCapacity(g) }
+    val cap = remember(g, timeEntries) { vm.goalCapacity(g) }
     val coach = remember(g, h) { vm.goalCoaching(g) }
     AppCard(modifier = Modifier.clickable { onOpen() }) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -276,9 +281,14 @@ private fun GoalRow(vm: AppViewModel, g: Goal, reviews: List<com.todocompanion.a
         // Cycle badge + capacity warning.
         Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             cycle?.let {
-                val on = GoalScore.onTrack(h.overall, it.elapsedFraction)
-                Text("Week ${it.weekIndex}/${it.totalWeeks} · ${it.daysLeft}d left · ${if (on) "on track" else "behind"}",
-                    style = MaterialTheme.typography.labelSmall, color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                if (it.complete) {
+                    Text("12-week cycle complete · ${(h.overall * 100).toInt()}% — time to review & re-set",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                } else {
+                    val on = GoalScore.onTrack(h.overall, it.elapsedFraction)
+                    Text("Week ${it.weekIndex}/${it.totalWeeks} · ${it.daysLeft}d left · ${if (on) "on track" else "behind"}",
+                        style = MaterialTheme.typography.labelSmall, color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                }
                 Spacer(Modifier.weight(1f))
             }
             h.daysLeft?.let {

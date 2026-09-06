@@ -392,7 +392,16 @@ private fun ReviewsScreen(vm: AppViewModel, onBack: () -> Unit) {
             item {
                 OutlinedTextField(note, { note = it }, label = { Text("Reflection — what worked, what's next?") }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(6.dp))
-                Button(onClick = { vm.saveIntegrityReview(kind, periodKey, note, "") ; note = "" }, enabled = note.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Save to my ledger") }
+                Button(onClick = {
+                    // Snapshot the period's figures so the ledger keeps the numbers this review was based on,
+                    // not just the note (the entity's statsJson was previously saved empty).
+                    val snap = buildString {
+                        append("${review.completions} completions · ${review.activeHabits} habits kept")
+                        if (review.bestStreakName != null) append(" · best ${review.bestStreak}d (${review.bestStreakName})")
+                        if (review.keystoneName != null) append(" · keystone ${review.keystoneName}")
+                    }
+                    vm.saveIntegrityReview(kind, periodKey, note, snap); note = ""
+                }, enabled = note.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Save to my ledger") }
             }
             if (saved.isNotEmpty()) {
                 item { Text("PAST REVIEWS", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp)) }
@@ -403,6 +412,7 @@ private fun ReviewsScreen(vm: AppViewModel, onBack: () -> Unit) {
                             Column(Modifier.weight(1f)) {
                                 Text("${r.kind.replaceFirstChar { it.uppercase() }} · ${r.periodKey}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 if (r.note.isNotBlank()) Text(r.note, style = MaterialTheme.typography.bodyMedium)
+                                if (r.statsJson.isNotBlank()) Text(r.statsJson, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             IconButton(onClick = { vm.deleteIntegrityReview(r.id) }) { Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                         }

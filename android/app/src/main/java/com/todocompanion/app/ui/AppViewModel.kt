@@ -364,6 +364,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Public read-only view of the configured zone, so calendar UI expands occurrences consistently. */
     val zoneId: ZoneId get() = zone
 
+    /** The single source of "today" for habit/routine check-in day math. UI screens MUST use this rather
+     *  than a bare LocalDate.now(), so the grid and the VM's award/stamp logic agree in the configured
+     *  zone — otherwise a manual timezone or midnight crossing yields off-by-one check-ins. */
+    fun today(): Long = java.time.LocalDate.now(zone).toEpochDay()
+
     /** "Day starts at" rollover, in minutes past midnight, for Today/Tomorrow/overdue math. */
     private val dayStartMin: Int get() = settings.value.dayStartMinuteOfDay()
 
@@ -1919,6 +1924,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (g.hasTasks && tTotal > 0) fracs += tDone.toDouble() / tTotal
         if (g.hasHabit) fracs += strength / 100.0
         if (g.hasBudget && g.budgetMinutes > 0) fracs += (mins.toDouble() / g.budgetMinutes).coerceAtMost(1.0)
+        // A goal's outcomes count toward its health too — a KR-only or milestone-only goal must not read 0%.
+        g.keyResultFraction?.let { fracs += it }
+        if (g.milestones.isNotEmpty()) fracs += g.milestonesDone.toDouble() / g.milestones.size
         val overall = if (fracs.isEmpty()) 0.0 else fracs.average()
         val daysLeft = if (g.targetEpochDay > 0) (g.targetEpochDay - java.time.LocalDate.now(zone).toEpochDay()).toInt() else null
         return GoalHealth(g, tDone, tTotal, streak, strength, mins, g.budgetMinutes, overall, daysLeft)
@@ -1967,8 +1975,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val remainingMin = (g.budgetMinutes - mins).coerceAtLeast(0)
         val needH = (remainingMin / 60.0) / weeksLeft
         val haveH = trackedCapacityHours()?.let { it * 7.0 } ?: (settings.value.dailyCapacityHours * 7.0)
-        // Only count this activity's fair share is hard; compare against total weekly focus capacity.
-        return GoalCapacity(needH, haveH, overcommitted = needH > haveH * 0.6)
+        // Flag when this one goal's weekly demand exceeds your whole weekly focus budget — the number
+        // shown (haveH) is the same one the threshold tests, so the warning never contradicts its own text.
+        // (Competition *between* goals for the same hours is caught separately by goalContention.)
+        return GoalCapacity(needH, haveH, overcommitted = needH > haveH)
     }
 
     // ── X2 · keystone insight — the habit that lifts your output ─────────────────────────────────

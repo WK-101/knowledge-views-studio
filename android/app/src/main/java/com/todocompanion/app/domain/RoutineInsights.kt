@@ -42,19 +42,23 @@ object RoutineInsights {
         val runDays = runs.map { it.epochDay }.toSortedSet()
         val runs30 = runDays.count { it in (today - 29)..today }
 
-        // Streaks over the set of run-days.
+        // Streaks over the set of run-days. The current streak is forgiving of "today not run yet": we
+        // count back from today if it's been run, else from yesterday — so a live streak still shows in
+        // the morning before the day's run, rather than reading 0 exactly when encouragement matters.
         var cur = 0
-        run { var d = today; while (runDays.contains(d)) { cur++; d-- } }
+        run { var d = if (runDays.contains(today)) today else today - 1; while (runDays.contains(d)) { cur++; d-- } }
         var best = 0; var chain = 0; var prev: Long? = null
         for (d in runDays) { chain = if (prev != null && d == prev!! + 1) chain + 1 else 1; best = maxOf(best, chain); prev = d }
 
-        val bestHour = runs.map { dayOf(it.startedAtMillis, zone).let { _ -> Instant.ofEpochMilli(it.startedAtMillis).atZone(zone).hour } }
+        val bestHour = runs.map { Instant.ofEpochMilli(it.startedAtMillis).atZone(zone).hour }
             .groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
 
-        // Drop-off: among finished runs, the step most often missing from completedStepIds.
+        // Drop-off: among *full* finished runs, the step most often missing. Lite runs are excluded —
+        // they legitimately omit non-essential steps, so counting them would wrongly flag a skipped
+        // essential-day step as "the one you skip most".
         val stepTitle = r.steps.associate { it.id to it.title }
         val missCount = HashMap<String, Int>()
-        runs.filter { it.finished }.forEach { run ->
+        runs.filter { it.finished && !it.lite }.forEach { run ->
             r.steps.forEach { s -> if (s.id !in run.completedStepIds) missCount[s.id] = (missCount[s.id] ?: 0) + 1 }
         }
         val dropOff = missCount.entries.filter { it.value > 0 }.maxByOrNull { it.value }?.key?.let { stepTitle[it] }
@@ -72,8 +76,12 @@ object RoutineInsights {
             if (nOn >= 3 && nOff >= 3) { kDelta = onRun - offRun; kMetric = label; break }
         }
 
+        // Adherence is over the days the routine has actually existed (capped at the 30-day window), so a
+        // fresh routine run every day reads ~100%, not "7%" against a fixed 30-day denominator.
+        val createdDay = if (r.createdAt > 0) dayOf(r.createdAt, zone).toEpochDay() else today - 29
+        val window = (today - createdDay + 1).coerceIn(1L, 30L).toInt()
         return Stat(
-            routineId = r.id, runs30 = runs30, adherencePct = (runs30 * 100 / 30),
+            routineId = r.id, runs30 = runs30, adherencePct = (runs30 * 100 / window),
             currentStreak = cur, bestStreak = best, bestHour = bestHour,
             dropOffStepTitle = dropOff, keystoneDelta = kDelta, keystoneMetric = kMetric,
             totalRuns = runs.size,

@@ -82,7 +82,7 @@ private val HEADER_HEIGHT = 26.dp
 fun HabitMatrix(vm: AppViewModel, density: Int, onOpenHabit: (HabitEntity) -> Unit, modifier: Modifier = Modifier) {
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
-    val today = LocalDate.now().toEpochDay()
+    val today = vm.today()
 
     if (habits.isEmpty()) {
         Box(modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {

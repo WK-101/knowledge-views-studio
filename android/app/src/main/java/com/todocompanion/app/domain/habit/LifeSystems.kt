@@ -43,19 +43,25 @@ object LifeSystems {
         habits: List<HabitEntity>, checkins: List<HabitCheckinEntity>, tasks: List<TaskEntity>,
         today: Long, minSample: Int = 5, zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
     ): List<Correlation> {
-        val (mood, energy, tasksByDay) = dailySignals(checkins, tasks, zone)
-        val signals = listOf("mood" to mood, "energy" to energy, "tasks done" to tasksByDay)
+        val (_, _, tasksByDay) = dailySignals(checkins, tasks, zone)
         val out = ArrayList<Correlation>()
         habits.filter { !it.archived }.forEach { h ->
+            val start = h.startEpochDay()
             val mine = checkins.filter { it.habitId == h.id }
             val done = mine.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
             if (done.size < minSample) return@forEach
+            // De-bias mood/energy: draw the day's felt-state from OTHER habits' check-ins only, so a habit
+            // never "predicts" a mood it tagged at its own check-in (the self-fulfilling trap). Tasks are
+            // habit-independent, so they stay global.
+            val others = checkins.filter { it.habitId != h.id }
+            val moodH = others.filter { it.ctxMood > 0 }.groupBy { it.epochDay }.mapValues { e -> e.value.map { it.ctxMood }.average() }
+            val energyH = others.filter { it.ctxEnergy > 0 }.groupBy { it.epochDay }.mapValues { e -> e.value.map { it.ctxEnergy }.average() }
+            val signals = listOf("mood" to moodH, "energy" to energyH, "tasks done" to tasksByDay)
             signals.forEach { (name, series) ->
-                // Only correlate against signals the habit doesn't itself produce (a mood-tagged habit
-                // shouldn't "predict" mood from its own tag) — compare next-day too would need lag; keep
-                // same-day but exclude the habit's own contribution isn't needed for tasks/focus.
                 val onVals = series.filterKeys { it in done }.values
-                val offVals = series.filterKeys { it !in done && it <= today }.values
+                // Off-baseline: only days the habit was already active (>= its start), never pre-history —
+                // otherwise the comparison is diluted by days the habit didn't yet exist.
+                val offVals = series.filterKeys { it !in done && it in start..today }.values
                 if (onVals.size >= minSample && offVals.size >= minSample) {
                     val on = onVals.average(); val off = offVals.average()
                     val delta = on - off

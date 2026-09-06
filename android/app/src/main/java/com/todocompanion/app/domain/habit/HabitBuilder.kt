@@ -20,19 +20,35 @@ object HabitBuilder {
     // ── F15 · 66-day automaticity (Lally curve) ──────────────────────────────────────────────────
     data class Automaticity(val reps: Int, val pct: Int, val stage: String)
 
-    /** Automaticity rises asymptotically with repetitions (Lally 2010: ~66 days to plateau). We model
-     *  it as 1 − e^(−reps/21), which reaches ~95% around 63 done days — distinct from a fragile streak. */
-    fun automaticity(doneDays: Set<Long>): Automaticity {
+    /** Automaticity rises asymptotically with repetitions (Lally 2010: ~66 days to plateau), modelled as
+     *  1 − e^(−reps/21) (~95% around 63 done days). But automaticity is about a *behaviour that's alive*,
+     *  not lifetime volume — so when [today] is supplied we decay the score as practice lapses: full credit
+     *  within a week of the last rep, easing toward ~15% by eight weeks idle. This keeps the meter honest
+     *  (a habit done 63 times but abandoned reads low, matching its near-zero strength) instead of showing
+     *  "Automatic" forever. Callers that only gate on accumulated reps may omit [today]. */
+    fun automaticity(doneDays: Set<Long>, today: Long? = null): Automaticity {
         val reps = doneDays.size
-        val pct = ((1.0 - exp(-reps / 21.0)) * 100).roundToInt().coerceIn(0, 99)
+        var pct = (1.0 - exp(-reps / 21.0)) * 100.0
+        if (today != null && doneDays.isNotEmpty()) {
+            val gap = (today - doneDays.max()).coerceAtLeast(0)
+            val recency = when {
+                gap <= 7 -> 1.0
+                gap >= 63 -> 0.15
+                else -> 1.0 - 0.85 * ((gap - 7).toDouble() / (63 - 7))
+            }
+            pct *= recency
+        }
+        val p = pct.roundToInt().coerceIn(0, 99)
+        val lapsing = today != null && doneDays.isNotEmpty() && (today - doneDays.max()) > 14 && reps >= 15
         val stage = when {
             reps == 0 -> "Not started"
-            pct < 40 -> "Getting started"
-            pct < 80 -> "Settling in"
-            pct < 95 -> "Nearly automatic"
+            lapsing -> "Slipping"
+            p < 40 -> "Getting started"
+            p < 80 -> "Settling in"
+            p < 95 -> "Nearly automatic"
             else -> "Automatic"
         }
-        return Automaticity(reps, pct, stage)
+        return Automaticity(reps, p, stage)
     }
 
     // ── F9 · never miss twice ────────────────────────────────────────────────────────────────────

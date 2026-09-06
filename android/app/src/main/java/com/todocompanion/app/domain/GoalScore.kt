@@ -17,6 +17,7 @@ object GoalScore {
         val daysElapsed: Int,
         val daysLeft: Int,
         val elapsedFraction: Double,   // 0..1 of the window spent
+        val complete: Boolean = false, // the window has fully elapsed (time to close the cycle out)
     ) {
         val started get() = daysElapsed >= 0 && weekIndex >= 1
     }
@@ -26,13 +27,14 @@ object GoalScore {
         if (!g.hasCycle) return null
         val start = g.cycleStartEpochDay
         val totalDays = g.cycleWeeks * 7
-        val end = start + totalDays
+        val end = start + totalDays   // day `end` is the first day past the window
         if (today < start) return null
-        val daysElapsed = (today - start).toInt().coerceAtLeast(0)
+        val complete = today >= end
+        val daysElapsed = (today - start).toInt().coerceIn(0, totalDays)
         val daysLeft = (end - today).toInt().coerceAtLeast(0)
         val weekIndex = (daysElapsed / 7 + 1).coerceIn(1, g.cycleWeeks)
         val frac = if (totalDays == 0) 0.0 else (daysElapsed.toDouble() / totalDays).coerceIn(0.0, 1.0)
-        return Cycle(weekIndex, g.cycleWeeks, daysElapsed, daysLeft, frac)
+        return Cycle(weekIndex, g.cycleWeeks, daysElapsed, daysLeft, frac, complete)
     }
 
     /** Whether pace is on track: overall completion should keep up with time elapsed (within 10%). */
@@ -67,21 +69,21 @@ object GoalScore {
         val days = scoped(reviews, goalId).map { it.epochDay }.toSortedSet()
         if (days.isEmpty()) return 0
         var chain = 0
-        // Walk back one cadence-window at a time; count while each window holds a review.
         var windowEnd = today
-        // Only start counting once we're inside a window that actually contains a review — this keeps
-        // a fresh streak alive right up to the cadence boundary before it's considered broken.
+        // Grace of *exactly one* still-open current period: if this period has no review yet, slide back
+        // once to check the previous one — but a second consecutive empty period breaks the chain. This
+        // is bounded (unlike an unbounded backward hunt), so an abandoned goal correctly reads 0.
+        var grace = true
         var guard = 0
         while (guard++ < 520) {
             val windowStart = windowEnd - cadence + 1
             val hit = days.any { it in windowStart..windowEnd }
-            if (hit) { chain++; windowEnd = windowStart - 1 }
-            else if (chain == 0) {
-                // No review in the current window yet — allow the grace of the current, still-open
-                // period: slide the window back once to see if the previous period was kept.
-                windowEnd = windowStart - 1
-                if (windowEnd < days.first()) break
-            } else break
+            when {
+                hit -> { chain++; grace = false; windowEnd = windowStart - 1 }
+                grace -> { grace = false; windowEnd = windowStart - 1 }   // spend the one free open period
+                else -> break                                            // two empty periods in a row → broken
+            }
+            if (windowEnd < days.first()) break
         }
         return chain
     }

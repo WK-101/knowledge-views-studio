@@ -179,6 +179,21 @@ object HabitStats {
         if (forgiving) forgivingStreak(habit, doneDays, skipDays, relapseDays, today)
         else currentStreak(habit, doneDays, skipDays, relapseDays, today)
 
+    /** The *best* streak to display — in the SAME unit as [displayStreak], so "current" can never exceed
+     *  "best". When forgiving is on we take the longest forgiving run ever (each done-day treated as a
+     *  possible run-end); otherwise the strict all-time best. */
+    fun displayBestStreak(habit: HabitEntity, doneDays: Set<Long>, skipDays: Set<Long>, relapseDays: Set<Long>, today: Long, forgiving: Boolean): Int {
+        val strictBest = bestStreak(habit, doneDays, skipDays, relapseDays, today)
+        if (!forgiving || habit.habitType == "break" || habit.freqType == FREQ_TIMES_WEEK || habit.freqType == FREQ_TIMES_MONTH) return strictBest
+        val start = habit.startEpochDay()
+        var best = strictBest
+        doneDays.asSequence().filter { it in start..today }.forEach { end ->
+            best = maxOf(best, forgivingStreak(habit, doneDays, skipDays, relapseDays, end))
+        }
+        // Include the live run so "best" is always ≥ the currently-shown forgiving "current".
+        return maxOf(best, forgivingStreak(habit, doneDays, skipDays, relapseDays, today))
+    }
+
     /**
      * Tier U8 — a *forgiving* streak. Like [currentStreak] for weekday/interval habits, but a bounded
      * number of misses is tolerated ([missesPerWeek] per rolling seven expected days) before the streak

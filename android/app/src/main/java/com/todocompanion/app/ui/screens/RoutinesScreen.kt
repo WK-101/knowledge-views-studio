@@ -111,7 +111,7 @@ fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
     val routines = remember(settings.routinesJson) { vm.routines() }
     val runs = remember(settings.routineRunsJson) { vm.routineRuns() }
     val dayLogs by vm.dayLogs.collectAsState()
-    val today = LocalDate.now().toEpochDay()
+    val today = vm.today()
     val onThisDay = remember(settings.routineRunsJson, settings.routinesJson, today) {
         com.todocompanion.app.domain.RoutineInsights.onThisDay(routines, runs, today)
     }
@@ -210,7 +210,8 @@ private fun RoutineInsightsDialog(
     onDismiss: () -> Unit,
 ) {
     val stat = remember(r, runs, dayLogs, today) { com.todocompanion.app.domain.RoutineInsights.forRoutine(r, runs, dayLogs, today) }
-    val year = remember(runs) { com.todocompanion.app.domain.RoutineInsights.yearSummary(listOf(r), runs, LocalDate.ofEpochDay(today).year) }
+    // Only this routine's runs — otherwise the per-routine "This year" would sum across every routine.
+    val year = remember(runs, r) { com.todocompanion.app.domain.RoutineInsights.yearSummary(listOf(r), runs.filter { it.routineId == r.id }, LocalDate.ofEpochDay(today).year) }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
@@ -254,7 +255,7 @@ private fun oneDp(v: Double): String = "%.1f".format(v)
 private fun RoutineRunner(vm: AppViewModel, routine: Routine, onExit: () -> Unit) {
     BackHandler(onBack = onExit)
     val haptic = LocalHapticFeedback.current
-    val today = LocalDate.now().toEpochDay()
+    val today = vm.today()
 
     // Felt-state gating (moat #6): on a low-energy day, default to the 2-minute Lite version — never-miss-
     // twice becomes a kind recovery, not a shame event. The user can still flip it back to the full run.
