@@ -1,5 +1,8 @@
 package com.cairn.reader.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -61,7 +64,7 @@ fun ListenBar(
         ) {
             if (hasQueue) {
                 IconButton(onClick = onPrev) {
-                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous", tint = scheme.onSurface)
+                    Icon(Icons.Filled.SkipPrevious, contentDescription = stringResource(R.string.previous), tint = scheme.onSurface)
                 }
             }
             IconButton(onClick = onPlayPause) {
@@ -73,7 +76,7 @@ fun ListenBar(
             }
             if (hasQueue) {
                 IconButton(onClick = onNext) {
-                    Icon(Icons.Filled.SkipNext, contentDescription = "Next", tint = scheme.onSurface)
+                    Icon(Icons.Filled.SkipNext, contentDescription = stringResource(R.string.next), tint = scheme.onSurface)
                 }
             }
             Column(Modifier.weight(1f).padding(horizontal = 6.dp)) {
@@ -95,7 +98,7 @@ fun ListenBar(
             }
             TextButton(onClick = { onSpeed(nextSpeed(state.speed)) }) { Text(speedLabel(state.speed)) }
             IconButton(onClick = onStop) {
-                Icon(Icons.Filled.Close, contentDescription = "Stop", tint = scheme.onSurfaceVariant)
+                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.stop), tint = scheme.onSurfaceVariant)
             }
         }
     }

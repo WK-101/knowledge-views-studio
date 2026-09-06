@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -54,7 +57,7 @@ fun CairnSearchField(
             androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 if (value.isNotEmpty()) {
                     IconButton(onClick = { onValueChange("") }) {
-                        Icon(Icons.Outlined.Close, contentDescription = "Clear")
+                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.clear))
                     }
                 }
                 trailing?.invoke()

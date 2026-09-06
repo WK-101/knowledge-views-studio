@@ -6,6 +6,9 @@
 
 package com.cairn.reader.ui.library
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -149,10 +152,10 @@ fun LibraryScreen(
             navigationIcon = {
                 // At the browse home the nav icon opens the drawer; inside any scope it steps back home.
                 if (scope is LibraryScope.Home || searchOpen) {
-                    IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
+                    IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = stringResource(R.string.open_navigation)) }
                 } else {
                     IconButton(onClick = { viewModel.setScope(LibraryScope.Home) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Library home")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.library_home))
                     }
                 }
             },
@@ -167,7 +170,7 @@ fun LibraryScreen(
                         trailing = {
                             if (query.isNotBlank()) {
                                 IconButton(onClick = { viewModel.saveSearch(query) }) {
-                                    Icon(Icons.Outlined.BookmarkAdd, contentDescription = "Save search")
+                                    Icon(Icons.Outlined.BookmarkAdd, contentDescription = stringResource(R.string.save_search))
                                 }
                             }
                         },
@@ -195,15 +198,15 @@ fun LibraryScreen(
             actions = {
                 if (searchOpen) {
                     IconButton(onClick = { viewModel.setQuery(""); searchOpen = false }) {
-                        Icon(Icons.Outlined.Close, contentDescription = "Close search")
+                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.close_search))
                     }
                 } else {
-                    IconButton(onClick = { searchOpen = true }) { Icon(Icons.Outlined.Search, contentDescription = "Search") }
-                    IconButton(onClick = { filterSheet = true }) { Icon(Icons.Outlined.FilterList, contentDescription = "Filter & collections") }
+                    IconButton(onClick = { searchOpen = true }) { Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search)) }
+                    IconButton(onClick = { filterSheet = true }) { Icon(Icons.Outlined.FilterList, contentDescription = stringResource(R.string.filter_collections)) }
                     Box {
-                        IconButton(onClick = { displayMenu = true }) { Icon(Icons.Outlined.Tune, contentDescription = "View and sort") }
+                        IconButton(onClick = { displayMenu = true }) { Icon(Icons.Outlined.Tune, contentDescription = stringResource(R.string.view_and_sort)) }
                         DropdownMenu(expanded = displayMenu, onDismissRequest = { displayMenu = false }) {
-                            Text("VIEW", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                            Text(stringResource(R.string.view), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
                             LibraryViewMode.entries.forEach { m ->
                                 DropdownMenuItem(
                                     text = { Text(viewModeLabel(m), fontWeight = if (m == viewMode) FontWeight.SemiBold else FontWeight.Normal) },
@@ -211,7 +214,7 @@ fun LibraryScreen(
                                 )
                             }
                             HorizontalDivider()
-                            Text("SORT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                            Text(stringResource(R.string.sort), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
                             LibrarySort.entries.forEach { s ->
                                 DropdownMenuItem(
                                     text = { Text(s.label, fontWeight = if (s == sort) FontWeight.SemiBold else FontWeight.Normal) },
@@ -223,12 +226,12 @@ fun LibraryScreen(
                     val current = scope
                     if (current is LibraryScope.Collection) {
                         Box {
-                            IconButton(onClick = { scopeMenu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "Manage collection") }
+                            IconButton(onClick = { scopeMenu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.manage_collection)) }
                             DropdownMenu(expanded = scopeMenu, onDismissRequest = { scopeMenu = false }) {
-                                DropdownMenuItem(text = { Text("New sub-collection") }, onClick = { scopeMenu = false; showCreate = current.id })
-                                DropdownMenuItem(text = { Text("Rename") }, onClick = { scopeMenu = false; renaming = current.id to current.name })
-                                DropdownMenuItem(text = { Text("Move under…") }, onClick = { scopeMenu = false; reparenting = current.id to current.name })
-                                DropdownMenuItem(text = { Text("Delete") }, onClick = { scopeMenu = false; viewModel.deleteCollection(current.id) })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.new_sub_collection)) }, onClick = { scopeMenu = false; showCreate = current.id })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.rename)) }, onClick = { scopeMenu = false; renaming = current.id to current.name })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.move_under)) }, onClick = { scopeMenu = false; reparenting = current.id to current.name })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.delete)) }, onClick = { scopeMenu = false; viewModel.deleteCollection(current.id) })
                             }
                         }
                     }
@@ -243,7 +246,7 @@ fun LibraryScreen(
                 modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FilterChip(selected = typeFilter == null, onClick = { viewModel.setTypeFilter(null) }, label = { Text("All") })
+                FilterChip(selected = typeFilter == null, onClick = { viewModel.setTypeFilter(null) }, label = { Text(stringResource(R.string.all)) })
                 availableTypes.forEach { t ->
                     FilterChip(
                         selected = typeFilter == t,
@@ -259,14 +262,14 @@ fun LibraryScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = { viewModel.clearSelection() }) { Icon(Icons.Outlined.Close, contentDescription = "Clear selection") }
+                IconButton(onClick = { viewModel.clearSelection() }) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.clear_selection)) }
                 Text("${selection.size} selected", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
                 androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-                TextButton(onClick = { showMove = true }) { Text("Move") }
+                TextButton(onClick = { showMove = true }) { Text(stringResource(R.string.move)) }
                 TextButton(onClick = { viewModel.archiveSelected() }) {
                     Text(if (scope is LibraryScope.Archive) "Unarchive" else "Archive")
                 }
-                TextButton(onClick = { viewModel.removeSelectedFromLibrary() }) { Text("Remove") }
+                TextButton(onClick = { viewModel.removeSelectedFromLibrary() }) { Text(stringResource(R.string.remove_2)) }
             }
         }
 
@@ -447,7 +450,7 @@ private fun TagMovePicker(
                 ) {
                     Icon(Icons.Outlined.Label, contentDescription = null, tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.size(12.dp))
-                    Text("Top level (no parent)", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                    Text(stringResource(R.string.top_level_no_parent), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
                 }
             }
             items(candidates, key = { "mv-$it" }) { c ->
@@ -727,7 +730,7 @@ private fun LibraryHome(
                 "COLLECTIONS", collectionsOpen, onToggle = { onSetCollectionsOpen(!collectionsOpen) },
                 trailing = {
                     IconButton(onClick = onNewCollection, modifier = Modifier.size(44.dp)) {
-                        Icon(Icons.Outlined.Add, contentDescription = "New collection", tint = scheme.primary)
+                        Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.new_collection_2), tint = scheme.primary)
                     }
                 },
             )
@@ -735,8 +738,7 @@ private fun LibraryHome(
         if (collectionsOpen) {
             if (colRows.isEmpty()) {
                 item {
-                    Text(
-                        "No collections yet. Tap + to create one, then file saved items into it.",
+                    Text(stringResource(R.string.no_collections_yet_tap_to_create),
                         style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 4.dp, horizontal = 4.dp),
                     )
@@ -1054,8 +1056,7 @@ private fun LibraryFilterSheet(
             contentPadding = PaddingValues(bottom = 28.dp),
         ) {
             item {
-                Text(
-                    "Filter & organize",
+                Text(stringResource(R.string.filter_organize),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 8.dp),
@@ -1075,17 +1076,16 @@ private fun LibraryFilterSheet(
                     Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp, top = 14.dp, bottom = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("COLLECTIONS", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.collections), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                     TextButton(onClick = { onNewCollection(null) }) {
                         Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.size(4.dp)); Text("New")
+                        Spacer(Modifier.size(4.dp)); Text(stringResource(R.string.new_kw))
                     }
                 }
             }
             if (rows.isEmpty()) {
                 item {
-                    Text(
-                        "No collections yet — group saved items into collections and sub-collections.",
+                    Text(stringResource(R.string.no_collections_yet_group_saved_items),
                         style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
                     )
@@ -1124,11 +1124,11 @@ private fun LibraryFilterSheet(
                         Text("${r.count}", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
                     }
                     Box {
-                        IconButton(onClick = { menuFor = r.id }) { Icon(Icons.Outlined.MoreVert, contentDescription = "Manage", modifier = Modifier.size(20.dp)) }
+                        IconButton(onClick = { menuFor = r.id }) { Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.manage), modifier = Modifier.size(20.dp)) }
                         DropdownMenu(expanded = menuFor == r.id, onDismissRequest = { menuFor = null }) {
-                            DropdownMenuItem(text = { Text("New sub-collection") }, onClick = { menuFor = null; onNewCollection(r.id) })
-                            DropdownMenuItem(text = { Text("Rename") }, onClick = { menuFor = null; onRenameCollection(r.id, r.name) })
-                            DropdownMenuItem(text = { Text("Delete") }, onClick = { menuFor = null; onDeleteCollection(r.id) })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.new_sub_collection)) }, onClick = { menuFor = null; onNewCollection(r.id) })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.rename)) }, onClick = { menuFor = null; onRenameCollection(r.id, r.name) })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.delete)) }, onClick = { menuFor = null; onDeleteCollection(r.id) })
                         }
                     }
                 }
@@ -1137,7 +1137,7 @@ private fun LibraryFilterSheet(
             // -- Tags (path-nested "parent/child", foldable, with roll-up counts) -----
             if (tagRows.isNotEmpty()) {
                 item {
-                    Text("TAGS", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 2.dp))
+                    Text(stringResource(R.string.tags_2), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 2.dp))
                 }
                 items(tagRows, key = { "tag-${it.path}" }) { r ->
                     val selected = scope.let { it is LibraryScope.Tag && it.name == r.path }
@@ -1170,12 +1170,12 @@ private fun LibraryFilterSheet(
                         )
                         if (r.totalCount > 0) Text("${r.totalCount}", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
                         Box {
-                            IconButton(onClick = { menuForTag = r.path }) { Icon(Icons.Outlined.MoreVert, contentDescription = "Manage tag", modifier = Modifier.size(20.dp)) }
+                            IconButton(onClick = { menuForTag = r.path }) { Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.manage_tag), modifier = Modifier.size(20.dp)) }
                             DropdownMenu(expanded = menuForTag == r.path, onDismissRequest = { menuForTag = null }) {
                                 if (r.exists) {
-                                    DropdownMenuItem(text = { Text("Rename") }, onClick = { menuForTag = null; onRenameTag(r.path, r.label) })
+                                    DropdownMenuItem(text = { Text(stringResource(R.string.rename)) }, onClick = { menuForTag = null; onRenameTag(r.path, r.label) })
                                 }
-                                DropdownMenuItem(text = { Text("Move under…") }, onClick = { menuForTag = null; onMoveTag(r.path) })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.move_under)) }, onClick = { menuForTag = null; onMoveTag(r.path) })
                                 DropdownMenuItem(
                                     text = { Text(if (r.hasChildren) "Delete tag & sub-tags" else "Delete", color = scheme.error) },
                                     onClick = { menuForTag = null; onDeleteTag(r.path) },
@@ -1189,7 +1189,7 @@ private fun LibraryFilterSheet(
             // -- Saved searches --------------------------------------------------
             if (savedSearches.isNotEmpty()) {
                 item {
-                    Text("SAVED SEARCHES", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 2.dp))
+                    Text(stringResource(R.string.saved_searches), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 2.dp))
                 }
                 items(savedSearches, key = { "ss-$it" }) { q ->
                     Row(
@@ -1199,7 +1199,7 @@ private fun LibraryFilterSheet(
                         Icon(Icons.Outlined.Search, contentDescription = null, tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(12.dp))
                         Text(q, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { onRemoveSavedSearch(q) }) { Icon(Icons.Outlined.Close, contentDescription = "Remove", modifier = Modifier.size(18.dp)) }
+                        IconButton(onClick = { onRemoveSavedSearch(q) }) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.remove_2), modifier = Modifier.size(18.dp)) }
                     }
                 }
             }
@@ -1231,6 +1231,6 @@ private fun NameDialog(title: String, initial: String, confirmLabel: String, onC
             OutlinedTextField(value = text, onValueChange = { text = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
         },
         confirmButton = { TextButton(onClick = { onConfirm(text) }, enabled = text.isNotBlank()) { Text(confirmLabel) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }

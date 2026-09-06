@@ -1,5 +1,8 @@
 package com.cairn.reader.ui.reader
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -90,7 +93,7 @@ fun RsvpReader(
                 // Top row: close.
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     IconButton(onClick = onClose) {
-                        Icon(Icons.Outlined.Close, contentDescription = "Close speed reader", tint = scheme.onSurface)
+                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.close_speed_reader), tint = scheme.onSurface)
                     }
                 }
 
@@ -124,7 +127,7 @@ fun RsvpReader(
                 Spacer(Modifier.height(24.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                     IconButton(onClick = { index = 0; playing = true }) {
-                        Icon(Icons.Outlined.Replay, contentDescription = "Restart", tint = scheme.onSurface)
+                        Icon(Icons.Outlined.Replay, contentDescription = stringResource(R.string.restart), tint = scheme.onSurface)
                     }
                     Spacer(Modifier.width(16.dp))
                     IconButton(onClick = {

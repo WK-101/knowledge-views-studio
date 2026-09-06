@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.reader
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -357,12 +360,12 @@ fun ReaderScreen(
             TopAppBar(
                 title = {},
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = palette.text) }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), tint = palette.text) }
                 },
                 actions = {
                     if (data?.type != "PDF") {
                         IconButton(onClick = { showTypography = true }) {
-                            Icon(Icons.Outlined.FormatSize, contentDescription = "Text options", tint = palette.text)
+                            Icon(Icons.Outlined.FormatSize, contentDescription = stringResource(R.string.text_options), tint = palette.text)
                         }
                     }
                     IconButton(onClick = viewModel::toggleStar) {
@@ -382,12 +385,12 @@ fun ReaderScreen(
                     }
                     Box {
                         IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Outlined.MoreVert, contentDescription = "More", tint = palette.text)
+                            Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.more), tint = palette.text)
                         }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                             if (data?.type != "PDF") {
                                 DropdownMenuItem(
-                                    text = { Text("Display & text") },
+                                    text = { Text(stringResource(R.string.display_text)) },
                                     leadingIcon = { Icon(Icons.Outlined.FormatSize, contentDescription = null) },
                                     onClick = { showMenu = false; showTypography = true },
                                 )
@@ -404,22 +407,22 @@ fun ReaderScreen(
                             )
                             if (data?.type != "PDF") {
                                 DropdownMenuItem(
-                                    text = { Text("Listen") },
+                                    text = { Text(stringResource(R.string.listen)) },
                                     leadingIcon = { Icon(Icons.Outlined.Headphones, contentDescription = null) },
                                     onClick = { showMenu = false; viewModel.toggleListen() },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Speed read") },
+                                    text = { Text(stringResource(R.string.speed_read)) },
                                     leadingIcon = { Icon(Icons.Outlined.Bolt, contentDescription = null) },
                                     onClick = { showMenu = false; showRsvp = true },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Summarize") },
+                                    text = { Text(stringResource(R.string.summarize)) },
                                     leadingIcon = { Icon(Icons.Outlined.Notes, contentDescription = null) },
                                     onClick = { showMenu = false; viewModel.loadSummary(); showSummary = true },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Related articles") },
+                                    text = { Text(stringResource(R.string.related_articles)) },
                                     leadingIcon = { Icon(Icons.Outlined.Hub, contentDescription = null) },
                                     onClick = { showMenu = false; viewModel.loadRelated(); showRelated = true },
                                 )
@@ -456,7 +459,7 @@ fun ReaderScreen(
                             )
                             if (data?.type != "PDF") {
                                 DropdownMenuItem(
-                                    text = { Text("Export as PDF") },
+                                    text = { Text(stringResource(R.string.export_as_pdf)) },
                                     leadingIcon = { Icon(Icons.Outlined.PictureAsPdf, contentDescription = null) },
                                     onClick = {
                                         showMenu = false
@@ -464,7 +467,7 @@ fun ReaderScreen(
                                     },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Export as Markdown") },
+                                    text = { Text(stringResource(R.string.export_as_markdown)) },
                                     leadingIcon = { Icon(Icons.Outlined.Description, contentDescription = null) },
                                     onClick = {
                                         showMenu = false
@@ -472,7 +475,7 @@ fun ReaderScreen(
                                     },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Send to Kindle (EPUB)") },
+                                    text = { Text(stringResource(R.string.send_to_kindle_epub)) },
                                     leadingIcon = { Icon(Icons.Outlined.MenuBook, contentDescription = null) },
                                     onClick = {
                                         showMenu = false
@@ -480,7 +483,7 @@ fun ReaderScreen(
                                     },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Save full-page snapshot") },
+                                    text = { Text(stringResource(R.string.save_full_page_snapshot)) },
                                     leadingIcon = { Icon(Icons.Outlined.Save, contentDescription = null) },
                                     onClick = {
                                         showMenu = false
@@ -490,21 +493,21 @@ fun ReaderScreen(
                             }
                             data?.commentsUrl?.takeIf { it.isNotBlank() }?.let { commentsUrl ->
                                 DropdownMenuItem(
-                                    text = { Text("Open comments") },
+                                    text = { Text(stringResource(R.string.open_comments)) },
                                     leadingIcon = { Icon(Icons.Outlined.Forum, contentDescription = null) },
                                     onClick = { showMenu = false; onOpenWeb(commentsUrl) },
                                 )
                             }
                             if (data?.type != "PDF") {
                                 DropdownMenuItem(
-                                    text = { Text("Open original") },
+                                    text = { Text(stringResource(R.string.open_original)) },
                                     leadingIcon = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null) },
                                     onClick = { showMenu = false; openOriginal() },
                                 )
                                 // JS-render fallback (collector P5): for single-page-app articles whose
                                 // plain fetch returns an empty shell, render the page and re-extract.
                                 DropdownMenuItem(
-                                    text = { Text("Load with JavaScript") },
+                                    text = { Text(stringResource(R.string.load_with_javascript)) },
                                     leadingIcon = { Icon(Icons.Outlined.Code, contentDescription = null) },
                                     onClick = { showMenu = false; viewModel.loadWithJavaScript() },
                                 )
@@ -522,7 +525,7 @@ fun ReaderScreen(
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) },
                                 leadingIcon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                                 onClick = { showMenu = false; confirmDelete = true },
                             )
@@ -575,7 +578,7 @@ fun ReaderScreen(
     ) { padding ->
         when {
             state.loading -> Centered(padding) { CircularProgressIndicator() }
-            data == null -> Centered(padding) { Text("This article couldn't be loaded.", color = palette.secondary) }
+            data == null -> Centered(padding) { Text(stringResource(R.string.this_article_couldn_t_be_loaded), color = palette.secondary) }
             data.type == "PDF" -> PdfView(padding = padding, path = data.pdfPath, background = palette.background)
             else -> ArticleBody(
                 padding = padding,
@@ -619,14 +622,14 @@ fun ReaderScreen(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             icon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text("Move to Trash?") },
-            text = { Text("It's moved to the Trash — hidden from your feeds but kept intact. You can restore it from Trash, or empty the Trash to erase it for good.") },
+            title = { Text(stringResource(R.string.move_to_trash_2)) },
+            text = { Text(stringResource(R.string.it_s_moved_to_the_trash)) },
             confirmButton = {
                 TextButton(onClick = { confirmDelete = false; viewModel.deleteArticle(onBack) }) {
-                    Text("Move to Trash", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.move_to_trash), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -664,15 +667,14 @@ fun ReaderScreen(
         val summary by viewModel.summary.collectAsStateWithLifecycle()
         androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showSummary = false }) {
             androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 32.dp)) {
-                Text(
-                    "Key points",
+                Text(stringResource(R.string.key_points),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
                     modifier = Modifier.padding(vertical = 8.dp),
                 )
                 when {
                     summary == null -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                    summary!!.isEmpty() -> Text("Not enough article text to summarize. Try loading the full article first.", style = MaterialTheme.typography.bodyMedium, color = palette.secondary)
+                    summary!!.isEmpty() -> Text(stringResource(R.string.not_enough_article_text_to_summarize), style = MaterialTheme.typography.bodyMedium, color = palette.secondary)
                     else -> summary!!.forEach { s ->
                         androidx.compose.foundation.layout.Row(Modifier.padding(vertical = 6.dp)) {
                             Text("•  ", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
@@ -681,8 +683,7 @@ fun ReaderScreen(
                     }
                 }
                 if (summary?.isNotEmpty() == true) {
-                    Text(
-                        "Extracted on-device from the article — a starting point, not a substitute for reading.",
+                    Text(stringResource(R.string.extracted_on_device_from_the_article),
                         style = MaterialTheme.typography.labelSmall,
                         color = palette.secondary,
                         modifier = Modifier.padding(top = 12.dp),
@@ -696,16 +697,14 @@ fun ReaderScreen(
         val related by viewModel.related.collectAsStateWithLifecycle()
         androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showRelated = false }) {
             androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
-                Text(
-                    "Related articles",
+                Text(stringResource(R.string.related_articles),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                 )
                 when {
                     related == null -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                    related!!.isEmpty() -> Text(
-                        "Nothing closely related found yet.",
+                    related!!.isEmpty() -> Text(stringResource(R.string.nothing_closely_related_found_yet),
                         style = MaterialTheme.typography.bodyMedium,
                         color = palette.secondary,
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
@@ -978,15 +977,15 @@ private fun ArticleBody(
                         }
                         data.extractStatus == "FAILED" -> {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(onClick = onLoadFull) { Text("Retry") }
+                                OutlinedButton(onClick = onLoadFull) { Text(stringResource(R.string.retry)) }
                                 OutlinedButton(onClick = onLoadWithJs) {
                                     Icon(Icons.Outlined.Code, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(Modifier.width(6.dp))
-                                    Text("Load with JavaScript")
+                                    Text(stringResource(R.string.load_with_javascript))
                                 }
                             }
                             Spacer(Modifier.height(4.dp))
-                            Text("Showing the summary — the full article couldn't be fetched. If it's a JavaScript-heavy site, try loading with JavaScript.", style = MaterialTheme.typography.labelSmall, color = palette.secondary)
+                            Text(stringResource(R.string.showing_the_summary_the_full_article), style = MaterialTheme.typography.labelSmall, color = palette.secondary)
                             Spacer(Modifier.height(8.dp))
                         }
                     }
@@ -995,12 +994,12 @@ private fun ArticleBody(
                             OutlinedButton(onClick = onPlayEpisode) {
                                 Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text("Play episode")
+                                Text(stringResource(R.string.play_episode))
                             }
                             OutlinedButton(onClick = { onSaveMedia(data.enclosureUrl!!) }) {
                                 Icon(Icons.Outlined.DownloadForOffline, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text("Save")
+                                Text(stringResource(R.string.save))
                             }
                         }
                         Spacer(Modifier.height(12.dp))
@@ -1009,7 +1008,7 @@ private fun ArticleBody(
                         OutlinedButton(onClick = onWatch) {
                             Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("Watch video")
+                            Text(stringResource(R.string.watch_video))
                         }
                         Spacer(Modifier.height(12.dp))
                     }
@@ -1021,15 +1020,15 @@ private fun ArticleBody(
             if (blocks.isEmpty()) {
                 item {
                     Column(Modifier.padding(horizontal = ReaderHPad)) {
-                        Text("No readable content was saved for this item yet.", style = bodyStyle, color = palette.secondary)
+                        Text(stringResource(R.string.no_readable_content_was_saved_for), style = bodyStyle, color = palette.secondary)
                         Spacer(Modifier.height(12.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = onLoadWithJs) {
                                 Icon(Icons.Outlined.Code, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text("Load with JavaScript")
+                                Text(stringResource(R.string.load_with_javascript))
                             }
-                            OutlinedButton(onClick = onOpenOriginal) { Text("Open original") }
+                            OutlinedButton(onClick = onOpenOriginal) { Text(stringResource(R.string.open_original)) }
                         }
                     }
                 }
@@ -1059,10 +1058,10 @@ private fun ArticleBody(
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             OutlinedButton(onClick = onPrev, enabled = hasPrev, modifier = Modifier.weight(1f)) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp)); Text("Previous")
+                                Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.previous))
                             }
                             OutlinedButton(onClick = onNext, enabled = hasNext, modifier = Modifier.weight(1f)) {
-                                Text("Next"); Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.next)); Spacer(Modifier.width(6.dp))
                                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
                             }
                         }
@@ -1393,7 +1392,7 @@ private fun LookupSheet(
                 result == null -> Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(10.dp))
-                    Text("Looking up…", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
+                    Text(stringResource(R.string.looking_up), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
                 }
                 result.isSuccess -> {
                     val e = result.getOrThrow()
@@ -1419,12 +1418,12 @@ private fun LookupSheet(
                     }
                     if (e.synonyms.isNotEmpty()) {
                         Spacer(Modifier.height(6.dp))
-                        Text("Synonyms", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.synonyms), style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
                         Text(e.synonyms.joinToString(", "), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
                     }
                     if (e.antonyms.isNotEmpty()) {
                         Spacer(Modifier.height(8.dp))
-                        Text("Antonyms", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.antonyms), style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
                         Text(e.antonyms.joinToString(", "), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
                     }
                 }
@@ -1485,14 +1484,14 @@ private fun ImageLightbox(
             ) {
                 if (canSave) {
                     IconButton(onClick = onSave) {
-                        Icon(Icons.Outlined.DownloadForOffline, contentDescription = "Save image", tint = Color.White)
+                        Icon(Icons.Outlined.DownloadForOffline, contentDescription = stringResource(R.string.save_image), tint = Color.White)
                     }
                 }
                 IconButton(onClick = onShare) {
-                    Icon(Icons.Outlined.IosShare, contentDescription = "Share image", tint = Color.White)
+                    Icon(Icons.Outlined.IosShare, contentDescription = stringResource(R.string.share_image), tint = Color.White)
                 }
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White)
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.close), tint = Color.White)
                 }
             }
         }
@@ -1541,8 +1540,8 @@ private fun HighlightSheet(
             OutlinedTextField(
                 value = note,
                 onValueChange = { note = it },
-                label = { Text("Note") },
-                placeholder = { Text("Add a thought…") },
+                label = { Text(stringResource(R.string.note)) },
+                placeholder = { Text(stringResource(R.string.add_a_thought)) },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 2,
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Done),
@@ -1552,12 +1551,12 @@ private fun HighlightSheet(
                 TextButton(onClick = onDelete) {
                     Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Delete")
+                    Text(stringResource(R.string.delete))
                 }
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = onCopy) { Icon(Icons.Outlined.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(20.dp)) }
-                IconButton(onClick = onShare) { Icon(Icons.Outlined.IosShare, contentDescription = "Share", modifier = Modifier.size(20.dp)) }
-                TextButton(onClick = { onSaveNote(note); onDismiss() }) { Text("Save") }
+                IconButton(onClick = onCopy) { Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.copy), modifier = Modifier.size(20.dp)) }
+                IconButton(onClick = onShare) { Icon(Icons.Outlined.IosShare, contentDescription = stringResource(R.string.share), modifier = Modifier.size(20.dp)) }
+                TextButton(onClick = { onSaveNote(note); onDismiss() }) { Text(stringResource(R.string.save)) }
             }
         }
     }
@@ -1594,7 +1593,7 @@ private fun TypographySheet(
     val scheme = MaterialTheme.colorScheme
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
-            Text("Display", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 12.dp))
+            Text(stringResource(R.string.display), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 12.dp))
 
             // ---- Text size: a proper A− / value / A+ stepper (Instapaper/Pocket style) -------
             SheetSectionLabel("TEXT SIZE")
@@ -1617,8 +1616,7 @@ private fun TypographySheet(
                     onFontScale(((fontScale * 20).toInt() / 20f + 0.05f).coerceIn(0.7f, 2.6f))
                 }
             }
-            Text(
-                "Or pinch anywhere in the article to size the text.",
+            Text(stringResource(R.string.or_pinch_anywhere_in_the_article),
                 style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 6.dp),
             )
@@ -1782,7 +1780,7 @@ private fun MiniPlayer(
                 )
             }
             Column(Modifier.weight(1f).padding(horizontal = 4.dp)) {
-                Text("Listening", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+                Text(stringResource(R.string.listening), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.height(4.dp))
                 val fraction = if (state.total > 0) (state.index + 1f) / state.total else 0f
                 LinearProgressIndicator(
@@ -1792,7 +1790,7 @@ private fun MiniPlayer(
             }
             TextButton(onClick = { onSpeed(nextSpeed(state.speed)) }) { Text(speedLabel(state.speed)) }
             IconButton(onClick = onStop) {
-                Icon(Icons.Filled.Close, contentDescription = "Stop", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.stop), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

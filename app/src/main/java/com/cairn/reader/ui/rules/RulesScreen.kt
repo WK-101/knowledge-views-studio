@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.rules
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -88,12 +91,12 @@ fun RulesScreen(
         topBar = {
             TopAppBar(
                 title = { Text(if (rules.isEmpty()) "Rules" else "Rules · ${rules.size}", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = { IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") } },
+                navigationIcon = { IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = stringResource(R.string.open_navigation)) } },
             )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { editing = Rule.new() }) {
-                Icon(Icons.Outlined.Add, contentDescription = "New rule")
+                Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.new_rule))
             }
         },
     ) { inner ->
@@ -105,10 +108,9 @@ fun RulesScreen(
             ) {
                 Icon(Icons.Outlined.Bolt, contentDescription = null, modifier = Modifier.size(48.dp), tint = scheme.primary)
                 Spacer(Modifier.height(12.dp))
-                Text("Automate your reading", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.automate_your_reading), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(6.dp))
-                Text(
-                    "Create rules that run on every new article — auto-tag, star, file into a collection, save for later, or skip the noise. Everything runs on your device.",
+                Text(stringResource(R.string.create_rules_that_run_on_every),
                     style = MaterialTheme.typography.bodyMedium,
                     color = scheme.onSurfaceVariant,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -164,7 +166,7 @@ private fun RuleCard(
                 TextButton(onClick = onDelete) {
                     Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Delete")
+                    Text(stringResource(R.string.delete))
                 }
             }
         }
@@ -203,8 +205,8 @@ private fun RuleEditor(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Edit rule", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = { IconButton(onClick = onCancel) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Cancel") } },
+                title = { Text(stringResource(R.string.edit_rule), fontWeight = FontWeight.SemiBold) },
+                navigationIcon = { IconButton(onClick = onCancel) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cancel)) } },
                 actions = {
                     TextButton(onClick = {
                         onSave(
@@ -216,7 +218,7 @@ private fun RuleEditor(
                                 actions = actions.toList(),
                             )
                         )
-                    }) { Text("Save") }
+                    }) { Text(stringResource(R.string.save)) }
                 },
             )
         },
@@ -227,16 +229,16 @@ private fun RuleEditor(
         ) {
             OutlinedTextField(
                 value = name, onValueChange = { name = it }, singleLine = true,
-                label = { Text("Rule name") }, modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.rule_name)) }, modifier = Modifier.fillMaxWidth(),
             )
 
             // Match mode.
             Column {
-                Text("WHEN AN ARTICLE MATCHES", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
+                Text(stringResource(R.string.when_an_article_matches), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = matchAll, onClick = { matchAll = true }, label = { Text("All conditions") })
-                    FilterChip(selected = !matchAll, onClick = { matchAll = false }, label = { Text("Any condition") })
+                    FilterChip(selected = matchAll, onClick = { matchAll = true }, label = { Text(stringResource(R.string.all_conditions)) })
+                    FilterChip(selected = !matchAll, onClick = { matchAll = false }, label = { Text(stringResource(R.string.any_condition)) })
                 }
             }
 
@@ -251,11 +253,11 @@ private fun RuleEditor(
             OutlinedButton(onClick = { conditions.add(RuleCondition(RuleField.ANY, RuleOp.CONTAINS, "")) }) {
                 Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Add condition")
+                Text(stringResource(R.string.add_condition))
             }
 
             // Actions.
-            Text("THEN", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
+            Text(stringResource(R.string.then), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
             actions.forEachIndexed { i, act ->
                 ActionRow(
                     action = act,
@@ -267,13 +269,13 @@ private fun RuleEditor(
             OutlinedButton(onClick = { actions.add(RuleAction(RuleActionType.MARK_READ)) }) {
                 Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Add action")
+                Text(stringResource(R.string.add_action))
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Stop after this rule", style = MaterialTheme.typography.bodyLarge)
-                    Text("Don't evaluate later rules once this one matches.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    Text(stringResource(R.string.stop_after_this_rule), style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.don_t_evaluate_later_rules_once), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                 }
                 Switch(checked = stopAfter, onCheckedChange = { stopAfter = it })
             }
@@ -296,7 +298,7 @@ private fun ConditionRow(
                 modifier = Modifier.weight(1f),
                 onSelect = { idx -> onChange(condition.copy(field = RuleField.entries[idx])) },
             )
-            IconButton(onClick = onRemove) { Icon(Icons.Outlined.Close, contentDescription = "Remove condition") }
+            IconButton(onClick = onRemove) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.remove_condition)) }
         }
         Spacer(Modifier.height(6.dp))
         EnumDropdown(
@@ -308,7 +310,7 @@ private fun ConditionRow(
         Spacer(Modifier.height(6.dp))
         OutlinedTextField(
             value = condition.value, onValueChange = { onChange(condition.copy(value = it)) },
-            singleLine = true, label = { Text("Value") }, modifier = Modifier.fillMaxWidth(),
+            singleLine = true, label = { Text(stringResource(R.string.value)) }, modifier = Modifier.fillMaxWidth(),
         )
     }
 }
@@ -331,21 +333,21 @@ private fun ActionRow(
                     onChange(RuleAction(type, if (type.needsValue) action.value else null))
                 },
             )
-            IconButton(onClick = onRemove) { Icon(Icons.Outlined.Close, contentDescription = "Remove action") }
+            IconButton(onClick = onRemove) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.remove_action)) }
         }
         when (action.type) {
             RuleActionType.ADD_TAG -> {
                 Spacer(Modifier.height(6.dp))
                 OutlinedTextField(
                     value = action.value.orEmpty(), onValueChange = { onChange(action.copy(value = it)) },
-                    singleLine = true, label = { Text("Tag name") }, modifier = Modifier.fillMaxWidth(),
+                    singleLine = true, label = { Text(stringResource(R.string.tag_name)) }, modifier = Modifier.fillMaxWidth(),
                 )
             }
             RuleActionType.ADD_TO_COLLECTION -> {
                 Spacer(Modifier.height(6.dp))
                 val currentName = collections.firstOrNull { it.id == action.value }?.name ?: "Choose collection…"
                 if (collections.isEmpty()) {
-                    Text("Create a collection first.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.create_a_collection_first), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     EnumDropdown(
                         label = currentName,

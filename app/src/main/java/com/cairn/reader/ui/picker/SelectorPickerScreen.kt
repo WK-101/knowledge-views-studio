@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.picker
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import android.os.Handler
 import android.os.Looper
 import android.view.ViewGroup
@@ -98,8 +101,8 @@ fun SelectorPickerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Tap a headline", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.Close, contentDescription = "Close") } },
+                title = { Text(stringResource(R.string.tap_a_headline), fontWeight = FontWeight.SemiBold) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.close)) } },
             )
         },
         bottomBar = {

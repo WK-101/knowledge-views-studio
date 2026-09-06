@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.brief
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -60,9 +63,9 @@ fun BriefScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Daily Brief", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = { IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") } },
-                actions = { IconButton(onClick = { viewModel.refresh() }) { Icon(Icons.Outlined.Refresh, contentDescription = "Refresh") } },
+                title = { Text(stringResource(R.string.daily_brief), fontWeight = FontWeight.SemiBold) },
+                navigationIcon = { IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = stringResource(R.string.open_navigation)) } },
+                actions = { IconButton(onClick = { viewModel.refresh() }) { Icon(Icons.Outlined.Refresh, contentDescription = stringResource(R.string.refresh)) } },
             )
         },
     ) { inner ->
@@ -72,9 +75,9 @@ fun BriefScreen(
         }
         if (state.items.isEmpty()) {
             Column(Modifier.fillMaxSize().padding(inner).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Text("Nothing to brief yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.nothing_to_brief_yet), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(6.dp))
-                Text("Subscribe to a few feeds and your brief will fill with the freshest, most relevant reads each day.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Text(stringResource(R.string.subscribe_to_a_few_feeds_and), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
             return@Scaffold
         }
@@ -95,13 +98,13 @@ fun BriefScreen(
                                 Spacer(Modifier.size(6.dp))
                                 Text(if (tts.playing) "Pause" else "Resume")
                             }
-                            IconButton(onClick = { viewModel.listenNext() }) { Icon(Icons.Outlined.SkipNext, contentDescription = "Next") }
-                            IconButton(onClick = { viewModel.listenStop() }) { Icon(Icons.Outlined.Stop, contentDescription = "Stop") }
+                            IconButton(onClick = { viewModel.listenNext() }) { Icon(Icons.Outlined.SkipNext, contentDescription = stringResource(R.string.next)) }
+                            IconButton(onClick = { viewModel.listenStop() }) { Icon(Icons.Outlined.Stop, contentDescription = stringResource(R.string.stop)) }
                         } else {
                             FilledTonalButton(onClick = { viewModel.listen() }) {
                                 Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.size(6.dp))
-                                Text("Listen to brief")
+                                Text(stringResource(R.string.listen_to_brief))
                             }
                         }
                     }

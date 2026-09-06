@@ -1,5 +1,8 @@
 package com.cairn.reader.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -53,7 +56,7 @@ fun AudioBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Filled.FastRewind, contentDescription = "Back 15 seconds", tint = scheme.onSurface)
+                Icon(Icons.Filled.FastRewind, contentDescription = stringResource(R.string.back_15_seconds), tint = scheme.onSurface)
             }
             IconButton(onClick = onPlayPause) {
                 if (state.loading) {
@@ -67,7 +70,7 @@ fun AudioBar(
                 }
             }
             IconButton(onClick = onForward) {
-                Icon(Icons.Filled.FastForward, contentDescription = "Forward 30 seconds", tint = scheme.onSurface)
+                Icon(Icons.Filled.FastForward, contentDescription = stringResource(R.string.forward_30_seconds), tint = scheme.onSurface)
             }
             Column(Modifier.weight(1f).padding(horizontal = 6.dp)) {
                 Text(
@@ -94,7 +97,7 @@ fun AudioBar(
                 }
             }
             IconButton(onClick = onStop) {
-                Icon(Icons.Filled.Close, contentDescription = "Stop", tint = scheme.onSurfaceVariant)
+                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.stop), tint = scheme.onSurfaceVariant)
             }
         }
     }

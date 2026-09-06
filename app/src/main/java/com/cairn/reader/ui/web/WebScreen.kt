@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.web
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import android.content.Intent
 import android.net.Uri
 import android.util.Base64
@@ -82,10 +85,10 @@ fun WebScreen(url: String, onBack: () -> Unit) {
             Column {
                 TopAppBar(
                     title = { Text(pageTitle.ifBlank { url }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall) },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.Close, contentDescription = "Close") } },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.close)) } },
                     actions = {
-                        IconButton(onClick = { webView?.reload() }) { Icon(Icons.Outlined.Refresh, contentDescription = "Reload") }
-                        IconButton(onClick = ::openExternally) { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = "Open in browser") }
+                        IconButton(onClick = { webView?.reload() }) { Icon(Icons.Outlined.Refresh, contentDescription = stringResource(R.string.reload)) }
+                        IconButton(onClick = ::openExternally) { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.open_in_browser)) }
                     },
                 )
                 if (progress in 1..99) {

@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.review
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -68,7 +71,7 @@ fun ReviewScreen(
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
-                navigationIcon = { IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") } },
+                navigationIcon = { IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = stringResource(R.string.open_navigation)) } },
             )
         },
     ) { inner ->
@@ -109,7 +112,7 @@ fun ReviewScreen(
                             Card(colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainerLow), modifier = Modifier.fillMaxWidth()) {
                                 Column(Modifier.padding(18.dp)) {
                                     if (face.isCloze) {
-                                        Text("Answer", style = MaterialTheme.typography.labelSmall, color = scheme.primary, fontWeight = FontWeight.SemiBold)
+                                        Text(stringResource(R.string.answer), style = MaterialTheme.typography.labelSmall, color = scheme.primary, fontWeight = FontWeight.SemiBold)
                                         Spacer(Modifier.height(6.dp))
                                     }
                                     Text("“${face.card.quote.trim()}”", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
@@ -132,7 +135,7 @@ fun ReviewScreen(
                         Button(
                             onClick = { viewModel.reveal() },
                             modifier = Modifier.fillMaxWidth().padding(20.dp),
-                        ) { Text("Show answer") }
+                        ) { Text(stringResource(R.string.show_answer)) }
                     } else {
                         Row(
                             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 16.dp),

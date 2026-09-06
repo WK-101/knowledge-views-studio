@@ -1,5 +1,8 @@
 package com.cairn.reader.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -127,18 +130,18 @@ fun FeedDrawerContent(
             CairnMark(size = 28.dp)
             Spacer(Modifier.size(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Cairn", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
-                Text("Private reading", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+                Text(stringResource(R.string.cairn), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+                Text(stringResource(R.string.private_reading), style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
             }
             // Settings sits inline with the app name, always one tap from the top of the drawer.
             IconButton(onClick = onSettings) {
-                Icon(Icons.Outlined.Settings, contentDescription = "Settings", tint = scheme.onSurfaceVariant)
+                Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.settings), tint = scheme.onSurfaceVariant)
             }
         }
 
         // ---- Primary hubs -----------------------------------------------------
         NavigationDrawerItem(
-            label = { Text("All Articles") },
+            label = { Text(stringResource(R.string.all_articles)) },
             selected = allSelected,
             icon = { Icon(Icons.AutoMirrored.Outlined.Article, contentDescription = null) },
             badge = { if (totalUnread > 0) Text("$totalUnread") },
@@ -146,49 +149,49 @@ fun FeedDrawerContent(
             modifier = Modifier.padding(itemPad),
         )
         NavigationDrawerItem(
-            label = { Text("Starred") },
+            label = { Text(stringResource(R.string.starred)) },
             selected = starredSelected,
             icon = { Icon(Icons.Outlined.StarOutline, contentDescription = null) },
             onClick = onStarred,
             modifier = Modifier.padding(itemPad),
         )
         NavigationDrawerItem(
-            label = { Text("Read Later") },
+            label = { Text(stringResource(R.string.read_later)) },
             selected = false,
             icon = { Icon(Icons.Outlined.BookmarkBorder, contentDescription = null) },
             onClick = onReadLater,
             modifier = Modifier.padding(itemPad),
         )
         NavigationDrawerItem(
-            label = { Text("Library") },
+            label = { Text(stringResource(R.string.library)) },
             selected = false,
             icon = { Icon(Icons.AutoMirrored.Outlined.LibraryBooks, contentDescription = null) },
             onClick = onSaved,
             modifier = Modifier.padding(itemPad),
         )
         NavigationDrawerItem(
-            label = { Text("Highlights") },
+            label = { Text(stringResource(R.string.highlights)) },
             selected = false,
             icon = { Icon(Icons.Outlined.FormatQuote, contentDescription = null) },
             onClick = onHighlights,
             modifier = Modifier.padding(itemPad),
         )
         NavigationDrawerItem(
-            label = { Text("Daily Brief") },
+            label = { Text(stringResource(R.string.daily_brief)) },
             selected = false,
             icon = { Icon(Icons.Outlined.Newspaper, contentDescription = null) },
             onClick = onBrief,
             modifier = Modifier.padding(itemPad),
         )
         NavigationDrawerItem(
-            label = { Text("Triage") },
+            label = { Text(stringResource(R.string.triage)) },
             selected = false,
             icon = { Icon(Icons.Outlined.Style, contentDescription = null) },
             onClick = onTriage,
             modifier = Modifier.padding(itemPad),
         )
         NavigationDrawerItem(
-            label = { Text("Review") },
+            label = { Text(stringResource(R.string.review)) },
             selected = false,
             icon = { Icon(Icons.Outlined.School, contentDescription = null) },
             badge = { if (dueCount > 0) Text("$dueCount") },
@@ -199,8 +202,7 @@ fun FeedDrawerContent(
         // ---- Feed tree --------------------------------------------------------
         if (feeds.isEmpty()) {
             Spacer(Modifier.height(6.dp))
-            Text(
-                "No feeds yet — tap Add feed to subscribe.",
+            Text(stringResource(R.string.no_feeds_yet_tap_add_feed),
                 style = MaterialTheme.typography.bodySmall,
                 color = scheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp),
@@ -259,28 +261,28 @@ fun FeedDrawerContent(
 
         // ---- Footer hubs ------------------------------------------------------
         NavigationDrawerItem(
-            label = { Text("Search") },
+            label = { Text(stringResource(R.string.search)) },
             selected = false,
             icon = { Icon(Icons.Outlined.Search, contentDescription = null) },
             onClick = onSearch,
             modifier = Modifier.padding(itemPad),
         )
         NavigationDrawerItem(
-            label = { Text("Discover") },
+            label = { Text(stringResource(R.string.discover)) },
             selected = false,
             icon = { Icon(Icons.Outlined.Explore, contentDescription = null) },
             onClick = onDiscover,
             modifier = Modifier.padding(itemPad),
         )
         NavigationDrawerItem(
-            label = { Text("Manage feeds") },
+            label = { Text(stringResource(R.string.manage_feeds)) },
             selected = false,
             icon = { Icon(Icons.Outlined.RssFeed, contentDescription = null) },
             onClick = onManageFeeds,
             modifier = Modifier.padding(itemPad),
         )
         NavigationDrawerItem(
-            label = { Text("Trash") },
+            label = { Text(stringResource(R.string.trash)) },
             selected = false,
             icon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
             badge = { if (trashCount > 0) Text("$trashCount") },
@@ -288,7 +290,7 @@ fun FeedDrawerContent(
             modifier = Modifier.padding(itemPad),
         )
         NavigationDrawerItem(
-            label = { Text("Your data, forever") },
+            label = { Text(stringResource(R.string.your_data_forever)) },
             selected = false,
             icon = { Icon(Icons.Outlined.Shield, contentDescription = null) },
             onClick = onDataForever,
@@ -451,8 +453,8 @@ private fun FeedActionMenu(
             enabled = unread > 0,
             onClick = onMarkRead,
         )
-        DropdownMenuItem(text = { Text("Feed settings & folder…") }, onClick = onManage)
-        DropdownMenuItem(text = { Text("Unsubscribe") }, onClick = onUnsubscribe)
+        DropdownMenuItem(text = { Text(stringResource(R.string.feed_settings_folder)) }, onClick = onManage)
+        DropdownMenuItem(text = { Text(stringResource(R.string.unsubscribe)) }, onClick = onUnsubscribe)
     }
 }
 

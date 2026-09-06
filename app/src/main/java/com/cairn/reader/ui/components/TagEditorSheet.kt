@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -51,10 +54,10 @@ fun TagEditorSheet(
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
-            Text("Tags", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.tags), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(10.dp))
             if (current.isEmpty()) {
-                Text("No tags yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.no_tags_yet), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     current.forEach { tag ->
@@ -62,7 +65,7 @@ fun TagEditorSheet(
                             selected = true,
                             onClick = { onRemove(tag.id) },
                             label = { Text(tag.name) },
-                            trailingIcon = { Icon(Icons.Outlined.Close, contentDescription = "Remove", modifier = Modifier.size(16.dp)) },
+                            trailingIcon = { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.remove_2), modifier = Modifier.size(16.dp)) },
                         )
                     }
                 }
@@ -73,22 +76,21 @@ fun TagEditorSheet(
                     value = text,
                     onValueChange = { text = it },
                     singleLine = true,
-                    placeholder = { Text("Add a tag…") },
+                    placeholder = { Text(stringResource(R.string.add_a_tag)) },
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = { if (text.isNotBlank()) { onAdd(text.trim()); text = "" } }) {
-                    Icon(Icons.Outlined.Add, contentDescription = "Add tag")
+                    Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.add_tag))
                 }
             }
             Spacer(Modifier.height(4.dp))
-            Text(
-                "Tip: use “/” to nest — e.g. tech/ai files this under a “tech” parent tag.",
+            Text(stringResource(R.string.tip_use_to_nest_e_g),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (suggestions.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
-                Text("Existing tags", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.existing_tags), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(6.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     suggestions.take(24).forEach { tag ->

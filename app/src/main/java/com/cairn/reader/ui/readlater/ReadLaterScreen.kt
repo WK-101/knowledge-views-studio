@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.readlater
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -119,19 +122,19 @@ fun ReadLaterScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
+                    IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = stringResource(R.string.open_navigation)) }
                 },
                 actions = {
                     if (searchOpen) {
                         IconButton(onClick = { viewModel.setQuery(""); searchOpen = false }) {
-                            Icon(Icons.Outlined.Close, contentDescription = "Close search")
+                            Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.close_search))
                         }
                     } else {
-                        IconButton(onClick = { searchOpen = true }) { Icon(Icons.Outlined.Search, contentDescription = "Search") }
+                        IconButton(onClick = { searchOpen = true }) { Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search)) }
                         Box {
-                            IconButton(onClick = { sortMenu = true }) { Icon(Icons.Outlined.SwapVert, contentDescription = "Sort") }
+                            IconButton(onClick = { sortMenu = true }) { Icon(Icons.Outlined.SwapVert, contentDescription = stringResource(R.string.sort_2)) }
                             DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
-                                Text("SORT", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                                Text(stringResource(R.string.sort), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
                                 ReadLaterSort.entries.forEach { s ->
                                     DropdownMenuItem(
                                         text = { Text(s.label, fontWeight = if (s == sort) FontWeight.SemiBold else FontWeight.Normal) },
@@ -141,7 +144,7 @@ fun ReadLaterScreen(
                             }
                         }
                         Box {
-                            IconButton(onClick = { viewMenu = true }) { Icon(Icons.Outlined.ViewAgenda, contentDescription = "View") }
+                            IconButton(onClick = { viewMenu = true }) { Icon(Icons.Outlined.ViewAgenda, contentDescription = stringResource(R.string.view_2)) }
                             DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
                                 com.cairn.reader.data.prefs.ListViewMode.entries.forEach { m ->
                                     DropdownMenuItem(
@@ -152,7 +155,7 @@ fun ReadLaterScreen(
                             }
                         }
                         IconButton(onClick = { showHelp = true }) {
-                            Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = "How to save newsletters & pages")
+                            Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = stringResource(R.string.how_to_save_newsletters_pages))
                         }
                     }
                 },
@@ -166,22 +169,22 @@ fun ReadLaterScreen(
                     onSelectAll = { viewModel.pickAll() },
                 ) {
                     IconButton(onClick = { viewModel.markPickedRead(true) }) {
-                        Icon(Icons.Outlined.MarkEmailRead, contentDescription = "Mark read")
+                        Icon(Icons.Outlined.MarkEmailRead, contentDescription = stringResource(R.string.mark_read))
                     }
                     IconButton(onClick = { viewModel.saveToLibraryPicked() }) {
-                        Icon(Icons.AutoMirrored.Outlined.LibraryBooks, contentDescription = "Save to Library")
+                        Icon(Icons.AutoMirrored.Outlined.LibraryBooks, contentDescription = stringResource(R.string.save_to_library))
                     }
                     IconButton(onClick = { viewModel.removePicked() }) {
-                        Icon(Icons.Outlined.BookmarkRemove, contentDescription = "Remove from Read Later")
+                        Icon(Icons.Outlined.BookmarkRemove, contentDescription = stringResource(R.string.remove_from_read_later))
                     }
                     Box {
                         var more by remember { mutableStateOf(false) }
-                        IconButton(onClick = { more = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "More actions") }
+                        IconButton(onClick = { more = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.more_actions)) }
                         DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
-                            DropdownMenuItem(text = { Text("Mark unread") }, onClick = { more = false; viewModel.markPickedRead(false) })
-                            DropdownMenuItem(text = { Text("Save offline") }, onClick = { more = false; viewModel.savePickedOffline() })
-                            DropdownMenuItem(text = { Text("Archive") }, onClick = { more = false; viewModel.archivePicked() })
-                            DropdownMenuItem(text = { Text("Move to Trash") }, onClick = { more = false; viewModel.deletePicked() })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.mark_unread)) }, onClick = { more = false; viewModel.markPickedRead(false) })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.save_offline)) }, onClick = { more = false; viewModel.savePickedOffline() })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.archive)) }, onClick = { more = false; viewModel.archivePicked() })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.move_to_trash)) }, onClick = { more = false; viewModel.deletePicked() })
                         }
                     }
                 }
@@ -194,13 +197,13 @@ fun ReadLaterScreen(
                 ) {
                     FilterChip(selected = typeFilter == null && !unreadOnly && !offlineOnly, onClick = {
                         viewModel.setTypeFilter(null); viewModel.setUnreadOnly(false); viewModel.setOfflineOnly(false)
-                    }, label = { Text("All") })
+                    }, label = { Text(stringResource(R.string.all)) })
                     availableTypes.forEach { t ->
                         FilterChip(selected = typeFilter == t, onClick = { viewModel.setTypeFilter(if (typeFilter == t) null else t) },
                             label = { Text(t.lowercase().replaceFirstChar(Char::uppercase)) })
                     }
-                    FilterChip(selected = unreadOnly, onClick = { viewModel.setUnreadOnly(!unreadOnly) }, label = { Text("Unread") })
-                    FilterChip(selected = offlineOnly, onClick = { viewModel.setOfflineOnly(!offlineOnly) }, label = { Text("Offline") })
+                    FilterChip(selected = unreadOnly, onClick = { viewModel.setUnreadOnly(!unreadOnly) }, label = { Text(stringResource(R.string.unread)) })
+                    FilterChip(selected = offlineOnly, onClick = { viewModel.setOfflineOnly(!offlineOnly) }, label = { Text(stringResource(R.string.offline)) })
                 }
             }
 
@@ -213,21 +216,20 @@ fun ReadLaterScreen(
                     Icon(Icons.Outlined.BookmarkRemove, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(40.dp))
                     Spacer(Modifier.height(14.dp))
                     if (filtersActive) {
-                        Text("No matches", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+                        Text(stringResource(R.string.no_matches), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
                         Spacer(Modifier.height(8.dp))
-                        Text("Nothing here matches your search or filters.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                        Text(stringResource(R.string.nothing_here_matches_your_search_or), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center)
                     } else {
-                        Text("Nothing to read later", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+                        Text(stringResource(R.string.nothing_to_read_later), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
                         Spacer(Modifier.height(8.dp))
-                        Text(
-                            "Save an article for later — from the reader, an item's menu, or a swipe — and it waits here. Save it to the Library to keep it for good.",
+                        Text(stringResource(R.string.save_an_article_for_later_from),
                             style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
                         )
                         Spacer(Modifier.height(16.dp))
                         TextButton(onClick = { showHelp = true }) {
                             Icon(Icons.Outlined.MailOutline, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("How to save newsletters & pages")
+                            Text(stringResource(R.string.how_to_save_newsletters_pages))
                         }
                     }
                 }
@@ -295,12 +297,12 @@ fun ReadLaterScreen(
         var text by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showSave = false },
-            title = { Text("Save a link for later") },
+            title = { Text(stringResource(R.string.save_a_link_for_later)) },
             text = {
                 OutlinedTextField(value = text, onValueChange = { text = it }, singleLine = true, placeholder = { Text("https://…") }, modifier = Modifier.fillMaxWidth())
             },
-            confirmButton = { TextButton(onClick = { viewModel.saveLink(text); showSave = false }, enabled = text.isNotBlank()) { Text("Save") } },
-            dismissButton = { TextButton(onClick = { showSave = false }) { Text("Cancel") } },
+            confirmButton = { TextButton(onClick = { viewModel.saveLink(text); showSave = false }, enabled = text.isNotBlank()) { Text(stringResource(R.string.save)) } },
+            dismissButton = { TextButton(onClick = { showSave = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -312,7 +314,7 @@ fun ReadLaterScreen(
                 .align(Alignment.BottomEnd)
                 .padding(end = 16.dp, bottom = padding.calculateBottomPadding() + 16.dp),
         ) {
-            Icon(Icons.Filled.Add, contentDescription = "Save a link")
+            Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.save_a_link))
         }
     }
     }
@@ -324,10 +326,9 @@ fun ReadLaterScreen(
 private fun CaptureHelpSheet(onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
-            Text("Save anything to Read Later", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.save_anything_to_read_later), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
-            Text(
-                "Cairn is offline-first and account-free, so the quickest way in is your phone's Share sheet — pick “Save to Cairn” from any app.",
+            Text(stringResource(R.string.cairn_is_offline_first_and_account),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(18.dp))
@@ -352,8 +353,7 @@ private fun CaptureHelpSheet(onDismiss: () -> Unit) {
                 "Use the + button on this screen to paste a URL directly.",
             )
             Spacer(Modifier.height(6.dp))
-            Text(
-                "Everything stays on your device — nothing is uploaded, and Cairn never connects to your inbox.",
+            Text(stringResource(R.string.everything_stays_on_your_device_nothing),
                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

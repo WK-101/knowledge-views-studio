@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.settings
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -111,15 +114,15 @@ fun OfflineScreen(
                 }
             },
             navigationIcon = {
-                IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
+                IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = stringResource(R.string.open_navigation)) }
             },
             actions = {
                 if (searchOpen) {
                     IconButton(onClick = { viewModel.setQuery(""); searchOpen = false }) {
-                        Icon(Icons.Outlined.Close, contentDescription = "Close search")
+                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.close_search))
                     }
                 } else {
-                    IconButton(onClick = { searchOpen = true }) { Icon(Icons.Outlined.Search, contentDescription = "Search") }
+                    IconButton(onClick = { searchOpen = true }) { Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search)) }
                     IconButton(
                         enabled = !preparing,
                         onClick = {
@@ -130,12 +133,12 @@ fun OfflineScreen(
                         },
                     ) {
                         if (preparing) androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        else Icon(Icons.Outlined.DownloadForOffline, contentDescription = "Prepare offline pack")
+                        else Icon(Icons.Outlined.DownloadForOffline, contentDescription = stringResource(R.string.prepare_offline_pack))
                     }
                     androidx.compose.foundation.layout.Box {
-                        IconButton(onClick = { sortMenu = true }) { Icon(Icons.Outlined.SwapVert, contentDescription = "Sort & group") }
+                        IconButton(onClick = { sortMenu = true }) { Icon(Icons.Outlined.SwapVert, contentDescription = stringResource(R.string.sort_group)) }
                         DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
-                            Text("SORT", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                            Text(stringResource(R.string.sort), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
                             OfflineSort.entries.forEach { s ->
                                 DropdownMenuItem(
                                     text = { Text(s.label, fontWeight = if (s == sort) FontWeight.SemiBold else FontWeight.Normal) },
@@ -144,14 +147,14 @@ fun OfflineScreen(
                             }
                             HorizontalDivider()
                             DropdownMenuItem(
-                                text = { Text("Group by source") },
+                                text = { Text(stringResource(R.string.group_by_source)) },
                                 trailingIcon = { if (groupBySource) Icon(Icons.Filled.Check, contentDescription = null) },
                                 onClick = { viewModel.setGroupBySource(!groupBySource); sortMenu = false },
                             )
                         }
                     }
                     IconButton(onClick = { showSettings = true }) {
-                        Icon(Icons.Outlined.Tune, contentDescription = "Storage & sync settings")
+                        Icon(Icons.Outlined.Tune, contentDescription = stringResource(R.string.storage_sync_settings))
                     }
                 }
             },
@@ -163,9 +166,9 @@ fun OfflineScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FilterChip(selected = !filtersActive, onClick = { viewModel.clearFilters() }, label = { Text("All") })
-                FilterChip(selected = kind == OfflineKind.PERMANENT, onClick = { viewModel.setKind(if (kind == OfflineKind.PERMANENT) OfflineKind.ALL else OfflineKind.PERMANENT) }, label = { Text("Permanent") })
-                FilterChip(selected = kind == OfflineKind.CACHED, onClick = { viewModel.setKind(if (kind == OfflineKind.CACHED) OfflineKind.ALL else OfflineKind.CACHED) }, label = { Text("Cached") })
+                FilterChip(selected = !filtersActive, onClick = { viewModel.clearFilters() }, label = { Text(stringResource(R.string.all)) })
+                FilterChip(selected = kind == OfflineKind.PERMANENT, onClick = { viewModel.setKind(if (kind == OfflineKind.PERMANENT) OfflineKind.ALL else OfflineKind.PERMANENT) }, label = { Text(stringResource(R.string.permanent)) })
+                FilterChip(selected = kind == OfflineKind.CACHED, onClick = { viewModel.setKind(if (kind == OfflineKind.CACHED) OfflineKind.ALL else OfflineKind.CACHED) }, label = { Text(stringResource(R.string.cached)) })
                 availableTypes.forEach { t ->
                     FilterChip(
                         selected = typeFilter == t,
@@ -181,9 +184,9 @@ fun OfflineScreen(
                 onClose = { viewModel.clearPicks() },
                 onSelectAll = { viewModel.pickAll() },
             ) {
-                TextButton(onClick = { viewModel.makePermanentPicked() }) { Text("Save offline") }
-                TextButton(onClick = { viewModel.removeCachePicked() }) { Text("Remove") }
-                TextButton(onClick = { viewModel.deleteEntriesPicked() }) { Text("Delete", color = scheme.error) }
+                TextButton(onClick = { viewModel.makePermanentPicked() }) { Text(stringResource(R.string.save_offline)) }
+                TextButton(onClick = { viewModel.removeCachePicked() }) { Text(stringResource(R.string.remove_2)) }
+                TextButton(onClick = { viewModel.deleteEntriesPicked() }) { Text(stringResource(R.string.delete), color = scheme.error) }
             }
         } else {
             Text(
@@ -205,16 +208,15 @@ fun OfflineScreen(
                 Icon(Icons.Outlined.OfflinePin, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(40.dp))
                 Spacer(Modifier.height(14.dp))
                 if (filtersActive && totalCount > 0) {
-                    Text("No matches", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+                    Text(stringResource(R.string.no_matches), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
                     Spacer(Modifier.height(8.dp))
-                    Text("Nothing offline matches your search or filters.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text(stringResource(R.string.nothing_offline_matches_your_search_or), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     Spacer(Modifier.height(12.dp))
-                    TextButton(onClick = { viewModel.clearFilters() }) { Text("Clear filters") }
+                    TextButton(onClick = { viewModel.clearFilters() }) { Text(stringResource(R.string.clear_filters)) }
                 } else {
-                    Text("Nothing saved offline yet", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+                    Text(stringResource(R.string.nothing_saved_offline_yet), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
                     Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Open an article to cache it for offline reading, or choose “Save offline” from any item's menu to keep a permanent, self-contained copy — text and images — that survives even if the source changes or deletes it.",
+                    Text(stringResource(R.string.open_an_article_to_cache_it),
                         style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     )
@@ -293,10 +295,10 @@ fun OfflineScreen(
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { confirmDelete = null },
             icon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = scheme.error) },
-            title = { Text("Delete entry?") },
+            title = { Text(stringResource(R.string.delete_entry)) },
             text = { Text("“${row.title.take(60)}” moves to the Trash, along with its offline copy. You can restore it from Trash.") },
-            confirmButton = { androidx.compose.material3.TextButton(onClick = { viewModel.deleteEntry(row.id); confirmDelete = null }) { Text("Delete", color = scheme.error) } },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmDelete = null }) { Text("Cancel") } },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { viewModel.deleteEntry(row.id); confirmDelete = null }) { Text(stringResource(R.string.delete), color = scheme.error) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmDelete = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -341,7 +343,7 @@ private fun StorageSettingsSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 28.dp),
         ) {
-            Text("Storage & sync", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 20.dp, top = 4.dp, bottom = 4.dp))
+            Text(stringResource(R.string.storage_sync), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 20.dp, top = 4.dp, bottom = 4.dp))
             SectionHeader("SYNCING")
             ToggleRow(
                 title = "Sync on Wi-Fi only",
@@ -356,9 +358,9 @@ private fun StorageSettingsSheet(
                 onCheckedChange = viewModel::setSyncChargingOnly,
             )
             Column(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
-                Text("Sync every", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                Text(stringResource(R.string.sync_every), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
                 Spacer(Modifier.height(2.dp))
-                Text("How often Cairn refreshes in the background. Shorter intervals cost more battery.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                Text(stringResource(R.string.how_often_cairn_refreshes_in_the), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     SyncIntervalOptions.forEach { m ->
@@ -388,10 +390,9 @@ private fun StorageSettingsSheet(
             )
             SectionHeader("RETENTION")
             Column(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
-                Text("Keep per feed", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                Text(stringResource(R.string.keep_per_feed), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
                 Spacer(Modifier.height(2.dp))
-                Text(
-                    "“All” (the default) keeps every item forever. Pick a number to cap each feed; older items you haven't starred, saved, archived, filed, highlighted, or saved offline are pruned as new ones arrive.",
+                Text(stringResource(R.string.all_the_default_keeps_every_item),
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(12.dp))
@@ -401,9 +402,9 @@ private fun StorageSettingsSheet(
                     }
                 }
                 Spacer(Modifier.height(14.dp))
-                Text("Delete older than", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                Text(stringResource(R.string.delete_older_than), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
                 Spacer(Modifier.height(2.dp))
-                Text("Also drop un-engaged items past this age on sync. Kept items are never deleted.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                Text(stringResource(R.string.also_drop_un_engaged_items_past), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     AgeOptions.forEach { d ->

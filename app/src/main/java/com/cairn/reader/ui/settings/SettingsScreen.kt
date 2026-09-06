@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.settings
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -200,8 +203,8 @@ fun SettingsScreen(
                 Icon(Icons.Outlined.Shield, contentDescription = null, tint = scheme.onPrimaryContainer, modifier = Modifier.size(26.dp))
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Your data, forever", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = scheme.onPrimaryContainer)
-                    Text("No account, no lock-in. Back up and export to Markdown, EPUB, or a full archive — any time.", style = MaterialTheme.typography.bodySmall, color = scheme.onPrimaryContainer.copy(alpha = 0.85f))
+                    Text(stringResource(R.string.your_data_forever), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = scheme.onPrimaryContainer)
+                    Text(stringResource(R.string.no_account_no_lock_in_back), style = MaterialTheme.typography.bodySmall, color = scheme.onPrimaryContainer.copy(alpha = 0.85f))
                 }
                 Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = scheme.onPrimaryContainer)
             }
@@ -223,7 +226,7 @@ fun SettingsScreen(
                 OutlinedButton(onClick = viewModel::syncNow) {
                     Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.height(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Sync now")
+                    Text(stringResource(R.string.sync_now))
                 }
             }
         }
@@ -248,7 +251,7 @@ fun SettingsScreen(
                 SectionLabel("IMPORT / EXPORT")
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) { Text("Import OPML") }
+                    OutlinedButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.import_opml)) }
                     OutlinedButton(onClick = {
                         viewModel.exportOpml { xml ->
                             val send = Intent(Intent.ACTION_SEND).apply {
@@ -259,20 +262,18 @@ fun SettingsScreen(
                             }
                             runCatching { context.startActivity(Intent.createChooser(send, "Export OPML")) }
                         }
-                    }) { Text("Export OPML") }
+                    }) { Text(stringResource(R.string.export_opml)) }
                 }
-                Text(
-                    "Bring subscriptions in from Inoreader/Feedly, or take yours out.",
+                Text(stringResource(R.string.bring_subscriptions_in_from_inoreader_feedly),
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
                 )
                 Spacer(Modifier.height(16.dp))
                 OutlinedButton(onClick = { bookmarksLauncher.launch(arrayOf("text/html", "text/csv", "text/comma-separated-values", "application/vnd.ms-excel", "*/*")) }) {
-                    Text("Import reading list")
+                    Text(stringResource(R.string.import_reading_list))
                 }
-                Text(
-                    "Bring your saved articles in from Pocket, Instapaper or Raindrop — pick their HTML or CSV export. Tags and folders come across too; full text loads when you open each one.",
+                Text(stringResource(R.string.bring_your_saved_articles_in_from),
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
@@ -289,11 +290,10 @@ fun SettingsScreen(
                             }
                             runCatching { context.startActivity(Intent.createChooser(send, "Back up Cairn")) }
                         }
-                    }) { Text("Back up data") }
-                    OutlinedButton(onClick = { restoreLauncher.launch(arrayOf("*/*")) }) { Text("Restore") }
+                    }) { Text(stringResource(R.string.back_up_data)) }
+                    OutlinedButton(onClick = { restoreLauncher.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.restore)) }
                 }
-                Text(
-                    "A complete JSON backup — feeds and every per-feed setting, saved items, read/star/trash state, tags, collections, highlights and all your app settings. Restore accepts either a data backup or a full archive.",
+                Text(stringResource(R.string.a_complete_json_backup_feeds_and),
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
@@ -305,10 +305,9 @@ fun SettingsScreen(
                 }) {
                     Icon(Icons.Outlined.Inventory2, contentDescription = null, modifier = Modifier.height(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Full archive (.zip)")
+                    Text(stringResource(R.string.full_archive_zip))
                 }
-                Text(
-                    "Everything above plus every offline article copy, cached image and imported PDF — one self-contained file so nothing is lost, readable offline the moment it's restored.",
+                Text(stringResource(R.string.everything_above_plus_every_offline_article),
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
@@ -329,10 +328,9 @@ fun SettingsScreen(
                 }) {
                     Icon(Icons.Outlined.Devices, contentDescription = null, modifier = Modifier.height(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Transfer to another device")
+                    Text(stringResource(R.string.transfer_to_another_device))
                 }
-                Text(
-                    "Move your whole library to a new phone with no account — send the archive over Quick Share, Nearby, Bluetooth or any app, then Restore it there.",
+                Text(stringResource(R.string.move_your_whole_library_to_a),
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
@@ -351,10 +349,9 @@ fun SettingsScreen(
                 }) {
                     Icon(Icons.Outlined.GridOn, contentDescription = null, modifier = Modifier.height(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Export CSV")
+                    Text(stringResource(R.string.export_csv))
                 }
-                Text(
-                    "A spreadsheet of every item — title, link, source, dates, reading time, read/star/save state, tags and any comments link. For spreadsheets and other tools; the JSON backup above is what restores the app.",
+                Text(stringResource(R.string.a_spreadsheet_of_every_item_title),
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
@@ -363,10 +360,9 @@ fun SettingsScreen(
                 OutlinedButton(onClick = { markdownVaultLauncher.launch(null) }) {
                     Icon(Icons.Outlined.Description, contentDescription = null, modifier = Modifier.height(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Export to Markdown / Obsidian")
+                    Text(stringResource(R.string.export_to_markdown_obsidian))
                 }
-                Text(
-                    "Write your whole library as plain Markdown files — one per article, with YAML frontmatter, tags and your highlights — into a folder you pick. Drop it straight into an Obsidian or Logseq vault. Your notes outlive any app.",
+                Text(stringResource(R.string.write_your_whole_library_as_plain),
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
@@ -394,17 +390,16 @@ fun SettingsScreen(
                 }) {
                     Icon(Icons.Outlined.MenuBook, contentDescription = null, modifier = Modifier.height(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Send library to Kindle (EPUB)")
+                    Text(stringResource(R.string.send_library_to_kindle_epub))
                 }
-                Text(
-                    "Bundle your whole library into a single EPUB and send it to your Kindle, Kobo, or any e-reader app. Export a single article to EPUB from its ⋯ menu.",
+                Text(stringResource(R.string.bundle_your_whole_library_into_a),
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
                 )
 
                 Spacer(Modifier.height(16.dp))
-                Text("Automatic backup", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                Text(stringResource(R.string.automatic_backup), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
                 Text(
                     if (prefs.backupFolderUri == null) "Off — pick a folder and Cairn writes a dated backup there on a schedule."
                     else "On — writing a dated ${if (prefs.backupIncludeOffline) "full archive" else "data backup"} to your chosen folder ${if (prefs.backupFrequencyHours >= 168) "weekly" else "daily"}; the last few are kept.",
@@ -416,17 +411,17 @@ fun SettingsScreen(
                         Text(if (prefs.backupFolderUri == null) "Choose folder" else "Change folder")
                     }
                     if (prefs.backupFolderUri != null) {
-                        FilterChip(selected = prefs.backupFrequencyHours in 1..47, onClick = { viewModel.setBackupFrequency(24) }, label = { Text("Daily") })
-                        FilterChip(selected = prefs.backupFrequencyHours >= 48, onClick = { viewModel.setBackupFrequency(168) }, label = { Text("Weekly") })
-                        TextButton(onClick = { viewModel.disableBackup() }) { Text("Off") }
+                        FilterChip(selected = prefs.backupFrequencyHours in 1..47, onClick = { viewModel.setBackupFrequency(24) }, label = { Text(stringResource(R.string.daily)) })
+                        FilterChip(selected = prefs.backupFrequencyHours >= 48, onClick = { viewModel.setBackupFrequency(168) }, label = { Text(stringResource(R.string.weekly)) })
+                        TextButton(onClick = { viewModel.disableBackup() }) { Text(stringResource(R.string.off)) }
                     }
                 }
                 if (prefs.backupFolderUri != null) {
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Include offline copies", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
-                            Text("Scheduled backups write a full .zip archive (larger, nothing lost).", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                            Text(stringResource(R.string.include_offline_copies), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
+                            Text(stringResource(R.string.scheduled_backups_write_a_full_zip), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                         }
                         Switch(checked = prefs.backupIncludeOffline, onCheckedChange = { viewModel.setBackupIncludeOffline(it) })
                     }
@@ -444,10 +439,9 @@ fun SettingsScreen(
                 OutlinedButton(onClick = { pdfLauncher.launch(arrayOf("application/pdf")) }) {
                     Icon(Icons.Outlined.PictureAsPdf, contentDescription = null, modifier = Modifier.height(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Import PDF")
+                    Text(stringResource(R.string.import_pdf))
                 }
-                Text(
-                    "Add a PDF to your library and read it here, page by page — fully offline. Export any article to PDF from its ⋯ menu.",
+                Text(stringResource(R.string.add_a_pdf_to_your_library),
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
@@ -466,10 +460,9 @@ fun SettingsScreen(
                 }) {
                     Icon(Icons.Outlined.Description, contentDescription = null, modifier = Modifier.height(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Share diagnostics log")
+                    Text(stringResource(R.string.share_diagnostics_log))
                 }
-                Text(
-                    "A local, on-device log of warnings and errors (never uploaded). Share it if something misbehaves so the issue can be diagnosed.",
+                Text(stringResource(R.string.a_local_on_device_log_of),
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
@@ -497,7 +490,7 @@ fun SettingsScreen(
                     Icon(Icons.Outlined.FormatQuote, contentDescription = null, tint = scheme.primary)
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Highlights & notes", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.highlights_notes), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
                         Text(
                             if (highlightCount == 0) "Long-press a sentence while reading to save it" else "$highlightCount saved",
                             style = MaterialTheme.typography.bodySmall,
@@ -516,7 +509,7 @@ fun SettingsScreen(
                     Icon(Icons.Outlined.CloudDownload, contentDescription = null, tint = scheme.primary)
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Offline & storage", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.offline_storage), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
                         Text(
                             buildString {
                                 append(if (prefs.syncWifiOnly) "Sync on Wi-Fi only" else "Sync on any network")
@@ -539,7 +532,7 @@ fun SettingsScreen(
                     Icon(Icons.Outlined.Bolt, contentDescription = null, tint = scheme.primary)
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Rules & automation", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.rules_automation), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
                         Text(
                             if (ruleCount == 0) "Auto-tag, star, file or skip new articles" else "$ruleCount active",
                             style = MaterialTheme.typography.bodySmall,
@@ -558,8 +551,8 @@ fun SettingsScreen(
                     Icon(Icons.Outlined.Insights, contentDescription = null, tint = scheme.primary)
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Insights", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("Private reading stats, top picks for you, and feed hygiene", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.insights), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.private_reading_stats_top_picks_for), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = scheme.onSurfaceVariant)
                 }
@@ -570,8 +563,7 @@ fun SettingsScreen(
             Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                 SectionLabel("BOTTOM BAR")
                 Spacer(Modifier.height(4.dp))
-                Text(
-                    "Choose which destinations appear in the bottom bar — up to six show at once. Everything stays reachable from the drawer.",
+                Text(stringResource(R.string.choose_which_destinations_appear_in_the),
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(6.dp))
@@ -588,7 +580,7 @@ fun SettingsScreen(
                 val orderedEnabled = (prefs.bottomTabsOrder.filter { it in enabled } +
                     labels.keys.filter { it in enabled && it !in prefs.bottomTabsOrder })
                 val disabled = labels.keys.filter { it !in enabled }
-                Text("In the bar — use arrows to reorder", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 4.dp))
+                Text(stringResource(R.string.in_the_bar_use_arrows_to), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 4.dp))
                 orderedEnabled.forEachIndexed { index, name ->
                     val isLastOn = enabled.size <= 1
                     Row(
@@ -598,10 +590,10 @@ fun SettingsScreen(
                         Text("${index + 1}", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.width(20.dp))
                         Text(labels[name] ?: name, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
                         IconButton(onClick = { viewModel.moveBottomTab(name, up = true) }, enabled = index > 0) {
-                            Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "Move up")
+                            Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = stringResource(R.string.move_up))
                         }
                         IconButton(onClick = { viewModel.moveBottomTab(name, up = false) }, enabled = index < orderedEnabled.size - 1) {
-                            Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "Move down")
+                            Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = stringResource(R.string.move_down))
                         }
                         androidx.compose.material3.Switch(
                             checked = true,
@@ -612,7 +604,7 @@ fun SettingsScreen(
                 }
                 if (disabled.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
-                    Text("Available", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 4.dp))
+                    Text(stringResource(R.string.available), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 4.dp))
                     disabled.forEach { name ->
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -630,50 +622,50 @@ fun SettingsScreen(
                 Spacer(Modifier.height(16.dp))
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Listen (text-to-speech)", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("Read articles aloud. Off hides the Listen buttons everywhere.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.listen_text_to_speech), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.read_articles_aloud_off_hides_the), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     androidx.compose.material3.Switch(checked = prefs.ttsEnabled, onCheckedChange = { viewModel.setTtsEnabled(it) })
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Strip tracking from links", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("Remove utm_*, fbclid, gclid and similar tracking parameters from links Cairn stores, opens, and shares.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.strip_tracking_from_links), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.remove_utm_fbclid_gclid_and_similar), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     androidx.compose.material3.Switch(checked = prefs.stripTrackingParams, onCheckedChange = { viewModel.setStripTrackingParams(it) })
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Sanitize article content", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("Strip tracking pixels, beacons and third-party scripts from saved articles so they never phone home when read offline.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.sanitize_article_content), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.strip_tracking_pixels_beacons_and_third), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     androidx.compose.material3.Switch(checked = prefs.sanitizeArticles, onCheckedChange = { viewModel.setSanitizeArticles(it) })
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Check saved links for rot", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("Off by default. When on, Cairn periodically contacts the original publishers to detect broken (rotted) links — the one automatic feature that reaches third-party servers.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.check_saved_links_for_rot), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.off_by_default_when_on_cairn), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     androidx.compose.material3.Switch(checked = prefs.linkCheckEnabled, onCheckedChange = { viewModel.setLinkCheckEnabled(it) })
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Commute Mode (auto offline)", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("After each background sync, pull the next batch of likely-reads fully offline. Uses the same Wi-Fi/charging rules as sync.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.commute_mode_auto_offline), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.after_each_background_sync_pull_the), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     androidx.compose.material3.Switch(checked = prefs.autoOfflinePack, onCheckedChange = { viewModel.setAutoOfflinePack(it) })
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Daily brief notification", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("Once a day, a quiet nudge when your focus-ranked brief is ready to read or listen to.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.daily_brief_notification), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.once_a_day_a_quiet_nudge), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     androidx.compose.material3.Switch(checked = prefs.dailyBriefNotify, onCheckedChange = { viewModel.setDailyBriefNotify(it) })
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Mark read on scroll", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("In the Inbox, articles are marked read automatically as they scroll up out of view.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.mark_read_on_scroll), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.in_the_inbox_articles_are_marked), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     androidx.compose.material3.Switch(checked = prefs.markReadOnScroll, onCheckedChange = { viewModel.setMarkReadOnScroll(it) })
                 }
@@ -685,7 +677,7 @@ fun SettingsScreen(
                 SectionLabel("LIST")
                 Spacer(Modifier.height(4.dp))
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Show thumbnails", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.show_thumbnails), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
                     androidx.compose.material3.Switch(checked = prefs.showThumbnail, onCheckedChange = { viewModel.setShowThumbnail(it) })
                 }
                 if (prefs.showThumbnail) {
@@ -694,31 +686,30 @@ fun SettingsScreen(
                         viewModel.backfillThumbnails { n ->
                             Toast.makeText(context, if (n > 0) "Added $n thumbnails" else "No new thumbnails found", Toast.LENGTH_LONG).show()
                         }
-                    }) { Text("Back-fill missing thumbnails") }
-                    Text(
-                        "Fetch cover images for older items that arrived without one (uses the network).",
+                    }) { Text(stringResource(R.string.back_fill_missing_thumbnails)) }
+                    Text(stringResource(R.string.fetch_cover_images_for_older_items),
                         style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp, bottom = 4.dp),
                     )
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Show excerpts", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.show_excerpts), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
                     androidx.compose.material3.Switch(checked = prefs.showExcerpt, onCheckedChange = { viewModel.setShowExcerpt(it) })
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Show reading time", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.show_reading_time), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
                     androidx.compose.material3.Switch(checked = prefs.showReadingTime, onCheckedChange = { viewModel.setShowReadingTime(it) })
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Sticky date headers", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("Group the Inbox under Today / Yesterday / date headers.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.sticky_date_headers), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.group_the_inbox_under_today_yesterday), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     androidx.compose.material3.Switch(checked = prefs.stickyDateHeaders, onCheckedChange = { viewModel.setStickyDateHeaders(it) })
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Single column on tablets", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("Keep the phone layout on big screens instead of the two-pane list + reader.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.single_column_on_tablets), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.keep_the_phone_layout_on_big), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     androidx.compose.material3.Switch(checked = prefs.forceSingleColumn, onCheckedChange = { viewModel.setForceSingleColumn(it) })
                 }
@@ -766,15 +757,14 @@ fun SettingsScreen(
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Dynamic color", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("Use wallpaper colors (Android 12+)", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.dynamic_color), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.use_wallpaper_colors_android_12), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     Switch(checked = prefs.dynamicColor, onCheckedChange = viewModel::setDynamicColor)
                 }
                 Spacer(Modifier.height(14.dp))
-                Text("Accent", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
-                Text(
-                    "A colour theme for the whole app. Overrides dynamic color when set.",
+                Text(stringResource(R.string.accent), style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
+                Text(stringResource(R.string.a_colour_theme_for_the_whole),
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(10.dp))
@@ -805,9 +795,8 @@ fun SettingsScreen(
                     }
                 }
                 Spacer(Modifier.height(14.dp))
-                Text("Custom color", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
-                Text(
-                    "Pick any seed and the app derives its whole palette from it. Overrides the accent and dynamic color.",
+                Text(stringResource(R.string.custom_color), style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
+                Text(stringResource(R.string.pick_any_seed_and_the_app),
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(10.dp))
@@ -828,7 +817,7 @@ fun SettingsScreen(
                             contentAlignment = Alignment.Center,
                         ) { Icon(Icons.Outlined.Close, contentDescription = null, tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp)) }
                         Spacer(Modifier.height(4.dp))
-                        Text("None", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1)
+                        Text(stringResource(R.string.none), style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1)
                     }
                     listOf(0f, 25f, 45f, 90f, 135f, 165f, 190f, 215f, 250f, 285f, 320f, 345f).forEach { hue ->
                         val argb = android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.65f, 0.85f))
@@ -850,8 +839,8 @@ fun SettingsScreen(
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Pure black (AMOLED)", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("True-black backgrounds in dark mode to save power on OLED screens", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.pure_black_amoled), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.true_black_backgrounds_in_dark_mode), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     Switch(checked = prefs.trueBlack, onCheckedChange = viewModel::setTrueBlack)
                 }
@@ -879,31 +868,30 @@ fun SettingsScreen(
                     selected = prefs.readerFontScale,
                     onSelect = viewModel::setReaderFontScale,
                 )
-                Text(
-                    "You can also pinch to size text while reading.",
+                Text(stringResource(R.string.you_can_also_pinch_to_size),
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Show images", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("Off gives a text-only, data-light read", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.show_images), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.off_gives_a_text_only_data), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     Switch(checked = prefs.readerShowImages, onCheckedChange = viewModel::setReaderShowImages)
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Immersive scroll", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("Hide the bars as you read; scroll up to bring them back", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.immersive_scroll), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.hide_the_bars_as_you_read), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     Switch(checked = prefs.readerImmersive, onCheckedChange = viewModel::setReaderImmersive)
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Full screen", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("Use the entire display for text", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.full_screen), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.use_the_entire_display_for_text), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     Switch(checked = prefs.readerFullScreen, onCheckedChange = viewModel::setReaderFullScreen)
                 }
@@ -921,8 +909,7 @@ fun SettingsScreen(
                     onSelect = viewModel::setCompactDensity,
                 )
                 Spacer(Modifier.height(10.dp))
-                Text(
-                    "Swipe an entry a little for the half action, or all the way for the full action.",
+                Text(stringResource(R.string.swipe_an_entry_a_little_for),
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
@@ -956,32 +943,32 @@ fun SettingsScreen(
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Justify reader text", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("Straighten the right edge of articles", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.justify_reader_text), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.straighten_the_right_edge_of_articles), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     Switch(checked = prefs.readerJustify, onCheckedChange = viewModel::setReaderJustify)
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Tap edges to turn pages", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("In the reader, tap the left / right edge to page up / down.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.tap_edges_to_turn_pages), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.in_the_reader_tap_the_left), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     Switch(checked = prefs.tapZonePaging, onCheckedChange = viewModel::setTapZonePaging)
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Volume keys turn pages", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("While reading, the volume keys page down / up instead of changing volume.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.volume_keys_turn_pages), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.while_reading_the_volume_keys_page), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     Switch(checked = prefs.volumeKeyPaging, onCheckedChange = viewModel::setVolumeKeyPaging)
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Open as web page", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("Open articles as the original web page instead of the cleaned reader (feeds with their own \"Open in\" setting are unaffected).", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.open_as_web_page), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.open_articles_as_the_original_web), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     Switch(checked = prefs.openArticlesInWeb, onCheckedChange = viewModel::setOpenArticlesInWeb)
                 }
@@ -994,14 +981,14 @@ fun SettingsScreen(
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Hide duplicates", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                        Text("Collapse the same story across feeds", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(stringResource(R.string.hide_duplicates), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+                        Text(stringResource(R.string.collapse_the_same_story_across_feeds), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     Switch(checked = prefs.hideDuplicates, onCheckedChange = viewModel::setHideDuplicates)
                 }
                 Spacer(Modifier.height(12.dp))
-                Text("Muted keywords", style = MaterialTheme.typography.labelLarge, color = scheme.onSurface)
-                Text("Hide inbox articles whose title or summary contains these", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                Text(stringResource(R.string.muted_keywords), style = MaterialTheme.typography.labelLarge, color = scheme.onSurface)
+                Text(stringResource(R.string.hide_inbox_articles_whose_title_or), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                 Spacer(Modifier.height(6.dp))
                 if (prefs.blockedKeywords.isNotEmpty()) {
                     androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1010,7 +997,7 @@ fun SettingsScreen(
                                 selected = true,
                                 onClick = { viewModel.removeBlockedKeyword(term) },
                                 label = { Text(term) },
-                                trailingIcon = { Icon(Icons.Outlined.Close, contentDescription = "Remove", modifier = Modifier.height(16.dp)) },
+                                trailingIcon = { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.remove_2), modifier = Modifier.height(16.dp)) },
                             )
                         }
                     }
@@ -1022,11 +1009,11 @@ fun SettingsScreen(
                         value = newTerm,
                         onValueChange = { newTerm = it },
                         singleLine = true,
-                        placeholder = { Text("Add a keyword to mute") },
+                        placeholder = { Text(stringResource(R.string.add_a_keyword_to_mute)) },
                         modifier = Modifier.weight(1f),
                     )
                     IconButton(onClick = { if (newTerm.isNotBlank()) { viewModel.addBlockedKeyword(newTerm); newTerm = "" } }) {
-                        Icon(Icons.Outlined.Add, contentDescription = "Mute keyword")
+                        Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.mute_keyword))
                     }
                 }
             }
@@ -1036,16 +1023,15 @@ fun SettingsScreen(
             Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                 SectionLabel("PRIVACY")
                 Spacer(Modifier.height(8.dp))
-                Text(
-                    "No account. No trackers. No ads. Everything you save is stored on this device and readable offline. Cairn only connects to the feeds and pages you add.",
+                Text(stringResource(R.string.no_account_no_trackers_no_ads),
                     style = MaterialTheme.typography.bodyMedium,
                     color = scheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(24.dp))
                 SectionLabel("ABOUT")
                 Spacer(Modifier.height(8.dp))
-                Text("Cairn 3.43.0", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
-                Text("One reader for everything you read.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
+                Text(stringResource(R.string.cairn_3_43_0), style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.one_reader_for_everything_you_read), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
             }
         }
     }
@@ -1109,7 +1095,7 @@ private fun WebDavBackupSection(
     var busy by remember { mutableStateOf(false) }
     val configured = savedUrl.isNotBlank()
 
-    Text("Self-hosted backup (WebDAV / Nextcloud)", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+    Text(stringResource(R.string.self_hosted_backup_webdav_nextcloud), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
     Text(
         if (configured) "On — backups also upload to your server on schedule; the last few are kept. Restore pulls the newest and merges it, skipping duplicates already here."
         else "Mirror backups to a folder on your own server. Works with Nextcloud, ownCloud, or any WebDAV share — an app-password is recommended.",
@@ -1119,7 +1105,7 @@ private fun WebDavBackupSection(
     OutlinedTextField(
         value = url,
         onValueChange = { url = it },
-        label = { Text("Server folder URL") },
+        label = { Text(stringResource(R.string.server_folder_url)) },
         placeholder = { Text("https://cloud.example.com/remote.php/dav/files/me/Cairn/") },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
@@ -1130,14 +1116,14 @@ private fun WebDavBackupSection(
         OutlinedTextField(
             value = user,
             onValueChange = { user = it },
-            label = { Text("Username") },
+            label = { Text(stringResource(R.string.username)) },
             singleLine = true,
             modifier = Modifier.weight(1f),
         )
         OutlinedTextField(
             value = pass,
             onValueChange = { pass = it },
-            label = { Text("Password") },
+            label = { Text(stringResource(R.string.password)) },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -1163,7 +1149,7 @@ private fun WebDavBackupSection(
         ) {
             Icon(Icons.Outlined.CloudSync, contentDescription = null, modifier = Modifier.height(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Test & save")
+            Text(stringResource(R.string.test_save))
         }
         if (configured) {
             OutlinedButton(
@@ -1175,7 +1161,7 @@ private fun WebDavBackupSection(
             ) {
                 Icon(Icons.Outlined.CloudUpload, contentDescription = null, modifier = Modifier.height(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Back up now")
+                Text(stringResource(R.string.back_up_now))
             }
             OutlinedButton(
                 enabled = !busy,
@@ -1186,7 +1172,7 @@ private fun WebDavBackupSection(
             ) {
                 Icon(Icons.Outlined.CloudDownload, contentDescription = null, modifier = Modifier.height(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Restore")
+                Text(stringResource(R.string.restore))
             }
             TextButton(
                 enabled = !busy,
@@ -1195,7 +1181,7 @@ private fun WebDavBackupSection(
                     url = ""; user = ""; pass = ""
                     Toast.makeText(context, "Self-hosted backup turned off", Toast.LENGTH_SHORT).show()
                 },
-            ) { Text("Off") }
+            ) { Text(stringResource(R.string.off)) }
         }
     }
 }
@@ -1219,7 +1205,7 @@ private fun StorageSection(viewModel: SettingsViewModel) {
 
     val d = data
     if (d == null) {
-        Text("Calculating…", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
+        Text(stringResource(R.string.calculating), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
         return
     }
 

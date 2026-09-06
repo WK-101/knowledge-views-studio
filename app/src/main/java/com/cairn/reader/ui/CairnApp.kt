@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.animation.Crossfade
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.SmallFloatingActionButton
@@ -322,37 +325,37 @@ fun CairnApp(
                 },
                 navigationIcon = {
                     IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                        Icon(Icons.Outlined.Menu, contentDescription = "Open navigation")
+                        Icon(Icons.Outlined.Menu, contentDescription = stringResource(R.string.open_navigation))
                     }
                 },
                 actions = {
                     if (current == Destination.Inbox) {
                         if (inboxSearchOpen) {
                             IconButton(onClick = { inboxViewModel.setInboxQuery(""); inboxSearchOpen = false }) {
-                                Icon(Icons.Outlined.Close, contentDescription = "Close search")
+                                Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.close_search))
                             }
                         } else {
                             IconButton(onClick = { inboxSearchOpen = true }) {
-                                Icon(Icons.Outlined.Search, contentDescription = "Search these entries")
+                                Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search_these_entries))
                             }
                         }
                         if (appPrefs.ttsEnabled && inboxState.items.isNotEmpty() && !ttsState.active) {
                             IconButton(onClick = { inboxViewModel.listenAll() }) {
-                                Icon(Icons.Outlined.Headphones, contentDescription = "Listen to all")
+                                Icon(Icons.Outlined.Headphones, contentDescription = stringResource(R.string.listen_to_all))
                             }
                         }
                         if (inboxState.unread > 0) {
                             Box {
                                 IconButton(onClick = { showMarkMenu = true }) {
-                                    Icon(Icons.Outlined.DoneAll, contentDescription = "Mark read")
+                                    Icon(Icons.Outlined.DoneAll, contentDescription = stringResource(R.string.mark_read))
                                 }
                                 DropdownMenu(expanded = showMarkMenu, onDismissRequest = { showMarkMenu = false }) {
                                     DropdownMenuItem(
-                                        text = { Text("Mark all read") },
+                                        text = { Text(stringResource(R.string.mark_all_read)) },
                                         onClick = { inboxViewModel.markAllRead(); showMarkMenu = false },
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Older than 7 days") },
+                                        text = { Text(stringResource(R.string.older_than_7_days)) },
                                         onClick = { inboxViewModel.markOlderThan7dRead(); showMarkMenu = false },
                                     )
                                 }
@@ -375,7 +378,7 @@ fun CairnApp(
                         }
                         Box {
                             IconButton(onClick = { showViewMenu = true }) {
-                                Icon(Icons.Outlined.ViewAgenda, contentDescription = "View and sort")
+                                Icon(Icons.Outlined.ViewAgenda, contentDescription = stringResource(R.string.view_and_sort))
                             }
                             DropdownMenu(expanded = showViewMenu, onDismissRequest = { showViewMenu = false }) {
                                 MenuSectionLabel("VIEW")
@@ -465,7 +468,7 @@ fun CairnApp(
         floatingActionButton = {
             if (current == Destination.Inbox) {
                 FloatingActionButton(onClick = { showAddFeed = true }) {
-                    Icon(Icons.Filled.Add, contentDescription = "Add feed")
+                    Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_feed))
                 }
             }
         },
@@ -501,7 +504,7 @@ fun CairnApp(
                     NavHost(detailNav, startDestination = "detail_empty") {
                         composable("detail_empty") {
                             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                                Text("Select an article to read", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(stringResource(R.string.select_an_article_to_read), color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                         composable(
@@ -662,24 +665,24 @@ private fun InboxScreen(
                 onSelectAll = { viewModel.pickAll() },
             ) {
                 IconButton(onClick = { viewModel.markPickedRead(true) }) {
-                    Icon(Icons.Outlined.MarkEmailRead, contentDescription = "Mark read")
+                    Icon(Icons.Outlined.MarkEmailRead, contentDescription = stringResource(R.string.mark_read))
                 }
                 IconButton(onClick = { viewModel.starPicked(true) }) {
-                    Icon(Icons.Outlined.StarBorder, contentDescription = "Star")
+                    Icon(Icons.Outlined.StarBorder, contentDescription = stringResource(R.string.star))
                 }
                 IconButton(onClick = { viewModel.savePicked(true) }) {
-                    Icon(Icons.Outlined.Bookmark, contentDescription = "Save for later")
+                    Icon(Icons.Outlined.Bookmark, contentDescription = stringResource(R.string.save_for_later))
                 }
                 Box {
                     var more by remember { mutableStateOf(false) }
                     IconButton(onClick = { more = true }) {
-                        Icon(Icons.Outlined.MoreVert, contentDescription = "More actions")
+                        Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.more_actions))
                     }
                     DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
-                        DropdownMenuItem(text = { Text("Mark unread") }, onClick = { more = false; viewModel.markPickedRead(false) })
-                        DropdownMenuItem(text = { Text("Save offline") }, onClick = { more = false; viewModel.savePickedOffline() })
-                        DropdownMenuItem(text = { Text("Archive") }, onClick = { more = false; viewModel.archivePicked() })
-                        DropdownMenuItem(text = { Text("Move to Trash") }, onClick = { more = false; viewModel.deletePicked() })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.mark_unread)) }, onClick = { more = false; viewModel.markPickedRead(false) })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.save_offline)) }, onClick = { more = false; viewModel.savePickedOffline() })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.archive)) }, onClick = { more = false; viewModel.archivePicked() })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.move_to_trash)) }, onClick = { more = false; viewModel.deletePicked() })
                     }
                 }
             }
@@ -695,7 +698,7 @@ private fun InboxScreen(
                 FilterChip(
                     selected = allSelected,
                     onClick = { viewModel.selectAll() },
-                    label = { Text("All") },
+                    label = { Text(stringResource(R.string.all)) },
                 )
                 folders.forEach { (name, unread) ->
                     val sel = selection.let { it is com.cairn.reader.ui.inbox.DrawerSelection.Folder && it.name == name }
@@ -768,7 +771,7 @@ private fun InboxScreen(
                             .align(Alignment.BottomEnd)
                             .padding(end = 4.dp, bottom = 80.dp),
                     ) {
-                        Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Scroll to top")
+                        Icon(Icons.Filled.KeyboardArrowUp, contentDescription = stringResource(R.string.scroll_to_top))
                     }
                 }
             }
@@ -798,11 +801,10 @@ private fun AddFeedDialog(onDismiss: () -> Unit, onAdd: (String) -> Unit) {
     var text by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add a feed") },
+        title = { Text(stringResource(R.string.add_a_feed)) },
         text = {
             Column {
-                Text(
-                    "Paste a website or feed URL. Cairn will find the feed — including YouTube, Reddit, Substack, and more.",
+                Text(stringResource(R.string.paste_a_website_or_feed_url),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -811,14 +813,14 @@ private fun AddFeedDialog(onDismiss: () -> Unit, onAdd: (String) -> Unit) {
                     value = text,
                     onValueChange = { text = it },
                     singleLine = true,
-                    placeholder = { Text("example.com") },
+                    placeholder = { Text(stringResource(R.string.example_com)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onAdd(text) }, enabled = text.isNotBlank()) { Text("Add") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton(onClick = { onAdd(text) }, enabled = text.isNotBlank()) { Text(stringResource(R.string.add)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 

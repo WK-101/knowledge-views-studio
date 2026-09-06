@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -101,11 +104,10 @@ fun CollectionMembershipSheet(
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(onClick = onDismiss) { Text("Done") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.done)) }
             }
             if (collections.isEmpty()) {
-                Text(
-                    "No collections yet — create one below to start organising.",
+                Text(stringResource(R.string.no_collections_yet_create_one_below),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
@@ -159,11 +161,11 @@ private fun CreateRow(value: String, onValueChange: (String) -> Unit, onCreate: 
             value = value,
             onValueChange = onValueChange,
             singleLine = true,
-            placeholder = { Text("New collection…") },
+            placeholder = { Text(stringResource(R.string.new_collection)) },
             modifier = Modifier.weight(1f),
         )
         IconButton(onClick = onCreate) {
-            Icon(Icons.Outlined.Add, contentDescription = "Create collection")
+            Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.create_collection))
         }
     }
 }
@@ -181,6 +183,6 @@ private fun PickRow(icon: ImageVector, label: String, count: Int?, selected: Boo
             Text("$count", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.size(10.dp))
         }
-        if (selected) Icon(Icons.Filled.Check, contentDescription = "Current", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+        if (selected) Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.current), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
     }
 }

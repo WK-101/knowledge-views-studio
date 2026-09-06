@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.triage
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -72,8 +75,8 @@ fun TriageScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Triage", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = { IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") } },
+                title = { Text(stringResource(R.string.triage), fontWeight = FontWeight.SemiBold) },
+                navigationIcon = { IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = stringResource(R.string.open_navigation)) } },
             )
         },
     ) { inner ->
@@ -84,7 +87,7 @@ fun TriageScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("I have", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant, modifier = Modifier.padding(end = 4.dp))
+                Text(stringResource(R.string.i_have), style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant, modifier = Modifier.padding(end = 4.dp))
                 BUDGETS.forEach { (mins, label) ->
                     FilterChip(selected = budget == mins, onClick = { viewModel.setBudget(mins) }, label = { Text(label) })
                 }
@@ -146,10 +149,10 @@ private fun Deck(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Outlined.Check, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Skip")
+                Icon(Icons.Outlined.Check, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.skip))
             }
             FilledTonalButton(onClick = onSave, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Outlined.Bookmark, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Save")
+                Icon(Icons.Outlined.Bookmark, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.save))
             }
         }
         Text(
@@ -229,7 +232,7 @@ private fun TriageCard(item: ItemListRow, modifier: Modifier, scheme: androidx.c
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 8, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.weight(1f))
-            Text("Tap to read · swipe to triage", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+            Text(stringResource(R.string.tap_to_read_swipe_to_triage), style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
         }
     }
 }

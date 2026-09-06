@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.discover
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -82,7 +85,7 @@ fun DiscoverScreen(
         topBar = {
             DiscoverTopBar(
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back)) }
                 },
                 query = query,
                 onQuery = viewModel::setQuery,
@@ -108,7 +111,7 @@ fun DiscoverContent(
     Column(Modifier.fillMaxSize()) {
         DiscoverTopBar(
             navigationIcon = {
-                IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
+                IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = stringResource(R.string.open_navigation)) }
             },
             query = query,
             onQuery = viewModel::setQuery,
@@ -137,17 +140,17 @@ private fun DiscoverTopBar(
                     modifier = Modifier.fillMaxWidth(),
                 )
             } else {
-                Text("Discover", fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.discover), fontWeight = FontWeight.SemiBold)
             }
         },
         actions = {
             if (searchOpen) {
                 IconButton(onClick = { onQuery(""); searchOpen = false }) {
-                    Icon(Icons.Outlined.Close, contentDescription = "Close search")
+                    Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.close_search))
                 }
             } else {
                 IconButton(onClick = { searchOpen = true }) {
-                    Icon(Icons.Outlined.Search, contentDescription = "Search")
+                    Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search))
                 }
             }
         },
@@ -182,7 +185,7 @@ private fun DiscoverBody(padding: PaddingValues, viewModel: DiscoverViewModel) {
                 Text("Add “${query.trim()}”", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, modifier = Modifier.weight(1f))
                 TextButton(onClick = { viewModel.addTypedQuery() }, enabled = !busy) {
                     Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.height(18.dp))
-                    Spacer(Modifier.width(4.dp)); Text("Add")
+                    Spacer(Modifier.width(4.dp)); Text(stringResource(R.string.add))
                 }
             }
         }
@@ -248,11 +251,11 @@ private fun DiscoverBody(padding: PaddingValues, viewModel: DiscoverViewModel) {
                             Text(feed.site, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         if (added) {
-                            Icon(Icons.Filled.Check, contentDescription = "Subscribed", tint = scheme.tertiary)
+                            Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.subscribed), tint = scheme.tertiary)
                         } else {
                             TextButton(onClick = { viewModel.addCatalogFeed(feed) }, enabled = !busy) {
                                 Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.height(18.dp))
-                                Spacer(Modifier.width(4.dp)); Text("Add")
+                                Spacer(Modifier.width(4.dp)); Text(stringResource(R.string.add))
                             }
                         }
                     }

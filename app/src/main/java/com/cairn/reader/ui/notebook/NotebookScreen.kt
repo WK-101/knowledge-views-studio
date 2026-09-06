@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.notebook
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import android.content.Intent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -92,14 +95,14 @@ fun NotebookScreen(
 
     Column(Modifier.fillMaxSize()) {
             TopAppBar(
-                title = { Text("Annotations", fontWeight = FontWeight.SemiBold) },
+                title = { Text(stringResource(R.string.annotations), fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
+                    IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = stringResource(R.string.open_navigation)) }
                 },
                 actions = {
                     if (groups.isNotEmpty()) {
                         IconButton(onClick = { shareAll() }) {
-                            Icon(Icons.Outlined.IosShare, contentDescription = "Export all")
+                            Icon(Icons.Outlined.IosShare, contentDescription = stringResource(R.string.export_all))
                         }
                     }
                 },
@@ -116,7 +119,7 @@ fun NotebookScreen(
                 FilterChip(
                     selected = colorFilter == null,
                     onClick = { viewModel.setColorFilter(null) },
-                    label = { Text("All") },
+                    label = { Text(stringResource(R.string.all)) },
                 )
                 usedColors.forEach { c ->
                     FilterChip(
@@ -137,10 +140,9 @@ fun NotebookScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("No annotations yet", style = MaterialTheme.typography.headlineSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.no_annotations_yet), style = MaterialTheme.typography.headlineSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(8.dp))
-                Text(
-                    "While reading, long-press to select text, then Highlight it. Your highlights and notes collect here as cards, ready to export.",
+                Text(stringResource(R.string.while_reading_long_press_to_select),
                     style = MaterialTheme.typography.bodyMedium,
                     color = scheme.onSurfaceVariant,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -194,16 +196,16 @@ fun NotebookScreen(
         val n = group.highlights.size
         AlertDialog(
             onDismissRequest = { confirmDelete = null },
-            title = { Text("Delete annotations?") },
+            title = { Text(stringResource(R.string.delete_annotations)) },
             text = {
                 Text("Remove all $n highlight${if (n == 1) "" else "s"} and note${if (n == 1) "" else "s"} from “${group.title}”. This can't be undone.")
             },
             confirmButton = {
                 TextButton(onClick = { viewModel.removeGroup(group); confirmDelete = null }) {
-                    Text("Delete", color = scheme.error)
+                    Text(stringResource(R.string.delete), color = scheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -270,8 +272,7 @@ private fun AnnotationShareSheet(
     var format by remember { mutableStateOf(ShareFormat.QUOTE) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
-            Text(
-                "Share annotations",
+            Text(stringResource(R.string.share_annotations),
                 style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp),
             )
@@ -304,8 +305,7 @@ private fun AnnotationShareSheet(
                 )
             }
             HorizontalDivider()
-            Text(
-                "OR SHARE ONE",
+            Text(stringResource(R.string.or_share_one),
                 style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 24.dp, top = 12.dp, bottom = 4.dp),
             )
@@ -322,7 +322,7 @@ private fun AnnotationShareSheet(
                         color = scheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
-                    Icon(Icons.Outlined.IosShare, contentDescription = "Share this highlight", tint = scheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Outlined.IosShare, contentDescription = stringResource(R.string.share_this_highlight), tint = scheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -362,7 +362,7 @@ private fun AnnotationCard(group: NotebookGroup, onClick: () -> Unit, onLongClic
                 val source = group.site ?: "Highlight"
                 Text(source, style = MaterialTheme.typography.labelSmall, color = scheme.primary, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 IconButton(onClick = onShare, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Outlined.IosShare, contentDescription = "Share these annotations", tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Outlined.IosShare, contentDescription = stringResource(R.string.share_these_annotations), tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                 }
             }
             Spacer(Modifier.height(3.dp))

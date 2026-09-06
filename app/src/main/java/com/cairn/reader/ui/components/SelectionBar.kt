@@ -1,5 +1,8 @@
 package com.cairn.reader.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -39,7 +42,7 @@ fun SelectionActionBar(
             .padding(horizontal = 4.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, contentDescription = "Clear selection") }
+        IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.clear_selection)) }
         Text(
             "$count selected",
             style = MaterialTheme.typography.titleSmall,
@@ -47,7 +50,7 @@ fun SelectionActionBar(
         )
         if (onSelectAll != null) {
             IconButton(onClick = onSelectAll) {
-                Icon(Icons.Outlined.DoneAll, contentDescription = "Select all", tint = scheme.onSurfaceVariant)
+                Icon(Icons.Outlined.DoneAll, contentDescription = stringResource(R.string.select_all), tint = scheme.onSurfaceVariant)
             }
         }
         Spacer(Modifier.weight(1f))

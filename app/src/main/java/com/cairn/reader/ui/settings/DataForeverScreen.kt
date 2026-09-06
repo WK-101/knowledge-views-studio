@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.settings
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -96,8 +99,8 @@ fun DataForeverScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Your data, forever", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = { IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") } },
+                title = { Text(stringResource(R.string.your_data_forever), fontWeight = FontWeight.SemiBold) },
+                navigationIcon = { IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = stringResource(R.string.open_navigation)) } },
             )
         },
     ) { inner ->
@@ -111,14 +114,12 @@ fun DataForeverScreen(
                         Icon(Icons.Outlined.Shield, contentDescription = null, tint = scheme.onPrimaryContainer, modifier = Modifier.size(30.dp))
                     }
                     Spacer(Modifier.height(14.dp))
-                    Text(
-                        "Nothing here is held hostage",
+                    Text(stringResource(R.string.nothing_here_is_held_hostage),
                         style = MaterialTheme.typography.headlineSmall.copy(fontFamily = ReadingSerif),
                         fontWeight = FontWeight.SemiBold, color = scheme.onSurface,
                     )
                     Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Cairn has no account and no server. Everything you read and save lives on this device, in open formats — and every way out is one tap away. If Cairn ever shut down, your library would still be yours.",
+                    Text(stringResource(R.string.cairn_has_no_account_and_no),
                         style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(14.dp))
@@ -183,8 +184,7 @@ fun DataForeverScreen(
                 ) {
                     Icon(Icons.Outlined.Lock, contentDescription = null, tint = scheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.size(8.dp))
-                    Text(
-                        "No account. No servers. No lock-in.",
+                    Text(stringResource(R.string.no_account_no_servers_no_lock),
                         style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant,
                     )
                 }

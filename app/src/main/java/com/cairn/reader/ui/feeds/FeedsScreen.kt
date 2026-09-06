@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.feeds
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -121,10 +124,10 @@ fun FeedsScreen(
                 TopAppBar(
                     title = { Text("${selection.size} selected", fontWeight = FontWeight.SemiBold) },
                     navigationIcon = {
-                        IconButton(onClick = { viewModel.clearSelection() }) { Icon(Icons.Outlined.Close, contentDescription = "Clear selection") }
+                        IconButton(onClick = { viewModel.clearSelection() }) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.clear_selection)) }
                     },
                     actions = {
-                        IconButton(onClick = { viewModel.selectAllVisible() }) { Icon(Icons.Outlined.DoneAll, contentDescription = "Select all") }
+                        IconButton(onClick = { viewModel.selectAllVisible() }) { Icon(Icons.Outlined.DoneAll, contentDescription = stringResource(R.string.select_all)) }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = scheme.secondaryContainer),
                 )
@@ -150,11 +153,11 @@ fun FeedsScreen(
                     },
                     actions = {
                         if (!showSearch) {
-                            IconButton(onClick = { showSearch = true }) { Icon(Icons.Outlined.Search, contentDescription = "Filter") }
+                            IconButton(onClick = { showSearch = true }) { Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.filter)) }
                             Box {
-                                IconButton(onClick = { sortMenu = true }) { Icon(Icons.Outlined.Sort, contentDescription = "Sort & group") }
+                                IconButton(onClick = { sortMenu = true }) { Icon(Icons.Outlined.Sort, contentDescription = stringResource(R.string.sort_group)) }
                                 DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
-                                    Text("SORT", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                                    Text(stringResource(R.string.sort), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
                                     FeedSort.entries.forEach { s ->
                                         DropdownMenuItem(
                                             text = { Text(s.label, fontWeight = if (s == sort) FontWeight.SemiBold else FontWeight.Normal) },
@@ -164,18 +167,18 @@ fun FeedsScreen(
                                     }
                                     HorizontalDivider()
                                     DropdownMenuItem(
-                                        text = { Text("Group by folder") },
+                                        text = { Text(stringResource(R.string.group_by_folder)) },
                                         trailingIcon = { if (grouped) Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp)) },
                                         onClick = { viewModel.setGrouped(!grouped); sortMenu = false },
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Only failing feeds") },
+                                        text = { Text(stringResource(R.string.only_failing_feeds)) },
                                         trailingIcon = { if (failingOnly) Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp)) },
                                         onClick = { viewModel.setFailingOnly(!failingOnly); sortMenu = false },
                                     )
                                 }
                             }
-                            IconButton(onClick = { showAdd = true }) { Icon(Icons.Filled.Add, contentDescription = "Add feed") }
+                            IconButton(onClick = { showAdd = true }) { Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_feed)) }
                         }
                     },
                 )
@@ -187,7 +190,7 @@ fun FeedsScreen(
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    FilterChip(selected = folderFilter == null, onClick = { viewModel.setFolderFilter(null) }, label = { Text("All") })
+                    FilterChip(selected = folderFilter == null, onClick = { viewModel.setFolderFilter(null) }, label = { Text(stringResource(R.string.all)) })
                     folders.forEach { f ->
                         FilterChip(
                             selected = folderFilter == f,
@@ -221,10 +224,9 @@ fun FeedsScreen(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text("No feeds yet", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+                    Text(stringResource(R.string.no_feeds_yet), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
                     Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Tap + to add a website or feed. Cairn finds the feed — and can even follow sites that don't publish one.",
+                    Text(stringResource(R.string.tap_to_add_a_website_or),
                         style = MaterialTheme.typography.bodyMedium,
                         color = scheme.onSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -269,8 +271,7 @@ fun FeedsScreen(
                     } else {
                         if (sources.isEmpty()) {
                             item {
-                                Text(
-                                    "No feeds match.",
+                                Text(stringResource(R.string.no_feeds_match),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = scheme.onSurfaceVariant,
                                     modifier = Modifier.padding(24.dp),
@@ -381,14 +382,14 @@ private fun FeedManageRow(
     var menu by remember { mutableStateOf(false) }
     Box {
     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-        DropdownMenuItem(text = { Text("Feed settings & folder…") }, onClick = { menu = false; onClick() })
+        DropdownMenuItem(text = { Text(stringResource(R.string.feed_settings_folder)) }, onClick = { menu = false; onClick() })
         DropdownMenuItem(
             text = { Text(if (unread > 0) "Mark all read ($unread)" else "Mark all read") },
             enabled = unread > 0,
             onClick = { menu = false; onMarkRead() },
         )
-        DropdownMenuItem(text = { Text("Select") }, onClick = { menu = false; onSelect() })
-        DropdownMenuItem(text = { Text("Unsubscribe", color = scheme.error) }, onClick = { menu = false; onUnsubscribe() })
+        DropdownMenuItem(text = { Text(stringResource(R.string.select)) }, onClick = { menu = false; onSelect() })
+        DropdownMenuItem(text = { Text(stringResource(R.string.unsubscribe), color = scheme.error) }, onClick = { menu = false; onUnsubscribe() })
     }
     Row(
         Modifier
@@ -412,8 +413,8 @@ private fun FeedManageRow(
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(source.title, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                if (source.fullTextByDefault) { Spacer(Modifier.width(6.dp)); Icon(Icons.Outlined.Subject, contentDescription = "Full text", tint = scheme.onSurfaceVariant, modifier = Modifier.size(15.dp)) }
-                if (source.notify) { Spacer(Modifier.width(6.dp)); Icon(Icons.Outlined.Notifications, contentDescription = "Notifications on", tint = scheme.onSurfaceVariant, modifier = Modifier.size(15.dp)) }
+                if (source.fullTextByDefault) { Spacer(Modifier.width(6.dp)); Icon(Icons.Outlined.Subject, contentDescription = stringResource(R.string.full_text), tint = scheme.onSurfaceVariant, modifier = Modifier.size(15.dp)) }
+                if (source.notify) { Spacer(Modifier.width(6.dp)); Icon(Icons.Outlined.Notifications, contentDescription = stringResource(R.string.notifications_on), tint = scheme.onSurfaceVariant, modifier = Modifier.size(15.dp)) }
             }
             Text(host, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val failing = source.consecutiveErrors > 0
@@ -450,14 +451,14 @@ private fun MoveToFolderSheet(folders: List<String>, onPick: (String?) -> Unit, 
     var newName by remember { mutableStateOf("") }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
-            Text("Move to folder", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            Text(stringResource(R.string.move_to_folder), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             Row(
                 Modifier.fillMaxWidth().clickable { onPick(null) }.padding(horizontal = 24.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Icons.Outlined.Close, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(16.dp))
-                Text("No folder (ungroup)", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                Text(stringResource(R.string.no_folder_ungroup), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
             }
             folders.forEach { f ->
                 Row(
@@ -478,11 +479,11 @@ private fun MoveToFolderSheet(folders: List<String>, onPick: (String?) -> Unit, 
                     onValueChange = { newName = it },
                     singleLine = true,
                     leadingIcon = { Icon(Icons.Outlined.CreateNewFolder, contentDescription = null) },
-                    placeholder = { Text("New folder…") },
+                    placeholder = { Text(stringResource(R.string.new_folder)) },
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = { if (newName.isNotBlank()) onPick(newName.trim()) }) {
-                    Icon(Icons.Filled.Check, contentDescription = "Create and move")
+                    Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.create_and_move))
                 }
             }
         }
@@ -501,10 +502,9 @@ private fun AddFeedSheet(
     var text by remember { mutableStateOf("") }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
-            Text("Add a feed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.add_a_feed), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
-            Text(
-                "Paste a website or feed URL. Cairn finds the feed — YouTube, Reddit, Substack, and more.",
+            Text(stringResource(R.string.paste_a_website_or_feed_url_2),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -513,7 +513,7 @@ private fun AddFeedSheet(
                 value = text,
                 onValueChange = { text = it },
                 singleLine = true,
-                placeholder = { Text("example.com") },
+                placeholder = { Text(stringResource(R.string.example_com)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -522,52 +522,46 @@ private fun AddFeedSheet(
                 Text(if (busy) "Working…" else "Add feed")
             }
             Spacer(Modifier.height(16.dp))
-            Text(
-                "No RSS feed? (e.g. many magazine sites)",
+            Text(stringResource(R.string.no_rss_feed_e_g_many),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(4.dp))
-            Text(
-                "Cairn can still follow it through a Google News search of that site — a public RSS feed of its recent articles. No account, just a fetch.",
+            Text(stringResource(R.string.cairn_can_still_follow_it_through),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = { onGoogleNews(text); onDismiss() }, enabled = text.isNotBlank() && !busy, modifier = Modifier.fillMaxWidth()) {
-                Text("Follow via Google News")
+                Text(stringResource(R.string.follow_via_google_news))
             }
             Spacer(Modifier.height(16.dp))
-            Text(
-                "Just want to know when a page changes?",
+            Text(stringResource(R.string.just_want_to_know_when_a),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(4.dp))
-            Text(
-                "Cairn can watch any page — release notes, a job board, a list — and add an item whenever its content changes.",
+            Text(stringResource(R.string.cairn_can_watch_any_page_release),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = { onWatchPage(text); onDismiss() }, enabled = text.isNotBlank() && !busy, modifier = Modifier.fillMaxWidth()) {
-                Text("Watch this page for changes")
+                Text(stringResource(R.string.watch_this_page_for_changes))
             }
             Spacer(Modifier.height(16.dp))
-            Text(
-                "Nothing works? Teach Cairn by example.",
+            Text(stringResource(R.string.nothing_works_teach_cairn_by_example),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(4.dp))
-            Text(
-                "Open the page and tap a headline — Cairn learns the pattern and builds a feed from every matching link.",
+            Text(stringResource(R.string.open_the_page_and_tap_a),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = { onTeach(text) }, enabled = text.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
-                Text("Teach a feed by tapping a headline")
+                Text(stringResource(R.string.teach_a_feed_by_tapping_a))
             }
         }
     }

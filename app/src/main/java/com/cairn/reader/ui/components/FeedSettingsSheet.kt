@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -72,7 +75,7 @@ fun FeedSettingsSheet(
             Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
-            Text("Name", style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.name), style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(6.dp))
             OutlinedTextField(
                 value = title,
@@ -83,7 +86,7 @@ fun FeedSettingsSheet(
             Spacer(Modifier.height(16.dp))
 
             // ---- Feed link (editable) -------------------------------------------------------
-            Text("Feed link", style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.feed_link), style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(6.dp))
             OutlinedTextField(
                 value = feedUrl,
@@ -91,25 +94,25 @@ fun FeedSettingsSheet(
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Outlined.Link, contentDescription = null) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                supportingText = { Text("The RSS/Atom URL this feed pulls from. Change it to repoint the feed.") },
+                supportingText = { Text(stringResource(R.string.the_rss_atom_url_this_feed)) },
                 modifier = Modifier.fillMaxWidth(),
             )
             val linkChanged = feedUrl.trim().isNotBlank() && feedUrl.trim() != source.feedUrl
             if (linkChanged) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { feedUrl = source.feedUrl }) { Text("Reset") }
-                    TextButton(onClick = { onFeedUrl(feedUrl.trim()) }) { Text("Update link") }
+                    TextButton(onClick = { feedUrl = source.feedUrl }) { Text(stringResource(R.string.reset)) }
+                    TextButton(onClick = { onFeedUrl(feedUrl.trim()) }) { Text(stringResource(R.string.update_link)) }
                 }
             }
             Spacer(Modifier.height(16.dp))
 
-            Text("Folder", style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.folder), style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(6.dp))
             OutlinedTextField(
                 value = folder,
                 onValueChange = { folder = it; onFolder(it) },
                 singleLine = true,
-                placeholder = { Text("No folder") },
+                placeholder = { Text(stringResource(R.string.no_folder)) },
                 modifier = Modifier.fillMaxWidth(),
             )
             if (folders.isNotEmpty()) {
@@ -124,38 +127,38 @@ fun FeedSettingsSheet(
             Spacer(Modifier.height(16.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Full text on sync", style = MaterialTheme.typography.bodyLarge)
-                    Text("Fetch the whole article when new items arrive", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.full_text_on_sync), style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.fetch_the_whole_article_when_new), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = fullText, onCheckedChange = { fullText = it; onFullText(it) })
             }
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Notifications", style = MaterialTheme.typography.bodyLarge)
-                    Text("Notify when this feed has new articles", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.notifications), style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.notify_when_this_feed_has_new), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = notify, onCheckedChange = { notify = it; onNotify(it) })
             }
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Mute in Inbox", style = MaterialTheme.typography.bodyLarge)
-                    Text("Keep syncing but hide from the main Inbox and unread count. Still readable by opening the feed.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.mute_in_inbox), style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.keep_syncing_but_hide_from_the), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = muted, onCheckedChange = { muted = it; onMuted(it) })
             }
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("This is a podcast", style = MaterialTheme.typography.bodyLarge)
-                    Text("Treat new items as audio episodes (shown under Podcasts)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.this_is_a_podcast), style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.treat_new_items_as_audio_episodes), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = podcast, onCheckedChange = { podcast = it; onPodcast(it) })
             }
 
             Spacer(Modifier.height(16.dp))
-            Text("Keep at most", style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.keep_at_most), style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(6.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 data class KeepOpt(val value: Int?, val label: String)
@@ -171,30 +174,29 @@ fun FeedSettingsSheet(
                     FilterChip(selected = maxItems == opt.value, onClick = { maxItems = opt.value; onMaxItems(opt.value) }, label = { Text(opt.label) })
                 }
             }
-            Text(
-                "Older, un-engaged items beyond this are pruned on sync. \"Default\" follows the global limit in Settings.",
+            Text(stringResource(R.string.older_un_engaged_items_beyond_this),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
             )
 
             Spacer(Modifier.height(16.dp))
-            Text("Open articles in", style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.open_articles_in), style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = openIn == "READER", onClick = { openIn = "READER"; onOpenIn("READER") }, label = { Text("Reader") })
-                FilterChip(selected = openIn == "BROWSER", onClick = { openIn = "BROWSER"; onOpenIn("BROWSER") }, label = { Text("In-app browser") })
-                FilterChip(selected = openIn == "EXTERNAL", onClick = { openIn = "EXTERNAL"; onOpenIn("EXTERNAL") }, label = { Text("External") })
+                FilterChip(selected = openIn == "READER", onClick = { openIn = "READER"; onOpenIn("READER") }, label = { Text(stringResource(R.string.reader)) })
+                FilterChip(selected = openIn == "BROWSER", onClick = { openIn = "BROWSER"; onOpenIn("BROWSER") }, label = { Text(stringResource(R.string.in_app_browser)) })
+                FilterChip(selected = openIn == "EXTERNAL", onClick = { openIn = "EXTERNAL"; onOpenIn("EXTERNAL") }, label = { Text(stringResource(R.string.external)) })
             }
 
             Spacer(Modifier.height(16.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = { onRemove(); onDismiss() }) {
                     Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.height(18.dp))
-                    Text("  Remove")
+                    Text(stringResource(R.string.remove))
                 }
                 if (onOpenSite != null && !source.siteUrl.isNullOrBlank()) {
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick = { onOpenSite(); onDismiss() }) { Text("Open site") }
+                    TextButton(onClick = { onOpenSite(); onDismiss() }) { Text(stringResource(R.string.open_site)) }
                 }
             }
         }

@@ -1,5 +1,8 @@
 package com.cairn.reader.ui.reader
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
 import android.graphics.pdf.PdfRenderer
@@ -55,7 +58,7 @@ fun PdfView(padding: PaddingValues, path: String?, background: Color) {
             CircularProgressIndicator()
         }
         current.pageCount == 0 -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-            Text("This PDF couldn't be opened.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.this_pdf_couldn_t_be_opened), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         else -> Box(Modifier.fillMaxSize().background(background)) {
             val listState = rememberLazyListState()

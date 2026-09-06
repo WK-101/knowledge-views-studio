@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.search
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -90,7 +93,7 @@ fun SearchScreen(
     Column(Modifier.fillMaxSize()) {
             TopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
+                    IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = stringResource(R.string.open_navigation)) }
                 },
                 title = {
                     com.cairn.reader.ui.components.CairnSearchField(
@@ -127,7 +130,7 @@ fun SearchScreen(
                         modifier = Modifier.weight(1f),
                     )
                     if (activeCount > 0 && !filtersOpen) {
-                        TextButton(onClick = { viewModel.setState(SearchState.ALL); viewModel.setSince(SearchSince.ANY); viewModel.setType(null) }) { Text("Clear") }
+                        TextButton(onClick = { viewModel.setState(SearchState.ALL); viewModel.setSince(SearchSince.ANY); viewModel.setType(null) }) { Text(stringResource(R.string.clear)) }
                     }
                     Icon(if (filtersOpen) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = null, tint = scheme.onSurfaceVariant)
                 }
@@ -153,7 +156,7 @@ fun SearchScreen(
                             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            FilterChip(selected = typeFilter == null, onClick = { viewModel.setType(null) }, label = { Text("Any type") })
+                            FilterChip(selected = typeFilter == null, onClick = { viewModel.setType(null) }, label = { Text(stringResource(R.string.any_type)) })
                             availableTypes.forEach { t ->
                                 FilterChip(selected = typeFilter == t, onClick = { viewModel.setType(if (typeFilter == t) null else t) }, label = { Text(typeLabel(t)) })
                             }
@@ -193,13 +196,12 @@ fun SearchScreen(
                                     Spacer(Modifier.width(8.dp))
                                     Text(if (webBusy) "Searching the web…" else "Search the whole web for “${state.query.trim()}”")
                                 }
-                                Text(
-                                    "Goes beyond what you've stored — searches across the web (via Google News) for everything published on this topic.",
+                                Text(stringResource(R.string.goes_beyond_what_you_ve_stored),
                                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = 6.dp),
                                 )
                             } else {
-                                Text("FROM THE WEB", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
+                                Text(stringResource(R.string.from_the_web), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
                             }
                         }
                     }
@@ -256,7 +258,7 @@ private fun WebHitRow(hit: WebHit, onOpen: () -> Unit, onSave: () -> Unit) {
             val ago = hit.publishedAt?.let { formatAgo(it) }.orEmpty()
             Text(if (ago.isNotEmpty()) "${hit.site}  ·  $ago" else hit.site, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        IconButton(onClick = onOpen) { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = "Open", tint = scheme.onSurfaceVariant, modifier = Modifier.size(20.dp)) }
+        IconButton(onClick = onOpen) { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.open), tint = scheme.onSurfaceVariant, modifier = Modifier.size(20.dp)) }
     }
 }
 

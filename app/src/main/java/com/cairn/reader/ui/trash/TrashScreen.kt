@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.trash
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -117,19 +120,19 @@ fun TrashScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = "Open navigation") }
+                    IconButton(onClick = onOpenDrawer) { Icon(Icons.Outlined.Menu, contentDescription = stringResource(R.string.open_navigation)) }
                 },
                 actions = {
                     if (searchOpen) {
                         IconButton(onClick = { viewModel.setQuery(""); searchOpen = false }) {
-                            Icon(Icons.Outlined.Close, contentDescription = "Close search")
+                            Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.close_search))
                         }
                     } else {
-                        IconButton(onClick = { searchOpen = true }) { Icon(Icons.Outlined.Search, contentDescription = "Search") }
+                        IconButton(onClick = { searchOpen = true }) { Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search)) }
                         Box {
-                            IconButton(onClick = { sortMenu = true }) { Icon(Icons.Outlined.SwapVert, contentDescription = "Sort") }
+                            IconButton(onClick = { sortMenu = true }) { Icon(Icons.Outlined.SwapVert, contentDescription = stringResource(R.string.sort_2)) }
                             DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
-                                Text("SORT", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                                Text(stringResource(R.string.sort), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
                                 TrashSort.entries.forEach { s ->
                                     DropdownMenuItem(
                                         text = { Text(s.label, fontWeight = if (s == sort) FontWeight.SemiBold else FontWeight.Normal) },
@@ -139,7 +142,7 @@ fun TrashScreen(
                             }
                         }
                         Box {
-                            IconButton(onClick = { viewMenu = true }) { Icon(Icons.Outlined.ViewAgenda, contentDescription = "View") }
+                            IconButton(onClick = { viewMenu = true }) { Icon(Icons.Outlined.ViewAgenda, contentDescription = stringResource(R.string.view_2)) }
                             DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
                                 com.cairn.reader.data.prefs.ListViewMode.entries.forEach { m ->
                                     DropdownMenuItem(
@@ -150,7 +153,7 @@ fun TrashScreen(
                             }
                         }
                         Box {
-                            IconButton(onClick = { overflowMenu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "More") }
+                            IconButton(onClick = { overflowMenu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.more)) }
                             DropdownMenu(expanded = overflowMenu, onDismissRequest = { overflowMenu = false }) {
                                 DropdownMenuItem(
                                     text = { Text(if (filtersActive) "Restore shown (${items.size})" else "Restore all") },
@@ -159,7 +162,7 @@ fun TrashScreen(
                                     onClick = { viewModel.restoreVisible(); overflowMenu = false },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Empty Trash", color = scheme.error) },
+                                    text = { Text(stringResource(R.string.empty_trash), color = scheme.error) },
                                     leadingIcon = { Icon(Icons.Outlined.DeleteForever, contentDescription = null, tint = scheme.error) },
                                     enabled = totalCount > 0,
                                     onClick = { overflowMenu = false; confirmEmpty = true },
@@ -170,7 +173,7 @@ fun TrashScreen(
                                 )
                                 if (filtersActive) {
                                     DropdownMenuItem(
-                                        text = { Text("Clear filters") },
+                                        text = { Text(stringResource(R.string.clear_filters)) },
                                         onClick = { viewModel.clearFilters(); overflowMenu = false },
                                     )
                                 }
@@ -187,8 +190,8 @@ fun TrashScreen(
                     onClose = { viewModel.clearPicks() },
                     onSelectAll = { viewModel.pickAll() },
                 ) {
-                    TextButton(onClick = { viewModel.restorePicked() }) { Text("Restore") }
-                    TextButton(onClick = { confirmForeverBulk = true }) { Text("Delete", color = scheme.error) }
+                    TextButton(onClick = { viewModel.restorePicked() }) { Text(stringResource(R.string.restore)) }
+                    TextButton(onClick = { confirmForeverBulk = true }) { Text(stringResource(R.string.delete), color = scheme.error) }
                 }
             }
             // Advanced filter chips: type + read-state + offline + starred + source.
@@ -197,7 +200,7 @@ fun TrashScreen(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    FilterChip(selected = !filtersActive, onClick = { viewModel.clearFilters() }, label = { Text("All") })
+                    FilterChip(selected = !filtersActive, onClick = { viewModel.clearFilters() }, label = { Text(stringResource(R.string.all)) })
                     availableTypes.forEach { t ->
                         FilterChip(
                             selected = typeFilter == t,
@@ -207,12 +210,12 @@ fun TrashScreen(
                     }
                     FilterChip(selected = readState == TrashReadState.UNREAD, onClick = {
                         viewModel.setReadState(if (readState == TrashReadState.UNREAD) TrashReadState.ANY else TrashReadState.UNREAD)
-                    }, label = { Text("Unread") })
+                    }, label = { Text(stringResource(R.string.unread)) })
                     FilterChip(selected = readState == TrashReadState.READ, onClick = {
                         viewModel.setReadState(if (readState == TrashReadState.READ) TrashReadState.ANY else TrashReadState.READ)
-                    }, label = { Text("Read") })
-                    FilterChip(selected = offlineOnly, onClick = { viewModel.setOfflineOnly(!offlineOnly) }, label = { Text("Offline") })
-                    FilterChip(selected = starredOnly, onClick = { viewModel.setStarredOnly(!starredOnly) }, label = { Text("Starred") })
+                    }, label = { Text(stringResource(R.string.read)) })
+                    FilterChip(selected = offlineOnly, onClick = { viewModel.setOfflineOnly(!offlineOnly) }, label = { Text(stringResource(R.string.offline)) })
+                    FilterChip(selected = starredOnly, onClick = { viewModel.setStarredOnly(!starredOnly) }, label = { Text(stringResource(R.string.starred)) })
                     if (availableSources.size >= 2) {
                         Box {
                             FilterChip(
@@ -222,7 +225,7 @@ fun TrashScreen(
                                 label = { Text(sourceFilter ?: "Source") },
                             )
                             DropdownMenu(expanded = sourceMenu, onDismissRequest = { sourceMenu = false }) {
-                                DropdownMenuItem(text = { Text("Any source") }, onClick = { viewModel.setSourceFilter(null); sourceMenu = false })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.any_source)) }, onClick = { viewModel.setSourceFilter(null); sourceMenu = false })
                                 availableSources.forEach { s ->
                                     DropdownMenuItem(
                                         text = { Text(s, fontWeight = if (s == sourceFilter) FontWeight.SemiBold else FontWeight.Normal) },
@@ -244,13 +247,13 @@ fun TrashScreen(
                     Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(40.dp))
                     Spacer(Modifier.height(14.dp))
                     if (filtersActive && totalCount > 0) {
-                        Text("No matches", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+                        Text(stringResource(R.string.no_matches), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
                         Spacer(Modifier.height(8.dp))
-                        Text("Nothing in the Trash matches your search or filters.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                        Text(stringResource(R.string.nothing_in_the_trash_matches_your), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center)
                         Spacer(Modifier.height(12.dp))
-                        TextButton(onClick = { viewModel.clearFilters() }) { Text("Clear filters") }
+                        TextButton(onClick = { viewModel.clearFilters() }) { Text(stringResource(R.string.clear_filters)) }
                     } else {
-                        Text("Trash is empty", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+                        Text(stringResource(R.string.trash_is_empty), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
                         Spacer(Modifier.height(8.dp))
                         Text(
                             if (retentionDays > 0) "Deleted articles land here — hidden from your feeds and Library but kept intact. Restore anything you want back, or empty the Trash to erase it for good. Items auto-clear after $retentionDays days."
@@ -307,14 +310,14 @@ fun TrashScreen(
         AlertDialog(
             onDismissRequest = { confirmForeverBulk = false },
             icon = { Icon(Icons.Outlined.DeleteForever, contentDescription = null, tint = scheme.error) },
-            title = { Text("Delete forever?") },
+            title = { Text(stringResource(R.string.delete_forever)) },
             text = { Text("$n item${if (n == 1) "" else "s"} will be erased permanently, along with their offline copies. This can't be undone.") },
             confirmButton = {
                 TextButton(onClick = { confirmForeverBulk = false; viewModel.deletePickedForever() }) {
-                    Text("Delete forever", color = scheme.error)
+                    Text(stringResource(R.string.delete_forever_2), color = scheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { confirmForeverBulk = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmForeverBulk = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -322,14 +325,14 @@ fun TrashScreen(
         AlertDialog(
             onDismissRequest = { confirmEmpty = false },
             icon = { Icon(Icons.Outlined.DeleteForever, contentDescription = null, tint = scheme.error) },
-            title = { Text("Empty Trash?") },
+            title = { Text(stringResource(R.string.empty_trash_2)) },
             text = { Text("This permanently erases all $totalCount item${if (totalCount == 1) "" else "s"} in the Trash, along with their offline copies. This can't be undone.") },
             confirmButton = {
                 TextButton(onClick = { confirmEmpty = false; viewModel.emptyTrash() }) {
-                    Text("Empty Trash", color = scheme.error)
+                    Text(stringResource(R.string.empty_trash), color = scheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { confirmEmpty = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmEmpty = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -337,14 +340,14 @@ fun TrashScreen(
         AlertDialog(
             onDismissRequest = { confirmForever = null },
             icon = { Icon(Icons.Outlined.DeleteForever, contentDescription = null, tint = scheme.error) },
-            title = { Text("Delete forever?") },
+            title = { Text(stringResource(R.string.delete_forever)) },
             text = { Text("“${row.title.take(60)}” is erased permanently, along with its offline copy. This can't be undone.") },
             confirmButton = {
                 TextButton(onClick = { viewModel.deleteForever(row.id); confirmForever = null }) {
-                    Text("Delete forever", color = scheme.error)
+                    Text(stringResource(R.string.delete_forever_2), color = scheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { confirmForever = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmForever = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -352,10 +355,10 @@ fun TrashScreen(
         val options = listOf(0, 7, 14, 30, 90, 180, 365)
         AlertDialog(
             onDismissRequest = { showGrace = false },
-            title = { Text("Auto-clear Trash after") },
+            title = { Text(stringResource(R.string.auto_clear_trash_after)) },
             text = {
                 Column {
-                    Text("Trashed items are permanently erased on sync once they're older than this. Kept items are never touched.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    Text(stringResource(R.string.trashed_items_are_permanently_erased_on), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     Spacer(Modifier.height(8.dp))
                     options.forEach { d ->
                         Row(
@@ -369,7 +372,7 @@ fun TrashScreen(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showGrace = false }) { Text("Done") } },
+            confirmButton = { TextButton(onClick = { showGrace = false }) { Text(stringResource(R.string.done)) } },
         )
     }
 }

@@ -1,5 +1,8 @@
 package com.cairn.reader.ui.onboarding
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,15 +49,13 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
     ) {
         CairnMark(size = 64.dp)
         Spacer(Modifier.height(22.dp))
-        Text(
-            "Welcome to Cairn",
+        Text(stringResource(R.string.welcome_to_cairn),
             style = MaterialTheme.typography.headlineMedium.copy(fontFamily = ReadingSerif),
             fontWeight = FontWeight.SemiBold,
             color = scheme.onSurface,
         )
         Spacer(Modifier.height(8.dp))
-        Text(
-            "One quiet, private home for everything you read — and it's yours forever.",
+        Text(stringResource(R.string.one_quiet_private_home_for_everything),
             style = MaterialTheme.typography.bodyLarge,
             color = scheme.onSurfaceVariant,
         )
@@ -84,11 +85,10 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(14.dp),
         ) {
-            Text("Get started", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.get_started), style = MaterialTheme.typography.titleMedium)
         }
         Spacer(Modifier.height(12.dp))
-        Text(
-            "We've added a few sample feeds so there's something to read right away.",
+        Text(stringResource(R.string.we_ve_added_a_few_sample),
             style = MaterialTheme.typography.labelMedium,
             color = scheme.onSurfaceVariant,
         )

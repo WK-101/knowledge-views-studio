@@ -16,8 +16,8 @@ android {
         applicationId = "com.cairn.reader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 106
-        versionName = "3.83.0"
+        versionCode = 107
+        versionName = "3.84.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -73,6 +73,9 @@ android {
         warningsAsErrors = false
         abortOnError = true
         checkReleaseBuilds = false
+        // The Spanish locale is an intentional partial "demo" translation that relies on Android's
+        // per-string fallback to English; don't fail on the untranslated remainder.
+        disable += "MissingTranslation"
     }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }

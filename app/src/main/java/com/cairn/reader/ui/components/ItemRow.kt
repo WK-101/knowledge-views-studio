@@ -2,6 +2,9 @@
 
 package com.cairn.reader.ui.components
 
+import androidx.compose.ui.res.stringResource
+import com.cairn.reader.R
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -64,15 +67,15 @@ internal fun ItemListRow.hasStatusGlyph(): Boolean =
 internal fun StatusGlyphs(row: ItemListRow, size: Dp = 14.dp) {
     val scheme = MaterialTheme.colorScheme
     if (row.isReadLater) {
-        Icon(Icons.Filled.Bookmark, contentDescription = "Saved", tint = scheme.tertiary, modifier = Modifier.size(size))
+        Icon(Icons.Filled.Bookmark, contentDescription = stringResource(R.string.saved), tint = scheme.tertiary, modifier = Modifier.size(size))
     }
     if (row.type == "PDF") {
         if (row.isReadLater) Spacer(Modifier.width(6.dp))
-        Icon(Icons.Outlined.PictureAsPdf, contentDescription = "PDF", tint = scheme.onSurfaceVariant, modifier = Modifier.size(size))
+        Icon(Icons.Outlined.PictureAsPdf, contentDescription = stringResource(R.string.pdf), tint = scheme.onSurfaceVariant, modifier = Modifier.size(size))
     }
     if (row.cacheStatus == "PERMANENT") {
         if (row.isReadLater || row.type == "PDF") Spacer(Modifier.width(6.dp))
-        Icon(Icons.Outlined.OfflinePin, contentDescription = "Saved offline", tint = scheme.primary, modifier = Modifier.size(size))
+        Icon(Icons.Outlined.OfflinePin, contentDescription = stringResource(R.string.saved_offline), tint = scheme.primary, modifier = Modifier.size(size))
     }
 }
 
