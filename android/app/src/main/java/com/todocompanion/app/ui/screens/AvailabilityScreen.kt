@@ -50,7 +50,7 @@ import com.todocompanion.app.domain.calendar.Availability
 import com.todocompanion.app.domain.calendar.CalendarEngine
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
-import com.todocompanion.app.ui.components.HourStepper
+import com.todocompanion.app.ui.components.TimeChip
 import com.todocompanion.app.ui.components.OptionChips
 import java.time.DayOfWeek
 import java.time.Instant
@@ -346,10 +346,12 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
             }
             Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("From", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                HourStepper(pStart) { pStart = it.coerceIn(0, 23) }
+                Spacer(Modifier.width(6.dp))
+                TimeChip(pStart * 60, onPick = { m -> pStart = ((m + 30) / 60).coerceIn(0, 23) })
                 Spacer(Modifier.width(6.dp))
                 Text("to", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                HourStepper(pEnd) { pEnd = it.coerceIn(1, 24) }
+                Spacer(Modifier.width(6.dp))
+                TimeChip((pEnd % 24) * 60, onPick = { m -> pEnd = ((m + 30) / 60).let { if (it == 0) 24 else it }.coerceIn(1, 24) })
             }
             TextButton(enabled = pDays.isNotEmpty() && pEnd > pStart, onClick = {
                 vm.saveProtectedWindow("Protected %02d:00–%02d:00".format(pStart, pEnd), pStart * 60, pEnd * 60, pDays.sorted())

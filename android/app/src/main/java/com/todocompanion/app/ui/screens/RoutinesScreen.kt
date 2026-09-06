@@ -620,7 +620,7 @@ private fun RoutineEditor(
                                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        if (reminderOn) com.todocompanion.app.ui.components.HourStepper(reminderHour, onChange = { reminderHour = ((it % 24) + 24) % 24 })
+                        if (reminderOn) com.todocompanion.app.ui.components.TimeChip(reminderHour * 60, onPick = { m -> reminderHour = ((m + 30) / 60).coerceIn(0, 23) })
                         Switch(checked = reminderOn, onCheckedChange = { reminderOn = it })
                     }
                     // Schedule is independent of the reminder toggle: a routine can have a day cadence (which

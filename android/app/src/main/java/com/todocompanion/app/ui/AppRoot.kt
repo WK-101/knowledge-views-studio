@@ -125,7 +125,6 @@ import com.todocompanion.app.domain.view.SortMode
 import com.todocompanion.app.domain.view.ViewRef
 import com.todocompanion.app.reminders.AlarmScheduler
 import com.todocompanion.app.ui.components.AppDrawer
-import com.todocompanion.app.ui.components.HourStepper
 import com.todocompanion.app.domain.OmegaCommand
 import com.todocompanion.app.ui.screens.CalendarScreen
 import com.todocompanion.app.ui.screens.CommandPaletteDialog
@@ -1897,10 +1896,10 @@ private fun ManageContextDialog(
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("From", Modifier.padding(end = 6.dp))
-                        HourStepper(startH) { startH = it.coerceIn(0, endH); persistHours() }
+                        com.todocompanion.app.ui.components.TimeChip(startH * 60, onPick = { m -> startH = ((m + 30) / 60).coerceIn(0, endH); persistHours() })
                         Spacer(Modifier.size(10.dp))
                         Text("to", Modifier.padding(end = 6.dp))
-                        HourStepper(endH) { endH = it.coerceIn(startH, 24); persistHours() }
+                        com.todocompanion.app.ui.components.TimeChip((endH % 24) * 60, onPick = { m -> endH = ((m + 30) / 60).let { if (it == 0) 24 else it }.coerceIn(startH, 24); persistHours() })
                     }
                 }
             }

@@ -64,25 +64,6 @@ fun <T> OptionChips(
 }
 
 /**
- * R61 — the ONE clock-hour stepper. A −/+ pair around an "HH:00" value, used everywhere the app adjusts a
- * whole-hour time (working hours, protected windows, quiet hours, morning brief, reflection time). The caller
- * supplies clamping/wrap-around and persistence inside [onChange]; this only renders and emits hour ± 1.
- */
-@Composable
-fun HourStepper(hour: Int, modifier: Modifier = Modifier, onChange: (Int) -> Unit) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        TextButton(onClick = { onChange(hour - 1) }, contentPadding = PaddingValues(6.dp)) { Text("−") }
-        Text(
-            "%02d:00".format(hour),
-            style = MaterialTheme.typography.titleSmall,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.widthIn(min = 52.dp),
-        )
-        TextButton(onClick = { onChange(hour + 1) }, contentPadding = PaddingValues(6.dp)) { Text("+") }
-    }
-}
-
-/**
  * R113 — the ONE numeric −/value/+ stepper. Every "adjust a count/duration by ±step" control (repeat
  * interval, occurrence count, deep-work hours & minutes, workload what-if, …) used to be hand-laid: some a
  * plain [TextButton] pair, some an [OutlinedTextField] flanked by adjust buttons. This is the single idiom.

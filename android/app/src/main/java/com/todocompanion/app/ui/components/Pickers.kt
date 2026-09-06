@@ -445,6 +445,23 @@ fun TimeFieldDialog(initialMinuteOfDay: Int, onDismiss: () -> Unit, onConfirm: (
     }
 }
 
+/** The one compact time-of-day trigger for inline use (an editor row, a From/to range): a small tappable
+ *  chip showing HH:MM that opens the shared clock [TimeFieldDialog]. Settings' full-width TimeSettingRow
+ *  opens the very same dialog, so the actual time picker is identical everywhere — no −/+ hour steppers.
+ *  Hour-granular callers round the returned minute to the hour inside [onPick]. */
+@Composable
+fun TimeChip(minuteOfDay: Int, onPick: (Int) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    var show by remember { mutableStateOf(false) }
+    androidx.compose.material3.AssistChip(
+        onClick = { show = true },
+        enabled = enabled,
+        leadingIcon = { androidx.compose.material3.Icon(Icons.Filled.Schedule, null) },
+        label = { Text("%02d:%02d".format(minuteOfDay / 60, minuteOfDay % 60)) },
+        modifier = modifier,
+    )
+    if (show) TimeFieldDialog(minuteOfDay, onDismiss = { show = false }) { onPick(it); show = false }
+}
+
 /**
  * Two-step date → time picker. Returns the chosen instant as epoch millis (local zone).
  * When [onDuration] is supplied, the time step also offers an optional block duration.
