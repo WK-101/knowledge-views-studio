@@ -672,12 +672,12 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit, onOpenGoals: () -> Unit
                 Text("Your balance this week", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Text("Across tracked time, tasks and habits — by tag.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
-                // A single proportional bar split by area.
+                // A single proportional bar split by area — a validated categorical palette (no semantic
+                // hues; the old "error" red misread a neutral life-balance slice as "bad").
+                val areaHues = com.todocompanion.app.ui.theme.LocalKairoColors.current.chart
                 Row(Modifier.fillMaxWidth().height(16.dp).clip(RoundedCornerShape(8.dp))) {
                     balance.take(6).forEachIndexed { i, sl ->
-                        val hue = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.secondary,
-                            MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.surfaceVariant)[i % 6]
-                        Box(Modifier.weight(sl.share.toFloat().coerceAtLeast(0.02f)).fillMaxHeight().background(hue))
+                        Box(Modifier.weight(sl.share.toFloat().coerceAtLeast(0.02f)).fillMaxHeight().background(areaHues[i % areaHues.size]))
                     }
                 }
                 Spacer(Modifier.height(8.dp))

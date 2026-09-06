@@ -128,7 +128,9 @@ fun PriorityCheckbox(checked: Boolean, level: PriorityLevel, onCheckedChange: ()
     // Accessibility (F2): announce completion state + role so TalkBack reads a real toggle.
     val a11y = if (checked) "Completed. Double-tap to mark incomplete." else "Mark complete."
     Box(
-        Modifier.size(40.dp).clip(shape)
+        // 48dp is the Material minimum touch target; the visual box below stays 22dp, so only the
+        // tappable area grows (a11y — was a 40dp sub-spec target).
+        Modifier.size(48.dp).clip(shape)
             .semantics { checkboxSemantics(a11y, checked) }
             .combinedClickable(onClick = onCheckedChange, onLongClick = { if (onSetLevel != null) picker = true }),
         contentAlignment = Alignment.Center,
@@ -278,7 +280,8 @@ fun SmallCheck(checked: Boolean, color: Color, onToggle: () -> Unit) {
     // this matrix/compact checkbox instead of an unlabelled tap target.
     val a11y = if (checked) "Completed. Double-tap to mark incomplete." else "Mark complete."
     Box(
-        Modifier.size(30.dp).clip(CircleShape).semantics { checkboxSemantics(a11y, checked) }.clickable { onToggle() },
+        // Expanded tap area (was 30dp, a sub-spec touch target); the visual check below stays 18dp.
+        Modifier.size(44.dp).clip(CircleShape).semantics { checkboxSemantics(a11y, checked) }.clickable { onToggle() },
         contentAlignment = Alignment.Center,
     ) {
         Box(
@@ -287,7 +290,9 @@ fun SmallCheck(checked: Boolean, color: Color, onToggle: () -> Unit) {
                 .border(1.5.dp, color, RoundedCornerShape(5.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            if (checked) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(13.dp))
+            // Contrast: the tick sits on the (caller-supplied) fill colour, which may be light or dark —
+            // pick black on light fills, white on dark, so it never vanishes (matches PriorityCheckbox).
+            if (checked) Icon(Icons.Filled.Check, null, tint = if (color.luminance() > 0.5f) Color.Black else Color.White, modifier = Modifier.size(13.dp))
         }
     }
 }
