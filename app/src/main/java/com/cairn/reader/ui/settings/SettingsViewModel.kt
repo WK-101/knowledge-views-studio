@@ -32,6 +32,7 @@ class SettingsViewModel @Inject constructor(
     private val feedRepository: FeedRepository,
     private val preferencesRepository: PreferencesRepository,
     private val backupManager: BackupManager,
+    private val markdownExportManager: com.cairn.reader.data.export.MarkdownExportManager,
     private val blobStore: BlobStore,
     private val storageManager: com.cairn.reader.data.blob.StorageManager,
     private val bookmarkImporter: com.cairn.reader.domain.importer.BookmarkImporter,
@@ -99,6 +100,20 @@ class SettingsViewModel @Inject constructor(
             context.contentResolver.openOutputStream(uri)?.use { backupManager.exportArchive(it) } ?: error("no output stream")
         }.isSuccess
         onDone(ok)
+    }
+
+    /** Export the whole curated library as Markdown files into a folder the user picked (an
+     *  Obsidian/Logseq vault). Reports how many files were written. */
+    fun exportMarkdownVault(treeUri: android.net.Uri, onDone: (String) -> Unit) = viewModelScope.launch {
+        val summary = runCatching {
+            val r = markdownExportManager.exportVault(treeUri)
+            when {
+                r.written == 0 && r.failed == 0 -> "Nothing to export — save some articles to your library first."
+                r.failed == 0 -> "Exported ${r.written} article${if (r.written == 1) "" else "s"} as Markdown."
+                else -> "Exported ${r.written}, skipped ${r.failed}."
+            }
+        }.getOrElse { "Couldn't write to that folder" }
+        onDone(summary)
     }
 
     /** Restore from a file the user picked — auto-detecting a `.zip` archive vs a `.json` data backup. */

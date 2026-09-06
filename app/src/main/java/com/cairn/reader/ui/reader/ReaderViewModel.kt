@@ -56,6 +56,7 @@ class ReaderViewModel @Inject constructor(
     private val mediaSaver: com.cairn.reader.domain.media.MediaSaver,
     private val semanticRepository: com.cairn.reader.data.repo.SemanticRepository,
     private val summarizer: com.cairn.reader.domain.summary.Summarizer,
+    private val markdownExportManager: com.cairn.reader.data.export.MarkdownExportManager,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -319,6 +320,14 @@ class ReaderViewModel @Inject constructor(
     /** Builds the shareable Markdown for this article's highlights off the main thread. */
     fun exportHighlights(onReady: (String) -> Unit) {
         viewModelScope.launch { onReady(highlightRepository.exportItem(itemId)) }
+    }
+
+    /** Full-article Markdown (frontmatter + body + highlights) for sharing to a vault or notes app. */
+    fun exportMarkdown(onReady: (String) -> Unit) {
+        viewModelScope.launch {
+            val doc = runCatching { markdownExportManager.documentFor(itemId) }.getOrNull()
+            if (doc != null) onReady(doc.content)
+        }
     }
 
     // -- Read aloud -----------------------------------------------------------

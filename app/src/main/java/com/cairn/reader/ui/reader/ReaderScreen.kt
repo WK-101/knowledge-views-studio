@@ -48,6 +48,7 @@ import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.ContentCopy
@@ -441,6 +442,14 @@ fun ReaderScreen(
                                     onClick = {
                                         showMenu = false
                                         com.cairn.reader.ui.util.PdfExport.printArticle(context, data?.title.orEmpty(), data?.html)
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Export as Markdown") },
+                                    leadingIcon = { Icon(Icons.Outlined.Description, contentDescription = null) },
+                                    onClick = {
+                                        showMenu = false
+                                        viewModel.exportMarkdown { md -> shareText(md, data?.title) }
                                     },
                                 )
                             }

@@ -40,6 +40,7 @@ import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FormatQuote
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.GridOn
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
@@ -149,6 +150,13 @@ fun SettingsScreen(
             }
             viewModel.setBackupFolder(uri.toString())
             Toast.makeText(context, "Auto-backup on — a copy was saved", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val markdownVaultLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            Toast.makeText(context, "Exporting Markdown…", Toast.LENGTH_SHORT).show()
+            viewModel.exportMarkdownVault(uri) { summary -> Toast.makeText(context, summary, Toast.LENGTH_LONG).show() }
         }
     }
 
@@ -326,6 +334,19 @@ fun SettingsScreen(
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
                 )
+                Spacer(Modifier.height(16.dp))
+                OutlinedButton(onClick = { markdownVaultLauncher.launch(null) }) {
+                    Icon(Icons.Outlined.Description, contentDescription = null, modifier = Modifier.height(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Export to Markdown / Obsidian")
+                }
+                Text(
+                    "Write your whole library as plain Markdown files — one per article, with YAML frontmatter, tags and your highlights — into a folder you pick. Drop it straight into an Obsidian or Logseq vault. Your notes outlive any app.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+
                 Spacer(Modifier.height(16.dp))
                 Text("Automatic backup", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
                 Text(

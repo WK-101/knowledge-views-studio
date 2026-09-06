@@ -251,6 +251,20 @@ interface ItemDao {
     @Query("SELECT * FROM items")
     suspend fun allItems(): List<ItemEntity>
 
+    /** Curated library items (starred / archived / read-later / filed in a collection), newest first,
+     *  PDFs excluded — the set worth exporting to a Markdown / Obsidian vault. */
+    @Query(
+        """
+        SELECT i.* FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        WHERE i.trashedAt IS NULL AND i.type != 'PDF'
+          AND (COALESCE(s.isStarred, 0) = 1 OR COALESCE(s.isArchived, 0) = 1
+               OR COALESCE(s.isReadLater, 0) = 1 OR i.collectionId IS NOT NULL)
+        ORDER BY i.savedAt DESC
+        """
+    )
+    suspend fun libraryItemsForExport(): List<ItemEntity>
+
     /** Non-PDF items with no thumbnail yet, newest first — candidates for lead-image back-fill. */
     @Query(
         """
