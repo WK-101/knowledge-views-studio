@@ -20,7 +20,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SyncOpEntity::class,
         RuleEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = true,
 )
 abstract class CairnDatabase : RoomDatabase() {
@@ -141,5 +141,18 @@ val MIGRATION_11_12 = object : Migration(11, 12) {
 val MIGRATION_12_13 = object : Migration(12, 13) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE sources ADD COLUMN hubUrl TEXT")
+    }
+}
+
+/** v3.76: spaced-repetition (SM-2) recall state on highlights. All additive; existing highlights
+ *  get srDueAt = null, which the review queue treats as "new / due now". */
+val MIGRATION_13_14 = object : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE highlights ADD COLUMN srDueAt INTEGER")
+        db.execSQL("ALTER TABLE highlights ADD COLUMN srInterval INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE highlights ADD COLUMN srEase INTEGER NOT NULL DEFAULT 250")
+        db.execSQL("ALTER TABLE highlights ADD COLUMN srReps INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE highlights ADD COLUMN srLapses INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE highlights ADD COLUMN srLastReviewedAt INTEGER")
     }
 }

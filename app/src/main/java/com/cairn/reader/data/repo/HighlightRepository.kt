@@ -30,6 +30,23 @@ class HighlightRepository @Inject constructor(
     fun observeAllWithArticle(): Flow<List<HighlightWithArticle>> = highlightDao.observeAllWithArticle()
     fun observeCount(): Flow<Int> = highlightDao.observeCount()
 
+    // -- Spaced-repetition recall (SM-2) ---------------------------------------
+
+    /** How many highlights are due for review right now. */
+    fun observeDueCount(): Flow<Int> = highlightDao.observeDueCount(clock())
+
+    /** The next batch of due review cards, oldest-due first. */
+    suspend fun dueCards(limit: Int = 40): List<com.cairn.reader.data.db.ReviewCard> =
+        highlightDao.dueCards(clock(), limit)
+
+    /** Grade a card and reschedule it via SM-2. */
+    suspend fun review(card: com.cairn.reader.data.db.ReviewCard, grade: com.cairn.reader.domain.review.Grade) {
+        val now = clock()
+        val state = com.cairn.reader.domain.review.SrState(card.srInterval, card.srEase, card.srReps, card.srLapses)
+        val r = com.cairn.reader.domain.review.Sm2.review(state, grade, now)
+        highlightDao.updateSr(card.id, r.dueAt, r.state.intervalDays, r.state.ease, r.state.reps, r.state.lapses, now)
+    }
+
     suspend fun add(itemId: String, blockIndex: Int, start: Int, end: Int, quote: String, color: Int) {
         val now = clock()
         val id = UUID.randomUUID().toString()

@@ -44,6 +44,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.RssFeed
+import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.MarkEmailRead
@@ -133,6 +134,7 @@ private enum class Destination(val label: String, val icon: ImageVector, val isP
     Discover("Discover", Icons.Outlined.Explore),
     Brief("Brief", Icons.Outlined.Newspaper),
     Triage("Triage", Icons.Outlined.Style),
+    Review("Review", Icons.Outlined.School),
     Starred("Starred", Icons.Outlined.StarBorder, isPane = false),
     ReadLater("Read Later", Icons.Outlined.Bookmark, shortLabel = "Later"),
     Highlights("Highlights", Icons.Outlined.FormatQuote, shortLabel = "Notes"),
@@ -153,7 +155,7 @@ private enum class Destination(val label: String, val icon: ImageVector, val isP
 private val OWN_TOP_BAR = setOf(
     Destination.Library, Destination.Discover, Destination.ReadLater, Destination.Highlights,
     Destination.Feeds, Destination.Search, Destination.Trash, Destination.Offline, Destination.Rules, Destination.Insights,
-    Destination.Brief, Destination.Triage,
+    Destination.Brief, Destination.Triage, Destination.Review,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -190,6 +192,9 @@ fun CairnApp(
     val detailNav = rememberNavController()
 
     val inboxViewModel: InboxViewModel = hiltViewModel()
+    // Live "due for review" count for the drawer badge (spaced-repetition recall).
+    val reviewViewModel: com.cairn.reader.ui.review.ReviewViewModel = hiltViewModel()
+    val dueReviewCount by reviewViewModel.dueCount.collectAsStateWithLifecycle()
     // Hoisted above the destination Crossfade so the Inbox keeps its scroll position across tab
     // switches and when returning from the reader (a fresh state inside the Crossfade would reset).
     val inboxListState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -271,6 +276,8 @@ fun CairnApp(
                     onHighlights = { goTo(Destination.Highlights) },
                     onBrief = { goTo(Destination.Brief) },
                     onTriage = { goTo(Destination.Triage) },
+                    onReview = { goTo(Destination.Review) },
+                    dueCount = dueReviewCount,
                     onSearch = { goTo(Destination.Search) },
                     onDiscover = { goTo(Destination.Discover) },
                     onManageFeeds = { goTo(Destination.Feeds) },
@@ -474,6 +481,7 @@ fun CairnApp(
                 Destination.Insights -> com.cairn.reader.ui.insights.InsightsScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
                 Destination.Brief -> com.cairn.reader.ui.brief.BriefScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
                 Destination.Triage -> com.cairn.reader.ui.triage.TriageScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
+                Destination.Review -> com.cairn.reader.ui.review.ReviewScreen(padding, onOpenDrawer = openDrawer)
                 Destination.Settings -> SettingsScreen(padding, onOpenNotebook = { goTo(Destination.Highlights) }, onOpenOffline = { goTo(Destination.Offline) }, onOpenRules = { goTo(Destination.Rules) }, onOpenInsights = { goTo(Destination.Insights) })
                 // Inbox and any non-pane fallthrough render the Inbox.
                 else -> InboxScreen(padding, inboxViewModel, open, onOpenWeb, inboxViewMode, inboxListState)

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Newspaper
+import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.RssFeed
@@ -86,6 +87,8 @@ fun FeedDrawerContent(
     onHighlights: () -> Unit,
     onBrief: () -> Unit = {},
     onTriage: () -> Unit = {},
+    onReview: () -> Unit = {},
+    dueCount: Int = 0,
     onSearch: () -> Unit,
     onDiscover: () -> Unit,
     onManageFeeds: () -> Unit,
@@ -180,6 +183,14 @@ fun FeedDrawerContent(
             selected = false,
             icon = { Icon(Icons.Outlined.Style, contentDescription = null) },
             onClick = onTriage,
+            modifier = Modifier.padding(itemPad),
+        )
+        NavigationDrawerItem(
+            label = { Text("Review") },
+            selected = false,
+            icon = { Icon(Icons.Outlined.School, contentDescription = null) },
+            badge = { if (dueCount > 0) Text("$dueCount") },
+            onClick = onReview,
             modifier = Modifier.padding(itemPad),
         )
 

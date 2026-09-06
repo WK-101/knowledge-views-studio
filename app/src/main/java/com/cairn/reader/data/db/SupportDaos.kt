@@ -61,6 +61,21 @@ interface TagDao {
     suspend fun moveLinks(fromId: String, toId: String)
 }
 
+/** A due highlight plus its article + SM-2 state, for a spaced-repetition review session. */
+data class ReviewCard(
+    val id: String,
+    val itemId: String,
+    val quote: String,
+    val note: String?,
+    val color: Int,
+    val articleTitle: String,
+    val articleSite: String?,
+    val srInterval: Int,
+    val srEase: Int,
+    val srReps: Int,
+    val srLapses: Int,
+)
+
 /** A highlight joined with the article it belongs to, for the notebook and exports. */
 data class HighlightWithArticle(
     val id: String,
@@ -131,6 +146,29 @@ interface HighlightDao {
         """
     )
     suspend fun forItemWithArticle(itemId: String): List<HighlightWithArticle>
+
+    // -- Spaced-repetition review (SM-2) ---------------------------------------
+
+    /** How many highlights are due for review right now (null srDueAt = new / due). */
+    @Query("SELECT COUNT(*) FROM highlights WHERE srDueAt IS NULL OR srDueAt <= :now")
+    fun observeDueCount(now: Long): Flow<Int>
+
+    /** The next batch of due cards, oldest-due first (new cards, srDueAt null, come first). */
+    @Query(
+        """
+        SELECT h.id AS id, h.itemId AS itemId, h.quote AS quote, h.note AS note, h.color AS color,
+               i.title AS articleTitle, i.siteName AS articleSite,
+               h.srInterval AS srInterval, h.srEase AS srEase, h.srReps AS srReps, h.srLapses AS srLapses
+        FROM highlights h JOIN items i ON i.id = h.itemId
+        WHERE h.srDueAt IS NULL OR h.srDueAt <= :now
+        ORDER BY (h.srDueAt IS NULL) DESC, h.srDueAt ASC, h.createdAt ASC
+        LIMIT :limit
+        """
+    )
+    suspend fun dueCards(now: Long, limit: Int): List<ReviewCard>
+
+    @Query("UPDATE highlights SET srDueAt = :dueAt, srInterval = :interval, srEase = :ease, srReps = :reps, srLapses = :lapses, srLastReviewedAt = :reviewedAt WHERE id = :id")
+    suspend fun updateSr(id: String, dueAt: Long?, interval: Int, ease: Int, reps: Int, lapses: Int, reviewedAt: Long)
 }
 
 /** A collection with the number of items filed directly in it, for the library tree. */

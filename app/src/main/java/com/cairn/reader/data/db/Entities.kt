@@ -194,6 +194,13 @@ data class HighlightEntity(
     val endSelector: String? = null,
     val endOffset: Int = 0,
     val createdAt: Long,
+    // v3.76: spaced-repetition (SM-2) recall state. A null srDueAt means "new / due now".
+    val srDueAt: Long? = null,
+    val srInterval: Int = 0,       // current interval in days
+    val srEase: Int = 250,         // ease factor ×100 (SM-2 default 2.5)
+    val srReps: Int = 0,           // successful reviews in a row
+    val srLapses: Int = 0,         // times forgotten
+    val srLastReviewedAt: Long? = null,
 )
 
 /** Standalone full-text index. Populated alongside item extraction. */
