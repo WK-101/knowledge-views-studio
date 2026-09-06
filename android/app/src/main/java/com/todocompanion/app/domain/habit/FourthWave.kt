@@ -414,9 +414,15 @@ object FourthWave {
         val buckets = IntArray(8)
         val dows = IntArray(8)   // 1..7 used
         var n = 0
+        // Only timed check-ins contribute — a check-in with no recorded minute can't be placed in a
+        // time bucket, and counting it toward the weekday total but not the bucket total (nor n) would
+        // make bestDow rest on a larger, invisible sample than n claims. Keep both dimensions on one n.
         checkins.filter { it.status == "done" }.forEach { c ->
-            c.doneAtMinute?.let { m -> buckets[(m / 180).coerceIn(0, 7)]++; n++ }
-            dows[LocalDate.ofEpochDay(c.epochDay).dayOfWeek.value]++
+            c.doneAtMinute?.let { m ->
+                buckets[(m / 180).coerceIn(0, 7)]++
+                dows[LocalDate.ofEpochDay(c.epochDay).dayOfWeek.value]++
+                n++
+            }
         }
         tasks.filter { it.completed && it.completedAt != null }.forEach { t ->
             val zdt = Instant.ofEpochMilli(t.completedAt!!).atZone(zone)

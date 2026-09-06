@@ -36,6 +36,35 @@ object Reasoning {
         )
     }
 
+    /**
+     * THE keystone habit — the single candidate whose kept-days most lift the day-metric, by relative
+     * lift. One definition, shared by every surface that names "your keystone" (the detail badge, the
+     * Insights card, the Goals scoreboard, the morning brief) so they can never crown different habits.
+     * [onDays] returns the days a candidate was genuinely kept (already goal-filtered by the caller);
+     * days are intersected with [universe] here. Returns (candidate, its Keystone), or null when no
+     * candidate clears the evidence floor ([minDays] on each side) and [minLift] relative lift.
+     */
+    fun <T> bestKeystone(
+        candidates: List<T>,
+        universe: Collection<Long>,
+        metricPerDay: Map<Long, Int>,
+        minDays: Int = 5,
+        minLift: Double = 0.15,
+        onDays: (T) -> Set<Long>,
+    ): Pair<T, Keystone>? {
+        val uni = universe.toSet()
+        var best: Pair<T, Keystone>? = null
+        for (c in candidates) {
+            val done = onDays(c).asSequence().filter { it in uni }.toSet()
+            if (done.size < minDays) continue
+            val k = keystone(universe, metricPerDay, done)
+            if (k.withN >= minDays && k.withoutN >= minDays && k.avgWith > k.avgWithout && k.lift >= minLift) {
+                if (best == null || k.lift > best.second.lift) best = c to k
+            }
+        }
+        return best
+    }
+
     // ── X3 · honest capacity ────────────────────────────────────────────────────────────────────
     /** Median of the per-day tracked minutes, counting only days that had any tracking. Null when
      *  there are fewer than [minDays] such days — not enough signal to trust as a capacity figure. */

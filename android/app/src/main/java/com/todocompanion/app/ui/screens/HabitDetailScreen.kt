@@ -312,7 +312,7 @@ fun HabitDetailScreen(
                                 vm.saveHabit(nh)
                             }) { Text("Make it easier") }
                             TextButton(onClick = {
-                                val todayMs = LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                                val todayMs = LocalDate.ofEpochDay(today).atStartOfDay(vm.zoneId).toInstant().toEpochMilli()
                                 vm.saveHabit(h.copy(startDate = todayMs))
                             }) { Text("Restart fresh today") }
                         }
@@ -698,18 +698,6 @@ private fun StrengthRing(strength: Int, color: Color) {
     }
 }
 
-@Composable
-private fun StatGrid(tiles: List<Pair<String, String>>) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        tiles.chunked(2).forEach { pair ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                pair.forEach { (label, value) -> StatTile(value = value, label = label, modifier = Modifier.weight(1f)) }
-                if (pair.size == 1) Spacer(Modifier.weight(1f))
-            }
-        }
-    }
-}
-
 // StatTile now comes from the shared ui/components/ReviewComponents.kt.
 
 private val WEEKDAY_LETTERS = listOf("M", "T", "W", "T", "F", "S", "S")
@@ -883,7 +871,7 @@ private fun YearHeatmap(
     countsByDay: Map<Long, Int>,
 ) {
     val empty = MaterialTheme.colorScheme.surfaceVariant
-    val todayDate = LocalDate.now()
+    val todayDate = LocalDate.ofEpochDay(today)   // the zone-aware today the cells are keyed on, not the system clock
     val currentMonday = todayDate.minusDays((todayDate.dayOfWeek.value - 1).toLong())
     val weeks = 26
     val startMonday = currentMonday.minusWeeks((weeks - 1).toLong())
@@ -1171,17 +1159,27 @@ private fun LifeSystemsHabitCards(
         val todayCheckin = hc.firstOrNull { it.habitId == h.id && it.epochDay == today }
         var energy by remember(todayCheckin?.ctxEnergy) { mutableIntStateOf(todayCheckin?.ctxEnergy ?: 0) }
         var mood by remember(todayCheckin?.ctxMood) { mutableIntStateOf(todayCheckin?.ctxMood ?: 0) }
+        var place by remember(todayCheckin?.ctxPlace) { mutableStateOf(todayCheckin?.ctxPlace ?: "") }
         Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
             Column(Modifier.padding(16.dp)) {
                 Text("How did it go? (optional)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text("A tag or two now becomes the correlation engine's evidence later.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Energy", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    (1..5).forEach { n -> androidx.compose.material3.FilterChip(selected = energy == n, onClick = { energy = n; vm.setCheckinContext(h, today, energy, mood, "") }, label = { Text("$n") }) }
+                    (1..5).forEach { n -> androidx.compose.material3.FilterChip(selected = energy == n, onClick = { energy = n; vm.setCheckinContext(h, today, energy, mood, place) }, label = { Text("$n") }) }
                 }
                 Text("Mood", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    (1..5).forEach { n -> androidx.compose.material3.FilterChip(selected = mood == n, onClick = { mood = n; vm.setCheckinContext(h, today, energy, mood, "") }, label = { Text("$n") }) }
+                    (1..5).forEach { n -> androidx.compose.material3.FilterChip(selected = mood == n, onClick = { mood = n; vm.setCheckinContext(h, today, energy, mood, place) }, label = { Text("$n") }) }
+                }
+                Text("Where", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("Home", "Work", "Gym", "Outside", "Out & about").forEach { p ->
+                        androidx.compose.material3.FilterChip(
+                            selected = place.equals(p, ignoreCase = true),
+                            onClick = { place = if (place.equals(p, ignoreCase = true)) "" else p; vm.setCheckinContext(h, today, energy, mood, place) },
+                            label = { Text(p) })
+                    }
                 }
             }
         }
@@ -1221,7 +1219,7 @@ private fun LifeSystemsHabitCards(
                     FilledTonalButton(onClick = { vm.addWitness(h, "Day ${doneDays.size}", "") }, modifier = Modifier.padding(top = 8.dp)) { Text("✍️ ${h.refereeName} witnessed it") }
                 }
                 myWitnesses.take(3).forEach { w ->
-                    Text("· ${w.refereeName} confirmed ${w.milestoneLabel} — ${java.time.LocalDate.ofEpochDay(java.time.Instant.ofEpochMilli(w.atMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay())}",
+                    Text("· ${w.refereeName} confirmed ${w.milestoneLabel} — ${java.time.Instant.ofEpochMilli(w.atMillis).atZone(vm.zoneId).toLocalDate()}",
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                 }
             }

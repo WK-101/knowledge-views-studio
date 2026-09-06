@@ -134,7 +134,7 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
         }
 
         val correlations = remember(habits, checkins, tasks, today) {
-            HabitInsights.compute(habits, checkins, tasks, today, max = 8)
+            HabitInsights.compute(habits, checkins, tasks, today, zone = vm.zoneId, max = 8)
                 .filter { it.emoji in setOf("🔗", "⚡", "🗝️", "📉") }
         }
 

@@ -768,7 +768,8 @@ private fun EscrowScreen(vm: AppViewModel, onBack: () -> Unit) {
     val escrows by vm.escrows.collectAsState()
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
-    val today = LocalDate.now().toEpochDay()
+    val tasks by vm.tasks.collectAsState()
+    val today = vm.today()
     var addOpen by remember { mutableStateOf(false) }
     LSScaffold("Self-escrow", onBack, actions = { IconButton(onClick = { addOpen = true }) { Icon(Icons.Filled.Add, "New escrow") } }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -777,15 +778,16 @@ private fun EscrowScreen(vm: AppViewModel, onBack: () -> Unit) {
             }
             items(escrows.size) { i ->
                 val e = escrows[i]
-                val st = FourthWave.escrowStatus(e, habits, checkins, today)
+                val st = FourthWave.escrowStatus(e, habits, checkins, today, tasks)
                 val habitName = habits.firstOrNull { it.id == e.habitId }?.name
-                val kindLabel = when (e.milestoneKind) { "streak" -> "day streak"; "cleandays" -> "clean days"; else -> "% automatic" }
+                val isTaskDone = e.milestoneKind == "taskdone"
+                val kindLabel = when (e.milestoneKind) { "streak" -> "day streak"; "cleandays" -> "clean days"; "taskdone" -> "shipped"; else -> "% automatic" }
                 FWCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(if (e.kind == "stake") "🎯" else "🎁", fontSize = 22.sp, modifier = Modifier.padding(end = 10.dp))
                         Column(Modifier.weight(1f)) {
                             Text(e.description, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                            Text((if (e.kind == "stake") "Stake · " else "Reward · ") + "at ${e.milestoneValue} $kindLabel" + (habitName?.let { " · $it" } ?: ""),
+                            Text((if (e.kind == "stake") "Stake · " else "Reward · ") + (if (isTaskDone) "when the task ships" else "at ${e.milestoneValue} $kindLabel") + (habitName?.let { " · $it" } ?: ""),
                                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         IconButton(onClick = { vm.deleteEscrow(e.id) }) { Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant) }

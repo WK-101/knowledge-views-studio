@@ -4,6 +4,7 @@ import com.todocompanion.app.data.entity.EventEntity
 import com.todocompanion.app.data.entity.HabitCheckinEntity
 import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.data.entity.TaskEntity
+import com.todocompanion.app.domain.Reasoning
 import com.todocompanion.app.domain.calendar.CalendarEngine
 import java.time.Instant
 import java.time.LocalDate
@@ -118,29 +119,19 @@ object HabitInsights {
             }
         }
 
-        // 5. L2 — keystone habit: the one whose done-days best predict a "good day" (more tasks done
-        //    and more OTHER habits done). Charles Duhigg's idea, computed on data only we hold.
+        // 5. L2 — keystone habit: the single habit whose kept-days most lift daily task output.
+        //    Charles Duhigg's idea, computed by the ONE shared selector (Reasoning.bestKeystone) the
+        //    detail badge and Goals scoreboard use too, so every "your keystone" surface names the
+        //    same habit and can never contradict itself.
         if (active.size >= 2 && tasksByDay.isNotEmpty()) {
-            val allDone = active.associateWith { doneByHabit.getValue(it) }
-            var bestHabit: HabitEntity? = null; var bestLift = 0.0
-            active.forEach { h ->
-                if (h.habitType == "break") return@forEach
-                val done = allDone.getValue(h)
-                val window = (0 until 60).map { today - it }
-                val onD = window.filter { it in done }
-                val offD = window.filter { it !in done }
-                if (onD.size < 8 || offD.size < 8) return@forEach
-                fun goodness(day: Long): Double {
-                    val t = (tasksByDay[day] ?: 0).toDouble()
-                    val others = active.count { it.id != h.id && day in allDone.getValue(it) }.toDouble()
-                    return t + others
-                }
-                val onAvg = onD.map { goodness(it) }.average()
-                val offAvg = offD.map { goodness(it) }.average()
-                val lift = onAvg - offAvg
-                if (lift > bestLift) { bestLift = lift; bestHabit = h }
+            val universe = (0 until 60).map { today - it }
+            val ks = Reasoning.bestKeystone(active.filter { it.habitType != "break" }, universe, tasksByDay) {
+                doneByHabit.getValue(it)
             }
-            bestHabit?.let { k -> if (bestLift >= 0.8) out += Insight("🗝️", "‘${k.name}’ looks like your keystone — your best days tend to follow it. Guard this one.", 92, InsightAction.Open(k.id)) }
+            ks?.let { (k, stat) ->
+                val pct = Math.round(stat.lift * 100).toInt()
+                out += Insight("🗝️", "‘${k.name}’ looks like your keystone — you finish $pct% more on days you keep it. Guard this one.", 92, InsightAction.Open(k.id))
+            }
         }
 
         // 6. A steady encouragement: the strongest current habit.

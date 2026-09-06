@@ -1089,18 +1089,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val habitEditor = MutableStateFlow<HabitEditRequest?>(null)   // non-null → the full-screen editor is open
     val habitQuickAddOpen = MutableStateFlow(false)               // L6: natural-language "type a habit" dialog
     val habitTrendsOpen = MutableStateFlow(false)                 // M5: full trends & correlations dashboard
-    /** Credit a finished Focus session's minutes to a habit's check-in (marks time habits done). */
-    fun logHabitFocus(habitId: String, minutes: Int) = viewModelScope.launch {
-        if (minutes <= 0) return@launch
-        val today = java.time.LocalDate.now(zone).toEpochDay()
-        val cur = repo.getHabitCheckinsOnce().firstOrNull { it.habitId == habitId && it.epochDay == today }?.count ?: 0
-        repo.setCheckinValue(habitId, today, cur + minutes)
-        refreshHabitWidgets()
-        // Focus-credited minutes travel the same celebration path as a manual tap: shine + point + ramp.
-        habits.value.firstOrNull { it.id == habitId }?.let { h ->
-            celebrateIfRewardReached(h); awardIfNewlyDone(h, today, cur)
-        }
-    }
     fun toggleChecklist(item: ChecklistItemEntity) = viewModelScope.launch { repo.saveChecklistItem(item.copy(checked = !item.checked)) }
     fun deleteChecklistItem(id: String) = viewModelScope.launch { repo.deleteChecklistItem(id) }
 
@@ -1336,7 +1324,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val done = cks.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
         val skip = cks.filter { it.status == "skip" }.map { it.epochDay }.toSet()
         val relapse = cks.filter { hs.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
-        val today = java.time.LocalDate.now().toEpochDay()
+        val today = today()
         val strength = hs.strength(h, done, skip, relapse, today)
         val cur = hs.currentStreak(h, done, skip, relapse, today)
         val best = hs.bestStreak(h, done, skip, relapse, today)
@@ -1671,10 +1659,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ── U1 · untracked planned blocks + one-tap fill ────────────────────────────────────────────
     fun untrackedTodayBlocks(): List<com.todocompanion.app.domain.TimeInsights.PlannedBlock> =
         com.todocompanion.app.domain.TimeReports.untrackedTodayBlocks(
-            tasks.value, timeEntries.value, java.time.ZoneId.systemDefault(), System.currentTimeMillis())
+            tasks.value, timeEntries.value, zone, System.currentTimeMillis())
     /** U1: backfill a planned block's time interval against its task, in one tap. */
     fun fillTrackedBlock(block: com.todocompanion.app.domain.TimeInsights.PlannedBlock) = viewModelScope.launch {
-        val zone = java.time.ZoneId.systemDefault()
+        val zone = this@AppViewModel.zone
         val dayStart = java.time.LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
         val start = dayStart + block.startMin * 60_000L
         val end = (start + block.durMin * 60_000L).coerceAtMost(System.currentTimeMillis())
@@ -1689,19 +1677,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ── U6 · plan vs actual (this week) + calibration ───────────────────────────────────────────
     fun planVsActualWeek(): com.todocompanion.app.domain.TimeInsights.PlanActual =
         com.todocompanion.app.domain.TimeReports.planVsActualWeek(
-            tasks.value, timeEntries.value, java.time.ZoneId.systemDefault(), System.currentTimeMillis())
+            tasks.value, timeEntries.value, zone, System.currentTimeMillis())
 
     // ── U7 · cross-type correlation ("what moves your momentum") ────────────────────────────────
     fun momentumLinks(windowDays: Int = 60): List<String> =
         com.todocompanion.app.domain.TimeReports.momentumLinks(
             habits.value, habitCheckins.value, timeActivities.value, timeEntries.value,
-            java.time.ZoneId.systemDefault(), windowDays)
+            zone, windowDays)
 
     // ── V6 · cross-type tag report — hours + tasks + habit-days grouped by one tag ──────────────
     fun crossTypeTagReport(windowDays: Int = 7): List<com.todocompanion.app.domain.TimeReports.TagLine> =
         com.todocompanion.app.domain.TimeReports.crossTypeTagReport(
             tasks.value, timeEntries.value, habits.value, habitCheckins.value, tags.value, taskTags.value,
-            java.time.ZoneId.systemDefault(), System.currentTimeMillis(), windowDays)
+            zone, System.currentTimeMillis(), windowDays)
 
     // ── V12 · rewards store ─────────────────────────────────────────────────────────────────────
     fun rewards(): List<com.todocompanion.app.domain.Reward> = com.todocompanion.app.domain.Rewards.parse(settings.value.rewardsJson)
@@ -1740,7 +1728,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         val taskId: String? = null, val habitId: String? = null)
     fun rightNow(): RightNow? {
         val hs = com.todocompanion.app.domain.habit.HabitStats
-        val zone = java.time.ZoneId.systemDefault()
+        val zone = this.zone
         val nowMin = java.time.LocalTime.now(zone).let { it.hour * 60 + it.minute }
         val today = java.time.LocalDate.now(zone).toEpochDay()
         val dueHabits = habits.value.filter { !it.paused && !it.archived }.filter { h ->
@@ -1773,11 +1761,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun balanceBreakdown(windowDays: Int = 7): List<com.todocompanion.app.domain.TimeReports.BalanceSlice> =
         com.todocompanion.app.domain.TimeReports.balanceBreakdown(
             tasks.value, timeEntries.value, habits.value, habitCheckins.value, tags.value, taskTags.value,
-            java.time.ZoneId.systemDefault(), System.currentTimeMillis(), windowDays)
+            zone, System.currentTimeMillis(), windowDays)
 
     // ── W7 · Self-writing weekly review ─────────────────────────────────────────────────────────
     fun weeklyReviewText(): String {
-        val zone = java.time.ZoneId.systemDefault()
+        val zone = this.zone
         val now = System.currentTimeMillis()
         val today = java.time.LocalDate.now(zone)
         val weekStart = today.minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
@@ -2015,19 +2003,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val hs = com.todocompanion.app.domain.habit.HabitStats
         val today = java.time.LocalDate.now(zone).toEpochDay()
         val universe = (0 until windowDays).map { today - it }
-        val uniSet = universe.toSet()
         val metric = tasksCompletedByDay(today - windowDays + 1, today)
-        var best: Pair<com.todocompanion.app.data.entity.HabitEntity, com.todocompanion.app.domain.Reasoning.Keystone>? = null
-        habits.value.filter { !it.paused && !it.archived && it.habitType != "break" }.forEach { h ->
-            val done = habitCheckins.value.filter { it.habitId == h.id && it.status == "done" && hs.meetsGoal(h, it.count) }
-                .map { it.epochDay }.filter { it in uniSet }.toSet()
-            if (done.size < 5) return@forEach
-            val k = com.todocompanion.app.domain.Reasoning.keystone(universe, metric, done)
-            if (k.withN >= 5 && k.withoutN >= 5 && k.avgWith > k.avgWithout && k.lift >= 0.15) {
-                if (best == null || k.lift > best!!.second.lift) best = h to k
-            }
+        val doneByHabit = habitCheckins.value.filter { it.status == "done" }.groupBy { it.habitId }
+        val candidates = habits.value.filter { !it.paused && !it.archived && it.habitType != "break" }
+        return com.todocompanion.app.domain.Reasoning.bestKeystone(candidates, universe, metric) { h ->
+            (doneByHabit[h.id] ?: emptyList()).asSequence()
+                .filter { hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
         }
-        return best
     }
     fun keystoneInsight(windowDays: Int = 60): String? {
         val (h, k) = bestKeystone(windowDays) ?: return null
@@ -2568,7 +2550,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val done = cks.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
             val skip = cks.filter { it.status == "skip" }.map { it.epochDay }.toSet()
             val rel = cks.filter { hs.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
-            val streak = hs.currentStreak(h, done, skip, rel, java.time.LocalDate.now().toEpochDay())
+            val streak = hs.currentStreak(h, done, skip, rel, today())
             if (streak == h.rewardAtStreak) {
                 com.todocompanion.app.reminders.Notifications.showReward(appCtx, h.name, h.rewardText, streak)
                 rewardCelebration.value = h.rewardText
@@ -2944,7 +2926,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun addPrediction(expectation: String, resurfaceEpochDay: Long) = viewModelScope.launch {
         val text = expectation.trim()
         if (text.isBlank()) return@launch
-        val today = java.time.LocalDate.now().toEpochDay()
+        val today = today()
         val p = com.todocompanion.app.domain.Prediction(
             id = java.util.UUID.randomUUID().toString(), createdEpochDay = today,
             resurfaceEpochDay = resurfaceEpochDay.coerceAtLeast(today + 1), expectation = text,
@@ -2954,7 +2936,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         toast("Prediction saved — I'll bring it back on ${java.time.LocalDate.ofEpochDay(p.resurfaceEpochDay)}")
     }
     fun resolvePrediction(id: String, outcomeNote: String, matched: Int) = viewModelScope.launch {
-        val today = java.time.LocalDate.now().toEpochDay()
+        val today = today()
         val cur = settings.value
         repo.saveSettings(cur.copy(predictionsJson = com.todocompanion.app.domain.Predictions.resolve(cur.predictionsJson, id, outcomeNote, matched, today)))
     }
@@ -2982,7 +2964,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // so it can't be abused. Records the repaired day as a settings-side overlay (no DB day is fabricated).
     fun keepStreak(repairDay: Long) = viewModelScope.launch {
         val s = repo.settingsSnapshot()
-        val period = com.todocompanion.app.domain.ReviewCadence.periodKey(java.time.LocalDate.now().toEpochDay())
+        val period = com.todocompanion.app.domain.ReviewCadence.periodKey(today())
         val available = com.todocompanion.app.domain.ReviewCadence.tokensForPeriod(s.streakRepairTokens, s.streakRepairPeriod, period)
         if (available <= 0) return@launch
         val repaired = (s.repairedDaysCsv.split(",").mapNotNull { it.trim().toLongOrNull() } + repairDay).distinct()
@@ -4397,7 +4379,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Seal a note now to be revealed on [revealEpochDay]. The anchor hash over the body proves it wasn't
      *  edited after sealing, and we stamp the current accomplishment count so the reveal can show the delta. */
     fun sealLetter(title: String, body: String, revealEpochDay: Long) = viewModelScope.launch {
-        val today = java.time.LocalDate.now().toEpochDay()
+        val today = today()
         val hash = com.todocompanion.app.domain.done.Integrity.hash("${body}|$today")
         val note = com.todocompanion.app.data.entity.SealedNoteEntity(
             id = java.util.UUID.randomUUID().toString(), createdEpochDay = today,
