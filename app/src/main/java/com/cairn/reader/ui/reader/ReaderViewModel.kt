@@ -57,6 +57,7 @@ class ReaderViewModel @Inject constructor(
     private val semanticRepository: com.cairn.reader.data.repo.SemanticRepository,
     private val summarizer: com.cairn.reader.domain.summary.Summarizer,
     private val markdownExportManager: com.cairn.reader.data.export.MarkdownExportManager,
+    private val ebookExportManager: com.cairn.reader.data.export.EbookExportManager,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -327,6 +328,22 @@ class ReaderViewModel @Inject constructor(
         viewModelScope.launch {
             val doc = runCatching { markdownExportManager.documentFor(itemId) }.getOrNull()
             if (doc != null) onReady(doc.content)
+        }
+    }
+
+    /** Build an EPUB of this article and hand back the file to share (Send to Kindle, Kobo, …). */
+    fun exportEpub(onReady: (java.io.File) -> Unit) {
+        viewModelScope.launch {
+            val file = runCatching { ebookExportManager.epubForItem(itemId) }.getOrNull()
+            if (file != null) onReady(file) else _messages.tryEmit("Couldn't build the EPUB")
+        }
+    }
+
+    /** Build a self-contained full-page HTML snapshot and hand back the file to share or save. */
+    fun exportSnapshot(onReady: (java.io.File) -> Unit) {
+        viewModelScope.launch {
+            val file = runCatching { ebookExportManager.htmlSnapshotForItem(itemId) }.getOrNull()
+            if (file != null) onReady(file) else _messages.tryEmit("Couldn't build the snapshot")
         }
     }
 

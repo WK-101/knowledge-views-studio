@@ -33,6 +33,7 @@ class SettingsViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val backupManager: BackupManager,
     private val markdownExportManager: com.cairn.reader.data.export.MarkdownExportManager,
+    private val ebookExportManager: com.cairn.reader.data.export.EbookExportManager,
     private val blobStore: BlobStore,
     private val storageManager: com.cairn.reader.data.blob.StorageManager,
     private val bookmarkImporter: com.cairn.reader.domain.importer.BookmarkImporter,
@@ -114,6 +115,11 @@ class SettingsViewModel @Inject constructor(
             }
         }.getOrElse { "Couldn't write to that folder" }
         onDone(summary)
+    }
+
+    /** Build one EPUB of the whole curated library and hand back the file to share (Send to Kindle). */
+    fun exportLibraryEpub(onReady: (java.io.File?) -> Unit) = viewModelScope.launch {
+        onReady(runCatching { ebookExportManager.epubForLibrary() }.getOrNull())
     }
 
     /** Restore from a file the user picked — auto-detecting a `.zip` archive vs a `.json` data backup. */

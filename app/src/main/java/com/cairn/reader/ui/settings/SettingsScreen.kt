@@ -42,6 +42,7 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.GridOn
+import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
@@ -342,6 +343,37 @@ fun SettingsScreen(
                 }
                 Text(
                     "Write your whole library as plain Markdown files — one per article, with YAML frontmatter, tags and your highlights — into a folder you pick. Drop it straight into an Obsidian or Logseq vault. Your notes outlive any app.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+
+                Spacer(Modifier.height(16.dp))
+                OutlinedButton(onClick = {
+                    Toast.makeText(context, "Building EPUB…", Toast.LENGTH_SHORT).show()
+                    viewModel.exportLibraryEpub { file ->
+                        if (file == null) {
+                            Toast.makeText(context, "Nothing to export — save some articles first.", Toast.LENGTH_LONG).show()
+                        } else {
+                            runCatching {
+                                val uri = androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
+                                val send = Intent(Intent.ACTION_SEND).apply {
+                                    type = "application/epub+zip"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    putExtra(Intent.EXTRA_SUBJECT, "Cairn Library")
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(Intent.createChooser(send, "Send library to Kindle"))
+                            }
+                        }
+                    }
+                }) {
+                    Icon(Icons.Outlined.MenuBook, contentDescription = null, modifier = Modifier.height(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Send library to Kindle (EPUB)")
+                }
+                Text(
+                    "Bundle your whole library into a single EPUB and send it to your Kindle, Kobo, or any e-reader app. Export a single article to EPUB from its ⋯ menu.",
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),

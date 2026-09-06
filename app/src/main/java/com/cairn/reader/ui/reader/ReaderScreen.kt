@@ -50,6 +50,8 @@ import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
@@ -300,6 +302,22 @@ fun ReaderScreen(
         runCatching { context.startActivity(Intent.createChooser(send, null)) }
     }
 
+    // Share an exported file (EPUB / HTML snapshot) out via the FileProvider.
+    fun shareFile(file: java.io.File, mime: String) {
+        runCatching {
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context, context.packageName + ".fileprovider", file,
+            )
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = mime
+                putExtra(Intent.EXTRA_STREAM, uri)
+                data?.title?.let { putExtra(Intent.EXTRA_SUBJECT, it) }
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(send, null))
+        }
+    }
+
     // Share an imported PDF's actual file out to other apps via the FileProvider.
     fun sharePdf() {
         val path = data?.pdfPath ?: return
@@ -450,6 +468,22 @@ fun ReaderScreen(
                                     onClick = {
                                         showMenu = false
                                         viewModel.exportMarkdown { md -> shareText(md, data?.title) }
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Send to Kindle (EPUB)") },
+                                    leadingIcon = { Icon(Icons.Outlined.MenuBook, contentDescription = null) },
+                                    onClick = {
+                                        showMenu = false
+                                        viewModel.exportEpub { file -> shareFile(file, "application/epub+zip") }
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Save full-page snapshot") },
+                                    leadingIcon = { Icon(Icons.Outlined.Save, contentDescription = null) },
+                                    onClick = {
+                                        showMenu = false
+                                        viewModel.exportSnapshot { file -> shareFile(file, "text/html") }
                                     },
                                 )
                             }

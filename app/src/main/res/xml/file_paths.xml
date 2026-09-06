@@ -4,4 +4,6 @@
     <files-path name="pdfs" path="pdfs/" />
     <!-- Downloaded article images / media staged in cacheDir/media before saving or sharing. -->
     <cache-path name="media" path="media/" />
+    <!-- EPUB / HTML exports staged in cacheDir/exports before sharing out (Kindle, Kobo, etc.). -->
+    <cache-path name="exports" path="exports/" />
 </paths>
