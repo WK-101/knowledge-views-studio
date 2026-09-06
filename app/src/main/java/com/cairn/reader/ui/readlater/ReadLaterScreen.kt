@@ -92,6 +92,8 @@ fun ReadLaterScreen(
 
     androidx.activity.compose.BackHandler(enabled = selecting) { viewModel.clearPicks() }
 
+    Box(Modifier.fillMaxSize()) {
+
     var actionRow by remember { mutableStateOf<ItemListRow?>(null) }
     var moveRow by remember { mutableStateOf<ItemListRow?>(null) }
     var showSave by remember { mutableStateOf(false) }
@@ -148,9 +150,6 @@ fun ReadLaterScreen(
                                     )
                                 }
                             }
-                        }
-                        IconButton(onClick = { showSave = true }) {
-                            Icon(Icons.Filled.Add, contentDescription = "Save a link")
                         }
                         IconButton(onClick = { showHelp = true }) {
                             Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = "How to save newsletters & pages")
@@ -303,6 +302,19 @@ fun ReadLaterScreen(
             confirmButton = { TextButton(onClick = { viewModel.saveLink(text); showSave = false }, enabled = text.isNotBlank()) { Text("Save") } },
             dismissButton = { TextButton(onClick = { showSave = false }) { Text("Cancel") } },
         )
+    }
+
+    // Save-a-link FAB, mirroring the Inbox's add affordance (hidden during multi-select).
+    if (!selecting) {
+        FloatingActionButton(
+            onClick = { showSave = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = padding.calculateBottomPadding() + 16.dp),
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = "Save a link")
+        }
+    }
     }
 }
 

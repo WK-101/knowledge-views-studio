@@ -71,6 +71,14 @@ data class AppPreferences(
     val savedSearches: Set<String> = emptySet(),
     /** Remembered library view mode per scope key (e.g. "col:<id>"), Raindrop-style. */
     val libraryViewByScope: Map<String, LibraryViewMode> = emptyMap(),
+    // -- Library home fold state (remembered across navigation and restarts) --
+    val libraryQuickOpen: Boolean = true,
+    val libraryCollectionsOpen: Boolean = true,
+    val libraryTagsOpen: Boolean = true,
+    /** Collection IDs whose children are collapsed in the Library tree. */
+    val libraryCollapsedCollections: Set<String> = emptySet(),
+    /** Tag paths whose children are collapsed in the Library tree. */
+    val libraryCollapsedTags: Set<String> = emptySet(),
     val seenOnboarding: Boolean = false,
     val swipeRight: SwipeAction = SwipeAction.SAVE,
     val swipeLeft: SwipeAction = SwipeAction.MARK_READ,
@@ -192,6 +200,11 @@ class PreferencesRepository @Inject constructor(
         val HIDE_DUP = booleanPreferencesKey("hide_duplicates")
         val SAVED_SEARCHES = stringSetPreferencesKey("saved_searches")
         val LIBRARY_VIEW_BY_SCOPE = stringSetPreferencesKey("library_view_by_scope")
+        val LIB_QUICK_OPEN = booleanPreferencesKey("library_quick_open")
+        val LIB_COLLECTIONS_OPEN = booleanPreferencesKey("library_collections_open")
+        val LIB_TAGS_OPEN = booleanPreferencesKey("library_tags_open")
+        val LIB_COLLAPSED_COLLECTIONS = stringSetPreferencesKey("library_collapsed_collections")
+        val LIB_COLLAPSED_TAGS = stringSetPreferencesKey("library_collapsed_tags")
         val SEEN_ONBOARDING = booleanPreferencesKey("seen_onboarding")
         val SWIPE_RIGHT = stringPreferencesKey("swipe_right")
         val SWIPE_LEFT = stringPreferencesKey("swipe_left")
@@ -269,6 +282,11 @@ class PreferencesRepository @Inject constructor(
                 val mode = runCatching { LibraryViewMode.valueOf(parts[1]) }.getOrNull() ?: return@mapNotNull null
                 parts[0] to mode
             }.toMap(),
+            libraryQuickOpen = p[Keys.LIB_QUICK_OPEN] ?: true,
+            libraryCollectionsOpen = p[Keys.LIB_COLLECTIONS_OPEN] ?: true,
+            libraryTagsOpen = p[Keys.LIB_TAGS_OPEN] ?: true,
+            libraryCollapsedCollections = p[Keys.LIB_COLLAPSED_COLLECTIONS] ?: emptySet(),
+            libraryCollapsedTags = p[Keys.LIB_COLLAPSED_TAGS] ?: emptySet(),
             seenOnboarding = p[Keys.SEEN_ONBOARDING] ?: false,
             swipeRight = p[Keys.SWIPE_RIGHT]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() } ?: SwipeAction.SAVE,
             swipeLeft = p[Keys.SWIPE_LEFT]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() } ?: SwipeAction.MARK_READ,
@@ -411,6 +429,23 @@ class PreferencesRepository @Inject constructor(
             val kept = existing.filterNot { it.substringBefore(scopeSep) == scopeKey }.toSet()
             prefs[Keys.LIBRARY_VIEW_BY_SCOPE] = kept + "$scopeKey$scopeSep${mode.name}"
         }
+    }
+
+    // -- Library home fold state persistence -----------------------------------
+    suspend fun setLibraryQuickOpen(open: Boolean) = context.dataStore.edit { it[Keys.LIB_QUICK_OPEN] = open }
+    suspend fun setLibraryCollectionsOpen(open: Boolean) = context.dataStore.edit { it[Keys.LIB_COLLECTIONS_OPEN] = open }
+    suspend fun setLibraryTagsOpen(open: Boolean) = context.dataStore.edit { it[Keys.LIB_TAGS_OPEN] = open }
+
+    /** Toggle whether a collection's children are collapsed, persisting the whole set. */
+    suspend fun setCollectionCollapsed(id: String, collapsed: Boolean) = context.dataStore.edit {
+        val set = it[Keys.LIB_COLLAPSED_COLLECTIONS] ?: emptySet()
+        it[Keys.LIB_COLLAPSED_COLLECTIONS] = if (collapsed) set + id else set - id
+    }
+
+    /** Toggle whether a tag node's children are collapsed, persisting the whole set. */
+    suspend fun setTagCollapsed(path: String, collapsed: Boolean) = context.dataStore.edit {
+        val set = it[Keys.LIB_COLLAPSED_TAGS] ?: emptySet()
+        it[Keys.LIB_COLLAPSED_TAGS] = if (collapsed) set + path else set - path
     }
 
     suspend fun addBlockedKeyword(term: String) {

@@ -100,6 +100,25 @@ class LibraryViewModel @Inject constructor(
         preferencesRepository.preferences.map { it.savedSearches.sorted() }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Persisted fold state for the Library home, so sections and tree nodes stay how you left them. */
+    data class FoldState(
+        val quickOpen: Boolean = true,
+        val collectionsOpen: Boolean = true,
+        val tagsOpen: Boolean = true,
+        val collapsedCollections: Set<String> = emptySet(),
+        val collapsedTags: Set<String> = emptySet(),
+    )
+    val foldState: StateFlow<FoldState> =
+        preferencesRepository.preferences.map {
+            FoldState(it.libraryQuickOpen, it.libraryCollectionsOpen, it.libraryTagsOpen, it.libraryCollapsedCollections, it.libraryCollapsedTags)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FoldState())
+
+    fun setQuickOpen(open: Boolean) = viewModelScope.launch { preferencesRepository.setLibraryQuickOpen(open) }
+    fun setCollectionsOpen(open: Boolean) = viewModelScope.launch { preferencesRepository.setLibraryCollectionsOpen(open) }
+    fun setTagsOpen(open: Boolean) = viewModelScope.launch { preferencesRepository.setLibraryTagsOpen(open) }
+    fun setCollectionCollapsed(id: String, collapsed: Boolean) = viewModelScope.launch { preferencesRepository.setCollectionCollapsed(id, collapsed) }
+    fun setTagCollapsed(path: String, collapsed: Boolean) = viewModelScope.launch { preferencesRepository.setTagCollapsed(path, collapsed) }
+
     private val _sort = MutableStateFlow(LibrarySort.NEWEST)
     val sort: StateFlow<LibrarySort> = _sort.asStateFlow()
 

@@ -272,12 +272,19 @@ fun LibraryScreen(
 
         if (scope is LibraryScope.Home && !searching) {
             val smart by viewModel.smartCounts.collectAsStateWithLifecycle()
+            val fold by viewModel.foldState.collectAsStateWithLifecycle()
             LibraryHome(
                 counts = counts,
                 smart = smart,
                 collections = collections,
                 tags = tags,
                 bottomPad = padding.calculateBottomPadding() + 88.dp,
+                fold = fold,
+                onSetQuickOpen = viewModel::setQuickOpen,
+                onSetCollectionsOpen = viewModel::setCollectionsOpen,
+                onSetTagsOpen = viewModel::setTagsOpen,
+                onToggleCollection = viewModel::setCollectionCollapsed,
+                onToggleTag = viewModel::setTagCollapsed,
                 onScope = { viewModel.setScope(it) },
                 onOpenHighlights = onOpenHighlights,
                 onNewCollection = { showCreate = "" },
@@ -655,20 +662,23 @@ private fun LibraryHome(
     collections: List<CollectionWithCount>,
     tags: List<TagWithCount>,
     bottomPad: Dp,
+    fold: LibraryViewModel.FoldState,
+    onSetQuickOpen: (Boolean) -> Unit,
+    onSetCollectionsOpen: (Boolean) -> Unit,
+    onSetTagsOpen: (Boolean) -> Unit,
+    onToggleCollection: (String, Boolean) -> Unit,
+    onToggleTag: (String, Boolean) -> Unit,
     onScope: (LibraryScope) -> Unit,
     onOpenHighlights: () -> Unit,
     onNewCollection: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
-    // Foldable sections (Raindrop-style), each remembered; default open.
-    var quickOpen by remember { mutableStateOf(true) }
-    var collectionsOpen by remember { mutableStateOf(true) }
-    var tagsOpen by remember { mutableStateOf(true) }
-    // Which tree nodes are collapsed (value == true means collapsed / children hidden).
-    val collapsedCol = remember { mutableStateMapOf<String, Boolean>() }
-    val collapsedTag = remember { mutableStateMapOf<String, Boolean>() }
-    val colRows = flattenCollections(collections, collapsedCol.filterValues { it }.keys)
-    val tagRows = buildTagTree(tags, collapsedTag.filterValues { it }.keys)
+    // Foldable state is persisted in prefs (via the ViewModel), so it survives navigation and restarts.
+    val quickOpen = fold.quickOpen
+    val collectionsOpen = fold.collectionsOpen
+    val tagsOpen = fold.tagsOpen
+    val colRows = flattenCollections(collections, fold.collapsedCollections)
+    val tagRows = buildTagTree(tags, fold.collapsedTags)
 
     data class Bucket(val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, val count: Int?, val onClick: () -> Unit)
     val buckets = listOf(
@@ -691,7 +701,7 @@ private fun LibraryHome(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomPad),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item { FoldableSectionHeader("QUICK ACCESS", quickOpen, onToggle = { quickOpen = !quickOpen }) }
+        item { FoldableSectionHeader("QUICK ACCESS", quickOpen, onToggle = { onSetQuickOpen(!quickOpen) }) }
         if (quickOpen) {
             items(buckets.chunked(2)) { pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -714,7 +724,7 @@ private fun LibraryHome(
 
         item {
             FoldableSectionHeader(
-                "COLLECTIONS", collectionsOpen, onToggle = { collectionsOpen = !collectionsOpen },
+                "COLLECTIONS", collectionsOpen, onToggle = { onSetCollectionsOpen(!collectionsOpen) },
                 trailing = {
                     IconButton(onClick = onNewCollection, modifier = Modifier.size(30.dp)) {
                         Icon(Icons.Outlined.Add, contentDescription = "New collection", tint = scheme.primary)
@@ -733,10 +743,11 @@ private fun LibraryHome(
                 }
             } else {
                 items(colRows, key = { it.id }) { r ->
+                    val isCollapsed = r.id in fold.collapsedCollections
                     CollectionTreeItem(
                         name = r.name, count = r.count, depth = r.depth,
-                        hasChildren = r.hasChildren, collapsed = collapsedCol[r.id] == true,
-                        onToggle = { collapsedCol[r.id] = !(collapsedCol[r.id] ?: false) },
+                        hasChildren = r.hasChildren, collapsed = isCollapsed,
+                        onToggle = { onToggleCollection(r.id, !isCollapsed) },
                         onOpen = { onScope(LibraryScope.Collection(r.id, r.name)) },
                     )
                 }
@@ -744,13 +755,14 @@ private fun LibraryHome(
         }
 
         if (tagRows.isNotEmpty()) {
-            item { FoldableSectionHeader("TAGS", tagsOpen, onToggle = { tagsOpen = !tagsOpen }) }
+            item { FoldableSectionHeader("TAGS", tagsOpen, onToggle = { onSetTagsOpen(!tagsOpen) }) }
             if (tagsOpen) {
                 items(tagRows, key = { it.path }) { r ->
+                    val isCollapsed = r.path in fold.collapsedTags
                     TagTreeItem(
                         label = r.label, count = r.totalCount, depth = r.depth,
-                        hasChildren = r.hasChildren, collapsed = collapsedTag[r.path] == true,
-                        onToggle = { collapsedTag[r.path] = !(collapsedTag[r.path] ?: false) },
+                        hasChildren = r.hasChildren, collapsed = isCollapsed,
+                        onToggle = { onToggleTag(r.path, !isCollapsed) },
                         onOpen = if (r.exists && r.tagId != null) ({ onScope(LibraryScope.Tag(r.tagId, r.path)) }) else null,
                     )
                 }
