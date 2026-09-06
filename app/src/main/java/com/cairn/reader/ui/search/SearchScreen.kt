@@ -262,10 +262,7 @@ private fun WebHitRow(hit: WebHit, onOpen: () -> Unit, onSave: () -> Unit) {
     }
 }
 
-private fun typeLabel(type: String): String = when (type) {
-    "ARTICLE" -> "Articles"; "LINK" -> "Links"; "VIDEO" -> "Videos"; "AUDIO" -> "Podcasts"
-    "IMAGE" -> "Images"; "PDF" -> "PDFs"; else -> type.lowercase().replaceFirstChar(Char::uppercase)
-}
+private fun typeLabel(type: String): String = com.cairn.reader.data.db.ItemType.label(type)
 
 @Composable
 private fun SearchHint(title: String, body: String) {

@@ -30,16 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.cairn.reader.audio.TtsReader
-
-private val ListenSpeeds = listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
-
-private fun nextSpeed(current: Float): Float {
-    val i = ListenSpeeds.indexOfFirst { kotlin.math.abs(it - current) < 0.01f }
-    return if (i == -1) 1.0f else ListenSpeeds[(i + 1) % ListenSpeeds.size]
-}
-
-private fun speedLabel(speed: Float): String =
-    if (speed == speed.toInt().toFloat()) "${speed.toInt()}×" else "$speed×"
+import com.cairn.reader.ui.util.nextSpeed
+import com.cairn.reader.ui.util.speedLabel
 
 /** The shared read-aloud bar: previous / play-pause / next, a title + progress, speed and stop.
  *  Previous & next are shown only when a multi-article queue is playing. */

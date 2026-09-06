@@ -601,25 +601,9 @@ private val COVER_TINTS = listOf(
     androidx.compose.ui.graphics.Color(0xFF2E8B94),
 )
 
-private fun typeLabel(type: String): String = when (type) {
-    "ARTICLE" -> "Articles"
-    "LINK" -> "Links"
-    "VIDEO" -> "Videos"
-    "AUDIO" -> "Podcasts"
-    "IMAGE" -> "Images"
-    "PDF" -> "PDFs"
-    else -> type.lowercase().replaceFirstChar(Char::uppercase)
-}
+private fun typeLabel(type: String): String = com.cairn.reader.data.db.ItemType.label(type)
 
-private fun typeLabelSingular(type: String): String = when (type) {
-    "ARTICLE" -> "Article"
-    "LINK" -> "Link"
-    "VIDEO" -> "Video"
-    "AUDIO" -> "Podcast"
-    "IMAGE" -> "Image"
-    "PDF" -> "PDF"
-    else -> type.lowercase().replaceFirstChar(Char::uppercase)
-}
+private fun typeLabelSingular(type: String): String = com.cairn.reader.data.db.ItemType.labelSingular(type)
 
 private fun viewModeLabel(mode: LibraryViewMode): String = when (mode) {
     LibraryViewMode.LIST -> "List"

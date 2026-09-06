@@ -153,8 +153,8 @@ import com.cairn.reader.ui.theme.InterFamily
 import com.cairn.reader.ui.theme.ReadingSerif
 import com.cairn.reader.ui.util.formatAgo
 import com.cairn.reader.ui.util.formatDateTime
-import java.text.BreakIterator
-import java.util.Locale
+import com.cairn.reader.ui.util.nextSpeed
+import com.cairn.reader.ui.util.speedLabel
 
 private val ReaderHPad = 22.dp
 
@@ -1747,16 +1747,6 @@ private fun ToggleRow(title: String, subtitle: String?, checked: Boolean, onChan
     }
 }
 
-private val ListenSpeeds = listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
-
-private fun nextSpeed(current: Float): Float {
-    val i = ListenSpeeds.indexOfFirst { kotlin.math.abs(it - current) < 0.01f }
-    return if (i == -1) 1.0f else ListenSpeeds[(i + 1) % ListenSpeeds.size]
-}
-
-private fun speedLabel(speed: Float): String =
-    if (speed == speed.toInt().toFloat()) "${speed.toInt()}×" else "$speed×"
-
 @Composable
 private fun MiniPlayer(
     state: com.cairn.reader.audio.TtsReader.State,
@@ -1877,20 +1867,5 @@ private fun wordRangeAt(text: String, offset: Int): IntRange? {
     while (s > 0 && text[s - 1].isLetterOrDigit()) s--
     var e = probe
     while (e < text.length && text[e].isLetterOrDigit()) e++
-    return if (e > s) s..(e - 1) else null
-}
-
-/** The character range of the sentence containing [offset], trimmed of surrounding space. */
-private fun sentenceRangeAt(text: String, offset: Int): IntRange? {
-    if (text.isBlank()) return null
-    val iterator = BreakIterator.getSentenceInstance(Locale.getDefault())
-    iterator.setText(text)
-    val probe = offset.coerceIn(0, text.length - 1)
-    val end = iterator.following(probe).let { if (it == BreakIterator.DONE) text.length else it }
-    val start = iterator.previous().let { if (it == BreakIterator.DONE) 0 else it }
-    var e = end
-    while (e > start && text[e - 1].isWhitespace()) e--
-    var s = start
-    while (s < e && text[s].isWhitespace()) s++
     return if (e > s) s..(e - 1) else null
 }
