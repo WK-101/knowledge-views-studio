@@ -245,6 +245,14 @@ class SettingsViewModel @Inject constructor(
     fun setTtsEnabled(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setTtsEnabled(enabled) }
     fun setStripTrackingParams(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setStripTrackingParams(enabled) }
     fun setLinkCheckEnabled(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setLinkCheckEnabled(enabled) }
+
+    /** The on-device diagnostics log (Logcat mirror), for the "Share diagnostics" action. */
+    fun diagnostics(onReady: (String) -> Unit) = viewModelScope.launch {
+        val text = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            com.cairn.reader.util.AppLog.dump().ifBlank { "No diagnostics recorded yet." }
+        }
+        onReady(text)
+    }
     fun setSanitizeArticles(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setSanitizeArticles(enabled) }
     fun setAutoOfflinePack(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setAutoOfflinePack(enabled) }
     fun setDailyBriefNotify(enabled: Boolean) = viewModelScope.launch {

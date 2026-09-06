@@ -36,14 +36,21 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): CairnDatabase =
-        Room.databaseBuilder(context, CairnDatabase::class.java, "cairn.db")
+    fun provideDatabase(@ApplicationContext context: Context): CairnDatabase {
+        // Transparent at-rest encryption. On a fresh install the DB is created encrypted; a legacy
+        // plaintext library is migrated to an encrypted copy (fail-safe: the original is only removed
+        // once the encrypted copy verifies). If migration can't run this session, we open plaintext
+        // so no data is ever lost.
+        val dbFile = context.getDatabasePath("cairn.db")
+        val passphrase = com.cairn.reader.data.db.DbCrypto.passphrase(context)
+        val openEncrypted = com.cairn.reader.data.db.DbCrypto.ensureEncrypted(dbFile, passphrase)
+        val builder = Room.databaseBuilder(context, CairnDatabase::class.java, "cairn.db")
             .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
             // No destructive fallback: a missing migration must fail loudly in dev/CI rather than
             // silently wiping a user's library — the app's core promise is "your data, forever".
-            // Every schema bump ships with its migration (guarded by MigrationTest over the exported
-            // schemas), so upgrades never hit this path.
-            .build()
+        if (openEncrypted) builder.openHelperFactory(com.cairn.reader.data.db.DbCrypto.factory(passphrase))
+        return builder.build()
+    }
 
     @Provides
     fun provideItemDao(db: CairnDatabase): ItemDao = db.itemDao()

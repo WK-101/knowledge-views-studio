@@ -452,6 +452,28 @@ fun SettingsScreen(
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
                 )
+
+                Spacer(Modifier.height(16.dp))
+                OutlinedButton(onClick = {
+                    viewModel.diagnostics { log ->
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "Cairn diagnostics log")
+                            putExtra(Intent.EXTRA_TEXT, log)
+                        }
+                        runCatching { context.startActivity(Intent.createChooser(send, "Share diagnostics log")) }
+                    }
+                }) {
+                    Icon(Icons.Outlined.Description, contentDescription = null, modifier = Modifier.height(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Share diagnostics log")
+                }
+                Text(
+                    "A local, on-device log of warnings and errors (never uploaded). Share it if something misbehaves so the issue can be diagnosed.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
             }
         }
 

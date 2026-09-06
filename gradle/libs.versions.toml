@@ -19,6 +19,8 @@ coroutines = "1.9.0"
 readability4j = "1.0.8"
 jsoup = "1.18.1"
 documentfile = "1.0.1"
+sqlcipher = "4.6.1"
+sqlite = "2.4.0"
 splashscreen = "1.0.1"
 junit = "4.13.2"
 turbine = "1.1.0"
@@ -73,6 +75,8 @@ kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 readability4j = { group = "net.dankito.readability4j", name = "readability4j", version.ref = "readability4j" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
+sqlcipher-android = { group = "net.zetetic", name = "sqlcipher-android", version.ref = "sqlcipher" }
+androidx-sqlite = { group = "androidx.sqlite", name = "sqlite", version.ref = "sqlite" }
 
 # Test
 junit = { group = "junit", name = "junit", version.ref = "junit" }

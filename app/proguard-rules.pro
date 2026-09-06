@@ -32,6 +32,11 @@
 -keep @androidx.room.Entity class * { *; }
 -dontwarn androidx.room.paging.**
 
+# --- SQLCipher (native JNI; must not be renamed/stripped) -------------------
+-keep class net.zetetic.** { *; }
+-keep class androidx.sqlite.** { *; }
+-dontwarn net.zetetic.**
+
 # --- Hilt / Dagger ---------------------------------------------------------
 -dontwarn dagger.hilt.**
 -dontwarn javax.annotation.**

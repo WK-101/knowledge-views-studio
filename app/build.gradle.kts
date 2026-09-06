@@ -16,8 +16,8 @@ android {
         applicationId = "com.cairn.reader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 105
-        versionName = "3.82.0"
+        versionCode = 106
+        versionName = "3.83.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -97,6 +97,9 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+    // SQLCipher: transparent whole-database encryption (key held in the Android Keystore).
+    implementation(libs.sqlcipher.android)
+    implementation(libs.androidx.sqlite)
 
     // WorkManager + Hilt
     implementation(libs.androidx.work.runtime.ktx)
