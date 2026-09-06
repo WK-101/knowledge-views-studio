@@ -8,6 +8,29 @@ import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * The shared [ItemListRow] projection + its item/state/source join, factored out of the ~19 list
+ * queries that were all repeating it verbatim. Room resolves the compile-time constant concatenation
+ * in each @Query, so every list query is `ITEM_LIST_SELECT + " WHERE … ORDER BY …"`. Extra joins
+ * (collections, tags) are appended before the WHERE.
+ */
+private const val ITEM_LIST_COLUMNS = """
+    SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
+           i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
+           i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
+           i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
+           COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
+           COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+    """
+
+/** The [ITEM_LIST_COLUMNS] projection over the standard item + state + source join. Queries that
+ *  add their own joins (FTS, collections, tags) use [ITEM_LIST_COLUMNS] with a bespoke FROM instead. */
+private const val ITEM_LIST_SELECT = ITEM_LIST_COLUMNS + """
+    FROM items i
+    LEFT JOIN item_states s ON s.itemId = i.id
+    LEFT JOIN sources src ON src.id = i.sourceId
+    """
+
 /** Flat projection for list screens — joins item + mutable state + source title. */
 /** Minimal projection for the home-screen list widget. */
 data class WidgetRow(
@@ -91,16 +114,7 @@ interface ItemDao {
     // -- Streams ---------------------------------------------------------------
 
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
-        FROM items i
-        LEFT JOIN item_states s ON s.itemId = i.id
-        LEFT JOIN sources src ON src.id = i.sourceId
+        ITEM_LIST_SELECT + """
         WHERE i.trashedAt IS NULL AND COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isRead, 0) = 0
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
           AND (:folder IS NULL OR src.folder = :folder)
@@ -111,16 +125,7 @@ interface ItemDao {
     fun observeInbox(sourceId: String?, folder: String?): Flow<List<ItemListRow>>
 
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
-        FROM items i
-        LEFT JOIN item_states s ON s.itemId = i.id
-        LEFT JOIN sources src ON src.id = i.sourceId
+        ITEM_LIST_SELECT + """
         WHERE i.trashedAt IS NULL AND (COALESCE(s.isStarred, 0) = 1 OR COALESCE(s.isArchived, 0) = 1 OR COALESCE(s.isReadLater, 0) = 1)
         ORDER BY i.savedAt DESC
         """
@@ -128,16 +133,7 @@ interface ItemDao {
     fun observeLibrary(): Flow<List<ItemListRow>>
 
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
-        FROM items i
-        LEFT JOIN item_states s ON s.itemId = i.id
-        LEFT JOIN sources src ON src.id = i.sourceId
+        ITEM_LIST_SELECT + """
         WHERE i.trashedAt IS NULL AND COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isReadLater, 0) = 1
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
           AND (:folder IS NULL OR src.folder = :folder)
@@ -147,16 +143,7 @@ interface ItemDao {
     fun observeSaved(sourceId: String?, folder: String?): Flow<List<ItemListRow>>
 
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
-        FROM items i
-        LEFT JOIN item_states s ON s.itemId = i.id
-        LEFT JOIN sources src ON src.id = i.sourceId
+        ITEM_LIST_SELECT + """
         WHERE i.trashedAt IS NULL AND COALESCE(s.isArchived, 0) = 0
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
           AND (:folder IS NULL OR src.folder = :folder)
@@ -167,16 +154,7 @@ interface ItemDao {
     fun observeAll(sourceId: String?, folder: String?): Flow<List<ItemListRow>>
 
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
-        FROM items i
-        LEFT JOIN item_states s ON s.itemId = i.id
-        LEFT JOIN sources src ON src.id = i.sourceId
+        ITEM_LIST_SELECT + """
         WHERE i.trashedAt IS NULL AND COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isStarred, 0) = 1
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
           AND (:folder IS NULL OR src.folder = :folder)
@@ -450,13 +428,7 @@ interface ItemDao {
     }
 
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        ITEM_LIST_COLUMNS + """
         FROM item_fts
         JOIN items i ON i.id = item_fts.itemId
         LEFT JOIN item_states s ON s.itemId = i.id
@@ -470,16 +442,7 @@ interface ItemDao {
     // -- Library scopes (Raindrop-style) --------------------------------------
 
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
-        FROM items i
-        LEFT JOIN item_states s ON s.itemId = i.id
-        LEFT JOIN sources src ON src.id = i.sourceId
+        ITEM_LIST_SELECT + """
         WHERE i.trashedAt IS NULL AND (COALESCE(s.isStarred, 0) = 1 OR i.collectionId IS NOT NULL)
         ORDER BY i.savedAt DESC
         """
@@ -487,16 +450,7 @@ interface ItemDao {
     fun observeLibraryAll(): Flow<List<ItemListRow>>
 
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
-        FROM items i
-        LEFT JOIN item_states s ON s.itemId = i.id
-        LEFT JOIN sources src ON src.id = i.sourceId
+        ITEM_LIST_SELECT + """
         WHERE i.trashedAt IS NULL AND i.collectionId IS NULL AND COALESCE(s.isStarred, 0) = 1
         ORDER BY i.savedAt DESC
         """
@@ -504,16 +458,7 @@ interface ItemDao {
     fun observeUnsorted(): Flow<List<ItemListRow>>
 
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
-        FROM items i
-        LEFT JOIN item_states s ON s.itemId = i.id
-        LEFT JOIN sources src ON src.id = i.sourceId
+        ITEM_LIST_SELECT + """
         WHERE i.trashedAt IS NULL AND COALESCE(s.isArchived, 0) = 1
         ORDER BY s.updatedAt DESC, i.savedAt DESC
         """
@@ -521,16 +466,7 @@ interface ItemDao {
     fun observeArchived(): Flow<List<ItemListRow>>
 
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
-        FROM items i
-        LEFT JOIN item_states s ON s.itemId = i.id
-        LEFT JOIN sources src ON src.id = i.sourceId
+        ITEM_LIST_SELECT + """
         WHERE i.trashedAt IS NULL AND COALESCE(s.isStarred, 0) = 1 AND COALESCE(s.isArchived, 0) = 0
         ORDER BY i.savedAt DESC
         """
@@ -538,16 +474,7 @@ interface ItemDao {
     fun observeFavorites(): Flow<List<ItemListRow>>
 
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
-        FROM items i
-        LEFT JOIN item_states s ON s.itemId = i.id
-        LEFT JOIN sources src ON src.id = i.sourceId
+        ITEM_LIST_SELECT + """
         WHERE i.trashedAt IS NULL AND i.cacheStatus = 'PERMANENT'
         ORDER BY i.savedAt DESC
         """
@@ -557,16 +484,7 @@ interface ItemDao {
     /** Everything readable offline: an explicit permanent copy, or an auto-cached full body on disk.
      *  Permanent (archival) copies sort first. Powers the Offline surface. */
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
-        FROM items i
-        LEFT JOIN item_states s ON s.itemId = i.id
-        LEFT JOIN sources src ON src.id = i.sourceId
+        ITEM_LIST_SELECT + """
         WHERE i.trashedAt IS NULL AND (i.cacheStatus = 'PERMANENT' OR (i.extractStatus = 'OK' AND i.blobPath IS NOT NULL))
         ORDER BY (i.cacheStatus = 'PERMANENT') DESC, i.savedAt DESC
         """
@@ -609,13 +527,7 @@ interface ItemDao {
     fun observeLibraryCounts(): Flow<LibraryCounts>
 
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        ITEM_LIST_COLUMNS + """
         FROM items i
         JOIN item_collections ic ON ic.itemId = i.id
         LEFT JOIN item_states s ON s.itemId = i.id
@@ -656,16 +568,7 @@ interface ItemDao {
 
     /** Untagged library items: saved/filed but with no tags — a Raindrop-style cleanup bucket. */
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
-        FROM items i
-        LEFT JOIN item_states s ON s.itemId = i.id
-        LEFT JOIN sources src ON src.id = i.sourceId
+        ITEM_LIST_SELECT + """
         WHERE i.trashedAt IS NULL
           AND (COALESCE(s.isStarred, 0) = 1 OR COALESCE(s.isReadLater, 0) = 1 OR i.collectionId IS NOT NULL)
           AND NOT EXISTS (SELECT 1 FROM item_tags t WHERE t.itemId = i.id)
@@ -676,16 +579,7 @@ interface ItemDao {
 
     /** Broken items: the watchdog marked their link dead. */
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
-        FROM items i
-        LEFT JOIN item_states s ON s.itemId = i.id
-        LEFT JOIN sources src ON src.id = i.sourceId
+        ITEM_LIST_SELECT + """
         WHERE i.trashedAt IS NULL AND i.linkStatus = 'BROKEN'
         ORDER BY i.savedAt DESC
         """
@@ -694,16 +588,7 @@ interface ItemDao {
 
     /** Duplicate items: those whose canonical/plain URL is shared by more than one non-trashed item. */
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
-        FROM items i
-        LEFT JOIN item_states s ON s.itemId = i.id
-        LEFT JOIN sources src ON src.id = i.sourceId
+        ITEM_LIST_SELECT + """
         WHERE i.trashedAt IS NULL AND LOWER(COALESCE(i.canonicalUrl, i.url)) IN (
             SELECT LOWER(COALESCE(canonicalUrl, url)) AS k FROM items
             WHERE trashedAt IS NULL AND COALESCE(canonicalUrl, url) <> ''
@@ -771,13 +656,7 @@ interface ItemDao {
     suspend fun setLinkStatus(id: String, status: String, ts: Long)
 
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        ITEM_LIST_COLUMNS + """
         FROM items i
         JOIN item_tags it ON it.itemId = i.id
         LEFT JOIN item_states s ON s.itemId = i.id
@@ -792,13 +671,7 @@ interface ItemDao {
      *  deduped. Selecting a parent tag therefore shows everything filed anywhere beneath it.
      *  [prefix] must be `path || '/%'`. */
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+        ITEM_LIST_COLUMNS + """
         FROM items i
         JOIN item_tags it ON it.itemId = i.id
         JOIN tags t ON t.id = it.tagId
@@ -815,16 +688,7 @@ interface ItemDao {
 
     /** Everything currently in the Trash, most-recently-trashed first. */
     @Query(
-        """
-        SELECT i.id AS id, i.url AS url, i.title AS title, i.author AS author,
-               i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
-               i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
-               i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
-               COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-               COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
-        FROM items i
-        LEFT JOIN item_states s ON s.itemId = i.id
-        LEFT JOIN sources src ON src.id = i.sourceId
+        ITEM_LIST_SELECT + """
         WHERE i.trashedAt IS NOT NULL
         ORDER BY i.trashedAt DESC
         """
