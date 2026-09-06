@@ -16,8 +16,8 @@ android {
         applicationId = "com.cairn.reader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 114
-        versionName = "3.91.0"
+        versionCode = 115
+        versionName = "3.92.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -79,6 +79,18 @@ android {
     }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    }
+
+    // Per-ABI APK splits: each device downloads only its own native libraries (SQLCipher's
+    // libsqlcipher.so alone is ~5.8 MB per ABI). A single-ABI APK is ~10 MB vs the ~25 MB universal.
+    // A universal APK is still produced as a fallback for unknown ABIs / manual installs.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            isUniversalApk = true
+        }
     }
 }
 
