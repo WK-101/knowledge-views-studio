@@ -1,0 +1,17 @@
+# ART baseline profile — human-readable rules compiled into assets/dexopt/baseline.prof at build
+# time (AGP) and installed by androidx.profileinstaller on the API levels where the platform does
+# not do it automatically. AOT-compiling the hot startup + scroll paths cuts cold-start time and
+# first-frame jank on a fresh install / update, before ART has had a chance to JIT them.
+#
+# Cairn is a single-module app with no cloud tracing to generate a device-traced profile from, so we
+# take the safe, standard fallback: AOT-compile all of the app's own code. R8 has already stripped
+# unused classes, so this stays lean while covering every screen the user can reach on launch.
+#
+# Flags: H = hot, S = startup, P = post-startup. `**` spans package separators; `(**)**` matches any
+# signature. The profile compiler (profgen) expands these against the shipped DEX.
+
+# Every class Cairn ships — load-verify them ahead of time.
+Lcom/cairn/reader/**;
+
+# Every method Cairn ships — mark hot + startup so ART AOT-compiles them.
+HSPLcom/cairn/reader/**->**(**)**

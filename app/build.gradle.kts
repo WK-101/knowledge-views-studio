@@ -103,6 +103,10 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.splashscreen)
+    // Installs the bundled ART baseline profile (src/main/baseline-prof.txt) on first run for the
+    // API levels where the platform doesn't do it automatically, so hot code is AOT-compiled and
+    // cold start / first-scroll jank drops.
+    implementation(libs.androidx.profileinstaller)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.bundles.compose)
