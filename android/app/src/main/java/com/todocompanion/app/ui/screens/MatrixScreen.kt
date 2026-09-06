@@ -29,7 +29,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -59,6 +58,7 @@ import androidx.compose.ui.zIndex
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.priority.PriorityEngine
 import com.todocompanion.app.ui.AppViewModel
+import com.todocompanion.app.ui.components.ToggleRow
 import kotlin.math.roundToInt
 
 private val QUAD = listOf(
@@ -310,8 +310,8 @@ private fun MatrixSettings(vm: AppViewModel, s: com.todocompanion.app.domain.App
         Spacer(Modifier.height(8.dp))
         ThresholdRow("Important when importance ≥", s.matrixImportanceThreshold) { vm.saveSettings(s.copy(matrixImportanceThreshold = it)) }
         ThresholdRow("Urgent when urgency ≥", s.matrixUrgencyThreshold) { vm.saveSettings(s.copy(matrixUrgencyThreshold = it)) }
-        ToggleRow("Show completed", s.matrixShowCompleted) { vm.saveSettings(s.copy(matrixShowCompleted = it)) }
-        ToggleRow("List view (hide empty quadrants)", s.matrixHideEmpty) { vm.saveSettings(s.copy(matrixHideEmpty = it)) }
+        ToggleRow("Show completed", s.matrixShowCompleted, onCheckedChange = { vm.saveSettings(s.copy(matrixShowCompleted = it)) })
+        ToggleRow("List view (hide empty quadrants)", s.matrixHideEmpty, onCheckedChange = { vm.saveSettings(s.copy(matrixHideEmpty = it)) })
 
         androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 12.dp))
         Text("Sort within quadrant", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -338,7 +338,7 @@ private fun MatrixSettings(vm: AppViewModel, s: com.todocompanion.app.domain.App
 
         // Overdue-only.
         Spacer(Modifier.height(8.dp))
-        ToggleRow("Overdue only", s.matrixOverdueOnly) { vm.saveSettings(s.copy(matrixOverdueOnly = it)) }
+        ToggleRow("Overdue only", s.matrixOverdueOnly, onCheckedChange = { vm.saveSettings(s.copy(matrixOverdueOnly = it)) })
 
         // Duration cap. 0 = Any; steps of 15 min up to 4h.
         Spacer(Modifier.height(6.dp))
@@ -429,10 +429,3 @@ private fun ThresholdRow(label: String, value: Int, onChange: (Int) -> Unit) {
     }
 }
 
-@Composable
-private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Switch(checked = checked, onCheckedChange = onChange)
-    }
-}

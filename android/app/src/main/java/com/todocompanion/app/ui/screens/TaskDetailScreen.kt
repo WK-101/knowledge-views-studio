@@ -135,6 +135,7 @@ import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.CardLabel
 import com.todocompanion.app.ui.components.OptionChips
 import com.todocompanion.app.ui.components.Stepper
+import com.todocompanion.app.ui.components.ToggleRow
 import com.todocompanion.app.ui.components.DateTimePickerDialog
 import com.todocompanion.app.ui.components.formatDue
 import com.todocompanion.app.ui.components.formatDueSpan
@@ -1492,10 +1493,7 @@ private fun ScheduleRow(name: String, value: Long?, onSet: () -> Unit, onClear: 
 
 @Composable
 private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Switch(checked = checked, onCheckedChange = onChange)
-    }
+    ToggleRow(title = label, checked = checked, onCheckedChange = onChange)
 }
 
 @Composable

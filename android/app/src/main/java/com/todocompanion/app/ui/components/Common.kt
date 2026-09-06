@@ -466,6 +466,30 @@ fun appCardColor(): Color {
 @Composable
 fun appTileColor(): Color = MaterialTheme.colorScheme.surfaceContainerHigh
 
+/**
+ * The one label-and-switch row. A leading [title] (with optional [subtitle]) and a trailing Material
+ * Switch — the single grammar for every on/off setting, replacing the per-screen Toggle / SwitchRow /
+ * EditorToggle / EditorSwitch / ModToggle clones.
+ */
+@Composable
+fun ToggleRow(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    enabled: Boolean = true,
+) {
+    Row(modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        androidx.compose.material3.Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+    }
+}
+
 /** A white rounded card on the grey ground — the app's one card grammar. [verticalArrangement]
  *  spaces the card's children (defaults to flush, i.e. the caller inserts its own Spacers). Pass
  *  [onClick] for a tappable card, [shape]/[color] only to deviate from the canonical look. */

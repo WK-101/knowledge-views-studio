@@ -402,14 +402,6 @@ private fun SheetRow(icon: androidx.compose.ui.graphics.vector.ImageVector, labe
 }
 
 @Composable
-private fun SheetToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-        androidx.compose.material3.Switch(checked = checked, onCheckedChange = onChange)
-    }
-}
-
-@Composable
 private fun <T> PickListDialog(title: String, options: List<Pair<T, String>>, onDismiss: () -> Unit, onPick: (T) -> Unit) {
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,

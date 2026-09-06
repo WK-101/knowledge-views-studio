@@ -54,7 +54,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -84,6 +83,7 @@ import com.todocompanion.app.data.entity.CountdownEntity
 import com.todocompanion.app.domain.LifeEvent
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.DateOnlyPickerDialog
+import com.todocompanion.app.ui.components.ToggleRow
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -804,10 +804,7 @@ private fun OccasionEditorSheet(vm: AppViewModel, existing: CountdownEntity?, on
 
 @Composable
 private fun EditorSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Switch(checked = checked, onCheckedChange = onChange)
-    }
+    ToggleRow(title = label, checked = checked, onCheckedChange = onChange)
 }
 
 /** R48 — extensive filter state for the Occasions list. Empty/false everywhere = show all. */

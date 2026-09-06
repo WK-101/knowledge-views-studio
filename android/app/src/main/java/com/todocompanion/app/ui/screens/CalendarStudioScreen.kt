@@ -52,6 +52,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.AppTextField
+import com.todocompanion.app.ui.components.ToggleRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -529,10 +530,7 @@ private fun EditorRow(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
 
 @Composable
 private fun EditorToggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-        Switch(checked = checked, onCheckedChange = onChange)
-    }
+    ToggleRow(title = label, checked = checked, onCheckedChange = onChange)
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────────────────────────

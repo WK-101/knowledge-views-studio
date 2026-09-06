@@ -83,7 +83,6 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Switch
 import com.todocompanion.app.domain.Modules
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -113,6 +112,7 @@ import com.todocompanion.app.ui.components.MiniCheck
 import com.todocompanion.app.ui.components.FLAG_COLORS
 import com.todocompanion.app.ui.components.FlagIcons
 import com.todocompanion.app.ui.components.OptionChips
+import com.todocompanion.app.ui.components.ToggleRow
 import java.time.ZoneId
 import com.todocompanion.app.ui.components.appCardColor
 
@@ -1524,10 +1524,7 @@ private fun SettingsGroup(icon: ImageVector, title: String, expanded: Boolean, o
 
 @Composable
 private fun Toggle(title: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(title, Modifier.weight(1f).padding(end = 12.dp))
-        Switch(checked = checked, onCheckedChange = onChange)
-    }
+    ToggleRow(title = title, checked = checked, onCheckedChange = onChange)
 }
 
 @Composable
