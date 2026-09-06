@@ -359,15 +359,17 @@ fun TrashScreen(
             text = {
                 Column {
                     Text(stringResource(R.string.trashed_items_are_permanently_erased_on), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
-                    Spacer(Modifier.height(8.dp))
-                    options.forEach { d ->
-                        Row(
-                            Modifier.fillMaxWidth().clickable { viewModel.setRetentionDays(d); showGrace = false }.padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            androidx.compose.material3.RadioButton(selected = retentionDays == d, onClick = { viewModel.setRetentionDays(d); showGrace = false })
-                            Spacer(Modifier.width(8.dp))
-                            Text(if (d == 0) "Never (keep until emptied)" else "$d days", style = MaterialTheme.typography.bodyLarge)
+                    Spacer(Modifier.height(12.dp))
+                    // Preset chips — the same control the rest of the app uses to pick a duration
+                    // (sync interval, max age, keep-per-feed), so choosing a retention window looks
+                    // and behaves identically everywhere.
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        options.forEach { d ->
+                            FilterChip(
+                                selected = retentionDays == d,
+                                onClick = { viewModel.setRetentionDays(d) },
+                                label = { Text(if (d == 0) stringResource(R.string.never) else "$d days") },
+                            )
                         }
                     }
                 }

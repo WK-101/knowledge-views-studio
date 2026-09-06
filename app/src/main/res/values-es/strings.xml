@@ -54,6 +54,7 @@
     <string name="automate_your_reading">Automatiza tu lectura</string>
     <string name="automatic_backup">Copia de seguridad automática</string>
     <string name="available">Disponible</string>
+    <string name="backup_frequency">Frecuencia</string>
     <string name="back">Atrás</string>
     <string name="back_15_seconds">Retroceder 15 segundos</string>
     <string name="back_fill_missing_thumbnails">Completar miniaturas faltantes</string>
@@ -208,6 +209,7 @@
     <string name="new_rule">Nueva regla</string>
     <string name="new_sub_collection">Nueva subcolección</string>
     <string name="next">Siguiente</string>
+    <string name="never">Nunca</string>
     <string name="no_account_no_lock_in_back">Sin cuenta, sin ataduras. Haz copias de seguridad y exporta a Markdown, EPUB o un archivo completo, cuando quieras.</string>
     <string name="no_account_no_servers_no_lock">Sin cuenta. Sin servidores. Sin ataduras.</string>
     <string name="no_account_no_trackers_no_ads">Sin cuenta. Sin rastreadores. Sin anuncios. Todo lo que guardas se almacena en este dispositivo y se puede leer sin conexión. Cairn solo se conecta a las fuentes y páginas que añades.</string>

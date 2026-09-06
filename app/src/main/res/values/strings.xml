@@ -52,6 +52,7 @@
     <string name="automate_your_reading">Automate your reading</string>
     <string name="automatic_backup">Automatic backup</string>
     <string name="available">Available</string>
+    <string name="backup_frequency">Frequency</string>
     <string name="back">Back</string>
     <string name="back_15_seconds">Back 15 seconds</string>
     <string name="back_fill_missing_thumbnails">Back-fill missing thumbnails</string>
@@ -206,6 +207,7 @@
     <string name="new_rule">New rule</string>
     <string name="new_sub_collection">New sub-collection</string>
     <string name="next">Next</string>
+    <string name="never">Never</string>
     <string name="no_account_no_lock_in_back">No account, no lock-in. Back up and export to Markdown, EPUB, or a full archive — any time.</string>
     <string name="no_account_no_servers_no_lock">No account. No servers. No lock-in.</string>
     <string name="no_account_no_trackers_no_ads">No account. No trackers. No ads. Everything you save is stored on this device and readable offline. Cairn only connects to the feeds and pages you add.</string>

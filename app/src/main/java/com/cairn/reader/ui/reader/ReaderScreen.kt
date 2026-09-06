@@ -1637,26 +1637,23 @@ private fun TypographySheet(
         Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             Text(stringResource(R.string.display), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 12.dp))
 
-            // ---- Text size: a proper A− / value / A+ stepper (Instapaper/Pocket style) -------
+            // ---- Text size: preset chips — the same control (and preset scale) as Settings ›
+            // Appearance, so the one setting looks identical wherever it's edited. Pinch anywhere in
+            // the article for finer, off-preset sizing.
             SheetSectionLabel("TEXT SIZE")
             Spacer(Modifier.height(6.dp))
             Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
             ) {
-                SizeStepButton(label = "A", fontSize = 15.sp, enabled = fontScale > 0.7f) {
-                    onFontScale(((fontScale * 20).toInt() / 20f - 0.05f).coerceIn(0.7f, 2.6f))
-                }
-                Box(
-                    Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(scheme.surfaceContainerHighest).padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("${(fontScale * 100).toInt()}%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
-                }
-                SizeStepButton(label = "A", fontSize = 24.sp, enabled = fontScale < 2.6f) {
-                    onFontScale(((fontScale * 20).toInt() / 20f + 0.05f).coerceIn(0.7f, 2.6f))
-                }
+                listOf(0.8f to "Small", 0.9f to "Cozy", 1.0f to "Default", 1.2f to "Large", 1.5f to "Larger", 2.0f to "Huge")
+                    .forEach { (value, label) ->
+                        FilterChip(
+                            selected = fontScale == value,
+                            onClick = { onFontScale(value) },
+                            label = { Text(label) },
+                        )
+                    }
             }
             Text(stringResource(R.string.or_pinch_anywhere_in_the_article),
                 style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
@@ -1735,22 +1732,6 @@ private fun SheetSectionLabel(text: String) {
         letterSpacing = 1.2.sp,
         fontWeight = FontWeight.Medium,
     )
-}
-
-@Composable
-private fun SizeStepButton(label: String, fontSize: androidx.compose.ui.unit.TextUnit, enabled: Boolean, onClick: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    Box(
-        Modifier
-            .size(56.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(scheme.surfaceContainerHighest)
-            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(4.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(label, fontSize = fontSize, fontWeight = FontWeight.SemiBold, color = if (enabled) scheme.onSurface else scheme.onSurfaceVariant.copy(alpha = 0.4f))
-    }
 }
 
 @Composable

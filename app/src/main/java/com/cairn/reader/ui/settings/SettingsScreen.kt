@@ -406,15 +406,28 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp),
                 )
                 Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedButton(onClick = { backupFolderLauncher.launch(null) }) {
-                        Text(if (prefs.backupFolderUri == null) "Choose folder" else "Change folder")
-                    }
-                    if (prefs.backupFolderUri != null) {
-                        FilterChip(selected = prefs.backupFrequencyHours in 1..47, onClick = { viewModel.setBackupFrequency(24) }, label = { Text(stringResource(R.string.daily)) })
-                        FilterChip(selected = prefs.backupFrequencyHours >= 48, onClick = { viewModel.setBackupFrequency(168) }, label = { Text(stringResource(R.string.weekly)) })
-                        TextButton(onClick = { viewModel.disableBackup() }) { Text(stringResource(R.string.off)) }
-                    }
+                OutlinedButton(onClick = { backupFolderLauncher.launch(null) }) {
+                    Text(if (prefs.backupFolderUri == null) "Choose folder" else "Change folder")
+                }
+                if (prefs.backupFolderUri != null) {
+                    Spacer(Modifier.height(10.dp))
+                    // Frequency as a labeled chip row — the same picker pattern the rest of the app uses
+                    // for a "how often" choice (sync interval, retention windows), instead of a mix of
+                    // chips and a text button.
+                    LabeledChips(
+                        label = stringResource(R.string.backup_frequency),
+                        options = listOf(
+                            0 to stringResource(R.string.off),
+                            24 to stringResource(R.string.daily),
+                            168 to stringResource(R.string.weekly),
+                        ),
+                        selected = when {
+                            prefs.backupFrequencyHours <= 0 -> 0
+                            prefs.backupFrequencyHours in 1..47 -> 24
+                            else -> 168
+                        },
+                        onSelect = { h -> if (h == 0) viewModel.disableBackup() else viewModel.setBackupFrequency(h) },
+                    )
                 }
                 if (prefs.backupFolderUri != null) {
                     Spacer(Modifier.height(8.dp))
