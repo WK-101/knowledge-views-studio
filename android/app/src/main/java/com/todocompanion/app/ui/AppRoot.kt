@@ -87,7 +87,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -155,7 +154,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
 
 private data class NewReq(val isFolder: Boolean, val parentId: String?)
 
-/** Compact, icon-only bottom navigation (TickTick-style) — shorter than the Material NavigationBar. */
+/** Compact bottom navigation — icon + short label per destination; shorter than the Material NavigationBar. */
 @Composable
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 private fun CompactBottomBar(

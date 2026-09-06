@@ -1,10 +1,6 @@
 package com.todocompanion.app.ui.screens
 
-import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,8 +9,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -22,19 +16,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -45,41 +33,28 @@ import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.VideoCall
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Today
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Surface
 import androidx.compose.material3.rememberModalBottomSheetState
 import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.AppTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -93,15 +68,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.todocompanion.app.data.entity.EventCalendarEntity
 import com.todocompanion.app.data.entity.EventEntity
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.calendar.CalendarEngine
-import com.todocompanion.app.domain.weekStartOf
 import com.todocompanion.app.domain.recurrence.Freq
 import com.todocompanion.app.domain.recurrence.Recur
 import com.todocompanion.app.domain.recurrence.Recurrence
@@ -109,13 +81,10 @@ import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.DateTimePickerDialog
 import java.time.Instant
 import java.time.LocalDate
-import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
-
-private enum class CalView(val label: String) { MONTH("Month"), WEEK("Week"), DAY("Day"), AGENDA("Agenda") }
 
 private val CAL_COLORS = listOf(
     0xFF4F46E5, 0xFFE5484D, 0xFFF59E0B, 0xFF12A594, 0xFF3E7BFA, 0xFFEC4899, 0xFF16A34A, 0xFF7C3AED,
@@ -123,158 +92,6 @@ private val CAL_COLORS = listOf(
 // R59 (Wave 1) — event alert offsets come from the one shared preset set, so a "30 min" alert here means
 // the same as a "30 min before" task reminder.
 private val ALERT_CHOICES = com.todocompanion.app.domain.reminders.ReminderPresets.OFFSETS.map { it to com.todocompanion.app.domain.reminders.ReminderPresets.shortLabel(it) }
-
-/**
- * R38 — the DEDICATED CALENDAR. Its own local event store (no calendar-provider, no network): month /
- * week / day / agenda views, colour-coded calendars, recurrence, alerts, natural-language quick add,
- * a real-load heat-map, conflict warnings, a free-slot "find a gap", and .ics import/export. Offline.
- */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-@Composable
-fun CalendarStudioScreen(vm: AppViewModel, onBack: () -> Unit, onOpenTask: (String) -> Unit) {
-    BackHandler(onBack = onBack)
-    val ctx = androidx.compose.ui.platform.LocalContext.current
-    val zone = vm.zoneId
-    val events by vm.events.collectAsState()
-    val calendars by vm.eventCalendars.collectAsState()
-    val settings by vm.settings.collectAsState()
-    val tasks by vm.tasks.collectAsState()   // R60 — so the agenda "booked" figure counts scheduled tasks too
-
-    var view by remember { mutableStateOf(CalView.MONTH) }
-    var monthAnchor by remember { mutableStateOf(YearMonth.now(zone)) }
-    var selectedDay by remember { mutableLongStateOf(LocalDate.now(zone).toEpochDay()) }
-    var editing by remember { mutableStateOf<EventEntity?>(null) }
-    var editorOpen by remember { mutableStateOf(false) }
-    var editorSeedStart by remember { mutableLongStateOf(0L) }
-    var editorSeedEnd by remember { mutableLongStateOf(0L) }
-    var quickOpen by remember { mutableStateOf(false) }
-    var calsOpen by remember { mutableStateOf(false) }
-    var gapOpen by remember { mutableStateOf(false) }
-    var blockOpen by remember { mutableStateOf(false) }
-    var fabMenu by remember { mutableStateOf(false) }
-    var overflow by remember { mutableStateOf(false) }
-    var viewMenu by remember { mutableStateOf(false) }
-
-    val visibleCalIds = remember(calendars) { calendars.filter { it.visible }.map { it.id }.toSet() }
-    val calById = remember(calendars) { calendars.associateBy { it.id } }
-    val shownEvents = remember(events, visibleCalIds) { events.filter { it.calendarId in visibleCalIds } }
-
-    // R45 — ICS import/export via SystemPicker (classic Activity startActivityForResult).
-
-    fun openNew(start: Long, end: Long) { editing = null; editorSeedStart = start; editorSeedEnd = end; editorOpen = true }
-
-    val periodLabel = when (view) {
-        CalView.MONTH -> monthAnchor.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
-        CalView.WEEK -> {
-            val d = LocalDate.ofEpochDay(selectedDay); val ws = weekStartOf(d, settings.weekStart)
-            "${ws.format(DateTimeFormatter.ofPattern("MMM d"))} – ${ws.plusDays(6).format(DateTimeFormatter.ofPattern("MMM d"))}"
-        }
-        CalView.DAY -> LocalDate.ofEpochDay(selectedDay).format(DateTimeFormatter.ofPattern("EEE, MMM d"))
-        CalView.AGENDA -> "Agenda"
-    }
-
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                    title = { Text(periodLabel, style = MaterialTheme.typography.titleLarge, maxLines = 1) },
-                    actions = {
-                        IconButton(onClick = {
-                            when (view) {
-                                CalView.MONTH -> monthAnchor = monthAnchor.minusMonths(1)
-                                CalView.WEEK -> selectedDay -= 7
-                                CalView.DAY -> selectedDay -= 1
-                                CalView.AGENDA -> {}
-                            }
-                        }) { Icon(Icons.Filled.KeyboardArrowLeft, "Previous") }
-                        IconButton(onClick = {
-                            when (view) {
-                                CalView.MONTH -> monthAnchor = monthAnchor.plusMonths(1)
-                                CalView.WEEK -> selectedDay += 7
-                                CalView.DAY -> selectedDay += 1
-                                CalView.AGENDA -> {}
-                            }
-                        }) { Icon(Icons.Filled.KeyboardArrowRight, "Next") }
-                        IconButton(onClick = {
-                            val t = LocalDate.now(zone); monthAnchor = YearMonth.from(t); selectedDay = t.toEpochDay()
-                        }) { Icon(Icons.Filled.Today, "Today") }
-                        Box {
-                            IconButton(onClick = { viewMenu = true }) { Icon(Icons.Filled.CalendarMonth, "View") }
-                            DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
-                                CalView.values().forEach { v ->
-                                    DropdownMenuItem(
-                                        text = { Text(v.label) },
-                                        trailingIcon = { if (v == view) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) },
-                                        onClick = { view = v; viewMenu = false })
-                                }
-                            }
-                        }
-                        Box {
-                            IconButton(onClick = { overflow = true }) { Icon(Icons.Filled.MoreVert, "More") }
-                            DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
-                                DropdownMenuItem(text = { Text("Calendars…") }, onClick = { overflow = false; calsOpen = true })
-                                DropdownMenuItem(text = { Text("Find a gap…") }, onClick = { overflow = false; gapOpen = true })
-                                DropdownMenuItem(text = { Text("Block time for a task…") }, onClick = { overflow = false; blockOpen = true })
-                                DropdownMenuItem(text = { Text("Import .ics") }, onClick = { overflow = false; com.todocompanion.app.util.SystemPicker.openFile(arrayOf("text/calendar", "application/octet-stream", "*/*"), onError = { vm.toastMsg(it) }) { vm.importIcsEvents(it) } })
-                                DropdownMenuItem(text = { Text("Export .ics (file)") }, onClick = { overflow = false; com.todocompanion.app.util.SystemPicker.createFile("text/calendar", "todocompanion-calendar.ics", onError = { vm.exportIcsEventsToDownloads() }) { vm.exportIcsEventsTo(it) } })
-                                DropdownMenuItem(text = { Text("Export .ics (Downloads)") }, onClick = { overflow = false; vm.exportIcsEventsToDownloads() })
-                            }
-                        }
-                    },
-                )
-            },
-            floatingActionButton = {
-                Box {
-                    ExtendedFloatingActionButton(
-                        onClick = { fabMenu = true },
-                        icon = { Icon(Icons.Filled.Add, null) },
-                        text = { Text("Add") },
-                    )
-                    DropdownMenu(expanded = fabMenu, onDismissRequest = { fabMenu = false }) {
-                        DropdownMenuItem(text = { Text("Quick add (type it)") }, leadingIcon = { Icon(Icons.Filled.Search, null, Modifier.size(18.dp)) }, onClick = { fabMenu = false; quickOpen = true })
-                        DropdownMenuItem(text = { Text("New event") }, leadingIcon = { Icon(Icons.Filled.Event, null, Modifier.size(18.dp)) }, onClick = {
-                            fabMenu = false
-                            val d = LocalDate.ofEpochDay(selectedDay)
-                            val s = d.atTime(9, 0).atZone(zone).toInstant().toEpochMilli()
-                            openNew(s, s + 3_600_000L)
-                        })
-                    }
-                }
-            },
-        ) { pad ->
-            Column(Modifier.padding(pad).fillMaxSize()) {
-                when (view) {
-                    CalView.MONTH -> MonthView(
-                        shownEvents, calById, monthAnchor, selectedDay, settings.weekStart, zone,
-                        onPickDay = { selectedDay = it },
-                    )
-                    CalView.WEEK -> WeekStrip(selectedDay, settings.weekStart, zone, shownEvents) { selectedDay = it }
-                    CalView.DAY -> {}
-                    CalView.AGENDA -> {}
-                }
-                when (view) {
-                    CalView.AGENDA -> AgendaList(shownEvents, calById, selectedDay, zone, onOpenTask) { editing = it; editorOpen = true }
-                    else -> DayAgenda(shownEvents, calById, selectedDay, zone, settings.workStartHour, settings.workEndHour, onOpenTask,
-                        onOpen = { editing = it; editorOpen = true }, onNew = { s, e -> openNew(s, e) }, tasks = tasks)
-                }
-            }
-        }
-    }
-
-    if (editorOpen) {
-        EventEditor(
-            vm = vm, zone = zone, calendars = calendars, existing = editing,
-            seedStart = editorSeedStart, seedEnd = editorSeedEnd,
-            onClose = { editorOpen = false; editing = null },
-        )
-    }
-    if (quickOpen) QuickAddDialog(onDismiss = { quickOpen = false }) { text -> vm.quickAddCalendar(text, selectedDay); quickOpen = false }
-    if (calsOpen) CalendarsManager(vm, calendars, onDismiss = { calsOpen = false })
-    if (gapOpen) GapFinder(shownEvents, selectedDay, zone, settings.workStartHour, settings.workEndHour,
-        onDismiss = { gapOpen = false }, tasks = tasks, onPick = { s, e -> gapOpen = false; openNew(s, e) })
-    if (blockOpen) BlockTaskDialog(vm, selectedDay, zone, settings.workStartHour, shownEvents, onDismiss = { blockOpen = false })
-}
 
 // ── Block a task as a calendar time-block (the task ⇄ calendar moat) ───────────────────────────────
 @Composable
@@ -312,222 +129,6 @@ internal fun BlockTaskDialog(vm: AppViewModel, day: Long, zone: ZoneId, workStar
                         }
                     }
                 }
-            }
-        },
-    )
-}
-
-// ── Month grid ───────────────────────────────────────────────────────────────────────────────────
-@Composable
-private fun MonthView(
-    events: List<EventEntity>, calById: Map<String, EventCalendarEntity>, month: YearMonth,
-    selectedDay: Long, weekStart: Int, zone: ZoneId, onPickDay: (Long) -> Unit,
-) {
-    val first = month.atDay(1)
-    val startDow = ((first.dayOfWeek.value - weekStartIso(weekStart)) % 7 + 7) % 7
-    val gridStart = first.minusDays(startDow.toLong())
-    val today = LocalDate.now(zone).toEpochDay()
-    val windowStart = gridStart.atStartOfDay(zone).toInstant().toEpochMilli()
-    val windowEnd = gridStart.plusDays(42).atStartOfDay(zone).toInstant().toEpochMilli()
-    val occ = remember(events, month, weekStart) { CalendarEngine.expand(events, windowStart, windowEnd, zone) }
-    val byDay = remember(occ) { occ.groupBy { Instant.ofEpochMilli(it.startMillis).atZone(zone).toLocalDate().toEpochDay() } }
-    val heat = remember(events, month) { CalendarEngine.busyMinutesByDay(events, gridStart.toEpochDay(), 42, zone) }
-    val maxHeat = (heat.values.maxOrNull() ?: 1).coerceAtLeast(1)
-
-    Column(Modifier.padding(horizontal = 8.dp)) {
-        // weekday header
-        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-            for (i in 0..6) {
-                val dow = java.time.DayOfWeek.of(((weekStartIso(weekStart) - 1 + i) % 7) + 1)
-                Text(dow.getDisplayName(TextStyle.SHORT, Locale.getDefault()).take(3), Modifier.weight(1f),
-                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-            }
-        }
-        for (w in 0 until 6) {
-            Row(Modifier.fillMaxWidth()) {
-                for (d in 0 until 7) {
-                    val date = gridStart.plusDays((w * 7 + d).toLong())
-                    val epoch = date.toEpochDay()
-                    val inMonth = YearMonth.from(date) == month
-                    val isToday = epoch == today
-                    val isSel = epoch == selectedDay
-                    val dayOcc = byDay[epoch].orEmpty()
-                    val busyMin = heat[epoch] ?: 0
-                    val tint = if (busyMin > 0) MaterialTheme.colorScheme.primary.copy(alpha = 0.05f + 0.20f * (busyMin.toFloat() / maxHeat)) else Color.Transparent
-                    Box(
-                        Modifier.weight(1f).aspectRatio(0.82f).padding(1.dp).clip(RoundedCornerShape(8.dp))
-                            .background(if (isSel) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f) else tint)
-                            .then(if (isSel) Modifier.border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)) else Modifier)
-                            .clickable { onPickDay(epoch) }.padding(2.dp),
-                    ) {
-                        Column(Modifier.fillMaxSize()) {
-                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                Box(Modifier.size(20.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent), contentAlignment = Alignment.Center) {
-                                    Text("${date.dayOfMonth}", style = MaterialTheme.typography.labelSmall,
-                                        color = when { isToday -> MaterialTheme.colorScheme.onPrimary; inMonth -> MaterialTheme.colorScheme.onSurface; else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f) })
-                                }
-                            }
-                            dayOcc.take(3).forEach { o ->
-                                val c = colorOf(o.event, calById)
-                                Row(Modifier.fillMaxWidth().padding(top = 1.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Box(Modifier.size(5.dp).clip(CircleShape).background(c))
-                                    Spacer(Modifier.width(2.dp))
-                                    Text(o.event.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp))
-                                }
-                            }
-                            if (dayOcc.size > 3) Text("+${dayOcc.size - 3}", style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ── Week strip (7-day date selector) ────────────────────────────────────────────────────────────
-@Composable
-private fun WeekStrip(selectedDay: Long, weekStart: Int, zone: ZoneId, events: List<EventEntity>, onPick: (Long) -> Unit) {
-    val ws = weekStartOf(LocalDate.ofEpochDay(selectedDay), weekStart)
-    val today = LocalDate.now(zone).toEpochDay()
-    Row(Modifier.fillMaxWidth().padding(8.dp)) {
-        for (i in 0..6) {
-            val date = ws.plusDays(i.toLong()); val epoch = date.toEpochDay()
-            val isSel = epoch == selectedDay; val isToday = epoch == today
-            val has = remember(events, epoch) { CalendarEngine.onDay(events, epoch, zone).isNotEmpty() }
-            Column(
-                Modifier.weight(1f).padding(2.dp).clip(RoundedCornerShape(10.dp))
-                    .background(if (isSel) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else Color.Transparent)
-                    .clickable { onPick(epoch) }.padding(vertical = 6.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()).take(1), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(2.dp))
-                Box(Modifier.size(26.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent), contentAlignment = Alignment.Center) {
-                    Text("${date.dayOfMonth}", style = MaterialTheme.typography.bodyMedium, color = if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
-                }
-                Spacer(Modifier.height(2.dp))
-                Box(Modifier.size(4.dp).clip(CircleShape).background(if (has) MaterialTheme.colorScheme.primary else Color.Transparent))
-            }
-        }
-    }
-}
-
-// ── Single-day agenda (used under Month/Week/Day) ─────────────────────────────────────────────────
-@Composable
-private fun DayAgenda(
-    events: List<EventEntity>, calById: Map<String, EventCalendarEntity>, day: Long, zone: ZoneId,
-    workStart: Int, workEnd: Int, onOpenTask: (String) -> Unit,
-    onOpen: (EventEntity) -> Unit, onNew: (Long, Long) -> Unit, tasks: List<TaskEntity> = emptyList(),
-) {
-    val occ = remember(events, day) { CalendarEngine.onDay(events, day, zone) }
-    val conflicts = remember(occ) { CalendarEngine.conflicts(occ) }
-    val conflictIds = conflicts.flatMap { listOf(it.first.event.id, it.second.event.id) }.toSet()
-    val date = LocalDate.ofEpochDay(day)
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-        item {
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d")), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                val eventMin = occ.filter { it.event.busy && !it.event.allDay }.sumOf { it.durationMin() }
-                // R60 — scheduled tasks count as booked too (excluding those already blocked as an event).
-                val dayStart0 = date.atStartOfDay(zone).toInstant().toEpochMilli(); val dayEnd0 = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-                val taskMin = com.todocompanion.app.domain.calendar.Availability.taskBusyIntervals(tasks, zone, events.mapNotNull { it.linkedTaskId }.toSet())
-                    .filter { it.second > dayStart0 && it.first < dayEnd0 }
-                    .sumOf { ((minOf(it.second, dayEnd0) - maxOf(it.first, dayStart0)) / 60000L).coerceAtLeast(0) }
-                val busy = eventMin + taskMin
-                if (busy > 0) Text(fmtDur(busy.toInt()) + " booked", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        if (conflicts.isNotEmpty()) item {
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.errorContainer).padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Warning, null, tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("${conflicts.size} overlap${if (conflicts.size == 1) "" else "s"} today — two things booked at once.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
-            }
-            Spacer(Modifier.height(6.dp))
-        }
-        if (occ.isEmpty()) item {
-            Column(Modifier.fillMaxWidth().padding(top = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Filled.Event, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), modifier = Modifier.size(40.dp))
-                Spacer(Modifier.height(8.dp))
-                Text("Nothing scheduled", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = { val s = date.atTime(9, 0).atZone(zone).toInstant().toEpochMilli(); onNew(s, s + 3_600_000L) }) { Text("Add an event") }
-            }
-        }
-        items(occ) { o -> EventRow(o, calById, o.event.id in conflictIds, zone, onOpenTask) { onOpen(o.event) } }
-        item { Spacer(Modifier.height(80.dp)) }
-    }
-}
-
-// ── Multi-day agenda ──────────────────────────────────────────────────────────────────────────────
-@Composable
-private fun AgendaList(events: List<EventEntity>, calById: Map<String, EventCalendarEntity>, fromDay: Long, zone: ZoneId, onOpenTask: (String) -> Unit, onOpen: (EventEntity) -> Unit) {
-    val start = LocalDate.ofEpochDay(fromDay).atStartOfDay(zone).toInstant().toEpochMilli()
-    val end = LocalDate.ofEpochDay(fromDay + 45).atStartOfDay(zone).toInstant().toEpochMilli()
-    val occ = remember(events, fromDay) { CalendarEngine.expand(events, start, end, zone) }
-    val byDay = occ.groupBy { Instant.ofEpochMilli(it.startMillis).atZone(zone).toLocalDate().toEpochDay() }.toSortedMap()
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-        if (byDay.isEmpty()) item { Text("Nothing on the calendar in the next 45 days.", Modifier.padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        byDay.forEach { (day, list) ->
-            item {
-                Text(LocalDate.ofEpochDay(day).format(DateTimeFormatter.ofPattern("EEE, MMM d")),
-                    Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-            }
-            items(list) { o -> EventRow(o, calById, false, zone, onOpenTask) { onOpen(o.event) } }
-        }
-        item { Spacer(Modifier.height(80.dp)) }
-    }
-}
-
-@Composable
-private fun EventRow(o: CalendarEngine.Occurrence, calById: Map<String, EventCalendarEntity>, conflict: Boolean, zone: ZoneId, onOpenTask: (String) -> Unit, onClick: () -> Unit) {
-    val c = colorOf(o.event, calById)
-    val hm = DateTimeFormatter.ofPattern("h:mm a")
-    Card(
-        Modifier.fillMaxWidth().padding(vertical = 3.dp).clickable {
-            val t = o.event.linkedTaskId; if (t != null) onOpenTask(t) else onClick()
-        },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
-        shape = RoundedCornerShape(10.dp),
-    ) {
-        Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(4.dp).height(38.dp).clip(RoundedCornerShape(2.dp)).background(c))
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(o.event.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, false))
-                    if (o.event.linkedTaskId != null) { Spacer(Modifier.width(6.dp)); Icon(Icons.Filled.Check, "task block", Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary) }
-                    if (o.event.rrule.isNotBlank()) { Spacer(Modifier.width(6.dp)); Icon(Icons.Filled.Repeat, "repeats", Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    if (conflict) { Spacer(Modifier.width(6.dp)); Icon(Icons.Filled.Warning, "overlap", Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error) }
-                }
-                val time = if (o.event.allDay) "All day" else "${Instant.ofEpochMilli(o.startMillis).atZone(zone).format(hm)} – ${Instant.ofEpochMilli(o.endMillis).atZone(zone).format(hm)}"
-                val loc = o.event.location.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""
-                Text(time + loc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-    }
-}
-
-// ── Quick add (natural language) ──────────────────────────────────────────────────────────────────
-@Composable
-internal fun QuickAddDialog(onDismiss: () -> Unit, onAdd: (String) -> Unit) {
-    var text by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = { if (text.isNotBlank()) onAdd(text) }, enabled = text.isNotBlank()) { Text("Add") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Quick add") },
-        text = {
-            Column {
-                AppTextField(
-                    value = text, onValueChange = { text = it }, modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Lunch with Sam Fri 1pm for 90m at Cafe every week") },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { if (text.isNotBlank()) onAdd(text) }),
-                )
-                Spacer(Modifier.height(8.dp))
-                Text("Understands day, time, duration (\"for 90m\"), \"at <place>\", repeats (\"every week\") and \"alert 30m\". Start with \"todo\" to make it a task.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
     )
@@ -938,8 +539,6 @@ private fun EditorToggle(label: String, checked: Boolean, onChange: (Boolean) ->
 internal fun colorOf(e: EventEntity, calById: Map<String, EventCalendarEntity>): Color =
     Color(e.colorArgb ?: calById[e.calendarId]?.colorArgb ?: 0xFF4F46E5)
 
-private fun weekStartIso(weekStart: Int): Int =
-    if (weekStart in 1..7) weekStart else java.time.temporal.WeekFields.of(Locale.getDefault()).firstDayOfWeek.value
 private fun fmtDur(min: Int): String = when { min < 60 -> "${min}m"; min % 60 == 0 -> "${min / 60}h"; else -> "${min / 60}h ${min % 60}m" }
 
 private fun repeatLabelOf(rrule: String): String {

@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.Density
 import com.todocompanion.app.domain.priority.PriorityLevel
+import com.todocompanion.app.ui.theme.LightKairoColors
 import com.todocompanion.app.ui.theme.LocalKairoColors
 import java.time.Instant
 import java.time.LocalDate
@@ -77,11 +78,14 @@ import java.time.ZoneId
 import java.time.format.TextStyle
 import java.util.Locale
 
+// Priority hues route through the one semantic palette (single source; MEDIUM now matches `warn`
+// instead of a near-duplicate amber). Fixed to the light-palette values — priority tint reads the same
+// in light/dark/AMOLED, which is intentional for at-a-glance ranking.
 fun priorityColor(level: PriorityLevel): Color = when (level) {
-    PriorityLevel.HIGH -> Color(0xFFE5484D)
-    PriorityLevel.MEDIUM -> Color(0xFFF59E0B)
-    PriorityLevel.LOW -> Color(0xFF3E7BFA)
-    PriorityLevel.NONE -> Color(0xFF9AA3B2)
+    PriorityLevel.HIGH -> LightKairoColors.bad
+    PriorityLevel.MEDIUM -> LightKairoColors.warn
+    PriorityLevel.LOW -> LightKairoColors.info
+    PriorityLevel.NONE -> LightKairoColors.neutral
 }
 
 val FLAG_COLORS = listOf(0xFFE5484D, 0xFFF59E0B, 0xFF12A594, 0xFF3E7BFA, 0xFF8B5CF6)
@@ -194,7 +198,7 @@ fun flagStarSize(d: Density): Dp = when (d) {
 @Composable
 fun FlagStar(flagArgb: Long?, starred: Boolean, onCycleFlag: () -> Unit, onToggleStar: () -> Unit, iconSize: Dp = 26.dp) {
     val ghost = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-    val box = iconSize + 16.dp
+    val box = maxOf(iconSize + 16.dp, 48.dp)
     // The "flag" marker uses a BOOKMARK so it's visually distinct from PRIORITY (which is the coloured
     // flag, the TickTick/Todoist convention) — the two used to share the flag icon and looked identical.
     Box(Modifier.size(box).clip(CircleShape).clickable { onCycleFlag() }, contentAlignment = Alignment.Center) {
@@ -281,7 +285,7 @@ fun SmallCheck(checked: Boolean, color: Color, onToggle: () -> Unit) {
     val a11y = if (checked) "Completed. Double-tap to mark incomplete." else "Mark complete."
     Box(
         // Expanded tap area (was 30dp, a sub-spec touch target); the visual check below stays 18dp.
-        Modifier.size(44.dp).clip(CircleShape).semantics { checkboxSemantics(a11y, checked) }.clickable { onToggle() },
+        Modifier.size(48.dp).clip(CircleShape).semantics { checkboxSemantics(a11y, checked) }.clickable { onToggle() },
         contentAlignment = Alignment.Center,
     ) {
         Box(
