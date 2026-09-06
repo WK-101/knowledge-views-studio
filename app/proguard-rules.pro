@@ -16,7 +16,6 @@
 # WorkManager via class name; widget/notification receivers are referenced by name.
 -keep class com.cairn.reader.data.db.** { *; }
 -keep class com.cairn.reader.data.export.** { *; }
--keep class com.cairn.reader.domain.model.** { *; }
 -keep class com.cairn.reader.work.** { *; }
 -keep class com.cairn.reader.widget.** { *; }
 -keep class com.cairn.reader.notifications.** { *; }
