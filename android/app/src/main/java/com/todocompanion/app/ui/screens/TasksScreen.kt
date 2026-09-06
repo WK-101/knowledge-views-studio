@@ -129,6 +129,7 @@ import com.todocompanion.app.ui.components.FlagStar
 import com.todocompanion.app.ui.components.PriorityCheckbox
 import com.todocompanion.app.ui.components.TaskMeta
 import com.todocompanion.app.ui.components.rowVerticalPadding
+import com.todocompanion.app.ui.components.AppCard
 
 @Composable
 fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier, onOpenOccasion: (String?) -> Unit = {}, onOpenRoutineRun: (String) -> Unit = {}) {
@@ -856,8 +857,7 @@ private fun HabitsDueStrip(vm: AppViewModel) {
     // R34: the habits card is foldable — unfolded by default, but the header collapses it so the task
     // list is one tap away when the day's habits aren't the focus. State survives scroll & restart.
     var expanded by rememberSaveable { mutableStateOf(true) }
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
-        Column(Modifier.padding(12.dp)) {
+    AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 12.dp) {
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { expanded = !expanded }.padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -891,7 +891,6 @@ private fun HabitsDueStrip(vm: AppViewModel) {
                     }
                 }
             }
-        }
     }
 }
 
@@ -906,8 +905,7 @@ private fun RoutinesDueStrip(vm: AppViewModel, onOpenRoutineRun: (String) -> Uni
     val due = remember(settings.routinesJson, settings.routineRunsJson) { vm.routinesDueToday() }
     if (due.isEmpty()) return
     var expanded by rememberSaveable { mutableStateOf(true) }
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
-        Column(Modifier.padding(12.dp)) {
+    AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 12.dp) {
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { expanded = !expanded }.padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -953,7 +951,6 @@ private fun RoutinesDueStrip(vm: AppViewModel, onOpenRoutineRun: (String) -> Uni
                     }
                 }
             }
-        }
     }
 }
 
@@ -967,8 +964,7 @@ private fun PlansStrip(vm: AppViewModel) {
     val ifThen = plans.filter { it.kind == com.todocompanion.app.domain.MicroPlans.IF_THEN }
     val bundles = plans.filter { it.kind == com.todocompanion.app.domain.MicroPlans.BUNDLE }
     var expanded by rememberSaveable { mutableStateOf(true) }
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
-        Column(Modifier.padding(12.dp)) {
+    AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 12.dp) {
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { expanded = !expanded }.padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -998,7 +994,6 @@ private fun PlansStrip(vm: AppViewModel) {
                     }
                 }
             }
-        }
     }
 }
 
@@ -1098,14 +1093,12 @@ private fun TaskLessonStrip(vm: AppViewModel) {
     val childCounts = remember(tasks) { tasks.filter { it.parentId != null }.groupingBy { it.parentId!! }.eachCount() }
     val lesson = remember(tasks, hour) { com.todocompanion.app.domain.task.TaskCoach.todayLesson(tasks, childCounts, hour, now, dayStartMin = settings.dayStartMinuteOfDay()) }
     if (lesson == null) return
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
-        Column(Modifier.padding(14.dp)) {
+    AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 14.dp) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(lesson.emoji, Modifier.padding(end = 10.dp), style = MaterialTheme.typography.titleMedium)
                 Text(lesson.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             }
             Text(lesson.body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-        }
     }
 }
 
@@ -1120,15 +1113,13 @@ private fun ShutdownStrip(vm: AppViewModel) {
     if (hour < 17) return
     val open = remember(tasks, today) { com.todocompanion.app.domain.habit.FourthWave.shutdownCarryForward(tasks, today) }
     if (open.isEmpty()) return
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
-        Column(Modifier.padding(14.dp)) {
+    AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 14.dp) {
             Text("🌇 Daily shutdown", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             Text("${open.size} task${if (open.size == 1) "" else "s"} still open for today. Carry them forward and close the day — an intentional stop, not a loose end.",
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
             Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 androidx.compose.material3.FilledTonalButton(onClick = { vm.carryForwardTasks(open.map { it.id }) }) { Text("Carry ${open.size} to tomorrow") }
             }
-        }
     }
 }
 
@@ -1147,8 +1138,7 @@ private fun BookendCard(vm: AppViewModel) {
     if (alreadyDone) return
     var text by remember(evening, today) { mutableStateOf("") }
     var mood by remember(evening, today) { mutableIntStateOf(0) }
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
-        Column(Modifier.padding(14.dp)) {
+    AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 14.dp) {
             Text(if (evening) "🌙 Evening review" else "🌅 Morning intention", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             Text(if (evening) "One honest line on how today went." else "One line on what today is for.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.size(6.dp))
@@ -1164,7 +1154,6 @@ private fun BookendCard(vm: AppViewModel) {
                     if (evening) vm.saveEveningReflection(today, text, mood) else vm.saveMorningIntention(today, text, mood)
                 }) { Text("Save") }
             }
-        }
     }
 }
 
@@ -1195,8 +1184,7 @@ private fun CountdownDueStrip(vm: AppViewModel, kind: SmartKind, onOpenOccasion:
     val shown = relevant.take(cap)
     // R51 — the Scheduled strip is collapsible (open by default) so a long Scheduled list can hide it.
     var expanded by remember(kind) { mutableStateOf(true) }
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
-        Column(Modifier.padding(12.dp)) {
+    AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 12.dp) {
             Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }, verticalAlignment = Alignment.CenterVertically) {
                 Text(if (expanded) "▾ Occasions" else "▸ Occasions", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                 if (!expanded) Text("  (${relevant.size})", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1222,7 +1210,6 @@ private fun CountdownDueStrip(vm: AppViewModel, kind: SmartKind, onOpenOccasion:
                     )
                 }
             }
-        }
     }
 }
 
@@ -1252,8 +1239,7 @@ private fun WorkloadStrip(vm: AppViewModel) {
     }
     if (loads.all { it.third == 0 }) return
     val over = loads.count { it.second > capMin(it.first) }
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
-        Column(Modifier.padding(14.dp)) {
+    AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 14.dp) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Workload · next 7 days", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 Text(
@@ -1293,7 +1279,6 @@ private fun WorkloadStrip(vm: AppViewModel) {
                     }
                 }
             }
-        }
     }
 }
 

@@ -38,7 +38,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -68,6 +67,7 @@ import com.todocompanion.app.domain.Goals
 import com.todocompanion.app.domain.KeyResult
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.AppTextField
 import com.todocompanion.app.ui.components.DateOnlyPickerDialog
 import com.todocompanion.app.ui.components.DoneTick
 import com.todocompanion.app.ui.components.EmojiGridPicker
@@ -485,10 +485,10 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(cur, { cur = cleanDecimal(it) }, label = { Text("Current${if (unit.isBlank()) "" else " ($unit)"}") }, singleLine = true, modifier = Modifier.weight(1f))
-                        OutlinedTextField(tgt, { tgt = cleanDecimal(it) }, label = { Text("Target") }, singleLine = true, modifier = Modifier.weight(1f))
+                        AppTextField(cur, { cur = cleanDecimal(it) }, label = { Text("Current${if (unit.isBlank()) "" else " ($unit)"}") }, singleLine = true, modifier = Modifier.weight(1f))
+                        AppTextField(tgt, { tgt = cleanDecimal(it) }, label = { Text("Target") }, singleLine = true, modifier = Modifier.weight(1f))
                     }
-                    OutlinedTextField(unit, { unit = it.take(8) }, label = { Text("Unit") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    AppTextField(unit, { unit = it.take(8) }, label = { Text("Unit") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
             },
             confirmButton = {
@@ -578,11 +578,11 @@ private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, on
                     Box(Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)).clickable { pickEmoji = true }, contentAlignment = Alignment.Center) {
                         Text(emoji.ifBlank { "🎯" }, fontSize = 26.sp)
                     }
-                    OutlinedTextField(name, { name = it }, label = { Text("Goal name") }, singleLine = true, modifier = Modifier.weight(1f))
+                    AppTextField(name, { name = it }, label = { Text("Goal name") }, singleLine = true, modifier = Modifier.weight(1f))
                 }
-                OutlinedTextField(note, { note = it }, label = { Text("Why — the reason that pulls you") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(identity, { identity = it }, label = { Text("Identity — “the kind of person who…”") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(area, { area = it }, label = { Text("Area of focus (GTD)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                AppTextField(note, { note = it }, label = { Text("Why — the reason that pulls you") }, modifier = Modifier.fillMaxWidth())
+                AppTextField(identity, { identity = it }, label = { Text("Identity — “the kind of person who…”") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                AppTextField(area, { area = it }, label = { Text("Area of focus (GTD)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 if (knownAreas.isNotEmpty()) OptionChips(knownAreas, area.trim().ifBlank { null }, { area = it }, wrap = true, spacing = 6) { it }
 
                 AppCard {
@@ -595,7 +595,7 @@ private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, on
                     OptionChips(listOf("") + liveActs.map { it.id }, activityId, { activityId = it }, wrap = false, spacing = 6) { id -> if (id.isBlank()) "None" else liveActs.firstOrNull { it.id == id }?.let { (it.emoji?.plus(" ") ?: "") + it.name } ?: "" }
                     if (activityId.isNotBlank()) {
                         Spacer(Modifier.height(6.dp))
-                        OutlinedTextField(budgetH, { v -> budgetH = v.filter { it.isDigit() }.take(4) }, label = { Text("Budget (hours)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        AppTextField(budgetH, { v -> budgetH = v.filter { it.isDigit() }.take(4) }, label = { Text("Budget (hours)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     }
                 }
 
@@ -641,7 +641,7 @@ private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, on
                 milestones.forEachIndexed { i, m ->
                     AppCard {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(m.title, { milestones[i] = m.copy(title = it) }, label = { Text("Milestone ${i + 1}") }, singleLine = true, modifier = Modifier.weight(1f))
+                            AppTextField(m.title, { milestones[i] = m.copy(title = it) }, label = { Text("Milestone ${i + 1}") }, singleLine = true, modifier = Modifier.weight(1f))
                             IconButton(onClick = { if (i > 0) { val t = milestones[i - 1]; milestones[i - 1] = milestones[i]; milestones[i] = t } }, enabled = i > 0) { Icon(Icons.Filled.KeyboardArrowUp, "Up") }
                             IconButton(onClick = { milestones.removeAt(i) }) { Icon(Icons.Filled.Delete, "Delete", tint = faint) }
                         }
@@ -668,19 +668,19 @@ private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, on
                         var targetRaw by remember(kr.id) { mutableStateOf(editNum(kr.target)) }
                         fun clean(s: String) = cleanDecimal(s)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(kr.title, { keyResults[i] = kr.copy(title = it) }, label = { Text("Result ${i + 1}") }, singleLine = true, modifier = Modifier.weight(1f))
+                            AppTextField(kr.title, { keyResults[i] = kr.copy(title = it) }, label = { Text("Result ${i + 1}") }, singleLine = true, modifier = Modifier.weight(1f))
                             IconButton(onClick = { keyResults.removeAt(i) }) { Icon(Icons.Filled.Delete, "Delete", tint = faint) }
                         }
                         Spacer(Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             // Start is the baseline the fraction measures from (a "run 2→5 km" KR is 0% at 2, not at 0).
-                            OutlinedTextField(startRaw, { s -> startRaw = clean(s); keyResults[i] = kr.copy(start = startRaw.toDoubleOrNull() ?: kr.start) }, label = { Text("Start") }, singleLine = true, modifier = Modifier.weight(1f))
-                            OutlinedTextField(nowRaw, { s -> nowRaw = clean(s); keyResults[i] = kr.copy(current = nowRaw.toDoubleOrNull() ?: kr.current) }, label = { Text("Now") }, singleLine = true, modifier = Modifier.weight(1f))
+                            AppTextField(startRaw, { s -> startRaw = clean(s); keyResults[i] = kr.copy(start = startRaw.toDoubleOrNull() ?: kr.start) }, label = { Text("Start") }, singleLine = true, modifier = Modifier.weight(1f))
+                            AppTextField(nowRaw, { s -> nowRaw = clean(s); keyResults[i] = kr.copy(current = nowRaw.toDoubleOrNull() ?: kr.current) }, label = { Text("Now") }, singleLine = true, modifier = Modifier.weight(1f))
                         }
                         Spacer(Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(targetRaw, { s -> targetRaw = clean(s); keyResults[i] = kr.copy(target = targetRaw.toDoubleOrNull() ?: kr.target) }, label = { Text("Target") }, singleLine = true, modifier = Modifier.weight(1f))
-                            OutlinedTextField(kr.unit, { keyResults[i] = kr.copy(unit = it.take(8)) }, label = { Text("Unit") }, singleLine = true, modifier = Modifier.weight(1f))
+                            AppTextField(targetRaw, { s -> targetRaw = clean(s); keyResults[i] = kr.copy(target = targetRaw.toDoubleOrNull() ?: kr.target) }, label = { Text("Target") }, singleLine = true, modifier = Modifier.weight(1f))
+                            AppTextField(kr.unit, { keyResults[i] = kr.copy(unit = it.take(8)) }, label = { Text("Unit") }, singleLine = true, modifier = Modifier.weight(1f))
                         }
                     }
                 }
@@ -747,7 +747,7 @@ private fun WeeklyReviewDialog(vm: AppViewModel, scope: String, goals: List<Goal
                 Stepper(kept, { kept = it.coerceAtMost(total) }, min = 0, max = 20, step = 1, label = "Kept", display = { "$it" })
                 Stepper(total, { total = it; if (kept > total) kept = total }, min = 0, max = 20, step = 1, label = "Made", display = { "$it" })
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(note, { note = it }, label = { Text("One line: what's the next lead measure?") }, modifier = Modifier.fillMaxWidth())
+                AppTextField(note, { note = it }, label = { Text("One line: what's the next lead measure?") }, modifier = Modifier.fillMaxWidth())
             }
         },
         confirmButton = { TextButton(onClick = { vm.logGoalReview(scope, execution, kept, total, note); onDismiss() }) { Text("Log review") } },

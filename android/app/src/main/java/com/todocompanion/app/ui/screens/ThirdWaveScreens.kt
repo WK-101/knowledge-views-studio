@@ -28,7 +28,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -53,6 +52,9 @@ import androidx.compose.ui.unit.sp
 import com.todocompanion.app.domain.habit.ThirdWave
 import com.todocompanion.app.ui.AppViewModel
 import java.time.LocalDate
+import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.AppTextField
+import com.todocompanion.app.ui.components.appCardColor
 
 /**
  * R35 — the third-wave screens (Causal Life Lab, values-time mirror, behavioral activation, routine
@@ -121,9 +123,7 @@ private fun ExperimentsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit:
                 val e = exps[i]
                 val h = habits.firstOrNull { it.id == e.habitId }
                 val res = remember(e, checkins, tasks, dayLogs, today) { ThirdWave.analyzeExperiment(e, h ?: return@remember null, checkins, tasks, today, zone = vm.zoneId, dayLogs = dayLogs) }
-                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
-                    modifier = Modifier.fillMaxWidth().clickable { h?.let { onOpenHabit(it.id) } }) {
-                    Column(Modifier.padding(16.dp)) {
+                AppCard(onClick = { h?.let { onOpenHabit(it.id) } }, padding = 16.dp) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("${h?.emoji?.plus(" ") ?: ""}${h?.name ?: "?"} → ${e.outcome}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                             IconButton(onClick = { vm.deleteExperiment(e.id) }) { Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -138,7 +138,6 @@ private fun ExperimentsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit:
                             Text(if (res.confident) "Enough data to trust the direction." else "Keep going — more days will firm this up. (${res.nOn}/${res.nOff} days)",
                                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         } else Text("Log the outcome as the blocks run — remember to add a mood/energy tag when you check the habit off.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
-                    }
                 }
             }
         }
@@ -191,7 +190,7 @@ private fun ValuesTimeScreen(vm: AppViewModel, onBack: () -> Unit) {
                 val vt = audit[i]
                 val color = vt.value.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
                 val share = vt.minutes.toFloat() / total
-                Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                Surface(shape = RoundedCornerShape(14.dp), color = appCardColor()) {
                     Column(Modifier.padding(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text((vt.value.emoji?.plus(" ") ?: "") + vt.value.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
@@ -223,7 +222,7 @@ private fun ActivationScreen(vm: AppViewModel, onBack: () -> Unit) {
                     Text("Schedule a small, values-linked activity for today — and act before motivation shows up. Afterwards, rate it for pleasure and mastery. Doing comes first; the mood follows.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(text, { text = it }, label = { Text("A small win (“10-min walk”, “call a friend”)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    AppTextField(text, { text = it }, label = { Text("A small win (“10-min walk”, “call a friend”)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     if (values.isNotEmpty()) {
                         Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             values.take(5).forEach { v -> FilterChip(selected = valueId == v.id, onClick = { valueId = if (valueId == v.id) null else v.id }, label = { Text((v.emoji?.plus(" ") ?: "") + v.name) }) }
@@ -237,7 +236,7 @@ private fun ActivationScreen(vm: AppViewModel, onBack: () -> Unit) {
                 if (todays.isEmpty()) item { TWEmpty("🌤️", "Nothing scheduled", "Add a small, values-aligned activity above — the antidote to a low, flat day.") }
                 items(todays.size) { i ->
                     val it = todays[i]
-                    Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                    Surface(shape = RoundedCornerShape(14.dp), color = appCardColor()) {
                         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(it.text, style = MaterialTheme.typography.bodyLarge, textDecoration = if (it.done) androidx.compose.ui.text.style.TextDecoration.LineThrough else null)

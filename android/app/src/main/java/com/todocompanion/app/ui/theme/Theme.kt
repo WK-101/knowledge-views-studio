@@ -38,6 +38,16 @@ private fun lightScheme(primary: Color) = lightColorScheme(
     background = Color(0xFFF4F5F8),
     surface = Color(0xFFFFFFFF),
     surfaceVariant = Color(0xFFECEEF3),
+    // M3 tonal surface roles (the modern replacement for `surface` + tonalElevation). The app's
+    // aesthetic is white cards on a soft grey ground, so cards sit at the *lowest* container
+    // (white) and nested tiles step up in tone.
+    surfaceDim = Color(0xFFDDDEE6),
+    surfaceBright = Color(0xFFFFFFFF),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFFBFBFD),
+    surfaceContainer = Color(0xFFF6F7FB),
+    surfaceContainerHigh = Color(0xFFF0F1F6),
+    surfaceContainerHighest = Color(0xFFEAEBF2),
 )
 
 private fun darkScheme(primary: Color, black: Boolean) = darkColorScheme(
@@ -55,6 +65,15 @@ private fun darkScheme(primary: Color, black: Boolean) = darkColorScheme(
     background = if (black) Color(0xFF000000) else Color(0xFF111319),
     surface = if (black) Color(0xFF0A0B0F) else Color(0xFF191C24),
     surfaceVariant = if (black) Color(0xFF16181E) else Color(0xFF212530),
+    // Tonal surface roles. On AMOLED the ground is pure black for battery, but cards lift a step
+    // off it (surfaceContainer) so they read as real surfaces instead of vanishing into black.
+    surfaceDim = if (black) Color(0xFF000000) else Color(0xFF0E1015),
+    surfaceBright = if (black) Color(0xFF24262C) else Color(0xFF32363F),
+    surfaceContainerLowest = if (black) Color(0xFF000000) else Color(0xFF0F1116),
+    surfaceContainerLow = if (black) Color(0xFF0C0D12) else Color(0xFF1B1E27),
+    surfaceContainer = if (black) Color(0xFF121318) else Color(0xFF1F232C),
+    surfaceContainerHigh = if (black) Color(0xFF191B21) else Color(0xFF262A34),
+    surfaceContainerHighest = if (black) Color(0xFF212329) else Color(0xFF30343E),
 )
 
 // Material 3 Expressive-leaning refresh (C4): rounder, more generous shapes across every component
@@ -67,14 +86,23 @@ val AppShapes = Shapes(
     extraLarge = RoundedCornerShape(34.dp),
 )
 
-// Bolder headings + slightly tighter tracking give the type an expressive, confident tone.
+// A complete, expressive type scale — not just heading overrides. Display + headline run bold with
+// tight tracking for a confident tone; titles are semibold; labels get a touch of tracking so the
+// small-caps card labels and chips read cleanly. Body stays on the M3 defaults (well-tuned already).
 val AppTypography = Typography().run {
     copy(
+        displayLarge = displayLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = (-1).sp),
+        displayMedium = displayMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
+        displaySmall = displaySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.25).sp),
         headlineLarge = headlineLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
         headlineMedium = headlineMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.25).sp),
         headlineSmall = headlineSmall.copy(fontWeight = FontWeight.SemiBold),
         titleLarge = titleLarge.copy(fontWeight = FontWeight.SemiBold),
         titleMedium = titleMedium.copy(fontWeight = FontWeight.SemiBold),
+        titleSmall = titleSmall.copy(fontWeight = FontWeight.SemiBold),
+        labelLarge = labelLarge.copy(fontWeight = FontWeight.SemiBold),
+        labelMedium = labelMedium.copy(letterSpacing = 0.4.sp),
+        labelSmall = labelSmall.copy(letterSpacing = 0.6.sp),
     )
 }
 
@@ -108,5 +136,10 @@ fun AppTheme(
         dark -> darkScheme(BrandDark, false)
         else -> lightScheme(Brand)
     }
-    MaterialTheme(colorScheme = colors, typography = AppTypography, shapes = AppShapes, content = content)
+    // Semantic tokens (good/warn/bad/info + chart palette) travel alongside the M3 scheme so every
+    // screen reads one adaptive source instead of hard-coding status hexes.
+    val kairo = if (dark) DarkKairoColors else LightKairoColors
+    androidx.compose.runtime.CompositionLocalProvider(LocalKairoColors provides kairo) {
+        MaterialTheme(colorScheme = colors, typography = AppTypography, shapes = AppShapes, content = content)
+    }
 }

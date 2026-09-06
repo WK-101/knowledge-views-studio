@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import com.todocompanion.app.ui.components.priorityColor
+import com.todocompanion.app.ui.theme.LocalKairoColors
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -138,6 +139,7 @@ import com.todocompanion.app.ui.components.DateTimePickerDialog
 import com.todocompanion.app.ui.components.formatDue
 import com.todocompanion.app.ui.components.formatDueSpan
 import kotlin.math.roundToInt
+import com.todocompanion.app.ui.components.appCardColor
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -713,7 +715,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     val pred = byId[dep.dependsOnTaskId]
                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(if (pred?.completed == true) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked, null,
-                            tint = if (pred?.completed == true) Color(0xFF12A594) else MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
+                            tint = if (pred?.completed == true) LocalKairoColors.current.good else MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(pred?.title ?: "(deleted task)", Modifier.weight(1f), maxLines = 1)
                         IconButton(onClick = { vm.removeDependency(dep) }) { Icon(Icons.Filled.Close, "Remove", modifier = Modifier.size(18.dp)) }
@@ -1657,7 +1659,7 @@ private fun TaskCoachCard(vm: AppViewModel, task: com.todocompanion.app.data.ent
     val hasAny = lesson != null || task.deferCount >= 2 || reliability != null || values.isNotEmpty() || myEscrows.isNotEmpty() || !task.completed
     if (!hasAny) return
 
-    Surface(Modifier.fillMaxWidth().padding(top = 10.dp), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+    Surface(Modifier.fillMaxWidth().padding(top = 10.dp), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Coach", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = color)
 

@@ -92,6 +92,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import com.todocompanion.app.ui.components.appCardColor
 
 private val PALETTE = listOf(0xFF3E7BFAL, 0xFFE5484DL, 0xFFF59E0BL, 0xFF16A34AL, 0xFF8B5CF6L, 0xFF0EA5E9L, 0xFFEC4899L, 0xFF64748BL)
 private fun fmtDur(min: Int): String = when {
@@ -234,7 +235,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                 if (hist.isEmpty()) Text("No tracked time yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 else Column(Modifier.verticalScroll(rememberScrollState())) {
                     hist.take(200).forEach { e ->
-                        Surface(onClick = { historyFor = null; editEntry = e }, shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+                        Surface(onClick = { historyFor = null; editEntry = e }, shape = RoundedCornerShape(10.dp), color = appCardColor(), modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
                             Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
                                     Text(Instant.ofEpochMilli(e.startMillis).atZone(zone).format(DateTimeFormatter.ofPattern("EEE, MMM d")), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
@@ -606,7 +607,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                 dayEntries.forEach { e ->
                     val a = actById[e.activityId]
                     val c = a?.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
-                    Surface(onClick = { editEntry = e }, shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+                    Surface(onClick = { editEntry = e }, shape = RoundedCornerShape(12.dp), color = appCardColor(), modifier = Modifier.fillMaxWidth()) {
                         Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(10.dp).clip(CircleShape).background(c)); Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {

@@ -35,7 +35,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -68,6 +67,9 @@ import com.todocompanion.app.domain.habit.HabitStats
 import com.todocompanion.app.domain.habit.LifeSystems
 import com.todocompanion.app.ui.AppViewModel
 import java.time.LocalDate
+import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.AppTextField
+import com.todocompanion.app.ui.components.appCardColor
 
 private val LS_COLORS = listOf(0xFF46618C, 0xFFC15B4A, 0xFF5E8C6A, 0xFF6C4FE0, 0xFFF59E0B, 0xFFEC4899, 0xFF12A594)
 // Reserved semantic status accents (good / bad) for scorecard signs and correlation direction. Material3
@@ -166,7 +168,7 @@ private fun HubScreen(vm: AppViewModel, onBack: () -> Unit, listState: androidx.
     }
     @Composable
     fun entryCard(e: Entry) {
-        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+        Surface(shape = RoundedCornerShape(16.dp), color = appCardColor(),
             modifier = Modifier.fillMaxWidth().clickable { vm.lifeSystemsRoute.value = e.route }) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(e.emoji, fontSize = 26.sp, modifier = Modifier.padding(end = 14.dp))
@@ -180,7 +182,7 @@ private fun HubScreen(vm: AppViewModel, onBack: () -> Unit, listState: androidx.
     LSScaffold("Life systems", onBack) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item(key = "hub-search") {
-                androidx.compose.material3.OutlinedTextField(
+                AppTextField(
                     query, { query = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
                     placeholder = { Text("Search life systems") },
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
@@ -249,9 +251,7 @@ private fun ValuesScreen(vm: AppViewModel, onBack: () -> Unit) {
                 val habitActions = checkins.count { c -> c.status == "done" && c.epochDay in weekStart..today && attached.any { it.id == c.habitId } }
                 val taskActions = tasks.count { t -> t.valueId == v.id && t.completed && t.completedAt?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() in weekStart..today } == true }
                 val weekActions = habitActions + taskActions
-                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
-                    modifier = Modifier.fillMaxWidth().clickable { editing = v }) {
-                    Column(Modifier.padding(16.dp)) {
+                AppCard(onClick = { editing = v }, padding = 16.dp) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(12.dp).clip(CircleShape).background(color))
                             Spacer(Modifier.width(10.dp))
@@ -263,7 +263,6 @@ private fun ValuesScreen(vm: AppViewModel, onBack: () -> Unit) {
                             if (attached.isEmpty()) "No habits attached yet — pick this value in a habit's editor."
                             else "$weekActions action${if (weekActions == 1) "" else "s"} this week toward it · ${attached.joinToString(", ") { it.name }}",
                             style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
-                    }
                 }
             }
         }
@@ -286,11 +285,11 @@ private fun ValueEditor(v: CoreValueEntity?, onDismiss: () -> Unit, onSave: (Str
         title = { Text(if (v == null) "New value" else "Edit value") },
         text = {
             Column {
-                OutlinedTextField(name, { name = it }, label = { Text("Name (Health, Craft, Family…)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                AppTextField(name, { name = it }, label = { Text("Name (Health, Craft, Family…)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(emoji, { emoji = it.takeLast(2) }, label = { Text("Emoji (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                AppTextField(emoji, { emoji = it.takeLast(2) }, label = { Text("Emoji (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(statement, { statement = it }, label = { Text("“I am someone who…”") }, modifier = Modifier.fillMaxWidth())
+                AppTextField(statement, { statement = it }, label = { Text("“I am someone who…”") }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Colour", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
@@ -320,7 +319,7 @@ private fun ScorecardScreen(vm: AppViewModel, onBack: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(text, { text = it }, label = { Text("A behaviour (“scroll in bed”, “morning walk”)") }, singleLine = true, modifier = Modifier.weight(1f))
+                        AppTextField(text, { text = it }, label = { Text("A behaviour (“scroll in bed”, “morning walk”)") }, singleLine = true, modifier = Modifier.weight(1f))
                         Spacer(Modifier.width(8.dp))
                         FilledTonalButton(onClick = { vm.addScorecardItem(text, 0); text = "" }, enabled = text.isNotBlank()) { Text("Add") }
                     }
@@ -330,7 +329,7 @@ private fun ScorecardScreen(vm: AppViewModel, onBack: () -> Unit) {
                 if (items.isEmpty()) item { EmptyBlock("📋", "Your day, honestly", "Add the things you actually do — brushing teeth, checking the phone, a walk. Awareness is the precondition for change.", null) }
                 items(items.size) { i ->
                     val it = items[i]
-                    Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                    Surface(shape = RoundedCornerShape(14.dp), color = appCardColor()) {
                         Column(Modifier.padding(12.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(it.text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
@@ -393,7 +392,7 @@ private fun CorrelationsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit
             items(corr.size) { i ->
                 val c = corr[i]
                 val color = if (c.positive) lsGood else lsBad
-                Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth().clickable { onOpenHabit(c.habit.id) }) {
+                Surface(shape = RoundedCornerShape(14.dp), color = appCardColor(), modifier = Modifier.fillMaxWidth().clickable { onOpenHabit(c.habit.id) }) {
                     Column(Modifier.padding(14.dp)) {
                         Text("On days you do ${c.habit.emoji?.plus(" ") ?: ""}${c.habit.name}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                         Text("${c.signal} is ${if (c.positive) "+" else ""}${String.format(java.util.Locale.getDefault(), "%.1f", c.delta)} ${unitFor(c.signal)}",
@@ -435,7 +434,7 @@ private fun ReviewsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 com.todocompanion.app.ui.components.OptionChips(listOf("weekly", "annual"), kind, { kind = it }, spacing = 8) { if (it == "weekly") "Weekly" else "Annual" }
             }
             item {
-                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                Surface(shape = RoundedCornerShape(16.dp), color = appCardColor()) {
                     Column(Modifier.padding(16.dp)) {
                         Text(review.label, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(8.dp))
@@ -453,7 +452,7 @@ private fun ReviewsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }
             }
             item {
-                OutlinedTextField(note, { note = it }, label = { Text("Reflection — what worked, what's next?") }, modifier = Modifier.fillMaxWidth())
+                AppTextField(note, { note = it }, label = { Text("Reflection — what worked, what's next?") }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(6.dp))
                 Button(onClick = {
                     // Snapshot the period's figures so the ledger keeps the numbers this review was based on,
@@ -470,7 +469,7 @@ private fun ReviewsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 item { Text("PAST REVIEWS", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp)) }
                 items(saved.size) { i ->
                     val r = saved[i]
-                    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                    Surface(shape = RoundedCornerShape(12.dp), color = appCardColor()) {
                         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text("${r.kind.replaceFirstChar { it.uppercase() }} · ${r.periodKey}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -511,7 +510,7 @@ private fun IdentityLedgerScreen(vm: AppViewModel, onBack: () -> Unit) {
             }
             items(ledger.size) { i ->
                 val t = ledger[i]
-                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                Surface(shape = RoundedCornerShape(16.dp), color = appCardColor()) {
                     Column(Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("“${t.identity}”", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
@@ -554,7 +553,7 @@ private fun BuddiesScreen(vm: AppViewModel, onBack: () -> Unit) {
             items(buddies.size) { i ->
                 val b = buddies[i]
                 val digest = remember(b.payloadJson) { runCatching { kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString(LifeSystems.BuddyDigest.serializer(), b.payloadJson) }.getOrNull() }
-                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                Surface(shape = RoundedCornerShape(16.dp), color = appCardColor()) {
                     Column(Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("🤝 ${b.name}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
@@ -575,7 +574,7 @@ private fun BuddiesScreen(vm: AppViewModel, onBack: () -> Unit) {
         var pasted by remember { mutableStateOf("") }
         AlertDialog(onDismissRequest = { importOpen = false },
             title = { Text("Import a buddy digest") },
-            text = { Column { Text("Paste the digest text your friend shared:", style = MaterialTheme.typography.bodySmall); Spacer(Modifier.height(8.dp)); OutlinedTextField(pasted, { pasted = it }, modifier = Modifier.fillMaxWidth().height(140.dp)) } },
+            text = { Column { Text("Paste the digest text your friend shared:", style = MaterialTheme.typography.bodySmall); Spacer(Modifier.height(8.dp)); AppTextField(pasted, { pasted = it }, modifier = Modifier.fillMaxWidth().height(140.dp)) } },
             confirmButton = { TextButton(onClick = { vm.importBuddyDigest(pasted); importOpen = false }) { Text("Import") } },
             dismissButton = { TextButton(onClick = { importOpen = false }) { Text("Cancel") } })
     }
@@ -596,9 +595,7 @@ private fun EmptyBlock(emoji: String, title: String, body: String, onAdd: (() ->
 
 @Composable
 private fun FWCard(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), content = content)
-    }
+    AppCard(padding = 16.dp, content = content)
 }
 
 @Composable
@@ -672,7 +669,7 @@ private fun CausalGraphScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit:
             items(edges.size) { i ->
                 val e = edges[i]
                 val pctMore = ((e.lift - 1.0) * 100).toInt()
-                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+                Surface(shape = RoundedCornerShape(16.dp), color = appCardColor(),
                     modifier = Modifier.fillMaxWidth().clickable { onOpenHabit(e.habitId) }) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(e.emoji, fontSize = 24.sp, modifier = Modifier.padding(end = 12.dp))
@@ -694,7 +691,7 @@ private fun CausalGraphScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit:
                 items(outEdges.size) { i ->
                     val e = outEdges[i]
                     val pctMore = ((e.lift - 1.0) * 100).toInt()
-                    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+                    Surface(shape = RoundedCornerShape(16.dp), color = appCardColor(),
                         modifier = Modifier.fillMaxWidth().clickable { onOpenHabit(e.habitId) }) {
                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(e.emoji, fontSize = 24.sp, modifier = Modifier.padding(end = 12.dp))
@@ -876,7 +873,7 @@ private fun EscrowAddDialog(vm: AppViewModel, habits: List<com.todocompanion.app
         title = { Text("New escrow") },
         text = {
             Column {
-                OutlinedTextField(desc, { desc = it }, label = { Text("Reward or stake") }, placeholder = { Text("e.g. new headphones") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                AppTextField(desc, { desc = it }, label = { Text("Reward or stake") }, placeholder = { Text("e.g. new headphones") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Spacer(Modifier.height(10.dp))
                 Text("Type", style = MaterialTheme.typography.labelMedium)
                 com.todocompanion.app.ui.components.OptionChips(listOf("reward", "stake"), kind, { kind = it }, spacing = 8) { if (it == "reward") "Reward" else "Stake" }
@@ -886,7 +883,7 @@ private fun EscrowAddDialog(vm: AppViewModel, habits: List<com.todocompanion.app
                     when (it) { "streak" -> "Streak"; "cleandays" -> "Clean days"; else -> "Automatic %" }
                 }
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(value, { v -> value = v.filter { it.isDigit() }.take(4) }, label = { Text("Target") }, modifier = Modifier.width(140.dp), singleLine = true)
+                AppTextField(value, { v -> value = v.filter { it.isDigit() }.take(4) }, label = { Text("Target") }, modifier = Modifier.width(140.dp), singleLine = true)
                 val linkable = if (mKind == "cleandays") breakHabits else buildHabits
                 if (linkable.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
@@ -1031,10 +1028,10 @@ private fun MicroPlanScreen(vm: AppViewModel, onBack: () -> Unit, kind: String) 
             }
             item {
                 FWCard {
-                    androidx.compose.material3.OutlinedTextField(a, { a = it }, modifier = Modifier.fillMaxWidth(), singleLine = false,
+                    AppTextField(a, { a = it }, modifier = Modifier.fillMaxWidth(), singleLine = false,
                         label = { Text(if (bundle) "The want — a treat (e.g. “my favourite podcast”)" else "When… (a cue: “I pour my morning coffee”)") })
                     Spacer(Modifier.size(8.dp))
-                    androidx.compose.material3.OutlinedTextField(b, { b = it }, modifier = Modifier.fillMaxWidth(), singleLine = false,
+                    AppTextField(b, { b = it }, modifier = Modifier.fillMaxWidth(), singleLine = false,
                         label = { Text(if (bundle) "…only while I (the should: “walk on the treadmill”)" else "…then I will (the action: “write for 10 minutes”)") })
                     if (activeHabits.isNotEmpty()) {
                         Spacer(Modifier.size(8.dp))
@@ -1169,7 +1166,7 @@ private fun FreshStartScreen(vm: AppViewModel, onBack: () -> Unit) {
                 Column {
                     Text("Name the change. A 3-week fresh-start window opens from today.", style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(label, { label = it }, placeholder = { Text("e.g. New job, Moved cities") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    AppTextField(label, { label = it }, placeholder = { Text("e.g. New job, Moved cities") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 }
             },
             confirmButton = { TextButton(enabled = label.isNotBlank(), onClick = { vm.setTransition(label, today); declareOpen = false }) { Text("Open window") } },

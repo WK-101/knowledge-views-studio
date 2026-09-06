@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.Density
 import com.todocompanion.app.domain.priority.PriorityLevel
+import com.todocompanion.app.ui.theme.LocalKairoColors
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -194,7 +195,7 @@ fun FlagStar(flagArgb: Long?, starred: Boolean, onCycleFlag: () -> Unit, onToggl
         else Icon(Icons.Outlined.BookmarkBorder, "Flag", tint = ghost, modifier = Modifier.size(iconSize))
     }
     Box(Modifier.size(box).clip(CircleShape).clickable { onToggleStar() }, contentAlignment = Alignment.Center) {
-        if (starred) Icon(Icons.Filled.Star, "Star", tint = Color(0xFFF5A623), modifier = Modifier.size(iconSize + 1.dp))
+        if (starred) Icon(Icons.Filled.Star, "Star", tint = LocalKairoColors.current.star, modifier = Modifier.size(iconSize + 1.dp))
         else Icon(Icons.Outlined.StarOutline, "Star", tint = ghost, modifier = Modifier.size(iconSize + 1.dp))
     }
 }
@@ -255,7 +256,7 @@ fun DueChip(millis: Long) {
         if (countdown) countdownLabel(millis) else formatDue(millis),
         modifier = Modifier.clickable { countdown = !countdown },
         style = MaterialTheme.typography.labelMedium,
-        color = if (overdue) Color(0xFFE5484D) else MaterialTheme.colorScheme.onSurfaceVariant,
+        color = if (overdue) LocalKairoColors.current.bad else MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1, overflow = TextOverflow.Ellipsis,
     )
 }
@@ -436,21 +437,43 @@ fun AppTextField(
     )
 }
 
-/** A white rounded card on the grey ground — the app's core surface grammar. [verticalArrangement]
- *  spaces the card's children (defaults to flush, i.e. the caller inserts its own Spacers). */
+/**
+ * The card surface — one step brighter than the ground in light mode (a white card on grey), one
+ * step *lifted* off the ground in dark/AMOLED (so cards never vanish into a black background). This
+ * uses the modern M3 tonal container roles rather than the pre-2023 `surface + tonalElevation` tint.
+ */
+@Composable
+fun appCardColor(): Color {
+    val cs = MaterialTheme.colorScheme
+    return if (cs.surface.luminance() < 0.5f) cs.surfaceContainer else cs.surfaceContainerLowest
+}
+
+/** A nested tile *inside* a card (a stat tile, an inset row) — one further tonal step from the card. */
+@Composable
+fun appTileColor(): Color = MaterialTheme.colorScheme.surfaceContainerHigh
+
+/** A white rounded card on the grey ground — the app's one card grammar. [verticalArrangement]
+ *  spaces the card's children (defaults to flush, i.e. the caller inserts its own Spacers). Pass
+ *  [onClick] for a tappable card, [shape]/[color] only to deviate from the canonical look. */
 @Composable
 fun AppCard(
     modifier: Modifier = Modifier,
     padding: Dp = 14.dp,
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(16.dp),
+    color: Color = appCardColor(),
+    onClick: (() -> Unit)? = null,
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
-    ) { Column(Modifier.padding(padding), verticalArrangement = verticalArrangement, content = content) }
+    if (onClick != null) {
+        Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, color = color) {
+            Column(Modifier.padding(padding), verticalArrangement = verticalArrangement, content = content)
+        }
+    } else {
+        Surface(modifier = modifier.fillMaxWidth(), shape = shape, color = color) {
+            Column(Modifier.padding(padding), verticalArrangement = verticalArrangement, content = content)
+        }
+    }
 }
 
 /** Small caps section label used inside cards. */

@@ -107,6 +107,7 @@ import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.MiniCheck
 import com.todocompanion.app.ui.components.StepperRow
 import java.time.LocalDate
+import com.todocompanion.app.ui.components.appCardColor
 
 private val HABIT_COLORS = listOf(
     0xFF12A594, 0xFF0EA371, 0xFF65A30D, 0xFFCA8A04, 0xFFF59E0B, 0xFFEA580C,
@@ -330,7 +331,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                 if (appSettings.companionEnabled) item(key = "companion") {
                     val comp = remember(habits, checkins, today) { com.todocompanion.app.domain.habit.ThirdWave.companion(habits, checkins, today) }
                     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clickable { vm.lifeSystemsRoute.value = "companion" },
-                        shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                        shape = RoundedCornerShape(16.dp), color = appCardColor()) {
                         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(comp.emoji, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(end = 12.dp))
                             Column(Modifier.weight(1f)) {
@@ -609,7 +610,7 @@ private fun HabitRow(
 
     Surface(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
-        shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+        shape = RoundedCornerShape(16.dp), color = appCardColor(),
     ) {
       Column(
           // G1: tap opens analytics; long-press is reserved for hold-and-drag reorder (parent column),
@@ -1279,7 +1280,7 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
 /** A rounded surface section for the habit editor, matching the app's card language. */
 @Composable
 private fun EditorCard(content: @Composable ColumnScope.() -> Unit) {
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
         Column(Modifier.fillMaxWidth().padding(16.dp), content = content)
     }
 }

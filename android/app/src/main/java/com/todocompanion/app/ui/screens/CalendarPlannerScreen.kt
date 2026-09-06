@@ -57,6 +57,7 @@ import com.todocompanion.app.domain.calendar.CalendarEngine
 import com.todocompanion.app.domain.calendar.CalendarPlanner
 import com.todocompanion.app.domain.calendar.ThirdHorizon
 import com.todocompanion.app.ui.AppViewModel
+import com.todocompanion.app.ui.components.AppTextField
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -243,7 +244,7 @@ private fun PlanTodayTab(vm: AppViewModel, zone: ZoneId, day: Long) {
         }
         var routineName by remember { mutableStateOf("") }
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            androidx.compose.material3.OutlinedTextField(routineName, { routineName = it }, singleLine = true,
+            AppTextField(routineName, { routineName = it }, singleLine = true,
                 placeholder = { Text("Name today's routine") }, modifier = Modifier.weight(1f))
             Spacer(Modifier.width(8.dp))
             TextButton(onClick = { if (routineName.isNotBlank()) { vm.saveDayRoutineFromDay(routineName, day); routineName = "" } }, enabled = routineName.isNotBlank()) { Text("Save") }
@@ -537,7 +538,7 @@ private fun HorizonTab(vm: AppViewModel, zone: ZoneId, day: Long) {
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             var latText by remember { mutableStateOf("") }
             Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.material3.OutlinedTextField(latText, { latText = it }, singleLine = true, placeholder = { Text("Latitude") },
+                AppTextField(latText, { latText = it }, singleLine = true, placeholder = { Text("Latitude") },
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number), modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
                 TextButton(onClick = { latText.toDoubleOrNull()?.let { vm.setDaylightLatitude(it) } }, enabled = latText.toDoubleOrNull() != null) { Text("Set") }

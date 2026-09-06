@@ -42,7 +42,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -77,6 +76,7 @@ import com.todocompanion.app.domain.Routines
 import com.todocompanion.app.domain.StepKind
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.AppTextField
 import com.todocompanion.app.ui.components.DoneTick
 import com.todocompanion.app.ui.components.EmojiGridPicker
 import com.todocompanion.app.ui.components.MiniCheck
@@ -604,9 +604,9 @@ private fun RoutineEditor(
                     Box(Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)).clickable { pickRoutineEmoji = true }, contentAlignment = Alignment.Center) {
                         Text(emoji.ifBlank { "🔗" }, fontSize = 26.sp)
                     }
-                    OutlinedTextField(name, { name = it }, label = { Text("Routine name") }, singleLine = true, modifier = Modifier.weight(1f))
+                    AppTextField(name, { name = it }, label = { Text("Routine name") }, singleLine = true, modifier = Modifier.weight(1f))
                 }
-                OutlinedTextField(note, { note = it }, label = { Text("Note (optional)") }, modifier = Modifier.fillMaxWidth())
+                AppTextField(note, { note = it }, label = { Text("Note (optional)") }, modifier = Modifier.fillMaxWidth())
 
                 AppCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -654,7 +654,7 @@ private fun RoutineEditor(
                         onPick = { activityId = it?.id ?: "" },
                     )
                     Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(habitCategory, { habitCategory = it }, label = { Text("Surface habit group") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    AppTextField(habitCategory, { habitCategory = it }, label = { Text("Surface habit group") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
 
                 HorizontalDivider()
@@ -722,7 +722,7 @@ private fun StepEditorCard(
             Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)).clickable { onPickEmoji() }, contentAlignment = Alignment.Center) {
                 Text(step.emoji.ifBlank { "＋" }, fontSize = 20.sp)
             }
-            OutlinedTextField(step.title, { onChange(step.copy(title = it)) }, label = { Text("Step ${index + 1}") }, singleLine = true, modifier = Modifier.weight(1f))
+            AppTextField(step.title, { onChange(step.copy(title = it)) }, label = { Text("Step ${index + 1}") }, singleLine = true, modifier = Modifier.weight(1f))
             IconButton(onClick = onMoveUp, enabled = index > 0) { Icon(Icons.Filled.KeyboardArrowUp, "Move up") }
             IconButton(onClick = onMoveDown, enabled = index < count - 1) { Icon(Icons.Filled.KeyboardArrowDown, "Move down") }
             IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, "Delete step", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -754,7 +754,7 @@ private fun StepEditorCard(
         DropdownPicker("Start tracking on this step", activities.firstOrNull { it.id == step.startActivityId }?.let { (it.emoji?.plus(" ") ?: "") + it.name },
             activities, { (it.emoji?.plus(" ") ?: "") + it.name }) { onChange(step.copy(startActivityId = it?.id)) }
         Spacer(Modifier.height(8.dp))
-        OutlinedTextField(step.note, { onChange(step.copy(note = it)) }, label = { Text("Cue / note (optional)") }, modifier = Modifier.fillMaxWidth())
+        AppTextField(step.note, { onChange(step.copy(note = it)) }, label = { Text("Cue / note (optional)") }, modifier = Modifier.fillMaxWidth())
     }
 }
 

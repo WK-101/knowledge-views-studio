@@ -1440,6 +1440,9 @@ private fun FilterBuilderDialog(
 @Composable
 private fun appBackgroundBrush(name: String): androidx.compose.ui.graphics.Brush? {
     val bg = MaterialTheme.colorScheme.background
+    // A curated *decorative* tint palette (kept in sync with SettingsScreen.appBackgroundTint so the
+    // settings swatch previews the real thing). These are intentionally NOT the semantic status tokens —
+    // a whole-app background hue is a cosmetic choice, not a "warning"/"good" signal.
     val tint = when (name) {
         "warm" -> Color(0xFFF59E0B)
         "cool" -> Color(0xFF3E7BFA)

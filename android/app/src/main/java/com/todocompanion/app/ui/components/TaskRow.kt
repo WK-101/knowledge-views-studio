@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.Density
 import com.todocompanion.app.domain.priority.PriorityLevel
 import com.todocompanion.app.ui.OutlineRow
+import com.todocompanion.app.ui.theme.LocalKairoColors
 
 @Composable
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -60,9 +61,10 @@ fun TaskRow(
         state = state,
         backgroundContent = {
             val dir = state.dismissDirection
+            val k = LocalKairoColors.current
             val (color, icon, align) = when (dir) {
-                SwipeToDismissBoxValue.StartToEnd -> Triple(Color(0xFF12A594), Icons.Filled.Check, Alignment.CenterStart)
-                SwipeToDismissBoxValue.EndToStart -> Triple(Color(0xFFE5484D), Icons.Filled.Delete, Alignment.CenterEnd)
+                SwipeToDismissBoxValue.StartToEnd -> Triple(k.good, Icons.Filled.Check, Alignment.CenterStart)
+                SwipeToDismissBoxValue.EndToStart -> Triple(k.bad, Icons.Filled.Delete, Alignment.CenterEnd)
                 else -> Triple(Color.Transparent, Icons.Filled.Check, Alignment.CenterStart)
             }
             Box(Modifier.fillMaxSize().background(color).padding(horizontal = 20.dp), contentAlignment = align) {

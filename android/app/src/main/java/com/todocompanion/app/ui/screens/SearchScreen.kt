@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.DueChip
+import com.todocompanion.app.ui.components.appCardColor
 
 /** Search result filters. */
 private enum class SF(val label: String) { ALL("All"), TODAY("Today"), OVERDUE("Overdue"), FLAGGED("Flagged"), HIGH("High priority"), DONE("Completed"), TRASH("Trashed") }
@@ -119,7 +120,7 @@ fun SearchScreen(
                         items(habitResults, key = { "h:" + it.id }) { h ->
                             Surface(
                                 Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
-                                shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+                                shape = RoundedCornerShape(12.dp), color = appCardColor(),
                             ) {
                                 Row(
                                     Modifier.fillMaxWidth().clickable { onOpenHabit(h.id) }.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -148,7 +149,7 @@ fun SearchScreen(
                         Surface(
                             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
                             shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+                            color = appCardColor(),
                         ) {
                             Row(
                                 Modifier.fillMaxWidth().clickable { onOpenTask(task.id) }.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -192,7 +193,7 @@ fun SearchScreen(
                         }
                         items(eventResults, key = { "e:" + it.id }) { e ->
                             val df = java.time.format.DateTimeFormatter.ofPattern("EEE d MMM yyyy")
-                            Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                            Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp), shape = RoundedCornerShape(12.dp), color = appCardColor()) {
                                 Row(Modifier.fillMaxWidth().clickable { onOpenEvent(e.id) }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text("🗓️", style = MaterialTheme.typography.bodyMedium)
                                     Spacer(Modifier.width(10.dp))
@@ -213,7 +214,7 @@ fun SearchScreen(
                                 style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                         }
                         items(occasionResults, key = { "o:" + it.id }) { o ->
-                            Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+                            Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp), shape = RoundedCornerShape(12.dp), color = appCardColor()) {
                                 Row(Modifier.fillMaxWidth().clickable { onOpenOccasion(o.id) }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(o.emoji?.ifBlank { null } ?: "🎉", style = MaterialTheme.typography.bodyMedium)
                                     Spacer(Modifier.width(10.dp))

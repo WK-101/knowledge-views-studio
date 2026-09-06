@@ -13,7 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -108,7 +107,7 @@ fun Stepper(
         if (label != null) Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         TextButton(onClick = { onChange((value - step).coerceIn(min, max)) }, contentPadding = PaddingValues(6.dp)) { Text("−") }
         if (editable) {
-            OutlinedTextField(
+            AppTextField(
                 value = value.toString(),
                 onValueChange = { s -> onChange(s.filter { it.isDigit() }.take(3).toIntOrNull()?.coerceIn(min, max) ?: min) },
                 singleLine = true,

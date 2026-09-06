@@ -119,6 +119,7 @@ import com.todocompanion.app.domain.priority.PriorityLevel
 import com.todocompanion.app.domain.SwipeAction
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.priorityColor
+import com.todocompanion.app.ui.theme.LocalKairoColors
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -127,6 +128,7 @@ import java.time.ZoneId
 import java.time.format.TextStyle
 import java.time.temporal.WeekFields
 import java.util.Locale
+import com.todocompanion.app.ui.components.appCardColor
 
 private fun Modifier.swipeNav(onPrev: () -> Unit, onNext: () -> Unit): Modifier = pointerInput(onPrev, onNext) {
     var total = 0f
@@ -1469,7 +1471,7 @@ private fun WeeklyView(weekStart: LocalDate, dueByDate: Map<LocalDate, List<Task
             val list = dueByDate[d].orEmpty().sortedBy { it.dueDate }
             val isToday = d == today
             val accent = MaterialTheme.colorScheme.primary
-            Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+            Surface(shape = RoundedCornerShape(14.dp), color = appCardColor(), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(d.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()),
@@ -1607,7 +1609,7 @@ private fun TaskLine(task: TaskEntity, onOpenTask: (String) -> Unit, swipe: CalS
                 // calendar task carries the same at-a-glance detail as it does in the list views.
                 if (!task.rrule.isNullOrBlank()) Icon(Icons.Filled.Repeat, "Repeats", Modifier.padding(end = 6.dp).size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 task.flagColorArgb?.let { Box(Modifier.padding(end = 6.dp).size(9.dp).clip(CircleShape).background(Color(it))) }
-                if (task.star) Icon(Icons.Filled.Star, "Starred", Modifier.padding(end = 6.dp).size(15.dp), tint = Color(0xFFF5A623))
+                if (task.star) Icon(Icons.Filled.Star, "Starred", Modifier.padding(end = 6.dp).size(15.dp), tint = LocalKairoColors.current.star)
                 task.dueDate?.let { if (!task.isAllDay && hasTime(it, zone)) { Text(timeLabel(it, zone), Modifier.padding(end = 12.dp), style = MaterialTheme.typography.labelMedium, color = accent) } }
             }
         }

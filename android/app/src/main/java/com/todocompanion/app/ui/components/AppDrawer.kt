@@ -904,7 +904,7 @@ private fun SmartRow(kind: SmartKind, count: Int?, selected: Boolean, vm: AppVie
             },
             title = { Text("Rename “${kind.title}”") },
             text = {
-                androidx.compose.material3.OutlinedTextField(value = text, onValueChange = { text = it }, singleLine = true,
+                AppTextField(value = text, onValueChange = { text = it }, singleLine = true,
                     placeholder = { Text(kind.title) }, label = { Text("Display name") })
             },
         )

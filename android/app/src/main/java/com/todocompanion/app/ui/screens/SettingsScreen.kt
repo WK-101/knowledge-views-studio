@@ -80,7 +80,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -109,12 +108,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.todocompanion.app.data.entity.FlagEntity
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.AppTextField
 import com.todocompanion.app.ui.components.MiniCheck
 import com.todocompanion.app.ui.components.FLAG_COLORS
 import com.todocompanion.app.ui.components.FlagIcons
 import com.todocompanion.app.ui.components.OptionChips
 import com.todocompanion.app.ui.components.HourStepper
 import java.time.ZoneId
+import com.todocompanion.app.ui.components.appCardColor
 
 /** R28 #7 — the live settings-search query, read by every [SettingsGroup] so it can hide/expand itself. */
 private val LocalSettingsQuery = androidx.compose.runtime.compositionLocalOf { "" }
@@ -520,7 +521,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             var pwName by remember { mutableStateOf("") }
             var pwStartMin by remember { mutableIntStateOf(19 * 60) }
             var pwEndMin by remember { mutableIntStateOf(20 * 60) }
-            OutlinedTextField(pwName, { pwName = it }, singleLine = true, placeholder = { Text("Window name") }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+            AppTextField(pwName, { pwName = it }, singleLine = true, placeholder = { Text("Window name") }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
             TimeSettingRow("From", pwStartMin) { pwStartMin = it }
             TimeSettingRow("To", pwEndMin) { pwEndMin = it.coerceAtLeast(pwStartMin + 15) }
             TextButton(onClick = { if (pwName.isNotBlank()) { vm.saveProtectedWindow(pwName, pwStartMin, pwEndMin, emptyList()); pwName = "" } }, enabled = pwName.isNotBlank()) { Text("Add protected window") }
@@ -550,7 +551,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
             if (s.activeContextId.isNotBlank()) TextButton(onClick = { vm.activateContext("") }) { Text("Show all calendars") }
             var ctxName by remember { mutableStateOf("") }
-            OutlinedTextField(ctxName, { ctxName = it }, singleLine = true, placeholder = { Text("Name this context") }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+            AppTextField(ctxName, { ctxName = it }, singleLine = true, placeholder = { Text("Name this context") }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
             TextButton(onClick = { if (ctxName.isNotBlank()) { vm.saveContext(ctxName, eCals.filter { it.visible }.map { it.id }); ctxName = "" } }, enabled = ctxName.isNotBlank()) { Text("Save shown calendars as “${ctxName.ifBlank { "…" }}”") }
 
             // Day routines — created in the Planner; managed here.
@@ -1479,7 +1480,7 @@ private fun SettingsGroup(icon: ImageVector, title: String, expanded: Boolean, o
     val query = LocalSettingsQuery.current
     if (query.isNotBlank() && !"$title $keywords".contains(query, ignoreCase = true)) return
     val effExpanded = expanded || query.isNotBlank()
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+    Surface(shape = RoundedCornerShape(16.dp), color = appCardColor(),
         modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
         Column {
             Row(Modifier.fillMaxWidth().clickable { onToggle() }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {

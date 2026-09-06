@@ -93,6 +93,8 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.appCardColor
 
 /**
  * Per-habit analytics screen (Tier I): strength score, streak/consistency tiles, best-days chart,
@@ -342,8 +344,7 @@ fun HabitDetailScreen(
                         .filter { it.isNotBlank() && !it.equals("slip", true) }
                         .groupingBy { it.lowercase() }.eachCount().entries.sortedByDescending { it.value }.take(4)
                 }
-                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
-                    Column(Modifier.padding(16.dp)) {
+                AppCard(padding = 16.dp) {
                         Text("Cravings & slips", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                         Text("You're on a $current-day clean streak. Log a slip if it happens — noting the trigger builds awareness.",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
@@ -360,7 +361,6 @@ fun HabitDetailScreen(
                         TextButton(onClick = { showSlip = true }, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp), modifier = Modifier.padding(top = 6.dp)) {
                             Text("Log a slip…")
                         }
-                    }
                 }
                 if (showSlip) {
                     var trig by remember { mutableStateOf("") }
@@ -683,7 +683,7 @@ private fun Header(h: com.todocompanion.app.data.entity.HabitEntity, color: Colo
 
 @Composable
 private fun SectionCard(title: String? = null, content: @Composable ColumnScope.() -> Unit) {
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = appCardColor()) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             if (title != null) {
                 Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -945,7 +945,7 @@ private fun BuilderSection(
 
     var expanded by rememberSaveable(h.id) { mutableStateOf(false) }
     Surface(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).clickable { expanded = !expanded },
-        shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        shape = RoundedCornerShape(18.dp), color = appCardColor()) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("🧠 More coaching & tools", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -975,7 +975,7 @@ private fun BuilderHeadline(
     if (!isBreak) {
         // F15 — automaticity meter (recency-aware: a lapsed habit decays rather than reading "Automatic").
         val auto = remember(doneDays, today) { HB.automaticity(doneDays, today) }
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
             Column(Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Becoming automatic", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -1038,7 +1038,7 @@ private fun BuilderHeadline(
 
         // F13 — urge button + urge trigger heatmap.
         var urge by remember { mutableStateOf(false) }
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
             Column(Modifier.padding(16.dp)) {
                 Text("When an urge hits", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text("Ride it out — urges crest and pass. Log it either way to learn your triggers.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
@@ -1108,7 +1108,7 @@ private fun BuilderSectionContent(
 
     // F17 — the insights coach (both kinds).
     if (tips.isNotEmpty()) {
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Coach", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = color)
                 tips.forEach { t ->
@@ -1190,7 +1190,7 @@ private fun LifeSystemsHabitCards(
 
     // LS1 · WOOP plan — the back half of the intention.
     if (h.woopOutcome.isNotBlank() || h.woopObstacle.isNotBlank() || h.woopCoping.isNotBlank()) {
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Your plan (WOOP)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = color)
                 if (h.woopOutcome.isNotBlank()) Text("🎯 Outcome — ${h.woopOutcome}", style = MaterialTheme.typography.bodyMedium)
@@ -1225,7 +1225,7 @@ private fun LifeSystemsHabitCards(
         var energy by remember(todayCheckin?.ctxEnergy) { mutableIntStateOf(todayCheckin?.ctxEnergy ?: 0) }
         var mood by remember(todayCheckin?.ctxMood) { mutableIntStateOf(todayCheckin?.ctxMood ?: 0) }
         var place by remember(todayCheckin?.ctxPlace) { mutableStateOf(todayCheckin?.ctxPlace ?: "") }
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
             Column(Modifier.padding(16.dp)) {
                 Text("How did it go? (optional)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text("A tag or two now becomes the correlation engine's evidence later.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1254,7 +1254,7 @@ private fun LifeSystemsHabitCards(
     run {
         val myPlans = vm.microPlans.collectAsState().value.filter { it.habitId == h.id }
         if (myPlans.isNotEmpty()) {
-            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
                 Column(Modifier.padding(16.dp)) {
                     Text("Your plan for this habit", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     myPlans.forEach { p ->
@@ -1271,7 +1271,7 @@ private fun LifeSystemsHabitCards(
     // LS9 · what-if forward simulator (build habits).
     if (!isBreak && doneDays.size >= 4) {
         val proj = remember(doneDays, today) { LS.whatIf(h, doneDays, today) }
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
             Column(Modifier.padding(16.dp)) {
                 Text("What if…", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text("Where this habit's automaticity heads over the next 6 months, at three paces.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
@@ -1293,7 +1293,7 @@ private fun LifeSystemsHabitCards(
     // LS7 · commitment contract + local referee.
     if (h.contractText.isNotBlank() || h.refereeName.isNotBlank()) {
         val myWitnesses = witnesses.filter { it.habitId == h.id }
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
             Column(Modifier.padding(16.dp)) {
                 Text("Commitment", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 if (h.contractText.isNotBlank()) Text("“${h.contractText}”", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
@@ -1342,7 +1342,7 @@ private fun LifeSystemsHabitCards(
         // LS10 · urge analytics — triggers, HALT, duration curve.
         if (myCravings.size >= 3) {
             val stats = remember(myCravings) { LS.urgeStats(myCravings) }
-            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Urge analytics", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     if (stats.medianDurationSec > 0) Text("Your urges pass in about ${stats.medianDurationSec}s — proof they crest and fall.", style = MaterialTheme.typography.bodyMedium)
@@ -1387,7 +1387,7 @@ private fun ThirdWaveHabitCards(
     // TW-A · friction / prep steps (build = ready kit; break = obstacle course).
     if (h.frictionSteps.isNotBlank()) {
         val steps = h.frictionSteps.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
             Column(Modifier.padding(16.dp)) {
                 Text(if (isBreak) "Make it harder" else "Make it easy — your ready kit", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(if (isBreak) "Add steps between you and the bad habit — friction beats willpower." else "Prep the night before so the good habit takes the fewest possible steps.",
@@ -1399,7 +1399,7 @@ private fun ThirdWaveHabitCards(
 
     // TW-A · cue-disruption (break).
     if (isBreak && (h.cueToDisrupt.isNotBlank() || h.cueDisruptionPlan.isNotBlank())) {
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
             Column(Modifier.padding(16.dp)) {
                 Text("Disrupt the cue", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 if (h.cueToDisrupt.isNotBlank()) Text("🔔 The trigger: ${h.cueToDisrupt}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
@@ -1411,7 +1411,7 @@ private fun ThirdWaveHabitCards(
 
     // TW-A · context-stability score (build).
     if (!isBreak) TW.contextStability(h, hc)?.let { score ->
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
             Column(Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Context stability", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -1445,7 +1445,7 @@ private fun ThirdWaveHabitCards(
 
     // TW-C · data-grounded forecast (build).
     if (!isBreak) TW.forecast(h, hc, today)?.let { fc ->
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
             Column(Modifier.padding(16.dp)) {
                 Text("Forecast (from your own pace)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text("Projected automaticity, with a band from how steady you've actually been.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
@@ -1469,7 +1469,7 @@ private fun ThirdWaveHabitCards(
             ((today - 10) until today).filter { HabitStats.isExpectedDay(h, it) && it >= h.startEpochDay() && it !in doneDays && it !in skipDays }.sortedDescending()
         }
         if (missed.isNotEmpty()) {
-            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
                 Column(Modifier.padding(16.dp)) {
                     Text("Make-up ledger", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     Text("Missed a day? Repay it — a make-up clears the debt. Not a failure, just a balance restored.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
@@ -1501,7 +1501,7 @@ private fun ThirdWaveHabitCards(
 
     // TW-D · future-self scene (shown for reference; also surfaced in the urge dialog).
     if (h.futureScene.isNotBlank()) {
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
             Column(Modifier.padding(16.dp)) {
                 Text("Your future self", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = color)
                 Text("“${h.futureScene}”", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
@@ -1543,7 +1543,7 @@ private fun FourthWaveHabitCards(
     // automaticity % + bar; this one carries only the time-to-automatic forecast, so there aren't two
     // competing percentage meters for the same concept on one screen.
     if (!isBreak) FW.adaptiveHorizon(h, hc, today)?.let { hz ->
-        if (hz.repsToTarget > 0) Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        if (hz.repsToTarget > 0) Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
             Column(Modifier.padding(16.dp)) {
                 Text("Time to automatic", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text("~${hz.etaDays} days at your current pace (${hz.adherence}% adherence, ${hz.repsToTarget} more reps). Not a fixed 66 days — it's tuned to you.",
@@ -1555,7 +1555,7 @@ private fun FourthWaveHabitCards(
     // FW-4 · red-chain counter (break).
     if (isBreak) FW.redChain(h, hc, today, vm.zoneId)?.let { rc ->
         Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
-            color = if (rc.redDays > 0) MaterialTheme.colorScheme.errorContainer.copy(alpha = .45f) else MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            color = if (rc.redDays > 0) MaterialTheme.colorScheme.errorContainer.copy(alpha = .45f) else MaterialTheme.colorScheme.surface) {
             Column(Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Clean streak", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -1570,7 +1570,7 @@ private fun FourthWaveHabitCards(
 
     // FW-8 · cue-exposure extinction ladder (break).
     if (isBreak) FW.extinctionLadder(h, cravings)?.let { ex ->
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
             Column(Modifier.padding(16.dp)) {
                 Text("Extinction ladder", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text("Rung ${ex.rung}/4 — ${ex.rungLabel}", style = MaterialTheme.typography.bodyMedium, color = color, modifier = Modifier.padding(top = 2.dp))
@@ -1589,7 +1589,7 @@ private fun FourthWaveHabitCards(
     // FW-9 · escrows riding on this habit.
     val mine = escrows.filter { it.habitId == h.id }
     if (mine.isNotEmpty()) {
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
             Column(Modifier.padding(16.dp)) {
                 Text("On the line", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 mine.forEach { e ->

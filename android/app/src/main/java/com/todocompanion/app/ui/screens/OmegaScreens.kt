@@ -64,6 +64,7 @@ import com.todocompanion.app.ui.components.PeriodSwitcher
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
+import com.todocompanion.app.ui.components.appCardColor
 
 /** The full command catalog, shown click-to-expand in the palette so no capability stays hidden. */
 private val COMMAND_CATALOG: List<Pair<String, List<Pair<String, String>>>> = listOf(
@@ -134,7 +135,7 @@ fun CommandPaletteDialog(vm: AppViewModel, onDismiss: () -> Unit, onRun: (OmegaC
     }
 
     Dialog(onDismissRequest = onDismiss) {
-        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Surface(shape = RoundedCornerShape(16.dp), color = appCardColor()) {
             Column(Modifier.fillMaxWidth().padding(18.dp)) {
                 Text("Command", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(6.dp))

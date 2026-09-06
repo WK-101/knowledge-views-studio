@@ -1,4 +1,5 @@
 package com.todocompanion.app.ui.screens
+import com.todocompanion.app.ui.components.AppTextField
 import com.todocompanion.app.ui.components.EmptyState
 
 import androidx.activity.compose.BackHandler
@@ -53,7 +54,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -198,7 +198,7 @@ fun AttachmentsScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             // Live search.
-            OutlinedTextField(
+            AppTextField(
                 value = query, onValueChange = { query = it }, singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
                 placeholder = { Text("Search files or tasks") },

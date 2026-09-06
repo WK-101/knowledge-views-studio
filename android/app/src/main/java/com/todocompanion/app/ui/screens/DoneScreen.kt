@@ -79,6 +79,8 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.TextStyle
 import java.util.Locale
+import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.appCardColor
 
 /**
  * The Done Record (R27) — the reverse-chronological story of everything you've finished, cross-referenced
@@ -451,8 +453,7 @@ internal fun recordRangeLabel(range: PeriodRange): String = when (range) {
 
 @Composable
 private fun LifetimeCard(s: com.todocompanion.app.domain.done.DoneStats, rangeLabel: String, hideStreaks: Boolean = false) {
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
+    AppCard(padding = 16.dp) {
             Text(if (rangeLabel == "Lifetime") "Lifetime record" else "$rangeLabel · record", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -473,25 +474,21 @@ private fun LifetimeCard(s: com.todocompanion.app.domain.done.DoneStats, rangeLa
                 Stat("${s.bestDayCount}", "best day")
                 Stat("${s.totalWins}", "wins")
             }
-        }
     }
 }
 
 @Composable
 private fun ComebackCard(lines: List<String>) {
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
+    AppCard(padding = 16.dp) {
             Text("📈 Comeback", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(6.dp))
             lines.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 2.dp)) }
-        }
     }
 }
 
 @Composable
 private fun HonestyCard(overall: com.todocompanion.app.domain.done.DoneRecord.LedgerRow, worst: List<com.todocompanion.app.domain.done.DoneRecord.LedgerRow>) {
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
+    AppCard(padding = 16.dp) {
             Text("⚖️ Estimate vs. actual", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(4.dp))
             // Track 1.4 — verdict from the one shared Calibration engine (the unified VERDICT_TOLERANCE), presentation unchanged.
@@ -516,7 +513,6 @@ private fun HonestyCard(overall: com.todocompanion.app.domain.done.DoneRecord.Le
                     }
                 }
             }
-        }
     }
 }
 
@@ -531,8 +527,7 @@ private fun Stat(value: String, label: String) {
 
 @Composable
 private fun OnThisDayCard(items: List<Accomplishment>, listNameById: Map<String, String>) {
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
+    AppCard(padding = 16.dp) {
             Text("📅 On this day", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(8.dp))
             items.take(5).forEach { a ->
@@ -546,7 +541,6 @@ private fun OnThisDayCard(items: List<Accomplishment>, listNameById: Map<String,
                     Text("${d.year}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-        }
     }
 }
 
@@ -740,7 +734,7 @@ private fun buildBrag(items: List<Accomplishment>, listNameById: Map<String, Str
 
 @Composable
 private fun ImpactTeaser(g: com.todocompanion.app.domain.done.Impact.Graph, onOpen: () -> Unit) {
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+    Surface(shape = RoundedCornerShape(16.dp), color = appCardColor(),
         modifier = Modifier.fillMaxWidth().clickable { onOpen() }) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Hub, null, tint = MaterialTheme.colorScheme.primary)
@@ -763,8 +757,7 @@ private fun IntegrityCard(status: com.todocompanion.app.domain.done.Integrity.St
         com.todocompanion.app.domain.done.Integrity.State.TAMPERED -> MaterialTheme.colorScheme.error to "Changed since sealing — a sealed entry was edited, removed or back-dated"
         else -> MaterialTheme.colorScheme.onSurfaceVariant to "Not sealed yet"
     }
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp)) {
+    AppCard(padding = 14.dp) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Verified, null, tint = tint)
                 Spacer(Modifier.width(12.dp))
@@ -792,7 +785,6 @@ private fun IntegrityCard(status: com.todocompanion.app.domain.done.Integrity.St
                 }
                 if (!unsealed) androidx.compose.material3.TextButton(onClick = onClear) { Text("Clear seal") }
             }
-        }
     }
 }
 
@@ -851,8 +843,7 @@ private fun ImpactScreen(
 @Composable
 private fun ImpactNodeCard(node: com.todocompanion.app.domain.done.Impact.Node, maxMin: Int, onOpenTask: (String) -> Unit) {
     val accent = if (node.goalId == null) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp)) {
+    AppCard(padding = 14.dp) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(if (node.isGoalDone) "🎯" else if (node.goalId == null) "•" else "◇")
                 Spacer(Modifier.width(8.dp))
@@ -889,7 +880,6 @@ private fun ImpactNodeCard(node: com.todocompanion.app.domain.done.Impact.Node, 
                     Text("→ $o", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
-        }
     }
 }
 
@@ -897,7 +887,7 @@ private fun ImpactNodeCard(node: com.todocompanion.app.domain.done.Impact.Node, 
 
 @Composable
 private fun CoSignTeaser(onOpen: () -> Unit) {
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+    Surface(shape = RoundedCornerShape(16.dp), color = appCardColor(),
         modifier = Modifier.fillMaxWidth().clickable { onOpen() }) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Handshake, null, tint = MaterialTheme.colorScheme.primary)
@@ -936,8 +926,7 @@ private fun CoSignScreen(vm: AppViewModel, onBack: () -> Unit) {
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, color = MaterialTheme.colorScheme.primary)
 
             // 1) Co-sign someone's proof.
-            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(14.dp)) {
+            AppCard(padding = 14.dp) {
                     Text("Co-sign a proof", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     Text("Paste the verify token from a friend's receipt (under its QR), then sign to witness it.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -960,12 +949,10 @@ private fun CoSignScreen(vm: AppViewModel, onBack: () -> Unit) {
                             runCatching { ctx.startActivity(android.content.Intent.createChooser(send, "Co-signature")) }
                         }) { Text("Share token") }
                     }
-                }
             }
 
             // 2) Verify a co-signature.
-            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(14.dp)) {
+            AppCard(padding = 14.dp) {
                     Text("Verify a co-signature", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     Text("Paste a COSIGN|… token you received to check it's genuine.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -985,7 +972,6 @@ private fun CoSignScreen(vm: AppViewModel, onBack: () -> Unit) {
                         Text(it, style = MaterialTheme.typography.bodyMedium,
                             color = if (it.startsWith("✓")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
                     }
-                }
             }
         }
     }
@@ -1004,7 +990,7 @@ private fun HeatmapCard(heat: Map<Long, LivingRecord.HeatCell>, today: LocalDate
     val maxCount = (heat.values.maxOfOrNull { it.count } ?: 1).coerceAtLeast(1)
     val base = MaterialTheme.colorScheme.primary
     val empty = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .55f)
-    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = RoundedCornerShape(18.dp), color = appCardColor(), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Text("Your season of finishing", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Text("Each square is a day — darker means more done.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1030,7 +1016,7 @@ private fun HeatmapCard(heat: Map<Long, LivingRecord.HeatCell>, today: LocalDate
 /** #5 — a soft launcher into the year-in-review story. */
 @Composable
 private fun WrappedTeaser(onOpen: () -> Unit) {
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp,
+    Surface(shape = RoundedCornerShape(16.dp), color = appCardColor(),
         modifier = Modifier.fillMaxWidth().clickable { onOpen() }) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("✨", style = MaterialTheme.typography.headlineSmall)
@@ -1047,7 +1033,7 @@ private fun WrappedTeaser(onOpen: () -> Unit) {
 /** #2 — milestone shelf: earned badges (tap to share a verifiable card) + the single next target. */
 @Composable
 private fun MilestonesCard(milestones: List<LivingRecord.Milestone>, onShare: (LivingRecord.Milestone) -> Unit) {
-    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = RoundedCornerShape(18.dp), color = appCardColor(), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Text("Milestones", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(10.dp))
@@ -1087,8 +1073,7 @@ private fun PatternInsightsCard(
     feltInsights: List<com.todocompanion.app.domain.ReviewInsights.Insight>,
     rangeLabel: String,
 ) {
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    AppCard(padding = 14.dp, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("What your record reveals", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             insights.forEach { i ->
                 Row(verticalAlignment = Alignment.Top) {
@@ -1117,7 +1102,6 @@ private fun PatternInsightsCard(
             }
             if (feltInsights.isNotEmpty()) Text("These are descriptive patterns, not cause and effect.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Computed on-device from your own history — nothing leaves the phone.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
     }
 }
 
@@ -1125,8 +1109,7 @@ private fun PatternInsightsCard(
  *  felt, each carrying its confidence, with the non-causal disclaimer front and centre. */
 @Composable
 private fun OutputVsFeltCard(ledger: com.todocompanion.app.domain.FeltOutputLedger.Ledger) {
-    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    AppCard(padding = 14.dp, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Output vs. how you felt", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Text("Over ${ledger.pairedDays} days you both rated and finished things — averaging ${String.format(Locale.US, "%.1f", ledger.avgOutputPerDay)} finished a day at ${String.format(Locale.US, "%.1f", ledger.avgRating)}★.",
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1142,14 +1125,13 @@ private fun OutputVsFeltCard(ledger: com.todocompanion.app.domain.FeltOutputLedg
             }
             Text(ledger.disclaimer, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Computed on-device from your own record — nothing leaves the phone.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
     }
 }
 
 /** #8 — skills ledger: finished work rolled into areas, each with a count and hours as evidence. */
 @Composable
 private fun SkillsCard(skills: List<LivingRecord.Skill>) {
-    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = RoundedCornerShape(18.dp), color = appCardColor(), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Skills you're building", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Text("Where your finished work adds up — backed by the entries behind it.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1175,7 +1157,7 @@ private fun SealedLettersCard(
     onWrite: () -> Unit, onOpen: (com.todocompanion.app.data.entity.SealedNoteEntity) -> Unit,
 ) {
     val todayDay = today.toEpochDay()
-    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = RoundedCornerShape(18.dp), color = appCardColor(), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("✉️", style = MaterialTheme.typography.titleMedium)
