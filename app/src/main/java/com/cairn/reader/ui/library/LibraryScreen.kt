@@ -939,9 +939,9 @@ private fun collectionSubtreeIds(all: List<CollectionWithCount>, root: String): 
 }
 
 /** One flattened row of the (nested) collection tree, honouring which parents are collapsed. */
-private data class CollectionRow(val id: String, val name: String, val count: Int, val depth: Int, val hasChildren: Boolean)
+internal data class CollectionRow(val id: String, val name: String, val count: Int, val depth: Int, val hasChildren: Boolean)
 
-private fun flattenCollections(all: List<CollectionWithCount>, collapsed: Set<String>): List<CollectionRow> {
+internal fun flattenCollections(all: List<CollectionWithCount>, collapsed: Set<String>): List<CollectionRow> {
     val ids = all.mapTo(HashSet()) { it.id }
     // Treat a collection whose parent is missing (or null) as a root, so nothing is ever hidden.
     val byParent = all.groupBy { it.parentId?.takeIf { p -> p in ids } }
@@ -960,7 +960,7 @@ private fun flattenCollections(all: List<CollectionWithCount>, collapsed: Set<St
 /** One flattened row of the (path-)nested tag tree. [exists] is false for a synthesized parent
  *  node that has no tag row of its own (only descendants), so it can still be browsed and managed.
  *  [totalCount] rolls up the node's own items plus every descendant's. */
-private data class TagTreeRow(
+internal data class TagTreeRow(
     val path: String,
     val label: String,
     val depth: Int,
@@ -973,7 +973,7 @@ private data class TagTreeRow(
 
 /** Build the foldable tag tree from flat, "/"-delimited tag paths, synthesizing any missing
  *  parent nodes so e.g. a lone "tech/ai" still shows a browsable "tech" above it. */
-private fun buildTagTree(tags: List<TagWithCount>, collapsed: Set<String>): List<TagTreeRow> {
+internal fun buildTagTree(tags: List<TagWithCount>, collapsed: Set<String>): List<TagTreeRow> {
     // Dedupe by normalized path; keep the highest count / a real id if the same path repeats.
     val real = HashMap<String, TagWithCount>()
     tags.forEach { t ->
@@ -1008,215 +1008,3 @@ private fun buildTagTree(tags: List<TagWithCount>, collapsed: Set<String>): List
  * so the main screen stays a clean single-row top bar. This is Cairn's answer to Raindrop's
  * left sidebar, shaped for a phone.
  */
-@Composable
-private fun LibraryFilterSheet(
-    scope: LibraryScope,
-    counts: LibraryCounts,
-    collections: List<CollectionWithCount>,
-    tags: List<TagWithCount>,
-    savedSearches: List<String>,
-    onScope: (LibraryScope) -> Unit,
-    onOpenHighlights: () -> Unit,
-    onSavedSearch: (String) -> Unit,
-    onRemoveSavedSearch: (String) -> Unit,
-    onNewCollection: (parentId: String?) -> Unit,
-    onRenameCollection: (id: String, name: String) -> Unit,
-    onDeleteCollection: (String) -> Unit,
-    onRenameTag: (path: String, label: String) -> Unit,
-    onMoveTag: (path: String) -> Unit,
-    onDeleteTag: (path: String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val scheme = MaterialTheme.colorScheme
-    var collapsed by remember { mutableStateOf(setOf<String>()) }
-    var collapsedTags by remember { mutableStateOf(setOf<String>()) }
-    var menuFor by remember { mutableStateOf<String?>(null) }
-    var menuForTag by remember { mutableStateOf<String?>(null) }
-    val rows = flattenCollections(collections, collapsed)
-    val tagRows = buildTagTree(tags, collapsedTags)
-
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        LazyColumn(
-            state = rememberLazyListState(),
-            modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp),
-            contentPadding = PaddingValues(bottom = 28.dp),
-        ) {
-            item {
-                Text(stringResource(R.string.filter_organize),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 8.dp),
-                )
-            }
-            // -- System scopes ----------------------------------------------------
-            item { SheetScopeRow(Icons.Outlined.CollectionsBookmark, "All", counts.allCount, scope is LibraryScope.All) { onScope(LibraryScope.All) } }
-            item { SheetScopeRow(Icons.Outlined.Inbox, "Unsorted", counts.unsortedCount, scope is LibraryScope.Unsorted) { onScope(LibraryScope.Unsorted) } }
-            item { SheetScopeRow(Icons.Outlined.StarBorder, "Favorites", counts.favoritesCount, scope is LibraryScope.Favorites) { onScope(LibraryScope.Favorites) } }
-            item { SheetScopeRow(Icons.Outlined.OfflinePin, "Offline copies", counts.offlineCount, scope is LibraryScope.Offline) { onScope(LibraryScope.Offline) } }
-            item { SheetScopeRow(Icons.Outlined.Archive, "Archive", counts.archiveCount, scope is LibraryScope.Archive) { onScope(LibraryScope.Archive) } }
-            item { SheetScopeRow(Icons.Outlined.FormatQuote, "Highlights", null, false) { onOpenHighlights() } }
-
-            // -- Collections (nested) --------------------------------------------
-            item {
-                Row(
-                    Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp, top = 14.dp, bottom = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(stringResource(R.string.collections), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { onNewCollection(null) }) {
-                        Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.size(4.dp)); Text(stringResource(R.string.new_kw))
-                    }
-                }
-            }
-            if (rows.isEmpty()) {
-                item {
-                    Text(stringResource(R.string.no_collections_yet_group_saved_items),
-                        style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
-                    )
-                }
-            }
-            items(rows, key = { it.id }) { r ->
-                val selected = scope.let { it is LibraryScope.Collection && it.id == r.id }
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { onScope(LibraryScope.Collection(r.id, r.name)) }
-                        .padding(start = (18 + r.depth * 18).dp, end = 8.dp, top = 11.dp, bottom = 11.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (r.hasChildren) {
-                        Icon(
-                            if (r.id in collapsed) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown,
-                            contentDescription = if (r.id in collapsed) "Expand" else "Collapse",
-                            tint = scheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp).clickable { collapsed = if (r.id in collapsed) collapsed - r.id else collapsed + r.id },
-                        )
-                        Spacer(Modifier.size(4.dp))
-                    } else {
-                        Spacer(Modifier.size(24.dp))
-                    }
-                    Icon(Icons.Outlined.FolderOpen, contentDescription = null, tint = if (selected) scheme.primary else scheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.size(12.dp))
-                    Text(
-                        r.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = if (selected) scheme.primary else scheme.onSurface,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
-                    )
-                    if (r.count > 0) {
-                        Text("${r.count}", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
-                    }
-                    Box {
-                        IconButton(onClick = { menuFor = r.id }) { Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.manage), modifier = Modifier.size(20.dp)) }
-                        DropdownMenu(expanded = menuFor == r.id, onDismissRequest = { menuFor = null }) {
-                            DropdownMenuItem(text = { Text(stringResource(R.string.new_sub_collection)) }, onClick = { menuFor = null; onNewCollection(r.id) })
-                            DropdownMenuItem(text = { Text(stringResource(R.string.rename)) }, onClick = { menuFor = null; onRenameCollection(r.id, r.name) })
-                            DropdownMenuItem(text = { Text(stringResource(R.string.delete)) }, onClick = { menuFor = null; onDeleteCollection(r.id) })
-                        }
-                    }
-                }
-            }
-
-            // -- Tags (path-nested "parent/child", foldable, with roll-up counts) -----
-            if (tagRows.isNotEmpty()) {
-                item {
-                    Text(stringResource(R.string.tags_2), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 2.dp))
-                }
-                items(tagRows, key = { "tag-${it.path}" }) { r ->
-                    val selected = scope.let { it is LibraryScope.Tag && it.name == r.path }
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable { onScope(LibraryScope.Tag(r.tagId ?: r.path, r.path)) }
-                            .padding(start = (18 + r.depth * 18).dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (r.hasChildren) {
-                            Icon(
-                                if (r.path in collapsedTags) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown,
-                                contentDescription = if (r.path in collapsedTags) "Expand" else "Collapse",
-                                tint = scheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp).clickable { collapsedTags = if (r.path in collapsedTags) collapsedTags - r.path else collapsedTags + r.path },
-                            )
-                            Spacer(Modifier.size(4.dp))
-                        } else {
-                            Spacer(Modifier.size(24.dp))
-                        }
-                        Icon(Icons.Outlined.Label, contentDescription = null, tint = if (selected) scheme.primary else scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.size(12.dp))
-                        Text(
-                            "#${r.label}",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = if (selected) scheme.primary else if (r.exists) scheme.onSurface else scheme.onSurfaceVariant,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
-                        )
-                        if (r.totalCount > 0) Text("${r.totalCount}", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
-                        Box {
-                            IconButton(onClick = { menuForTag = r.path }) { Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.manage_tag), modifier = Modifier.size(20.dp)) }
-                            DropdownMenu(expanded = menuForTag == r.path, onDismissRequest = { menuForTag = null }) {
-                                if (r.exists) {
-                                    DropdownMenuItem(text = { Text(stringResource(R.string.rename)) }, onClick = { menuForTag = null; onRenameTag(r.path, r.label) })
-                                }
-                                DropdownMenuItem(text = { Text(stringResource(R.string.move_under)) }, onClick = { menuForTag = null; onMoveTag(r.path) })
-                                DropdownMenuItem(
-                                    text = { Text(if (r.hasChildren) "Delete tag & sub-tags" else "Delete", color = scheme.error) },
-                                    onClick = { menuForTag = null; onDeleteTag(r.path) },
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // -- Saved searches --------------------------------------------------
-            if (savedSearches.isNotEmpty()) {
-                item {
-                    Text(stringResource(R.string.saved_searches), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 2.dp))
-                }
-                items(savedSearches, key = { "ss-$it" }) { q ->
-                    Row(
-                        Modifier.fillMaxWidth().clickable { onSavedSearch(q) }.padding(start = 24.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(Icons.Outlined.Search, contentDescription = null, tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.size(12.dp))
-                        Text(q, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { onRemoveSavedSearch(q) }) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.remove_2), modifier = Modifier.size(18.dp)) }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SheetScopeRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, count: Int?, selected: Boolean, onClick: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, contentDescription = null, tint = if (selected) scheme.primary else scheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.size(16.dp))
-        Text(label, style = MaterialTheme.typography.bodyLarge, color = if (selected) scheme.primary else scheme.onSurface, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, modifier = Modifier.weight(1f))
-        if (count != null && count > 0) Text("$count", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun NameDialog(title: String, initial: String, confirmLabel: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
-    var text by remember { mutableStateOf(initial) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            OutlinedTextField(value = text, onValueChange = { text = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        },
-        confirmButton = { TextButton(onClick = { onConfirm(text) }, enabled = text.isNotBlank()) { Text(confirmLabel) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-    )
-}
