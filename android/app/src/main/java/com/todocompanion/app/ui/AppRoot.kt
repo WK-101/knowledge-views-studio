@@ -931,7 +931,7 @@ fun AppRoot(
                                 ViewTabStrip(vm)
                                 Box(Modifier.weight(1f)) {
                                     ListBackgroundLayer(vm)
-                                    if (boardMode) com.todocompanion.app.ui.screens.KanbanScreen(vm, ::openTask) else TasksScreen(vm, ::openTask, onOpenOccasion = openOccasion)
+                                    if (boardMode) com.todocompanion.app.ui.screens.KanbanScreen(vm, ::openTask) else TasksScreen(vm, ::openTask, onOpenOccasion = openOccasion, onOpenRoutineRun = { vm.requestRoutineRun(it); showRoutines = true })
                                 }
                             }
                             Tab.SEARCH -> SearchScreen(vm, ::openTask, searchQuery,

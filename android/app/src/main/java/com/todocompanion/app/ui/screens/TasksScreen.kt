@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -130,7 +131,7 @@ import com.todocompanion.app.ui.components.TaskMeta
 import com.todocompanion.app.ui.components.rowVerticalPadding
 
 @Composable
-fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier, onOpenOccasion: (String?) -> Unit = {}) {
+fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier, onOpenOccasion: (String?) -> Unit = {}, onOpenRoutineRun: (String) -> Unit = {}) {
     val outline by vm.outlineMode.collectAsState()
     val settings by vm.settings.collectAsState()
     val view by vm.currentView.collectAsState()
@@ -249,10 +250,10 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
             selected = selected, selectionMode = selectionMode, onToggleSel = { toggleSel(it) },
             sortIsManual = sortMode == com.todocompanion.app.domain.view.SortMode.MANUAL,
             onOpenTask = onOpenTask, modifier = Modifier.fillMaxSize(),
-            header = { taskListHeaders(vm, view, viewDescription, onOpenOccasion) })
+            header = { taskListHeaders(vm, view, viewDescription, onOpenOccasion, onOpenRoutineRun) })
       } else {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = if (selectionMode) 120.dp else 100.dp)) {
-            taskListHeaders(vm, view, viewDescription, onOpenOccasion)
+            taskListHeaders(vm, view, viewDescription, onOpenOccasion, onOpenRoutineRun)
             items(groups, key = { it.key }) { group ->
                 val open = collapsed[group.key] != true
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
@@ -540,7 +541,7 @@ private fun subtaskDepth(task: TaskEntity, byId: Map<String, TaskEntity>): Int {
 class TaskLabelNav(val onList: (String) -> Unit, val onContext: (String) -> Unit, val onTag: (String) -> Unit)
 
 /** The top strips (list description + smart-view helpers) shared by both list layouts. */
-private fun androidx.compose.foundation.lazy.LazyListScope.taskListHeaders(vm: AppViewModel, view: ViewRef, viewDescription: String?, onOpenOccasion: (String?) -> Unit = {}) {
+private fun androidx.compose.foundation.lazy.LazyListScope.taskListHeaders(vm: AppViewModel, view: ViewRef, viewDescription: String?, onOpenOccasion: (String?) -> Unit = {}, onOpenRoutineRun: (String) -> Unit = {}) {
     viewDescription?.let { desc -> item(key = "viewdesc") {
         Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(12.dp),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)) {
@@ -560,6 +561,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.taskListHeaders(vm: A
             item(key = "bookend") { BookendCard(vm) }       // R35 TW-E: AM/PM intention-review bookend
             item(key = "microplans") { PlansStrip(vm) }     // R67: implementation intentions + temptation bundles, at the moment of action
             item(key = "habitsdue") { HabitsDueStrip(vm) }
+            item(key = "routinesdue") { RoutinesDueStrip(vm, onOpenRoutineRun) } // Tier 7: due-today rituals, one tap to run
             item(key = "shutdown") { ShutdownStrip(vm) }    // R36 FW-6: evening shutdown + carry-forward
         }
         // Countdowns whose target falls in this list's window show up here too, so a countdown you
@@ -885,6 +887,68 @@ private fun HabitsDueStrip(vm: AppViewModel) {
                             Box(Modifier.size(7.dp).clip(androidx.compose.foundation.shape.CircleShape).background(color))
                             Spacer(Modifier.size(7.dp))
                             Text((h.emoji?.plus(" ") ?: "") + h.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Tier 7 · the day's scheduled rituals, surfaced on Today so a routine with a reminder is reachable
+ *  from the daily plan and not only from the drawer + notification. Each row is a "press play" affordance:
+ *  a tap opens the Routine Runner on that ritual. Runnable + reminder-set + not-yet-run-today only, so the
+ *  card empties as the day's rituals get done — the same self-clearing behaviour as the habits-due strip. */
+@Composable
+private fun RoutinesDueStrip(vm: AppViewModel, onOpenRoutineRun: (String) -> Unit) {
+    val settings by vm.settings.collectAsState()
+    // routinesDueToday() reads routinesJson + routineRunsJson off settings, so recompute when settings change.
+    val due = remember(settings.routinesJson, settings.routineRunsJson) { vm.routinesDueToday() }
+    if (due.isEmpty()) return
+    var expanded by rememberSaveable { mutableStateOf(true) }
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Column(Modifier.padding(12.dp)) {
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { expanded = !expanded }.padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Rituals · ${due.size} to run today", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Icon(
+                    Icons.Filled.KeyboardArrowDown,
+                    if (expanded) "Collapse rituals" else "Expand rituals",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.rotate(if (expanded) 180f else 0f),
+                )
+            }
+            if (expanded) {
+                Spacer(Modifier.size(8.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    due.forEach { r ->
+                        val mins = (r.plannedSec + 59) / 60
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = .08f))
+                                .clickable { onOpenRoutineRun(r.id) }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (r.emoji.isNotBlank()) { Text(r.emoji, style = MaterialTheme.typography.titleMedium); Spacer(Modifier.size(10.dp)) }
+                            Column(Modifier.weight(1f)) {
+                                Text(r.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
+                                val sub = buildString {
+                                    append("${r.steps.size} step${if (r.steps.size == 1) "" else "s"}")
+                                    if (mins > 0) append(" · ~${mins} min")
+                                }
+                                Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Spacer(Modifier.size(8.dp))
+                            Box(
+                                Modifier.size(34.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(Icons.Filled.PlayArrow, "Start ${r.name}", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
+                            }
                         }
                     }
                 }

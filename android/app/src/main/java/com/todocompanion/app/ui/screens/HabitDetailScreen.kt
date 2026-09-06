@@ -34,6 +34,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Share
@@ -66,10 +67,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -913,8 +916,40 @@ private fun heatColor(
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
 private typealias HB = com.todocompanion.app.domain.habit.HabitBuilder
 
+/**
+ * The builder coaching block is a long stack of secondary cards (automaticity, identity votes, coach tips,
+ * quit dashboard, urge tools…). It's valuable but pushes the core stat ring, calendar and heatmap far down
+ * the screen. So it's grouped under ONE collapsible header — collapsed by default — turning a wall of ~20
+ * disconnected cards into a single tap-to-open section, with the at-a-glance stats reachable straight away.
+ */
 @Composable
 private fun BuilderSection(
+    vm: com.todocompanion.app.ui.AppViewModel, h: com.todocompanion.app.data.entity.HabitEntity,
+    hc: List<com.todocompanion.app.data.entity.HabitCheckinEntity>, doneDays: Set<Long>, skipDays: Set<Long>,
+    current: Int, today: Long, color: Color, myCravings: List<com.todocompanion.app.data.entity.CravingEventEntity>,
+) {
+    var expanded by rememberSaveable(h.id) { mutableStateOf(false) }
+    Surface(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).clickable { expanded = !expanded },
+        shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(if (h.habitType == "break") "🧠 Quit coaching & tools" else "🧠 Coaching & builder insights",
+                    style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(if (h.habitType == "break") "Clean-time dashboard, urge log, triggers & next steps"
+                     else "Automaticity, identity votes, never-miss-twice, coach tips",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Icon(Icons.Filled.KeyboardArrowDown, if (expanded) "Collapse" else "Expand",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.rotate(if (expanded) 180f else 0f))
+        }
+    }
+    if (expanded) Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        BuilderSectionContent(vm, h, hc, doneDays, skipDays, current, today, color, myCravings)
+    }
+}
+
+@Composable
+private fun BuilderSectionContent(
     vm: com.todocompanion.app.ui.AppViewModel, h: com.todocompanion.app.data.entity.HabitEntity,
     hc: List<com.todocompanion.app.data.entity.HabitCheckinEntity>, doneDays: Set<Long>, skipDays: Set<Long>,
     current: Int, today: Long, color: Color, myCravings: List<com.todocompanion.app.data.entity.CravingEventEntity>,

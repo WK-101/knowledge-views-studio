@@ -1833,6 +1833,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Capped press-play run history (adherence, keystone, on-this-day). */
     fun routineRuns(): List<com.todocompanion.app.domain.RoutineRun> =
         com.todocompanion.app.domain.RoutineRuns.parse(settings.value.routineRunsJson)
+    /** Runnable routines with a daily reminder that haven't been run yet today — the "press play" set the
+     *  Today screen surfaces, so a scheduled ritual is reachable from the daily plan, not only the drawer. */
+    fun routinesDueToday(): List<com.todocompanion.app.domain.Routine> {
+        val t = today()
+        val ranToday = routineRuns().filter { it.epochDay == t }.map { it.routineId }.toSet()
+        return routines().filter { it.isRunnable && it.whenReminderMin != null && it.id !in ranToday }
+    }
     /** Tick a habit for today — the same check-off path the Habits screen uses (setHabitValue). */
     fun completeHabitToday(habitId: String) {
         val h = habits.value.firstOrNull { it.id == habitId } ?: return

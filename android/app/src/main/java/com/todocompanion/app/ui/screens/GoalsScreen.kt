@@ -333,6 +333,7 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
     // refreshes the detail card too — keying on `settings` alone left both stale.
     val tasks by vm.tasks.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
+    val habits by vm.habits.collectAsState()
     val timeEntries by vm.timeEntries.collectAsState()
     val reviews = remember(settings.goalReviewsJson) { vm.goalReviews() }
     val h = remember(g, tasks, checkins, timeEntries) { vm.goalHealth(g) }
@@ -389,6 +390,14 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
                         Spacer(Modifier.height(6.dp))
                         val isKeystone = g.habitId.isNotBlank() && g.habitId == remember(checkins) { vm.keystoneHabitId() }
                         MeasureLine((if (isKeystone) "🗝️ " else "") + "↻ Habit", "${h.habitStrength}% automaticity · ${h.habitStreak}-day streak", (h.habitStrength / 100f))
+                        // If the lead habit has been archived (or deleted), its strength/streak freeze — say so,
+                        // so a stalled lead measure reads as "the practice retired", not "the goal is failing".
+                        val leadHabit = remember(habits, g.habitId) { habits.firstOrNull { it.id == g.habitId } }
+                        if (leadHabit == null || leadHabit.archived) {
+                            Text(if (leadHabit == null) "This lead habit no longer exists — edit the goal to relink one."
+                                 else "This lead habit is archived, so its strength & streak no longer update.",
+                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 3.dp))
+                        }
                     }
                     if (g.hasBudget) { Spacer(Modifier.height(6.dp)); MeasureLine("⏱ Time budget", "${fmtH(h.minutesTracked)} of ${fmtH(h.budgetMin)} banked", if (h.budgetMin == 0) 0f else h.minutesTracked.toFloat() / h.budgetMin) }
                 }
@@ -461,20 +470,26 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
     }
 
     krEdit?.let { kr ->
-        var cur by remember { mutableStateOf(trimNum(kr.current)) }
+        var cur by remember(kr.id) { mutableStateOf(trimNum(kr.current)) }
+        var tgt by remember(kr.id) { mutableStateOf(trimNum(kr.target)) }
+        var unit by remember(kr.id) { mutableStateOf(kr.unit) }
         AlertDialog(onDismissRequest = { krEdit = null },
             title = { Text(kr.title.ifBlank { "Key result" }) },
             text = {
-                Column {
-                    Text("Target ${trimNum(kr.target)} ${kr.unit}".trim(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(cur, { s -> cur = s.filter { it.isDigit() || it == '.' }.take(9) }, label = { Text("Current${if (kr.unit.isBlank()) "" else " (${kr.unit})"}") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(cur, { cur = cleanDecimal(it) }, label = { Text("Current${if (unit.isBlank()) "" else " ($unit)"}") }, singleLine = true, modifier = Modifier.weight(1f))
+                        OutlinedTextField(tgt, { tgt = cleanDecimal(it) }, label = { Text("Target") }, singleLine = true, modifier = Modifier.weight(1f))
+                    }
+                    OutlinedTextField(unit, { unit = it.take(8) }, label = { Text("Unit") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
+                    // Keep the prior value when a field is left mid-edit / unparseable, rather than zeroing it.
                     val v = cur.toDoubleOrNull() ?: kr.current
-                    vm.upsertGoal(g.copy(keyResults = g.keyResults.map { if (it.id == kr.id) it.copy(current = v) else it }))
+                    val t = tgt.toDoubleOrNull() ?: kr.target
+                    vm.upsertGoal(g.copy(keyResults = g.keyResults.map { if (it.id == kr.id) it.copy(current = v, target = t, unit = unit.trim()) else it }))
                     krEdit = null
                 }) { Text("Save") }
             },
@@ -483,6 +498,15 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
 }
 
 private fun trimNum(d: Double): String = if (d == d.toLong().toDouble()) d.toLong().toString() else "%.1f".format(d)
+
+/** Sanitize a numeric text-field edit: digits and at most ONE decimal point, capped length. Without the
+ *  single-dot guard "1.2.3" is accepted into the field but parses to null, and the edit is then silently
+ *  reverted to the old value on save — the KR-editing footgun the audit flagged. */
+private fun cleanDecimal(s: String): String {
+    val filtered = s.filter { it.isDigit() || it == '.' }.take(9)
+    val dot = filtered.indexOf('.')
+    return if (dot < 0) filtered else filtered.substring(0, dot + 1) + filtered.substring(dot + 1).replace(".", "")
+}
 
 @Composable
 private fun MeasureLine(label: String, detail: String, fraction: Float) {
@@ -631,7 +655,7 @@ private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, on
                         var startRaw by remember(kr.id) { mutableStateOf(trimNum(kr.start)) }
                         var nowRaw by remember(kr.id) { mutableStateOf(trimNum(kr.current)) }
                         var targetRaw by remember(kr.id) { mutableStateOf(trimNum(kr.target)) }
-                        fun clean(s: String) = s.filter { it.isDigit() || it == '.' }.take(9)
+                        fun clean(s: String) = cleanDecimal(s)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(kr.title, { keyResults[i] = kr.copy(title = it) }, label = { Text("Result ${i + 1}") }, singleLine = true, modifier = Modifier.weight(1f))
                             IconButton(onClick = { keyResults.removeAt(i) }) { Icon(Icons.Filled.Delete, "Delete", tint = faint) }

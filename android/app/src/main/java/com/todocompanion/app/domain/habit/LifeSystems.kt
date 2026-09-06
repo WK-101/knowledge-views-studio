@@ -62,11 +62,18 @@ object LifeSystems {
             val moodH = others.filter { it.ctxMood > 0 }.groupBy { it.epochDay }.mapValues { e -> e.value.map { it.ctxMood }.average() } + dlMood
             val energyH = others.filter { it.ctxEnergy > 0 }.groupBy { it.epochDay }.mapValues { e -> e.value.map { it.ctxEnergy }.average() } + dlEnergy
             val signals = listOf("mood" to moodH, "energy" to energyH, "tasks done" to tasksByDay)
+            // Off-baseline: only the habit's own EXPECTED days that it wasn't done (never pre-history and
+            // never rest days) — otherwise the comparison is diluted by days the habit wasn't even due.
+            val offDays = (start..today).filter { it !in done && HabitStats.isExpectedDay(h, it) }.toSet()
             signals.forEach { (name, series) ->
-                val onVals = series.filterKeys { it in done }.values
-                // Off-baseline: only the habit's own EXPECTED days that it wasn't done (never pre-history and
-                // never rest days) — otherwise the comparison is diluted by days the habit wasn't even due.
-                val offVals = series.filterKeys { it !in done && it in start..today && HabitStats.isExpectedDay(h, it) }.values
+                // "tasks done" is a count: a day with no completed task is a genuine 0, not missing data, so
+                // fill absent on/off days with 0 rather than dropping them — otherwise both baselines silently
+                // exclude every zero-task day and the delta is measured only over days that already had tasks.
+                // Mood & energy are recorded felt-state; an absent day means "not logged" and can't be imputed
+                // as 0, so those stay filtered to the days that actually carry a value.
+                val zeroFill = name == "tasks done"
+                val onVals = if (zeroFill) done.map { series[it] ?: 0.0 } else series.filterKeys { it in done }.values.toList()
+                val offVals = if (zeroFill) offDays.map { series[it] ?: 0.0 } else series.filterKeys { it in offDays }.values.toList()
                 if (onVals.size >= minSample && offVals.size >= minSample) {
                     val on = onVals.average(); val off = offVals.average()
                     val delta = on - off

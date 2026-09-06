@@ -94,6 +94,31 @@ object RoutineInsights {
         )
     }
 
+    data class Capacity(
+        val scheduledCount: Int,     // runnable rituals with a daily reminder — the ones that recur
+        val dailyPlannedMin: Int,    // planned minutes a full day of those rituals asks of you
+        val weeklyPlannedMin: Int,   // dailyPlannedMin × 7 — the weekly ritual load you've committed to
+        val last7ActualMin: Int,     // minutes actually run in the last 7 days (any routine)
+    ) { val hasLoad get() = scheduledCount > 0 && dailyPlannedMin > 0 }
+
+    /**
+     * Ritual load — the capacity read a single-purpose runner can't give because it doesn't hold the whole
+     * set: how much time a full day of your scheduled (daily-reminder) rituals asks of you, the weekly total
+     * that implies, and how much you actually ran over the last 7 days. Timed steps only; a reminder is a
+     * daily one, so weekly = daily × 7. Pure over the routine set + run history.
+     */
+    fun capacity(routines: List<Routine>, runs: List<RoutineRun>, today: Long): Capacity {
+        val scheduled = routines.filter { it.isRunnable && it.whenReminderMin != null }
+        val dailySec = scheduled.sumOf { it.plannedSec }
+        val last7Sec = runs.filter { it.epochDay in (today - 6)..today }.sumOf { it.totalSec }
+        return Capacity(
+            scheduledCount = scheduled.size,
+            dailyPlannedMin = dailySec / 60,
+            weeklyPlannedMin = dailySec * 7 / 60,
+            last7ActualMin = last7Sec / 60,
+        )
+    }
+
     data class OnThisDay(val yearsAgo: Int, val routineName: String, val emoji: String)
 
     /** Runs on this calendar day (same month + day) in a previous year. */

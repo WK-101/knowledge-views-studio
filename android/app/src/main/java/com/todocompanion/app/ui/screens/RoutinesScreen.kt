@@ -115,6 +115,9 @@ fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
     val onThisDay = remember(settings.routineRunsJson, settings.routinesJson, today) {
         com.todocompanion.app.domain.RoutineInsights.onThisDay(routines, runs, today, vm.zoneId)
     }
+    val capacity = remember(settings.routinesJson, settings.routineRunsJson, today) {
+        com.todocompanion.app.domain.RoutineInsights.capacity(routines, runs, today)
+    }
 
     var running by remember { mutableStateOf<Routine?>(null) }
     var editing by remember { mutableStateOf<Routine?>(null) }
@@ -152,6 +155,7 @@ fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
                     }
                 }
             }
+            if (capacity.hasLoad) item { RoutineCapacityCard(capacity) }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { editing = blankRoutine() }, modifier = Modifier.weight(1f)) { Text("＋ New routine") }
@@ -206,6 +210,33 @@ fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
     }
     if (browseCatalog) CatalogDialog(onDismiss = { browseCatalog = false }, onAdd = { vm.upsertRoutine(templateToRoutine(it)); browseCatalog = false })
     insightsFor?.let { r -> RoutineInsightsDialog(r, runs, dayLogs, today, vm.zoneId, onDismiss = { insightsFor = null }) }
+}
+
+/** Ritual load — the capacity read only a whole-set view can give: how much time a full day of your
+ *  scheduled rituals asks of you, the weekly total that implies, and how much you actually ran this week.
+ *  Grounds "how many rituals is too many?" in real minutes rather than a vibe. */
+@Composable
+private fun RoutineCapacityCard(cap: com.todocompanion.app.domain.RoutineInsights.Capacity) {
+    fun hm(min: Int): String = when {
+        min <= 0 -> "0m"
+        min < 60 -> "${min}m"
+        min % 60 == 0 -> "${min / 60}h"
+        else -> "${min / 60}h ${min % 60}m"
+    }
+    Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            Text("⏳ RITUAL LOAD", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 0.8.sp)
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(hm(cap.weeklyPlannedMin), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(" a week planned", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 3.dp))
+            }
+            Text(
+                "${cap.scheduledCount} daily ritual${if (cap.scheduledCount == 1) "" else "s"} · ${hm(cap.dailyPlannedMin)} a day · ${hm(cap.last7ActualMin)} run in the last 7 days",
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+    }
 }
 
 /** Per-routine analytics (adherence, best time, drop-off step, keystone) + a "this year" summary.
