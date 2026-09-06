@@ -62,9 +62,10 @@ fun RsvpReader(
     var playing by remember { mutableStateOf(true) }
     var wpm by remember { mutableFloatStateOf(350f) }
 
+    val scheme = MaterialTheme.colorScheme
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(
-            Modifier.fillMaxSize().background(Color(0xFF101216)),
+            Modifier.fillMaxSize().background(scheme.surface),
             contentAlignment = Alignment.Center,
         ) {
             // Driver: advance one word, pausing a little longer on long or sentence-ending words.
@@ -89,7 +90,7 @@ fun RsvpReader(
                 // Top row: close.
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     IconButton(onClick = onClose) {
-                        Icon(Icons.Outlined.Close, contentDescription = "Close speed reader", tint = Color.White)
+                        Icon(Icons.Outlined.Close, contentDescription = "Close speed reader", tint = scheme.onSurface)
                     }
                 }
 
@@ -101,7 +102,7 @@ fun RsvpReader(
                         text = orpAnnotated(word),
                         fontFamily = FontFamily.Monospace,
                         fontSize = 34.sp,
-                        color = Color(0xFFE6E8EC),
+                        color = scheme.onSurface,
                     )
                 }
                 Spacer(Modifier.height(48.dp))
@@ -111,19 +112,19 @@ fun RsvpReader(
                     progress = { progress },
                     modifier = Modifier.fillMaxWidth().height(3.dp),
                     color = MaterialTheme.colorScheme.primary,
-                    trackColor = Color(0xFF2A2E35),
+                    trackColor = scheme.surfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
                     "${index + 1} / ${words.size} words",
-                    color = Color(0xFF9AA0A6),
+                    color = scheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
                 )
 
                 Spacer(Modifier.height(24.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                     IconButton(onClick = { index = 0; playing = true }) {
-                        Icon(Icons.Outlined.Replay, contentDescription = "Restart", tint = Color.White)
+                        Icon(Icons.Outlined.Replay, contentDescription = "Restart", tint = scheme.onSurface)
                     }
                     Spacer(Modifier.width(16.dp))
                     IconButton(onClick = {
@@ -133,13 +134,13 @@ fun RsvpReader(
                         Icon(
                             if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                             contentDescription = if (playing) "Pause" else "Play",
-                            tint = Color.White,
+                            tint = scheme.onSurface,
                         )
                     }
                 }
 
                 Spacer(Modifier.height(16.dp))
-                Text("${wpm.toInt()} words / min", color = Color(0xFF9AA0A6), style = MaterialTheme.typography.labelMedium)
+                Text("${wpm.toInt()} words / min", color = scheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
                 Slider(
                     value = wpm,
                     onValueChange = { wpm = it },

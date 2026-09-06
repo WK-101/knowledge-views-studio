@@ -368,14 +368,15 @@ fun ReaderScreen(
                     IconButton(onClick = viewModel::toggleStar) {
                         Icon(
                             imageVector = if (data?.isStarred == true) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                            contentDescription = "Star",
+                            // Announce the resulting state so TalkBack reads e.g. "Starred" vs "Not starred".
+                            contentDescription = if (data?.isStarred == true) "Starred" else "Not starred",
                             tint = if (data?.isStarred == true) MaterialTheme.colorScheme.tertiary else palette.text,
                         )
                     }
                     IconButton(onClick = viewModel::toggleSave) {
                         Icon(
                             imageVector = if (data?.isReadLater == true) Icons.Filled.Bookmark else Icons.Outlined.Bookmark,
-                            contentDescription = "Save",
+                            contentDescription = if (data?.isReadLater == true) "Saved for later" else "Save for later",
                             tint = if (data?.isReadLater == true) MaterialTheme.colorScheme.tertiary else palette.text,
                         )
                     }

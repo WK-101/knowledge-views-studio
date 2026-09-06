@@ -726,7 +726,7 @@ private fun LibraryHome(
             FoldableSectionHeader(
                 "COLLECTIONS", collectionsOpen, onToggle = { onSetCollectionsOpen(!collectionsOpen) },
                 trailing = {
-                    IconButton(onClick = onNewCollection, modifier = Modifier.size(30.dp)) {
+                    IconButton(onClick = onNewCollection, modifier = Modifier.size(44.dp)) {
                         Icon(Icons.Outlined.Add, contentDescription = "New collection", tint = scheme.primary)
                     }
                 },
@@ -808,7 +808,7 @@ private fun CollectionTreeItem(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (hasChildren) {
-            IconButton(onClick = onToggle, modifier = Modifier.size(28.dp)) {
+            IconButton(onClick = onToggle, modifier = Modifier.size(44.dp)) {
                 Icon(
                     if (collapsed) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown,
                     contentDescription = if (collapsed) "Expand" else "Collapse", tint = scheme.onSurfaceVariant, modifier = Modifier.size(20.dp),
@@ -838,7 +838,7 @@ private fun TagTreeItem(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (hasChildren) {
-            IconButton(onClick = onToggle, modifier = Modifier.size(28.dp)) {
+            IconButton(onClick = onToggle, modifier = Modifier.size(44.dp)) {
                 Icon(
                     if (collapsed) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown,
                     contentDescription = if (collapsed) "Expand" else "Collapse", tint = scheme.onSurfaceVariant, modifier = Modifier.size(20.dp),

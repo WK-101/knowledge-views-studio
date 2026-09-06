@@ -182,7 +182,7 @@ fun CairnApp(
         val orderedNames = appPrefs.bottomTabsOrder.filter { it in members } +
             Destination.entries.map { it.name }.filter { it in members && it !in appPrefs.bottomTabsOrder }
         orderedNames.mapNotNull { n -> Destination.entries.firstOrNull { it.name == n } }
-            .ifEmpty { listOf(Destination.Inbox) }.take(6)
+            .ifEmpty { listOf(Destination.Inbox) }.take(5)
     }
     var currentName by rememberSaveable { mutableStateOf(Destination.Inbox.name) }
     // current is always a pane; the only non-pane (Starred) just re-scopes the Inbox.
@@ -428,7 +428,7 @@ fun CairnApp(
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                     tonalElevation = 0.dp,
-                    modifier = Modifier.height(56.dp),
+                    modifier = Modifier.height(64.dp),
                 ) {
                     tabs.forEach { dest ->
                         val selected = when {
@@ -523,7 +523,10 @@ fun CairnApp(
                 }
             }
         } else {
-            Crossfade(targetState = current, label = "destination") { dest ->
+            val motionSpec = if (com.cairn.reader.ui.util.reduceMotion())
+                androidx.compose.animation.core.snap<Float>()
+            else androidx.compose.animation.core.tween(220)
+            Crossfade(targetState = current, animationSpec = motionSpec, label = "destination") { dest ->
                 renderDest(dest, onOpenItem)
             }
         }
