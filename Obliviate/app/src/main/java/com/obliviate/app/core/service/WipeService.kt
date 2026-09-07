@@ -64,7 +64,8 @@ class WipeService : Service() {
         val target = WipeTarget.valueOf(intent.getStringExtra(EXTRA_TARGET) ?: WipeTarget.INTERNAL.name)
         val method = WipeMethod.valueOf(intent.getStringExtra(EXTRA_METHOD) ?: WipeMethod.RANDOM.name)
         val keep = intent.getLongExtra(EXTRA_KEEP, WipeConfig.DEFAULT_KEEP_FREE_BYTES)
-        val config = WipeConfig(target, method, keep)
+        val verify = intent.getBooleanExtra(EXTRA_VERIFY, true)
+        val config = WipeConfig(target, method, keep, verify)
 
         val initial = WipeProgress(WipePhase.PREPARING, 1, method.passes, 0, 1, 0)
         lastProgress = initial
@@ -81,7 +82,8 @@ class WipeService : Service() {
                     updateNotification(p)
                 }
                 _state.value = WipeUiState.Done(
-                    result.bytesOverwritten, result.passes, result.elapsedMs, target
+                    result.bytesOverwritten, result.passes, result.elapsedMs, target,
+                    result.verifiedBytes, result.verifyMismatches, result.volumesWiped
                 )
             } catch (c: CancellationException) {
                 _state.value = WipeUiState.Cancelled(lastProgress?.bytesWritten ?: 0)
@@ -126,12 +128,15 @@ class WipeService : Service() {
         )
 
         val percent = (progress.fraction * 100).toInt()
-        val indeterminate = progress.phase == WipePhase.PREPARING || progress.phase == WipePhase.DELETING
+        val indeterminate = progress.phase == WipePhase.PREPARING ||
+            progress.phase == WipePhase.VERIFYING ||
+            progress.phase == WipePhase.DELETING
         val text = when (progress.phase) {
             WipePhase.PREPARING -> "Preparing…"
             WipePhase.FILLING ->
                 "Pass ${progress.pass}/${progress.totalPasses} · " +
                     "${formatBytes(progress.bytesWritten)} · ${formatSpeed(progress.speedBytesPerSec)}"
+            WipePhase.VERIFYING -> "Verifying…"
             WipePhase.DELETING -> "Releasing space…"
             WipePhase.DONE -> "Finishing…"
         }
@@ -185,6 +190,7 @@ class WipeService : Service() {
         private const val EXTRA_TARGET = "extra_target"
         private const val EXTRA_METHOD = "extra_method"
         private const val EXTRA_KEEP = "extra_keep"
+        private const val EXTRA_VERIFY = "extra_verify"
 
         private val _state = MutableStateFlow<WipeUiState>(WipeUiState.Idle)
         val state: StateFlow<WipeUiState> = _state.asStateFlow()
@@ -199,6 +205,7 @@ class WipeService : Service() {
                 putExtra(EXTRA_TARGET, config.target.name)
                 putExtra(EXTRA_METHOD, config.method.name)
                 putExtra(EXTRA_KEEP, config.keepFreeBytes)
+                putExtra(EXTRA_VERIFY, config.verify)
             }
             androidx.core.content.ContextCompat.startForegroundService(context, intent)
         }

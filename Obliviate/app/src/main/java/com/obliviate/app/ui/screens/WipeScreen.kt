@@ -5,6 +5,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -66,24 +68,32 @@ fun WipeScreen() {
     val context = LocalContext.current
     val state by WipeService.state.collectAsStateWithLifecycle()
 
-    var targetIdx by rememberSaveable { mutableIntStateOf(WipeTarget.INTERNAL.ordinal) }
+    var targetIdx by rememberSaveable { mutableIntStateOf(WipeTarget.BOTH.ordinal) }
     var methodIdx by rememberSaveable { mutableIntStateOf(WipeMethod.RANDOM.ordinal) }
+    var verify by rememberSaveable { mutableStateOf(true) }
+    var maxCoverage by rememberSaveable { mutableStateOf(false) }
     val target = WipeTarget.entries[targetIdx]
     val method = WipeMethod.entries[methodIdx]
+    val keepFree = if (maxCoverage) {
+        WipeConfig.AGGRESSIVE_KEEP_FREE_BYTES
+    } else {
+        WipeConfig.DEFAULT_KEEP_FREE_BYTES
+    }
 
     var showConfirm by remember { mutableStateOf(false) }
 
     val notifLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { /* proceed regardless — the notification is a nicety, not a requirement */
-        WipeService.start(context, WipeConfig(target, method))
+        WipeService.start(context, WipeConfig(target, method, keepFree, verify))
     }
 
     fun launchWipe() {
+        val config = WipeConfig(target, method, keepFree, verify)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            WipeService.start(context, WipeConfig(target, method))
+            WipeService.start(context, config)
         }
     }
 
@@ -95,17 +105,26 @@ fun WipeScreen() {
     ) {
         when (val s = state) {
             is WipeUiState.Running -> RunningCard(s, onCancel = { WipeService.cancel(context) })
-            is WipeUiState.Done -> ResultCard(
-                success = true,
-                title = "Wipe complete",
-                lines = listOf(
-                    "Overwritten" to formatBytes(s.bytesOverwritten),
-                    "Passes" to s.passes.toString(),
-                    "Time" to formatDuration(s.elapsedMs),
-                    "Target" to s.target.label,
-                ),
-                onDismiss = { WipeService.reset() },
-            )
+            is WipeUiState.Done -> {
+                val clean = s.verifyMismatches == 0
+                val verifyLine = when {
+                    s.verifiedBytes <= 0 -> "Verification" to "skipped"
+                    clean -> "Verified" to "${formatBytes(s.verifiedBytes)} sampled · OK"
+                    else -> "Verified" to "${s.verifyMismatches} mismatch(es)"
+                }
+                ResultCard(
+                    success = clean,
+                    title = if (clean) "Wipe complete" else "Wipe complete — with warnings",
+                    lines = listOf(
+                        "Overwritten" to formatBytes(s.bytesOverwritten),
+                        "Passes" to s.passes.toString(),
+                        "Volumes wiped" to s.volumesWiped.toString(),
+                        "Time" to formatDuration(s.elapsedMs),
+                        verifyLine,
+                    ),
+                    onDismiss = { WipeService.reset() },
+                )
+            }
             is WipeUiState.Cancelled -> ResultCard(
                 success = false,
                 title = "Wipe cancelled",
@@ -145,6 +164,24 @@ fun WipeScreen() {
                 )
                 Spacer(Modifier.height(8.dp))
             }
+
+            Spacer(Modifier.height(12.dp))
+            SectionTitle("Options")
+            ToggleRow(
+                title = "Verify after wipe",
+                subtitle = "Read the fill back to confirm it reached storage (logical-layer check).",
+                checked = verify,
+                onCheckedChange = { verify = it },
+            )
+            Spacer(Modifier.height(8.dp))
+            ToggleRow(
+                title = "Maximum coverage",
+                subtitle = "Fill closer to full — keeps only " +
+                    "${formatBytes(WipeConfig.AGGRESSIVE_KEEP_FREE_BYTES)} free instead of " +
+                    "${formatBytes(WipeConfig.DEFAULT_KEEP_FREE_BYTES)}. Slightly riskier.",
+                checked = maxCoverage,
+                onCheckedChange = { maxCoverage = it },
+            )
 
             Spacer(Modifier.height(12.dp))
             InfoBanner(
@@ -198,12 +235,14 @@ fun WipeScreen() {
 private fun RunningCard(s: WipeUiState.Running, onCancel: () -> Unit) {
     val p = s.progress
     val percent = (p.fraction * 100).toInt()
-    val phaseLabel = when (p.phase) {
+    val base = when (p.phase) {
         WipePhase.PREPARING -> "Preparing"
         WipePhase.FILLING -> "Overwriting · pass ${p.pass}/${p.totalPasses}"
+        WipePhase.VERIFYING -> "Verifying"
         WipePhase.DELETING -> "Releasing space"
         WipePhase.DONE -> "Finishing"
     }
+    val phaseLabel = if (p.volumeCount > 1) "$base · vol ${p.volume}/${p.volumeCount}" else base
     ObliviateCard {
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             StorageGauge(
@@ -265,6 +304,32 @@ private fun ResultCard(
 private fun SectionTitle(text: String) {
     Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
     Spacer(Modifier.height(10.dp))
+}
+
+@Composable
+private fun ToggleRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    ObliviateCard(modifier = Modifier.clickable { onCheckedChange(!checked) }) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 12.dp),
+            ) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(checked = checked, onCheckedChange = onCheckedChange)
+        }
+    }
 }
 
 @Composable

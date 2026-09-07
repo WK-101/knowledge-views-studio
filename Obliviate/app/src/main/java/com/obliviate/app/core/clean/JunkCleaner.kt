@@ -7,6 +7,8 @@ import com.obliviate.app.core.deleteContents
 import com.obliviate.app.core.dirSize
 import kotlinx.coroutines.ensureActive
 import java.io.File
+import java.io.RandomAccessFile
+import java.security.SecureRandom
 import java.util.Locale
 import kotlin.coroutines.coroutineContext
 
@@ -58,6 +60,8 @@ object JunkCleaner {
 
     // ---- Full-storage junk scan (needs All files access) ---------------------
 
+    private val random = SecureRandom()
+
     private val JUNK_EXTENSIONS = setOf(
         "tmp", "temp", "log", "crdownload", "part", "partial", "bak", "old"
     )
@@ -82,6 +86,14 @@ object JunkCleaner {
                 coroutineContext.ensureActive()
                 if (found.size >= MAX_JUNK_ITEMS) return
                 if (child.isDirectory) {
+                    // Thumbnail caches hold recoverable copies of your photos.
+                    if (child.name.equals(".thumbnails", ignoreCase = true)) {
+                        child.listFiles()?.forEach { tf ->
+                            if (found.size < MAX_JUNK_ITEMS && tf.isFile) {
+                                found += JunkItem(tf.absolutePath, tf.length(), "Thumbnail cache")
+                            }
+                        }
+                    }
                     walk(child)
                     // Empty directory (after recursion) is a junk candidate.
                     if (child.listFiles()?.isEmpty() == true) {
@@ -104,14 +116,37 @@ object JunkCleaner {
         return found
     }
 
-    /** Deletes the given junk items; returns bytes freed. */
+    /** Overwrites (best-effort) and deletes the given junk items; returns bytes freed. */
     fun deleteJunk(items: List<JunkItem>): Long {
         var freed = 0L
         for (item in items) {
             val f = File(item.path)
             val size = if (f.isFile) f.length() else 0L
-            if (f.delete()) freed += size
+            if (overwriteAndDelete(f)) freed += size
         }
         return freed
+    }
+
+    /** Overwrites a file's bytes with random data before deleting it. */
+    private fun overwriteAndDelete(f: File): Boolean {
+        try {
+            val len = if (f.isFile) f.length() else 0L
+            if (len > 0) {
+                RandomAccessFile(f, "rw").use { raf ->
+                    val buf = ByteArray(64 * 1024)
+                    var written = 0L
+                    while (written < len) {
+                        random.nextBytes(buf)
+                        val n = minOf(buf.size.toLong(), len - written).toInt()
+                        raf.write(buf, 0, n)
+                        written += n
+                    }
+                    raf.fd.sync()
+                }
+            }
+        } catch (e: Exception) {
+            // If overwrite fails (permission/locked), still attempt to delete below.
+        }
+        return f.delete()
     }
 }

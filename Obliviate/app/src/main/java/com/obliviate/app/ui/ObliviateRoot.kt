@@ -27,6 +27,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.obliviate.app.ui.screens.AboutScreen
 import com.obliviate.app.ui.screens.CleanScreen
+import com.obliviate.app.ui.screens.DisposeScreen
 import com.obliviate.app.ui.screens.HomeScreen
 import com.obliviate.app.ui.screens.ShredScreen
 import com.obliviate.app.ui.screens.WipeScreen
@@ -51,6 +52,7 @@ fun ObliviateRoot() {
         Dest.SHRED.route -> "Shred files"
         Dest.CLEAN.route -> "Clean junk"
         Dest.ABOUT.route -> "How secure is this?"
+        "dispose" -> "Prepare for disposal"
         else -> "Obliviate"
     }
 
@@ -96,6 +98,11 @@ fun ObliviateRoot() {
             composable(Dest.SHRED.route) { ShredScreen() }
             composable(Dest.CLEAN.route) { CleanScreen() }
             composable(Dest.ABOUT.route) { AboutScreen() }
+            composable("dispose") {
+                DisposeScreen(
+                    onNavigate = { route -> navController.navigate(route) { launchSingleTop = true } }
+                )
+            }
         }
     }
 }

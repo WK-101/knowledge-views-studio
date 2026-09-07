@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.CleaningServices
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -71,6 +72,15 @@ fun HomeScreen(onNavigate: (String) -> Unit) {
             StatLine("Shared storage used", formatBytes(shared.usedBytes))
             StatLine("Internal (/data) free", formatBytes(internal.freeBytes))
         }
+
+        Spacer(Modifier.height(16.dp))
+        ActionCard(
+            icon = Icons.Rounded.RestartAlt,
+            tint = MaterialTheme.colorScheme.primary,
+            title = "Prepare for disposal",
+            subtitle = "The recovery-proof path: verify encryption, wipe, then factory reset.",
+            onClick = { onNavigate("dispose") },
+        )
 
         Spacer(Modifier.height(20.dp))
         Text("Tools", style = MaterialTheme.typography.titleMedium)

@@ -35,10 +35,15 @@ The in‑app **About** screen explains all of this to the user in plain language
 
 | Feature | What it does | Permissions |
 |---|---|---|
-| **Wipe free space** | Fills the accessible free space of the internal (`/data`) or shared volume with random/zero data, `fsync`s it to the storage chip, then releases it. Runs in a foreground service with a progress notification; cancellable; keeps 300 MB free for stability. | None (uses the app's own storage area). Notification prompt on Android 13+. |
+| **Wipe free space** | Fills the accessible free space of the internal (`/data`) and/or shared volume with random/zero data, `fsync`s it to the storage chip, optionally reads it back to verify, then releases it. Supports **Both** volumes (deduped by filesystem), a **verify** pass, and a **maximum‑coverage** mode. Runs in a foreground service with a progress notification; cancellable. | None (uses the app's own storage area). Notification prompt on Android 13+. |
+| **Prepare for disposal** | Guided crypto‑erase path: checks storage encryption + secure screen lock, runs the wipe, then sends you to the factory‑reset screen (the recovery‑proof step). Shows an optional `fstrim` action if root is detected. | None (reads status; deep‑links to Settings). |
 | **Shred files** | Pick specific files via the system file picker, overwrite their bytes (1‑pass random / zero / 3‑pass DoD), then delete. | None broad — Storage Access Framework grants access only to chosen files. |
-| **Clean junk** | Clears the app's own caches, shows an internal/shared storage breakdown, and optionally scans shared storage for clearly‑disposable junk (`.tmp`, `.log`, `.part`, empty folders). | Cache/breakdown: none. Full junk scan: opt‑in "All files access". |
+| **Clean junk** | Clears the app's own caches, shows an internal/shared storage breakdown, and optionally scans shared storage for disposable junk (`.tmp`, `.log`, `.part`, empty folders, **`.thumbnails` caches**) — **overwriting files before deleting** them. | Cache/breakdown: none. Full junk scan: opt‑in "All files access". |
 | **About** | Transparent explanation of flash limitations, scoped storage, and the factory‑reset/crypto‑erase recommendation. | — |
+
+See **[docs/ROBUSTNESS.md](docs/ROBUSTNESS.md)** for how the wiping holds up against
+professional recovery tools (and why crypto‑erase is the recovery‑proof step), and
+**[docs/ROOT_MODE.md](docs/ROOT_MODE.md)** for the optional root procedures.
 
 ## Tech stack & architecture
 
@@ -55,15 +60,16 @@ app/src/main/java/com/obliviate/app/
 │   ├── FileExt.kt             # byte/speed/duration formatting, tree helpers
 │   ├── wipe/
 │   │   ├── WipeModels.kt      # targets, methods, config, progress, UI state
-│   │   ├── FreeSpaceWiper.kt  # the free-space overwrite engine
+│   │   ├── FreeSpaceWiper.kt  # multi-volume overwrite + read-back verification
 │   │   └── ShredEngine.kt     # SAF overwrite-then-delete
-│   ├── clean/JunkCleaner.kt   # cache clear, storage stats, junk scan
+│   ├── clean/JunkCleaner.kt   # cache clear, storage stats, overwrite+delete junk
+│   ├── root/RootManager.kt    # optional: passive root detection + fstrim
 │   └── service/WipeService.kt # foreground service + progress notification
 └── ui/
     ├── theme/                 # Color / Type / Theme (Material 3)
-    ├── components/            # gauge, cards, banners, stat rows
+    ├── components/            # gauge, cards, banners, stat rows, IconLabel
     ├── ObliviateRoot.kt       # Scaffold + bottom nav + NavHost
-    └── screens/               # Home, Wipe, Shred (+VM), Clean (+VM), About
+    └── screens/               # Home, Wipe, Shred (+VM), Clean (+VM), Dispose, About
 ```
 
 ## Build

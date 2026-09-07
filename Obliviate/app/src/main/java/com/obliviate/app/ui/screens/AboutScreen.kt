@@ -83,7 +83,8 @@ fun AboutScreen() {
                 "erase\": it destroys the encryption key, making everything mathematically unreadable " +
                 "regardless of what's left in the flash cells. NIST SP 800-88 treats this key-destruction " +
                 "as the reliable method for disposing of a device. Recommended routine: (1) run a " +
-                "free-space wipe for hygiene, then (2) factory reset before selling or recycling.",
+                "free-space wipe for hygiene, then (2) factory reset before selling or recycling. " +
+                "The guided \"Prepare for disposal\" flow on the Home screen walks you through it.",
         )
 
         Spacer(Modifier.height(8.dp))
@@ -104,7 +105,7 @@ fun AboutScreen() {
 
         Spacer(Modifier.height(16.dp))
         Text(
-            "Obliviate • v1.0.0 — a transparent, non-root storage hygiene tool.",
+            "Obliviate • v1.1.0 — a transparent, non-root storage hygiene tool.",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

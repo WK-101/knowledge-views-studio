@@ -9,6 +9,10 @@ enum class WipeTarget(val label: String, val description: String) {
     SHARED(
         "Shared storage",
         "Overwrites free space on the media volume you browse in a file manager (photos, downloads)."
+    ),
+    BOTH(
+        "Both (recommended)",
+        "Overwrites free space on the internal and shared volumes. Identical volumes are wiped once."
     );
 }
 
@@ -36,13 +40,16 @@ data class WipeConfig(
     val method: WipeMethod,
     /** Free space to intentionally leave untouched so the OS stays stable. */
     val keepFreeBytes: Long = DEFAULT_KEEP_FREE_BYTES,
+    /** Sample-read the fill back to confirm it persisted to storage. */
+    val verify: Boolean = true,
 ) {
     companion object {
-        const val DEFAULT_KEEP_FREE_BYTES: Long = 300L * 1024 * 1024 // 300 MB
+        const val DEFAULT_KEEP_FREE_BYTES: Long = 300L * 1024 * 1024 // 300 MB, safe
+        const val AGGRESSIVE_KEEP_FREE_BYTES: Long = 150L * 1024 * 1024 // 150 MB, max coverage
     }
 }
 
-enum class WipePhase { PREPARING, FILLING, DELETING, DONE }
+enum class WipePhase { PREPARING, FILLING, VERIFYING, DELETING, DONE }
 
 data class WipeProgress(
     val phase: WipePhase,
@@ -51,6 +58,8 @@ data class WipeProgress(
     val bytesWritten: Long,
     val bytesTarget: Long,
     val speedBytesPerSec: Long,
+    val volume: Int = 1,
+    val volumeCount: Int = 1,
 ) {
     val fraction: Float
         get() = if (bytesTarget <= 0) 0f else (bytesWritten.toFloat() / bytesTarget).coerceIn(0f, 1f)
@@ -60,6 +69,9 @@ data class WipeResult(
     val bytesOverwritten: Long,
     val passes: Int,
     val elapsedMs: Long,
+    val verifiedBytes: Long,
+    val verifyMismatches: Int,
+    val volumesWiped: Int,
 )
 
 /** State shared between the foreground service and the UI. */
@@ -71,6 +83,9 @@ sealed interface WipeUiState {
         val passes: Int,
         val elapsedMs: Long,
         val target: WipeTarget,
+        val verifiedBytes: Long,
+        val verifyMismatches: Int,
+        val volumesWiped: Int,
     ) : WipeUiState
     data class Cancelled(val bytesOverwritten: Long) : WipeUiState
     data class Failed(val message: String) : WipeUiState
