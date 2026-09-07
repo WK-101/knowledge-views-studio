@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.filled.Add
@@ -326,8 +327,20 @@ fun CairnApp(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                        Icon(Icons.Outlined.Menu, contentDescription = stringResource(R.string.open_navigation))
+                    // When the Inbox is scoped to a single feed or folder (e.g. by tapping a source
+                    // name on an entry), the nav icon becomes a Back arrow that clears the scope —
+                    // otherwise there's no obvious way out of the feed view. Elsewhere it opens the drawer.
+                    val scoped = current == Destination.Inbox && !inboxSearchOpen &&
+                        (selection is com.cairn.reader.ui.inbox.DrawerSelection.Feed ||
+                            selection is com.cairn.reader.ui.inbox.DrawerSelection.Folder)
+                    if (scoped) {
+                        IconButton(onClick = { inboxViewModel.selectAll() }) {
+                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.back))
+                        }
+                    } else {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Outlined.Menu, contentDescription = stringResource(R.string.open_navigation))
+                        }
                     }
                 },
                 actions = {

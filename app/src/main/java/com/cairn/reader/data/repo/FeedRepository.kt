@@ -56,6 +56,18 @@ class FeedRepository @Inject constructor(
 ) {
     private val whitespace = Regex("\\s+")
 
+    /** Apply the user's global new-feed defaults (folder / full-text / notify) to a freshly built
+     *  source before it's saved. Only fills a folder the source doesn't already have, and only turns
+     *  options on — so a subscribe path that set its own value is never overridden. */
+    private suspend fun withFeedDefaults(source: SourceEntity): SourceEntity {
+        val p = preferencesRepository.preferences.first()
+        return source.copy(
+            folder = source.folder ?: p.defaultFeedFolder.trim().ifBlank { null },
+            fullTextByDefault = source.fullTextByDefault || p.defaultFeedFullText,
+            notify = source.notify || p.defaultFeedNotify,
+        )
+    }
+
     /** Discover and subscribe to a feed from any URL, importing its current items. */
     suspend fun addFeedByUrl(rawUrl: String): Result<String> {
         val result = when (val outcome = discovery.discover(rawUrl)) {
@@ -74,7 +86,7 @@ class FeedRepository @Inject constructor(
             title = result.feed.title?.takeIf { it.isNotBlank() } ?: hostOf(result.feedUrl),
             hubUrl = result.feed.hubUrl,
         )
-        sourceDao.upsert(source)
+        sourceDao.upsert(withFeedDefaults(source))
         result.feed.items.forEach { insertParsed(source, it, now) }
         return Result.success(sourceId)
     }
@@ -101,7 +113,7 @@ class FeedRepository @Inject constructor(
             siteUrl = "https://$host",
             title = "$host · via Google News",
         )
-        sourceDao.upsert(source)
+        sourceDao.upsert(withFeedDefaults(source))
         feed.items.forEach { insertParsed(source, it, now) }
         return Result.success(sourceId)
     }
@@ -123,7 +135,7 @@ class FeedRepository @Inject constructor(
             siteUrl = feed.siteUrl ?: origin,
             title = (feed.title?.takeIf { it.isNotBlank() } ?: hostOf(origin)) + " · via site",
         )
-        sourceDao.upsert(source)
+        sourceDao.upsert(withFeedDefaults(source))
         feed.items.forEach { insertParsed(source, it, now) }
         return Result.success(sourceId)
     }
@@ -142,7 +154,7 @@ class FeedRepository @Inject constructor(
             title = (feed.title?.takeIf { it.isNotBlank() } ?: hostOf(origin)) + " · custom",
             scrapeSelector = selector,
         )
-        sourceDao.upsert(source)
+        sourceDao.upsert(withFeedDefaults(source))
         feed.items.forEach { insertParsed(source, it, now) }
         return Result.success(sourceId)
     }
@@ -157,7 +169,7 @@ class FeedRepository @Inject constructor(
         val host = hostOf(url)
         val sourceId = deterministicId("watch|$url")
         val source = SourceEntity(id = sourceId, kind = "WATCH", feedUrl = url, siteUrl = url, title = "$host · watched")
-        sourceDao.upsert(source)
+        sourceDao.upsert(withFeedDefaults(source))
         val now = System.currentTimeMillis()
         val hash = pageTextHash(body)
         insertWatchSnapshot(source, url, now)

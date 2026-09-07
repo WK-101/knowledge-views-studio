@@ -88,6 +88,9 @@ fun RulesScreen(
 
     val scheme = MaterialTheme.colorScheme
     Scaffold(
+        // Inset the whole pane by the shell's bottom-nav height so the FAB and the last list row
+        // sit above the bottom navigation bar instead of behind it.
+        modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
         topBar = {
             TopAppBar(
                 title = { Text(if (rules.isEmpty()) "Rules" else "Rules · ${rules.size}", fontWeight = FontWeight.SemiBold) },

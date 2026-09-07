@@ -176,18 +176,6 @@ fun SettingsScreen(
         }
 
         item {
-            ImportExportSection(prefs, viewModel)
-        }
-
-        item {
-            Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
-                SettingsSectionLabel("STORAGE")
-                Spacer(Modifier.height(10.dp))
-                StorageSection(viewModel)
-            }
-        }
-
-        item {
             ExtrasSection(
                 prefs = prefs,
                 onOpenNotebook = onOpenNotebook,
@@ -198,34 +186,21 @@ fun SettingsScreen(
                 ruleCount = ruleCount,
             )
         }
-
+        item { FeedDefaultsSection(prefs, viewModel, folders) }
+        item { StartupSection(prefs, viewModel) }
+        item { AppearanceSection(prefs, viewModel) }
+        item { GesturesSection(prefs, viewModel) }
+        item { ListDensitySection(prefs, viewModel) }
+        item { GeneralTogglesSection(prefs, viewModel) }
+        item { BottomBarSection(prefs, viewModel) }
+        item { FiltersSection(prefs, viewModel) }
         item {
-            BottomBarSection(prefs, viewModel)
+            SettingsGroup("Storage") {
+                Column(Modifier.padding(16.dp)) { StorageSection(viewModel) }
+            }
         }
-
-        item {
-            ListDensitySection(prefs, viewModel)
-        }
-
-        item {
-            StartupSection(prefs, viewModel)
-        }
-
-        item {
-            AppearanceSection(prefs, viewModel)
-        }
-
-        item {
-            GesturesSection(prefs, viewModel)
-        }
-
-        item {
-            FiltersSection(prefs, viewModel)
-        }
-
-        item {
-            PrivacyAboutSection()
-        }
+        item { ImportExportSection(prefs, viewModel) }
+        item { PrivacyAboutSection(prefs, viewModel) }
     }
 
     feedSettings?.let { source ->

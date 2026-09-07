@@ -183,6 +183,13 @@ data class AppPreferences(
     /** Open articles as the original web page (in-app browser) by default instead of the cleaned
      *  reader, for feeds that haven't chosen their own "Open in" mode. Off = cleaned reader. */
     val openArticlesInWeb: Boolean = false,
+    // -- Global feed-management defaults (applied to each newly added feed) --
+    /** Folder every new feed is filed into (blank = no folder). Per-feed settings can override it. */
+    val defaultFeedFolder: String = "",
+    /** Fetch the full article text on sync for new feeds (vs. the feed's own summary). */
+    val defaultFeedFullText: Boolean = false,
+    /** Post a new-article notification for new feeds. */
+    val defaultFeedNotify: Boolean = false,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -264,6 +271,9 @@ class PreferencesRepository @Inject constructor(
         val TAP_ZONE_PAGING = booleanPreferencesKey("tap_zone_paging")
         val VOLUME_KEY_PAGING = booleanPreferencesKey("volume_key_paging")
         val OPEN_ARTICLES_IN_WEB = booleanPreferencesKey("open_articles_in_web")
+        val DEFAULT_FEED_FOLDER = stringPreferencesKey("default_feed_folder")
+        val DEFAULT_FEED_FULLTEXT = booleanPreferencesKey("default_feed_fulltext")
+        val DEFAULT_FEED_NOTIFY = booleanPreferencesKey("default_feed_notify")
     }
 
     /** Per-scope view entries are stored as "scopeKey<sep>MODE" in a string set. */
@@ -351,6 +361,9 @@ class PreferencesRepository @Inject constructor(
             tapZonePaging = p[Keys.TAP_ZONE_PAGING] ?: false,
             volumeKeyPaging = p[Keys.VOLUME_KEY_PAGING] ?: false,
             openArticlesInWeb = p[Keys.OPEN_ARTICLES_IN_WEB] ?: false,
+            defaultFeedFolder = p[Keys.DEFAULT_FEED_FOLDER] ?: "",
+            defaultFeedFullText = p[Keys.DEFAULT_FEED_FULLTEXT] ?: false,
+            defaultFeedNotify = p[Keys.DEFAULT_FEED_NOTIFY] ?: false,
         )
     }
 
@@ -546,6 +559,10 @@ class PreferencesRepository @Inject constructor(
     suspend fun setVolumeKeyPaging(on: Boolean) = context.dataStore.edit { it[Keys.VOLUME_KEY_PAGING] = on }
     suspend fun setOpenArticlesInWeb(on: Boolean) = context.dataStore.edit { it[Keys.OPEN_ARTICLES_IN_WEB] = on }
 
+    suspend fun setDefaultFeedFolder(folder: String) = context.dataStore.edit { it[Keys.DEFAULT_FEED_FOLDER] = folder }
+    suspend fun setDefaultFeedFullText(on: Boolean) = context.dataStore.edit { it[Keys.DEFAULT_FEED_FULLTEXT] = on }
+    suspend fun setDefaultFeedNotify(on: Boolean) = context.dataStore.edit { it[Keys.DEFAULT_FEED_NOTIFY] = on }
+
     // -- Settings backup -------------------------------------------------------
     //
     // A full backup includes every app setting so a restore reproduces the app exactly. The
@@ -621,6 +638,9 @@ class PreferencesRepository @Inject constructor(
             put("tapZonePaging", p.tapZonePaging)
             put("volumeKeyPaging", p.volumeKeyPaging)
             put("openArticlesInWeb", p.openArticlesInWeb)
+            put("defaultFeedFolder", p.defaultFeedFolder)
+            put("defaultFeedFullText", p.defaultFeedFullText)
+            put("defaultFeedNotify", p.defaultFeedNotify)
         }
     }
 
@@ -694,6 +714,9 @@ class PreferencesRepository @Inject constructor(
             if (json.has("tapZonePaging")) e[Keys.TAP_ZONE_PAGING] = json.getBoolean("tapZonePaging")
             if (json.has("volumeKeyPaging")) e[Keys.VOLUME_KEY_PAGING] = json.getBoolean("volumeKeyPaging")
             if (json.has("openArticlesInWeb")) e[Keys.OPEN_ARTICLES_IN_WEB] = json.getBoolean("openArticlesInWeb")
+            if (json.has("defaultFeedFolder")) e[Keys.DEFAULT_FEED_FOLDER] = json.getString("defaultFeedFolder")
+            if (json.has("defaultFeedFullText")) e[Keys.DEFAULT_FEED_FULLTEXT] = json.getBoolean("defaultFeedFullText")
+            if (json.has("defaultFeedNotify")) e[Keys.DEFAULT_FEED_NOTIFY] = json.getBoolean("defaultFeedNotify")
         }
     }
 }

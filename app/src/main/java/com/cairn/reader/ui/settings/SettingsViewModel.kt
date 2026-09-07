@@ -271,6 +271,9 @@ class SettingsViewModel @Inject constructor(
     fun setTapZonePaging(on: Boolean) = viewModelScope.launch { preferencesRepository.setTapZonePaging(on) }
     fun setVolumeKeyPaging(on: Boolean) = viewModelScope.launch { preferencesRepository.setVolumeKeyPaging(on) }
     fun setOpenArticlesInWeb(on: Boolean) = viewModelScope.launch { preferencesRepository.setOpenArticlesInWeb(on) }
+    fun setDefaultFeedFolder(folder: String) = viewModelScope.launch { preferencesRepository.setDefaultFeedFolder(folder) }
+    fun setDefaultFeedFullText(on: Boolean) = viewModelScope.launch { preferencesRepository.setDefaultFeedFullText(on) }
+    fun setDefaultFeedNotify(on: Boolean) = viewModelScope.launch { preferencesRepository.setDefaultFeedNotify(on) }
     fun setTrashRetentionDays(days: Int) = viewModelScope.launch { preferencesRepository.setTrashRetentionDays(days) }
     fun moveBottomTab(name: String, up: Boolean) = viewModelScope.launch { preferencesRepository.moveBottomTab(name, up) }
 
