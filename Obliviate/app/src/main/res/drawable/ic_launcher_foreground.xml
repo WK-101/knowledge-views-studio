@@ -1,0 +1,38 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Shield -->
+    <path
+        android:fillColor="#4FD1C5"
+        android:pathData="M54,14 L88,27 L88,53 C88,76 73,90 54,96 C35,90 20,76 20,53 L20,27 Z" />
+
+    <!-- Inner "screen" (data surface) -->
+    <path
+        android:fillColor="#0B0E14"
+        android:pathData="M37,41 h34 a4,4 0 0 1 4,4 v20 a4,4 0 0 1 -4,4 h-34 a4,4 0 0 1 -4,-4 v-20 a4,4 0 0 1 4,-4 z" />
+
+    <!-- Scan lines: the top line is half-erased to suggest an active wipe -->
+    <path
+        android:strokeColor="#4FD1C5"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:pathData="M41,49 h13" />
+    <path
+        android:strokeColor="#2A6B65"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:pathData="M60,49 h7" />
+    <path
+        android:strokeColor="#4FD1C5"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:pathData="M41,56 h26" />
+    <path
+        android:strokeColor="#4FD1C5"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:pathData="M41,63 h19" />
+</vector>

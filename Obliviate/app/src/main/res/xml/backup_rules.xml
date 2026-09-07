@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Nothing in this app should be backed up: it is a wiping tool. -->
+</full-backup-content>
