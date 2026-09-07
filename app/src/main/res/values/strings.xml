@@ -39,6 +39,7 @@
     <string name="all">All</string>
     <string name="all_articles">All Articles</string>
     <string name="all_conditions">All conditions</string>
+    <string name="explore_manage">Explore &amp; manage</string>
     <string name="all_the_default_keeps_every_item">“All” (the default) keeps every item forever. Pick a number to cap each feed; older items you haven\'t starred, saved, archived, filed, highlighted, or saved offline are pruned as new ones arrive.</string>
     <string name="also_drop_un_engaged_items_past">Also drop un-engaged items past this age on sync. Kept items are never deleted.</string>
     <string name="annotations">Annotations</string>
@@ -281,6 +282,7 @@
     <string name="read_articles_aloud_off_hides_the">Read articles aloud. Off hides the Listen buttons everywhere.</string>
     <string name="read_later">Read Later</string>
     <string name="reader">Reader</string>
+    <string name="reading">Reading</string>
     <string name="refresh">Refresh</string>
     <string name="related_articles">Related articles</string>
     <string name="reload">Reload</string>
@@ -376,6 +378,7 @@
     <string name="this_is_a_podcast">This is a podcast</string>
     <string name="this_pdf_couldn_t_be_opened">This PDF couldn\'t be opened.</string>
     <string name="tip_use_to_nest_e_g">Tip: use “/” to nest — e.g. tech/ai files this under a “tech” parent tag.</string>
+    <string name="tools">Tools</string>
     <string name="top_level_no_parent">Top level (no parent)</string>
     <string name="transfer_to_another_device">Transfer to another device</string>
     <string name="trash">Trash</string>

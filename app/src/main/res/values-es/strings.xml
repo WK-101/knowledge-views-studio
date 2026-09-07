@@ -41,6 +41,7 @@
     <string name="all">Todo</string>
     <string name="all_articles">Todos los artículos</string>
     <string name="all_conditions">Todas las condiciones</string>
+    <string name="explore_manage">Explorar y gestionar</string>
     <string name="all_the_default_keeps_every_item">«Todo» (la opción predeterminada) conserva todos los elementos para siempre. Elige un número para limitar cada fuente; los elementos más antiguos que no hayas destacado, guardado, archivado, clasificado, subrayado o guardado sin conexión se eliminan a medida que llegan otros nuevos.</string>
     <string name="also_drop_un_engaged_items_past">También descarta los elementos sin interacción que superen esta antigüedad al sincronizar. Los elementos conservados nunca se eliminan.</string>
     <string name="annotations">Anotaciones</string>
@@ -283,6 +284,7 @@
     <string name="read_articles_aloud_off_hides_the">Lee los artículos en voz alta. Desactivado oculta los botones de Escuchar en todas partes.</string>
     <string name="read_later">Leer después</string>
     <string name="reader">Lector</string>
+    <string name="reading">Lectura</string>
     <string name="refresh">Actualizar</string>
     <string name="related_articles">Artículos relacionados</string>
     <string name="reload">Recargar</string>
@@ -378,6 +380,7 @@
     <string name="this_is_a_podcast">Esto es un pódcast</string>
     <string name="this_pdf_couldn_t_be_opened">No se pudo abrir este PDF.</string>
     <string name="tip_use_to_nest_e_g">Consejo: usa «/» para anidar; p. ej. tech/ai lo clasifica bajo una etiqueta principal «tech».</string>
+    <string name="tools">Herramientas</string>
     <string name="top_level_no_parent">Nivel superior (sin padre)</string>
     <string name="transfer_to_another_device">Transferir a otro dispositivo</string>
     <string name="trash">Papelera</string>

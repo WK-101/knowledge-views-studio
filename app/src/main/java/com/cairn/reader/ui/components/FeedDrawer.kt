@@ -59,6 +59,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -139,7 +141,8 @@ fun FeedDrawerContent(
             }
         }
 
-        // ---- Primary hubs -----------------------------------------------------
+        // ---- Reading hubs -----------------------------------------------------
+        DrawerSectionLabel(stringResource(R.string.reading))
         NavigationDrawerItem(
             label = { Text(stringResource(R.string.all_articles)) },
             selected = allSelected,
@@ -174,28 +177,6 @@ fun FeedDrawerContent(
             selected = false,
             icon = { Icon(Icons.Outlined.FormatQuote, contentDescription = null) },
             onClick = onHighlights,
-            modifier = Modifier.padding(itemPad),
-        )
-        NavigationDrawerItem(
-            label = { Text(stringResource(R.string.daily_brief)) },
-            selected = false,
-            icon = { Icon(Icons.Outlined.Newspaper, contentDescription = null) },
-            onClick = onBrief,
-            modifier = Modifier.padding(itemPad),
-        )
-        NavigationDrawerItem(
-            label = { Text(stringResource(R.string.triage)) },
-            selected = false,
-            icon = { Icon(Icons.Outlined.Style, contentDescription = null) },
-            onClick = onTriage,
-            modifier = Modifier.padding(itemPad),
-        )
-        NavigationDrawerItem(
-            label = { Text(stringResource(R.string.review)) },
-            selected = false,
-            icon = { Icon(Icons.Outlined.School, contentDescription = null) },
-            badge = { if (dueCount > 0) Text("$dueCount") },
-            onClick = onReview,
             modifier = Modifier.padding(itemPad),
         )
 
@@ -259,7 +240,33 @@ fun FeedDrawerContent(
         HorizontalDivider(Modifier.padding(horizontal = 28.dp))
         Spacer(Modifier.height(8.dp))
 
-        // ---- Footer hubs ------------------------------------------------------
+        // ---- Tools ------------------------------------------------------------
+        DrawerSectionLabel(stringResource(R.string.tools))
+        NavigationDrawerItem(
+            label = { Text(stringResource(R.string.daily_brief)) },
+            selected = false,
+            icon = { Icon(Icons.Outlined.Newspaper, contentDescription = null) },
+            onClick = onBrief,
+            modifier = Modifier.padding(itemPad),
+        )
+        NavigationDrawerItem(
+            label = { Text(stringResource(R.string.triage)) },
+            selected = false,
+            icon = { Icon(Icons.Outlined.Style, contentDescription = null) },
+            onClick = onTriage,
+            modifier = Modifier.padding(itemPad),
+        )
+        NavigationDrawerItem(
+            label = { Text(stringResource(R.string.review)) },
+            selected = false,
+            icon = { Icon(Icons.Outlined.School, contentDescription = null) },
+            badge = { if (dueCount > 0) Text("$dueCount") },
+            onClick = onReview,
+            modifier = Modifier.padding(itemPad),
+        )
+
+        // ---- Explore & manage -------------------------------------------------
+        DrawerSectionLabel(stringResource(R.string.explore_manage))
         NavigationDrawerItem(
             label = { Text(stringResource(R.string.search)) },
             selected = false,
@@ -289,6 +296,10 @@ fun FeedDrawerContent(
             onClick = onTrash,
             modifier = Modifier.padding(itemPad),
         )
+
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(Modifier.padding(horizontal = 28.dp))
+        Spacer(Modifier.height(8.dp))
         NavigationDrawerItem(
             label = { Text(stringResource(R.string.your_data_forever)) },
             selected = false,
@@ -296,7 +307,22 @@ fun FeedDrawerContent(
             onClick = onDataForever,
             modifier = Modifier.padding(itemPad),
         )
+        Spacer(Modifier.height(8.dp))
     }
+}
+
+/** A small uppercase section label that groups the drawer's navigation items. */
+@Composable
+private fun DrawerSectionLabel(text: String) {
+    Text(
+        text.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.primary,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier
+            .padding(start = 28.dp, end = 28.dp, top = 10.dp, bottom = 2.dp)
+            .semantics { heading() },
+    )
 }
 
 /** A folder header: tap to view the whole folder, tap the chevron to expand/collapse,

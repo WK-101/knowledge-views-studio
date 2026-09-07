@@ -38,7 +38,7 @@ import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.RssFeed
 import androidx.compose.material3.FilterChip
@@ -565,7 +565,7 @@ internal fun ImportExportSection(prefs: AppPreferences, viewModel: SettingsViewM
         SettingDivider()
         SettingActionRow(stringResource(R.string.export_to_markdown_obsidian), stringResource(R.string.write_your_whole_library_as_plain), Icons.Outlined.Description, { markdownVaultLauncher.launch(null) })
         SettingDivider()
-        SettingActionRow(stringResource(R.string.send_library_to_kindle_epub), stringResource(R.string.bundle_your_whole_library_into_a), Icons.Outlined.MenuBook, {
+        SettingActionRow(stringResource(R.string.send_library_to_kindle_epub), stringResource(R.string.bundle_your_whole_library_into_a), Icons.AutoMirrored.Outlined.MenuBook, {
             Toast.makeText(context, "Building EPUB…", Toast.LENGTH_SHORT).show()
             viewModel.exportLibraryEpub { file ->
                 if (file == null) Toast.makeText(context, "Nothing to export — save some articles first.", Toast.LENGTH_LONG).show()
