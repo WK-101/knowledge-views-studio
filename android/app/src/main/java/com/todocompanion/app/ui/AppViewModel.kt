@@ -600,7 +600,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val trackedCapH = if (settings.value.honestCapacity) trackedCapacityHours() else null
         val capacityMin = if (trackedCapH != null) trackedCapH * 60 * days
             else (0 until days).sumOf { settings.value.capacityMinutesFor(today.plusDays(it.toLong()).dayOfWeek) }
-        val freeMin = (capacityMin - otherPlannedMin).coerceAtLeast(0)
+        // Habits consume time too — subtract the pending habit reserve so "free" isn't overstated.
+        val habitReserve = habitReserveForWindow(today.toEpochDay(), days)
+        val freeMin = (capacityMin - otherPlannedMin - habitReserve).coerceAtLeast(0)
         return DeadlineRisk(neededMin / 60.0, freeMin / 60.0, atRisk.size, days)
     }
 
@@ -627,7 +629,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val startHour = s.workStartHour.coerceIn(0, 23)
         val endHour = s.workEndHour.coerceIn(startHour + 1, 24)
         val dayStart = java.time.LocalDate.now(zone).atStartOfDay(zone)
-        val windowEnd = dayStart.plusHours(endHour.toLong())
+        // Keep the day's habit time out of the packing window, so Plan-my-day doesn't over-fill it.
+        val habitReserveToday = habitReserveForWindow(java.time.LocalDate.now(zone).toEpochDay(), 1)
+        val windowEnd = dayStart.plusHours(endHour.toLong()).minusMinutes(habitReserveToday.toLong())
         // Rhythm-aware start: begin at your learned peak hour when it sits inside the work window.
         val peak = peakHour().coerceIn(startHour, endHour - 1)
         var cursor = dayStart.plusHours(peak.toLong())
@@ -1085,6 +1089,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val habitDensity: StateFlow<Int> = settings.map { it.habitDensity }.stateIn(viewModelScope, SharingStarted.Eagerly, 1)
     fun setHabitMatrixMode(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(habitMatrixMode = on)) }
     fun setHabitDensity(level: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(habitDensity = level.coerceIn(0, 2))) }
+    /** Persist a habit's time-planning config (HabitTime) into settings-JSON, keyed by habit id. */
+    fun setHabitTimeCfg(habitId: String, cfg: com.todocompanion.app.domain.habit.HabitTime.Cfg) = viewModelScope.launch {
+        if (habitId.isBlank()) return@launch
+        val m = settings.value.habitTimeCfg.toMutableMap()
+        if (com.todocompanion.app.domain.habit.HabitTime.isDefault(cfg)) m.remove(habitId)
+        else m[habitId] = com.todocompanion.app.domain.habit.HabitTime.encodeCfg(cfg)
+        repo.saveSettings(settings.value.copy(habitTimeCfg = m))
+    }
     fun setTimeGridColumns(cols: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(timeGridColumns = cols.coerceIn(2, 5))) }
     val habitDetailId = MutableStateFlow<String?>(null)    // non-null → the analytics screen overlays the tab
     val habitBatchOpen = MutableStateFlow(false)
@@ -2082,7 +2094,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val now = System.currentTimeMillis()
         val today = java.time.LocalDate.now(zone)
         val endOfWorkMillis = today.atStartOfDay(zone).plusHours(settings.value.workEndHour.coerceIn(1, 24).toLong()).toInstant().toEpochMilli()
-        val availMin = (((endOfWorkMillis - now) / 60_000L).toInt()).coerceAtLeast(0)
+        // Habits pending for the rest of today eat into the time left before work-end.
+        val rawAvail = (((endOfWorkMillis - now) / 60_000L).toInt()).coerceAtLeast(0)
+        val availMin = (rawAvail - habitReserveForWindow(today.toEpochDay(), 1)).coerceAtLeast(0)
         val endToday = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
         val remaining = doNextRanked().filter { t -> t.dueDate != null && t.dueDate!! < endToday }
         if (remaining.isEmpty()) return null
@@ -2284,7 +2298,56 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val today = java.time.LocalDate.now(zone)
         val capMin = if (trackedCapH != null) trackedCapH * 60 * days
             else (0 until days).sumOf { settings.value.capacityMinutesFor(today.plusDays(it.toLong()).dayOfWeek) }
-        return CapacitySnapshot(committed, capMin, trackedCapH != null)
+        // Count pending habit time as committed, so free capacity reflects habits as well as tasks.
+        val habitReserve = habitReserveForWindow(today.toEpochDay(), days)
+        return CapacitySnapshot(committed + habitReserve, capMin, trackedCapH != null)
+    }
+
+    // ── habit time reserve (HabitTime) — habits that consume time reduce reported capacity ────────────
+    /** Learned per-habit median daily minutes, from a linked time-tracking activity's history. */
+    private fun learnedHabitMinutes(): Map<String, Int> {
+        val linked = habits.value.filter { !it.timeActivityId.isNullOrBlank() }
+        if (linked.isEmpty()) return emptyMap()
+        val entries = timeEntries.value
+        if (entries.isEmpty()) return emptyMap()
+        val byAct = HashMap<String, HashMap<Long, Int>>()   // activityId → (epochDay → minutes)
+        for (e in entries) {
+            val end = e.endMillis ?: continue
+            if (end <= e.startMillis) continue
+            val day = java.time.Instant.ofEpochMilli(e.startMillis).atZone(zone).toLocalDate().toEpochDay()
+            val min = ((end - e.startMillis) / 60_000L).toInt()
+            if (min <= 0) continue
+            byAct.getOrPut(e.activityId) { HashMap() }.merge(day, min, Int::plus)
+        }
+        fun median(xs: Collection<Int>): Int { if (xs.isEmpty()) return 0; val s = xs.sorted(); return s[s.size / 2] }
+        val medByAct = byAct.mapValues { median(it.value.values) }
+        return linked.mapNotNull { h -> h.timeActivityId?.let { aid -> medByAct[aid]?.takeIf { it > 0 }?.let { h.id to it } } }.toMap()
+    }
+
+    /** Every habit's time reservation on [epochDay] (see HabitTime). */
+    fun habitDayReserve(epochDay: Long, learned: Map<String, Int> = learnedHabitMinutes()): List<com.todocompanion.app.domain.habit.HabitTime.DayHabit> =
+        com.todocompanion.app.domain.habit.HabitTime.forDay(
+            habits.value, habitCheckins.value, settings.value, epochDay,
+            java.time.LocalDate.now(zone).toEpochDay(), learned)
+
+    /** Dedicated, timed habit blocks across [days] as busy intervals — feed into Availability.extraBusy. */
+    fun habitBusyIntervals(days: List<java.time.LocalDate>): List<Pair<Long, Long>> {
+        val learned = learnedHabitMinutes()
+        return days.flatMap { d ->
+            com.todocompanion.app.domain.habit.HabitTime.busyIntervals(habitDayReserve(d.toEpochDay(), learned), d.toEpochDay(), zone)
+        }
+    }
+
+    /** Ambient (unplaced) pending habit minutes on [epochDay] — the "habits & upkeep" band. */
+    fun habitAmbientReserveMin(epochDay: Long): Int =
+        com.todocompanion.app.domain.habit.HabitTime.ambientReserveMin(habitDayReserve(epochDay))
+
+    /** Total pending habit minutes across [days] days from [startDay] — the capacity every surface subtracts. */
+    fun habitReserveForWindow(startDay: Long, days: Int): Int {
+        val learned = learnedHabitMinutes()
+        return (0 until days).sumOf {
+            com.todocompanion.app.domain.habit.HabitTime.totalReserveMin(habitDayReserve(startDay + it, learned))
+        }
     }
 
     // ── Y4 · your ideal day — a scaffold from your real patterns ──────────────────────────────────
@@ -3515,6 +3578,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             occ.add(com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence(
                 com.todocompanion.app.data.entity.EventEntity(id = "scheduled-task", calendarId = calId, title = "",
                     startMillis = s, endMillis = e, busy = true, createdAt = 0, updatedAt = 0), s, e))
+        }
+        // Habits that consume time are walls too: dedicated timed habits become busy blocks tasks flow
+        // around, and an ambient "habits & upkeep" reserve is held at the end of the window.
+        val hcReserve = habitDayReserve(day)
+        com.todocompanion.app.domain.habit.HabitTime.busyIntervals(hcReserve, day, zone).forEach { (s, e) ->
+            occ.add(com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence(
+                com.todocompanion.app.data.entity.EventEntity(id = "habit", calendarId = calId, title = "",
+                    startMillis = s, endMillis = e, busy = true, createdAt = 0, updatedAt = 0), s, e))
+        }
+        val ambientMin = com.todocompanion.app.domain.habit.HabitTime.ambientReserveMin(hcReserve)
+        if (ambientMin > 0) {
+            val dayStartMs = java.time.LocalDate.ofEpochDay(day).atStartOfDay(zone).toInstant().toEpochMilli()
+            val winEndMs = dayStartMs + settings.value.workEndHour.coerceIn(1, 24).toLong() * 3_600_000L
+            val us = winEndMs - ambientMin.toLong() * 60_000L
+            occ.add(com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence(
+                com.todocompanion.app.data.entity.EventEntity(id = "habit-upkeep", calendarId = calId, title = "",
+                    startMillis = us, endMillis = winEndMs, busy = true, createdAt = 0, updatedAt = 0), us, winEndMs))
         }
         val tasks = wsTasks.filter { it.id !in timedTaskIds }
         val nowFloor = if (day == java.time.LocalDate.now(zone).toEpochDay()) System.currentTimeMillis() else null

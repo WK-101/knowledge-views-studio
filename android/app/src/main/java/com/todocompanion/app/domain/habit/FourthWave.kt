@@ -153,15 +153,26 @@ object FourthWave {
      *  minutes. No external calendar, no permissions. */
     data class DayLoad(val day: Long, val taskMin: Int, val habitMin: Int) { val total get() = taskMin + habitMin }
 
-    fun loadByDay(tasks: List<TaskEntity>, habits: List<HabitEntity>, startDay: Long, days: Int, zone: ZoneId = ZoneId.systemDefault(), dayStartMin: Int = 0): List<DayLoad> {
+    fun loadByDay(
+        tasks: List<TaskEntity>, habits: List<HabitEntity>, startDay: Long, days: Int,
+        zone: ZoneId = ZoneId.systemDefault(), dayStartMin: Int = 0,
+        // When [settings] is supplied, habit minutes come from HabitTime (the app-wide time-cost model,
+        // pending-aware and honouring per-habit config) so this balancer agrees with the capacity surfaces.
+        settings: AppSettings? = null, checkins: List<HabitCheckinEntity> = emptyList(),
+        todayEd: Long = startDay, learned: Map<String, Int> = emptyMap(),
+    ): List<DayLoad> {
         fun taskDay(t: TaskEntity): Long? = t.dueDate?.let { Instant.ofEpochMilli(it - dayStartMin * 60_000L).atZone(zone).toLocalDate().toEpochDay() }
         fun taskMinutes(t: TaskEntity): Int = t.durationMin ?: t.estimateMax ?: t.estimateMin ?: 0
         val openTasks = tasks.filter { !t(it) }
         val byDay = openTasks.mapNotNull { t -> taskDay(t)?.let { it to taskMinutes(t) } }.groupBy({ it.first }, { it.second })
         return (startDay until startDay + days).map { day ->
             val tMin = byDay[day]?.sum() ?: 0
-            val hMin = habits.filter { !it.archived && !it.paused && it.habitType != "break" && HabitStats.isExpectedDay(it, day) && day >= it.startEpochDay() }
-                .sumOf { (it.minutesPerUnit * it.targetPerDay).coerceAtLeast(0) }
+            val hMin = if (settings != null) {
+                HabitTime.totalReserveMin(HabitTime.forDay(habits, checkins, settings, day, todayEd, learned))
+            } else {
+                habits.filter { !it.archived && !it.paused && it.habitType != "break" && HabitStats.isExpectedDay(it, day) && day >= it.startEpochDay() }
+                    .sumOf { (it.minutesPerUnit * it.targetPerDay).coerceAtLeast(0) }
+            }
             DayLoad(day, tMin, hMin)
         }
     }
@@ -393,8 +404,8 @@ object FourthWave {
     /** Next-week load vs. capacity, flagging overcommitted days and the lightest day to move work to. */
     data class LifeLoad(val days: List<DayLoad>, val capacityMin: Int, val overloaded: List<Long>, val advice: String)
 
-    fun lifeLoadForecast(tasks: List<TaskEntity>, habits: List<HabitEntity>, settings: AppSettings, today: Long, window: Int = 7, zone: ZoneId = ZoneId.systemDefault(), dayStartMin: Int = 0): LifeLoad {
-        val days = loadByDay(tasks, habits, today, window, zone, dayStartMin)
+    fun lifeLoadForecast(tasks: List<TaskEntity>, habits: List<HabitEntity>, settings: AppSettings, today: Long, window: Int = 7, zone: ZoneId = ZoneId.systemDefault(), dayStartMin: Int = 0, checkins: List<HabitCheckinEntity> = emptyList(), learned: Map<String, Int> = emptyMap()): LifeLoad {
+        val days = loadByDay(tasks, habits, today, window, zone, dayStartMin, settings, checkins, today, learned)
         val over = days.filter { dl ->
             val cap = settings.capacityMinutesFor(LocalDate.ofEpochDay(dl.day).dayOfWeek)
             dl.total > cap

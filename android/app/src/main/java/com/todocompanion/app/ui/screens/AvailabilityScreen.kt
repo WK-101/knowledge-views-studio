@@ -75,6 +75,8 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
     val events by vm.events.collectAsState()
     val tasks by vm.tasks.collectAsState()
     val s by vm.settings.collectAsState()
+    val habitsForTime by vm.habits.collectAsState()
+    val checkinsForTime by vm.habitCheckins.collectAsState()
     val ctx = LocalContext.current
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val today = LocalDate.now(zone)
@@ -108,14 +110,27 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
     // R59 — scheduled tasks (timed, with a duration) are busy time too, so "When am I free?" reflects your
     // whole plan, not only calendar events.
     val taskBusy = remember(tasks, events, zone) { Availability.taskBusyIntervals(tasks, zone, events.mapNotNull { it.linkedTaskId }.toSet()) }
+    // Habits consume time too: dedicated, timed habits become busy blocks; ambient habits (steps, water)
+    // hold a "habits & upkeep" reserve that lowers the day's free total without a fixed slot.
+    val habitBusy = remember(days, habitsForTime, checkinsForTime, s) { vm.habitBusyIntervals(days) }
+    val habitAmbientByDay = remember(days, habitsForTime, checkinsForTime, s) {
+        days.associateWith { vm.habitAmbientReserveMin(it.toEpochDay()) }
+    }
     // R59 fix — the part of TODAY that has already elapsed is never "free": mask [start-of-today, now] so
     // today's openings begin at the current time, not this morning. forDays clips it to today's window only.
     val nowMs = System.currentTimeMillis()
     val elapsedTodayMask = listOf(today.atStartOfDay(zone).toInstant().toEpochMilli() to nowMs)
     // Don't count days already in the past for a fair "free time left".
-    val free = Availability.forDays(events, days, cfg, zone, protectedList, extraBusy = taskBusy + elapsedTodayMask).map { d ->
-        if (d.date.isBefore(today)) d.copy(available = false, slots = emptyList(), busy = emptyList(), reserved = emptyList(), freeMin = 0, busyMin = 0) else d
+    val free = Availability.forDays(events, days, cfg, zone, protectedList, extraBusy = taskBusy + elapsedTodayMask + habitBusy).map { d ->
+        if (d.date.isBefore(today)) d.copy(available = false, slots = emptyList(), busy = emptyList(), reserved = emptyList(), freeMin = 0, busyMin = 0)
+        else {
+            // Subtract the ambient "habits & upkeep" reserve from this day's free total (the band). Real
+            // openings stay intact; only the reported free minutes drop, so capacity stops overstating.
+            val amb = habitAmbientByDay[d.date] ?: 0
+            if (amb > 0) d.copy(freeMin = (d.freeMin - amb).coerceAtLeast(0)) else d
+        }
     }
+    val habitReserveTotal = if (range == "Day") (habitAmbientByDay[anchor] ?: 0) else habitAmbientByDay.filterKeys { !it.isBefore(today) }.values.sum()
     val totalFree = Availability.totalFreeMin(free)
     val totalWindow = Availability.totalWindowMin(free)
     val longest = Availability.longest(free)
@@ -198,6 +213,7 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
                 Text("in $blockCount open block${if (blockCount == 1) "" else "s"} across $availCount available day${if (availCount == 1) "" else "s"} · $pct% of your window open",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (avgBlock > 0) Text("Average block ${Availability.fmtMinutes(avgBlock)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (habitReserveTotal > 0) Text("Includes ${Availability.fmtMinutes(habitReserveTotal)} held for habits & upkeep", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 longest?.let { (d, slot) ->
                     Spacer(Modifier.height(6.dp))
                     Text("Largest open block: ${Availability.fmtMinutes(slot.minutes.toInt())} on ${d.format(df)} (${slotText(slot)})",

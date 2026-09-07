@@ -12,6 +12,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -232,11 +233,15 @@ fun CalendarScreen(
     val habitCheckins by vm.habitCheckins.collectAsState()
     val todayEd = LocalDate.now(zone).toEpochDay()
     val habitBlocksFor: (LocalDate) -> List<HabitBlock> = block@{ d ->
-        if (!s.habitCalendarBlocks) return@block emptyList()
+        val ht = com.todocompanion.app.domain.habit.HabitTime
         val hs = com.todocompanion.app.domain.habit.HabitStats
         val ed = d.toEpochDay()
         habits.filter { !it.archived && !it.paused && it.habitType != "break" }.flatMap { h ->
             val scheduled = hs.isExpectedDay(h, ed) || h.freqType == hs.FREQ_TIMES_WEEK || h.freqType == hs.FREQ_TIMES_MONTH
+            // A habit shows on the calendar when it has opted in per-habit (Show as a block), or via the
+            // legacy master toggle. Ambient/untimed habits never occupy a slot — they hold the upkeep band.
+            val cfg = ht.cfgFor(s, h.id)
+            if (!(cfg.showAsBlock || s.habitCalendarBlocks)) return@flatMap emptyList()
             val rawTimes = h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it in 0..1439 }
             // A habit only carries a real time if it has a reminder time; otherwise it's untimed and must
             // NOT be pinned to a fake 09:00 on the grid (R23 — that's why they all overlapped).
@@ -249,10 +254,13 @@ fun CalendarScreen(
             val show = scheduled && (ed >= todayEd || progressed)
             if (!show) emptyList()
             else {
-                val dur = if (h.unit == "min") h.targetPerDay.coerceIn(10, 180) else 30
+                // Duration from the app's time-cost model (unit=min / minutesPerUnit / manual), falling back.
+                val cost = ht.costMin(h, cfg).takeIf { it > 0 } ?: (if (h.unit == "min") h.targetPerDay else 30)
+                val dur = cost.coerceIn(10, 180)
                 val col = h.colorArgb?.let { androidx.compose.ui.graphics.Color(it) }
                 rawTimes.ifEmpty { listOf(0) }.map { m ->
-                    HabitBlock(h.id, (h.emoji?.plus(" ") ?: "") + h.name, col, m, dur, done, progressed && !done, untimed)
+                    HabitBlock(h.id, (h.emoji?.plus(" ") ?: "") + h.name, col, m, dur, done, progressed && !done, untimed,
+                        reserved = !untimed && !done)
                 }
             }
         }
@@ -1328,6 +1336,9 @@ private data class HabitBlock(
     val id: String, val label: String, val color: androidx.compose.ui.graphics.Color?,
     val startMin: Int, val durMin: Int, val done: Boolean,
     val partial: Boolean = false, val untimed: Boolean = false,
+    // A pending timed habit reservation — drawn with a dashed outline so it reads as flexible "held" time,
+    // clearly distinct from a solid task block sitting beside it on the grid.
+    val reserved: Boolean = false,
 )
 
 /**
@@ -1348,7 +1359,24 @@ private fun HabitPill(
     val bg = when { hb.done -> c; hb.partial -> c.copy(alpha = .34f); else -> c.copy(alpha = .12f) }
     Row(
         modifier.clip(shape).background(bg)
-            .then(if (hb.done) Modifier else Modifier.border(1.dp, c.copy(alpha = .45f), shape))
+            .then(
+                when {
+                    hb.done -> Modifier
+                    // A pending habit reservation gets a dashed outline — reads as flexible "held" time,
+                    // unmistakably distinct from the solid-edged task blocks it sits beside.
+                    hb.reserved -> Modifier.drawBehind {
+                        val r = (if (dense) 8.dp else 20.dp).toPx()
+                        drawRoundRect(
+                            color = c.copy(alpha = .7f),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(r, r),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                width = 1.5.dp.toPx(),
+                                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(9f, 6f), 0f)),
+                        )
+                    }
+                    else -> Modifier.border(1.dp, c.copy(alpha = .45f), shape)
+                }
+            )
             .clickable { onOpen(hb.id) }
             .padding(horizontal = if (dense) 7.dp else 11.dp, vertical = if (dense) 2.dp else 6.dp),
         verticalAlignment = Alignment.CenterVertically,

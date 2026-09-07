@@ -102,6 +102,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Size
 import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.domain.habit.HabitStats
+import com.todocompanion.app.domain.habit.HabitTime
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.MiniCheck
 import com.todocompanion.app.ui.components.StepperRow
@@ -894,6 +895,12 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     val timeActivities by vm.timeActivities.collectAsState()
     val editorSettings by vm.settings.collectAsState()
     val timeOn = com.todocompanion.app.domain.Modules.isEnabled(editorSettings, com.todocompanion.app.domain.Modules.TIME)
+    // Habits that consume time — per-habit planning config (rides settings-JSON, keyed by habit id).
+    val existingTimeCfg = remember(existing?.id) { HabitTime.cfgFor(editorSettings, existing?.id ?: "") }
+    var timeClassChoice by remember { mutableStateOf(existingTimeCfg.timeClass) }   // null = Auto
+    var timeCostManual by remember { mutableStateOf(existingTimeCfg.costMode == HabitTime.CostMode.MANUAL) }
+    var timeManualMin by remember { mutableIntStateOf(existingTimeCfg.manualMin.takeIf { it > 0 } ?: 15) }
+    var timeShowBlock by remember { mutableStateOf(existingTimeCfg.showAsBlock) }
 
     fun buildHabit(): HabitEntity {
         val base = existing ?: HabitEntity(id = "", name = "", createdAt = 0L)
@@ -924,9 +931,17 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     }
     fun save() {
         if (name.isBlank()) return
+        val hid = existing?.id ?: java.util.UUID.randomUUID().toString()
         val h = buildHabit()
-        if (existing == null) vm.addHabit(h)
+        if (existing == null) vm.addHabit(h.copy(id = hid))
         else vm.saveHabit(h.copy(id = existing.id, createdAt = existing.createdAt, sortOrder = existing.sortOrder, workspaceId = existing.workspaceId))
+        // Persist the per-habit time-planning config (settings-JSON, keyed by the habit's id).
+        vm.setHabitTimeCfg(hid, HabitTime.Cfg(
+            timeClass = timeClassChoice,
+            costMode = if (timeCostManual) HabitTime.CostMode.MANUAL else HabitTime.CostMode.DERIVED,
+            manualMin = if (timeCostManual) timeManualMin else 0,
+            showAsBlock = timeShowBlock,
+        ))
         onClose()
     }
     BackHandler { onClose() }
@@ -1048,6 +1063,69 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                     onDismiss = { showReminderPicker = false },
                     onConfirm = { mins -> reminders = reminders.toSortedSet().also { it.add(mins) }; showReminderPicker = false },
                 )
+            }
+
+            // 4b. Time & planning — how this habit reserves time so the calendar, free-time and planner
+            // stop overstating your availability. "Upkeep" = a background band; "Time block" = a real slot.
+            if (!isBreak) EditorCard {
+                Text("Time & planning", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val timeCfgNow = HabitTime.Cfg(
+                    timeClassChoice,
+                    if (timeCostManual) HabitTime.CostMode.MANUAL else HabitTime.CostMode.DERIVED,
+                    if (timeCostManual) timeManualMin else 0, timeShowBlock,
+                )
+                val provisional = buildHabit()
+                val resolvedClass = HabitTime.effectiveClass(provisional, timeCfgNow)
+                val derivedMin = HabitTime.derivedCostMin(provisional)
+                com.todocompanion.app.ui.components.OptionChips(
+                    listOf("auto", "ambient", "dedicated", "off"),
+                    when (timeClassChoice) {
+                        null -> "auto"; HabitTime.TimeClass.AMBIENT -> "ambient"
+                        HabitTime.TimeClass.DEDICATED -> "dedicated"; HabitTime.TimeClass.OFF -> "off"
+                    },
+                    { sel ->
+                        timeClassChoice = when (sel) {
+                            "ambient" -> HabitTime.TimeClass.AMBIENT; "dedicated" -> HabitTime.TimeClass.DEDICATED
+                            "off" -> HabitTime.TimeClass.OFF; else -> null
+                        }
+                    },
+                    modifier = Modifier.padding(top = 6.dp), wrap = false, spacing = 6,
+                ) { when (it) { "auto" -> "Auto"; "ambient" -> "Upkeep"; "dedicated" -> "Time block"; else -> "Off" } }
+                Text(
+                    when (resolvedClass) {
+                        HabitTime.TimeClass.OFF -> "Not counted against your available time."
+                        HabitTime.TimeClass.AMBIENT -> "Held as background “habits & upkeep” time — lowers free time, never a fixed slot."
+                        HabitTime.TimeClass.DEDICATED -> "Reserves a slot at its reminder time; can also show as a calendar block."
+                    },
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 6.dp),
+                )
+                if (resolvedClass != HabitTime.TimeClass.OFF) {
+                    com.todocompanion.app.ui.components.OptionChips(
+                        listOf(false, true), timeCostManual, { timeCostManual = it }, modifier = Modifier.padding(top = 10.dp), spacing = 6,
+                    ) { if (it) "Manual" else "Derived" + (if (derivedMin > 0) " (≈${derivedMin}m)" else "") }
+                    if (timeCostManual) {
+                        StepperRow(
+                            "Minutes per day", "${timeManualMin}m",
+                            onMinus = { timeManualMin = (timeManualMin - 5).coerceAtLeast(5) },
+                            onPlus = { timeManualMin = (timeManualMin + 5).coerceAtMost(600) },
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    } else if (derivedMin == 0) {
+                        Text(
+                            "No time known yet — set the unit to “min”, link a tracked activity, or choose Manual.",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 6.dp),
+                        )
+                    }
+                    if (resolvedClass == HabitTime.TimeClass.DEDICATED) {
+                        com.todocompanion.app.ui.components.ToggleRow(
+                            title = "Show as a calendar block",
+                            checked = timeShowBlock,
+                            onCheckedChange = { timeShowBlock = it },
+                            subtitle = "Draw a flexible block on the day / week grid",
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
             }
 
             // E6: everything below folds behind one tap so a new habit stays as simple as quick-add.
