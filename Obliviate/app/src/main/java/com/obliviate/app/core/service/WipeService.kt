@@ -164,8 +164,14 @@ class WipeService : Service() {
         wakeLock = null
     }
 
+    override fun onTimeout(startId: Int) {
+        // Foreground-service runtime limit reached (Android 14+): stop the job gracefully.
+        job?.cancel(CancellationException("Foreground service timeout"))
+    }
+
     override fun onDestroy() {
         releaseWakeLock()
+        scope.cancel()
         super.onDestroy()
     }
 

@@ -5,9 +5,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -18,7 +21,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -139,26 +141,10 @@ fun StorageGauge(
     }
 }
 
-/** Small pill chip used for tags. */
+/** Icon + label content for buttons, with consistent spacing between them. */
 @Composable
-fun Pill(text: String, color: Color = MaterialTheme.colorScheme.primary) {
-    Surface(
-        shape = RoundedCornerShape(50),
-        color = color.copy(alpha = 0.15f),
-    ) {
-        Text(
-            text,
-            style = MaterialTheme.typography.labelMedium,
-            color = color,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-        )
-    }
-}
-
-@Composable
-fun ClipCard(
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    Box(modifier = modifier.clip(RoundedCornerShape(20.dp))) { content() }
+fun RowScope.IconLabel(icon: ImageVector, text: String) {
+    Icon(icon, contentDescription = null)
+    Spacer(Modifier.width(8.dp))
+    Text(text)
 }

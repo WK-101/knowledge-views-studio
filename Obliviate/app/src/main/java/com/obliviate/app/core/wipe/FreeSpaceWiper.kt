@@ -80,12 +80,13 @@ object FreeSpaceWiper {
                 if (zero) buffer.fill(0) else random.nextBytes(buffer)
                 var buffersSinceRefresh = 0
                 var fileIndex = 0
+                var stalls = 0
 
                 fill@ while (true) {
                     coroutineContext.ensureActive()
-                    val avail = availableBytes(tmp)
-                    if (avail <= config.keepFreeBytes) break@fill
-                    val fileTarget = minOf(CHUNK_BYTES, avail - config.keepFreeBytes)
+                    val availBefore = availableBytes(tmp)
+                    if (availBefore <= config.keepFreeBytes) break@fill
+                    val fileTarget = minOf(CHUNK_BYTES, availBefore - config.keepFreeBytes)
                     if (fileTarget <= 0) break@fill
 
                     val file = File(tmp, String.format(Locale.US, "w_%02d_%05d.bin", pass, fileIndex++))
@@ -124,6 +125,16 @@ object FreeSpaceWiper {
                     } catch (e: IOException) {
                         // Ran out of space (or a transient write error): this pass is done.
                         break@fill
+                    }
+
+                    // Robustness guard: if free space isn't actually shrinking (e.g. transparent
+                    // filesystem compression on a zero-fill, or a storage quota), stop this pass
+                    // rather than looping forever creating files that don't consume space.
+                    val availAfter = availableBytes(tmp)
+                    if (availBefore - availAfter < fileWritten / 2) {
+                        if (++stalls >= 3) break@fill
+                    } else {
+                        stalls = 0
                     }
                 }
 

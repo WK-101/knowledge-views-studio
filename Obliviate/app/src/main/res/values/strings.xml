@@ -1,6 +1,5 @@
 <resources>
     <string name="app_name">Obliviate</string>
-    <string name="tagline">Overwrite the ghosts of deleted files</string>
 
     <!-- Notification -->
     <string name="wipe_channel_name">Wipe progress</string>

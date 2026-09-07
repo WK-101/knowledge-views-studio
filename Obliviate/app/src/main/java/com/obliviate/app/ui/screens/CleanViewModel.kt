@@ -3,6 +3,7 @@ package com.obliviate.app.ui.screens
 import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -14,7 +15,7 @@ import kotlinx.coroutines.withContext
 
 class CleanViewModel(app: Application) : AndroidViewModel(app) {
 
-    var cacheBytes by mutableStateOf(0L)
+    var cacheBytes by mutableLongStateOf(0L)
         private set
     var internal by mutableStateOf(JunkCleaner.StorageStat(0, 0))
         private set
@@ -35,10 +36,13 @@ class CleanViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun refresh() {
-        val ctx = getApplication<Application>()
-        cacheBytes = JunkCleaner.cacheSize(ctx)
+        // StatFs is a cheap syscall; the cache walk can touch many files, so keep it off main.
         internal = JunkCleaner.internalStat()
         shared = JunkCleaner.sharedStat()
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            cacheBytes = withContext(Dispatchers.IO) { JunkCleaner.cacheSize(ctx) }
+        }
     }
 
     fun clearCache() {

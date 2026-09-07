@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -24,7 +25,6 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -39,6 +39,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.obliviate.app.core.clean.JunkCleaner
 import com.obliviate.app.core.formatBytes
+import com.obliviate.app.ui.components.IconLabel
 import com.obliviate.app.ui.components.InfoBanner
 import com.obliviate.app.ui.components.ObliviateCard
 import com.obliviate.app.ui.components.StatLine
@@ -79,8 +80,7 @@ fun CleanScreen(vm: CleanViewModel = viewModel()) {
                 onClick = { vm.clearCache() },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Icon(Icons.Rounded.CleaningServices, contentDescription = null)
-                Text("  Clear cache")
+                IconLabel(Icons.Rounded.CleaningServices, "Clear cache")
             }
         }
 
@@ -135,15 +135,14 @@ fun CleanScreen(vm: CleanViewModel = viewModel()) {
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Icon(Icons.Rounded.FolderOpen, contentDescription = null)
-                    Text("  Grant all files access")
+                    IconLabel(Icons.Rounded.FolderOpen, "Grant all files access")
                 }
             } else if (vm.scanning) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.height(22.dp))
+                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
                     Text(
-                        "  Scanning… ${vm.scanCount} found",
-                        modifier = Modifier.padding(start = 8.dp),
+                        "Scanning… ${vm.scanCount} found",
+                        modifier = Modifier.padding(start = 12.dp),
                     )
                 }
             } else if (vm.junk.isNotEmpty()) {
@@ -155,8 +154,7 @@ fun CleanScreen(vm: CleanViewModel = viewModel()) {
                     onClick = { vm.deleteJunk() },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Icon(Icons.Rounded.DeleteForever, contentDescription = null)
-                    Text("  Delete ${vm.junk.size} item(s)")
+                    IconLabel(Icons.Rounded.DeleteForever, "Delete ${vm.junk.size} item(s)")
                 }
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(onClick = { vm.scanJunk() }, modifier = Modifier.fillMaxWidth()) {

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -32,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.obliviate.app.core.formatBytes
 import com.obliviate.app.core.wipe.WipeMethod
+import com.obliviate.app.ui.components.IconLabel
 import com.obliviate.app.ui.components.InfoBanner
 import com.obliviate.app.ui.components.ObliviateCard
 
@@ -61,8 +63,7 @@ fun ShredScreen(vm: ShredViewModel = viewModel()) {
                 .height(52.dp),
             enabled = !vm.running,
         ) {
-            Icon(Icons.Rounded.Add, contentDescription = null)
-            Text("  Select files")
+            IconLabel(Icons.Rounded.Add, "Select files")
         }
 
         if (vm.items.isNotEmpty()) {
@@ -119,8 +120,7 @@ fun ShredScreen(vm: ShredViewModel = viewModel()) {
                     .height(52.dp),
                 enabled = !vm.running,
             ) {
-                Icon(Icons.Rounded.Warning, contentDescription = null)
-                Text("  Shred ${vm.items.size} file(s)")
+                IconLabel(Icons.Rounded.Warning, "Shred ${vm.items.size} file(s)")
             }
         }
 
@@ -128,10 +128,10 @@ fun ShredScreen(vm: ShredViewModel = viewModel()) {
             Spacer(Modifier.height(16.dp))
             ObliviateCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.height(22.dp))
+                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
                     Text(
-                        "  ${vm.progressText}",
-                        modifier = Modifier.padding(start = 8.dp),
+                        vm.progressText,
+                        modifier = Modifier.padding(start = 12.dp),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -54,6 +55,7 @@ import com.obliviate.app.core.wipe.WipeMethod
 import com.obliviate.app.core.wipe.WipePhase
 import com.obliviate.app.core.wipe.WipeTarget
 import com.obliviate.app.core.wipe.WipeUiState
+import com.obliviate.app.ui.components.IconLabel
 import com.obliviate.app.ui.components.InfoBanner
 import com.obliviate.app.ui.components.ObliviateCard
 import com.obliviate.app.ui.components.StatLine
@@ -161,9 +163,7 @@ fun WipeScreen() {
                     .fillMaxWidth()
                     .height(54.dp),
             ) {
-                Icon(Icons.Rounded.Bolt, contentDescription = null)
-                Spacer(Modifier.height(0.dp))
-                Text("  Start wipe", style = MaterialTheme.typography.titleMedium)
+                IconLabel(Icons.Rounded.Bolt, "Start wipe")
             }
             Spacer(Modifier.height(24.dp))
         }
@@ -246,8 +246,9 @@ private fun ResultCard(
                 contentDescription = null,
                 tint = if (success) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
             )
+            Spacer(Modifier.width(8.dp))
             Text(
-                "  $title",
+                title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )

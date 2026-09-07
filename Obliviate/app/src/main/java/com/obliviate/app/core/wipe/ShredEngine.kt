@@ -2,10 +2,10 @@ package com.obliviate.app.core.wipe
 
 import android.content.Context
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import kotlinx.coroutines.ensureActive
-import java.io.FileOutputStream
 import java.security.SecureRandom
 import kotlin.coroutines.coroutineContext
 
@@ -125,19 +125,21 @@ object ShredEngine {
         val buffer = ByteArray(BUFFER_BYTES)
         if (zero) buffer.fill(0) else random.nextBytes(buffer)
         // "rw" keeps the length; we overwrite [size] bytes from the start.
-        context.contentResolver.openFileDescriptor(uri, "rw")?.use { pfd ->
-            FileOutputStream(pfd.fileDescriptor).use { fos ->
-                var written = 0L
-                while (written < size) {
-                    coroutineContext.ensureActive()
-                    val n = minOf(buffer.size.toLong(), size - written).toInt()
-                    if (!zero) random.nextBytes(buffer)
-                    fos.write(buffer, 0, n)
-                    written += n
-                }
-                fos.flush()
-                pfd.fileDescriptor.sync()
+        // AutoCloseOutputStream owns the pfd, so closing the stream closes the
+        // underlying file descriptor exactly once (no double-close).
+        val pfd = context.contentResolver.openFileDescriptor(uri, "rw")
+            ?: throw IllegalStateException("Cannot open file for writing")
+        ParcelFileDescriptor.AutoCloseOutputStream(pfd).use { fos ->
+            var written = 0L
+            while (written < size) {
+                coroutineContext.ensureActive()
+                val n = minOf(buffer.size.toLong(), size - written).toInt()
+                if (!zero) random.nextBytes(buffer)
+                fos.write(buffer, 0, n)
+                written += n
             }
-        } ?: throw IllegalStateException("Cannot open file for writing")
+            fos.flush()
+            pfd.fileDescriptor.sync()
+        }
     }
 }
