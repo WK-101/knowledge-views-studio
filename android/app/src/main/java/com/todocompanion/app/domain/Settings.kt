@@ -352,7 +352,12 @@ data class AppSettings(
     val periodShareConfigJson: String = "",
 ) {
     /** Effective tier for an optional editor field: user override, else its built-in default. */
-    fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
+    fun editorTier(f: EditorField): Int {
+        val t = editorFieldTiers[f.id] ?: f.defaultTier
+        // F2 — a core field (Schedule/Priority/List) is never fully hidden: clamp a stale/hand-set HIDDEN
+        // back to MORE so it stays reachable under "More fields" even on a task with no value to auto-show.
+        return if (f.core && t == AppSettings.TIER_HIDDEN) AppSettings.TIER_MORE else t
+    }
 
     /** Editor fields in the user's saved arrangement. Fields that didn't exist when the arrangement
      *  was saved (e.g. the P1 core fields added to an older custom order) are re-inserted at their
@@ -969,7 +974,7 @@ data class AppSettings(
  * and are not listed here. Defaults keep a first-timer's editor lean: only the everyday fields
  * sit at [AppSettings.TIER_ALWAYS]; power features default to "More" and reveal on demand.
  */
-enum class EditorField(val id: String, val label: String, val defaultTier: Int) {
+enum class EditorField(val id: String, val label: String, val defaultTier: Int, val core: Boolean = false) {
     // Core structural elements — since P1 every element the editor draws is a field, so Settings can
     // arrange or hide any of them. These default to Always and each still renders only when it has
     // something to show (Progress once there's progress; Time tracking with the Time module on; the
@@ -977,11 +982,14 @@ enum class EditorField(val id: String, val label: String, val defaultTier: Int) 
     // repeat rule, reminders) all live inside the Date sheet now, reached from the Schedule row — the
     // old "Reminders"/"Deadline" phantom fields (which rendered nothing here) were retired in P1.
     PROGRESS("progress", "Progress", AppSettings.TIER_ALWAYS),
-    SCHEDULE("schedule", "Date & schedule", AppSettings.TIER_ALWAYS),
+    // Core fields (Schedule, Priority, List) can be reordered but never *hidden*: Schedule is the only door
+    // to a date, and a dateless task shows no value, so hiding it would strand the task with no way to add a
+    // date at all (F2). editorTier() clamps a stale HIDDEN on any core field back up to "More".
+    SCHEDULE("schedule", "Date & schedule", AppSettings.TIER_ALWAYS, core = true),
     LEADTIME("leadtime", "Surface before due", AppSettings.TIER_ALWAYS),
     TIMETRACKING("timetracking", "Time tracking", AppSettings.TIER_ALWAYS),
-    PRIORITY("priority", "Priority", AppSettings.TIER_ALWAYS),
-    LIST("list", "List / folder", AppSettings.TIER_ALWAYS),
+    PRIORITY("priority", "Priority", AppSettings.TIER_ALWAYS, core = true),
+    LIST("list", "List / folder", AppSettings.TIER_ALWAYS, core = true),
     CHECKLIST("checklist", "Checklist", AppSettings.TIER_ALWAYS),
     // Real nested subtasks (child tasks with their own priority/date), distinct from the lightweight
     // Checklist above. Auto-shows once the task has children; otherwise revealable under "More".

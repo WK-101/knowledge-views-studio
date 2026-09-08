@@ -630,7 +630,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     com.todocompanion.app.domain.EditorField.SUBTASKS -> {
                         val children = allTasks.filter { it.parentId == task.id && !it.trashed }.sortedBy { it.sortOrder }
                         DetailSection("Subtasks", if (children.isEmpty()) null else "${children.count { it.completed }}/${children.size}", true) {
-                            Text("Real nested tasks — each has its own priority, date and detail, and counts toward this task's progress. (For a quick list of steps, use the Checklist above.)",
+                            Text("Real nested tasks — each has its own priority, date and detail, and counts toward this task's progress. Subtasks are separate tasks: adding, checking or re-prioritising one saves right away (it isn't staged with this task). (For a quick list of steps, use the Checklist above.)",
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
                             children.forEach { child ->
                                 val cl = PriorityLevel.from(child.importance, child.urgency)
@@ -642,7 +642,12 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                                     if (onOpenTask != null) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Open subtask", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
                                 }
                             }
-                            AddInline(newSub, { newSub = it }, "Add subtask") { if (it.isNotBlank()) { vm.addSubtask(task, it.trim()); newSub = "" } }
+                            // F4 — a subtask is created immediately, so it must inherit the parent's SAVED
+                            // list/folder, not the staged draft: otherwise a not-yet-saved list change on the
+                            // parent (which Back can discard) would strand the child on a list the parent
+                            // never moved to. savedSnapshot is the persisted parent; fall back to draft only
+                            // before the first load settles.
+                            AddInline(newSub, { newSub = it }, "Add subtask") { if (it.isNotBlank()) { vm.addSubtask(savedSnapshot ?: task, it.trim()); newSub = "" } }
                         }
                     }
 

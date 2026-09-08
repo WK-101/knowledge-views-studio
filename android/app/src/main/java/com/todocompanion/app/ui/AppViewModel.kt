@@ -742,6 +742,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
         }
+        // F1 (task-editor audit) — the one place task reminders are re-armed. Every repository write that
+        // moves a date or flips a scheduling gate (completed/abandoned/trashed/someday) emits the task id on
+        // repo.remindersDirty; we drain it here into ReminderController.rescheduleForTask. This makes the
+        // re-arm guarantee hold by construction, so no individual date-mutating call site (postpone, snooze,
+        // calendar drag, carry-forward, auto-schedule, Someday, recurrence roll-forward, …) has to remember.
+        viewModelScope.launch {
+            repo.remindersDirty.collect { taskId ->
+                repo.getTask(taskId)?.let { reminderCtl.rescheduleForTask(it) }
+            }
+        }
     }
 
     fun currentTitle(): String = when (val v = currentView.value) {
@@ -910,10 +920,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 repo.upsertReminder(nr)
                 updated?.let { AlarmScheduler.schedule(appCtx, nr, it) }
             }
-            // P2 — the shift above moves absolute reminders with the occurrence; relative reminders
-            // (relativeToDue/…): their fire time is computed from the new dates, so re-arm them too, or a
-            // repeating task's "1h before due" reminder would stay stuck on the previous occurrence.
-            updated?.let { reminderCtl.rescheduleForTask(it) }
+            // The shift above moves absolute reminders with the occurrence; relative reminders
+            // (relativeToDue/…) re-arm automatically — repo.saveTask above emitted remindersDirty because
+            // the due date moved, and the init collector re-arms this task against the new occurrence (F1).
             // R31 #4 — a repeating task rolls forward silently; offer Undo too, restoring the exact
             // occurrence (due date + rule) so completing a repeat is as reversible as any other finish.
             undoEvents.tryEmit(UndoEvent(UndoKind.COMPLETED, t.id, "Completed “${t.title.take(30)}” — rolled to next occurrence", restore = t))
@@ -978,8 +987,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         reminders.value.filter { it.taskId == t.id && it.atTime != null }.forEach { r ->
             val nr = r.copy(atTime = r.atTime!! + delta); repo.upsertReminder(nr); updated?.let { AlarmScheduler.schedule(appCtx, nr, it) }
         }
-        // P2 — re-arm relative reminders against the skipped-to occurrence's dates (see toggleComplete).
-        updated?.let { reminderCtl.rescheduleForTask(it) }
+        // Relative reminders re-arm automatically: repo.saveTask above emitted remindersDirty (F1).
     }
     fun setAbandoned(t: TaskEntity, v: Boolean) = viewModelScope.launch {
         repo.setAbandoned(t, v)
@@ -1042,17 +1050,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun save(t: TaskEntity) = viewModelScope.launch {
-        val old = repo.getTask(t.id)
+        // F1 — saveTask emits repo.remindersDirty when a date (or scheduling-gate flag) changed, and the
+        // init collector re-arms this task's relative reminders. No per-call reschedule needed here anymore.
         repo.saveTask(t)
-        // P2 — saveTask never touches alarms, but a relative reminder's fire time is computed from the
-        // task's dates. So whenever a date (or a flag that gates scheduling) changed, re-arm this task's
-        // reminders, or they keep firing at the pre-edit moment. Cheap: the guard skips the common
-        // non-date edits (title, notes, priority, drag reorder, …).
-        if (old == null ||
-            old.dueDate != t.dueDate || old.startDate != t.startDate || old.deadlineDate != t.deadlineDate ||
-            old.completed != t.completed || old.abandoned != t.abandoned || old.trashed != t.trashed) {
-            reminderCtl.rescheduleForTask(t)
-        }
     }
 
     // ---------- The Done Record (R27) ----------

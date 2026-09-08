@@ -39,6 +39,26 @@ class AppRepository(private val db: AppDatabase) {
     val habitCredited = kotlinx.coroutines.flow.MutableSharedFlow<HabitCreditEvent>(extraBufferCapacity = 16)
 
     /**
+     * F1 (task-editor audit) — the single "this task's dates/state changed, re-arm its reminders" signal.
+     *
+     * A relative reminder (relativeToDue / relativeToStart / relativeToDeadline / dueDayAt / whenOverdue /
+     * random) stores an offset and computes its fire time from the task's dates *at arm time*; `saveTask`
+     * (and the other task writes below) never touch alarms. So every write that moves a date — or flips a
+     * flag that gates scheduling (completed / abandoned / trashed / someday) — emits the task id here, and
+     * the ViewModel drains it into ReminderController.rescheduleForTask. Centralising it this way means the
+     * re-arm guarantee holds *by construction*: no date-mutating call site (postpone, snooze, calendar
+     * drag, carry-forward, auto-schedule, Someday, recurrence roll-forward, …) has to remember to re-arm.
+     * A generous buffer covers batch reschedules (carry-forward of many overdue tasks in one tick).
+     */
+    val remindersDirty = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 256)
+    private fun markRemindersDirty(taskId: String) { remindersDirty.tryEmit(taskId) }
+    /** True when two task snapshots differ in any field that changes a reminder's fire time or arming. */
+    private fun remindersAffected(old: TaskEntity?, now: TaskEntity): Boolean =
+        old == null || old.startDate != now.startDate || old.dueDate != now.dueDate ||
+            old.deadlineDate != now.deadlineDate || old.completed != now.completed ||
+            old.abandoned != now.abandoned || old.trashed != now.trashed || old.someday != now.someday
+
+    /**
      * R53 — user-triggered storage maintenance for a DB kept over years: checkpoint the WAL, VACUUM to
      * compact + defragment the file (deletes only free-list pages otherwise), and refresh the query
      * planner's stats. All offline; safe to run occasionally from Settings.
@@ -690,6 +710,9 @@ class AppRepository(private val db: AppDatabase) {
         tasks.upsert(saved)
         syncTaskFts(saved.id, saved.title, saved.note)
         if (old != null && old.dueDate != task.dueDate) logActivity(task.id, "rescheduled", task.dueDate?.toString())
+        // F1 — re-arm relative reminders whenever a date (or a scheduling-gate flag) moved. Cheap: the
+        // guard skips the common non-date edits (title, notes, priority, drag reorder, list move, …).
+        if (remindersAffected(old, saved)) markRemindersDirty(saved.id)
         maybeRecordRevision(saved)
     }
 
@@ -699,6 +722,7 @@ class AppRepository(private val db: AppDatabase) {
         tasks.upsert(task.copy(completed = completed, completedAt = if (completed) now() else null, abandoned = false,
             deferCount = if (completed) 0 else task.deferCount, updatedAt = now()))
         logActivity(task.id, if (completed) "completed" else "reopened")
+        markRemindersDirty(task.id)   // F1 — completing/reopening changes whether alarms should be armed
         if (transition) onTaskCompleted(task)
     }
     /** V3: completing a task ticks any habit linked to it (via a shared time-activity). V12: earns a point. */
@@ -730,6 +754,7 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun setAbandoned(task: TaskEntity, abandoned: Boolean) {
         tasks.upsert(task.copy(abandoned = abandoned, completed = false, updatedAt = now()))
         logActivity(task.id, if (abandoned) "wontdo" else "reopened")
+        markRemindersDirty(task.id)   // F1 — abandoning/reopening changes whether alarms should be armed
     }
 
     suspend fun setCollapsed(task: TaskEntity, collapsed: Boolean) =
@@ -758,6 +783,7 @@ class AppRepository(private val db: AppDatabase) {
                 workspaceId = if (trashed && workspaceId != null) workspaceId else t.workspaceId,
                 updatedAt = now(),
             ))
+            markRemindersDirty(id)   // F1 — trashing cancels alarms; restoring re-arms them
         }
         logActivity(rootId, if (trashed) "trashed" else "restored")
     }

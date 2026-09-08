@@ -757,7 +757,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         SettingsGroup(Icons.Filled.EditNote, "Task editor", open["editor"] == true, { open["editor"] = open["editor"] != true }, keywords = "fields tier always more hidden reorder reflection estimate energy flag attachments") {
             Text("The editor shows a lean set of fields first and reveals the rest under “More fields.” Choose when each appears, or drag the order to match how you work. A field you’ve already filled always shows, whatever you pick here.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
-            val ordered = s.editorFieldsOrdered()
+            // F5 — Coach is always pinned to the bottom of the editor and can't move, so it doesn't belong in
+            // the reorderable list (its arrows were a no-op). It gets a dedicated show/hide toggle below.
+            val ordered = s.editorFieldsOrdered().filter { it != com.todocompanion.app.domain.EditorField.COACH }
             ordered.forEachIndexed { idx, f ->
                 val tier = s.editorTier(f)
                 Column(Modifier.padding(vertical = 4.dp)) {
@@ -779,14 +781,29 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                         }, enabled = idx < ordered.lastIndex, modifier = Modifier.size(34.dp)) { Icon(Icons.Filled.KeyboardArrowDown, "Move down", modifier = Modifier.size(20.dp)) }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 2.dp)) {
-                        listOf(
-                            com.todocompanion.app.domain.AppSettings.TIER_ALWAYS to "Always",
-                            com.todocompanion.app.domain.AppSettings.TIER_MORE to "Under “More”",
-                            com.todocompanion.app.domain.AppSettings.TIER_HIDDEN to "Hidden",
-                        ).forEach { (t, label) ->
+                        // F2 — core fields (Schedule/Priority/List) can be reordered and pushed under “More”,
+                        // but never fully hidden: Schedule is the only way to add a date, so hiding it would
+                        // leave a dateless task with no date affordance at all. Offer only Always / Under More.
+                        buildList {
+                            add(com.todocompanion.app.domain.AppSettings.TIER_ALWAYS to "Always")
+                            add(com.todocompanion.app.domain.AppSettings.TIER_MORE to "Under “More”")
+                            if (!f.core) add(com.todocompanion.app.domain.AppSettings.TIER_HIDDEN to "Hidden")
+                        }.forEach { (t, label) ->
                             FilterChip(selected = tier == t, onClick = { vm.saveSettings(s.copy(editorFieldTiers = s.editorFieldTiers + (f.id to t))) }, label = { Text(label, style = MaterialTheme.typography.labelMedium) })
                         }
                     }
+                    if (f.core) Text("Core field — always available (can’t be hidden).",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 1.dp))
+                }
+            }
+            // F5 — Coach tips: a simple show/hide (it's pinned to the editor's bottom, so tier/order don't apply).
+            run {
+                val coach = com.todocompanion.app.domain.EditorField.COACH
+                val shown = s.editorTier(coach) != com.todocompanion.app.domain.AppSettings.TIER_HIDDEN
+                Toggle("Coach tips (pinned to editor bottom)", shown) { on ->
+                    vm.saveSettings(s.copy(editorFieldTiers = s.editorFieldTiers + (coach.id to
+                        if (on) com.todocompanion.app.domain.AppSettings.TIER_ALWAYS else com.todocompanion.app.domain.AppSettings.TIER_HIDDEN)))
                 }
             }
             if (s.editorFieldTiers.isNotEmpty() || s.editorFieldOrder.isNotEmpty()) {
