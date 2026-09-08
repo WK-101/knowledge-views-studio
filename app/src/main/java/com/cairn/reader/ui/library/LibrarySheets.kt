@@ -91,7 +91,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import com.cairn.reader.data.db.CollectionWithCount
 import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.data.db.LibraryCounts

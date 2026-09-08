@@ -7,20 +7,23 @@ lifecycle = "2.8.7"
 activityCompose = "1.9.3"
 composeBom = "2024.12.01"
 navigation = "2.8.5"
-room = "2.6.1"
+room = "2.7.1"
 work = "2.9.1"
 hilt = "2.52"
 hiltExt = "1.2.0"
 datastore = "1.1.1"
-coil = "2.7.0"
+coil = "3.0.4"
 webkit = "1.12.1"
+# OkHttp 5.0.0 GA is compiled with Kotlin 2.2 (its kotlin-stdlib 2.2 metadata can't be read by this
+# project's Kotlin 2.0.21 compiler), so moving to OkHttp 5 is coupled to a Kotlin toolchain bump and
+# is tracked separately. Staying on the current stable 4.12.0 here.
 okhttp = "4.12.0"
 coroutines = "1.9.0"
 readability4j = "1.0.8"
 jsoup = "1.18.1"
 documentfile = "1.0.1"
 sqlcipher = "4.6.1"
-sqlite = "2.4.0"
+sqlite = "2.5.1"
 splashscreen = "1.0.1"
 profileinstaller = "1.4.1"
 junit = "4.13.2"
@@ -71,7 +74,8 @@ androidx-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", vers
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 
 # Networking / images / parsing
-coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }

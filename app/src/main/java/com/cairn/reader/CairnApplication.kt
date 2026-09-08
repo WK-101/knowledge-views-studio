@@ -8,7 +8,12 @@ import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.util.AppLog
 import com.cairn.reader.util.orLog
 import com.cairn.reader.work.CairnWork
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import dagger.hilt.android.HiltAndroidApp
+import okhttp3.OkHttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -21,10 +26,15 @@ import javax.inject.Inject
  * workers (feed sync, extraction, indexing) can use constructor injection.
  */
 @HiltAndroidApp
-class CairnApplication : Application(), Configuration.Provider {
+class CairnApplication : Application(), Configuration.Provider, SingletonImageLoader.Factory {
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
+
+    /** The app's hardened, cert-pinned OkHttp client, reused by Coil's image loader. Lazy so
+     *  building it stays off the Hilt field-injection path. */
+    @Inject
+    lateinit var imageHttpClient: dagger.Lazy<OkHttpClient>
 
     @Inject
     lateinit var preferencesRepository: PreferencesRepository
@@ -39,6 +49,19 @@ class CairnApplication : Application(), Configuration.Provider {
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
             .build()
+
+    /**
+     * Coil 3's singleton image loader, wired to reuse the app's cert-pinned OkHttp client. Coil 3
+     * loads network images only when the coil-network-okhttp artifact provides a fetcher; wiring it
+     * explicitly also keeps image traffic on the same hardened client as the rest of the app. The
+     * diagnostics line confirms on-device that the Coil 3 pipeline initialized.
+     */
+    override fun newImageLoader(context: PlatformContext): ImageLoader {
+        AppLog.diag("Coil3 ImageLoader init (OkHttp network fetcher wired)")
+        return ImageLoader.Builder(context)
+            .components { add(OkHttpNetworkFetcherFactory(callFactory = { imageHttpClient.get() })) }
+            .build()
+    }
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
