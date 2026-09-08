@@ -188,7 +188,7 @@ fun CairnApp(
         val orderedNames = appPrefs.bottomTabsOrder.filter { it in members } +
             Destination.entries.map { it.name }.filter { it in members && it !in appPrefs.bottomTabsOrder }
         orderedNames.mapNotNull { n -> Destination.entries.firstOrNull { it.name == n } }
-            .ifEmpty { listOf(Destination.Inbox) }.take(5)
+            .ifEmpty { listOf(Destination.Inbox) }.take(6)  // matches the Settings cap of 6
     }
     var currentName by rememberSaveable { mutableStateOf(Destination.Inbox.name) }
     // current is always a pane; the only non-pane (Starred) just re-scopes the Inbox.

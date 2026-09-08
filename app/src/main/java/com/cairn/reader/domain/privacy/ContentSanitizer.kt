@@ -33,12 +33,15 @@ class ContentSanitizer @Inject constructor() {
             .also { it.forEach { el -> el.remove() } }.size
 
         // 2) Tracking pixels & beacons: zero/one-pixel images, or images from known analytics hosts.
+        //    Checks src AND every srcset candidate, since a pixel can hide in a srcset entry.
         for (img in doc.select("img")) {
             val w = img.attr("width").toIntOrNull()
             val h = img.attr("height").toIntOrNull()
             val src = img.absUrl("src").ifBlank { img.attr("src") }
+            val srcsetUrls = img.attr("srcset").split(",")
+                .mapNotNull { it.trim().substringBefore(' ').takeIf { u -> u.isNotBlank() } }
             val tiny = (w != null && w <= 1) || (h != null && h <= 1)
-            val tracker = isTrackerUrl(src)
+            val tracker = isTrackerUrl(src) || srcsetUrls.any { isTrackerUrl(it) }
             if (tiny || tracker) { img.remove(); removed++ }
         }
 
@@ -77,8 +80,13 @@ class ContentSanitizer @Inject constructor() {
 
     private fun isTrackerUrl(url: String): Boolean {
         if (url.isBlank()) return false
-        val host = runCatching { java.net.URI(url).host }.getOrNull()?.lowercase() ?: return false
-        return TRACKER_HOSTS.any { host == it || host.endsWith(".$it") }
+        val uri = runCatching { java.net.URI(url) }.getOrNull() ?: return false
+        val host = uri.host?.lowercase() ?: return false
+        if (TRACKER_HOSTS.any { host == it || host.endsWith(".$it") }) return true
+        // Path-bearing endpoints (e.g. facebook.com/tr): a host-only check never matches these, so
+        // compare host + path against the known tracking endpoints.
+        val hostPath = host + (uri.path ?: "")
+        return TRACKER_ENDPOINTS.any { hostPath == it || hostPath.startsWith("$it/") || hostPath.startsWith(it) }
     }
 
     private companion object {
@@ -86,15 +94,22 @@ class ContentSanitizer @Inject constructor() {
         val TRACKER_HOSTS = setOf(
             "google-analytics.com", "googletagmanager.com", "doubleclick.net", "google-analytics.l.google.com",
             "scorecardresearch.com", "quantserve.com", "quantcount.com",
-            "facebook.com/tr", "connect.facebook.net", "pixel.facebook.com",
+            "connect.facebook.net", "pixel.facebook.com",
             "hotjar.com", "mouseflow.com", "fullstory.com", "mixpanel.com", "segment.com", "segment.io",
             "amplitude.com", "chartbeat.com", "parsely.com", "parse.ly", "newrelic.com", "nr-data.net",
             "adobedtm.com", "omtrdc.net", "2o7.net", "demdex.net", "krxd.net", "moatads.com",
             "adsrvr.org", "adnxs.com", "criteo.com", "criteo.net", "taboola.com", "outbrain.com",
             "sail-track.com", "sail-horizon.com", "list-manage.com", "mailchimp.com",
             "pardot.com", "marketo.net", "hubspot.com", "hs-analytics.net", "hs-scripts.com",
-            "bat.bing.com", "clarity.ms", "yandex.ru", "mc.yandex.ru", "vk.com/rtrg",
-            "pinterest.com/ct", "snapchat.com", "tiktok.com/i18n/pixel",
+            "bat.bing.com", "clarity.ms", "yandex.ru", "mc.yandex.ru", "snapchat.com",
+        )
+
+        /** Tracking endpoints identified by host + path, not host alone (the host also serves real
+         *  content, so only these specific paths are pixels/beacons). */
+        val TRACKER_ENDPOINTS = setOf(
+            "facebook.com/tr", "www.facebook.com/tr",
+            "vk.com/rtrg", "pinterest.com/ct", "www.pinterest.com/ct",
+            "tiktok.com/i18n/pixel", "analytics.tiktok.com/i18n/pixel",
         )
     }
 }
