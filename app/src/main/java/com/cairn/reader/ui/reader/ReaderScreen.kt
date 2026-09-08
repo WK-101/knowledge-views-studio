@@ -866,7 +866,11 @@ private fun ArticleBody(
         letterSpacing = letterSpacing.em,
         color = palette.text,
     )
-    val byBlock = remember(highlights) { highlights.groupBy { it.startSelector?.toIntOrNull() ?: -1 } }
+    // Re-anchor highlights to the current blocks so a re-extracted / re-linearized article still
+    // paints them over the right words (stored block/offset anchors drift; the quote is the anchor).
+    val byBlock = remember(highlights, blocks) {
+        HighlightAnchoring.reanchor(blocks.map { it.highlightText() }, highlights)
+    }
 
     val progress by remember {
         derivedStateOf {

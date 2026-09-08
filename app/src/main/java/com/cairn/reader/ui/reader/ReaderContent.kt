@@ -28,6 +28,15 @@ sealed interface ReaderBlock {
     data object Rule : ReaderBlock
 }
 
+/** The plain text a highlight can anchor to; "" for blocks that don't host selectable text
+ *  (only Heading/Paragraph/Quote wire text selection). Used by [HighlightAnchoring]. */
+fun ReaderBlock.highlightText(): String = when (this) {
+    is ReaderBlock.Heading -> text.text
+    is ReaderBlock.Paragraph -> text.text
+    is ReaderBlock.Quote -> text.text
+    else -> ""
+}
+
 /**
  * Converts extracted article HTML into a flat list of [ReaderBlock]s for native
  * rendering. Handles headings, paragraphs with inline bold/italic/code/links, images
