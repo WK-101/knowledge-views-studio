@@ -243,9 +243,6 @@ fun CalendarScreen(
             val cfg = ht.cfgFor(s, h.id)
             if (!(cfg.showAsBlock || s.habitCalendarBlocks)) return@flatMap emptyList()
             val rawTimes = h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it in 0..1439 }
-            // A habit only carries a real time if it has a reminder time; otherwise it's untimed and must
-            // NOT be pinned to a fake 09:00 on the grid (R23 — that's why they all overlapped).
-            val untimed = rawTimes.isEmpty()
             val checkin = habitCheckins.firstOrNull { it.habitId == h.id && it.epochDay == ed }
             val done = checkin != null && checkin.status == "done" && hs.meetsGoal(h, checkin.count)
             val progressed = checkin != null && (checkin.status == "done" || checkin.count > 0)
@@ -258,9 +255,20 @@ fun CalendarScreen(
                 val cost = ht.costMin(h, cfg).takeIf { it > 0 } ?: (if (h.unit == "min") h.targetPerDay else 30)
                 val dur = cost.coerceIn(10, 180)
                 val col = h.colorArgb?.let { androidx.compose.ui.graphics.Color(it) }
-                rawTimes.ifEmpty { listOf(0) }.map { m ->
-                    HabitBlock(h.id, (h.emoji?.plus(" ") ?: "") + h.name, col, m, dur, done, progressed && !done, untimed,
-                        reserved = !untimed && !done)
+                if (rawTimes.isEmpty() && cfg.showAsBlock) {
+                    // An opted-in block with no reminder is still placed — at its cue time, else the start of
+                    // the working day — so it never silently vanishes. Drawn dashed = a flexible reservation.
+                    val m = ht.cueMinute(h) ?: (s.workStartHour.coerceIn(0, 23) * 60)
+                    listOf(HabitBlock(h.id, (h.emoji?.plus(" ") ?: "") + h.name, col, m, dur, done, progressed && !done,
+                        untimed = false, reserved = !done))
+                } else {
+                    // A habit only carries a real time if it has a reminder; otherwise it's untimed and shows
+                    // as a header chip, NOT pinned to a fake 09:00 on the grid (R23 — that overlapped them).
+                    val untimed = rawTimes.isEmpty()
+                    rawTimes.ifEmpty { listOf(0) }.map { m ->
+                        HabitBlock(h.id, (h.emoji?.plus(" ") ?: "") + h.name, col, m, dur, done, progressed && !done, untimed,
+                            reserved = !untimed && !done)
+                    }
                 }
             }
         }

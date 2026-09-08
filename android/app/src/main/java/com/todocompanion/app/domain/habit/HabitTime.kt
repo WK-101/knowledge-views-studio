@@ -41,6 +41,8 @@ object HabitTime {
     )
 
     private val MIN_UNITS = setOf("min", "mins", "minute", "minutes")
+    /** Fallback block length when a habit is opted into "show as a block" but its cost can't be derived. */
+    private const val DEFAULT_BLOCK_MIN_COST = 30
 
     // ── per-habit config persistence (value string: "class|mode|manualMin|block") ────────────────────
     fun parseCfg(v: String?): Cfg {
@@ -146,8 +148,13 @@ object HabitTime {
             if (cls == TimeClass.OFF) continue
             val amortized = h.freqType == HabitStats.FREQ_TIMES_WEEK || h.freqType == HabitStats.FREQ_TIMES_MONTH
             if (!amortized && !HabitStats.isExpectedDay(h, epochDay)) continue
-            val perOcc = costMin(h, cfg, learnedByHabit[h.id])
-            if (perOcc <= 0) continue
+            // An explicit "show as a block" opt-in is a placement the user asked for, so it must appear and
+            // be counted even when its cost can't be derived — assume a short default block in that case.
+            val optedBlock = cfg.showAsBlock && cls == TimeClass.DEDICATED && !amortized
+            var perOcc = costMin(h, cfg, learnedByHabit[h.id])
+            if (perOcc <= 0) {
+                if (optedBlock) perOcc = DEFAULT_BLOCK_MIN_COST else continue
+            }
             val cost = if (amortized) {
                 val period = if (h.freqType == HabitStats.FREQ_TIMES_WEEK) 7.0 else 30.0
                 val times = h.freqParam.coerceAtLeast(1)
@@ -162,7 +169,11 @@ object HabitTime {
                     !(ci != null && ci.status == "done" && HabitStats.meetsGoal(h, ci.count))
                 }
             }
-            val cue = if (cls == TimeClass.DEDICATED && !amortized) cueMinute(h) else null
+            // A dedicated block sits at its cue time; an opted-in block with no time defaults to the start
+            // of the working day so it is still placed (and counted at a specific slot) rather than vanishing.
+            val cue = if (cls == TimeClass.DEDICATED && !amortized)
+                (cueMinute(h) ?: if (optedBlock) settings.workStartHour.coerceIn(0, 23) * 60 else null)
+            else null
             out.add(
                 DayHabit(
                     habitId = h.id, name = h.name, emoji = h.emoji, colorArgb = h.colorArgb,

@@ -142,6 +142,32 @@ class HabitTimeTest {
         assertEquals(15, HabitTime.ambientReserveMin(tomorrow))
     }
 
+    @Test fun optedBlockWithoutTimeIsPlacedAtWorkStart() {
+        // Dedicated + "show as block" but no reminder/cue → placed at the start of the working day, not lost.
+        val h = habit(id = "r", unit = "min", target = 30)
+        val settings = AppSettings(
+            workStartHour = 9,
+            habitTimeCfg = mapOf("r" to HabitTime.encodeCfg(HabitTime.Cfg(timeClass = HabitTime.TimeClass.DEDICATED, showAsBlock = true))),
+        )
+        val day = HabitTime.forDay(listOf(h), emptyList(), settings, today, today)
+        assertTrue(day.first().showAsBlock)
+        val iv = HabitTime.busyIntervals(day, today, utc)
+        assertEquals(1, iv.size)
+        val dayStart = today * 86_400_000L
+        assertEquals(dayStart + 9 * 60 * 60_000L, iv[0].first)
+    }
+
+    @Test fun optedBlockWithUnknownCostGetsDefaultLength() {
+        // No derivable cost, but the user opted it into a block → assume a short default so it appears + counts.
+        val h = habit(id = "x", unit = "reps", target = 1)
+        val settings = AppSettings(
+            habitTimeCfg = mapOf("x" to HabitTime.encodeCfg(HabitTime.Cfg(timeClass = HabitTime.TimeClass.DEDICATED, showAsBlock = true))),
+        )
+        val day = HabitTime.forDay(listOf(h), emptyList(), settings, today, today)
+        assertEquals(1, day.size)
+        assertEquals(30, day.first().costMin)
+    }
+
     @Test fun breakAndArchivedHabitsAreIgnored() {
         val brk = habit(id = "b", unit = "min", target = 20, type = "break")
         val arch = habit(id = "a", unit = "min", target = 20).copy(archived = true)
