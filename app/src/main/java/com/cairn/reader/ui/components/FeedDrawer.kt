@@ -520,10 +520,8 @@ private fun CairnMark(size: androidx.compose.ui.unit.Dp) {
     }
 }
 
-private val MONOGRAM_COLORS = listOf(
-    Color(0xFF3F5E7A), Color(0xFF3E8E5A), Color(0xFFB98A2E), Color(0xFFB0553F),
-    Color(0xFF6A5A8E), Color(0xFF2E8B94), Color(0xFF8E5A6A), Color(0xFF5A7A4E),
-)
+// The shared monogram palette (same list, one source of truth in CommonComponents).
+private val MONOGRAM_COLORS = MonogramPalette
 
 /** A foldable section header (e.g. FEEDS): label + rolled-up count + a chevron; tap to fold. */
 @Composable

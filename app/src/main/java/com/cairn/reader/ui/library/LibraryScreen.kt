@@ -99,7 +99,10 @@ import com.cairn.reader.data.db.LibraryCounts
 import com.cairn.reader.data.db.TagWithCount
 import com.cairn.reader.data.prefs.LibraryViewMode
 import com.cairn.reader.ui.components.CollectionPickerSheet
+import com.cairn.reader.ui.components.EmptyState
+import com.cairn.reader.ui.components.EntryDivider
 import com.cairn.reader.ui.components.ItemRow
+import com.cairn.reader.ui.components.SelectionActionBar
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 
@@ -260,13 +263,10 @@ fun LibraryScreen(
         }
 
         if (selectionActive) {
-            androidx.compose.foundation.layout.Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            SelectionActionBar(
+                count = selection.size,
+                onClose = { viewModel.clearSelection() },
             ) {
-                IconButton(onClick = { viewModel.clearSelection() }) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.clear_selection)) }
-                Text("${selection.size} selected", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-                androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
                 TextButton(onClick = { showMove = true }) { Text(stringResource(R.string.move)) }
                 TextButton(onClick = { viewModel.archiveSelected() }) {
                     Text(if (scope is LibraryScope.Archive) "Unarchive" else "Archive")
@@ -304,27 +304,7 @@ fun LibraryScreen(
                 scope is LibraryScope.Archive -> Triple(Icons.Outlined.Archive, "Archive is empty", "Swipe an item to archive it, or use an article's menu. Archived items leave your lists but stay searchable here.")
                 else -> Triple(Icons.Outlined.BookmarkAdd, "Your library is empty", "Save or star an article, or file it into a collection, and it lives here — offline and yours.")
             }
-            Column(
-                modifier = Modifier.fillMaxSize().padding(32.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Icon(emptyIcon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    text = emptyTitle,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = emptyBody,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                )
-            }
+            EmptyState(title = emptyTitle, body = emptyBody, icon = emptyIcon)
         } else {
             val bottomPad = padding.calculateBottomPadding() + 88.dp
             val effectiveMode = if (searching) LibraryViewMode.LIST else viewMode
@@ -594,14 +574,8 @@ private fun TypeBadge(type: String, modifier: Modifier = Modifier) {
     )
 }
 
-private val COVER_TINTS = listOf(
-    androidx.compose.ui.graphics.Color(0xFF3F5E7A),
-    androidx.compose.ui.graphics.Color(0xFF3E8E5A),
-    androidx.compose.ui.graphics.Color(0xFFB98A2E),
-    androidx.compose.ui.graphics.Color(0xFFB0553F),
-    androidx.compose.ui.graphics.Color(0xFF6A5A8E),
-    androidx.compose.ui.graphics.Color(0xFF2E8B94),
-)
+// First six of the shared monogram palette — same colors, one source of truth.
+private val COVER_TINTS = com.cairn.reader.ui.components.MonogramPalette.take(6)
 
 private fun typeLabel(type: String): String = com.cairn.reader.data.db.ItemType.label(type)
 
@@ -629,15 +603,6 @@ private fun HeadlineRow(row: ItemListRow, selected: Boolean, onClick: () -> Unit
     }
 }
 
-/** The subtle hairline shown after each list entry. */
-@Composable
-private fun EntryDivider() {
-    HorizontalDivider(
-        modifier = Modifier.padding(start = 16.dp),
-        thickness = 0.6.dp,
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-    )
-}
 
 /**
  * The storage-first browse home (Raindrop-style): you land here on the Library, not on a flat list.
