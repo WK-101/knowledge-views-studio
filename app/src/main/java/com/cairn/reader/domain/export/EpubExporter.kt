@@ -116,7 +116,7 @@ object EpubExporter {
             $spine
               </spine>
             </package>
-        """.trimIndent()
+        """.trimIndent().trim()  // trim(): injected blocks skew trimIndent, leaving space before <?xml (fatal per EPUBCheck)
     }
 
     private fun navXhtml(chapters: List<Chapter>): String {
@@ -133,7 +133,7 @@ object EpubExporter {
               </ol></nav>
             </body>
             </html>
-        """.trimIndent()
+        """.trimIndent().trim()
     }
 
     private fun ncx(uid: String, title: String, chapters: List<Chapter>): String {
@@ -152,7 +152,7 @@ object EpubExporter {
             $points
               </navMap>
             </ncx>
-        """.trimIndent()
+        """.trimIndent().trim()
     }
 
     /** Wrap one article's cleaned body in a standalone XHTML chapter document. */

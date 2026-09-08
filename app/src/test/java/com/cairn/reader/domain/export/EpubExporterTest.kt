@@ -7,8 +7,20 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
+import javax.xml.parsers.DocumentBuilderFactory
 
 class EpubExporterTest {
+
+    private fun entries(bytes: ByteArray): Map<String, String> {
+        val map = LinkedHashMap<String, String>()
+        val zis = ZipInputStream(ByteArrayInputStream(bytes))
+        var e = zis.nextEntry
+        while (e != null) {
+            if (!e.isDirectory) map[e.name] = zis.readBytes().toString(Charsets.UTF_8)
+            e = zis.nextEntry
+        }
+        return map
+    }
 
     private fun build(): ByteArray {
         val out = ByteArrayOutputStream()
@@ -55,5 +67,22 @@ class EpubExporterTest {
         }
         assertTrue("ampersand escaped", ch1.contains("First &amp; Foremost"))
         assertTrue("well-formed xhtml root", ch1.contains("<html xmlns=\"http://www.w3.org/1999/xhtml\""))
+    }
+
+    @Test fun `every XML document is well-formed with no whitespace before the prolog`() {
+        val files = entries(build())
+        val xmlDocs = listOf(
+            "META-INF/container.xml", "OEBPS/content.opf", "OEBPS/toc.ncx",
+            "OEBPS/nav.xhtml", "OEBPS/ch1.xhtml", "OEBPS/ch2.xhtml",
+        )
+        val factory = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+        for (name in xmlDocs) {
+            val doc = files[name] ?: error("missing $name")
+            // The prolog must be the very first thing — a leading space is fatal per the XML spec
+            // (and EPUBCheck). This is the exact regression this test guards.
+            assertTrue("$name must start with the XML declaration, no leading whitespace", doc.startsWith("<?xml"))
+            // And it must actually parse — "content is not allowed in prolog" would throw here.
+            factory.newDocumentBuilder().parse(ByteArrayInputStream(doc.toByteArray(Charsets.UTF_8)))
+        }
     }
 }
