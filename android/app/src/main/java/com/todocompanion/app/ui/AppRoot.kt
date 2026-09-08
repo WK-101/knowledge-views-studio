@@ -315,6 +315,10 @@ fun AppRoot(
 ) {
     val vm: AppViewModel = viewModel()
     val settings by vm.settings.collectAsState()
+    // N7 — resolve the 12/24-hour clock app-wide, so any surface's time formatter reads a current value
+    // (not just the calendar). Explicit and always up to date; the calendar re-affirms it on its own too.
+    com.todocompanion.app.domain.AppClock.use24 = com.todocompanion.app.domain.AppClock.is24(
+        settings.timeFormat, android.text.format.DateFormat.is24HourFormat(androidx.compose.ui.platform.LocalContext.current))
 
     AppTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor, accentArgb = settings.accentArgb) {
       // R58 — provide the app-wide recent-colours host so every unified colour picker shares recents.

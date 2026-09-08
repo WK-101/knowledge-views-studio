@@ -510,7 +510,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        SettingsGroup(Icons.Filled.CalendarMonth, "Calendar & planner", open["calendar"] == true, { open["calendar"] = open["calendar"] != true }, keywords = "calendar view default opens remember habits blocks lunar moon phase protected window context mode routine planner defragment reflow agenda day week month year") {
+        SettingsGroup(Icons.Filled.CalendarMonth, "Calendar & planner", open["calendar"] == true, { open["calendar"] = open["calendar"] != true }, keywords = "calendar view default opens remember habits blocks lunar moon phase protected window context mode routine planner defragment reflow agenda day week month year reality shadow lived tracked focus weather energy chronotype daylight rail sunrise sunset latitude ghost typical week honest committed capacity") {
             // Phase 0 S2 — the calendar now remembers your last view (or opens on a fixed one).
             Sub("Opens in")
             Toggle("Remember my last view", s.calendarRememberLast) { on -> vm.saveSettings(s.copy(calendarRememberLast = on)) }
@@ -529,6 +529,30 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Toggle("Moon-phase overlay", s.lunarOverlay) { on -> vm.setLunarOverlay(on) }
             Text("Marks the new, first-quarter, full and last-quarter moons on the month grid. Computed locally.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            // ── The honest calendar — ambient, on-device overlays: reality, energy, typical load, daylight.
+            Spacer(Modifier.height(10.dp)); Sub("The honest calendar")
+            Toggle("Reality shadow", s.calendarRealityShadow) { on -> vm.saveSettings(s.copy(calendarRealityShadow = on)) }
+            Text("Under the day, show what you actually lived (tracked time) beside what you planned — so the calendar tells the truth, not just the intention.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Toggle("Focus weather", s.calendarFocusWeather) { on -> vm.saveSettings(s.copy(calendarFocusWeather = on)) }
+            Text("A whisper-faint glow over your peak hours, learned on-device from when your tracked work actually lands. Plan deep work into the good hours.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Toggle("Typical week (ghost)", s.calendarGhostWeek) { on -> vm.saveSettings(s.copy(calendarGhostWeek = on)) }
+            Text("In week and 3-day views, mark your usual committed hours for each weekday, so a heavy week reads against your own normal.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val daylightOn = s.daylightLatitude in -90.0..90.0
+            Toggle("Daylight rail", daylightOn) { on -> vm.setDaylightLatitude(if (on) (if (daylightOn) s.daylightLatitude else 40.0) else null) }
+            if (daylightOn) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+                    Text("Latitude", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = { vm.setDaylightLatitude((s.daylightLatitude - 5).coerceAtLeast(-90.0)) }) { Text("−") }
+                    Text("${s.daylightLatitude.toInt()}°", style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = { vm.setDaylightLatitude((s.daylightLatitude + 5).coerceAtMost(90.0)) }) { Text("＋") }
+                }
+            }
+            Text("Warm shading for the hours the sun is up, from a rough latitude you set (north +, south −) — no location permission, ever.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             // Protected windows — inviolable life-blocks the auto-scheduler treats as walls.

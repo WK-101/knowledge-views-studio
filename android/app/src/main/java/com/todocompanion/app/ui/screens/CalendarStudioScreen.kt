@@ -580,18 +580,35 @@ private fun RecurrenceBuilderDialog(initial: String, onDismiss: () -> Unit, onAp
     var interval by remember { mutableIntStateOf((parsed?.interval ?: 1).coerceIn(1, 30)) }
     val days = remember { androidx.compose.runtime.mutableStateListOf<Int>().apply { addAll(parsed?.byDays ?: emptySet()) } }
     var count by remember { mutableStateOf(parsed?.count) }
+    // N5 — surface the two end-conditions and monthly shapes the model already carries but the builder
+    // never exposed: an explicit UNTIL date, and monthly "nth weekday" (e.g. 3rd Tue) / first-workday.
+    var until by remember { mutableStateOf(parsed?.untilEpochDay) }
+    var monthlyMode by remember { mutableStateOf(when { parsed?.firstWorkday == true -> "fwd"; parsed?.bySetPos != null -> "nth"; else -> "date" }) }
+    var pos by remember { mutableStateOf(parsed?.bySetPos ?: 1) }
+    var weekday by remember { mutableStateOf(parsed?.byWeekday ?: 1) }
+    var pickUntil by remember { mutableStateOf(false) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val unit = when (freq) { Freq.DAILY -> "day"; Freq.WEEKLY -> "week"; Freq.MONTHLY -> "month"; Freq.YEARLY -> "year"; else -> "week" }
+    if (pickUntil) com.todocompanion.app.ui.components.DateOnlyPickerDialog(
+        initial = until?.let { java.time.LocalDate.ofEpochDay(it).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() },
+        onDismiss = { pickUntil = false },
+        onConfirm = { ms -> until = java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay(); count = null; pickUntil = false })
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = {
+            val fwd = freq == Freq.MONTHLY && monthlyMode == "fwd"
+            val sp = if (freq == Freq.MONTHLY && monthlyMode == "nth") pos else null
+            val wd = if (freq == Freq.MONTHLY && monthlyMode == "nth") weekday else null
             onApply(Recurrence.encode(Recur(freq = freq, interval = interval,
-                byDays = if (freq == Freq.WEEKLY) days.toSortedSet() else emptySet(), count = count)))
+                byDays = if (freq == Freq.WEEKLY) days.toSortedSet() else emptySet(),
+                count = count, untilEpochDay = if (count == null) until else null,
+                bySetPos = sp, byWeekday = wd, firstWorkday = fwd,
+                fromCompletion = parsed?.fromCompletion == true, subtaskReset = parsed?.subtaskReset ?: "all")))
         }) { Text("Apply") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
         title = { Text("Custom repeat") },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text("Repeats", style = MaterialTheme.typography.labelMedium, color = muted)
                 com.todocompanion.app.ui.components.OptionChips(listOf(Freq.DAILY, Freq.WEEKLY, Freq.MONTHLY, Freq.YEARLY), freq, { freq = it }, spacing = 6) {
                     when (it) { Freq.DAILY -> "Daily"; Freq.WEEKLY -> "Weekly"; Freq.MONTHLY -> "Monthly"; else -> "Yearly" }
@@ -613,11 +630,31 @@ private fun RecurrenceBuilderDialog(initial: String, onDismiss: () -> Unit, onAp
                         }
                     }
                 }
+                if (freq == Freq.MONTHLY) {
+                    Spacer(Modifier.height(6.dp))
+                    Text("Each month", style = MaterialTheme.typography.labelMedium, color = muted)
+                    com.todocompanion.app.ui.components.OptionChips(listOf("date", "nth", "fwd"), monthlyMode, { monthlyMode = it }, spacing = 6) {
+                        when (it) { "date" -> "On date"; "nth" -> "On weekday"; else -> "First workday" }
+                    }
+                    if (monthlyMode == "nth") {
+                        Spacer(Modifier.height(6.dp))
+                        com.todocompanion.app.ui.components.OptionChips(listOf(1, 2, 3, 4, -1), pos, { pos = it }, spacing = 6) { Recurrence.posLabel(it) }
+                        Spacer(Modifier.height(4.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(1 to "Mon", 2 to "Tue", 3 to "Wed", 4 to "Thu", 5 to "Fri", 6 to "Sat", 7 to "Sun").forEach { (iso, lbl) ->
+                                FilterChip(selected = weekday == iso, onClick = { weekday = iso }, label = { Text(lbl) })
+                            }
+                        }
+                    }
+                }
                 Spacer(Modifier.height(10.dp))
                 Text("Ends", style = MaterialTheme.typography.labelMedium, color = muted)
-                com.todocompanion.app.ui.components.OptionChips(listOf(0, 5, 10, 20, 30), count ?: 0, { count = if (it == 0) null else it }, spacing = 6) {
+                com.todocompanion.app.ui.components.OptionChips(listOf(0, 5, 10, 20, 30), if (until != null) -1 else (count ?: 0), { count = if (it == 0) null else it; if (it != 0) until = null }, spacing = 6) {
                     if (it == 0) "Never" else "After $it"
                 }
+                Spacer(Modifier.height(4.dp))
+                FilterChip(selected = until != null, onClick = { pickUntil = true },
+                    label = { Text(until?.let { "Until " + java.time.LocalDate.ofEpochDay(it).toString() } ?: "Until a date…") })
             }
         },
     )
