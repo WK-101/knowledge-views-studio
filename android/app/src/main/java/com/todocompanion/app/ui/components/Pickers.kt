@@ -271,9 +271,9 @@ fun DateReminderSheet(
     // Expert recurrence — the full builder (interval, weekdays, monthly nth-weekday, from-completion,
     // end after N / until a date), producing the app's own rich rrule the engine actually understands
     // (the previous basic RRULE strings weren't parsed by the recurrence engine) — R21.
-    if (showRepeat) com.todocompanion.app.ui.screens.RepeatDialog(rrule, repeatHasChildren, onDismiss = { showRepeat = false }) { rrule = it; showRepeat = false }
-    if (showDuration) com.todocompanion.app.ui.screens.DurationPickerDialog(durationMin ?: 30, onDismiss = { showDuration = false }) { durationMin = it.takeIf { m -> m > 0 }; showDuration = false }
-    if (showEstimatePicker) com.todocompanion.app.ui.screens.DurationPickerDialog(estimateMin ?: 30, onDismiss = { showEstimatePicker = false }) { estimateMin = it.takeIf { m -> m > 0 }; showEstimatePicker = false }
+    if (showRepeat) RepeatDialog(rrule, repeatHasChildren, onDismiss = { showRepeat = false }) { rrule = it; showRepeat = false }
+    if (showDuration) DurationPickerDialog(durationMin ?: 30, onDismiss = { showDuration = false }) { durationMin = it.takeIf { m -> m > 0 }; showDuration = false }
+    if (showEstimatePicker) DurationPickerDialog(estimateMin ?: 30, onDismiss = { showEstimatePicker = false }) { estimateMin = it.takeIf { m -> m > 0 }; showEstimatePicker = false }
     if (showStartPicker) DateTimeOptionalDialog(startMillis, startHasTime, onDismiss = { showStartPicker = false }, title = "Starts") { m, ht -> startMillis = m; startHasTime = ht; showStartPicker = false }
     if (showDeadlinePicker) {
         val dlTimed = deadlineMillis?.let { Instant.ofEpochMilli(it).atZone(zone).let { z -> z.hour != 0 || z.minute != 0 } } ?: false
@@ -367,7 +367,7 @@ fun DateTimeOptionalDialog(
     }
 }
 
-private fun fmtDuration(min: Int): String = when {
+internal fun fmtDuration(min: Int): String = when {
     min < 60 -> "${min}m"
     min % 60 == 0 -> "${min / 60}h"
     else -> "${min / 60}h ${min % 60}m"

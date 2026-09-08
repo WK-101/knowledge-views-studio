@@ -871,12 +871,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------- task actions ----------
-    fun addTask(listId: String, parentId: String? = null, title: String = "New task") =
-        viewModelScope.launch { repo.createTask(listId, title, parentId = parentId) }
-    /** Create a task that lives directly in a folder (no list). Powers the folder-view capture row. */
-    fun addTaskInFolder(folderId: String, title: String) = viewModelScope.launch {
-        if (title.isNotBlank()) repo.createTask(listId = "", title = title.trim(), folderId = folderId)
-    }
     fun toggleComplete(t: TaskEntity) = viewModelScope.launch {
         // Completing a repeating task rolls it forward to the next occurrence instead of closing it
         // — unless its recurrence has ended (until-date reached or count exhausted).
@@ -1009,10 +1003,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Permanently erase several tasks (and their subtrees) — the Trash multi-select "Delete forever". */
     fun deleteForeverMany(ids: Set<String>) = viewModelScope.launch { ids.forEach { repo.deleteSubtree(it) } }
     fun emptyTrash() = viewModelScope.launch { repo.emptyTrash(settings.value.activeWorkspaceId) }
-    fun indent(t: TaskEntity) = viewModelScope.launch { repo.indent(t) }
-    fun outdent(t: TaskEntity) = viewModelScope.launch { repo.outdent(t) }
-    fun moveUp(t: TaskEntity) = viewModelScope.launch { repo.moveUp(t) }
-    fun moveDown(t: TaskEntity) = viewModelScope.launch { repo.moveDown(t) }
     fun moveToList(t: TaskEntity, listId: String) = viewModelScope.launch { repo.moveToList(t.id, listId) }
     /** Drag-to-nest: make [childId] a subtask of [parentId] (null promotes it to top level). Cycle-safe. */
     fun nestUnder(childId: String, parentId: String?) = viewModelScope.launch {
