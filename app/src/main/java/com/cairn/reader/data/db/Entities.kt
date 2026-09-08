@@ -82,10 +82,9 @@ data class ItemEntity(
     val extractStatus: String = "NONE",
     val contentSource: String = "FEED",
     val guid: String? = null,
-    // v0.4 (Raindrop-style library): a single "home" collection, page domain, and
-    // whether a permanent offline copy exists. All nullable so the v1→v2 migration is
-    // a plain ALTER ADD COLUMN and no existing data is touched.
-    val collectionId: String? = null,
+    // v0.4 (Raindrop-style library): page domain and whether a permanent offline copy exists.
+    // (The legacy single "home" collectionId column was dropped in v15 — the item_collections
+    // join table is now the single source of truth for collection membership.)
     val domain: String? = null,
     val cacheStatus: String? = null,
     // v1.6: audio enclosure URL for podcast items (nullable → v2→v3 migration adds it).
@@ -149,7 +148,8 @@ data class ItemTagCrossRef(
 )
 
 /** v3.67: many-to-many item↔collection, so one item can be filed into several collections.
- *  The legacy [ItemEntity.collectionId] is kept in sync with the item's first/primary membership. */
+ *  Since v15 this is the single source of truth for membership (the legacy single-collection
+ *  column on [ItemEntity] was dropped). */
 @Entity(
     tableName = "item_collections",
     primaryKeys = ["itemId", "collectionId"],

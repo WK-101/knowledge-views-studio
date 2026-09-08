@@ -237,7 +237,7 @@ interface ItemDao {
         LEFT JOIN item_states s ON s.itemId = i.id
         WHERE i.trashedAt IS NULL AND i.type != 'PDF'
           AND (COALESCE(s.isStarred, 0) = 1 OR COALESCE(s.isArchived, 0) = 1
-               OR COALESCE(s.isReadLater, 0) = 1 OR i.collectionId IS NOT NULL)
+               OR COALESCE(s.isReadLater, 0) = 1 OR EXISTS (SELECT 1 FROM item_collections ic WHERE ic.itemId = i.id))
         ORDER BY i.savedAt DESC
         """
     )
@@ -314,7 +314,7 @@ interface ItemDao {
         SELECT i.id FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
         WHERE COALESCE(s.isStarred, 0) = 0 AND COALESCE(s.isReadLater, 0) = 0
-          AND COALESCE(s.isArchived, 0) = 0 AND i.collectionId IS NULL
+          AND COALESCE(s.isArchived, 0) = 0 AND NOT EXISTS (SELECT 1 FROM item_collections ic WHERE ic.itemId = i.id)
           AND (i.cacheStatus IS NULL OR i.cacheStatus <> 'PERMANENT')
           AND NOT EXISTS (SELECT 1 FROM highlights h WHERE h.itemId = i.id)
           AND (:keepUnread = 0 OR COALESCE(s.isRead, 0) = 1)
@@ -374,7 +374,7 @@ interface ItemDao {
         LEFT JOIN item_states s ON s.itemId = i.id
         WHERE i.sourceId = :sourceId
           AND COALESCE(s.isStarred, 0) = 0 AND COALESCE(s.isReadLater, 0) = 0
-          AND COALESCE(s.isArchived, 0) = 0 AND i.collectionId IS NULL
+          AND COALESCE(s.isArchived, 0) = 0 AND NOT EXISTS (SELECT 1 FROM item_collections ic WHERE ic.itemId = i.id)
           AND (i.cacheStatus IS NULL OR i.cacheStatus <> 'PERMANENT')
           AND NOT EXISTS (SELECT 1 FROM highlights h WHERE h.itemId = i.id)
           AND (:keepUnread = 0 OR COALESCE(s.isRead, 0) = 1)
@@ -395,7 +395,7 @@ interface ItemDao {
         LEFT JOIN item_states s ON s.itemId = i.id
         WHERE i.sourceId = :sourceId
           AND COALESCE(s.isStarred, 0) = 0 AND COALESCE(s.isReadLater, 0) = 0
-          AND COALESCE(s.isArchived, 0) = 0 AND i.collectionId IS NULL
+          AND COALESCE(s.isArchived, 0) = 0 AND NOT EXISTS (SELECT 1 FROM item_collections ic WHERE ic.itemId = i.id)
           AND (i.cacheStatus IS NULL OR i.cacheStatus <> 'PERMANENT')
           AND NOT EXISTS (SELECT 1 FROM highlights h WHERE h.itemId = i.id)
         """
@@ -408,12 +408,6 @@ interface ItemDao {
     /** Point an item at a restored on-disk blob (used by full-archive restore). */
     @Query("UPDATE items SET blobPath = :blobPath WHERE id = :id")
     suspend fun setBlobPath(id: String, blobPath: String?)
-
-    @Query("UPDATE items SET collectionId = :collectionId WHERE id = :id")
-    suspend fun setCollection(id: String, collectionId: String?)
-
-    @Query("UPDATE items SET collectionId = NULL WHERE collectionId = :collectionId")
-    suspend fun clearCollection(collectionId: String)
 
     @Query("UPDATE items SET title = :title, author = COALESCE(:author, author), siteName = COALESCE(:siteName, siteName) WHERE id = :id")
     suspend fun updateMeta(id: String, title: String, author: String?, siteName: String?)
@@ -460,7 +454,7 @@ interface ItemDao {
 
     @Query(
         ITEM_LIST_SELECT + """
-        WHERE i.trashedAt IS NULL AND (COALESCE(s.isStarred, 0) = 1 OR i.collectionId IS NOT NULL)
+        WHERE i.trashedAt IS NULL AND (COALESCE(s.isStarred, 0) = 1 OR EXISTS (SELECT 1 FROM item_collections ic WHERE ic.itemId = i.id))
         ORDER BY i.savedAt DESC
         """
     )
@@ -468,7 +462,7 @@ interface ItemDao {
 
     @Query(
         ITEM_LIST_SELECT + """
-        WHERE i.trashedAt IS NULL AND i.collectionId IS NULL AND COALESCE(s.isStarred, 0) = 1
+        WHERE i.trashedAt IS NULL AND NOT EXISTS (SELECT 1 FROM item_collections ic WHERE ic.itemId = i.id) AND COALESCE(s.isStarred, 0) = 1
         ORDER BY i.savedAt DESC
         """
     )
@@ -529,9 +523,9 @@ interface ItemDao {
         """
         SELECT
           (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
-            WHERE i.trashedAt IS NULL AND (COALESCE(s.isStarred, 0) = 1 OR i.collectionId IS NOT NULL)) AS allCount,
+            WHERE i.trashedAt IS NULL AND (COALESCE(s.isStarred, 0) = 1 OR EXISTS (SELECT 1 FROM item_collections ic WHERE ic.itemId = i.id))) AS allCount,
           (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
-            WHERE i.trashedAt IS NULL AND i.collectionId IS NULL AND COALESCE(s.isStarred, 0) = 1) AS unsortedCount,
+            WHERE i.trashedAt IS NULL AND NOT EXISTS (SELECT 1 FROM item_collections ic WHERE ic.itemId = i.id) AND COALESCE(s.isStarred, 0) = 1) AS unsortedCount,
           (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
             WHERE i.trashedAt IS NULL AND COALESCE(s.isStarred, 0) = 1 AND COALESCE(s.isArchived, 0) = 0) AS favoritesCount,
           (SELECT COUNT(*) FROM items i LEFT JOIN item_states s ON s.itemId = i.id
@@ -572,22 +566,17 @@ interface ItemDao {
     @Query("SELECT collectionId FROM item_collections WHERE itemId = :itemId")
     suspend fun collectionIdsFor(itemId: String): List<String>
 
-    /** Keep the legacy single-collection column pointing at any current membership (or null). */
-    @Query("UPDATE items SET collectionId = (SELECT collectionId FROM item_collections WHERE itemId = :itemId LIMIT 1) WHERE id = :itemId")
-    suspend fun syncPrimaryCollection(itemId: String)
-
     @Transaction
     suspend fun setInCollection(itemId: String, collectionId: String, inIt: Boolean) {
         if (inIt) addToCollection(ItemCollectionCrossRef(itemId, collectionId))
         else removeFromCollection(itemId, collectionId)
-        syncPrimaryCollection(itemId)
     }
 
     /** Untagged library items: saved/filed but with no tags — a Raindrop-style cleanup bucket. */
     @Query(
         ITEM_LIST_SELECT + """
         WHERE i.trashedAt IS NULL
-          AND (COALESCE(s.isStarred, 0) = 1 OR COALESCE(s.isReadLater, 0) = 1 OR i.collectionId IS NOT NULL)
+          AND (COALESCE(s.isStarred, 0) = 1 OR COALESCE(s.isReadLater, 0) = 1 OR EXISTS (SELECT 1 FROM item_collections ic WHERE ic.itemId = i.id))
           AND NOT EXISTS (SELECT 1 FROM item_tags t WHERE t.itemId = i.id)
         ORDER BY i.savedAt DESC
         """
@@ -650,7 +639,7 @@ interface ItemDao {
         SELECT COUNT(*) FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
         WHERE i.trashedAt IS NULL
-          AND (COALESCE(s.isStarred, 0) = 1 OR COALESCE(s.isReadLater, 0) = 1 OR i.collectionId IS NOT NULL)
+          AND (COALESCE(s.isStarred, 0) = 1 OR COALESCE(s.isReadLater, 0) = 1 OR EXISTS (SELECT 1 FROM item_collections ic WHERE ic.itemId = i.id))
           AND NOT EXISTS (SELECT 1 FROM item_tags t WHERE t.itemId = i.id)
         """
     )
@@ -662,7 +651,7 @@ interface ItemDao {
         SELECT i.id, i.url FROM items i
         LEFT JOIN item_states s ON s.itemId = i.id
         WHERE i.trashedAt IS NULL AND i.type != 'PDF' AND i.url LIKE 'http%'
-          AND (COALESCE(s.isStarred, 0) = 1 OR COALESCE(s.isReadLater, 0) = 1 OR i.collectionId IS NOT NULL OR i.cacheStatus = 'PERMANENT')
+          AND (COALESCE(s.isStarred, 0) = 1 OR COALESCE(s.isReadLater, 0) = 1 OR EXISTS (SELECT 1 FROM item_collections ic WHERE ic.itemId = i.id) OR i.cacheStatus = 'PERMANENT')
         ORDER BY COALESCE(i.linkCheckedAt, 0) ASC
         LIMIT :limit
         """

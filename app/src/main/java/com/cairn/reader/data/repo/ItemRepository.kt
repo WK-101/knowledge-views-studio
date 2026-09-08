@@ -78,7 +78,9 @@ class ItemRepository @Inject constructor(
             extractStatus = e.extractStatus,
             isStarred = state?.isStarred == true,
             isReadLater = state?.isReadLater == true,
-            collectionId = e.collectionId,
+            // The item↔collection join table is the source of truth (the legacy column is gone);
+            // the reader only needs to know whether it's filed anywhere, so expose the first membership.
+            collectionId = itemDao.collectionIdsFor(id).firstOrNull(),
             enclosureUrl = e.enclosureUrl,
             isArchived = state?.isArchived == true,
             cacheStatus = e.cacheStatus,

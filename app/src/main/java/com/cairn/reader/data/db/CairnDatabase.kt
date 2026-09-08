@@ -1,7 +1,10 @@
 package com.cairn.reader.data.db
 
+import androidx.room.AutoMigration
 import androidx.room.Database
+import androidx.room.DeleteColumn
 import androidx.room.RoomDatabase
+import androidx.room.migration.AutoMigrationSpec
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
@@ -20,10 +23,20 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SyncOpEntity::class,
         RuleEntity::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = true,
+    autoMigrations = [
+        // v14 → v15: drop the legacy items.collectionId column. The item_collections join table is
+        // now the sole source of truth for collection membership; Room generates the FK-safe table
+        // rebuild and validates it against the exported 14.json / 15.json schemas at compile time.
+        AutoMigration(from = 14, to = 15, spec = CairnDatabase.DropLegacyCollectionId::class),
+    ],
 )
 abstract class CairnDatabase : RoomDatabase() {
+    /** Drops the vestigial items.collectionId column in the v14→v15 auto-migration. */
+    @DeleteColumn(tableName = "items", columnName = "collectionId")
+    class DropLegacyCollectionId : AutoMigrationSpec
+
     abstract fun itemDao(): ItemDao
     abstract fun sourceDao(): SourceDao
     abstract fun tagDao(): TagDao

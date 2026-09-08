@@ -194,7 +194,7 @@ interface CollectionDao {
         """
         SELECT c.id AS id, c.name AS name, c.parentId AS parentId, c.icon AS icon,
                c.viewMode AS viewMode, c.sortOrder AS sortOrder,
-               (SELECT COUNT(*) FROM items i WHERE i.collectionId = c.id) AS count
+               (SELECT COUNT(*) FROM item_collections ic WHERE ic.collectionId = c.id) AS count
         FROM collections c
         ORDER BY c.sortOrder, c.name COLLATE NOCASE
         """

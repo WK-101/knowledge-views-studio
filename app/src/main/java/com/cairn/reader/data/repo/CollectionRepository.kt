@@ -41,7 +41,7 @@ class CollectionRepository @Inject constructor(
 
     suspend fun delete(id: String) {
         collectionDao.promoteChildren(id)
-        itemDao.clearCollection(id)
+        // Membership rows for this collection are removed by the ON DELETE CASCADE on item_collections.
         collectionDao.delete(id)
     }
 
@@ -50,7 +50,6 @@ class CollectionRepository @Inject constructor(
     suspend fun moveItem(itemId: String, collectionId: String?) {
         if (collectionId == null) {
             itemDao.clearItemCollections(itemId)
-            itemDao.setCollection(itemId, null)
         } else {
             itemDao.setInCollection(itemId, collectionId, true)
         }
@@ -67,7 +66,6 @@ class CollectionRepository @Inject constructor(
         itemIds.forEach { itemId ->
             if (collectionId == null) {
                 itemDao.clearItemCollections(itemId)
-                itemDao.setCollection(itemId, null)
             } else {
                 itemDao.setInCollection(itemId, collectionId, true)
             }

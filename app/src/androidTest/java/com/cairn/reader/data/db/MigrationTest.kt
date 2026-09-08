@@ -13,7 +13,8 @@ import org.junit.runner.RunWith
  * Exercises the Room migration chain against the exported schemas. This is the safety net for the
  * app's "your data, forever" promise: a broken migration must fail here in CI, not on a user's
  * device. Runs on an emulator (connected check); the v1 schema JSON was never exported, so the
- * replay starts at v2 and covers MIGRATION_2_3 … MIGRATION_13_14 (every migration since).
+ * replay starts at v2 and covers MIGRATION_2_3 … MIGRATION_13_14 plus the v14→v15 auto-migration
+ * (which drops the legacy items.collectionId column).
  */
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
@@ -30,7 +31,7 @@ class MigrationTest {
     val helper = MigrationTestHelper(
         InstrumentationRegistry.getInstrumentation(),
         CairnDatabase::class.java,
-        emptyList(),
+        listOf(CairnDatabase.DropLegacyCollectionId()),
         FrameworkSQLiteOpenHelperFactory(),
     )
 

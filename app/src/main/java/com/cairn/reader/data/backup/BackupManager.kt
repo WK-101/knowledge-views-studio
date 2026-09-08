@@ -375,7 +375,7 @@ class BackupManager @Inject constructor(
         putOpt("sourceId", sourceId); put("type", type); putOpt("excerpt", excerpt); putOpt("leadImage", leadImage)
         put("wordCount", wordCount); put("readingMinutes", readingMinutes); putOpt("lang", lang)
         put("extractStatus", extractStatus); put("contentSource", contentSource); putOpt("guid", guid)
-        putOpt("collectionId", collectionId); putOpt("domain", domain); putOpt("cacheStatus", cacheStatus)
+        putOpt("domain", domain); putOpt("cacheStatus", cacheStatus)
         putOpt("enclosureUrl", enclosureUrl); putOpt("trashedAt", trashedAt); putOpt("commentsUrl", commentsUrl)
         putOpt("linkStatus", linkStatus); putOpt("linkCheckedAt", linkCheckedAt)
     }
@@ -387,7 +387,7 @@ class BackupManager @Inject constructor(
         type = optString("type", "ARTICLE"), excerpt = optStringOrNull("excerpt"), leadImage = optStringOrNull("leadImage"),
         wordCount = optInt("wordCount"), readingMinutes = optInt("readingMinutes"), lang = optStringOrNull("lang"),
         blobPath = null, extractStatus = optString("extractStatus", "NONE"), contentSource = optString("contentSource", "FEED"),
-        guid = optStringOrNull("guid"), collectionId = optStringOrNull("collectionId"), domain = optStringOrNull("domain"),
+        guid = optStringOrNull("guid"), domain = optStringOrNull("domain"),
         cacheStatus = optStringOrNull("cacheStatus"), enclosureUrl = optStringOrNull("enclosureUrl"), trashedAt = optLongOrNull("trashedAt"),
         commentsUrl = optStringOrNull("commentsUrl"),
         linkStatus = optStringOrNull("linkStatus"), linkCheckedAt = optLongOrNull("linkCheckedAt"),
