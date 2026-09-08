@@ -68,6 +68,17 @@ data class QuickAddOptions(
     // P3: capture now surfaces the same start/deadline the editor's schedule sheet does.
     val startMillis: Long? = null,
     val deadlineMillis: Long? = null,
+    // Wave B — reversible parse: when true the title is taken verbatim and the NL parser is NOT applied
+    // (no date/priority/tag/context/list/recurrence/reminder extracted from the words). The explicit sheet
+    // options below still apply. This is the one-tap "use what I typed as plain text" escape hatch.
+    val plainText: Boolean = false,
+    // Wave B (F3) — relative/place reminders at capture, matching the editor. When [reminderPlace] is set a
+    // permission-free place reminder is armed; else [reminderOffsetMin] (minutes before the anchor date)
+    // creates a relative reminder against [reminderAnchor] ("due"/"start"/"deadline"). These take precedence
+    // over the legacy absolute [reminderMillis] when present.
+    val reminderOffsetMin: Int? = null,
+    val reminderAnchor: String = "due",
+    val reminderPlace: String? = null,
 )
 
 enum class UndoKind { COMPLETED, ABANDONED, TRASHED }
@@ -795,47 +806,67 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------- quick add ----------
-    fun submitQuickAdd(text: String, opts: QuickAddOptions) = viewModelScope.launch {
+    fun submitQuickAdd(text: String, opts: QuickAddOptions) = viewModelScope.launch { quickAddOne(text, opts) }
+
+    /** Wave B — bulk capture: a multi-line paste / brain-dump becomes one task per non-blank line, each run
+     *  through the same NL parser as a single capture, created in order. */
+    fun addManyLines(lines: List<String>, opts: QuickAddOptions = QuickAddOptions()) = viewModelScope.launch {
+        lines.map { it.trim() }.filter { it.isNotBlank() }.forEach { quickAddOne(it, opts) }
+    }
+
+    private suspend fun quickAddOne(text: String, opts: QuickAddOptions) {
         // Single capture funnel: inline tokens (#t25 estimate, * star, !/!!/!!! priority) are applied
         // HERE so every entry point — the quick-add sheet and the omnibox alike — supports them
         // identically. `@` is deliberately left in the text (handleActivity = false) so QuickAddParser
         // reads it as a context. Explicit opts chosen via the sheet's icons win over inline tokens.
+        // Wave B — "use plain text" reversible parse: when set, the words are taken verbatim and NONE of
+        // the NL extraction applies. Only the explicit sheet options (date/priority/list/… picked with the
+        // icons) are honoured. useParse gates every parsed-field application below.
+        val useParse = !opts.plainText
         val tok = com.todocompanion.app.domain.nlp.QuickTokens.parse(text, handleActivity = false)
         val parsed = QuickAddParser.parse(tok.text)
-        if (parsed.title.isBlank() && parsed.tags.isEmpty()) return@launch
-        val estimateMin = opts.estimateMin ?: tok.estimateMin
-        val star = opts.star || tok.star
-        val tokPriority = when (tok.priorityLevel) {
+        if (useParse) { if (parsed.title.isBlank() && parsed.tags.isEmpty()) return }
+        else if (text.isBlank()) return
+        val estimateMin = opts.estimateMin ?: (if (useParse) tok.estimateMin else null)
+        val star = opts.star || (useParse && tok.star)
+        val tokPriority = if (!useParse) null else when (tok.priorityLevel) {
             3 -> com.todocompanion.app.domain.priority.PriorityLevel.HIGH
             2 -> com.todocompanion.app.domain.priority.PriorityLevel.MEDIUM
             1 -> com.todocompanion.app.domain.priority.PriorityLevel.LOW
             else -> null
         }
-        val due = opts.dueMillis ?: parsed.dateTime?.atZone(zone)?.toInstant()?.toEpochMilli() ?: defaultDueForView()
-        val level = opts.priority ?: tokPriority ?: parsed.priority
+        val due = opts.dueMillis ?: (if (useParse) parsed.dateTime?.atZone(zone)?.toInstant()?.toEpochMilli() else null) ?: defaultDueForView()
+        val level = opts.priority ?: tokPriority ?: (if (useParse) parsed.priority else null)
         // No priority chosen ⇒ "None" (importance/urgency 2), not Low.
         val imp = level?.importance ?: com.todocompanion.app.domain.priority.PriorityLevel.NONE.importance
         val urg = level?.urgency ?: com.todocompanion.app.domain.priority.PriorityLevel.NONE.urgency
         // ~list resolves to an existing list by name (case-insensitive); otherwise fall back to the
         // current view's target, which for a folder view is the folder itself (no list).
         val explicitList = opts.listId
-            ?: parsed.list?.let { name -> lists.value.firstOrNull { !it.archived && it.name.equals(name, ignoreCase = true) }?.id }
+            ?: (if (useParse) parsed.list?.let { name -> lists.value.firstOrNull { !it.archived && it.name.equals(name, ignoreCase = true) }?.id } else null)
         val (listId, folderId) = when {
             opts.folderId != null -> "" to opts.folderId       // explicit folder-direct capture (R21)
             explicitList != null -> explicitList to null
             else -> resolveAddTarget()
         }
-        // P3 · keep-vs-strip: by default the recognized words are stripped for a lean title; when the
-        // user prefers to keep what they typed, use the text with only the symbol command tokens
-        // (#t estimate, ! priority, *) removed (QuickTokens already did that), leaving date/tag/context
-        // words in place. The parsed fields are applied either way.
-        val finalTitle = (if (settings.value.keepParsedText) tok.text.replace(Regex("\\s+"), " ").trim() else parsed.title)
-            .ifBlank { parsed.title.ifBlank { "Untitled" } }
+        // P3 · keep-vs-strip: by default the recognized words are stripped for a lean title; when the user
+        // prefers to keep what they typed, keep them. In plain-text mode the raw text is the title verbatim.
+        val baseTitle = when {
+            !useParse -> text.replace(Regex("\\s+"), " ").trim()
+            settings.value.keepParsedText -> tok.text.replace(Regex("\\s+"), " ").trim().ifBlank { parsed.title }
+            else -> parsed.title
+        }.ifBlank { "Untitled" }
+        // Wave B — inline subtask grammar: "Plan trip > book flight > pick seat" creates a parent plus a
+        // child per segment, the fastest way to capture a small project. Opt-in via the " > " separator;
+        // plain-text mode leaves ">" untouched.
+        val segs = if (useParse) baseTitle.split(Regex("\\s*>\\s*")).map { it.trim() }.filter { it.isNotBlank() } else listOf(baseTitle)
+        val childTitles = if (segs.size > 1) segs.drop(1) else emptyList()
+        val finalTitle = if (segs.size > 1) segs.first() else baseTitle
         val id = repo.createTask(listId, finalTitle, importance = imp, urgency = urg, dueDate = due, folderId = folderId)
 
         val ws = settings.value.activeWorkspaceId
         val tagIds = opts.tagIds.toMutableList()
-        if (parsed.tags.isNotEmpty()) {
+        if (useParse && parsed.tags.isNotEmpty()) {
             // Match names only within the active workspace so a same-named tag elsewhere isn't reused.
             val existing = repo.getTagsOnce().filter { it.workspaceId == ws }.associateBy { it.name.lowercase() }
             parsed.tags.forEach { name ->
@@ -848,7 +879,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // creating any that are new.
         run {
             val ctxIds = ArrayList(opts.contextIds)
-            if (parsed.contexts.isNotEmpty()) {
+            if (useParse && parsed.contexts.isNotEmpty()) {
                 val existingCtx = repo.getContextsOnce().filter { it.workspaceId == ws }.associateBy { it.name.lowercase() }
                 parsed.contexts.forEach { name ->
                     ctxIds += existingCtx[name.lowercase()]?.id ?: UUID.randomUUID().toString().also { repo.upsertContext(ContextEntity(id = it, name = name, workspaceId = ws)) }
@@ -859,7 +890,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
         // Natural-language recurrence ("every Tuesday", "monthly", "every 2 weeks") or the date sheet's
         // recurrence + optional note / duration (R21). V9: inline-token estimate and star too.
-        val rrule = opts.rrule ?: parsed.rrule
+        val rrule = opts.rrule ?: (if (useParse) parsed.rrule else null)
         if (rrule != null || opts.note.isNotBlank() || estimateMin != null || star || opts.durationMin != null ||
             opts.startMillis != null || opts.deadlineMillis != null) repo.getTask(id)?.let {
             repo.saveTask(it.copy(
@@ -875,20 +906,43 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // Attachments picked in the sheet — applied after the task exists (each reads bytes off-thread).
         opts.attachmentUris.forEach { addAttachment(id, it) }
 
-        val reminderAt = opts.reminderMillis ?: (if (parsed.hasTime && due != null) due else null)
-        if (reminderAt != null) {
-            val r = ReminderEntity(UUID.randomUUID().toString(), taskId = id, type = "absolute", atTime = reminderAt)
-            repo.upsertReminder(r)
-            repo.getTask(id)?.let { AlarmScheduler.schedule(appCtx, r, it) }
+        // Wave B (F3) — reminders at capture now match the editor: a place reminder, or a relative reminder
+        // anchored to due / start / deadline. A relative reminder (not an absolute time) means it re-arms
+        // with the task's dates automatically (F1). These win over the legacy absolute reminderMillis.
+        val reminderTask = repo.getTask(id)
+        when {
+            opts.reminderPlace != null && reminderTask != null ->
+                reminderCtl.addPlace(reminderTask, opts.reminderPlace!!)
+            opts.reminderOffsetMin != null && reminderTask != null -> {
+                val type = when (opts.reminderAnchor) {
+                    "start" -> "relativeToStart"; "deadline" -> "relativeToDeadline"; else -> "relativeToDue"
+                }
+                val anchorSet = when (opts.reminderAnchor) {
+                    "start" -> reminderTask.startDate != null
+                    "deadline" -> reminderTask.deadlineDate != null
+                    else -> due != null
+                }
+                if (anchorSet) reminderCtl.addRelative(reminderTask, type, opts.reminderOffsetMin!!)
+            }
+            else -> {
+                val reminderAt = opts.reminderMillis ?: (if (useParse && parsed.hasTime && due != null) due else null)
+                if (reminderAt != null && reminderTask != null) {
+                    val r = ReminderEntity(UUID.randomUUID().toString(), taskId = id, type = "absolute", atTime = reminderAt)
+                    repo.upsertReminder(r)
+                    AlarmScheduler.schedule(appCtx, r, reminderTask)
+                }
+            }
         }
         // "!30m / !2h / !1d" shortcut: a lead-time reminder relative to the due date.
-        parsed.reminderOffsetMin?.let { off ->
+        if (useParse) parsed.reminderOffsetMin?.let { off ->
             if (due != null) {
                 val r = ReminderEntity(UUID.randomUUID().toString(), taskId = id, type = "relativeToDue", offsetMin = off)
                 repo.upsertReminder(r)
                 repo.getTask(id)?.let { AlarmScheduler.schedule(appCtx, r, it) }
             }
         }
+        // Wave B — inline subtask grammar: create each "> child" segment as a real child of the new task.
+        childTitles.forEach { ct -> repo.createTask(listId, ct, parentId = id, folderId = folderId) }
     }
 
     // ---------- task actions ----------

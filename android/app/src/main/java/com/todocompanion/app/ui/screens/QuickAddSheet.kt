@@ -148,6 +148,12 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
     var attachments by remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }
     var startMillis by remember { mutableStateOf<Long?>(null) }
     var deadlineMillis by remember { mutableStateOf<Long?>(null) }
+    // Wave B — reversible parse: "use plain text" keeps the words verbatim, applying no recognised tokens.
+    var plainText by remember { mutableStateOf(false) }
+    // Wave B (F3) — the capture reminder's anchor (due/start/deadline) and optional place, set in the sheet.
+    var reminderAnchor by remember { mutableStateOf("due") }
+    var reminderPlace by remember { mutableStateOf<String?>(null) }
+    val templates by vm.templates.collectAsState()
 
     var showDue by remember { mutableStateOf(false) }
     var showPrio by remember { mutableStateOf(false) }
@@ -171,17 +177,17 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
         })
     }
 
+    // The options common to a single submit and a bulk-paste submit (everything except the title).
+    fun currentOptions() = QuickAddOptions(
+        dueMillis = due, priority = priority, listId = listId, tagIds = tagIds,
+        note = note.trim(), contextIds = ctxIds, folderId = folderId,
+        rrule = rrule, durationMin = durationMin, attachmentUris = attachments,
+        startMillis = startMillis, deadlineMillis = deadlineMillis, plainText = plainText,
+        // Wave B (F3) — a proper relative/place reminder (re-arms with the dates, F1) instead of a fixed time.
+        reminderOffsetMin = reminderOffset, reminderAnchor = reminderAnchor, reminderPlace = reminderPlace,
+    )
     fun submit() {
-        if (text.isNotBlank()) {
-            // The date sheet's relative reminder → an absolute time (due − offset), the common case.
-            val reminderAt = reminderOffset?.let { off -> due?.let { it - off * 60_000L } }
-            vm.submitQuickAdd(text, QuickAddOptions(
-                dueMillis = due, priority = priority, listId = listId, tagIds = tagIds,
-                reminderMillis = reminderAt, note = note.trim(), contextIds = ctxIds, folderId = folderId,
-                rrule = rrule, durationMin = durationMin, attachmentUris = attachments,
-                startMillis = startMillis, deadlineMillis = deadlineMillis,
-            ))
-        }
+        if (text.isNotBlank()) vm.submitQuickAdd(text, currentOptions())
         onDismiss()
     }
 
@@ -197,16 +203,55 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { submit() }),
-                visualTransformation = QuickAddTransformation,
+                // Plain-text mode stops highlighting recognised words — nothing is being extracted.
+                visualTransformation = if (plainText) androidx.compose.ui.text.input.VisualTransformation.None else QuickAddTransformation,
             )
+        }
+        // ---------- Bulk paste → many tasks (Wave B): a multi-line paste becomes one task per line ----------
+        val lines = remember(text) { text.split('\n').map { it.trim() }.filter { it.isNotBlank() } }
+        if (lines.size > 1) {
+            Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.secondaryContainer,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp).clip(RoundedCornerShape(10.dp))
+                    .clickable { vm.addManyLines(lines, currentOptions()); onDismiss() }) {
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.AutoMirrored.Filled.FormatListBulleted, null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Add ${lines.size} tasks — one per line", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                }
+            }
+        }
+        // ---------- Templates at capture (Wave B): type a name to drop a saved template's whole subtree ----------
+        val tplMatch = remember(text, templates) {
+            val q = text.trim()
+            if (q.length >= 2 && !q.contains('\n')) templates.firstOrNull { it.name.trim().equals(q, true) } ?: templates.firstOrNull { it.name.trim().startsWith(q, true) } else null
+        }
+        if (!plainText && lines.size <= 1 && tplMatch != null) {
+            Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.tertiaryContainer,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp).clip(RoundedCornerShape(10.dp))
+                    .clickable { vm.insertTemplateHere(tplMatch.id) {}; onDismiss() }) {
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("📄", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Use template “${tplMatch.name}”", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                }
+            }
         }
         // ---------- Honest capture (P3): a confirm-chip row of what the title parser recognised ----------
         // Each chip is one recognised token; its ✕ removes that token from the title, so what you see
-        // always matches what will be applied — the strip is never silent.
+        // always matches what will be applied — the strip is never silent. In plain-text mode nothing is
+        // parsed, so the row collapses to a single reversible "plain text" pill (Wave B).
         val capTok = remember(text) { com.todocompanion.app.domain.nlp.QuickTokens.parse(text, handleActivity = false) }
         val capParsed = remember(capTok.text) { com.todocompanion.app.domain.nlp.QuickAddParser.parse(capTok.text) }
-        val capChips = capTok.sources + capParsed.sources
-        if (capChips.isNotEmpty()) {
+        val capChips = if (plainText) emptyList() else capTok.sources + capParsed.sources
+        if (plainText) {
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(start = 10.dp, end = 2.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Aa  Plain text — kept as typed", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(Icons.Filled.Close, "Parse again", tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 2.dp).size(16.dp).clip(CircleShape).clickable { plainText = false })
+                }
+            }
+        } else if (capChips.isNotEmpty()) {
             androidx.compose.foundation.layout.FlowRow(
                 Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp)
                     // P5 — the chip row grows/shrinks smoothly as tokens are recognised (chip-commit),
@@ -226,10 +271,15 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
                                 .clickable { text = text.replaceFirst(tk.raw, " ").replace(Regex("\\s{2,}"), " ").trim() })
                     }
                 }
+                // Wave B — reversible parse: one tap reverts the whole parse and keeps the words verbatim
+                // (Akiflow's ESC / To Do's backspace, made explicit). The ✕ on the pill re-enables parsing.
+                Row(Modifier.clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { plainText = true }.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("⤺ Plain text", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
         // ---------- Trigger-char pickers: #tag / @context / ~list autocomplete while typing ----------
-        val trig = remember(text) { Regex("([#@~])([\\p{L}0-9_-]*)$").find(text) }
+        val trig = remember(text) { if (plainText) null else Regex("([#@~])([\\p{L}0-9_-]*)$").find(text) }
         if (trig != null) {
             val sym = trig.groupValues[1]; val partial = trig.groupValues[2]
             val suggestions: List<String> = when (sym) {
@@ -365,11 +415,14 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
             onConfirm = { c ->
                 due = c.dueMillis; hasTime = c.hasTime; durationMin = c.durationMin; rrule = c.rrule; reminderOffset = c.reminderOffsetMin
                 startMillis = c.startMillis; deadlineMillis = c.deadlineMillis
+                reminderAnchor = c.reminderAnchor; reminderPlace = c.reminderPlace
                 showDue = false
             },
             // P3 — capture surfaces the same start & deadline the editor's schedule sheet does.
             showStart = true, initialStart = startMillis, initialStartHasTime = startTimed,
             showDeadline = true, initialDeadline = deadlineMillis,
+            // F3 — capture reminder gains the editor's anchors (due/start/deadline) and a place option.
+            showReminderAnchors = true, initialReminderAnchor = reminderAnchor, initialReminderPlace = reminderPlace,
         )
     }
     if (showPrio) com.todocompanion.app.ui.components.PrioritySheet(

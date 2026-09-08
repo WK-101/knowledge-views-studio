@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.HourglassEmpty
@@ -65,6 +66,10 @@ data class DateChoice(
     val deadlineMillis: Long? = null,  // R22: the hard deadline, also set inside the same sheet
     val estimateMin: Int? = null,      // R43: the effort estimate, now set beside duration in this sheet
     val estimateSet: Boolean = false,  // whether the sheet managed the estimate (so callers know to apply it)
+    // Wave B (F3) — capture reminders match the editor: the offset can anchor to due / start / deadline, or
+    // instead be a permission-free place reminder. Only meaningful in capture mode (showReminderAnchors).
+    val reminderAnchor: String = "due",   // "due" | "start" | "deadline"
+    val reminderPlace: String? = null,    // set → arm a place reminder instead of a time offset
 )
 
 /**
@@ -95,6 +100,11 @@ fun DateReminderSheet(
     showEstimate: Boolean = false,
     initialEstimateMin: Int? = null,
     estimateHint: String? = null,
+    // Wave B (F3) — when true, the simple reminder section also offers an anchor (Due/Start/Deadline) and a
+    // place option, matching the editor. Used at capture (where a full reminder manager can't run yet).
+    showReminderAnchors: Boolean = false,
+    initialReminderAnchor: String = "due",
+    initialReminderPlace: String? = null,
 ) {
     val zone = ZoneId.systemDefault()
     val initialDt = initialDue?.let { Instant.ofEpochMilli(it).atZone(zone) }
@@ -106,6 +116,8 @@ fun DateReminderSheet(
     var estimateMin by remember { mutableStateOf(initialEstimateMin) }
     var rrule by remember { mutableStateOf(initialRrule) }
     var reminder by remember { mutableStateOf(initialReminderOffsetMin) }
+    var reminderAnchor by remember { mutableStateOf(initialReminderAnchor) }
+    var reminderPlace by remember { mutableStateOf(initialReminderPlace) }
     var startMillis by remember { mutableStateOf(initialStart) }
     var startHasTime by remember { mutableStateOf(initialStartHasTime) }
     var deadlineMillis by remember { mutableStateOf(initialDeadline) }
@@ -150,6 +162,8 @@ fun DateReminderSheet(
             deadlineMillis = deadlineMillis,
             estimateMin = estimateMin,
             estimateSet = showEstimate,
+            reminderAnchor = reminderAnchor,
+            reminderPlace = reminderPlace?.trim()?.ifBlank { null },
         ))
     }
 
@@ -249,15 +263,40 @@ fun DateReminderSheet(
                 }
                 Box(Modifier.padding(start = 34.dp, bottom = 4.dp)) { reminderSlot() }
             } else {
+                val remValue = when {
+                    reminderPlace?.isNotBlank() == true -> "📍 ${reminderPlace}"
+                    reminder != null && showReminderAnchors && reminderAnchor != "due" ->
+                        reminderLabelOffset(reminder) + " · " + (if (reminderAnchor == "start") "start" else "deadline")
+                    else -> reminderLabelOffset(reminder)
+                }
                 SheetRow(icon = Icons.Filled.Notifications, label = "Reminder",
-                    value = reminderLabelOffset(reminder),
-                    onClear = if (reminder != null) ({ reminder = null; if (openSection == "reminder") openSection = null }) else null,
+                    value = remValue,
+                    onClear = if (reminder != null || reminderPlace != null) ({ reminder = null; reminderPlace = null; if (openSection == "reminder") openSection = null }) else null,
                     onClick = { toggle("reminder") })
                 if (openSection == "reminder") {
-                    FlowRow(Modifier.padding(start = 34.dp, top = 2.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(Modifier.padding(start = 34.dp, top = 2.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         (listOf<Pair<Int?, String>>(null to "None") + com.todocompanion.app.domain.reminders.ReminderPresets.OFFSETS.map { m -> m to (if (m == 0) "On time" else com.todocompanion.app.domain.reminders.ReminderPresets.beforeLabel(m)) }).forEach { (off, lbl) ->
-                            FilterChip(selected = reminder == off, onClick = { reminder = off; openSection = null }, label = { Text(lbl) })
+                            FilterChip(selected = reminder == off && reminderPlace == null, onClick = { reminder = off; reminderPlace = null; if (!showReminderAnchors) openSection = null }, label = { Text(lbl) })
                         }
+                    }
+                    // F3 — capture: choose the anchor the offset counts from, plus an optional place reminder.
+                    if (showReminderAnchors && reminder != null && reminderPlace == null) {
+                        FlowRow(Modifier.padding(start = 34.dp, top = 0.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Before:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(androidx.compose.ui.Alignment.CenterVertically))
+                            FilterChip(selected = reminderAnchor == "due", onClick = { reminderAnchor = "due" }, label = { Text("Due") })
+                            if (startMillis != null) FilterChip(selected = reminderAnchor == "start", onClick = { reminderAnchor = "start" }, label = { Text("Start") })
+                            if (deadlineMillis != null) FilterChip(selected = reminderAnchor == "deadline", onClick = { reminderAnchor = "deadline" }, label = { Text("Deadline") })
+                        }
+                    }
+                    if (showReminderAnchors) {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = reminderPlace ?: "",
+                            onValueChange = { reminderPlace = it; if (it.isNotBlank()) reminder = null },
+                            label = { Text("…or when I arrive at a place") },
+                            singleLine = true,
+                            leadingIcon = { androidx.compose.material3.Icon(Icons.Filled.Place, null) },
+                            modifier = Modifier.padding(start = 34.dp, top = 2.dp, bottom = 8.dp).fillMaxWidth(),
+                        )
                     }
                 }
             }
