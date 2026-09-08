@@ -3366,6 +3366,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, e)
     }
 
+    /** A2 — "the self-writing day": turn a lived, untracked stretch into a calendar event in one tap,
+     *  using the default event calendar (created on demand). No alerts — it's a record of what happened. */
+    fun addQuickEvent(title: String, startMillis: Long, endMillis: Long) = viewModelScope.launch {
+        if (endMillis <= startMillis) return@launch
+        val calId = ensureDefaultCalendar()
+        saveEvent(null, calId, title.ifBlank { "Logged" }, "", "", "", startMillis, endMillis, false, "", "", null)
+        toastMsg("Added to the calendar")
+    }
+
     /** Phase 2 P2 — a natural-language line typed on the calendar becomes an event (or a task, if it reads
      *  like one) entirely on-device via [EventParser]. [anchorMillis] is the moment relative words like
      *  "3pm"/"tomorrow" resolve against — the day the user is viewing — so the bar is contextual. */
@@ -4283,6 +4292,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val ms = day.atStartOfDay(zone).plusMinutes(minute.toLong().coerceIn(0, 1439)).toInstant().toEpochMilli()
             repo.saveTask(t.copy(dueDate = ms, isAllDay = false))
         }
+    }
+    /** C1 — reschedule ripple: move a timed task, then carry its direct dependents (tasks that declared
+     *  this one a prerequisite) by the same delta, so a chain you built stays intact when its anchor
+     *  slides. Only same-day, timed, still-open dependents move; [onRippled] reports how many followed. */
+    fun rescheduleWithRipple(taskId: String, day: java.time.LocalDate, minute: Int, onRippled: (Int) -> Unit = {}) = viewModelScope.launch {
+        val t = repo.getTask(taskId) ?: return@launch
+        val oldMs = t.dueDate
+        val newMs = day.atStartOfDay(zone).plusMinutes(minute.toLong().coerceIn(0, 1439)).toInstant().toEpochMilli()
+        repo.saveTask(t.copy(dueDate = newMs, isAllDay = false))
+        val delta = if (oldMs != null) newMs - oldMs else 0L
+        if (delta == 0L || oldMs == null) { onRippled(0); return@launch }
+        val anchorDate = java.time.Instant.ofEpochMilli(oldMs).atZone(zone).toLocalDate()
+        val dependentIds = dependencies.value.filter { it.dependsOnTaskId == taskId }.map { it.taskId }.toSet()
+        var moved = 0
+        dependentIds.forEach { id ->
+            val d = repo.getTask(id) ?: return@forEach
+            val due = d.dueDate ?: return@forEach
+            if (d.completed || d.trashed || d.abandoned || d.isAllDay) return@forEach
+            if (java.time.Instant.ofEpochMilli(due).atZone(zone).toLocalDate() != anchorDate) return@forEach
+            repo.saveTask(d.copy(dueDate = due + delta)); moved++
+        }
+        onRippled(moved)
     }
     fun togglePin(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(pinned = !t.pinned)) }
     fun toggleNote(t: TaskEntity) = viewModelScope.launch { repo.saveTask(t.copy(isNote = !t.isNote)) }

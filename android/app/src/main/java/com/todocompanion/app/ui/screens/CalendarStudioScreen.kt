@@ -458,6 +458,27 @@ internal fun EventEditor(
                         Spacer(Modifier.height(8.dp))
                         AppTextField(value = attendees, onValueChange = { attendees = it }, placeholder = { Text("Attendees (comma-separated)") },
                             leadingIcon = { Icon(Icons.Filled.Group, null) }, modifier = Modifier.fillMaxWidth())
+                        // D2 — meeting memory: names you've invited before, offered as one-tap chips. Gathered
+                        // on-device from your own past events — no address book, no network, ever.
+                        val allEvents by vm.events.collectAsState()
+                        val attendeeHistory = remember(allEvents) {
+                            allEvents.asSequence().map { it.attendees }.filter { it.isNotBlank() }
+                                .flatMap { it.split(",").asSequence() }.map { it.trim() }.filter { it.isNotBlank() }
+                                .groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key }
+                        }
+                        val alreadyAdded = attendees.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()
+                        val attendeeSuggestions = attendeeHistory.filter { it !in alreadyAdded }.take(8)
+                        if (attendeeSuggestions.isNotEmpty()) {
+                            Spacer(Modifier.height(6.dp))
+                            Text("Recent people", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                attendeeSuggestions.forEach { name ->
+                                    FilterChip(selected = false, onClick = {
+                                        attendees = if (attendees.isBlank()) name else attendees.trimEnd().trimEnd(',') + ", " + name
+                                    }, label = { Text(name, maxLines = 1) })
+                                }
+                            }
+                        }
                         Spacer(Modifier.height(8.dp))
                         Text("Your RSVP", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

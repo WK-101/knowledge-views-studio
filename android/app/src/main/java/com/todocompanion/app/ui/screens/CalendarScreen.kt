@@ -63,6 +63,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.EditCalendar
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -240,11 +242,13 @@ fun CalendarScreen(
     // |"export"|"block"); the calendar owns the dialogs so events live inside this one calendar.
     eventAction: String? = null, onEventActionConsumed: () -> Unit = {},
     onOpenOccasion: (String?) -> Unit = {},
+    onCloseDay: (LocalDate) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val s by vm.settings.collectAsState()
     val tasks by vm.tasks.collectAsState()
     val protectedWins by vm.protectedWindows.collectAsState()
+    val deps by vm.dependencies.collectAsState()
     // Phase 0 S5: honour the app's time-zone override for the calendar's computation zone (event/grid
     // times render in the chosen zone); device-local "today" markers stay as-is, which is correct — a
     // human's "today" is their device's day.
@@ -440,7 +444,11 @@ fun CalendarScreen(
     val onOpenHabit: (String) -> Unit = { id -> vm.habitDetailId.value = id }
 
     val onResize: (String, Int) -> Unit = { id, dur -> vm.setDuration(id, dur) }
-    val onMoveTaskTo: (LocalDate, String, Int) -> Unit = { d, id, min -> vm.rescheduleToMinute(id, d, min) }
+    // C1 — reschedule ripple: dragging a task block carries its same-day dependents along, and a quiet
+    // toast says how many followed, so the chain you built survives the move.
+    val onMoveTaskTo: (LocalDate, String, Int) -> Unit = { d, id, min ->
+        vm.rescheduleWithRipple(id, d, min) { n -> if (n > 0) vm.toastMsg(if (n == 1) "1 linked task moved too" else "$n linked tasks moved too") }
+    }
     // One swipe config for every calendar task row, straight from the global swipe settings.
     val swipe = CalSwipe(s.swipeRight, s.swipeRightFar, s.swipeLeft, s.swipeLeftFar) { a, t ->
         when (a) {
@@ -624,6 +632,101 @@ fun CalendarScreen(
                                     val lf = (trackedMin.toFloat() / capMin).coerceIn(0f, 1f)
                                     Box(Modifier.fillMaxWidth(lf).height(4.dp)) {
                                         Box(Modifier.align(Alignment.CenterEnd).width(2.dp).height(9.dp).offset(y = (-2).dp).background(MaterialTheme.colorScheme.secondary))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                // ── The day's assist row — A3 close-the-day · B3 what-fits-now · D1 auto-fill ──
+                run {
+                    val today0 = LocalDate.now(zone)
+                    val isToday = anchor == today0
+                    val pastOrToday = !anchor.isAfter(today0)
+                    val ws = s.workStartHour.coerceIn(0, 23); val we = s.workEndHour.coerceIn(ws + 1, 24)
+                    val isoDow2 = anchor.dayOfWeek.value
+                    val committed = remember(anchor, eventsAll, tasks, habits, protectedWins) {
+                        (eventBlocksFor(anchor).map { it.startMin to (it.startMin + it.durMin) } +
+                            habitBlocksFor(anchor).filter { !it.untimed }.map { it.startMin to (it.startMin + it.durMin) } +
+                            protectedWins.filter { it.days.isEmpty() || isoDow2 in it.days }.map { it.startMin to it.endMin } +
+                            dueByDate[anchor].orEmpty().filter { !it.isAllDay && it.dueDate != null && hasTime(it.dueDate!!, zone) }.map {
+                                val z = Instant.ofEpochMilli(it.dueDate!!).atZone(zone); val sm = z.hour * 60 + z.minute
+                                sm to (sm + (it.durationMin ?: it.estimateMin ?: 60))
+                            }).sortedBy { it.first }
+                    }
+                    // B3 — free minutes from now (or work start) to the next commitment.
+                    val nowM = if (isToday) java.time.LocalTime.now(zone).let { it.hour * 60 + it.minute } else ws * 60
+                    val from = nowM.coerceIn(ws * 60, we * 60)
+                    val nextStart = committed.filter { it.second > from }.minOfOrNull { maxOf(it.first, from) } ?: (we * 60)
+                    val freeNow = (nextStart - from).coerceAtLeast(0)
+                    val blockedIds = remember(deps, tasks) {
+                        val byId = tasks.associateBy { it.id }
+                        deps.filter { d -> byId[d.dependsOnTaskId]?.let { !it.completed && !it.trashed } == true }.map { it.taskId }.toSet()
+                    }
+                    val fits = remember(tasks, blockedIds, freeNow, isToday) {
+                        if (!isToday || freeNow < 15) null else tasks.asSequence().filter {
+                            !it.completed && !it.trashed && !it.abandoned && !it.someday && it.dueDate == null && it.parentId == null && !it.isNote && it.id !in blockedIds
+                        }.filter { (it.estimateMin ?: 30) <= freeNow }
+                            .sortedWith(compareByDescending<TaskEntity> { it.importance + it.urgency }.thenBy { it.createdAt })
+                            .firstOrNull()
+                    }
+                    val unschedCount = remember(tasks) { tasks.count { !it.completed && !it.trashed && !it.abandoned && !it.someday && it.dueDate == null && it.parentId == null && !it.isNote } }
+                    val showAutoFill = unschedCount > 0 && !anchor.isBefore(today0)
+                    if (fits != null || pastOrToday || showAutoFill) {
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (fits != null) {
+                                Surface(color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .5f), shape = RoundedCornerShape(16.dp)) {
+                                    Row(Modifier.clickable {
+                                        var slot = (from / 15) * 15; var guard = 0
+                                        while (guard++ < 96 && slot + 15 <= we * 60 && committed.any { slot < it.second && slot + 15 > it.first }) slot += 15
+                                        vm.scheduleTaskAt(fits.id, anchor.atStartOfDay(zone).toInstant().toEpochMilli() + slot * 60000L)
+                                    }.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Filled.Bolt, null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                                        Spacer(Modifier.size(5.dp))
+                                        Text("Fits your ${if (freeNow >= 60) "${freeNow / 60}h" else "${freeNow}m"}: ${fits.title.ifBlank { "task" }}",
+                                            style = MaterialTheme.typography.labelMedium, maxLines = 1, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                    }
+                                }
+                            }
+                            if (showAutoFill) {
+                                TextButton(onClick = { vm.autoScheduleDay(anchor.toEpochDay()) { n -> vm.toastMsg(if (n == 0) "No free slots to fill" else if (n == 1) "Placed 1 task" else "Placed $n tasks") } },
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
+                                    Icon(Icons.Filled.AutoAwesome, null, Modifier.size(15.dp)); Spacer(Modifier.size(4.dp)); Text("Auto-fill", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                            if (pastOrToday) {
+                                TextButton(onClick = { onCloseDay(anchor) },
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
+                                    Icon(Icons.Filled.WbSunny, null, Modifier.size(15.dp)); Spacer(Modifier.size(4.dp)); Text("Close the day", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                        }
+                    }
+                    // A2 — the self-writing day: lived stretches with no calendar block, one tap to record them.
+                    if (pastOrToday) {
+                        val gaps = remember(anchor, timeEntries, eventsAll) {
+                            val ds = anchor.atStartOfDay(zone).toInstant().toEpochMilli()
+                            val de = anchor.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+                            com.todocompanion.app.domain.calendar.ThirdHorizon.backfillCandidates(
+                                timeEntries.filter { (it.endMillis ?: it.startMillis) > ds && it.startMillis < de },
+                                eventOccForDay(anchor), ds, de, 20).take(8)
+                        }
+                        if (gaps.isNotEmpty()) {
+                            val taskTitleById = remember(tasks) { tasks.associate { it.id to it.title } }
+                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Lived, not on your calendar", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 2.dp))
+                                gaps.forEach { g ->
+                                    val stMin = Instant.ofEpochMilli(g.startMillis).atZone(zone).let { it.hour * 60 + it.minute }
+                                    val enMin = Instant.ofEpochMilli(g.endMillis).atZone(zone).let { it.hour * 60 + it.minute }
+                                    val title = g.taskId?.let { taskTitleById[it] }?.takeIf { it.isNotBlank() } ?: "Tracked time"
+                                    Surface(color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .5f), shape = RoundedCornerShape(16.dp)) {
+                                        Row(Modifier.clickable { vm.addQuickEvent(title, g.startMillis, g.endMillis) }.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Text("${minLabel(stMin)}–${minLabel(enMin)}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                            Spacer(Modifier.size(5.dp))
+                                            Icon(Icons.Filled.Add, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                                        }
                                     }
                                 }
                             }

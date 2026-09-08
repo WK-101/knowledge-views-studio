@@ -962,7 +962,10 @@ fun AppRoot(
                                     openQuickAdd(d.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli())
                                 }, onAddAt = { d, minute -> blockAt = d to minute },
                                 eventAction = calEventAction, onEventActionConsumed = { calEventAction = null },
-                                onOpenOccasion = openOccasion)
+                                onOpenOccasion = openOccasion,
+                                // A3 — the two-sided day: closing the day from the calendar opens the Daily
+                                // Review in close mode for exactly the day you were looking at.
+                                onCloseDay = { d -> dayReviewStartClose = true; dayReviewStartWeekly = false; showDayReview = d.toEpochDay() })
                             Tab.TIMELINE -> com.todocompanion.app.ui.screens.TimelineScreen(vm, ::openTask, selectedLists = timelineLists, showDone = timelineShowDone)
                             Tab.MATRIX -> MatrixScreen(vm, ::openTask, matrixSettings, { matrixSettings = false })
                             Tab.HABITS -> com.todocompanion.app.ui.screens.HabitsScreen(vm, onFocusHabit = { hid -> vm.pendingFocusHabitId.value = hid; timeFocus = true; tab = Tab.TIME })
