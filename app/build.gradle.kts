@@ -166,5 +166,6 @@ dependencies {
 
     // Instrumentation tests (Room migrations run on-device/emulator)
     androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)  // provides the AndroidJUnitRunner instrumentation
     androidTestImplementation(libs.androidx.room.testing)
 }
