@@ -803,6 +803,9 @@ fun AppRoot(
                                         val sortOptions = buildList {
                                             add("Manual" to SortMode.MANUAL); add("Priority" to SortMode.PRIORITY)
                                             add("Due" to SortMode.DUE); add("Title" to SortMode.TITLE); add("Flag" to SortMode.FLAG)
+                                            // Wave D — the explainable Do-Next score as a per-list sort (any list can borrow the
+                                            // Do-Next lens), offered when computed priority is on.
+                                            if (vm.settings.value.priorityComputed) add("Why-now score" to SortMode.SCORE)
                                             if (doneView) add("Completed date" to SortMode.COMPLETED)
                                         }
                                         sortOptions.forEach { (l, m) ->

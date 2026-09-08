@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,6 +62,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
@@ -134,7 +139,11 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
     val contexts by vm.contexts.collectAsState()
     val settings by vm.settings.collectAsState()
 
-    var text by remember { mutableStateOf(initialText) }
+    // Title is held as a TextFieldValue so we know the caret position (needed for D3 backspace-clears-chip).
+    // `text` is the read alias the rest of the body uses; setText(...) writes it and parks the caret at end.
+    var field by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(initialText)) }
+    val text = field.text
+    fun setText(s: String) { field = androidx.compose.ui.text.input.TextFieldValue(s, androidx.compose.ui.text.TextRange(s.length)) }
     var note by remember { mutableStateOf("") }
     var due by remember { mutableStateOf(initialDue) }
     var hasTime by remember { mutableStateOf(initialHasTime) }
@@ -161,6 +170,8 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
     var listPicker by remember { mutableStateOf(false) }
     var tagMenu by remember { mutableStateOf(false) }
     var ctxMenu by remember { mutableStateOf(false) }
+    // Wave D (N2) — the bulk-paste review sheet: which pasted lines to actually create.
+    var bulkConfirm by remember { mutableStateOf(false) }
 
     val focus = remember { FocusRequester() }
 
@@ -169,7 +180,7 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
     // Voice capture (F3): dictate a task with the platform speech recognizer and append the result.
     val voiceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         val spoken = res.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
-        if (!spoken.isNullOrBlank()) text = (text.trimEnd() + " " + spoken).trim()
+        if (!spoken.isNullOrBlank()) setText((text.trimEnd() + " " + spoken).trim())
     }
     fun startVoice() = runCatching {
         voiceLauncher.launch(android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -192,14 +203,29 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
         onDismiss()
     }
 
+    // Recognised tokens (computed above the field so the D3 backspace handler can reference them).
+    val capTok = remember(text) { com.todocompanion.app.domain.nlp.QuickTokens.parse(text, handleActivity = false) }
+    val capParsed = remember(capTok.text) { com.todocompanion.app.domain.nlp.QuickAddParser.parse(capTok.text) }
+    val capChips = if (plainText) emptyList() else capTok.sources + capParsed.sources
     Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp, vertical = 6.dp)) {
         // Title — borderless, with live token highlighting.
         Box(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 2.dp)) {
             if (text.isEmpty()) Text("What would you like to do?",
                 color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.titleLarge, maxLines = 2)
             BasicTextField(
-                value = text, onValueChange = { text = it },
-                modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                value = field, onValueChange = { field = it },
+                modifier = Modifier.fillMaxWidth().focusRequester(focus).onPreviewKeyEvent { ev ->
+                    // D3 — Backspace at the very end of the field, when the text ends with a recognised
+                    // token, un-parses that whole chip instead of deleting one character. Caret-checked, so
+                    // it only fires when you're deleting from the end (typically right after typing a token).
+                    if (!plainText && ev.type == androidx.compose.ui.input.key.KeyEventType.KeyDown &&
+                        ev.key == androidx.compose.ui.input.key.Key.Backspace &&
+                        field.selection.collapsed && field.selection.start == field.text.length) {
+                        val last = capChips.lastOrNull { it.raw.isNotBlank() && field.text.trimEnd().endsWith(it.raw) }
+                        if (last != null) { setText(field.text.trimEnd().removeSuffix(last.raw).trimEnd()); return@onPreviewKeyEvent true }
+                    }
+                    false
+                },
                 textStyle = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -213,11 +239,28 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
         if (lines.size > 1) {
             Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.secondaryContainer,
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp).clip(RoundedCornerShape(10.dp))
-                    .clickable { vm.addManyLines(lines, currentOptions()); onDismiss() }) {
+                    // N2 — review before creating, not fire-on-tap.
+                    .clickable { bulkConfirm = true }) {
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.AutoMirrored.Filled.FormatListBulleted, null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Add ${lines.size} tasks — one per line", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Text("Review ${lines.size} lines as tasks…", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                }
+            }
+        }
+        // ---------- Inline subtask grammar (Wave D/N3): a one-tap suggestion, not an automatic split ----------
+        val subtreeSegs = remember(text, plainText) {
+            if (plainText || text.contains('\n')) emptyList()
+            else text.trim().split(Regex("\\s*>\\s*")).map { it.trim() }.filter { it.isNotBlank() }
+        }
+        if (subtreeSegs.size >= 2) {
+            Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.tertiaryContainer,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp).clip(RoundedCornerShape(10.dp))
+                    .clickable { vm.submitQuickAdd(text, currentOptions().copy(splitSubtasks = true)); onDismiss() }) {
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.AutoMirrored.Filled.FormatListBulleted, null, tint = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Break into “${subtreeSegs.first().take(20)}” + ${subtreeSegs.size - 1} subtask${if (subtreeSegs.size - 1 == 1) "" else "s"}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onTertiaryContainer)
                 }
             }
         }
@@ -240,10 +283,8 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
         // ---------- Honest capture (P3): a confirm-chip row of what the title parser recognised ----------
         // Each chip is one recognised token; its ✕ removes that token from the title, so what you see
         // always matches what will be applied — the strip is never silent. In plain-text mode nothing is
-        // parsed, so the row collapses to a single reversible "plain text" pill (Wave B).
-        val capTok = remember(text) { com.todocompanion.app.domain.nlp.QuickTokens.parse(text, handleActivity = false) }
-        val capParsed = remember(capTok.text) { com.todocompanion.app.domain.nlp.QuickAddParser.parse(capTok.text) }
-        val capChips = if (plainText) emptyList() else capTok.sources + capParsed.sources
+        // parsed, so the row collapses to a single reversible "plain text" pill (Wave B). capChips is
+        // computed above the title field (D3).
         if (plainText) {
             Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(start = 10.dp, end = 2.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -269,7 +310,7 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
                         Text(tk.label, style = MaterialTheme.typography.labelMedium, color = c)
                         Icon(Icons.Filled.Close, "Remove ${tk.label}", tint = c,
                             modifier = Modifier.padding(start = 2.dp).size(16.dp).clip(CircleShape)
-                                .clickable { text = text.replaceFirst(tk.raw, " ").replace(Regex("\\s{2,}"), " ").trim() })
+                                .clickable { setText(text.replaceFirst(tk.raw, " ").replace(Regex("\\s{2,}"), " ").trim()) })
                     }
                 }
                 // Wave B — reversible parse: one tap reverts the whole parse and keeps the words verbatim
@@ -292,7 +333,7 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 2.dp, bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     suggestions.forEach { name ->
                         Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.secondaryContainer,
-                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { text = text.dropLast(partial.length) + name + " " }) {
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { setText(text.dropLast(partial.length) + name + " ") }) {
                             Text("$sym$name", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp))
                         }
                     }
@@ -395,16 +436,32 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
                             text = { Text("Dictate task") },
                             leadingIcon = { Icon(Icons.Filled.Mic, null) },
                             onClick = { moreMenu = false; startVoice() })
-                        // Moat — time-block from capture: drop the task onto today's time grid at the next
-                        // half-hour using its duration (default 30m). Capture → a real plan, one gesture, offline.
+                        // Moat — time-block from capture: drop the task onto today's time grid using its
+                        // duration (default 30m). N8: find the first FREE 30-min-aligned slot from now that
+                        // fits, scanning today's existing timed blocks, so two quick blocks don't overlap.
                         DropdownMenuItem(
                             text = { Text("Block on today") },
                             leadingIcon = { Icon(Icons.Filled.Schedule, null) },
                             onClick = {
                                 moreMenu = false
                                 val z = java.time.ZoneId.systemDefault()
+                                val dur = (durationMin ?: 30).toLong()
                                 val now = java.time.ZonedDateTime.now(z).withSecond(0).withNano(0)
-                                val slot = if (now.minute < 30) now.withMinute(30) else now.plusHours(1).withMinute(0)
+                                var slot = if (now.minute < 30) now.withMinute(30) else now.plusHours(1).withMinute(0)
+                                val today = now.toLocalDate()
+                                // Today's occupied windows: due tasks that carry a clock time (+ their duration).
+                                val blocks = vm.tasks.value.mapNotNull { t ->
+                                    val d = t.dueDate ?: return@mapNotNull null
+                                    val zd = java.time.Instant.ofEpochMilli(d).atZone(z)
+                                    if (zd.toLocalDate() != today || (zd.hour == 0 && zd.minute == 0)) null
+                                    else { val s = d; s to (s + (t.durationMin ?: 30) * 60_000L) }
+                                }
+                                var guard = 0
+                                while (guard++ < 48) {
+                                    val s = slot.toInstant().toEpochMilli(); val e = s + dur * 60_000L
+                                    if (blocks.none { s < it.second && e > it.first }) break
+                                    slot = slot.plusMinutes(30)
+                                }
                                 due = slot.toInstant().toEpochMilli(); hasTime = true
                                 if (durationMin == null) durationMin = 30
                             })
@@ -451,6 +508,29 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
         onPickFolder = { fid -> folderId = fid; listId = null; listPicker = false },
         onDismiss = { listPicker = false },
     )
+    // N2 — bulk-paste review: tick which pasted lines become tasks before creating them (with one Undo).
+    if (bulkConfirm) {
+        val bulkLines = remember(text) { text.split('\n').map { it.trim() }.filter { it.isNotBlank() } }
+        val deselected = remember(text) { androidx.compose.runtime.mutableStateListOf<Int>() }
+        val chosen = bulkLines.filterIndexed { i, _ -> i !in deselected }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { bulkConfirm = false },
+            title = { Text("Add ${chosen.size} of ${bulkLines.size} lines") },
+            text = {
+                Column(Modifier.fillMaxWidth().heightIn(max = 340.dp).verticalScroll(rememberScrollState())) {
+                    bulkLines.forEachIndexed { i, line ->
+                        Row(Modifier.fillMaxWidth().clickable { if (i in deselected) deselected.remove(i) else deselected.add(i) }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            androidx.compose.material3.Checkbox(checked = i !in deselected, onCheckedChange = { on -> if (on) deselected.remove(i) else deselected.add(i) })
+                            Spacer(Modifier.width(4.dp))
+                            Text(line, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
+                        }
+                    }
+                }
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { bulkConfirm = false; if (chosen.isNotEmpty()) { vm.addManyLines(chosen, currentOptions()); onDismiss() } }, enabled = chosen.isNotEmpty()) { Text("Add ${chosen.size}") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { bulkConfirm = false }) { Text("Cancel") } },
+        )
+    }
 
     LaunchedEffect(Unit) { focus.requestFocus() }
 }

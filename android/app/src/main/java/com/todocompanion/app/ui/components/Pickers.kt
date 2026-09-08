@@ -287,6 +287,14 @@ fun DateReminderSheet(
                             if (startMillis != null) FilterChip(selected = reminderAnchor == "start", onClick = { reminderAnchor = "start" }, label = { Text("Start") })
                             if (deadlineMillis != null) FilterChip(selected = reminderAnchor == "deadline", onClick = { reminderAnchor = "deadline" }, label = { Text("Deadline") })
                         }
+                        // N6 — a relative reminder needs its anchor date; if the chosen anchor has none, say
+                        // so instead of silently arming nothing. (Only "due" is reachable — start/deadline
+                        // anchors are offered only when their dates already exist.)
+                        val anchorMissing = (reminderAnchor == "due" && !hasDate) ||
+                            (reminderAnchor == "start" && startMillis == null) || (reminderAnchor == "deadline" && deadlineMillis == null)
+                        if (anchorMissing) Text("Add a $reminderAnchor date for this reminder to fire.",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(start = 34.dp, bottom = 4.dp))
                     }
                     if (showReminderAnchors) {
                         androidx.compose.material3.OutlinedTextField(

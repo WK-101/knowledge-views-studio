@@ -108,7 +108,9 @@ class ReminderController(
      * (re-arming is a harmless no-op), which is the right behaviour for a manual edit.
      */
     suspend fun rescheduleForTask(task: TaskEntity) {
-        repo.allRemindersOnce().filter { it.taskId == task.id }.forEach { r ->
+        // N7 — a direct per-task query instead of scanning the whole reminders table (O(reminders) per
+        // task on big bulk reschedules).
+        repo.remindersForTask(task.id).forEach { r ->
             AlarmScheduler.cancel(context, r, task)
             AlarmScheduler.schedule(context, r, task)
         }

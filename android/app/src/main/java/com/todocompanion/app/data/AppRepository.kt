@@ -25,6 +25,7 @@ import com.todocompanion.app.domain.AppSettings
 import com.todocompanion.app.domain.port.Backup
 import com.todocompanion.app.domain.port.BackupFile
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
 import java.util.UUID
 
 /** Single source of truth over Room. Reads are reactive Flows; writes are suspend. */
@@ -50,8 +51,18 @@ class AppRepository(private val db: AppDatabase) {
      * drag, carry-forward, auto-schedule, Someday, recurrence roll-forward, …) has to remember to re-arm.
      * A generous buffer covers batch reschedules (carry-forward of many overdue tasks in one tick).
      */
-    val remindersDirty = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 256)
-    private fun markRemindersDirty(taskId: String) { remindersDirty.tryEmit(taskId) }
+    // D2/N7 — an UNBOUNDED channel, not a buffered SharedFlow: a huge one-tick bulk reschedule can emit
+    // more ids than any fixed buffer holds, and a dropped id means a stale alarm. trySend on an unlimited
+    // channel never drops. The VM drains it (receiveAsFlow) into ReminderController.rescheduleForTask.
+    private val _remindersDirty = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.UNLIMITED)
+    val remindersDirty: kotlinx.coroutines.flow.Flow<String> = _remindersDirty.receiveAsFlow()
+    private fun markRemindersDirty(taskId: String) { _remindersDirty.trySend(taskId) }
+    /** N7 — a task's reminders by a direct query, instead of scanning the whole reminders table. */
+    suspend fun remindersForTask(taskId: String): List<ReminderEntity> = reminders.forTask(taskId)
+    // N1 — set by the ViewModel (the repo has no Context): cancel a reminder's scheduled alarm by id.
+    // Invoked from deleteSubtree just before a reminder row is permanently removed, so an exact-alarm
+    // never outlives the task it belonged to.
+    var onCancelReminder: ((String) -> Unit)? = null
     /** True when two task snapshots differ in any field that changes a reminder's fire time or arming. */
     private fun remindersAffected(old: TaskEntity?, now: TaskEntity): Boolean =
         old == null || old.startDate != now.startDate || old.dueDate != now.dueDate ||
@@ -793,6 +804,9 @@ class AppRepository(private val db: AppDatabase) {
         for (id in subtreeIds(rootId)) {
             tags.unlinkAllForTask(id)
             contexts.unlinkAllForTask(id)
+            // N1 — cancel each reminder's scheduled alarm before deleting its row, so a permanent delete
+            // doesn't leave an orphaned exact-alarm armed. (Trashing already re-arms via the F1 signal.)
+            reminders.forTask(id).forEach { onCancelReminder?.invoke(it.id) }
             reminders.deleteForTask(id)
             deps.removeAllInvolving(id)
             checklist.deleteForTask(id)

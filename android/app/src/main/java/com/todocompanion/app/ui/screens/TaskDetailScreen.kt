@@ -48,6 +48,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Schedule
@@ -167,8 +168,17 @@ private fun detectSmartActions(text: String): List<SmartAction> {
     }
     Regex("(?<![\\w@.])[+]?[0-9][0-9 ()\\-]{6,}[0-9]").findAll(text).forEach { m ->
         val digits = m.value.count { it.isDigit() }
-        if (digits in 7..15 && seen.add("tel:${m.value}")) out += SmartAction("Call", Icons.Filled.Call,
+        // N5 — only treat a digit run as a phone number when it *looks* like one: a leading + or an actual
+        // separator (space / dash / paren). A bare run like "invoice 100200300" is an id, not a number.
+        val phoneShaped = m.value.startsWith("+") || m.value.any { it == ' ' || it == '-' || it == '(' }
+        if (phoneShaped && digits in 7..15 && seen.add("tel:${m.value}")) out += SmartAction("Call", Icons.Filled.Call,
             android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:${m.value.replace(" ", "")}")))
+    }
+    // D3 — a street address → open in the user's map app via a geo: query (no location permission needed).
+    Regex("(?i)\\b\\d{1,5}\\s+([\\w.'-]+\\s+){1,4}(st|street|ave|avenue|rd|road|blvd|boulevard|ln|lane|dr|drive|way|ct|court|pl|place|sq|square|hwy|highway)\\b\\.?").findAll(text).forEach { m ->
+        val addr = m.value.trim()
+        if (seen.add("geo:$addr")) out += SmartAction("Map", Icons.Filled.Place,
+            android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("geo:0,0?q=" + android.net.Uri.encode(addr))))
     }
     return out.take(4)
 }

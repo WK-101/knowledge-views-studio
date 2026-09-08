@@ -79,15 +79,18 @@ data class QuickAddOptions(
     val reminderOffsetMin: Int? = null,
     val reminderAnchor: String = "due",
     val reminderPlace: String? = null,
+    // Wave D (N3) — inline "a > b > c" subtree creation is now opt-in (a one-tap capture suggestion), not
+    // automatic, so a literal " > " in a title isn't turned into an accidental parent+child.
+    val splitSubtasks: Boolean = false,
 )
 
-enum class UndoKind { COMPLETED, ABANDONED, TRASHED }
+enum class UndoKind { COMPLETED, ABANDONED, TRASHED, CREATED_MANY }
 
 /** What the full-screen habit editor is editing. A null [habit] means "create a new habit". */
 data class HabitEditRequest(val habit: com.todocompanion.app.data.entity.HabitEntity? = null)
 /** [restore], when set, is the exact pre-action task snapshot to write back on Undo — used for a
  *  recurring task's roll-forward, where "uncomplete" isn't enough (the due date & rule advanced). */
-data class UndoEvent(val kind: UndoKind, val taskId: String, val message: String, val restore: TaskEntity? = null)
+data class UndoEvent(val kind: UndoKind, val taskId: String, val message: String, val restore: TaskEntity? = null, val taskIds: List<String> = emptyList())
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -737,6 +740,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** On launch, open the resume-last view (if enabled) or the configured default view. */
     init {
+        // N1 — give the repo a Context-free way to cancel a reminder's alarm on permanent delete.
+        repo.onCancelReminder = { reminderId -> com.todocompanion.app.reminders.AlarmScheduler.cancelById(appCtx, reminderId) }
         viewModelScope.launch {
             val s = repo.settingsSnapshot()
             val ref = if (s.resumeLastView && s.lastViewRef.isNotBlank()) s.lastViewRef else s.defaultViewRef.ifBlank { null }
@@ -809,12 +814,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun submitQuickAdd(text: String, opts: QuickAddOptions) = viewModelScope.launch { quickAddOne(text, opts) }
 
     /** Wave B — bulk capture: a multi-line paste / brain-dump becomes one task per non-blank line, each run
-     *  through the same NL parser as a single capture, created in order. */
+     *  through the same NL parser as a single capture, created in order. N2: the whole batch is one Undo. */
     fun addManyLines(lines: List<String>, opts: QuickAddOptions = QuickAddOptions()) = viewModelScope.launch {
-        lines.map { it.trim() }.filter { it.isNotBlank() }.forEach { quickAddOne(it, opts) }
+        val created = lines.map { it.trim() }.filter { it.isNotBlank() }.mapNotNull { quickAddOne(it, opts) }
+        if (created.isNotEmpty())
+            undoEvents.tryEmit(UndoEvent(UndoKind.CREATED_MANY, created.first(), "Added ${created.size} task${if (created.size == 1) "" else "s"}", taskIds = created))
     }
 
-    private suspend fun quickAddOne(text: String, opts: QuickAddOptions) {
+    private suspend fun quickAddOne(text: String, opts: QuickAddOptions): String? {
         // Single capture funnel: inline tokens (#t25 estimate, * star, !/!!/!!! priority) are applied
         // HERE so every entry point — the quick-add sheet and the omnibox alike — supports them
         // identically. `@` is deliberately left in the text (handleActivity = false) so QuickAddParser
@@ -825,8 +832,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val useParse = !opts.plainText
         val tok = com.todocompanion.app.domain.nlp.QuickTokens.parse(text, handleActivity = false)
         val parsed = QuickAddParser.parse(tok.text)
-        if (useParse) { if (parsed.title.isBlank() && parsed.tags.isEmpty()) return }
-        else if (text.isBlank()) return
+        if (useParse) { if (parsed.title.isBlank() && parsed.tags.isEmpty()) return null }
+        else if (text.isBlank()) return null
         val estimateMin = opts.estimateMin ?: (if (useParse) tok.estimateMin else null)
         val star = opts.star || (useParse && tok.star)
         val tokPriority = if (!useParse) null else when (tok.priorityLevel) {
@@ -856,10 +863,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             settings.value.keepParsedText -> tok.text.replace(Regex("\\s+"), " ").trim().ifBlank { parsed.title }
             else -> parsed.title
         }.ifBlank { "Untitled" }
-        // Wave B — inline subtask grammar: "Plan trip > book flight > pick seat" creates a parent plus a
-        // child per segment, the fastest way to capture a small project. Opt-in via the " > " separator;
-        // plain-text mode leaves ">" untouched.
-        val segs = if (useParse) baseTitle.split(Regex("\\s*>\\s*")).map { it.trim() }.filter { it.isNotBlank() } else listOf(baseTitle)
+        // Wave B/D — inline subtask grammar: "Plan trip > book flight > pick seat" → parent + a child per
+        // segment. N3: opt-in only (opts.splitSubtasks, offered as a one-tap capture chip), so a literal
+        // " > " in a normal title is never silently turned into a subtree.
+        val segs = if (useParse && opts.splitSubtasks) baseTitle.split(Regex("\\s*>\\s*")).map { it.trim() }.filter { it.isNotBlank() } else listOf(baseTitle)
         val childTitles = if (segs.size > 1) segs.drop(1) else emptyList()
         val finalTitle = if (segs.size > 1) segs.first() else baseTitle
         val id = repo.createTask(listId, finalTitle, importance = imp, urgency = urg, dueDate = due, folderId = folderId)
@@ -943,6 +950,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         // Wave B — inline subtask grammar: create each "> child" segment as a real child of the new task.
         childTitles.forEach { ct -> repo.createTask(listId, ct, parentId = id, folderId = folderId) }
+        return id
     }
 
     // ---------- task actions ----------
@@ -1070,8 +1078,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      *  one anchors at today), the offline analogue of "rebuild my week" without any cloud auto-scheduler.
      *  Each write re-arms reminders via F1. */
     fun shiftSelectionDays(ids: Set<String>, days: Int) = viewModelScope.launch {
-        val todayStart = java.time.LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
-        ids.mapNotNull { repo.getTask(it) }.forEach { t -> repo.saveTask(t.copy(dueDate = (t.dueDate ?: todayStart) + days * 86_400_000L)) }
+        val today = java.time.LocalDate.now(zone)
+        ids.mapNotNull { repo.getTask(it) }.forEach { t ->
+            // N4 — shift the local DATE by N days (keeping time-of-day), not raw 24h-millis, so a task
+            // doesn't drift an hour across a daylight-saving boundary. redate() preserves the wall clock.
+            val base = t.dueDate?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate() } ?: today
+            repo.saveTask(t.copy(dueDate = redate(t, base.plusDays(days.toLong()))))
+        }
         toast(if (ids.size == 1) "Moved ${if (days >= 0) "+$days" else "$days"} day${if (kotlin.math.abs(days) == 1) "" else "s"}." else "Moved ${ids.size} tasks.")
     }
     /** Wave C — bulk move the selection to Today, keeping each task's time-of-day. */
@@ -1102,6 +1115,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             UndoKind.COMPLETED -> repo.getTask(e.taskId)?.let { repo.setCompleted(it, false) }
             UndoKind.ABANDONED -> repo.getTask(e.taskId)?.let { repo.setAbandoned(it, false) }
             UndoKind.TRASHED -> repo.setTrashed(e.taskId, false)
+            // N2 — undo a bulk-paste / inline-subtree add by trashing everything it created (recoverable).
+            UndoKind.CREATED_MANY -> e.taskIds.forEach { repo.setTrashed(it, true, settings.value.activeWorkspaceId) }
         }
     }
     fun restore(t: TaskEntity) = viewModelScope.launch { repo.setTrashed(t.id, false) }

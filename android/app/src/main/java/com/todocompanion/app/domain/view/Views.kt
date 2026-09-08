@@ -34,7 +34,7 @@ enum class SmartKind(val title: String) {
 }
 
 enum class GroupMode { NONE, DATE, PRIORITY, CONTEXT, FLAG }
-enum class SortMode { MANUAL, PRIORITY, DUE, TITLE, FLAG, COMPLETED }
+enum class SortMode { MANUAL, PRIORITY, DUE, TITLE, FLAG, COMPLETED, SCORE }
 
 enum class Bucket(val label: String) {
     OVERDUE("Overdue"), TODAY("Today"), TOMORROW("Tomorrow"),
@@ -157,7 +157,7 @@ object TaskViews {
         }
     }
 
-    fun sort(tasks: List<TaskEntity>, mode: SortMode, flagRank: Map<String, Int> = emptyMap()): List<TaskEntity> {
+    fun sort(tasks: List<TaskEntity>, mode: SortMode, flagRank: Map<String, Int> = emptyMap(), scoreRank: Map<String, Int> = emptyMap()): List<TaskEntity> {
         // A stable tiebreaker (createdAt, id) keeps order fixed when an unrelated field
         // (star, flag, updatedAt) changes — otherwise rows visually swap on toggle.
         val tie = compareBy<TaskEntity>({ it.createdAt }, { it.id })
@@ -170,6 +170,9 @@ object TaskViews {
             SortMode.FLAG -> compareBy<TaskEntity> { it.flagId?.let { id -> flagRank[id] } ?: Int.MAX_VALUE }
             // R28 #2 — most-recently finished first (for the Completed list / the record).
             SortMode.COMPLETED -> compareByDescending<TaskEntity> { it.completedAt ?: 0L }
+            // Wave D — the explainable Do-Next "why-now" score as a general list sort (rank 0 = highest
+            // score first; the caller supplies the precomputed rank map).
+            SortMode.SCORE -> compareBy<TaskEntity> { scoreRank[it.id] ?: Int.MAX_VALUE }
         }
         // Pinned tasks always float to the top.
         val pin = compareByDescending<TaskEntity> { it.pinned }

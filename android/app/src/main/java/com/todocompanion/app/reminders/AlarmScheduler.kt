@@ -158,6 +158,14 @@ object AlarmScheduler {
         am.cancel(broadcast(context, ACTION_FIRE, reminder.id.hashCode(), fireExtras(task.id, task.title, reminder.id, reminder.annoying, reminder.escalate, 0, reminder.repeatEveryMin, reminder.repeatCount)))
     }
 
+    /** Cancel a reminder's alarm by id alone. A PendingIntent matches on request-code + action (extras are
+     *  ignored by filterEquals), so the id's hashCode + ACTION_FIRE is enough — no TaskEntity needed. Used
+     *  on a permanent delete (N1), where the task/reminder rows are about to vanish and nothing re-arms. */
+    fun cancelById(context: Context, reminderId: String) {
+        val am = context.getSystemService(AlarmManager::class.java) ?: return
+        am.cancel(broadcast(context, ACTION_FIRE, reminderId.hashCode(), emptyMap()))
+    }
+
     /** Re-fire a reminder after [delayMin] minutes (snooze / annoying repeat / escalation / recurring / quiet-defer). */
     fun scheduleFireIn(context: Context, taskId: String, title: String, reminderId: String, annoying: Boolean, delayMin: Long, escalate: Boolean = false, step: Int = 0, repeatEvery: Int? = null, repeatCount: Int? = null) {
         val pi = broadcast(context, ACTION_FIRE, reminderId.hashCode(), fireExtras(taskId, title, reminderId, annoying, escalate, step, repeatEvery, repeatCount))

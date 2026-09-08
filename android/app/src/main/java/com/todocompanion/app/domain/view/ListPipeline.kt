@@ -134,8 +134,20 @@ object ListPipeline {
         val filtered = if (keepArchived || archivedListIds.isEmpty()) filteredRaw
             else filteredRaw.filter { it.listId !in archivedListIds }
         val flagRank = cfg.flags.sortedBy { it.sortOrder }.mapIndexed { i, f -> f.id to i }.toMap()
-        val sorted = if ((cfg.view as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT) filtered
-        else TaskViews.sort(filtered, cfg.sort, flagRank)
+        val sorted = when {
+            (cfg.view as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT -> filtered
+            // Wave D — "why-now score" sort: rank the visible tasks by the same explainable Do-Next score
+            // the editor chip shows (base + star + date urgency + dependency boost), highest first.
+            cfg.sort == SortMode.SCORE -> {
+                val byId = all.associateBy { it.id }
+                val boosts = PriorityEngine.dependencyBoosts(deps, byId, cfg.prio)
+                val scoreRank = filtered
+                    .sortedByDescending { PriorityEngine.explain(it, now, byId, cfg.prio, boosts[it.id] ?: 0.0).total }
+                    .mapIndexed { i, t -> t.id to i }.toMap()
+                TaskViews.sort(filtered, cfg.sort, flagRank, scoreRank)
+            }
+            else -> TaskViews.sort(filtered, cfg.sort, flagRank)
+        }
         // Manual sort flattens the view into ONE ungrouped list so long-press drag (reorder + nest)
         // works everywhere — folders, lists and smart lists alike — not only when grouping is off.
         val gm = if ((cfg.view as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT || cfg.sort == SortMode.MANUAL) GroupMode.NONE else cfg.group
