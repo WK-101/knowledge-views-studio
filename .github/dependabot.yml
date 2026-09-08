@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # Gradle dependencies (the version catalog + build scripts). Weekly, grouped to keep noise low.
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      androidx:
+        patterns:
+          - "androidx.*"
+          - "com.google.dagger:*"
+      kotlin:
+        patterns:
+          - "org.jetbrains.kotlin*"
+          - "com.google.devtools.ksp*"
+  # Keep the GitHub Actions used by CI current (security fixes to the actions themselves).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
