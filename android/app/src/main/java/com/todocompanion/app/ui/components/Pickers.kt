@@ -104,16 +104,17 @@ fun DateReminderSheet(
     var allDay by remember { mutableStateOf(initialAllDay) }
     var durationMin by remember { mutableStateOf(initialDurationMin) }
     var estimateMin by remember { mutableStateOf(initialEstimateMin) }
-    var showEstimatePicker by remember { mutableStateOf(false) }
     var rrule by remember { mutableStateOf(initialRrule) }
     var reminder by remember { mutableStateOf(initialReminderOffsetMin) }
     var startMillis by remember { mutableStateOf(initialStart) }
     var startHasTime by remember { mutableStateOf(initialStartHasTime) }
     var deadlineMillis by remember { mutableStateOf(initialDeadline) }
-    var showTimePicker by remember { mutableStateOf(false) }
-    var showDuration by remember { mutableStateOf(false) }
+    // The lightweight pickers (time, duration, estimate, reminder offset) expand inline as an accordion
+    // — one open at a time, no dialog stacked over the sheet. The heavier sub-editors (repeat, start,
+    // deadline) still open a focused dialog: a nested calendar/builder is clearer as its own surface.
+    var openSection by remember { mutableStateOf<String?>(null) }
+    fun toggle(section: String) { openSection = if (openSection == section) null else section }
     var showRepeat by remember { mutableStateOf(false) }
-    var showReminder by remember { mutableStateOf(false) }
     var showStartPicker by remember { mutableStateOf(false) }
     var showDeadlinePicker by remember { mutableStateOf(false) }
     val hm = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
@@ -197,12 +198,23 @@ fun DateReminderSheet(
             if (!allDay) {
                 SheetRow(icon = Icons.Filled.Schedule, label = "Time",
                     value = time?.format(hm) ?: "None",
-                    onClear = if (time != null) ({ time = null }) else null,
-                    onClick = { showTimePicker = true })
+                    onClear = if (time != null) ({ time = null; if (openSection == "time") openSection = null }) else null,
+                    onClick = { toggle("time") })
+                if (openSection == "time") {
+                    val ts = rememberTimePickerState(initialHour = time?.hour ?: 9, initialMinute = time?.minute ?: 0)
+                    androidx.compose.foundation.layout.Column(Modifier.padding(start = 34.dp, bottom = 8.dp)) {
+                        TimePicker(state = ts)
+                        androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            TextButton(onClick = { openSection = null }) { Text("Cancel") }
+                            TextButton(onClick = { time = LocalTime.of(ts.hour, ts.minute); allDay = false; openSection = null }) { Text("Set time") }
+                        }
+                    }
+                }
                 SheetRow(icon = Icons.Filled.Schedule, label = "Duration",
                     value = durationMin?.let { fmtDuration(it) } ?: "None",
-                    onClear = if (durationMin != null) ({ durationMin = null }) else null,
-                    onClick = { showDuration = true })
+                    onClear = if (durationMin != null) ({ durationMin = null; if (openSection == "duration") openSection = null }) else null,
+                    onClick = { toggle("duration") })
+                if (openSection == "duration") InlineDurationEditor(durationMin ?: 30) { durationMin = it }
             }
             // R43 — Estimate now lives here, right beside Duration, so effort and block length are chosen
             // together. Duration is the block on the grid; Estimate is how long you think it takes (feeds
@@ -210,8 +222,9 @@ fun DateReminderSheet(
             if (showEstimate) {
                 SheetRow(icon = Icons.Filled.HourglassEmpty, label = "Estimate",
                     value = estimateMin?.let { fmtDuration(it) } ?: "None",
-                    onClear = if (estimateMin != null) ({ estimateMin = null }) else null,
-                    onClick = { showEstimatePicker = true })
+                    onClear = if (estimateMin != null) ({ estimateMin = null; if (openSection == "estimate") openSection = null }) else null,
+                    onClick = { toggle("estimate") })
+                if (openSection == "estimate") InlineDurationEditor(estimateMin ?: 30) { estimateMin = it }
                 if (estimateHint != null) Text(estimateHint, style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 34.dp, bottom = 2.dp))
             }
@@ -238,8 +251,15 @@ fun DateReminderSheet(
             } else {
                 SheetRow(icon = Icons.Filled.Notifications, label = "Reminder",
                     value = reminderLabelOffset(reminder),
-                    onClear = if (reminder != null) ({ reminder = null }) else null,
-                    onClick = { showReminder = true })
+                    onClear = if (reminder != null) ({ reminder = null; if (openSection == "reminder") openSection = null }) else null,
+                    onClick = { toggle("reminder") })
+                if (openSection == "reminder") {
+                    FlowRow(Modifier.padding(start = 34.dp, top = 2.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        (listOf<Pair<Int?, String>>(null to "None") + com.todocompanion.app.domain.reminders.ReminderPresets.OFFSETS.map { m -> m to (if (m == 0) "On time" else com.todocompanion.app.domain.reminders.ReminderPresets.beforeLabel(m)) }).forEach { (off, lbl) ->
+                            FilterChip(selected = reminder == off, onClick = { reminder = off; openSection = null }, label = { Text(lbl) })
+                        }
+                    }
+                }
             }
             // Repeat row (optional).
             SheetRow(icon = Icons.Filled.Repeat, label = "Repeat",
@@ -253,27 +273,11 @@ fun DateReminderSheet(
         }
     }
 
-    if (showTimePicker) {
-        val ts = rememberTimePickerState(initialHour = time?.hour ?: 9, initialMinute = time?.minute ?: 0)
-        Dialog(onDismissRequest = { showTimePicker = false }) {
-            Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) {
-                androidx.compose.foundation.layout.Column(Modifier.padding(16.dp)) {
-                    TimePicker(state = ts)
-                    androidx.compose.foundation.layout.Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
-                        TextButton(onClick = { time = LocalTime.of(ts.hour, ts.minute); allDay = false; showTimePicker = false }) { Text("OK") }
-                    }
-                }
-            }
-        }
-    }
-    if (showReminder) PickListDialog("Reminder", listOf<Pair<Int?, String>>(null to "None") + com.todocompanion.app.domain.reminders.ReminderPresets.OFFSETS.map { m -> m to (if (m == 0) "On time" else com.todocompanion.app.domain.reminders.ReminderPresets.beforeLabel(m)) }, onDismiss = { showReminder = false }) { reminder = it; showReminder = false }
-    // Expert recurrence — the full builder (interval, weekdays, monthly nth-weekday, from-completion,
-    // end after N / until a date), producing the app's own rich rrule the engine actually understands
-    // (the previous basic RRULE strings weren't parsed by the recurrence engine) — R21.
+    // Time, duration, estimate and the reminder offset now expand inline in the sheet above (P2) — no
+    // dialog stacked over the sheet for the common flow. Only the heavier sub-editors remain focused
+    // dialogs: the recurrence builder and the Start/Deadline date panels, where a nested calendar or a
+    // dense builder reads more clearly as its own surface than crammed inline.
     if (showRepeat) RepeatDialog(rrule, repeatHasChildren, onDismiss = { showRepeat = false }) { rrule = it; showRepeat = false }
-    if (showDuration) DurationPickerDialog(durationMin ?: 30, onDismiss = { showDuration = false }) { durationMin = it.takeIf { m -> m > 0 }; showDuration = false }
-    if (showEstimatePicker) DurationPickerDialog(estimateMin ?: 30, onDismiss = { showEstimatePicker = false }) { estimateMin = it.takeIf { m -> m > 0 }; showEstimatePicker = false }
     if (showStartPicker) DateTimeOptionalDialog(startMillis, startHasTime, onDismiss = { showStartPicker = false }, title = "Starts") { m, ht -> startMillis = m; startHasTime = ht; showStartPicker = false }
     if (showDeadlinePicker) {
         val dlTimed = deadlineMillis?.let { Instant.ofEpochMilli(it).atZone(zone).let { z -> z.hour != 0 || z.minute != 0 } } ?: false
@@ -387,6 +391,28 @@ private fun repeatLabel(rrule: String?): String = when {
     else -> "Custom"
 }
 
+/** Inline hours/minutes steppers + preset chips for the sheet's Duration & Estimate rows (P2 — expands
+ *  in place, no dialog stacked over the sheet). Applies live: every change reports the new total, or
+ *  null when it lands on zero. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun InlineDurationEditor(initialMin: Int, onChange: (Int?) -> Unit) {
+    var hours by remember { mutableStateOf((initialMin / 60).coerceIn(0, 99)) }
+    var mins by remember { mutableStateOf((initialMin % 60).coerceIn(0, 59)) }
+    fun report() { onChange((hours * 60 + mins).takeIf { it > 0 }) }
+    androidx.compose.foundation.layout.Column(Modifier.padding(start = 34.dp, top = 2.dp, bottom = 8.dp)) {
+        Stepper(hours, { hours = it.coerceIn(0, 99); report() }, min = 0, max = 99, step = 1, label = "Hours", editable = true)
+        Spacer(Modifier.height(6.dp))
+        Stepper(mins, { mins = it.coerceIn(0, 59); report() }, min = 0, max = 59, step = 5, label = "Minutes", editable = true)   // ± nudges by 5; type any minute
+        Spacer(Modifier.height(8.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(15, 30, 45, 60, 90, 120, 180, 240).forEach { m ->
+                FilterChip(selected = hours * 60 + mins == m, onClick = { hours = m / 60; mins = m % 60; report() }, label = { Text(fmtDuration(m)) })
+            }
+        }
+    }
+}
+
 @Composable
 private fun SheetRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String, onClear: (() -> Unit)?, onClick: () -> Unit) {
     androidx.compose.foundation.layout.Row(
@@ -399,23 +425,6 @@ private fun SheetRow(icon: androidx.compose.ui.graphics.vector.ImageVector, labe
         Text(value, style = MaterialTheme.typography.bodyMedium, color = if (value == "None") MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary)
         if (onClear != null) androidx.compose.material3.IconButton(onClick = onClear, modifier = Modifier.size(28.dp)) { androidx.compose.material3.Icon(Icons.Filled.Close, "Clear", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
-}
-
-@Composable
-private fun <T> PickListDialog(title: String, options: List<Pair<T, String>>, onDismiss: () -> Unit, onPick: (T) -> Unit) {
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text(title) },
-        text = {
-            androidx.compose.foundation.layout.Column {
-                options.forEach { (v, l) ->
-                    Text(l, Modifier.fillMaxWidth().clickable { onPick(v) }.padding(vertical = 12.dp), style = MaterialTheme.typography.bodyLarge)
-                }
-            }
-        },
-    )
 }
 
 /** A themed Material 3 time picker in a dialog, returning the chosen minute-of-day. Used wherever the app

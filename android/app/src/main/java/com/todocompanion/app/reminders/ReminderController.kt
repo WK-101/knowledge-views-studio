@@ -94,4 +94,23 @@ class ReminderController(
         repo.deleteReminder(reminder.id)
         AlarmScheduler.cancel(context, reminder, task)
     }
+
+    /**
+     * Re-arm every alarm-backed reminder on [task] against its CURRENT dates. A relative reminder
+     * (relativeToDue / relativeToStart / relativeToDeadline / dueDayAt / whenOverdue / random) stores an
+     * offset and computes its fire time from the task's dates at arm time — so when a date edit is saved
+     * the alarm still points at the OLD moment until it's re-armed. AppRepository.saveTask never touches
+     * alarms, so this is called from the ViewModel right after any save that moved a date (P2 fix).
+     *
+     * Cancel-then-schedule per reminder: cancel clears the stale alarm; schedule re-arms it only when the
+     * new fire time is valid and in the future (and skips completed / trashed / abandoned tasks), so a
+     * date pushed into the past correctly leaves nothing armed. Absolute reminders keep their fixed atTime
+     * (re-arming is a harmless no-op), which is the right behaviour for a manual edit.
+     */
+    suspend fun rescheduleForTask(task: TaskEntity) {
+        repo.allRemindersOnce().filter { it.taskId == task.id }.forEach { r ->
+            AlarmScheduler.cancel(context, r, task)
+            AlarmScheduler.schedule(context, r, task)
+        }
+    }
 }
