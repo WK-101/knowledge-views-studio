@@ -982,7 +982,8 @@ fun AppRoot(
         }
 
         editing?.let { id -> TaskDetailScreen(vm, id, onBack = { editing = null },
-            onJustStart = { tid -> vm.pendingFocusTaskId.value = tid; editing = null; tab = Tab.FOCUS }) }
+            onJustStart = { tid -> vm.pendingFocusTaskId.value = tid; editing = null; tab = Tab.FOCUS },
+            onOpenTask = { tid -> editing = tid }) }
 
         // Habit analytics + editor: full-screen overlays (like the task editor) so each shows a single
         // top bar and Back returns to the Habits list, never the inbox.

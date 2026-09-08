@@ -149,6 +149,7 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
     var deadlineMillis by remember { mutableStateOf<Long?>(null) }
 
     var showDue by remember { mutableStateOf(false) }
+    var showPrio by remember { mutableStateOf(false) }
     var listPicker by remember { mutableStateOf(false) }
     var tagMenu by remember { mutableStateOf(false) }
     var ctxMenu by remember { mutableStateOf(false) }
@@ -282,16 +283,10 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
         Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
                 IconTool(Icons.Filled.CalendarMonth, "Date, time, repeat & reminder", due != null || rrule != null) { showDue = true }
-                // Tap to cycle priority (High → Medium → Low → None) — no popup over Send.
+                // Opens the SAME PrioritySheet used by the row checkboxes and the editor (P4) — one
+                // picker everywhere, instead of a blind cycle you had to tap through.
                 IconTool(Icons.Filled.Flag, "Priority", priority != null && priority != PriorityLevel.NONE,
-                    tint = priority?.takeIf { it != PriorityLevel.NONE }?.let { priorityColor(it) }) {
-                    priority = when (priority) {
-                        null, PriorityLevel.NONE -> PriorityLevel.HIGH
-                        PriorityLevel.HIGH -> PriorityLevel.MEDIUM
-                        PriorityLevel.MEDIUM -> PriorityLevel.LOW
-                        PriorityLevel.LOW -> PriorityLevel.NONE
-                    }
-                }
+                    tint = priority?.takeIf { it != PriorityLevel.NONE }?.let { priorityColor(it) }) { showPrio = true }
                 Box {
                     IconTool(Icons.Filled.Label, "Tags", tagIds.isNotEmpty()) { tagMenu = true }
                     DropdownMenu(expanded = tagMenu, onDismissRequest = { tagMenu = false }) {
@@ -373,6 +368,11 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
             showDeadline = true, initialDeadline = deadlineMillis,
         )
     }
+    if (showPrio) com.todocompanion.app.ui.components.PrioritySheet(
+        current = priority ?: PriorityLevel.NONE,
+        onPick = { priority = it; showPrio = false },
+        onDismiss = { showPrio = false },
+    )
     if (listPicker) MoveTargetDialog(
         folders = folders, lists = lists.filter { !it.archived },
         pinnedRefs = settings.pinnedRefs, onPinToggle = { vm.togglePinnedRef(it) },

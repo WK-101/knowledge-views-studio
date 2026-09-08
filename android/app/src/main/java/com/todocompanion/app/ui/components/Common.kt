@@ -157,11 +157,22 @@ fun PriorityCheckbox(checked: Boolean, level: PriorityLevel, onCheckedChange: ()
     }
 }
 
-/** Bottom-sheet priority picker — full-width rows with a coloured flag, a label, and a tick on the
- *  current level. Slides over the FAB, so it never overlaps the add button. */
+/** Bottom-sheet priority picker — the ONE priority chooser used everywhere (row checkbox long-press,
+ *  quick-add, task editor): full-width rows with a coloured flag, a label, and a tick on the current
+ *  level. Slides over the FAB, so it never overlaps the add button. When [onSetDials] is supplied it
+ *  also offers an opt-in "Advanced" expander with the raw importance × urgency dials (P4) — so the
+ *  Eisenhower power feature lives inside the one picker instead of a separate always-on editor block. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun PrioritySheet(current: PriorityLevel, onPick: (PriorityLevel) -> Unit, onDismiss: () -> Unit) {
+fun PrioritySheet(
+    current: PriorityLevel,
+    onPick: (PriorityLevel) -> Unit,
+    onDismiss: () -> Unit,
+    importance: Int = 3,
+    urgency: Int = 3,
+    onSetDials: ((Int, Int) -> Unit)? = null,
+    dialsInitiallyOpen: Boolean = false,
+) {
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             Text("Set priority", Modifier.padding(start = 20.dp, top = 4.dp, bottom = 8.dp),
@@ -178,6 +189,21 @@ fun PrioritySheet(current: PriorityLevel, onPick: (PriorityLevel) -> Unit, onDis
                     Text(lvl.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface)
                     if (lvl == current) Icon(Icons.Filled.Check, "Selected", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                }
+            }
+            if (onSetDials != null) {
+                var adv by remember { mutableStateOf(dialsInitiallyOpen) }
+                var imp by remember { mutableStateOf(importance) }
+                var urg by remember { mutableStateOf(urgency) }
+                androidx.compose.material3.HorizontalDivider(Modifier.padding(horizontal = 20.dp, vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                Row(Modifier.fillMaxWidth().clickable { adv = !adv }.padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Advanced — importance × urgency", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if (adv) "▾" else "▸", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (adv) Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+                    Stepper(imp, { imp = it.coerceIn(1, 5); onSetDials(imp, urg) }, min = 1, max = 5, label = "Importance")
+                    Spacer(Modifier.size(6.dp))
+                    Stepper(urg, { urg = it.coerceIn(1, 5); onSetDials(imp, urg) }, min = 1, max = 5, label = "Urgency")
                 }
             }
         }

@@ -140,12 +140,11 @@ import com.todocompanion.app.ui.components.ToggleRow
 import com.todocompanion.app.ui.components.DateTimePickerDialog
 import com.todocompanion.app.ui.components.formatDue
 import com.todocompanion.app.ui.components.formatDueSpan
-import kotlin.math.roundToInt
 import com.todocompanion.app.ui.components.appCardColor
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJustStart: ((String) -> Unit)? = null) {
+fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJustStart: ((String) -> Unit)? = null, onOpenTask: ((String) -> Unit)? = null) {
     val loaded by vm.observeTask(taskId).collectAsState(initial = null)
     var draft by remember(taskId) { mutableStateOf<TaskEntity?>(null) }
     if (draft == null && loaded != null) draft = loaded
@@ -173,8 +172,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     var newTag by remember { mutableStateOf("") }
     var newContext by remember { mutableStateOf("") }
     var newCheck by remember { mutableStateOf("") }
+    var newSub by remember { mutableStateOf("") }
     var listMenu by remember { mutableStateOf(false) }
-    var prioMenu by remember { mutableStateOf(false) }
+    var prioSheet by remember { mutableStateOf(false) }
     var flagMenu by remember { mutableStateOf(false) }
     var showScore by remember { mutableStateOf(false) }
     var showBlockPicker by remember { mutableStateOf(false) }
@@ -355,6 +355,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 com.todocompanion.app.domain.EditorField.LIST -> true
                 com.todocompanion.app.domain.EditorField.REPEAT -> !task.rrule.isNullOrBlank()
                 com.todocompanion.app.domain.EditorField.CHECKLIST -> myCheck.isNotEmpty()
+                com.todocompanion.app.domain.EditorField.SUBTASKS -> hasChildren
                 com.todocompanion.app.domain.EditorField.ENERGY -> task.energy != null
                 com.todocompanion.app.domain.EditorField.FLAG -> task.flagId != null
                 com.todocompanion.app.domain.EditorField.ATTACHMENTS -> attachments.isNotEmpty()
@@ -515,36 +516,24 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                         }
                     }
 
-                    // ---------- Priority ----------
+                    // ---------- Priority (opens the one shared PrioritySheet; dials live inside it) ----------
                     com.todocompanion.app.domain.EditorField.PRIORITY -> {
-                        Box {
-                            Row(
-                                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { prioMenu = true }
-                                    .padding(start = 6.dp, end = 4.dp, top = 11.dp, bottom = 11.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(Icons.Filled.Flag, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-                                Spacer(Modifier.width(14.dp))
-                                Text("Priority", style = MaterialTheme.typography.bodyMedium)
-                                if (settings.priorityComputed) {
-                                    IconButton(onClick = { showScore = true }, modifier = Modifier.size(20.dp).offset(y = (-5).dp)) {
-                                        Icon(Icons.Outlined.Info, "Why this priority?", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-                                    }
-                                }
-                                Spacer(Modifier.weight(1f))
-                                Text(level.label, style = MaterialTheme.typography.bodyMedium, color = priorityColor(level), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp))
-                                Spacer(Modifier.width(4.dp)); Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
-                            }
-                            DropdownMenu(expanded = prioMenu, onDismissRequest = { prioMenu = false }) {
-                                PriorityLevel.entries.forEach { lvl ->
-                                    DropdownMenuItem(text = { Text(lvl.label) }, leadingIcon = { Icon(Icons.Filled.Flag, null, tint = priorityColor(lvl), modifier = Modifier.size(18.dp)) },
-                                        onClick = { update { it.copy(importance = lvl.importance, urgency = lvl.urgency) }; prioMenu = false })
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { prioSheet = true }
+                                .padding(start = 6.dp, end = 4.dp, top = 11.dp, bottom = 11.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Filled.Flag, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(14.dp))
+                            Text("Priority", style = MaterialTheme.typography.bodyMedium)
+                            if (settings.priorityComputed) {
+                                IconButton(onClick = { showScore = true }, modifier = Modifier.size(20.dp).offset(y = (-5).dp)) {
+                                    Icon(Icons.Outlined.Info, "Why this priority?", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
                                 }
                             }
-                        }
-                        if (settings.advancedPriority) {
-                            Dial("Importance", task.importance) { v -> update { it.copy(importance = v) } }
-                            Dial("Urgency", task.urgency) { v -> update { it.copy(urgency = v) } }
+                            Spacer(Modifier.weight(1f))
+                            Text(level.label, style = MaterialTheme.typography.bodyMedium, color = priorityColor(level), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp))
+                            Spacer(Modifier.width(4.dp)); Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
                         }
                     }
 
@@ -633,6 +622,25 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     )
                 }
             }
+
+                    com.todocompanion.app.domain.EditorField.SUBTASKS -> {
+                        val children = allTasks.filter { it.parentId == task.id && !it.trashed }.sortedBy { it.sortOrder }
+                        DetailSection("Subtasks", if (children.isEmpty()) null else "${children.count { it.completed }}/${children.size}", true) {
+                            Text("Real nested tasks — each has its own priority, date and detail, and counts toward this task's progress. (For a quick list of steps, use the Checklist above.)",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+                            children.forEach { child ->
+                                val cl = PriorityLevel.from(child.importance, child.urgency)
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    com.todocompanion.app.ui.components.PriorityCheckbox(child.completed, cl, onCheckedChange = { vm.toggleComplete(child) }, onSetLevel = { lvl -> vm.setPriority(child, lvl) })
+                                    Text(child.title, Modifier.weight(1f).clickable { onOpenTask?.invoke(child.id) },
+                                        color = if (child.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    if (onOpenTask != null) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Open subtask", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                            AddInline(newSub, { newSub = it }, "Add subtask") { if (it.isNotBlank()) { vm.addSubtask(task, it.trim()); newSub = "" } }
+                        }
+                    }
 
                     com.todocompanion.app.domain.EditorField.ATTACHMENTS ->
                      DetailSection("Attachments", if (attachments.isEmpty()) null else "${attachments.size}", true) {
@@ -944,6 +952,16 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             estimateHint = vm.estimateBias.collectAsState().value?.sentence(),
         )
     }
+    if (prioSheet && task != null) com.todocompanion.app.ui.components.PrioritySheet(
+        current = PriorityLevel.from(task.importance, task.urgency),
+        onPick = { lvl -> update { it.copy(importance = lvl.importance, urgency = lvl.urgency) }; prioSheet = false },
+        onDismiss = { prioSheet = false },
+        importance = task.importance, urgency = task.urgency,
+        // The Eisenhower dials now live inside the one shared picker (opt-in), gated by the setting
+        // that used to render them as a separate always-on block in the editor body.
+        onSetDials = { imp, urg -> update { it.copy(importance = imp, urgency = urg) } },
+        dialsInitiallyOpen = settings.advancedPriority,
+    )
     if (listMenu && task != null) MoveTargetDialog(
         folders = folders, lists = lists.filter { !it.archived },
         pinnedRefs = settings.pinnedRefs, onPinToggle = { vm.togglePinnedRef(it) },
@@ -1366,13 +1384,6 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
     ToggleRow(title = label, checked = checked, onCheckedChange = onChange)
 }
 
-@Composable
-private fun Dial(name: String, value: Int, onChange: (Int) -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text("$name: $value", Modifier.width(130.dp), style = MaterialTheme.typography.bodyMedium)
-        ModernSlider(value.toFloat(), 1f..5f, 3, { onChange(it.roundToInt().coerceIn(1, 5)) }, null, Modifier.weight(1f))
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

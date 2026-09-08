@@ -1088,6 +1088,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** P4 — add a real nested subtask (a full child task) under [parent], inheriting its list/folder. */
+    fun addSubtask(parent: TaskEntity, title: String) = viewModelScope.launch {
+        if (title.isBlank()) return@launch
+        repo.createTask(parent.listId, title.trim(), parentId = parent.id, folderId = parent.folderId)
+    }
+
     // ---------- checklist ----------
     fun checklistFor(taskId: String) = checklist.value.filter { it.taskId == taskId }.sortedBy { it.sortOrder }
     fun addChecklistItem(taskId: String, text: String) = viewModelScope.launch { repo.addChecklistItem(taskId, text) }

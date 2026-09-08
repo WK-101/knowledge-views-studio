@@ -982,7 +982,10 @@ enum class EditorField(val id: String, val label: String, val defaultTier: Int) 
     TIMETRACKING("timetracking", "Time tracking", AppSettings.TIER_ALWAYS),
     PRIORITY("priority", "Priority", AppSettings.TIER_ALWAYS),
     LIST("list", "List / folder", AppSettings.TIER_ALWAYS),
-    CHECKLIST("checklist", "Checklist / subtasks", AppSettings.TIER_ALWAYS),
+    CHECKLIST("checklist", "Checklist", AppSettings.TIER_ALWAYS),
+    // Real nested subtasks (child tasks with their own priority/date), distinct from the lightweight
+    // Checklist above. Auto-shows once the task has children; otherwise revealable under "More".
+    SUBTASKS("subtasks", "Subtasks (nested tasks)", AppSettings.TIER_MORE),
     // Optional fields — revealed under "More fields" by default; a filled one always shows.
     TAGS("tags", "Tags & contexts", AppSettings.TIER_MORE),
     FLAG("flag", "Flag", AppSettings.TIER_MORE),
