@@ -284,6 +284,15 @@ fun CalendarScreen(
     var plannerOpen by remember { mutableStateOf(false) }
     var plannerTab by remember { mutableIntStateOf(0) }
     val openEvent: (String) -> Unit = { id -> eventEditing = eventsAll.firstOrNull { e -> e.id == id }; if (eventEditing != null) eventEditorOpen = true }
+    // Phase 2 P4 — long-press-drag on the timeline draws a span; drop it into a new event pre-filled to
+    // exactly that start→end (TickTick's fluid create), reusing the same editor seed path as "New event".
+    val openRange: (LocalDate, Int, Int) -> Unit = { d, startMin, endMin ->
+        val base = d.atStartOfDay(zone).toInstant().toEpochMilli()
+        eventEditing = null
+        eventSeedStart = base + startMin * 60000L
+        eventSeedEnd = base + endMin.coerceAtMost(1440) * 60000L
+        eventEditorOpen = true
+    }
     // R45 — import/export via SystemPicker (classic Activity startActivityForResult). See SystemPickers.kt.
 
     val firstDow = if (s.weekStart in 1..7) DayOfWeek.of(s.weekStart) else WeekFields.of(Locale.getDefault()).firstDayOfWeek
@@ -513,10 +522,10 @@ fun CalendarScreen(
                 })
             "week" -> {
                 val start = startOfWeek(anchor, firstDow)
-                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone)
+                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone, onDrawRange = openRange)
             }
             "weekly" -> WeeklyView(startOfWeek(anchor, firstDow), dueByDate, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate)
-            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone)
+            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone, onDrawRange = openRange)
             "day" -> Column(Modifier.fillMaxSize()) {
                 // Phase 2 P1 — the DayTicker rides above the single-day timeline; tap a date to hop days.
                 DayTicker(anchor, dueByDate, eventOccForDay, habitBlocksFor, { colorOf(it.event, eventCalById) }) { d -> onAnchor(d); onSelected(d) }
@@ -569,7 +578,7 @@ fun CalendarScreen(
                         }
                     }
                 }
-                TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone)
+                TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone, onDrawRange = openRange)
             }
             "year" -> YearView(anchor, dueByDate, onPrev = prev, onNext = next, onMonth = { m -> onAnchor(m.atDay(1)); onModeChange("month") }, onDay = { d -> onAnchor(d); onModeChange("day") })
             else -> AgendaView(dueByDate, onOpenTask, swipe)
@@ -1224,7 +1233,7 @@ private fun TimelineView(
     trackedBlocksFor: (LocalDate) -> List<TrackedBlock> = { emptyList() },
     revealUntracked: Boolean = false, onOpenTracked: (String) -> Unit = {},
     eventBlocksFor: (LocalDate) -> List<EventBlock> = { emptyList() }, onOpenEvent: (String) -> Unit = {},
-    secZone: ZoneId? = null,
+    secZone: ZoneId? = null, onDrawRange: (LocalDate, Int, Int) -> Unit = { _, _, _ -> },
 ) {
     val allDayByDay = days.associateWith { d -> dueByDate[d].orEmpty().filter { it.isAllDay || !hasTime(it.dueDate!!, zone) } }
     val hasAllDay = allDayByDay.values.any { it.isNotEmpty() }
@@ -1318,7 +1327,7 @@ private fun TimelineView(
                 DayColumn(d, timed, zone, hourDp, onOpenTask, onAddAt, onResize, onMoveAt = { id, min -> onMoveAt(d, id, min) },
                     // Untimed habits render in the band above the grid (R27 #3); the grid gets only timed ones.
                     habitBlocks = habitBlocksFor(d).filter { !it.untimed }, onOpenHabit = onOpenHabit, trackedBlocks = trackedBlocksFor(d), revealUntracked = revealUntracked, onOpenTracked = onOpenTracked,
-                    eventBlocks = eventBlocksFor(d), onOpenEvent = onOpenEvent, modifier = Modifier.weight(1f))
+                    eventBlocks = eventBlocksFor(d), onOpenEvent = onOpenEvent, onDrawRange = onDrawRange, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -1327,19 +1336,41 @@ private fun TimelineView(
 @Composable
 private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hourDp: Float, onOpenTask: (String) -> Unit, onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, onMoveAt: (String, Int) -> Unit,
     habitBlocks: List<HabitBlock> = emptyList(), onOpenHabit: (String) -> Unit = {}, trackedBlocks: List<TrackedBlock> = emptyList(), revealUntracked: Boolean = false, onOpenTracked: (String) -> Unit = {},
-    eventBlocks: List<EventBlock> = emptyList(), onOpenEvent: (String) -> Unit = {}, modifier: Modifier) {
+    eventBlocks: List<EventBlock> = emptyList(), onOpenEvent: (String) -> Unit = {}, onDrawRange: (LocalDate, Int, Int) -> Unit = { _, _, _ -> }, modifier: Modifier) {
     val placed = remember(timed, zone) { layoutEvents(timed, zone) }
     val dens = LocalDensity.current
     val isToday = day == LocalDate.now()
     val nowMin = if (isToday) java.time.LocalTime.now().let { it.hour * 60 + it.minute } else -1
+    // Phase 2 P4 — long-press-drag on the empty grid draws a time span (a live translucent block); on
+    // release it opens a new event pre-filled to that start→end. A plain tap still creates at the slot.
+    var drawStart by remember(day) { mutableStateOf<Int?>(null) }
+    var drawCur by remember(day) { mutableIntStateOf(0) }
     androidx.compose.foundation.layout.BoxWithConstraints(
-        modifier.height((hourDp * 24).dp).pointerInput(day) {
-            // Tap an empty slot to time-block a task at that half-hour.
-            detectTapGestures { offset ->
-                val minute = ((offset.y / size.height.toFloat()) * 1440f).toInt().coerceIn(0, 1439)
-                onAddAt(day, (minute / 30) * 30)
+        modifier.height((hourDp * 24).dp)
+            .pointerInput(day) {
+                // Tap an empty slot to time-block a task at that half-hour.
+                detectTapGestures { offset ->
+                    val minute = ((offset.y / size.height.toFloat()) * 1440f).toInt().coerceIn(0, 1439)
+                    onAddAt(day, (minute / 30) * 30)
+                }
             }
-        },
+            .pointerInput(day) {
+                // Long-press then drag on the empty grid to draw a span → a new event of that length.
+                fun minAt(y: Float) = ((y / size.height.toFloat()) * 1440f).toInt().coerceIn(0, 1440)
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { off -> val m = (minAt(off.y) / 15) * 15; drawStart = m; drawCur = (m + 30).coerceAtMost(1440) },
+                    onDrag = { change, _ -> change.consume(); drawCur = (minAt(change.position.y) / 15) * 15 },
+                    onDragEnd = {
+                        val st = drawStart
+                        if (st != null) {
+                            val a = minOf(st, drawCur); val b = maxOf(st, drawCur)
+                            onDrawRange(day, a, (if (b - a < 15) a + 30 else b).coerceAtMost(1440))
+                        }
+                        drawStart = null
+                    },
+                    onDragCancel = { drawStart = null },
+                )
+            },
     ) {
         val colW = maxWidth
         // Round 14 — the "actual" spine: a thin read-only rail on the far left showing tracked time.
@@ -1363,6 +1394,15 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
         }
         // Right divider between day columns
         Box(Modifier.fillMaxHeight().width(1.dp).offset(x = colW - 1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = .35f)))
+        // Phase 2 P4 — the live "drawing" span while a long-press-drag is in flight, with a time-range label.
+        drawStart?.let { st ->
+            val a = minOf(st, drawCur); val b = maxOf(st, drawCur).coerceAtLeast(a + 15)
+            Box(Modifier.offset(x = railW, y = (hourDp * a / 60f).dp).width(taskAreaW).height((hourDp * (b - a) / 60f).dp)
+                .clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = .22f))
+                .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(6.dp))) {
+                Text("${minLabel(a)} – ${minLabel(b)}", Modifier.padding(4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            }
+        }
         // Events
         val hourPx = with(dens) { hourDp.dp.toPx() }
         placed.forEach { p ->
