@@ -63,7 +63,7 @@ class EbookExportManager @Inject constructor(
         return file
     }
 
-    private fun chapterFor(e: ItemEntity): EpubExporter.Chapter =
+    private suspend fun chapterFor(e: ItemEntity): EpubExporter.Chapter =
         EpubExporter.Chapter(
             title = e.title,
             author = e.author,

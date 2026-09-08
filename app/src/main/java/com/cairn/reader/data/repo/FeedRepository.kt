@@ -21,7 +21,9 @@ import com.cairn.reader.data.net.HttpFetcher
 import com.cairn.reader.util.AppLog
 import com.cairn.reader.util.coRunCatching
 import com.cairn.reader.util.orLog
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import kotlin.coroutines.coroutineContext
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
@@ -283,7 +285,10 @@ class FeedRepository @Inject constructor(
 
     /** Sync every feed. Returns the new items from notify-enabled feeds, so a background
      *  sync can raise notifications; foreground callers can ignore the result. */
-    suspend fun syncAll(): List<com.cairn.reader.notifications.NewArticle> {
+    // Runs on Default so the per-feed XML parse + per-item Jsoup.parse never execute on the caller's
+    // thread. WorkManager's CoroutineWorker is already off-main, but "Sync now" / pull-to-refresh are
+    // launched from viewModelScope (Main); this keeps their heavy parsing off the UI thread too.
+    suspend fun syncAll(): List<com.cairn.reader.notifications.NewArticle> = withContext(Dispatchers.Default) {
         val now = System.currentTimeMillis()
         val prefs = coRunCatching { preferencesRepository.preferences.first() }.getOrNull()
         val limit = prefs?.maxItemsPerFeed ?: 0
@@ -303,7 +308,7 @@ class FeedRepository @Inject constructor(
         if (maxAgeDays > 0) coRunCatching { pruneOlderThan(now - maxAgeDays * 86_400_000L, keepUnread) }
         // Empty out anything that has sat in the Trash past the grace period.
         coRunCatching { purgeExpiredTrash() }
-        return fresh
+        fresh
     }
 
     /** Enforce the per-feed retention cap: drop the oldest items the user never engaged with,
@@ -880,7 +885,7 @@ class FeedRepository @Inject constructor(
     }
 
     /** Render a PDF's first page to a small cover image so it has a real thumbnail in lists. */
-    private fun renderPdfThumbnail(itemId: String, pdfPath: String): String? = coRunCatching {
+    private suspend fun renderPdfThumbnail(itemId: String, pdfPath: String): String? = coRunCatching {
         android.os.ParcelFileDescriptor.open(java.io.File(pdfPath), android.os.ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
             android.graphics.pdf.PdfRenderer(fd).use { renderer ->
                 if (renderer.pageCount == 0) return null

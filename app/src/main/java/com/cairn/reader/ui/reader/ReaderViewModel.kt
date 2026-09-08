@@ -33,7 +33,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import com.cairn.reader.data.db.CacheStatus
 import com.cairn.reader.data.db.ExtractStatus
@@ -370,7 +372,12 @@ class ReaderViewModel @Inject constructor(
         } else {
             val data = _state.value.data ?: return
             audioPlayer.stop() // one thing plays at a time
-            ttsReader.startQueue(listOf(TtsReader.Track(data.title, buildSpeechChunks(data))))
+            // Parsing the whole article (Jsoup + sentence break) is CPU-heavy — do it off the main
+            // thread, then start the TTS queue back on Main (viewModelScope's default dispatcher).
+            viewModelScope.launch {
+                val chunks = withContext(Dispatchers.Default) { buildSpeechChunks(data) }
+                ttsReader.startQueue(listOf(TtsReader.Track(data.title, chunks)))
+            }
         }
     }
 
