@@ -1,6 +1,7 @@
 package com.cairn.reader.domain.feed
 
 import com.cairn.reader.data.net.HttpFetcher
+import com.cairn.reader.util.coRunCatching
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.jsoup.Jsoup
 import javax.inject.Inject
@@ -47,7 +48,7 @@ class FeedDiscovery @Inject constructor(
         }
 
         // 2. The URL itself — is it already a feed, or an HTML page that declares one?
-        val fetched = runCatching { fetcher.fetch(url) }
+        val fetched = coRunCatching { fetcher.fetch(url) }
         val response = fetched.getOrNull()
             ?: return Discovery.NotFound("Couldn't reach ${hostOf(url)} — check the address or your connection.")
 
@@ -83,14 +84,14 @@ class FeedDiscovery @Inject constructor(
     }
 
     private suspend fun tryFeed(candidate: String): DiscoveryResult? {
-        val res = runCatching { fetcher.fetch(candidate) }.getOrNull() ?: return null
+        val res = coRunCatching { fetcher.fetch(candidate) }.getOrNull() ?: return null
         val body = res.body ?: return null
         // Require items so an empty/placeholder parse of a guessed path isn't mistaken for a feed.
         val feed = parser.parse(body, res.finalUrl)?.takeIf { it.items.isNotEmpty() } ?: return null
         return DiscoveryResult(res.finalUrl, feed)
     }
 
-    private fun htmlFeedLinks(html: String, baseUrl: String): List<String> = runCatching {
+    private fun htmlFeedLinks(html: String, baseUrl: String): List<String> = coRunCatching {
         val doc = Jsoup.parse(html, baseUrl)
         // <link rel="alternate"|"feed" …>, matched by a feed-ish type OR a feed-ish href,
         // so pages that omit the type attribute are still discovered. <a> tags too.
@@ -119,10 +120,11 @@ class FeedDiscovery @Inject constructor(
         val host = http.host.removePrefix("www.")
         val segments = http.pathSegments.filter { it.isNotBlank() }
         return when {
+            // Guard the id segment: "youtube.com/channel" with no id must not crash add-feed.
             host.endsWith("youtube.com") && segments.getOrNull(0) == "channel" ->
-                "https://www.youtube.com/feeds/videos.xml?channel_id=${segments[1]}"
+                segments.getOrNull(1)?.takeIf { it.isNotBlank() }?.let { "https://www.youtube.com/feeds/videos.xml?channel_id=$it" }
             host.endsWith("reddit.com") && segments.getOrNull(0) in setOf("r", "user") ->
-                "https://www.reddit.com/${segments[0]}/${segments.getOrNull(1)}/.rss"
+                segments.getOrNull(1)?.takeIf { it.isNotBlank() }?.let { sub -> "https://www.reddit.com/${segments[0]}/$sub/.rss" }
             host == "github.com" && segments.size >= 2 ->
                 "https://github.com/${segments[0]}/${segments[1]}/releases.atom"
             host == "github.com" && segments.size == 1 ->

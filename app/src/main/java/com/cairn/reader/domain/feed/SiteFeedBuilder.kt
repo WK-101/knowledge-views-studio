@@ -1,6 +1,7 @@
 package com.cairn.reader.domain.feed
 
 import com.cairn.reader.data.net.HttpFetcher
+import com.cairn.reader.util.coRunCatching
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.json.JSONArray
 import org.json.JSONObject
@@ -47,9 +48,9 @@ class SiteFeedBuilder @Inject constructor(
         val http = pageUrl.toHttpUrlOrNull() ?: return null
         val origin = "${http.scheme}://${http.host}"
         val host = http.host.removePrefix("www.")
-        val body = runCatching { fetcher.fetch(pageUrl) }.getOrNull()?.let { it.body ?: return null } ?: return null
-        val doc = runCatching { Jsoup.parse(body, pageUrl) }.getOrNull() ?: return null
-        val els = runCatching { doc.select(selector) }.getOrNull() ?: return null
+        val body = coRunCatching { fetcher.fetch(pageUrl) }.getOrNull()?.let { it.body ?: return null } ?: return null
+        val doc = coRunCatching { Jsoup.parse(body, pageUrl) }.getOrNull() ?: return null
+        val els = coRunCatching { doc.select(selector) }.getOrNull() ?: return null
         val seen = HashSet<String>()
         val items = els.mapNotNull { el ->
             val a = if (el.tagName() == "a" && el.hasAttr("href")) el else el.selectFirst("a[href]")
@@ -72,8 +73,8 @@ class SiteFeedBuilder @Inject constructor(
         val http = input.toHttpUrlOrNull() ?: return null
         val origin = "${http.scheme}://${http.host}"
         val host = http.host.removePrefix("www.")
-        val body = runCatching { fetcher.fetch(input) }.getOrNull()?.let { it.body ?: return null } ?: return null
-        val doc = runCatching { Jsoup.parse(body, input) }.getOrNull() ?: return null
+        val body = coRunCatching { fetcher.fetch(input) }.getOrNull()?.let { it.body ?: return null } ?: return null
+        val doc = coRunCatching { Jsoup.parse(body, input) }.getOrNull() ?: return null
 
         data class Cand(val url: String, val text: String, val score: Int)
         val seen = HashSet<String>()
@@ -110,8 +111,8 @@ class SiteFeedBuilder @Inject constructor(
     // -- JSON Feed (jsonfeed.org) ---------------------------------------------
     private suspend fun buildFromJsonFeed(origin: String): ParsedFeed? {
         for (path in listOf("/feed.json", "/feed/json", "/index.json", "/json")) {
-            val body = runCatching { fetcher.fetch(origin + path).body }.getOrNull() ?: continue
-            val obj = runCatching { JSONObject(body) }.getOrNull() ?: continue
+            val body = coRunCatching { fetcher.fetch(origin + path).body }.getOrNull() ?: continue
+            val obj = coRunCatching { JSONObject(body) }.getOrNull() ?: continue
             if (!obj.optString("version").contains("jsonfeed", true)) continue
             val arr = obj.optJSONArray("items") ?: continue
             val items = (0 until arr.length()).mapNotNull { i ->
@@ -134,8 +135,8 @@ class SiteFeedBuilder @Inject constructor(
 
     // -- WordPress REST API (JSON even when RSS is hidden) --------------------
     private suspend fun buildFromWordPress(origin: String): ParsedFeed? {
-        val body = runCatching { fetcher.fetch("$origin/wp-json/wp/v2/posts?_embed&per_page=30").body }.getOrNull() ?: return null
-        val arr = runCatching { JSONArray(body) }.getOrNull() ?: return null
+        val body = coRunCatching { fetcher.fetch("$origin/wp-json/wp/v2/posts?_embed&per_page=30").body }.getOrNull() ?: return null
+        val arr = coRunCatching { JSONArray(body) }.getOrNull() ?: return null
         if (arr.length() == 0) return null
         val items = (0 until arr.length()).mapNotNull { i ->
             val p = arr.optJSONObject(i) ?: return@mapNotNull null
@@ -167,8 +168,8 @@ class SiteFeedBuilder @Inject constructor(
         val origin = "${http.scheme}://${http.host}"
         val q = java.net.URLEncoder.encode(query.trim(), "UTF-8")
         val url = "$origin/wp-json/wp/v2/posts?search=$q&per_page=${perPage.coerceIn(1, 100)}&_embed"
-        val body = runCatching { fetcher.fetch(url).body }.getOrNull() ?: return emptyList()
-        val arr = runCatching { JSONArray(body) }.getOrNull() ?: return emptyList()
+        val body = coRunCatching { fetcher.fetch(url).body }.getOrNull() ?: return emptyList()
+        val arr = coRunCatching { JSONArray(body) }.getOrNull() ?: return emptyList()
         return (0 until arr.length()).mapNotNull { i ->
             val p = arr.optJSONObject(i) ?: return@mapNotNull null
             val link = p.optString("link").ifBlank { null } ?: return@mapNotNull null
@@ -187,7 +188,7 @@ class SiteFeedBuilder @Inject constructor(
     }
 
     private fun stripHtml(html: String): String =
-        if (html.isBlank()) "" else runCatching { Jsoup.parse(html).text().trim() }.getOrDefault(html.trim())
+        if (html.isBlank()) "" else coRunCatching { Jsoup.parse(html).text().trim() }.getOrDefault(html.trim())
 
     /** Build a feed from a site's sitemap. Null if none found. */
     private suspend fun buildFromSitemap(input: String): ParsedFeed? {
@@ -198,7 +199,7 @@ class SiteFeedBuilder @Inject constructor(
         val candidates = LinkedHashSet<String>()
         if (input.contains("sitemap", ignoreCase = true) && input.endsWith(".xml")) candidates += input
         // robots.txt often points at the real sitemap(s).
-        runCatching {
+        coRunCatching {
             fetcher.fetch("$origin/robots.txt").body?.lineSequence()?.forEach { line ->
                 val l = line.trim()
                 if (l.startsWith("Sitemap:", ignoreCase = true)) {
@@ -219,7 +220,7 @@ class SiteFeedBuilder @Inject constructor(
         val collected = ArrayList<Pair<String, Long?>>()
         for (sm in candidates) {
             if (collected.size >= 80) break
-            val body = runCatching { fetcher.fetch(sm).body }.getOrNull() ?: continue
+            val body = coRunCatching { fetcher.fetch(sm).body }.getOrNull() ?: continue
             harvest(body, origin, collected, depth = 0)
             if (collected.size >= 15) break // a productive sitemap is enough
         }
@@ -240,7 +241,7 @@ class SiteFeedBuilder @Inject constructor(
 
     /** Parse a sitemap or sitemap-index. Recurses into child sitemaps up to a small depth. */
     private suspend fun harvest(xml: String, origin: String, out: MutableList<Pair<String, Long?>>, depth: Int) {
-        val doc = runCatching { Jsoup.parse(xml, origin, Parser.xmlParser()) }.getOrNull() ?: return
+        val doc = coRunCatching { Jsoup.parse(xml, origin, Parser.xmlParser()) }.getOrNull() ?: return
         val sitemaps = doc.select("sitemapindex > sitemap > loc")
         if (sitemaps.isNotEmpty() && depth < 2) {
             // Prefer post/news child sitemaps, then the rest; cap how many we open.
@@ -248,7 +249,7 @@ class SiteFeedBuilder @Inject constructor(
             val ordered = childUrls.sortedByDescending { u -> if (Regex("(post|news|article|sitemap-pt-post)").containsMatchIn(u.lowercase())) 1 else 0 }
             for (child in ordered.take(3)) {
                 if (out.size >= 80) break
-                val body = runCatching { fetcher.fetch(child).body }.getOrNull() ?: continue
+                val body = coRunCatching { fetcher.fetch(child).body }.getOrNull() ?: continue
                 harvest(body, origin, out, depth + 1)
             }
             return
@@ -297,7 +298,7 @@ class SiteFeedBuilder @Inject constructor(
             "yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd",
         )
         for (p in patterns) {
-            runCatching { return SimpleDateFormat(p, Locale.US).parse(s)?.time }.getOrNull()
+            coRunCatching { return SimpleDateFormat(p, Locale.US).parse(s)?.time }.getOrNull()
         }
         return null
     }

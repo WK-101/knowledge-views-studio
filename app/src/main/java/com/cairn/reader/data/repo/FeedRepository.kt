@@ -19,7 +19,10 @@ import com.cairn.reader.domain.feed.FeedParser
 import com.cairn.reader.domain.feed.ParsedItem
 import com.cairn.reader.data.net.HttpFetcher
 import com.cairn.reader.util.AppLog
+import com.cairn.reader.util.coRunCatching
 import com.cairn.reader.util.orLog
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -100,7 +103,7 @@ class FeedRepository @Inject constructor(
             ?: return Result.failure(IllegalStateException("Enter a website address first."))
         val query = java.net.URLEncoder.encode("site:$host", "UTF-8")
         val gUrl = "https://news.google.com/rss/search?q=$query&hl=en-US&gl=US&ceid=US:en"
-        val res = runCatching { fetcher.fetch(gUrl) }.getOrNull()
+        val res = coRunCatching { fetcher.fetch(gUrl) }.getOrNull()
             ?: return Result.failure(IllegalStateException("Couldn't reach Google News."))
         val feed = res.body?.let { parser.parse(it, res.finalUrl) }
             ?: return Result.failure(IllegalStateException("Google News has no articles for $host yet."))
@@ -122,7 +125,7 @@ class FeedRepository @Inject constructor(
      *  [reason] is the discovery failure to report if even the sitemap yields nothing. */
     suspend fun followViaSitemap(rawUrl: String, reason: String = "No feed found there."): Result<String> {
         val url = normalize(rawUrl) ?: return Result.failure(IllegalStateException("That doesn't look like a valid web address."))
-        val feed = runCatching { siteFeedBuilder.build(url) }.getOrNull()
+        val feed = coRunCatching { siteFeedBuilder.build(url) }.getOrNull()
             ?: return Result.failure(IllegalStateException(reason))
         val now = System.currentTimeMillis()
         val origin = url.toHttpUrlOrNull()?.let { "${it.scheme}://${it.host}" } ?: url
@@ -144,7 +147,7 @@ class FeedRepository @Inject constructor(
      *  chose by tapping a headline on the page. Re-scraped with that selector each sync. */
     suspend fun followViaSelector(rawUrl: String, selector: String): Result<String> {
         val url = normalize(rawUrl) ?: return Result.failure(IllegalStateException("That doesn't look like a valid web address."))
-        val feed = runCatching { siteFeedBuilder.buildWithSelector(url, selector) }.getOrNull()
+        val feed = coRunCatching { siteFeedBuilder.buildWithSelector(url, selector) }.getOrNull()
             ?: return Result.failure(IllegalStateException("That selection didn't match any links."))
         val now = System.currentTimeMillis()
         val origin = url.toHttpUrlOrNull()?.let { "${it.scheme}://${it.host}" } ?: url
@@ -163,7 +166,7 @@ class FeedRepository @Inject constructor(
      *  appears linking to the page. Great for release notes, job boards, or list pages with no feed. */
     suspend fun watchPage(rawUrl: String): Result<String> {
         val url = normalize(rawUrl) ?: return Result.failure(IllegalStateException("That doesn't look like a valid web address."))
-        val res = runCatching { fetcher.fetch(url) }.getOrNull()
+        val res = coRunCatching { fetcher.fetch(url) }.getOrNull()
             ?: return Result.failure(IllegalStateException("Couldn't reach ${hostOf(url)}."))
         val body = res.body ?: return Result.failure(IllegalStateException("That page returned no content."))
         val host = hostOf(url)
@@ -178,7 +181,7 @@ class FeedRepository @Inject constructor(
     }
 
     private fun pageTextHash(html: String): String =
-        runCatching { Jsoup.parse(html).body().text() }.getOrDefault(html).hashCode().toString()
+        coRunCatching { Jsoup.parse(html).body().text() }.getOrDefault(html).hashCode().toString()
 
     private suspend fun insertWatchSnapshot(
         source: SourceEntity,
@@ -207,7 +210,7 @@ class FeedRepository @Inject constructor(
         if (q.isBlank()) return emptyList()
         val url = "https://news.google.com/rss/search?q=" +
             java.net.URLEncoder.encode(q, "UTF-8") + "&hl=en-US&gl=US&ceid=US:en"
-        val res = runCatching { fetcher.fetch(url) }.getOrNull() ?: return emptyList()
+        val res = coRunCatching { fetcher.fetch(url) }.getOrNull() ?: return emptyList()
         val feed = res.body?.let { parser.parse(it, res.finalUrl) } ?: return emptyList()
         return feed.items
     }
@@ -221,9 +224,9 @@ class FeedRepository @Inject constructor(
     suspend fun searchArchive(siteUrl: String, query: String): List<com.cairn.reader.domain.feed.ParsedItem> {
         val q = query.trim()
         if (q.isBlank() || siteUrl.isBlank()) return emptyList()
-        val wp = runCatching { siteFeedBuilder.searchWordPressArchive(siteUrl, q) }.getOrDefault(emptyList())
+        val wp = coRunCatching { siteFeedBuilder.searchWordPressArchive(siteUrl, q) }.getOrDefault(emptyList())
         if (wp.isNotEmpty()) return wp
-        val host = runCatching { java.net.URI(siteUrl).host?.removePrefix("www.") }.getOrNull()
+        val host = coRunCatching { java.net.URI(siteUrl).host?.removePrefix("www.") }.getOrNull()
         return if (host != null) webSearch("$q site:$host") else emptyList()
     }
 
@@ -282,7 +285,7 @@ class FeedRepository @Inject constructor(
      *  sync can raise notifications; foreground callers can ignore the result. */
     suspend fun syncAll(): List<com.cairn.reader.notifications.NewArticle> {
         val now = System.currentTimeMillis()
-        val prefs = runCatching { preferencesRepository.preferences.first() }.getOrNull()
+        val prefs = coRunCatching { preferencesRepository.preferences.first() }.getOrNull()
         val limit = prefs?.maxItemsPerFeed ?: 0
         val maxAgeDays = prefs?.maxAgeDays ?: 0
         val keepUnread = if (prefs?.keepUnread == true) 1 else 0
@@ -290,15 +293,16 @@ class FeedRepository @Inject constructor(
         // WebSub-aware ordering: feeds that declare a real-time hub sync first, so "live" sources
         // are the freshest even though a serverless client can't hold a push callback.
         sourceDao.getAll().sortedByDescending { it.hubUrl != null }.forEach { source ->
-            runCatching { syncSource(source, now, if (source.notify) fresh else null) }
+            coroutineContext.ensureActive()  // honor cancellation between feeds
+            coRunCatching { syncSource(source, now, if (source.notify) fresh else null) }
                 .onFailure { AppLog.w("sync failed for ${source.feedUrl}", it) }
             // Per-feed override wins: null → global cap, 0 → keep everything, N → keep newest N.
             val effLimit = source.maxItems ?: limit
-            if (effLimit > 0) runCatching { pruneSource(source.id, effLimit, keepUnread) }
+            if (effLimit > 0) coRunCatching { pruneSource(source.id, effLimit, keepUnread) }
         }
-        if (maxAgeDays > 0) runCatching { pruneOlderThan(now - maxAgeDays * 86_400_000L, keepUnread) }
+        if (maxAgeDays > 0) coRunCatching { pruneOlderThan(now - maxAgeDays * 86_400_000L, keepUnread) }
         // Empty out anything that has sat in the Trash past the grace period.
-        runCatching { purgeExpiredTrash() }
+        coRunCatching { purgeExpiredTrash() }
         return fresh
     }
 
@@ -387,7 +391,7 @@ class FeedRepository @Inject constructor(
     /** Auto-purge: permanently erase items that have been in the Trash past the grace period.
      *  The window is user-configurable; 0 means "never auto-purge — keep until emptied by hand". */
     suspend fun purgeExpiredTrash() {
-        val days = runCatching { preferencesRepository.preferences.first().trashRetentionDays }.getOrDefault(trashRetentionDays)
+        val days = coRunCatching { preferencesRepository.preferences.first().trashRetentionDays }.getOrDefault(trashRetentionDays)
         if (days <= 0) return
         val cutoff = System.currentTimeMillis() - days * 86_400_000L
         itemDao.trashedOlderThan(cutoff).forEach { deleteItemFully(it) }
@@ -416,7 +420,7 @@ class FeedRepository @Inject constructor(
 
     /** True when the active network is un-metered (Wi-Fi/Ethernet). Defaults to true if unknown,
      *  so an unclear network never silently blocks a save the user asked for. */
-    private fun isUnmetered(): Boolean = runCatching {
+    private fun isUnmetered(): Boolean = coRunCatching {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return true
         val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return true
         caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
@@ -429,7 +433,7 @@ class FeedRepository @Inject constructor(
     ) {
         // Watched pages: fetch, hash the text, and emit an item only when it changed.
         if (source.kind == "WATCH") {
-            val body = runCatching { fetcher.fetch(source.feedUrl).body }
+            val body = coRunCatching { fetcher.fetch(source.feedUrl).body }
                 .orLog("watch fetch ${source.feedUrl}")
             if (body == null) { sourceDao.markError(source.id, null); return }
             val hash = pageTextHash(body)
@@ -439,7 +443,7 @@ class FeedRepository @Inject constructor(
         }
         // Sitemap / scraped / taught feeds are rebuilt from the site each sync (no RSS to poll).
         if (source.kind == "SITEMAP") {
-            val feed = runCatching { siteFeedBuilder.build(source.feedUrl, source.scrapeSelector) }
+            val feed = coRunCatching { siteFeedBuilder.build(source.feedUrl, source.scrapeSelector) }
                 .orLog("sitemap build ${source.feedUrl}")
             if (feed == null) { sourceDao.markError(source.id, null); return }
             feed.items.forEach { insertParsed(source, it, now, newItems) }
@@ -460,7 +464,7 @@ class FeedRepository @Inject constructor(
         feed.items.forEach { insertParsed(source, it, now, newItems) }
         // Learn / refresh the WebSub hub declaration so the feed is marked real-time-aware.
         if (!feed.hubUrl.isNullOrBlank() && feed.hubUrl != source.hubUrl) {
-            runCatching { sourceDao.setHubUrl(source.id, feed.hubUrl) }
+            coRunCatching { sourceDao.setHubUrl(source.id, feed.hubUrl) }
         }
         sourceDao.markSynced(source.id, res.etag, res.lastModified, now)
     }
@@ -483,13 +487,13 @@ class FeedRepository @Inject constructor(
         val rawContent = p.contentHtml ?: p.summary
         // Privacy pass: strip trackers/beacons/campaign params from the stored body (opt-out).
         val content = rawContent?.takeIf { it.isNotBlank() }?.let { html ->
-            if (sanitizeEnabled()) runCatching { sanitizer.sanitize(html, p.link ?: source.siteUrl ?: source.feedUrl).html }.getOrDefault(html) else html
+            if (sanitizeEnabled()) coRunCatching { sanitizer.sanitize(html, p.link ?: source.siteUrl ?: source.feedUrl).html }.getOrDefault(html) else html
         } ?: rawContent
-        val plain = content?.let { runCatching { Jsoup.parse(it).text() }.getOrDefault("") } ?: ""
+        val plain = content?.let { coRunCatching { Jsoup.parse(it).text() }.getOrDefault("") } ?: ""
         val words = plain.split(whitespace).count { it.isNotBlank() }
         val minutes = if (words > 0) max(1, ceil(words / 220.0).toInt()) else 0
         val blobPath = content?.takeIf { it.isNotBlank() }?.let { blobStore.writeArticle(itemId, it) }
-        val excerpt = (p.summary?.let { runCatching { Jsoup.parse(it).text() }.getOrNull() } ?: plain)
+        val excerpt = (p.summary?.let { coRunCatching { Jsoup.parse(it).text() }.getOrNull() } ?: plain)
             .trim().take(300).ifBlank { null }
         val lead = p.imageUrl ?: content?.let { firstImage(it, source.siteUrl ?: source.feedUrl) }
         // Clean the stored/display URL of tracking params, but keep the raw link for the dedup
@@ -520,14 +524,14 @@ class FeedRepository @Inject constructor(
         )
         itemDao.insertItemWithState(entity, now)
         // On-device automation: run the user's rules against each genuinely-new item.
-        if (isNew) runCatching { ruleEngine.apply(entity, source, plain) }
+        if (isNew) coRunCatching { ruleEngine.apply(entity, source, plain) }
         itemDao.indexItem(
             ItemFtsEntity(itemId = itemId, title = p.title ?: "", author = p.author, body = plain.take(20_000)),
         )
         // Per-feed "full text on sync": fetch the whole article for new items so they're
         // complete and offline before they're ever opened. Opt-in, so most feeds stay cheap.
         if (isNew && source.fullTextByDefault) {
-            p.link?.takeIf { it.isNotBlank() }?.let { runCatching { extractInto(itemId, it) } }
+            p.link?.takeIf { it.isNotBlank() }?.let { coRunCatching { extractInto(itemId, it) } }
         }
         // Collect genuinely-new items for notification (only when the caller asked, i.e. a
         // background sync of a notify-enabled feed).
@@ -543,11 +547,11 @@ class FeedRepository @Inject constructor(
 
     /** Whether to strip tracking params, read once (cheap in-memory DataStore lookup). */
     private suspend fun stripTrackingEnabled(): Boolean =
-        runCatching { preferencesRepository.preferences.first().stripTrackingParams }.getOrDefault(true)
+        coRunCatching { preferencesRepository.preferences.first().stripTrackingParams }.getOrDefault(true)
 
     /** Whether to sanitize article bodies (strip trackers/beacons). Privacy-first default: on. */
     private suspend fun sanitizeEnabled(): Boolean =
-        runCatching { preferencesRepository.preferences.first().sanitizeArticles }.getOrDefault(true)
+        coRunCatching { preferencesRepository.preferences.first().sanitizeArticles }.getOrDefault(true)
 
     /** Save an arbitrary URL to the library and extract a clean, offline copy. */
     suspend fun saveUrl(rawUrl: String): Result<String> {
@@ -585,7 +589,7 @@ class FeedRepository @Inject constructor(
         val html = clean.split(Regex("\\n{2,}"))
             .filter { it.isNotBlank() }
             .joinToString("") { "<p>" + it.trim().replace("\n", "<br>") + "</p>" }
-        val blobPath = runCatching { blobStore.writeArticle(itemId, html) }.getOrNull()
+        val blobPath = coRunCatching { blobStore.writeArticle(itemId, html) }.getOrNull()
         val words = clean.split(whitespace).count { it.isNotBlank() }
         itemDao.insertItemWithState(
             ItemEntity(
@@ -616,7 +620,7 @@ class FeedRepository @Inject constructor(
         val now = System.currentTimeMillis()
         val title = displayName.removeSuffix(".pdf").removeSuffix(".PDF").trim().ifBlank { "Imported PDF" }
         val itemId = deterministicId("pdf|$title|$now")
-        val path = runCatching { blobStore.writePdf(itemId, bytes) }.getOrElse {
+        val path = coRunCatching { blobStore.writePdf(itemId, bytes) }.getOrElse {
             return Result.failure(it)
         }
         val thumb = renderPdfThumbnail(itemId, path)
@@ -668,7 +672,7 @@ class FeedRepository @Inject constructor(
             itemDao.setExtractStatus(itemId, "FAILED")
             return false
         }
-        val cleanHtml = if (sanitizeEnabled()) runCatching { sanitizer.sanitize(extracted.contentHtml, rendered.finalUrl).html }.getOrDefault(extracted.contentHtml) else extracted.contentHtml
+        val cleanHtml = if (sanitizeEnabled()) coRunCatching { sanitizer.sanitize(extracted.contentHtml, rendered.finalUrl).html }.getOrDefault(extracted.contentHtml) else extracted.contentHtml
         val blob = blobStore.writeArticle(itemId, cleanHtml)
         extracted.title?.let { itemDao.updateMeta(itemId, it, extracted.byline, hostOf(url)) }
         itemDao.setExtracted(
@@ -691,14 +695,14 @@ class FeedRepository @Inject constructor(
     }
 
     private suspend fun extractInto(itemId: String, url: String) {
-        val res = runCatching { fetcher.fetch(url) }.getOrNull()
+        val res = coRunCatching { fetcher.fetch(url) }.getOrNull()
         val extracted = res?.body?.let { extractor.extract(res.finalUrl, it) }
         if (extracted == null) {
             // Keep whatever content we already have (e.g. the feed body); just record the failure.
             itemDao.setExtractStatus(itemId, "FAILED")
             return
         }
-        val cleanHtml = if (sanitizeEnabled()) runCatching { sanitizer.sanitize(extracted.contentHtml, res.finalUrl).html }.getOrDefault(extracted.contentHtml) else extracted.contentHtml
+        val cleanHtml = if (sanitizeEnabled()) coRunCatching { sanitizer.sanitize(extracted.contentHtml, res.finalUrl).html }.getOrDefault(extracted.contentHtml) else extracted.contentHtml
         val blob = blobStore.writeArticle(itemId, cleanHtml)
         extracted.title?.let { itemDao.updateMeta(itemId, it, extracted.byline, hostOf(url)) }
         itemDao.setExtracted(
@@ -730,7 +734,7 @@ class FeedRepository @Inject constructor(
     suspend fun checkLinks(limit: Int = 40): Int {
         var broken = 0
         itemDao.itemsToLinkCheck(limit).forEach { row ->
-            val status = runCatching {
+            val status = coRunCatching {
                 val res = fetcher.fetch(row.url)
                 if (res.isSuccess) "OK" else "BROKEN"
             }.getOrElse { e ->
@@ -752,9 +756,9 @@ class FeedRepository @Inject constructor(
     suspend fun backfillThumbnails(limit: Int = 120): Int {
         var filled = 0
         itemDao.itemsMissingThumbnail(limit).forEach { item ->
-            val res = runCatching { fetcher.fetch(item.url) }.getOrNull() ?: return@forEach
+            val res = coRunCatching { fetcher.fetch(item.url) }.getOrNull() ?: return@forEach
             val html = res.body ?: return@forEach
-            val image = runCatching {
+            val image = coRunCatching {
                 val doc = Jsoup.parse(html, res.finalUrl)
                 val meta = doc.selectFirst("meta[property=og:image], meta[name=og:image], meta[property=og:image:url], meta[name=twitter:image], meta[name=twitter:image:src]")
                     ?.absUrl("content")?.takeIf { it.isNotBlank() }
@@ -780,16 +784,16 @@ class FeedRepository @Inject constructor(
         val item = itemDao.getItem(itemId) ?: return Result.failure(IllegalStateException("Item not found"))
         // Ensure we have the full readable body first (a summary-only item gets promoted).
         if (item.extractStatus != ExtractStatus.OK.raw || item.blobPath.isNullOrBlank()) {
-            runCatching { extractInto(itemId, item.url) }
+            coRunCatching { extractInto(itemId, item.url) }
         }
         val fresh = itemDao.getItem(itemId) ?: return Result.failure(IllegalStateException("Item not found"))
         val html = blobStore.readArticle(fresh.blobPath)
             ?: return Result.failure(IllegalStateException("No article content to save"))
-        val doc = runCatching { Jsoup.parse(html, fresh.url) }.getOrNull()
+        val doc = coRunCatching { Jsoup.parse(html, fresh.url) }.getOrNull()
             ?: return Result.failure(IllegalStateException("Couldn't read the article"))
 
         // Honour the offline-image policy: images are optional, and may be restricted to Wi-Fi.
-        val prefs = runCatching { preferencesRepository.preferences.first() }.getOrNull()
+        val prefs = coRunCatching { preferencesRepository.preferences.first() }.getOrNull()
         val downloadImages = (prefs?.cacheImagesOffline ?: true) && (!(prefs?.imagesWifiOnly ?: true) || isUnmetered())
 
         var index = 0
@@ -803,7 +807,7 @@ class FeedRepository @Inject constructor(
             seen[remote]?.let { return it }
             if (cached >= maxImages) return null
             val (bytes, contentType) = fetcher.fetchBytes(remote) ?: return null
-            val local = runCatching { blobStore.writeImage(itemId, index++, bytes, imageExtension(contentType, remote)) }
+            val local = coRunCatching { blobStore.writeImage(itemId, index++, bytes, imageExtension(contentType, remote)) }
                 .getOrNull() ?: return null
             seen[remote] = local
             cached++
@@ -839,9 +843,9 @@ class FeedRepository @Inject constructor(
         val target = item.canonicalUrl ?: item.url
         if (!target.startsWith("http", ignoreCase = true)) return false
         val api = "https://archive.org/wayback/available?url=" + java.net.URLEncoder.encode(target, "UTF-8")
-        val res = runCatching { fetcher.fetch(api) }.getOrNull() ?: return false
+        val res = coRunCatching { fetcher.fetch(api) }.getOrNull() ?: return false
         val body = res.body ?: return false
-        val snapshotUrl = runCatching {
+        val snapshotUrl = coRunCatching {
             org.json.JSONObject(body).optJSONObject("archived_snapshots")
                 ?.optJSONObject("closest")?.takeIf { it.optBoolean("available") }
                 ?.optString("url")?.takeIf { it.isNotBlank() }
@@ -849,7 +853,7 @@ class FeedRepository @Inject constructor(
         // Prefer the raw archived capture (id_ suffix) so Readability sees the original page, not
         // the Wayback chrome.
         val rawSnapshot = snapshotUrl.replaceFirst(Regex("/web/(\\d+)/"), "/web/$1id_/")
-        runCatching { extractInto(itemId, rawSnapshot) }
+        coRunCatching { extractInto(itemId, rawSnapshot) }
         val healed = itemDao.getItem(itemId)?.extractStatus == ExtractStatus.OK.raw
         if (healed) itemDao.setLinkStatus(itemId, "OK", System.currentTimeMillis())
         return healed
@@ -858,7 +862,7 @@ class FeedRepository @Inject constructor(
     /** Try to heal every broken saved link from the Wayback Machine. Returns how many were recovered. */
     suspend fun healBrokenLinks(limit: Int = 40): Int {
         var healed = 0
-        itemDao.brokenItemIds(limit).forEach { id -> if (runCatching { healLink(id) }.getOrDefault(false)) healed++ }
+        itemDao.brokenItemIds(limit).forEach { id -> if (coRunCatching { healLink(id) }.getOrDefault(false)) healed++ }
         return healed
     }
 
@@ -870,13 +874,13 @@ class FeedRepository @Inject constructor(
     suspend fun prepareOfflinePack(limit: Int = 25): Int {
         var saved = 0
         itemDao.offlinePackCandidates(limit).forEach { id ->
-            if (runCatching { saveOffline(id) }.getOrNull()?.isSuccess == true) saved++
+            if (coRunCatching { saveOffline(id) }.getOrNull()?.isSuccess == true) saved++
         }
         return saved
     }
 
     /** Render a PDF's first page to a small cover image so it has a real thumbnail in lists. */
-    private fun renderPdfThumbnail(itemId: String, pdfPath: String): String? = runCatching {
+    private fun renderPdfThumbnail(itemId: String, pdfPath: String): String? = coRunCatching {
         android.os.ParcelFileDescriptor.open(java.io.File(pdfPath), android.os.ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
             android.graphics.pdf.PdfRenderer(fd).use { renderer ->
                 if (renderer.pageCount == 0) return null
@@ -925,7 +929,7 @@ class FeedRepository @Inject constructor(
         }
     }
 
-    private fun firstImage(html: String, baseUrl: String): String? = runCatching {
+    private fun firstImage(html: String, baseUrl: String): String? = coRunCatching {
         val img = Jsoup.parse(html, baseUrl).selectFirst("img") ?: return null
         img.absUrl("src").takeIf { it.isNotBlank() } ?: img.attr("src").takeIf { it.isNotBlank() }
     }.getOrNull()
