@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.filled.Send
@@ -143,6 +145,8 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
     var tagIds by remember { mutableStateOf<List<String>>(emptyList()) }
     var ctxIds by remember { mutableStateOf<List<String>>(emptyList()) }
     var attachments by remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }
+    var startMillis by remember { mutableStateOf<Long?>(null) }
+    var deadlineMillis by remember { mutableStateOf<Long?>(null) }
 
     var showDue by remember { mutableStateOf(false) }
     var listPicker by remember { mutableStateOf(false) }
@@ -170,9 +174,10 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
             // The date sheet's relative reminder → an absolute time (due − offset), the common case.
             val reminderAt = reminderOffset?.let { off -> due?.let { it - off * 60_000L } }
             vm.submitQuickAdd(text, QuickAddOptions(
-                dueMillis = due, hasTime = hasTime, priority = priority, listId = listId, tagIds = tagIds,
+                dueMillis = due, priority = priority, listId = listId, tagIds = tagIds,
                 reminderMillis = reminderAt, note = note.trim(), contextIds = ctxIds, folderId = folderId,
                 rrule = rrule, durationMin = durationMin, attachmentUris = attachments,
+                startMillis = startMillis, deadlineMillis = deadlineMillis,
             ))
         }
         onDismiss()
@@ -192,6 +197,51 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
                 keyboardActions = KeyboardActions(onDone = { submit() }),
                 visualTransformation = QuickAddTransformation,
             )
+        }
+        // ---------- Honest capture (P3): a confirm-chip row of what the title parser recognised ----------
+        // Each chip is one recognised token; its ✕ removes that token from the title, so what you see
+        // always matches what will be applied — the strip is never silent.
+        val capTok = remember(text) { com.todocompanion.app.domain.nlp.QuickTokens.parse(text, handleActivity = false) }
+        val capParsed = remember(capTok.text) { com.todocompanion.app.domain.nlp.QuickAddParser.parse(capTok.text) }
+        val capChips = capTok.sources + capParsed.sources
+        if (capChips.isNotEmpty()) {
+            androidx.compose.foundation.layout.FlowRow(
+                Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                capChips.forEach { tk ->
+                    val c = captureChipColor(tk.type)
+                    Row(
+                        Modifier.clip(RoundedCornerShape(8.dp)).background(c.copy(alpha = .14f)).padding(start = 8.dp, end = 2.dp, top = 3.dp, bottom = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(tk.label, style = MaterialTheme.typography.labelMedium, color = c)
+                        Icon(Icons.Filled.Close, "Remove ${tk.label}", tint = c,
+                            modifier = Modifier.padding(start = 2.dp).size(16.dp).clip(CircleShape)
+                                .clickable { text = text.replaceFirst(tk.raw, " ").replace(Regex("\\s{2,}"), " ").trim() })
+                    }
+                }
+            }
+        }
+        // ---------- Trigger-char pickers: #tag / @context / ~list autocomplete while typing ----------
+        val trig = remember(text) { Regex("([#@~])([\\p{L}0-9_-]*)$").find(text) }
+        if (trig != null) {
+            val sym = trig.groupValues[1]; val partial = trig.groupValues[2]
+            val suggestions: List<String> = when (sym) {
+                "#" -> tags.filter { it.name.startsWith(partial, ignoreCase = true) }.map { it.name }
+                "@" -> contexts.filter { it.name.startsWith(partial, ignoreCase = true) }.map { it.name }
+                else -> lists.filter { !it.archived && it.name.startsWith(partial, ignoreCase = true) }.map { it.name }
+            }.filter { it.isNotBlank() }.distinct().take(8)
+            if (suggestions.isNotEmpty()) {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 2.dp, bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    suggestions.forEach { name ->
+                        Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.secondaryContainer,
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { text = text.dropLast(partial.length) + name + " " }) {
+                            Text("$sym$name", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp))
+                        }
+                    }
+                }
+            }
         }
         // Description — borderless, muted.
         Box(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp)) {
@@ -278,10 +328,25 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
                     }
                 }
                 IconTool(Icons.AutoMirrored.Filled.FormatListBulleted, "List or folder", listId != null || folderId != null) { listPicker = true }
-                IconTool(Icons.Filled.AttachFile, "Attach a file", attachments.isNotEmpty()) {
-                    com.todocompanion.app.util.SystemPicker.openFiles(arrayOf("*/*"), onError = { android.widget.Toast.makeText(qaCtx, it, android.widget.Toast.LENGTH_LONG).show() }) { uris -> attachments = attachments + uris }
+                // The primary five tools (date, priority, tags, contexts, list) stay visible; the rest live
+                // under one overflow so the row never crowds the Send button (5 + ⋯, P3).
+                Box {
+                    var moreMenu by remember { mutableStateOf(false) }
+                    IconTool(Icons.Filled.MoreHoriz, "More options", attachments.isNotEmpty()) { moreMenu = true }
+                    DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(if (attachments.isEmpty()) "Attach a file" else "Attach a file (${attachments.size})") },
+                            leadingIcon = { Icon(Icons.Filled.AttachFile, null) },
+                            onClick = {
+                                moreMenu = false
+                                com.todocompanion.app.util.SystemPicker.openFiles(arrayOf("*/*"), onError = { android.widget.Toast.makeText(qaCtx, it, android.widget.Toast.LENGTH_LONG).show() }) { uris -> attachments = attachments + uris }
+                            })
+                        DropdownMenuItem(
+                            text = { Text("Dictate task") },
+                            leadingIcon = { Icon(Icons.Filled.Mic, null) },
+                            onClick = { moreMenu = false; startVoice() })
+                    }
                 }
-                IconTool(Icons.Filled.Mic, "Dictate task", false) { startVoice() }
             }
             Spacer(Modifier.width(6.dp))
             Box(Modifier.size(40.dp).clip(CircleShape).background(if (text.isBlank()) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary).clickable { submit() }, contentAlignment = Alignment.Center) {
@@ -293,14 +358,19 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
     if (showDue) {
         val zone = java.time.ZoneId.systemDefault()
         val timed = due != null && hasTime && java.time.Instant.ofEpochMilli(due!!).atZone(zone).let { it.hour != 0 || it.minute != 0 }
+        val startTimed = startMillis?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).let { z -> z.hour != 0 || z.minute != 0 } } ?: false
         DateReminderSheet(
             initialDue = due, initialHasTime = timed, initialAllDay = due != null && !timed,
             initialDurationMin = durationMin, initialRrule = rrule, initialReminderOffsetMin = reminderOffset,
             onDismiss = { showDue = false },
             onConfirm = { c ->
                 due = c.dueMillis; hasTime = c.hasTime; durationMin = c.durationMin; rrule = c.rrule; reminderOffset = c.reminderOffsetMin
+                startMillis = c.startMillis; deadlineMillis = c.deadlineMillis
                 showDue = false
             },
+            // P3 — capture surfaces the same start & deadline the editor's schedule sheet does.
+            showStart = true, initialStart = startMillis, initialStartHasTime = startTimed,
+            showDeadline = true, initialDeadline = deadlineMillis,
         )
     }
     if (listPicker) MoveTargetDialog(
@@ -312,6 +382,19 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
     )
 
     LaunchedEffect(Unit) { focus.requestFocus() }
+}
+
+/** The accent for each recognised-token chip in the confirm row — mirrors the live title highlighting. */
+private fun captureChipColor(t: com.todocompanion.app.domain.nlp.ChipType): Color = when (t) {
+    com.todocompanion.app.domain.nlp.ChipType.DATE, com.todocompanion.app.domain.nlp.ChipType.TIME -> Color(0xFF2563EB)
+    com.todocompanion.app.domain.nlp.ChipType.PRIORITY -> Color(0xFFEA580C)
+    com.todocompanion.app.domain.nlp.ChipType.TAG -> Color(0xFF7C3AED)
+    com.todocompanion.app.domain.nlp.ChipType.CONTEXT -> Color(0xFFDB2777)
+    com.todocompanion.app.domain.nlp.ChipType.LIST -> Color(0xFF0D9488)
+    com.todocompanion.app.domain.nlp.ChipType.REMINDER -> Color(0xFF0891B2)
+    com.todocompanion.app.domain.nlp.ChipType.RECUR -> Color(0xFF4F46E5)
+    com.todocompanion.app.domain.nlp.ChipType.ESTIMATE -> Color(0xFF0891B2)
+    com.todocompanion.app.domain.nlp.ChipType.STAR -> Color(0xFFD97706)
 }
 
 /** A borderless icon button for the quick-add toolbar. Tinted when active. */

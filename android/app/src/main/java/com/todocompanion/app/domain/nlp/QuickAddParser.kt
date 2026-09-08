@@ -21,6 +21,10 @@ data class ParsedQuickAdd(
     val rrule: String? = null,
     /** Reminder lead time in minutes before the due date, from a "!30m / !2h / !1d" shortcut. */
     val reminderOffsetMin: Int? = null,
+    /** Every recognized token, with the exact source text it was stripped from — powers the honest
+     *  confirm-chip row in capture (P3): each chip is a token here, and its one-gesture undo removes
+     *  [CaptureToken.raw] from the input, so what you see always matches what gets applied. */
+    val sources: List<CaptureToken> = emptyList(),
 ) {
     /** Compact chips for the quick-add UI. */
     fun chips(): List<Chip> = buildList {
@@ -51,8 +55,10 @@ data class ParsedQuickAdd(
     }
 }
 
-enum class ChipType { DATE, PRIORITY, TAG, CONTEXT, REMINDER }
+enum class ChipType { DATE, TIME, PRIORITY, TAG, CONTEXT, REMINDER, RECUR, LIST, ESTIMATE, STAR }
 data class Chip(val type: ChipType, val text: String)
+/** One recognized quick-add token: its category, the exact source substring, and a display label. */
+data class CaptureToken(val type: ChipType, val raw: String, val label: String)
 
 /**
  * A pragmatic on-device natural-language parser for the quick-add box. No network, no ML.
@@ -76,14 +82,21 @@ object QuickAddParser {
 
     fun parse(text: String, now: LocalDateTime = LocalDateTime.now()): ParsedQuickAdd {
         val strip = mutableListOf<IntRange>()
+        val src = mutableListOf<CaptureToken>()
+        // Record a recognized token: mark it for stripping from the title AND note it for the chip row.
+        fun mark(type: ChipType, range: IntRange, label: String? = null) {
+            strip.add(range)
+            val raw = text.substring(range.first, (range.last + 1).coerceAtMost(text.length)).trim()
+            if (raw.isNotEmpty()) src.add(CaptureToken(type, raw, label ?: raw))
+        }
 
         // #tags and @contexts
         val tags = Regex("(?<=\\s|^)#([\\p{L}0-9_-]+)").findAll(text)
-            .onEach { strip.add(it.range) }.map { it.groupValues[1] }.toList()
+            .onEach { mark(ChipType.TAG, it.range) }.map { it.groupValues[1] }.toList()
         val contexts = Regex("(?<=\\s|^)@([\\p{L}0-9_-]+)").findAll(text)
-            .onEach { strip.add(it.range) }.map { it.groupValues[1] }.toList()
+            .onEach { mark(ChipType.CONTEXT, it.range) }.map { it.groupValues[1] }.toList()
         // ~list
-        val list = Regex("(?<=\\s|^)~([\\p{L}0-9_-]+)").find(text)?.let { strip.add(it.range); it.groupValues[1] }
+        val list = Regex("(?<=\\s|^)~([\\p{L}0-9_-]+)").find(text)?.let { mark(ChipType.LIST, it.range); it.groupValues[1] }
 
         // reminder shortcut: "!30m", "!2h", "!1d", "!1w" → lead time before the due date.
         // Parsed before priority so the "!" + digit form is claimed here, not by the "!" priority.
@@ -97,7 +110,7 @@ object QuickAddParser {
                 unit.startsWith("h") -> n * 60
                 else -> n
             }
-            strip.add(m.range)
+            mark(ChipType.REMINDER, m.range, "🔔 " + ParsedQuickAdd.reminderLabel(reminderOffsetMin!!))
         }
 
         // priority: p1..p4 or !!!/!!/!
@@ -106,14 +119,14 @@ object QuickAddParser {
             priority = when (it.groupValues[1]) {
                 "1" -> PriorityLevel.HIGH; "2" -> PriorityLevel.MEDIUM; "3" -> PriorityLevel.LOW; else -> PriorityLevel.NONE
             }
-            strip.add(it.range)
+            mark(ChipType.PRIORITY, it.range, priority!!.label)
         }
         if (priority == null) {
             Regex("(?<=\\s|^)(!{1,3})(?=\\s|$)").find(text)?.let {
                 priority = when (it.groupValues[1].length) {
                     3 -> PriorityLevel.HIGH; 2 -> PriorityLevel.MEDIUM; else -> PriorityLevel.LOW
                 }
-                strip.add(it.range)
+                mark(ChipType.PRIORITY, it.range, priority!!.label)
             }
         }
 
@@ -125,11 +138,11 @@ object QuickAddParser {
             val wd = WEEKDAYS.keys.sortedByDescending { it.length }.joinToString("|")
             Regex("(?<=\\s|^)every\\s+other\\s+($wd)\\b", RegexOption.IGNORE_CASE).find(text)?.let { m ->
                 WEEKDAYS[m.groupValues[1].lowercase()]?.let { day ->
-                    rrule = Recurrence.encode(Recur(Freq.WEEKLY, 2, byDays = setOf(day.value))); strip.add(m.range)
+                    rrule = Recurrence.encode(Recur(Freq.WEEKLY, 2, byDays = setOf(day.value))); mark(ChipType.RECUR, m.range, "⟳ " + m.value.trim())
                 }
             } ?: Regex("(?<=\\s|^)every\\s+other\\s+(day|week|month|year)\\b", RegexOption.IGNORE_CASE).find(text)?.let { m ->
                 val freq = when (m.groupValues[1].lowercase()) { "day" -> Freq.DAILY; "week" -> Freq.WEEKLY; "month" -> Freq.MONTHLY; else -> Freq.YEARLY }
-                rrule = Recurrence.encode(Recur(freq, 2)); strip.add(m.range)
+                rrule = Recurrence.encode(Recur(freq, 2)); mark(ChipType.RECUR, m.range, "⟳ " + m.value.trim())
             }
         }
         if (rrule == null) Regex("(?<=\\s|^)every\\s+(\\d+)?\\s*(weekdays?|days?|weeks?|months?|years?)\\b", RegexOption.IGNORE_CASE).find(text)?.let { m ->
@@ -142,18 +155,18 @@ object QuickAddParser {
                 unit.startsWith("month") -> Freq.MONTHLY
                 else -> Freq.YEARLY
             }
-            rrule = Recurrence.encode(Recur(freq, n.coerceAtLeast(1))); strip.add(m.range)
+            rrule = Recurrence.encode(Recur(freq, n.coerceAtLeast(1))); mark(ChipType.RECUR, m.range, "⟳ " + m.value.trim())
         }
         if (rrule == null) {
             val wd = WEEKDAYS.keys.sortedByDescending { it.length }.joinToString("|")
             Regex("(?<=\\s|^)every\\s+((?:$wd)(?:(?:\\s*(?:,|and)\\s*|\\s+)(?:$wd))*)\\b", RegexOption.IGNORE_CASE).find(text)?.let { m ->
                 val days = m.groupValues[1].lowercase().split(Regex("[,&\\s]+")).mapNotNull { WEEKDAYS[it]?.value }.toSet()
-                if (days.isNotEmpty()) { rrule = Recurrence.encode(Recur(Freq.WEEKLY, 1, byDays = days)); strip.add(m.range) }
+                if (days.isNotEmpty()) { rrule = Recurrence.encode(Recur(Freq.WEEKLY, 1, byDays = days)); mark(ChipType.RECUR, m.range, "⟳ " + m.value.trim()) }
             }
         }
         if (rrule == null) {
             for ((w, f) in listOf("daily" to Freq.DAILY, "weekly" to Freq.WEEKLY, "monthly" to Freq.MONTHLY, "yearly" to Freq.YEARLY, "annually" to Freq.YEARLY)) {
-                if (rrule == null) Regex("(?<=\\s|^)$w\\b", RegexOption.IGNORE_CASE).find(text)?.let { rrule = Recurrence.encode(Recur(f)); strip.add(it.range) }
+                if (rrule == null) Regex("(?<=\\s|^)$w\\b", RegexOption.IGNORE_CASE).find(text)?.let { rrule = Recurrence.encode(Recur(f)); mark(ChipType.RECUR, it.range, "⟳ " + it.value.trim()) }
             }
         }
 
@@ -167,27 +180,27 @@ object QuickAddParser {
             if (it.groupValues[3].lowercase() == "pm") h += 12
             val min = it.groupValues[2].toIntOrNull() ?: 0
             time = LocalTime.of(h.coerceIn(0, 23), min.coerceIn(0, 59))
-            strip.add(it.range)
+            mark(ChipType.TIME, it.range)
         } ?: Regex("(?<=\\s|^)([01]?\\d|2[0-3]):([0-5]\\d)\\b").find(text)?.let {
             time = LocalTime.of(it.groupValues[1].toInt(), it.groupValues[2].toInt())
-            strip.add(it.range)
+            mark(ChipType.TIME, it.range)
         }
         // named times
         for ((word, t) in listOf("noon" to LocalTime.NOON, "midnight" to LocalTime.MIDNIGHT,
             "morning" to LocalTime.of(9, 0), "afternoon" to LocalTime.of(15, 0), "evening" to LocalTime.of(18, 0))) {
             if (time == null) Regex("(?<=\\s|^)$word\\b", RegexOption.IGNORE_CASE).find(text)?.let {
-                time = t; strip.add(it.range)
+                time = t; mark(ChipType.TIME, it.range)
             }
         }
         // CU1: bare "at 3" (no am/pm) → assume the sensible waking hour (1–7 → afternoon/evening).
         if (time == null) Regex("(?<=\\s|^)at\\s+(\\d{1,2})\\b", RegexOption.IGNORE_CASE).find(text)?.let {
             val raw = it.groupValues[1].toInt()
-            if (raw in 0..23) { time = LocalTime.of(if (raw in 1..7) raw + 12 else raw, 0); strip.add(it.range) }
+            if (raw in 0..23) { time = LocalTime.of(if (raw in 1..7) raw + 12 else raw, 0); mark(ChipType.TIME, it.range) }
         }
 
         // relative day words
         val today = now.toLocalDate()
-        fun setDate(d: LocalDate, r: IntRange) { if (date == null) { date = d; strip.add(r) } }
+        fun setDate(d: LocalDate, r: IntRange) { if (date == null) { date = d; mark(ChipType.DATE, r) } }
 
         Regex("(?<=\\s|^)today\\b", RegexOption.IGNORE_CASE).find(text)?.let { setDate(today, it.range) }
         Regex("(?<=\\s|^)tonight\\b", RegexOption.IGNORE_CASE).find(text)?.let { setDate(today, it.range); if (time == null) time = LocalTime.of(20, 0) }
@@ -213,13 +226,12 @@ object QuickAddParser {
             val nRaw = it.groupValues[1].lowercase()
             val n = if (nRaw == "a" || nRaw == "an") 1L else nRaw.toLong()
             when (it.groupValues[2].lowercase().removeSuffix("s")) {
-                "hour" -> { date = today; time = (time ?: now.toLocalTime()).plusHours(n) }
+                "hour" -> { date = today; time = (time ?: now.toLocalTime()).plusHours(n); mark(ChipType.DATE, it.range) }
                 "day" -> setDate(today.plusDays(n), it.range)
                 "week" -> setDate(today.plusWeeks(n), it.range)
                 "month" -> setDate(today.plusMonths(n), it.range)
                 "year" -> setDate(today.plusYears(n), it.range)
             }
-            strip.add(it.range)
         }
 
         // weekday name (optionally "next")
@@ -281,6 +293,7 @@ object QuickAddParser {
             list = list,
             rrule = rrule,
             reminderOffsetMin = reminderOffsetMin,
+            sources = src,
         )
     }
 

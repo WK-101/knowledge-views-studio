@@ -794,6 +794,11 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     Text("Reset to defaults")
                 }
             }
+            androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            // P3 · honest capture — the quick-add box recognises dates, #tags, priorities, etc. as you type.
+            Toggle("Keep the words I type in the task title", s.keepParsedText) { vm.saveSettings(s.copy(keepParsedText = it)) }
+            Text("Off strips the recognised words for a clean title (the date/priority still apply). On keeps them in the title. Either way, a chip row lets you review and undo each one as you type.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
         }
 
         SettingsGroup(Icons.Filled.Notifications, "Sounds", open["sounds"] == true, { open["sounds"] = open["sounds"] != true }, keywords = "sound tone chime beep alarm focus timer stopwatch reminder ringtone audio start completion cue") {

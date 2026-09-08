@@ -16,6 +16,8 @@ object QuickTokens {
         val priorityLevel: Int? = null,   // 1..3 from ! !! !!!
         val star: Boolean = false,
         val activity: String? = null,     // from @name
+        /** Recognized symbol tokens with their source text — feeds capture's confirm-chip row (P3). */
+        val sources: List<CaptureToken> = emptyList(),
     ) {
         val hasAny: Boolean get() = estimateMin != null || priorityLevel != null || star || activity != null
     }
@@ -33,10 +35,19 @@ object QuickTokens {
     fun parse(raw: String, handleActivity: Boolean = true): Parsed {
         var s = raw
         var est: Int? = null; var act: String? = null; var prio: Int? = null; var star = false
-        EST.find(s)?.let { m -> est = m.groupValues[1].toIntOrNull()?.takeIf { it in 1..1440 }; s = s.removeRange(m.range.first, m.range.last + 1) }
+        val src = mutableListOf<CaptureToken>()
+        EST.find(s)?.let { m ->
+            est = m.groupValues[1].toIntOrNull()?.takeIf { it in 1..1440 }
+            if (est != null) src.add(CaptureToken(ChipType.ESTIMATE, m.value.trim(), "≈ ${est}m"))
+            s = s.removeRange(m.range.first, m.range.last + 1)
+        }
         if (handleActivity) ACT.find(s)?.let { m -> act = m.groupValues[1]; s = s.removeRange(m.range.first, m.range.last + 1) }
-        PRIO.find(s)?.let { m -> prio = m.groupValues[1].length; s = s.removeRange(m.range.first, m.range.last + 1) }
-        STAR.find(s)?.let { m -> star = true; s = s.removeRange(m.range.first, m.range.last + 1) }
-        return Parsed(s.replace(Regex("\\s{2,}"), " ").trim(), est, prio, star, act)
+        PRIO.find(s)?.let { m ->
+            prio = m.groupValues[1].length
+            src.add(CaptureToken(ChipType.PRIORITY, m.value.trim(), when (prio) { 3 -> "High"; 2 -> "Medium"; else -> "Low" }))
+            s = s.removeRange(m.range.first, m.range.last + 1)
+        }
+        STAR.find(s)?.let { m -> star = true; src.add(CaptureToken(ChipType.STAR, m.value.trim(), "★ Star")); s = s.removeRange(m.range.first, m.range.last + 1) }
+        return Parsed(s.replace(Regex("\\s{2,}"), " ").trim(), est, prio, star, act, src)
     }
 }

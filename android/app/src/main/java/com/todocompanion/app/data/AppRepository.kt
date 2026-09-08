@@ -656,7 +656,9 @@ class AppRepository(private val db: AppDatabase) {
         if (lists.getById(ListEntity.INBOX_ID) == null) lists.upsert(ListEntity(id = ListEntity.INBOX_ID, name = "Inbox", sortOrder = 0.0))
         val listId = parsed.list?.let { name -> lists.getAll().firstOrNull { !it.archived && it.name.equals(name, ignoreCase = true) }?.id }
             ?: ListEntity.INBOX_ID
-        val id = createTask(listId, title, importance = imp, urgency = urg, dueDate = due)
+        // P3 keep-vs-strip: honour the same title preference the in-app funnel uses.
+        val finalTitle = if (settingsSnapshot().keepParsedText) tok.text.replace(Regex("\\s+"), " ").trim().ifBlank { title } else title
+        val id = createTask(listId, finalTitle, importance = imp, urgency = urg, dueDate = due)
         if (parsed.rrule != null || tok.estimateMin != null || tok.star) getTask(id)?.let {
             saveTask(it.copy(rrule = parsed.rrule ?: it.rrule, estimateMin = tok.estimateMin ?: it.estimateMin, star = it.star || tok.star))
         }

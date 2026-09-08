@@ -51,7 +51,6 @@ data class OutlineRow(val task: TaskEntity, val depth: Int, val hasChildren: Boo
 /** Options captured by the quick-add option toolbar; override anything parsed from text. */
 data class QuickAddOptions(
     val dueMillis: Long? = null,
-    val hasTime: Boolean = false,
     val priority: PriorityLevel? = null,
     val listId: String? = null,
     val tagIds: List<String> = emptyList(),
@@ -66,6 +65,9 @@ data class QuickAddOptions(
     val rrule: String? = null,          // recurrence chosen in the date sheet
     val durationMin: Int? = null,
     val attachmentUris: List<android.net.Uri> = emptyList(),
+    // P3: capture now surfaces the same start/deadline the editor's schedule sheet does.
+    val startMillis: Long? = null,
+    val deadlineMillis: Long? = null,
 )
 
 enum class UndoKind { COMPLETED, ABANDONED, TRASHED }
@@ -813,7 +815,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             explicitList != null -> explicitList to null
             else -> resolveAddTarget()
         }
-        val id = repo.createTask(listId, parsed.title.ifBlank { "Untitled" }, importance = imp, urgency = urg, dueDate = due, folderId = folderId)
+        // P3 · keep-vs-strip: by default the recognized words are stripped for a lean title; when the
+        // user prefers to keep what they typed, use the text with only the symbol command tokens
+        // (#t estimate, ! priority, *) removed (QuickTokens already did that), leaving date/tag/context
+        // words in place. The parsed fields are applied either way.
+        val finalTitle = (if (settings.value.keepParsedText) tok.text.replace(Regex("\\s+"), " ").trim() else parsed.title)
+            .ifBlank { parsed.title.ifBlank { "Untitled" } }
+        val id = repo.createTask(listId, finalTitle, importance = imp, urgency = urg, dueDate = due, folderId = folderId)
 
         val ws = settings.value.activeWorkspaceId
         val tagIds = opts.tagIds.toMutableList()
@@ -842,12 +850,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // Natural-language recurrence ("every Tuesday", "monthly", "every 2 weeks") or the date sheet's
         // recurrence + optional note / duration (R21). V9: inline-token estimate and star too.
         val rrule = opts.rrule ?: parsed.rrule
-        if (rrule != null || opts.note.isNotBlank() || estimateMin != null || star || opts.durationMin != null) repo.getTask(id)?.let {
+        if (rrule != null || opts.note.isNotBlank() || estimateMin != null || star || opts.durationMin != null ||
+            opts.startMillis != null || opts.deadlineMillis != null) repo.getTask(id)?.let {
             repo.saveTask(it.copy(
                 rrule = rrule ?: it.rrule,
                 note = opts.note.ifBlank { it.note },
                 estimateMin = estimateMin ?: it.estimateMin,
                 durationMin = opts.durationMin ?: it.durationMin,
+                startDate = opts.startMillis ?: it.startDate,
+                deadlineDate = opts.deadlineMillis ?: it.deadlineDate,
                 star = it.star || star,
             ))
         }

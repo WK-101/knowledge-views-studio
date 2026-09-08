@@ -141,6 +141,9 @@ data class AppSettings(
     val reliabilityOnboarded: Boolean = false,
     // Completion sound on checking a task off.
     val completionSound: Boolean = false,
+    // P3 · honest capture — keep the recognized natural-language words in the saved title instead of
+    // stripping them (still applies the parsed date/priority/etc.). Off = the lean stripped title.
+    val keepParsedText: Boolean = false,
     // R81 — selectable sound cues. Each is a "sound spec": a built-in preset id ("none","beep","double",
     // "chime","ascending","descending"), "default"/"silent", or a content:// URI the user picked.
     val focusStartSound: String = "none",       // played when a focus / timer session starts
@@ -460,6 +463,7 @@ data class AppSettings(
         Keys.FOCUS_DND to focusDnd.toString(),
         Keys.RELIABILITY to reliabilityOnboarded.toString(),
         Keys.COMPLETION_SOUND to completionSound.toString(),
+        Keys.KEEP_PARSED_TEXT to keepParsedText.toString(),
         Keys.FOCUS_START_SOUND to focusStartSound,
         Keys.FOCUS_DONE_SOUND to focusDoneSound,
         Keys.REMINDER_SOUND to reminderSound,
@@ -643,6 +647,7 @@ data class AppSettings(
         const val FOCUS_DND = "focus_dnd"
         const val RELIABILITY = "reliability_onboarded"
         const val COMPLETION_SOUND = "completion_sound"
+        const val KEEP_PARSED_TEXT = "keep_parsed_text"
         const val FOCUS_START_SOUND = "focus_start_sound"
         const val FOCUS_DONE_SOUND = "focus_done_sound"
         const val REMINDER_SOUND = "reminder_sound"
@@ -903,6 +908,7 @@ data class AppSettings(
             focusDnd = m[Keys.FOCUS_DND]?.toBooleanStrictOrNull() ?: false,
             reliabilityOnboarded = m[Keys.RELIABILITY]?.toBooleanStrictOrNull() ?: false,
             completionSound = m[Keys.COMPLETION_SOUND]?.toBooleanStrictOrNull() ?: false,
+            keepParsedText = m[Keys.KEEP_PARSED_TEXT]?.toBooleanStrictOrNull() ?: false,
             focusStartSound = m[Keys.FOCUS_START_SOUND] ?: "none",
             focusDoneSound = m[Keys.FOCUS_DONE_SOUND] ?: "chime",
             reminderSound = m[Keys.REMINDER_SOUND] ?: "default",
