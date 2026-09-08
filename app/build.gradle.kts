@@ -81,6 +81,13 @@ android {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     }
 
+    // Room's exported schema JSONs must be on the androidTest asset path for MigrationTestHelper.
+    sourceSets {
+        getByName("androidTest") {
+            assets.srcDirs(files("$projectDir/schemas"))
+        }
+    }
+
     testOptions {
         unitTests {
             // Robolectric tests (e.g. the DataStore-backed PreferencesRepository round-trip) need the
