@@ -510,7 +510,20 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        SettingsGroup(Icons.Filled.CalendarMonth, "Calendar & planner", open["calendar"] == true, { open["calendar"] = open["calendar"] != true }, keywords = "calendar habits blocks lunar moon phase protected window context mode routine planner defragment reflow") {
+        SettingsGroup(Icons.Filled.CalendarMonth, "Calendar & planner", open["calendar"] == true, { open["calendar"] = open["calendar"] != true }, keywords = "calendar view default opens remember habits blocks lunar moon phase protected window context mode routine planner defragment reflow agenda day week month year") {
+            // Phase 0 S2 — the calendar now remembers your last view (or opens on a fixed one).
+            Sub("Opens in")
+            Toggle("Remember my last view", s.calendarRememberLast) { on -> vm.saveSettings(s.copy(calendarRememberLast = on)) }
+            Text(if (s.calendarRememberLast) "The calendar reopens on whatever view you used last." else "The calendar always opens on the view you pick below.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (!s.calendarRememberLast) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    CAL_MODES.forEach { (k, label) ->
+                        FilterChip(selected = s.calendarDefaultMode == k, onClick = { vm.saveSettings(s.copy(calendarDefaultMode = k)) }, label = { Text(label) })
+                    }
+                }
+            }
+            Spacer(Modifier.height(6.dp))
             Toggle("Show habits on the calendar", s.habitCalendarBlocks) { on -> vm.saveSettings(s.copy(habitCalendarBlocks = on)) }
             Text("Draw timed habits as blocks in the day and week calendar, next to your task time-blocks. Off by default.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

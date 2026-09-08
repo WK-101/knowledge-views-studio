@@ -158,7 +158,7 @@ private fun PlanTodayTab(vm: AppViewModel, zone: ZoneId, day: Long) {
             Text("No unscheduled tasks with estimates fit today's gaps. Give a task an estimate, or free some time.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
-            val df = DateTimeFormatter.ofPattern("h:mm").withZone(zone)
+            val df = DateTimeFormatter.ofPattern(if (com.todocompanion.app.domain.AppClock.use24) "HH:mm" else "h:mm a").withZone(zone)
             placements.take(8).forEach { p ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(df.format(Instant.ofEpochMilli(p.startMillis)), style = MaterialTheme.typography.labelMedium,
@@ -221,7 +221,7 @@ private fun PlanTodayTab(vm: AppViewModel, zone: ZoneId, day: Long) {
             Text("Did these happen?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text("One tap turns a finished block into tracked time — the plan becomes the record.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(6.dp))
-            val df = DateTimeFormatter.ofPattern("h:mm").withZone(zone)
+            val df = DateTimeFormatter.ofPattern(if (com.todocompanion.app.domain.AppClock.use24) "HH:mm" else "h:mm a").withZone(zone)
             pastBlocks.take(6).forEach { o ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(df.format(Instant.ofEpochMilli(o.startMillis)), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.width(52.dp))
@@ -448,7 +448,7 @@ private fun HorizonTab(vm: AppViewModel, zone: ZoneId, day: Long) {
         HorizonHead("◔", "Backfill from actuals")
         Text("Tracked time with no block behind it — turn it into a record of the day.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(4.dp))
-        val df = DateTimeFormatter.ofPattern("h:mm").withZone(zone)
+        val df = DateTimeFormatter.ofPattern(if (com.todocompanion.app.domain.AppClock.use24) "HH:mm" else "h:mm a").withZone(zone)
         gaps.take(5).forEach { g ->
             Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(df.format(Instant.ofEpochMilli(g.startMillis)), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.width(52.dp))
@@ -544,7 +544,7 @@ private fun HorizonTab(vm: AppViewModel, zone: ZoneId, day: Long) {
                 TextButton(onClick = { latText.toDoubleOrNull()?.let { vm.setDaylightLatitude(it) } }, enabled = latText.toDoubleOrNull() != null) { Text("Set") }
             }
         } else {
-            val tf = DateTimeFormatter.ofPattern("h:mm a")
+            val tf = DateTimeFormatter.ofPattern(if (com.todocompanion.app.domain.AppClock.use24) "HH:mm" else "h:mm a")
             when (dl.polar) {
                 1 -> Text("Midnight sun today — the sun doesn't set at this latitude.", style = MaterialTheme.typography.bodyMedium)
                 -1 -> Text("Polar night today — the sun doesn't rise at this latitude.", style = MaterialTheme.typography.bodyMedium)

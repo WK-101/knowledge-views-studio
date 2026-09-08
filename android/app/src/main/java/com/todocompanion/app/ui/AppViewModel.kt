@@ -207,15 +207,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // R36 — fourth-wave flows.
     val escrows = repo.allEscrows.scopedBy { it.workspaceId }
     val nudgeEvents = repo.allNudgeEvents.scopedBy { it.workspaceId }
-    // R38 — dedicated-calendar flows. calendarRoute overlays the Events surface (agenda|editor:<id>|
-    // calendars|gaps|heatmap|worldclock|import). eventEditorId holds the event being edited (or "new").
     val eventCalendars = repo.allEventCalendars.scopedBy { it.workspaceId }
     // Events are scoped transitively through their calendar (an event's workspace IS its calendar's), so
     // moving/removing a calendar can never leave an event stranded in the wrong space.
     private val activeCalendarIds: Flow<Set<String>> =
         combine(repo.allEventCalendars, activeWs) { all, w -> all.filter { it.workspaceId == w }.map { it.id }.toSet() }
     val events = combine(repo.allEvents, activeCalendarIds) { evs, ids -> evs.filter { it.calendarId in ids } }.state(emptyList())
-    val calendarRoute = MutableStateFlow<String?>(null)
     // Non-null → the Life-Systems hub/screen overlays the tab (route key: hub|values|scorecard|correlations|reviews|ledger|buddies|friction|experiments|activation|forecast|heatmap|valuestime|runner|companion).
     val lifeSystemsRoute = MutableStateFlow<String?>(null)
     fun saveCountdown(id: String?, title: String, targetMillis: Long, emoji: String?, colorArgb: Long?) = viewModelScope.launch {
@@ -3320,8 +3317,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         toast(if (moved > 0) "Pulled $moved overdue task${if (moved == 1) "" else "s"} onto today — fresh start." else "Nothing overdue — you're clear.")
     }
 
-    // ── R38 · dedicated calendar ────────────────────────────────────────────────────────────────────
-    fun openCalendar() = viewModelScope.launch { ensureDefaultCalendar(); calendarRoute.value = "agenda" }
+    // ── Calendar ────────────────────────────────────────────────────────────────────────────────────
     /** R39 — make sure at least one event calendar exists (called when the unified Calendar screen opens). */
     fun ensureEventCalendar() = viewModelScope.launch { ensureDefaultCalendar() }
 
@@ -3368,6 +3364,32 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 updatedAt = System.currentTimeMillis())
         repo.upsertEvent(e)
         com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, e)
+    }
+
+    /** Phase 2 P2 — a natural-language line typed on the calendar becomes an event (or a task, if it reads
+     *  like one) entirely on-device via [EventParser]. [anchorMillis] is the moment relative words like
+     *  "3pm"/"tomorrow" resolve against — the day the user is viewing — so the bar is contextual. */
+    fun quickAddFromCalendar(text: String, anchorMillis: Long) = viewModelScope.launch {
+        val raw = text.trim(); if (raw.isEmpty()) return@launch
+        val zone = runCatching { if (settings.value.timeZone.isNotBlank()) java.time.ZoneId.of(settings.value.timeZone) else java.time.ZoneId.systemDefault() }
+            .getOrDefault(java.time.ZoneId.systemDefault())
+        val anchorDay = java.time.Instant.ofEpochMilli(anchorMillis).atZone(zone).toLocalDate()
+        val draft = com.todocompanion.app.domain.calendar.EventParser.parse(raw, anchorDay, zone)
+        if (draft == null || draft.isTask) {
+            // Nothing time-like, or it opens with "remind me to…"/"todo" — let the task capture path own it.
+            quickAddOne(raw, QuickAddOptions())
+            toast(if (draft?.isTask == true) "Task added" else "Added to Inbox")
+            return@launch
+        }
+        val calId = ensureDefaultCalendar()
+        val e = com.todocompanion.app.data.entity.EventEntity(
+            id = java.util.UUID.randomUUID().toString(), calendarId = calId, title = draft.title.ifBlank { "Event" },
+            location = draft.location, startMillis = draft.startMillis, endMillis = draft.endMillis, allDay = draft.allDay,
+            rrule = draft.rrule, alertsMinutes = draft.alertsMinutes,
+            createdAt = System.currentTimeMillis(), updatedAt = System.currentTimeMillis())
+        repo.upsertEvent(e)
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, e)
+        toast("Added “${e.title}”")
     }
 
     /** R56 — move an event (its whole series) to another calendar; used by the entries manager's bulk edit. */

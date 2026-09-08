@@ -116,6 +116,13 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
         val listId = if (scope.startsWith("list:")) scope.removePrefix("list:") else null
 
         val tasks = runBlocking { app.repository.wsTasksOnce() }
+        // Phase 0 S1: honour the app's 12/24-hour clock on the widget too (falls back to device preference).
+        val use24 = runBlocking {
+            com.todocompanion.app.domain.AppClock.is24(app.repository.settingsSnapshot().timeFormat,
+                android.text.format.DateFormat.is24HourFormat(context))
+        }
+        fun clock(h: Int, m: Int): String = if (use24) "%02d:%02d".format(h, m)
+            else { val h12 = ((h + 11) % 12) + 1; val ap = if (h < 12) "AM" else "PM"; if (m == 0) "$h12 $ap" else "%d:%02d %s".format(h12, m, ap) }
         val taskRows = tasks.asSequence()
             .filter { !it.completed && !it.trashed && !it.abandoned }
             .filter { t ->
@@ -137,9 +144,9 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
                         val hasTime = !(dt.hour == 0 && dt.minute == 0)
                         val d = dt.toLocalDate()
                         when {
-                            d == today && hasTime -> "%02d:%02d".format(dt.hour, dt.minute)
+                            d == today && hasTime -> clock(dt.hour, dt.minute)
                             d == today -> "Today"
-                            else -> "${d.dayOfMonth}/${d.monthValue}" + if (hasTime) " %02d:%02d".format(dt.hour, dt.minute) else ""
+                            else -> "${d.dayOfMonth}/${d.monthValue}" + if (hasTime) " " + clock(dt.hour, dt.minute) else ""
                         }
                     }
                 }
@@ -157,8 +164,8 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
                     val d = st.toLocalDate()
                     val sub = when {
                         o.event.allDay -> if (d == today) "All day" else "${d.dayOfMonth}/${d.monthValue} · all day"
-                        d == today -> "%02d:%02d".format(st.hour, st.minute)
-                        else -> "${d.dayOfMonth}/${d.monthValue} %02d:%02d".format(st.hour, st.minute)
+                        d == today -> clock(st.hour, st.minute)
+                        else -> "${d.dayOfMonth}/${d.monthValue} " + clock(st.hour, st.minute)
                     }
                     Row("evt:${o.event.id}", o.event.title.ifBlank { "Event" }, sub, overdue = false, isEvent = true, sortKey = o.startMillis)
                 }

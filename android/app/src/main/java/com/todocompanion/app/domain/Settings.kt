@@ -20,6 +20,38 @@ enum class SwipeAction(val label: String) {
 /** The display name for a smart list — the user's custom name if set, else the built-in title. */
 fun smartTitle(settings: AppSettings, k: SmartKind): String = settings.smartListNames[k.name]?.takeIf { it.isNotBlank() } ?: k.title
 
+/**
+ * One clock for the whole calendar. Phase-0 seam fix: the [TimeFormat] setting used to be honoured
+ * nowhere on the calendar (every label was hard-coded 12-hour, the hour gutter hard-coded 24-hour).
+ * The UI resolves [TimeFormat.SYSTEM] against the device's own 12/24-hour preference once and sets
+ * [use24]; the pure formatters below are then read from every calendar surface so a 24-hour user
+ * sees 24-hour times everywhere, and a 12-hour user sees "1:30 PM" everywhere.
+ */
+object AppClock {
+    /** Effective 12/24-hour flag, set from the UI (see resolveClock) before any formatter runs. */
+    @Volatile var use24: Boolean = false
+    fun is24(fmt: TimeFormat, system24: Boolean): Boolean = when (fmt) {
+        TimeFormat.H24 -> true; TimeFormat.H12 -> false; TimeFormat.SYSTEM -> system24
+    }
+    private fun t12(h: Int, m: Int): String {
+        val h12 = ((h + 11) % 12) + 1; val ap = if (h < 12) "AM" else "PM"
+        return if (m == 0) "$h12 $ap" else "%d:%02d %s".format(h12, m, ap)
+    }
+    /** A wall-clock instant → "13:30" / "1:30 PM". */
+    fun time(millis: Long, zone: java.time.ZoneId): String {
+        val dt = java.time.Instant.ofEpochMilli(millis).atZone(zone)
+        return if (use24) "%02d:%02d".format(dt.hour, dt.minute) else t12(dt.hour, dt.minute)
+    }
+    /** A minute-of-day → "13:30" / "1:30 PM". */
+    fun minute(minOfDay: Int): String {
+        val h = (minOfDay / 60).coerceIn(0, 23); val m = minOfDay % 60
+        return if (use24) "%02d:%02d".format(h, m) else t12(h, m)
+    }
+    /** A single hour for the timeline gutter → "09:00" / "9 AM". */
+    fun hour(h: Int): String =
+        if (use24) "%02d:00".format(h) else { val h12 = ((h + 11) % 12) + 1; "$h12 ${if (h < 12) "AM" else "PM"}" }
+}
+
 /** Typed snapshot of app settings, with defaults. */
 data class AppSettings(
     val firstView: FirstView = FirstView.MATRIX,
@@ -74,6 +106,9 @@ data class AppSettings(
     val matrixSort: String = "priority",
     // Calendar
     val calendarDefaultMode: String = "month",
+    // Phase 0 S2: when true (default) the calendar remembers the last view you used and reopens on it;
+    // when false it always opens on [calendarDefaultMode].
+    val calendarRememberLast: Boolean = true,
     val calendarListFilter: Set<String> = emptySet(),   // empty = all lists
     // M1: draw timed habits as blocks in the day/week calendar. Off by default — opt-in.
     val habitCalendarBlocks: Boolean = false,
@@ -436,6 +471,7 @@ data class AppSettings(
         Keys.MX_DATE to matrixDateFilter,
         Keys.MX_SORT to matrixSort,
         Keys.CAL_MODE to calendarDefaultMode,
+        Keys.CAL_REMEMBER to calendarRememberLast.toString(),
         Keys.CAL_FILTER to calendarListFilter.joinToString(","),
         Keys.HABIT_CAL_BLOCKS to habitCalendarBlocks.toString(),
         Keys.CAL_SHOW_COMPLETED to calendarShowCompleted.toString(),
@@ -620,6 +656,7 @@ data class AppSettings(
         const val MX_DATE = "mx_date"
         const val MX_SORT = "mx_sort"
         const val CAL_MODE = "cal_mode"
+        const val CAL_REMEMBER = "cal_remember"
         const val CAL_FILTER = "cal_filter"
         const val HABIT_CAL_BLOCKS = "habit_cal_blocks"
         const val CAL_SHOW_COMPLETED = "cal_show_completed"
@@ -823,6 +860,7 @@ data class AppSettings(
             matrixDateFilter = m[Keys.MX_DATE] ?: "all",
             matrixSort = m[Keys.MX_SORT] ?: "priority",
             calendarDefaultMode = m[Keys.CAL_MODE] ?: "month",
+            calendarRememberLast = m[Keys.CAL_REMEMBER]?.toBooleanStrictOrNull() ?: true,
             calendarListFilter = (m[Keys.CAL_FILTER] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             habitCalendarBlocks = m[Keys.HABIT_CAL_BLOCKS]?.toBooleanStrictOrNull() ?: false,
             calendarShowCompleted = m[Keys.CAL_SHOW_COMPLETED]?.toBooleanStrictOrNull() ?: false,

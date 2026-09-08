@@ -200,7 +200,8 @@ private fun ColorRow(selected: Long, onPick: (Long) -> Unit) {
 @Composable
 internal fun GapFinder(events: List<EventEntity>, day: Long, zone: ZoneId, workStart: Int, workEnd: Int, onDismiss: () -> Unit, tasks: List<TaskEntity> = emptyList(), onPick: (Long, Long) -> Unit) {
     var dur by remember { mutableIntStateOf(60) }
-    val hm = DateTimeFormatter.ofPattern("h:mm a")
+    val hm = DateTimeFormatter.ofPattern(if (com.todocompanion.app.domain.AppClock.use24) "HH:mm" else "h:mm a")
+    val shareCtx = androidx.compose.ui.platform.LocalContext.current
     // R60 — scheduled tasks block the day too, so a "gap" never lands on top of an already-timed task.
     val busy = remember(events, tasks, day) {
         CalendarEngine.onDay(events, day, zone).filter { it.event.busy && !it.event.allDay }.map { it.startMillis to it.endMillis } +
@@ -210,6 +211,19 @@ internal fun GapFinder(events: List<EventEntity>, day: Long, zone: ZoneId, workS
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        // Phase 3 D3 — one-gesture "here's when I'm free": copy/share the open slots as a tidy text block.
+        dismissButton = {
+            if (slots.isNotEmpty()) TextButton(onClick = {
+                val dateLabel = LocalDate.ofEpochDay(day).format(DateTimeFormatter.ofPattern("EEE, MMM d"))
+                val body = "Free on $dateLabel (${fmtDur(dur)}+ blocks):\n" + slots.joinToString("\n") { s ->
+                    "• ${Instant.ofEpochMilli(s.startMillis).atZone(zone).format(hm)} – ${Instant.ofEpochMilli(s.endMillis).atZone(zone).format(hm)}"
+                }
+                val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = "text/plain"; putExtra(android.content.Intent.EXTRA_TEXT, body)
+                }
+                runCatching { shareCtx.startActivity(android.content.Intent.createChooser(send, "Share free times")) }
+            }) { Text("Share free times") }
+        },
         title = { Text("Find a gap · ${LocalDate.ofEpochDay(day).format(DateTimeFormatter.ofPattern("EEE, MMM d"))}") },
         text = {
             Column {
@@ -274,7 +288,7 @@ internal fun EventEditor(
     val secZone = settings.secondaryZoneId.takeIf { it.isNotBlank() }?.let { runCatching { ZoneId.of(it) }.getOrNull() }
 
     val dfDate = DateTimeFormatter.ofPattern("EEE, MMM d")
-    val dfTime = DateTimeFormatter.ofPattern("h:mm a")
+    val dfTime = DateTimeFormatter.ofPattern(if (com.todocompanion.app.domain.AppClock.use24) "HH:mm" else "h:mm a")
     val cal = calendars.firstOrNull { it.id == calId }
 
     // R42 — the event editor is now a ModalBottomSheet built from the app's own components (AppTextField,
@@ -352,14 +366,20 @@ internal fun EventEditor(
                     Text("$zLabel · ${Instant.ofEpochMilli(start).atZone(secZone).format(dfTime)} – ${Instant.ofEpochMilli(end).atZone(secZone).format(dfTime)}",
                         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 32.dp, bottom = 4.dp))
                 }
+                var recurBuilder by remember { mutableStateOf(false) }
                 Box {
                     EditorRow(Icons.Filled.Repeat, "Repeat", repeatLabelOf(rrule)) { repeatMenu = true }
                     DropdownMenu(expanded = repeatMenu, onDismissRequest = { repeatMenu = false }) {
                         listOf("" to "Does not repeat", "d" to "Daily", "wd" to "Weekdays", "w" to "Weekly", "m" to "Monthly", "y" to "Yearly").forEach { (k, l) ->
                             DropdownMenuItem(text = { Text(l) }, onClick = { rrule = encodeRepeat(k); repeatMenu = false })
                         }
+                        androidx.compose.material3.HorizontalDivider()
+                        // Phase 3 D1 — the model already supports intervals, by-days and end conditions; the
+                        // "Custom…" step surfaces them progressively instead of hiding them behind the 6 presets.
+                        DropdownMenuItem(text = { Text("Custom…") }, onClick = { repeatMenu = false; recurBuilder = true })
                     }
                 }
+                if (recurBuilder) RecurrenceBuilderDialog(rrule, onDismiss = { recurBuilder = false }, onApply = { rrule = it; recurBuilder = false })
             }
             Spacer(Modifier.height(10.dp))
             AppCard {
@@ -548,4 +568,57 @@ private fun repeatLabelOf(rrule: String): String {
 private fun encodeRepeat(k: String): String = when (k) {
     "d" -> Recurrence.encode(Recur(Freq.DAILY)); "wd" -> Recurrence.encode(Recur(Freq.WEEKDAYS))
     "w" -> Recurrence.encode(Recur(Freq.WEEKLY)); "m" -> Recurrence.encode(Recur(Freq.MONTHLY)); "y" -> Recurrence.encode(Recur(Freq.YEARLY)); else -> ""
+}
+
+/** Phase 3 D1 — a progressive "Custom repeat" builder. The model already carries interval, weekly
+ *  by-days and an end condition; this surfaces them without cluttering the 6 quick presets. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RecurrenceBuilderDialog(initial: String, onDismiss: () -> Unit, onApply: (String) -> Unit) {
+    val parsed = remember(initial) { Recurrence.parse(initial) }
+    var freq by remember { mutableStateOf(parsed?.freq?.takeIf { it != Freq.WEEKDAYS } ?: Freq.WEEKLY) }
+    var interval by remember { mutableIntStateOf((parsed?.interval ?: 1).coerceIn(1, 30)) }
+    val days = remember { androidx.compose.runtime.mutableStateListOf<Int>().apply { addAll(parsed?.byDays ?: emptySet()) } }
+    var count by remember { mutableStateOf(parsed?.count) }
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val unit = when (freq) { Freq.DAILY -> "day"; Freq.WEEKLY -> "week"; Freq.MONTHLY -> "month"; Freq.YEARLY -> "year"; else -> "week" }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = {
+            onApply(Recurrence.encode(Recur(freq = freq, interval = interval,
+                byDays = if (freq == Freq.WEEKLY) days.toSortedSet() else emptySet(), count = count)))
+        }) { Text("Apply") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Custom repeat") },
+        text = {
+            Column {
+                Text("Repeats", style = MaterialTheme.typography.labelMedium, color = muted)
+                com.todocompanion.app.ui.components.OptionChips(listOf(Freq.DAILY, Freq.WEEKLY, Freq.MONTHLY, Freq.YEARLY), freq, { freq = it }, spacing = 6) {
+                    when (it) { Freq.DAILY -> "Daily"; Freq.WEEKLY -> "Weekly"; Freq.MONTHLY -> "Monthly"; else -> "Yearly" }
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Every", Modifier.padding(end = 6.dp))
+                    TextButton(onClick = { if (interval > 1) interval-- }) { Text("−") }
+                    Text("$interval", style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = { if (interval < 30) interval++ }) { Text("+") }
+                    Text(if (interval == 1) unit else "${unit}s", Modifier.padding(start = 4.dp), color = muted)
+                }
+                if (freq == Freq.WEEKLY) {
+                    Spacer(Modifier.height(6.dp))
+                    Text("On", style = MaterialTheme.typography.labelMedium, color = muted)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(1 to "Mon", 2 to "Tue", 3 to "Wed", 4 to "Thu", 5 to "Fri", 6 to "Sat", 7 to "Sun").forEach { (iso, lbl) ->
+                            FilterChip(selected = iso in days, onClick = { if (iso in days) days.remove(iso) else days.add(iso) }, label = { Text(lbl) })
+                        }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text("Ends", style = MaterialTheme.typography.labelMedium, color = muted)
+                com.todocompanion.app.ui.components.OptionChips(listOf(0, 5, 10, 20, 30), count ?: 0, { count = if (it == 0) null else it }, spacing = 6) {
+                    if (it == 0) "Never" else "After $it"
+                }
+            }
+        },
+    )
 }

@@ -220,7 +220,14 @@ object EventIcs {
     /** R53 — build a METHOD:REPLY .ics carrying the user's RSVP as PARTSTAT, for them to send by hand
      *  (a purely-local app has no transport to reply to the organizer directly). [rsvp] is yes/maybe/no. */
     fun exportReply(e: EventEntity, rsvp: String, attendeeName: String = "Me", zone: ZoneId = ZoneId.systemDefault()): String {
-        val partstat = when (rsvp.lowercase()) { "yes" -> "ACCEPTED"; "maybe" -> "TENTATIVE"; "no" -> "DECLINED"; else -> "NEEDS-ACTION" }
+        // Phase 0 S5: accept BOTH vocabularies. The editor stores ACCEPTED/TENTATIVE/DECLINED (iCalendar
+        // PARTSTAT values), while older callers pass yes/maybe/no; normalise either into a PARTSTAT.
+        val partstat = when (rsvp.trim().lowercase()) {
+            "yes", "accepted" -> "ACCEPTED"
+            "maybe", "tentative" -> "TENTATIVE"
+            "no", "declined" -> "DECLINED"
+            else -> "NEEDS-ACTION"
+        }
         return buildString {
             append("BEGIN:VCALENDAR\r\n").append("VERSION:2.0\r\n").append("PRODID:-//ToDoCompanion//Calendar//EN\r\n")
             append("METHOD:REPLY\r\n").append("BEGIN:VEVENT\r\n")

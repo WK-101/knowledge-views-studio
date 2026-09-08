@@ -695,7 +695,7 @@ fun AppRoot(
                             onToday = { calAnchor = java.time.LocalDate.now(); calSelected = java.time.LocalDate.now() },
                             onPickDate = { d -> calAnchor = d; calSelected = d },
                             onOpenDrawer = { scope.launch { drawerState.open() } },
-                            mode = calMode, onModeChange = { calMode = it },
+                            mode = calMode, onModeChange = { calMode = it; if (settings.calendarRememberLast) vm.saveSettings(settings.copy(calendarDefaultMode = it)) },
                             onOpenFilter = { calFilter = true }, filterActive = settings.calendarListFilter.isNotEmpty(),
                             showCompleted = settings.calendarShowCompleted,
                             onToggleShowCompleted = { vm.saveSettings(settings.copy(calendarShowCompleted = !settings.calendarShowCompleted)) },
@@ -952,7 +952,7 @@ fun AppRoot(
                                 onOpenEvent = { eid -> calEventAction = "open:$eid"; tab = Tab.CALENDAR },
                                 onOpenOccasion = openOccasion)
                             Tab.SETTINGS -> SettingsScreen(vm)
-                            Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it },
+                            Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it; if (settings.calendarRememberLast) vm.saveSettings(settings.copy(calendarDefaultMode = it)) },
                                 calAnchor, calSelected, { calAnchor = it }, { calSelected = it },
                                 onAddOnDate = { d ->
                                     openQuickAdd(d.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli())

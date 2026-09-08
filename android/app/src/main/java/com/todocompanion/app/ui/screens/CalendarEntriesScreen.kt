@@ -131,7 +131,7 @@ fun CalendarEntriesSheet(
             ESort.DURATION -> scoped.sortedByDescending { it.endMillis - it.startMillis }
         }
     }
-    val df = DateTimeFormatter.ofPattern("EEE d MMM yyyy · h:mm a")
+    val df = DateTimeFormatter.ofPattern("EEE d MMM yyyy · " + if (com.todocompanion.app.domain.AppClock.use24) "HH:mm" else "h:mm a")
 
     fun fmtDur(e: EventEntity): String {
         if (e.allDay) return "all day"
@@ -274,7 +274,7 @@ fun CalendarEntriesSheet(
                 .expand(listOf(series), now, now + 365L * 24 * 3600 * 1000, zone)
                 .sortedBy { it.startMillis }.take(60)
         }
-        val odf = DateTimeFormatter.ofPattern("EEE d MMM · h:mm a")
+        val odf = DateTimeFormatter.ofPattern("EEE d MMM · " + if (com.todocompanion.app.domain.AppClock.use24) "HH:mm" else "h:mm a")
         AlertDialog(
             onDismissRequest = { seriesFor = null },
             confirmButton = { TextButton(onClick = { seriesFor = null }) { Text("Done") } },

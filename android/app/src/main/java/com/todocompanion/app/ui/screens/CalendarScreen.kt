@@ -65,6 +65,20 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.EditCalendar
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.VideoCall
 import androidx.compose.material.icons.filled.Insights
@@ -136,8 +150,11 @@ private fun Modifier.swipeNav(onPrev: () -> Unit, onNext: () -> Unit): Modifier 
     detectHorizontalDragGestures(onDragEnd = { if (total > 80) onPrev() else if (total < -80) onNext(); total = 0f }) { _, dragAmount -> total += dragAmount }
 }
 
-/** All calendar view modes, in picker order. */
-val CAL_MODES = listOf("list" to "List", "day" to "Day", "3day" to "3-Day", "week" to "Week", "weekly" to "Weekly", "month" to "Month", "year" to "Year")
+/** All calendar view modes offered in the picker, in zoom order.
+ *  Phase-0 seams S3/S4: the list view is named "Agenda" everywhere now (was "List" in the picker but
+ *  "Agenda" in the header), and the redundant stacked-card "weekly" is retired from the picker — the
+ *  timeline "week" is the one weekly view. The "weekly" render branch is kept for any persisted value. */
+val CAL_MODES = listOf("list" to "Agenda", "day" to "Day", "3day" to "3-Day", "week" to "Week", "month" to "Month", "year" to "Year")
 
 /** Advance the calendar anchor by one period for the active mode. */
 fun calStep(mode: String, anchor: LocalDate, dir: Int): LocalDate = when (mode) {
@@ -159,6 +176,61 @@ fun calLabel(mode: String, anchor: LocalDate, firstDow: DayOfWeek): String = whe
     else -> "Agenda"
 }
 
+/**
+ * Phase 2 P1 — the DayTicker. Fantastical's signature: a horizontal strip of dates centred on the day
+ * you're viewing, each carrying tiny marks for what it holds (event / task / habit). Tap a date to jump
+ * to it; the strip re-centres on the selection. Built from the per-day data the calendar already has.
+ */
+@Composable
+private fun DayTicker(
+    center: LocalDate,
+    dueByDate: Map<LocalDate, List<TaskEntity>>,
+    eventOccForDay: (LocalDate) -> List<com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence>,
+    habitBlocksFor: (LocalDate) -> List<HabitBlock>,
+    eventColorOf: (com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence) -> Color,
+    onPick: (LocalDate) -> Unit,
+) {
+    val span = 21   // days either side of centre
+    val days = remember(center) { (-span..span).map { center.plusDays(it.toLong()) } }
+    val today = LocalDate.now()
+    val listState = rememberLazyListState()
+    // Keep the selected day centred as it changes (and on first show).
+    androidx.compose.runtime.LaunchedEffect(center) {
+        runCatching { listState.scrollToItem(span.coerceAtLeast(0), -280) }
+    }
+    LazyRow(state = listState, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        itemsIndexed(days, key = { _, d -> d.toEpochDay() }) { _, d ->
+            val isSel = d == center
+            val isToday = d == today
+            val bg = if (isSel) MaterialTheme.colorScheme.primary else Color.Transparent
+            val fg = if (isSel) MaterialTheme.colorScheme.onPrimary
+                else if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+            Column(
+                Modifier.width(44.dp).clip(RoundedCornerShape(12.dp)).background(bg)
+                    .clickable { onPick(d) }.padding(vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(d.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
+                    style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = .7f))
+                Text("${d.dayOfMonth}", style = MaterialTheme.typography.titleSmall,
+                    fontWeight = if (isSel || isToday) FontWeight.SemiBold else FontWeight.Normal, color = fg)
+                // Marks: event (its calendar colour) · task (primary) · habit (tertiary).
+                val occ = eventOccForDay(d)
+                val hasTask = dueByDate.containsKey(d)
+                val hasHabit = habitBlocksFor(d).isNotEmpty()
+                Row(Modifier.padding(top = 3.dp).height(5.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    val dot = if (isSel) MaterialTheme.colorScheme.onPrimary else null
+                    if (occ.isNotEmpty()) Box(Modifier.size(4.dp).clip(CircleShape).background(dot ?: eventColorOf(occ.first())))
+                    if (hasTask) Box(Modifier.size(4.dp).clip(CircleShape).background(dot ?: MaterialTheme.colorScheme.primary))
+                    if (hasHabit) Box(Modifier.size(4.dp).clip(CircleShape).background(dot ?: MaterialTheme.colorScheme.tertiary))
+                }
+            }
+        }
+    }
+    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+}
+
 @Composable
 fun CalendarScreen(
     vm: AppViewModel, onOpenTask: (String) -> Unit, mode: String, onModeChange: (String) -> Unit,
@@ -172,7 +244,17 @@ fun CalendarScreen(
 ) {
     val s by vm.settings.collectAsState()
     val tasks by vm.tasks.collectAsState()
-    val zone = ZoneId.systemDefault()
+    // Phase 0 S5: honour the app's time-zone override for the calendar's computation zone (event/grid
+    // times render in the chosen zone); device-local "today" markers stay as-is, which is correct — a
+    // human's "today" is their device's day.
+    val zone = remember(s.timeZone) {
+        runCatching { if (s.timeZone.isNotBlank()) ZoneId.of(s.timeZone) else ZoneId.systemDefault() }
+            .getOrDefault(ZoneId.systemDefault())
+    }
+    // Phase 0 S1: resolve the 12/24-hour clock ONCE (setting, falling back to the device preference) so
+    // every calendar surface formats times the same way. Read by AppClock's pure formatters below.
+    com.todocompanion.app.domain.AppClock.use24 = com.todocompanion.app.domain.AppClock.is24(
+        s.timeFormat, android.text.format.DateFormat.is24HourFormat(androidx.compose.ui.platform.LocalContext.current))
 
     // R39 — dedicated-calendar EVENTS folded into this one calendar (no separate calendar screen).
     val eventsAll by vm.events.collectAsState()
@@ -357,6 +439,50 @@ fun CalendarScreen(
     var entriesOpen by remember { mutableStateOf(false) }                     // R55 — manage all entries per calendar
     var availabilityOpen by remember { mutableStateOf(false) }                // R55 — "when am I free?"
     Column(modifier.fillMaxSize()) {
+        // Phase 2 P2 — type-to-create. A slim natural-language bar on the planning views: "Lunch Fri 1pm
+        // 90m at Cafe" becomes a real event on-device (a leading "remind me to…"/"todo" makes it a task).
+        // Shown only on the day/week/agenda views so the month & year navigation surfaces stay clean.
+        if (mode != "month" && mode != "year") {
+            var capture by androidx.compose.runtime.saveable.rememberSaveable(mode) { mutableStateOf("") }
+            val preview = remember(capture, selected) {
+                if (capture.isBlank()) null
+                else runCatching { com.todocompanion.app.domain.calendar.EventParser.parse(capture, selected, zone) }.getOrNull()
+            }
+            val submit: () -> Unit = {
+                if (capture.isNotBlank()) {
+                    val anchor = selected.atTime(java.time.LocalTime.now()).atZone(zone).toInstant().toEpochMilli()
+                    vm.quickAddFromCalendar(capture, anchor); capture = ""
+                }
+            }
+            Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f), shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = capture, onValueChange = { capture = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Add… e.g. Lunch Fri 1pm 90m", style = MaterialTheme.typography.bodyMedium) },
+                    leadingIcon = { Icon(Icons.Filled.Add, null, Modifier.size(20.dp)) },
+                    trailingIcon = {
+                        // The live parse preview doubles as the submit affordance: it shows what will be created.
+                        val hint = when {
+                            capture.isBlank() -> null
+                            preview == null -> "Inbox"
+                            preview.isTask -> "Task"
+                            preview.allDay -> "All-day"
+                            else -> com.todocompanion.app.domain.AppClock.time(preview.startMillis, zone)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (hint != null) Text(hint, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 2.dp))
+                            IconButton(onClick = submit, enabled = capture.isNotBlank()) { Icon(Icons.AutoMirrored.Filled.Send, "Add", Modifier.size(20.dp)) }
+                        }
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { submit() }),
+                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent, unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent),
+                )
+            }
+        }
         // Smooth transitions when moving between periods (swipe) and between modes (R19 #8): slide +
         // fade in the swipe direction, matching the calm feel of the month collapse. Honours reduce-motion.
         AnimatedContent(
@@ -391,7 +517,28 @@ fun CalendarScreen(
             }
             "weekly" -> WeeklyView(startOfWeek(anchor, firstDow), dueByDate, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate)
             "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone)
-            "day" -> TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone)
+            "day" -> Column(Modifier.fillMaxSize()) {
+                // Phase 2 P1 — the DayTicker rides above the single-day timeline; tap a date to hop days.
+                DayTicker(anchor, dueByDate, eventOccForDay, habitBlocksFor, { colorOf(it.event, eventCalById) }) { d -> onAnchor(d); onSelected(d) }
+                // Phase 3 D2 — a quiet conflict cue: the engine can already compute overlaps, so surface the
+                // signal on the grid. Two busy events sharing time get a single-line "double-booked" banner.
+                val overlaps = remember(anchor, eventsAll, visEventCalIds) {
+                    val b = eventBlocksFor(anchor).sortedBy { it.startMin }
+                    var hit = 0
+                    for (i in b.indices) for (j in i + 1 until b.size)
+                        if (b[j].startMin < b[i].startMin + b[i].durMin) { hit++; }
+                    hit
+                }
+                if (overlaps > 0) Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.errorContainer.copy(alpha = .5f))
+                    .padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Warning, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.size(6.dp))
+                    Text(if (overlaps == 1) "Two events overlap today" else "$overlaps overlaps today",
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                }
+                TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone)
+            }
             "year" -> YearView(anchor, dueByDate, onPrev = prev, onNext = next, onMonth = { m -> onAnchor(m.atDay(1)); onModeChange("month") }, onDay = { d -> onAnchor(d); onModeChange("day") })
             else -> AgendaView(dueByDate, onOpenTask, swipe)
         }
@@ -433,6 +580,7 @@ fun CalendarScreen(
             "block" -> eventBlockOpen = true
             "plan" -> { plannerTab = 0; plannerOpen = true }
             "review" -> { plannerTab = 1; plannerOpen = true }
+            "horizon" -> { plannerTab = 2; plannerOpen = true }
             // R52 — pick the .ics, then ASK which calendar it should land in (or make a new one).
             "import" -> com.todocompanion.app.util.SystemPicker.openFile(arrayOf("text/calendar", "application/octet-stream", "*/*"), onError = { vm.toastMsg(it) }) { importIcsUri = it }
             // R52 — choose one calendar or "everything combined", then save.
@@ -562,18 +710,28 @@ fun CalHeader(
             // R41 — a clearly different glyph from the "Today" calendar icon beside it (they read alike).
             IconButton(onClick = { eventMenu = true }) { Icon(Icons.Filled.EditCalendar, "Events") }
             androidx.compose.material3.DropdownMenu(expanded = eventMenu, onDismissRequest = { eventMenu = false }) {
+                // Phase 1 C1 — the old 11-item grab-bag is grouped into three calm sections so the frequent
+                // "create" actions sit apart from the occasional planning and management ones.
+                @Composable fun MenuSection(label: String) = Text(label, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(start = 14.dp, top = 10.dp, bottom = 2.dp))
+                MenuSection("Create")
                 androidx.compose.material3.DropdownMenuItem(text = { Text("New event") }, leadingIcon = { Icon(Icons.Filled.Add, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("new") })
                 androidx.compose.material3.DropdownMenuItem(text = { Text("Add invitation…") }, leadingIcon = { Icon(Icons.Filled.VideoCall, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("invite") })
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Block time for a task…") }, leadingIcon = { Icon(Icons.Filled.Schedule, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("block") })
+                androidx.compose.material3.HorizontalDivider()
+                MenuSection("Plan")
                 androidx.compose.material3.DropdownMenuItem(text = { Text("Plan my day") }, leadingIcon = { Icon(Icons.Filled.AutoAwesome, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("plan") })
                 androidx.compose.material3.DropdownMenuItem(text = { Text("Weekly review") }, leadingIcon = { Icon(Icons.Filled.Insights, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("review") })
-                androidx.compose.material3.DropdownMenuItem(text = { Text("Block time for a task…") }, onClick = { eventMenu = false; onEventAction("block") })
-                androidx.compose.material3.DropdownMenuItem(text = { Text("Find a gap…") }, onClick = { eventMenu = false; onEventAction("gap") })
-                androidx.compose.material3.DropdownMenuItem(text = { Text("All entries…") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("entries") })
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Horizon") }, leadingIcon = { Icon(Icons.Filled.Explore, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("horizon") })
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Find a gap…") }, leadingIcon = { Icon(Icons.Filled.Search, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("gap") })
                 androidx.compose.material3.DropdownMenuItem(text = { Text("When am I free?") }, leadingIcon = { Icon(Icons.Filled.EventAvailable, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("availability") })
-                androidx.compose.material3.DropdownMenuItem(text = { Text("Calendars…") }, onClick = { eventMenu = false; onEventAction("calendars") })
                 androidx.compose.material3.HorizontalDivider()
-                androidx.compose.material3.DropdownMenuItem(text = { Text("Import .ics") }, onClick = { eventMenu = false; onEventAction("import") })
-                androidx.compose.material3.DropdownMenuItem(text = { Text("Export .ics") }, onClick = { eventMenu = false; onEventAction("export") })
+                MenuSection("Manage")
+                androidx.compose.material3.DropdownMenuItem(text = { Text("All entries…") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("entries") })
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Calendars…") }, leadingIcon = { Icon(Icons.Filled.CalendarMonth, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("calendars") })
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Import .ics") }, leadingIcon = { Icon(Icons.Filled.Download, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("import") })
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Export .ics") }, leadingIcon = { Icon(Icons.Filled.Upload, null, Modifier.size(18.dp)) }, onClick = { eventMenu = false; onEventAction("export") })
             }
         }
         IconButton(onClick = onOpenFilter) { Icon(Icons.Filled.FilterList, "Filter lists", tint = if (filterActive) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current) }
@@ -817,8 +975,11 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                                     val hasTask = inMonth && dueByDate.containsKey(date)
                                     val hasHabit = inMonth && habitBlocksFor(date).isNotEmpty()
                                     val hasCountdown = inMonth && countdownsFor(date).isNotEmpty()
-                                    val hasEvent = inMonth && eventOccForDay(date).isNotEmpty()
-                                    val eventDot = Color(0xFF7C3AED)
+                                    val dayEvts = if (inMonth) eventOccForDay(date) else emptyList()
+                                    val hasEvent = dayEvts.isNotEmpty()
+                                    // Phase 1 C4 — the event dot carries its calendar's colour (was a hard-coded purple),
+                                    // so colour means one thing: which calendar an event belongs to.
+                                    val eventDot = dayEvts.firstOrNull()?.let { eventColorOf(it) } ?: primary
                                     if (hasTask || hasHabit || hasCountdown || hasEvent) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                                         if (hasEvent) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else eventDot))
                                         if (hasTask) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else primary))
@@ -895,7 +1056,6 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
         // in this one calendar now, right beside the day's tasks and habits.
         val dayEvents = eventOccForDay(selected)
         if (dayEvents.isNotEmpty()) {
-            val hm = java.time.format.DateTimeFormatter.ofPattern("h:mm a")
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 dayEvents.forEach { o ->
                     val c = eventColorOf(o)
@@ -906,7 +1066,7 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(Modifier.size(7.dp).clip(CircleShape).background(c)); Spacer(Modifier.size(7.dp))
-                        val t = if (o.event.allDay) "" else Instant.ofEpochMilli(o.startMillis).atZone(java.time.ZoneId.systemDefault()).format(hm) + "  "
+                        val t = if (o.event.allDay) "" else com.todocompanion.app.domain.AppClock.time(o.startMillis, java.time.ZoneId.systemDefault()) + "  "
                         Text(t + o.event.title, style = MaterialTheme.typography.labelMedium, maxLines = 1, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
@@ -1115,8 +1275,8 @@ private fun TimelineView(
                 (1..23).forEach { h ->
                     val label = if (secZone != null) {
                         val sh = days.first().atTime(h, 0).atZone(zone).toInstant().atZone(secZone).hour
-                        "%02d · %02d:00".format(sh, h)
-                    } else "%02d:00".format(h)
+                        "%02d · %s".format(sh, com.todocompanion.app.domain.AppClock.hour(h))
+                    } else com.todocompanion.app.domain.AppClock.hour(h)
                     Text(label, Modifier.offset(y = (hourDp * h - 7).dp).fillMaxWidth().padding(end = 6.dp),
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, textAlign = TextAlign.End)
                 }
@@ -1659,12 +1819,9 @@ private fun hasTime(millis: Long, zone: ZoneId): Boolean {
     return !(dt.hour == 0 && dt.minute == 0)
 }
 
-private fun timeLabel(millis: Long, zone: ZoneId): String {
-    val dt = Instant.ofEpochMilli(millis).atZone(zone)
-    return "%02d:%02d".format(dt.hour, dt.minute)
-}
+private fun timeLabel(millis: Long, zone: ZoneId): String = com.todocompanion.app.domain.AppClock.time(millis, zone)
 
-private fun minLabel(min: Int): String = "%02d:%02d".format(min / 60, min % 60)
+private fun minLabel(min: Int): String = com.todocompanion.app.domain.AppClock.minute(min)
 
 // R52 — ask which calendar an imported .ics should land in (or make a new one).
 @Composable
