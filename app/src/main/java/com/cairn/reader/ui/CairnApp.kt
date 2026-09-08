@@ -228,6 +228,13 @@ fun CairnApp(
         if (openBrief) { currentName = Destination.Brief.name; onBriefConsumed() }
     }
     val openDrawer: () -> Unit = { scope.launch { drawerState.open() } }
+    // System Back from any secondary pane (Discover, Feeds, Settings, …) returns to the Inbox
+    // instead of falling through and exiting the app. Gated to when the drawer is closed so the
+    // drawer keeps its own close-on-back; panes that register their own BackHandler (e.g. Library)
+    // still take precedence because they compose deeper in the tree.
+    androidx.activity.compose.BackHandler(enabled = current != Destination.Inbox && drawerState.isClosed) {
+        currentName = Destination.Inbox.name
+    }
     // Honour the user's chosen launch destination + default Inbox filter, once per cold start.
     var appliedStart by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(appPrefs.startDestination, appPrefs.startFilter) {
@@ -544,8 +551,14 @@ fun CairnApp(
             val motionSpec = if (com.cairn.reader.ui.util.reduceMotion())
                 androidx.compose.animation.core.snap<Float>()
             else androidx.compose.animation.core.tween(220)
+            // Preserve each pane's scroll position and rememberSaveable UI state across tab switches
+            // (a bare Crossfade disposes the outgoing pane and resets it). Each destination gets its
+            // own state slot keyed by name.
+            val paneStateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
             Crossfade(targetState = current, animationSpec = motionSpec, label = "destination") { dest ->
-                renderDest(dest, onOpenItem)
+                paneStateHolder.SaveableStateProvider(dest.name) {
+                    renderDest(dest, onOpenItem)
+                }
             }
         }
     }
