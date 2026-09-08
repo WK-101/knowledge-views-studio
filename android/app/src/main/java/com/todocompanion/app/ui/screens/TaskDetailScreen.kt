@@ -254,7 +254,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     if (!task?.rrule.isNullOrBlank()) DropdownMenuItem(text = { Text("Skip this occurrence") }, onClick = { task?.let { vm.skipOccurrence(it) }; menu = false; onBack() })
                     if (!task?.rrule.isNullOrBlank()) DropdownMenuItem(text = { Text("Edit only this occurrence") }, onClick = { task?.let { vm.detachOccurrence(it) { newId -> } }; menu = false })
                     DropdownMenuItem(text = { Text(if (task?.abandoned == true) "Undo won't do" else "Won't do") }, onClick = { update { it.copy(abandoned = !it.abandoned) }; menu = false })
-                    DropdownMenuItem(text = { Text("Delete", color = MaterialTheme.colorScheme.error) }, onClick = { task?.let { vm.trash(it) }; menu = false; onBack() })
+                    HorizontalDivider()   // set the destructive action apart from the rest
+                    DropdownMenuItem(text = { Text("Delete", color = MaterialTheme.colorScheme.error) }, leadingIcon = { Icon(Icons.Filled.Delete, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error) }, onClick = { task?.let { vm.trash(it) }; menu = false; onBack() })
                 }
                 // Edits are staged; Save persists them (Back offers to discard unsaved changes).
                 // Iconized (R19 #10) — a check, tinted when there are unsaved edits.
@@ -325,212 +326,35 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
 
-            // ---------- Progress (compact, unboxed) ----------
+            // ---------- Unified field model (P1) ----------
+            // Every element the editor draws is an EditorField now, rendered in one ordered pass whose
+            // order + per-field tier come from Settings → Task editor. Title & notes above are the task's
+            // identity (not fields). A field shows when its tier is Always, when it already holds a value,
+            // or when "More fields" is expanded; a value-bearing field always shows. There is no second
+            // fold — a revealed section opens straight to its control (no More → section → control).
+            val level = PriorityLevel.from(task.importance, task.urgency)
+            val dueOverdue = task.dueDate?.let { it < System.currentTimeMillis() && !task.completed } == true
+            val timeOn = com.todocompanion.app.domain.Modules.isEnabled(settings, com.todocompanion.app.domain.Modules.TIME)
             val (doneW, totalW, doneN, totalN) = remember(allTasks, task.id) { projectRollup(task.id, allTasks) }
             val hasChildren = allTasks.any { it.parentId == task.id && !it.trashed }
-            if (totalN > 0) {
-                val pct = if (totalW > 0) (doneW / totalW) else 0.0
-                Column(Modifier.padding(horizontal = 6.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Progress", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("${(pct * 100).toInt()}% · $doneN of $totalN", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    androidx.compose.material3.LinearProgressIndicator(progress = { pct.toFloat() }, modifier = Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(4.dp)))
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-            } else if ((task.progressPct ?: 0) > 0) {
-                Column(Modifier.padding(horizontal = 6.dp)) {
-                    var p by remember(task.id, task.progressPct) { mutableFloatStateOf((task.progressPct ?: 0).toFloat()) }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Progress", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("${p.toInt()}%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    ModernSlider(p, 0f..100f, 0, { p = it }, { update { it.copy(progressPct = p.toInt().takeIf { v -> v > 0 }) } }, Modifier.fillMaxWidth())
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-            }
 
-            // ("Just start — focus now" is now an icon in the top bar — R19 #10.)
-
-            // ---------- Compact property rows ----------
-            val level = PriorityLevel.from(task.importance, task.urgency)
-            val zone = java.time.ZoneId.systemDefault()
-            val dueOverdue = task.dueDate?.let { it < System.currentTimeMillis() && !task.completed } == true
-
-            PropRow(Icons.Filled.Event, "Date", task.dueDate?.let { formatDueSpan(it, task.durationMin) } ?: "No date",
-                valueColor = if (dueOverdue) MaterialTheme.colorScheme.error else if (task.dueDate != null) MaterialTheme.colorScheme.primary else null,
-                onClear = if (task.dueDate != null) ({ update { it.copy(dueDate = null, durationMin = null) } }) else null) { showDue = true }
-            if (task.dueDate != null || task.startDate != null || task.deadlineDate != null) {
-                // Start date, all-day, duration, DEADLINE, repeat and reminders ALL live inside the unified Date
-                // sheet now (tap "Date" above) — no duplicated controls out here (R19 #9 / R21 / R22). These are
-                // read-only summaries of what's set in the sheet.
-                if (task.startDate != null) Text("Starts " + formatDue(task.startDate!!), Modifier.padding(start = 34.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                task.deadlineDate?.let { dl ->
-                    val passed = dl < System.currentTimeMillis() && !task.completed
-                    Text("⚑ Deadline " + formatDue(dl), Modifier.padding(start = 34.dp), style = MaterialTheme.typography.labelSmall,
-                        color = if (passed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary)
-                }
-                // Distinct from "Starts" (which defers a task by its own start date): this is how far
-                // BEFORE the due date the task begins ramping up in urgency / surfacing.
-                if (task.dueDate != null) MenuRow("Surface before due", task.leadTimeMin?.let { "${it / 1440}d before" } ?: "Default",
-                    listOf<Pair<Int?, String>>(null to "Default (7 days)", 1 to "1 day before", 3 to "3 days before", 7 to "1 week before", 14 to "2 weeks before")) { d -> update { it.copy(leadTimeMin = d?.let { n -> n * 1440 }) } }
-            }
-
-            // T2: track time against this task (Time module only). Planned (duration/estimate) vs actual,
-            // with a live-ticking clock while running and a picker for which activity the time counts under.
-            if (com.todocompanion.app.domain.Modules.isEnabled(settings, com.todocompanion.app.domain.Modules.TIME)) {
-                val mine = timeEntries.filter { it.taskId == task.id }
-                val running = mine.firstOrNull { it.running }
-                // A one-second tick so the running total counts up live (was static before).
-                var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
-                LaunchedEffect(running?.id) {
-                    while (running != null) { nowMs = System.currentTimeMillis(); delay(1000) }
-                }
-                val trackedMin = mine.sumOf { it.minutes(nowMs) }
-                val planned = task.durationMin ?: task.estimateMin
-                val linkedAct = timeActivities.firstOrNull { it.id == task.defaultActivityId && !it.archived }
-                var actMenu by remember { mutableStateOf(false) }
-                Row(Modifier.fillMaxWidth().padding(start = 34.dp, end = 4.dp, top = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Schedule, null, tint = if (running != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("Time tracked", style = MaterialTheme.typography.bodyMedium)
-                        if (running != null) {
-                            val secs = ((nowMs - running.startMillis) / 1000).coerceAtLeast(0)
-                            Text("● %d:%02d:%02d".format(secs / 3600, (secs % 3600) / 60, secs % 60) + "  · running",
-                                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                        } else {
-                            Text(
-                                (if (trackedMin > 0) fmtDuration(trackedMin) else "None yet") +
-                                    (planned?.let { " · ${fmtDuration(it)} planned" } ?: "") +
-                                    (if (planned != null && trackedMin > planned) "  ⚠ over" else ""),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (planned != null && trackedMin > planned) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                    // One unified tracking control (R21 #4): Stop while running; otherwise a single Start that
-                    // offers both plain time tracking and a focus session — no separate focus button elsewhere.
-                    if (running != null) {
-                        androidx.compose.material3.FilledTonalButton(onClick = { vm.stopTimeTracking() }) {
-                            Icon(Icons.Filled.Stop, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Stop")
-                        }
-                    } else {
-                        Box {
-                            var startMenu by remember { mutableStateOf(false) }
-                            androidx.compose.material3.FilledTonalButton(onClick = { startMenu = true }) {
-                                Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(6.dp)); Text("Start")
-                                Icon(Icons.Filled.ExpandMore, null, modifier = Modifier.size(18.dp))
-                            }
-                            DropdownMenu(expanded = startMenu, onDismissRequest = { startMenu = false }) {
-                                DropdownMenuItem(text = { Text("Track time") },
-                                    leadingIcon = { Icon(Icons.Filled.Schedule, null, Modifier.size(18.dp)) },
-                                    onClick = { vm.startTimeTrackingForTask(task); startMenu = false })
-                                if (onJustStart != null && !task.completed && !task.abandoned) {
-                                    DropdownMenuItem(text = { Text("Focus session") },
-                                        leadingIcon = { Icon(Icons.Filled.PlayArrow, null, Modifier.size(18.dp)) },
-                                        onClick = { startMenu = false; onJustStart(task.id) })
-                                }
-                            }
-                        }
-                    }
-                }
-                // "Counts under" — pick which time activity this task's tracked time belongs to. Falls back
-                // to a shared "Tasks" bucket when unset. (Fixes: no way to link an activity to a task.)
-                Row(Modifier.padding(start = 62.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box {
-                        Row(Modifier.clip(RoundedCornerShape(8.dp)).clickable { actMenu = true }.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("Counts under: ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text((linkedAct?.emoji?.plus(" ") ?: "") + (linkedAct?.name ?: "Tasks (default)"),
-                                style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                            Icon(Icons.Filled.ExpandMore, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                        }
-                        DropdownMenu(expanded = actMenu, onDismissRequest = { actMenu = false }) {
-                            // The link is STAGED into the draft (R22) — writing straight to the DB was overwritten
-                            // by the next Save of the draft (which still held the old value) and the checkmark
-                            // never moved. update{} keeps it consistent with every other field and Save persists it.
-                            DropdownMenuItem(text = { Text("Tasks (default bucket)") },
-                                leadingIcon = { if (task.defaultActivityId == null) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
-                                onClick = { update { it.copy(defaultActivityId = null) }; actMenu = false })
-                            timeActivities.filter { !it.archived }.forEach { a ->
-                                // Each activity is editable/removable in place (R21 #3) — the trailing pencil opens
-                                // the editor (which also deletes); tapping the row links it to the task.
-                                DropdownMenuItem(text = { Text((a.emoji?.plus(" ") ?: "") + a.name) },
-                                    leadingIcon = { if (task.defaultActivityId == a.id) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
-                                    trailingIcon = {
-                                        IconButton(onClick = { actMenu = false; editActivity = a }, modifier = Modifier.size(30.dp)) {
-                                            Icon(Icons.Outlined.Edit, "Edit activity", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        }
-                                    },
-                                    onClick = { update { it.copy(defaultActivityId = a.id) }; actMenu = false })
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ---------- Priority & list (core, always shown) ----------
-            Box {
-                // Custom priority row: the "why this priority?" explainer is now a small superscript ⓘ next to
-                // the label (R22) instead of a space-hungry button below — tapping it opens the score breakdown.
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { prioMenu = true }
-                        .padding(start = 6.dp, end = 4.dp, top = 11.dp, bottom = 11.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Filled.Flag, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(14.dp))
-                    Text("Priority", style = MaterialTheme.typography.bodyMedium)
-                    if (settings.priorityComputed) {
-                        IconButton(onClick = { showScore = true }, modifier = Modifier.size(20.dp).offset(y = (-5).dp)) {
-                            Icon(Icons.Outlined.Info, "Why this priority?", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    Spacer(Modifier.weight(1f))
-                    Text(level.label, style = MaterialTheme.typography.bodyMedium, color = priorityColor(level), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp))
-                    Spacer(Modifier.width(4.dp)); Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
-                }
-                DropdownMenu(expanded = prioMenu, onDismissRequest = { prioMenu = false }) {
-                    PriorityLevel.entries.forEach { lvl ->
-                        DropdownMenuItem(text = { Text(lvl.label) }, leadingIcon = { Icon(Icons.Filled.Flag, null, tint = priorityColor(lvl), modifier = Modifier.size(18.dp)) },
-                            onClick = { update { it.copy(importance = lvl.importance, urgency = lvl.urgency) }; prioMenu = false })
-                    }
-                }
-            }
-            if (settings.advancedPriority) {
-                Dial("Importance", task.importance) { v -> update { it.copy(importance = v) } }
-                Dial("Urgency", task.urgency) { v -> update { it.copy(urgency = v) } }
-            }
-            run {
-                // Folder-direct tasks (empty listId) show the folder they live in until moved to a list.
-                // Tapping opens the SAME unified folders+lists selector used everywhere else (R19 #10).
-                val where = task.folderId?.let { fid -> folders.firstOrNull { it.id == fid }?.name?.let { "📁 $it" } }
-                    ?: lists.firstOrNull { it.id == task.listId }?.name ?: "Inbox"
-                PropRow(Icons.AutoMirrored.Filled.FormatListBulleted, "List", where) { listMenu = true }
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-
-            // ---------- Optional fields — progressive disclosure (#114) ----------
-            // Order + per-field visibility come from Settings → Task editor. A field that already
-            // holds a value is always shown (its tier is ignored) so nothing you've set can hide.
-            val myReminders = reminders.filter { it.taskId == task.id }
             val myCheck = checklist.filter { it.taskId == task.id }.sortedBy { it.sortOrder }
             val attFlow = remember(task.id) { vm.attachmentMeta(task.id) }
             val attachments by attFlow.collectAsState(initial = emptyList())
-            // R43 — attachment pickers (pickFiles / pickPhotos / takePhoto) are hoisted to the top of
-            // the composable now, registered unconditionally. See the block near the state declarations.
             // Staged tag/context sets (R21 #2): pending edits if any, else the live DB sets.
             val assignedTags = effTags
             val assignedCtx = effCtx
             val myDeps = allDeps.filter { it.taskId == task.id }
+
             fun hasFieldValue(f: com.todocompanion.app.domain.EditorField): Boolean = when (f) {
+                com.todocompanion.app.domain.EditorField.PROGRESS -> totalN > 0 || (task.progressPct ?: 0) > 0
+                com.todocompanion.app.domain.EditorField.SCHEDULE -> task.dueDate != null || task.startDate != null || task.deadlineDate != null
+                com.todocompanion.app.domain.EditorField.LEADTIME -> task.dueDate != null
+                com.todocompanion.app.domain.EditorField.TIMETRACKING -> timeOn
+                com.todocompanion.app.domain.EditorField.PRIORITY -> true
+                com.todocompanion.app.domain.EditorField.LIST -> true
                 com.todocompanion.app.domain.EditorField.REPEAT -> !task.rrule.isNullOrBlank()
-                com.todocompanion.app.domain.EditorField.REMINDERS -> myReminders.isNotEmpty()
                 com.todocompanion.app.domain.EditorField.CHECKLIST -> myCheck.isNotEmpty()
-                com.todocompanion.app.domain.EditorField.DEADLINE -> false   // lives in the Date sheet now (R22)
                 com.todocompanion.app.domain.EditorField.ENERGY -> task.energy != null
                 com.todocompanion.app.domain.EditorField.FLAG -> task.flagId != null
                 com.todocompanion.app.domain.EditorField.ATTACHMENTS -> attachments.isNotEmpty()
@@ -539,41 +363,205 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 com.todocompanion.app.domain.EditorField.ACTIVITY -> activityLog.isNotEmpty()
                 com.todocompanion.app.domain.EditorField.ADVANCED -> task.estimateMin != null || task.isGoal || task.isProject || task.reviewEveryDays != null || (task.progressPct ?: 0) > 0
                 com.todocompanion.app.domain.EditorField.REFLECTION -> task.winFlag || !task.outcomeNote.isNullOrBlank() || !task.learnedNote.isNullOrBlank() || !task.praiseQuote.isNullOrBlank() || task.mood != null
+                com.todocompanion.app.domain.EditorField.COACH -> true
             }
             val orderedFields = settings.editorFieldsOrdered()
             var moreExpanded by remember(task.id) { mutableStateOf(false) }
-            val anyCollapsed = orderedFields.any { settings.editorTier(it) == com.todocompanion.app.domain.AppSettings.TIER_MORE && !hasFieldValue(it) }
+            val anyCollapsed = orderedFields.any { it != com.todocompanion.app.domain.EditorField.COACH && settings.editorTier(it) == com.todocompanion.app.domain.AppSettings.TIER_MORE && !hasFieldValue(it) }
+
             orderedFields.forEach { f ->
+                // The coach card is contextual guidance pinned to the very bottom (below the More toggle),
+                // so it renders after the loop rather than at its ordered slot.
+                if (f == com.todocompanion.app.domain.EditorField.COACH) return@forEach
                 val tier = settings.editorTier(f)
                 val visible = tier == com.todocompanion.app.domain.AppSettings.TIER_ALWAYS || hasFieldValue(f) || (tier == com.todocompanion.app.domain.AppSettings.TIER_MORE && moreExpanded) ||
                     // Reflection still auto-appears on a finished task — unless the user hid it.
                     (f == com.todocompanion.app.domain.EditorField.REFLECTION && task.completed && tier != com.todocompanion.app.domain.AppSettings.TIER_HIDDEN)
                 if (!visible) return@forEach
                 when (f) {
-                    // Deadline is set inside the unified Date sheet now (R22) and summarised under the Date row,
-                    // so this standalone field renders nothing.
-                    com.todocompanion.app.domain.EditorField.DEADLINE -> {}
-                    com.todocompanion.app.domain.EditorField.ENERGY ->
-                        // Energy tag — surfaced by the "right now" filter so you can match tasks to how you feel.
-                        MenuRow("Energy", when (task.energy) { 1 -> "Low"; 2 -> "Medium"; 3 -> "High"; else -> "Any" },
-                            listOf<Pair<Int?, String>>(null to "Any", 1 to "Low", 2 to "Medium", 3 to "High")) { e -> update { it.copy(energy = e) } }
-                    com.todocompanion.app.domain.EditorField.FLAG ->
-                        Box {
-                            // Flag uses the bookmark glyph app-wide (FlagStar / FlagIcons); Priority keeps the flag
-                            // glyph. Two different icons so the two rows aren't confused (R27 #5).
-                            PropRow(Icons.Filled.Bookmark, "Flag", allFlags.firstOrNull { it.id == task.flagId }?.name ?: "None", valueColor = task.flagColorArgb?.let { Color(it) }) { flagMenu = true }
-                            DropdownMenu(expanded = flagMenu, onDismissRequest = { flagMenu = false }) {
-                                DropdownMenuItem(text = { Text("None") }, onClick = { update { it.copy(flagId = null, flagColorArgb = null) }; flagMenu = false })
-                                allFlags.forEach { fl ->
-                                    DropdownMenuItem(text = { Text(fl.name) }, leadingIcon = { Icon(com.todocompanion.app.ui.components.FlagIcons.vector(fl.icon), null, tint = Color(fl.colorArgb), modifier = Modifier.size(18.dp)) },
-                                        onClick = { update { it.copy(flagId = fl.id, flagColorArgb = fl.colorArgb) }; flagMenu = false })
+                    // ---------- Progress readout (rollup for a parent, manual % for a leaf) ----------
+                    com.todocompanion.app.domain.EditorField.PROGRESS -> {
+                        if (totalN > 0) {
+                            val pct = if (totalW > 0) (doneW / totalW) else 0.0
+                            Column(Modifier.padding(horizontal = 6.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Progress", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("${(pct * 100).toInt()}% · $doneN of $totalN", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Spacer(Modifier.height(6.dp))
+                                androidx.compose.material3.LinearProgressIndicator(progress = { pct.toFloat() }, modifier = Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(4.dp)))
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                        } else if ((task.progressPct ?: 0) > 0) {
+                            Column(Modifier.padding(horizontal = 6.dp)) {
+                                var p by remember(task.id, task.progressPct) { mutableFloatStateOf((task.progressPct ?: 0).toFloat()) }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Progress", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("${p.toInt()}%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                ModernSlider(p, 0f..100f, 0, { p = it }, { update { it.copy(progressPct = p.toInt().takeIf { v -> v > 0 }) } }, Modifier.fillMaxWidth())
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                        }
+                    }
+
+                    // ---------- Date & schedule (opens the unified Date sheet) ----------
+                    com.todocompanion.app.domain.EditorField.SCHEDULE -> {
+                        PropRow(Icons.Filled.Event, "Date", task.dueDate?.let { formatDueSpan(it, task.durationMin) } ?: "No date",
+                            valueColor = if (dueOverdue) MaterialTheme.colorScheme.error else if (task.dueDate != null) MaterialTheme.colorScheme.primary else null,
+                            onClear = if (task.dueDate != null) ({ update { it.copy(dueDate = null, durationMin = null) } }) else null) { showDue = true }
+                        // Start date, all-day, duration, DEADLINE, repeat and reminders ALL live inside the
+                        // unified Date sheet (tap "Date"). These are read-only summaries of what's set there.
+                        if (task.startDate != null) Text("Starts " + formatDue(task.startDate!!), Modifier.padding(start = 34.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        task.deadlineDate?.let { dl ->
+                            val passed = dl < System.currentTimeMillis() && !task.completed
+                            Text("⚑ Deadline " + formatDue(dl), Modifier.padding(start = 34.dp), style = MaterialTheme.typography.labelSmall,
+                                color = if (passed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary)
+                        }
+                    }
+
+                    // ---------- Surface before due (how far ahead the task ramps up in urgency) ----------
+                    com.todocompanion.app.domain.EditorField.LEADTIME -> {
+                        if (task.dueDate != null) MenuRow("Surface before due", task.leadTimeMin?.let { "${it / 1440}d before" } ?: "Default",
+                            listOf<Pair<Int?, String>>(null to "Default (7 days)", 1 to "1 day before", 3 to "3 days before", 7 to "1 week before", 14 to "2 weeks before")) { d -> update { it.copy(leadTimeMin = d?.let { n -> n * 1440 }) } }
+                    }
+
+                    // ---------- Time tracking (Time module) ----------
+                    // Planned (duration/estimate) vs actual, with a live-ticking clock while running and a
+                    // picker for which activity the time counts under.
+                    com.todocompanion.app.domain.EditorField.TIMETRACKING -> if (timeOn) {
+                        val mine = timeEntries.filter { it.taskId == task.id }
+                        val running = mine.firstOrNull { it.running }
+                        // A one-second tick so the running total counts up live.
+                        var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+                        LaunchedEffect(running?.id) {
+                            while (running != null) { nowMs = System.currentTimeMillis(); delay(1000) }
+                        }
+                        val trackedMin = mine.sumOf { it.minutes(nowMs) }
+                        val planned = task.durationMin ?: task.estimateMin
+                        val linkedAct = timeActivities.firstOrNull { it.id == task.defaultActivityId && !it.archived }
+                        var actMenu by remember { mutableStateOf(false) }
+                        Row(Modifier.fillMaxWidth().padding(start = 34.dp, end = 4.dp, top = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Schedule, null, tint = if (running != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("Time tracked", style = MaterialTheme.typography.bodyMedium)
+                                if (running != null) {
+                                    val secs = ((nowMs - running.startMillis) / 1000).coerceAtLeast(0)
+                                    Text("● %d:%02d:%02d".format(secs / 3600, (secs % 3600) / 60, secs % 60) + "  · running",
+                                        style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                } else {
+                                    Text(
+                                        (if (trackedMin > 0) fmtDuration(trackedMin) else "None yet") +
+                                            (planned?.let { " · ${fmtDuration(it)} planned" } ?: "") +
+                                            (if (planned != null && trackedMin > planned) "  ⚠ over" else ""),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (planned != null && trackedMin > planned) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            // One unified tracking control (R21 #4): Stop while running; otherwise a single Start
+                            // that offers both plain time tracking and a focus session.
+                            if (running != null) {
+                                androidx.compose.material3.FilledTonalButton(onClick = { vm.stopTimeTracking() }) {
+                                    Icon(Icons.Filled.Stop, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Stop")
+                                }
+                            } else {
+                                Box {
+                                    var startMenu by remember { mutableStateOf(false) }
+                                    androidx.compose.material3.FilledTonalButton(onClick = { startMenu = true }) {
+                                        Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(6.dp)); Text("Start")
+                                        Icon(Icons.Filled.ExpandMore, null, modifier = Modifier.size(18.dp))
+                                    }
+                                    DropdownMenu(expanded = startMenu, onDismissRequest = { startMenu = false }) {
+                                        DropdownMenuItem(text = { Text("Track time") },
+                                            leadingIcon = { Icon(Icons.Filled.Schedule, null, Modifier.size(18.dp)) },
+                                            onClick = { vm.startTimeTrackingForTask(task); startMenu = false })
+                                        if (onJustStart != null && !task.completed && !task.abandoned) {
+                                            DropdownMenuItem(text = { Text("Focus session") },
+                                                leadingIcon = { Icon(Icons.Filled.PlayArrow, null, Modifier.size(18.dp)) },
+                                                onClick = { startMenu = false; onJustStart(task.id) })
+                                        }
+                                    }
                                 }
                             }
                         }
+                        // "Counts under" — pick which time activity this task's tracked time belongs to.
+                        Row(Modifier.padding(start = 62.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box {
+                                Row(Modifier.clip(RoundedCornerShape(8.dp)).clickable { actMenu = true }.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Counts under: ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text((linkedAct?.emoji?.plus(" ") ?: "") + (linkedAct?.name ?: "Tasks (default)"),
+                                        style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                                    Icon(Icons.Filled.ExpandMore, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                                }
+                                DropdownMenu(expanded = actMenu, onDismissRequest = { actMenu = false }) {
+                                    DropdownMenuItem(text = { Text("Tasks (default bucket)") },
+                                        leadingIcon = { if (task.defaultActivityId == null) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
+                                        onClick = { update { it.copy(defaultActivityId = null) }; actMenu = false })
+                                    timeActivities.filter { !it.archived }.forEach { a ->
+                                        DropdownMenuItem(text = { Text((a.emoji?.plus(" ") ?: "") + a.name) },
+                                            leadingIcon = { if (task.defaultActivityId == a.id) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
+                                            trailingIcon = {
+                                                IconButton(onClick = { actMenu = false; editActivity = a }, modifier = Modifier.size(30.dp)) {
+                                                    Icon(Icons.Outlined.Edit, "Edit activity", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                            },
+                                            onClick = { update { it.copy(defaultActivityId = a.id) }; actMenu = false })
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ---------- Priority ----------
+                    com.todocompanion.app.domain.EditorField.PRIORITY -> {
+                        Box {
+                            Row(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { prioMenu = true }
+                                    .padding(start = 6.dp, end = 4.dp, top = 11.dp, bottom = 11.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(Icons.Filled.Flag, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(14.dp))
+                                Text("Priority", style = MaterialTheme.typography.bodyMedium)
+                                if (settings.priorityComputed) {
+                                    IconButton(onClick = { showScore = true }, modifier = Modifier.size(20.dp).offset(y = (-5).dp)) {
+                                        Icon(Icons.Outlined.Info, "Why this priority?", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                                Spacer(Modifier.weight(1f))
+                                Text(level.label, style = MaterialTheme.typography.bodyMedium, color = priorityColor(level), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp))
+                                Spacer(Modifier.width(4.dp)); Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
+                            }
+                            DropdownMenu(expanded = prioMenu, onDismissRequest = { prioMenu = false }) {
+                                PriorityLevel.entries.forEach { lvl ->
+                                    DropdownMenuItem(text = { Text(lvl.label) }, leadingIcon = { Icon(Icons.Filled.Flag, null, tint = priorityColor(lvl), modifier = Modifier.size(18.dp)) },
+                                        onClick = { update { it.copy(importance = lvl.importance, urgency = lvl.urgency) }; prioMenu = false })
+                                }
+                            }
+                        }
+                        if (settings.advancedPriority) {
+                            Dial("Importance", task.importance) { v -> update { it.copy(importance = v) } }
+                            Dial("Urgency", task.urgency) { v -> update { it.copy(urgency = v) } }
+                        }
+                    }
+
+                    // ---------- List / folder ----------
+                    com.todocompanion.app.domain.EditorField.LIST -> {
+                        run {
+                            // Folder-direct tasks (empty listId) show the folder they live in until moved to a list.
+                            val where = task.folderId?.let { fid -> folders.firstOrNull { it.id == fid }?.name?.let { "📁 $it" } }
+                                ?: lists.firstOrNull { it.id == task.listId }?.name ?: "Inbox"
+                            PropRow(Icons.AutoMirrored.Filled.FormatListBulleted, "List", where) { listMenu = true }
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                    }
+
                     com.todocompanion.app.domain.EditorField.REPEAT -> {
-                        // Repeat is set inside the unified Date sheet now (R19 #9); this section keeps only
-                        // the recurrence insight (reliability) for tasks that already repeat.
-                        // P1/Q3/Q4: reliability — score, forgiving streak, trend and time-of-day rhythm.
+                        // Repeat is set inside the unified Date sheet (R19 #9); this field keeps only the
+                        // recurrence insight (reliability) for tasks that already repeat.
                         val reliability by vm.taskReliability.collectAsState()
                         reliability[task.id]?.let { rel ->
                             val acts by vm.taskActivity(task.id).collectAsState(initial = emptyList())
@@ -613,12 +601,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                         }
                     }
 
-                    // Reminders are managed inside the unified Date sheet now (tap "Date"), so nothing
-                    // renders here — no duplicated Reminders section in the editor body (R19 #9).
-                    com.todocompanion.app.domain.EditorField.REMINDERS -> Unit
-
                     com.todocompanion.app.domain.EditorField.CHECKLIST ->
-                     DetailSection("Checklist", if (myCheck.isEmpty()) null else "${myCheck.count { it.checked }}/${myCheck.size}", myCheck.isNotEmpty()) {
+                     DetailSection("Checklist", if (myCheck.isEmpty()) null else "${myCheck.count { it.checked }}/${myCheck.size}", true) {
                 myCheck.forEach { item ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = item.checked, onCheckedChange = { vm.toggleChecklist(item) })
@@ -651,7 +635,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             }
 
                     com.todocompanion.app.domain.EditorField.ATTACHMENTS ->
-                     DetailSection("Attachments", if (attachments.isEmpty()) null else "${attachments.size}", attachments.isNotEmpty()) {
+                     DetailSection("Attachments", if (attachments.isEmpty()) null else "${attachments.size}", true) {
                 attachments.forEach { a ->
                     Row(Modifier.fillMaxWidth().clickable { vm.openAttachment(a.id, a.fileName, a.mime) }.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (a.isImage) AttachmentThumb(vm, a.id) else {
@@ -667,9 +651,6 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     }
                 }
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                    // Each button just invokes the hoisted, top-level picker (registered for the whole
-                    // screen's lifetime). The helper runs the layered launch chain and surfaces the real
-                    // error if every tier fails — so it never silently dead-ends. See SystemPickers.kt.
                     TextButton(onClick = { com.todocompanion.app.util.SystemPicker.gallery(onError = onPickerError) { uris -> vm.addAttachments(taskId, uris) { n -> if (n > 0) attachBump++ } } }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.Image, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Photo") }
                     TextButton(onClick = { com.todocompanion.app.util.SystemPicker.camera(onError = onPickerError) { uri -> vm.addAttachment(taskId, uri) { ok -> if (ok) attachBump++ } } }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.CameraAlt, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Camera") }
                     TextButton(onClick = { com.todocompanion.app.util.SystemPicker.openFiles(arrayOf("*/*"), onError = onPickerError) { uris -> vm.addAttachments(taskId, uris) { n -> if (n > 0) attachBump++ } } }, contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp, 0.dp)) { Icon(Icons.Filled.AttachFile, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("File") }
@@ -686,10 +667,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             }
 
                     com.todocompanion.app.domain.EditorField.TAGS ->
-                     DetailSection("Tags & contexts", (assignedTags.size + assignedCtx.size).takeIf { it > 0 }?.toString(), assignedTags.isNotEmpty() || assignedCtx.isNotEmpty()) {
+                     DetailSection("Tags & contexts", (assignedTags.size + assignedCtx.size).takeIf { it > 0 }?.toString(), true) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     allTags.forEach { tag ->
-                        // Toggling stages the change into draftTags — Save lights up and persists it (R21 #2).
                         FilterChip(selected = tag.id in assignedTags, onClick = {
                             draftTags = if (tag.id in assignedTags) assignedTags - tag.id else assignedTags + tag.id
                         }, label = { Text("#" + tag.name) })
@@ -707,8 +687,27 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 AddInline(newContext, { newContext = it }, "New context") { if (it.isNotBlank()) { vm.createContext(it.trim()); newContext = "" } }
             }
 
+                    com.todocompanion.app.domain.EditorField.FLAG ->
+                        Box {
+                            // Flag uses the bookmark glyph app-wide (FlagStar / FlagIcons); Priority keeps the flag
+                            // glyph. Two different icons so the two rows aren't confused (R27 #5).
+                            PropRow(Icons.Filled.Bookmark, "Flag", allFlags.firstOrNull { it.id == task.flagId }?.name ?: "None", valueColor = task.flagColorArgb?.let { Color(it) }) { flagMenu = true }
+                            DropdownMenu(expanded = flagMenu, onDismissRequest = { flagMenu = false }) {
+                                DropdownMenuItem(text = { Text("None") }, onClick = { update { it.copy(flagId = null, flagColorArgb = null) }; flagMenu = false })
+                                allFlags.forEach { fl ->
+                                    DropdownMenuItem(text = { Text(fl.name) }, leadingIcon = { Icon(com.todocompanion.app.ui.components.FlagIcons.vector(fl.icon), null, tint = Color(fl.colorArgb), modifier = Modifier.size(18.dp)) },
+                                        onClick = { update { it.copy(flagId = fl.id, flagColorArgb = fl.colorArgb) }; flagMenu = false })
+                                }
+                            }
+                        }
+
+                    com.todocompanion.app.domain.EditorField.ENERGY ->
+                        // Energy tag — surfaced by the "right now" filter so you can match tasks to how you feel.
+                        MenuRow("Energy", when (task.energy) { 1 -> "Low"; 2 -> "Medium"; 3 -> "High"; else -> "Any" },
+                            listOf<Pair<Int?, String>>(null to "Any", 1 to "Low", 2 to "Medium", 3 to "High")) { e -> update { it.copy(energy = e) } }
+
                     com.todocompanion.app.domain.EditorField.BLOCKED ->
-                     DetailSection("Blocked by", myDeps.size.takeIf { it > 0 }?.toString(), myDeps.isNotEmpty()) {
+                     DetailSection("Blocked by", myDeps.size.takeIf { it > 0 }?.toString(), true) {
                 val byId = allTasks.associateBy { it.id }
                 if (myDeps.isEmpty()) Text("Not blocked — this task can be done now.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 myDeps.forEach { dep ->
@@ -738,48 +737,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 TextButton(onClick = { showBlockPicker = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("＋ Add a blocker") }
             }
 
-                    com.todocompanion.app.domain.EditorField.ACTIVITY ->
-                     DetailSection("Activity", activityLog.size.takeIf { it > 0 }?.toString(), false) {
-                // R23: activity entries are an independent append-only log — any one (including "created")
-                // can be deleted with no cascade; each deletion is confirmed first.
-                var confirmDel by remember { mutableStateOf<com.todocompanion.app.data.entity.ActivityEntity?>(null) }
-                var confirmClear by remember { mutableStateOf(false) }
-                if (activityLog.isEmpty()) {
-                    Text("No activity recorded yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    activityLog.take(40).forEach { a ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(activityIcon(a.type), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(9.dp))
-                            Text(activityLabel(a.type, a.detail), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                            Text(relativeTime(a.at), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            IconButton(onClick = { confirmDel = a }, modifier = Modifier.size(28.dp)) {
-                                Icon(Icons.Filled.Close, "Delete entry", modifier = Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-                    TextButton(onClick = { confirmClear = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
-                        Icon(Icons.Filled.Delete, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error); Spacer(Modifier.width(4.dp)); Text("Clear history", color = MaterialTheme.colorScheme.error)
-                    }
-                }
-                confirmDel?.let { a ->
-                    ConfirmDialog(
-                        title = "Delete this entry?",
-                        body = "Removes “${activityLabel(a.type, a.detail)}” from this task's history. Only the log is edited — the task itself is unchanged.",
-                        confirmLabel = "Delete",
-                        onConfirm = { vm.deleteActivityEntry(a.id); confirmDel = null },
-                        onDismiss = { confirmDel = null })
-                }
-                if (confirmClear) ConfirmDialog(
-                    title = "Clear activity history?",
-                    body = "Deletes every recorded event for this task, including “created”. The task and its data are untouched — only the history log is cleared.",
-                    confirmLabel = "Clear all",
-                    onConfirm = { vm.clearTaskActivity(task.id); confirmClear = false },
-                    onDismiss = { confirmClear = false })
-            }
-
                     com.todocompanion.app.domain.EditorField.ADVANCED ->
-                     DetailSection("Estimate, goals & review", null, false) {
+                     DetailSection("Estimate, goals & review", null, true) {
                 if (totalN == 0) {
                     // Leaf manual progress lives here when not already set/shown above.
                     var p by remember(task.id, task.progressPct) { mutableFloatStateOf((task.progressPct ?: 0).toFloat()) }
@@ -821,12 +780,51 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     }
                 }
             }
+
+                    com.todocompanion.app.domain.EditorField.ACTIVITY ->
+                     DetailSection("Activity", activityLog.size.takeIf { it > 0 }?.toString(), true) {
+                // R23: activity entries are an independent append-only log — any one (including "created")
+                // can be deleted with no cascade; each deletion is confirmed first.
+                var confirmDel by remember { mutableStateOf<com.todocompanion.app.data.entity.ActivityEntity?>(null) }
+                var confirmClear by remember { mutableStateOf(false) }
+                if (activityLog.isEmpty()) {
+                    Text("No activity recorded yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    activityLog.take(40).forEach { a ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(activityIcon(a.type), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(9.dp))
+                            Text(activityLabel(a.type, a.detail), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                            Text(relativeTime(a.at), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            IconButton(onClick = { confirmDel = a }, modifier = Modifier.size(28.dp)) {
+                                Icon(Icons.Filled.Close, "Delete entry", modifier = Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                    TextButton(onClick = { confirmClear = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                        Icon(Icons.Filled.Delete, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error); Spacer(Modifier.width(4.dp)); Text("Clear history", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                confirmDel?.let { a ->
+                    ConfirmDialog(
+                        title = "Delete this entry?",
+                        body = "Removes “${activityLabel(a.type, a.detail)}” from this task's history. Only the log is edited — the task itself is unchanged.",
+                        confirmLabel = "Delete",
+                        onConfirm = { vm.deleteActivityEntry(a.id); confirmDel = null },
+                        onDismiss = { confirmDel = null })
+                }
+                if (confirmClear) ConfirmDialog(
+                    title = "Clear activity history?",
+                    body = "Deletes every recorded event for this task, including “created”. The task and its data are untouched — only the history log is cleared.",
+                    confirmLabel = "Clear all",
+                    onConfirm = { vm.clearTaskActivity(task.id); confirmClear = false },
+                    onDismiss = { confirmClear = false })
+            }
+
                     com.todocompanion.app.domain.EditorField.REFLECTION -> {
-                        // R27/R29 #5, R30 #2 — reflection: win, mood, outcome, lesson, praise. A proper
-                        // reorderable editor field, now wrapped in the same collapsible DetailSection every other
-                        // field uses (fold consistency), and still open by default on a finished task.
-                        val hasRefl = task.winFlag || !task.outcomeNote.isNullOrBlank() || !task.learnedNote.isNullOrBlank() || !task.praiseQuote.isNullOrBlank() || task.mood != null
-                        DetailSection("Reflection", if (task.winFlag) "★" else null, task.completed || hasRefl) {
+                        // R27/R29 #5, R30 #2 — reflection: win, mood, outcome, lesson, praise. Opens straight
+                        // to its controls (no second fold), still shown by default on a finished task.
+                        DetailSection("Reflection", if (task.winFlag) "★" else null, true) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Filled.EmojiEvents, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(10.dp))
@@ -859,6 +857,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                                 label = { Text("Praise / thank-you to remember") }, modifier = Modifier.fillMaxWidth())
                         }
                     }
+
+                    com.todocompanion.app.domain.EditorField.COACH -> {}
                 }
             }
             // Progressive-disclosure toggle: reveals the "More" fields that have no value yet.
@@ -870,9 +870,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 }
             }
 
-            // R37 — the task coach: habit-science ports (deferral chain, micro-lesson, value link,
-            // recurring-task reliability, ship-it escrow).
-            if (task != null) TaskCoachCard(vm, task)
+            // R37 — the task coach: habit-science ports. Pinned to the bottom (an EditorField "coach", so it
+            // can be hidden in Settings) below the More toggle, since it's advisory rather than an input.
+            if (settings.editorTier(com.todocompanion.app.domain.EditorField.COACH) != com.todocompanion.app.domain.AppSettings.TIER_HIDDEN) TaskCoachCard(vm, task)
 
             Spacer(Modifier.height(24.dp))
         }

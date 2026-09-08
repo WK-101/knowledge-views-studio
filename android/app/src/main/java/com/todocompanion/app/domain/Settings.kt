@@ -351,13 +351,25 @@ data class AppSettings(
     /** Effective tier for an optional editor field: user override, else its built-in default. */
     fun editorTier(f: EditorField): Int = editorFieldTiers[f.id] ?: f.defaultTier
 
-    /** Optional editor fields in the user's saved arrangement (unknown/new ids appended in default order). */
+    /** Editor fields in the user's saved arrangement. Fields that didn't exist when the arrangement
+     *  was saved (e.g. the P1 core fields added to an older custom order) are re-inserted at their
+     *  canonical slot — just before the nearest following field the user kept — rather than dumped at
+     *  the end, so a saved order never buries Priority/List/Schedule below the optional fields. */
     fun editorFieldsOrdered(): List<EditorField> {
         if (editorFieldOrder.isEmpty()) return EditorField.ALL
         val byId = EditorField.ALL.associateBy { it.id }
-        val chosen = editorFieldOrder.mapNotNull { byId[it] }
-        val rest = EditorField.ALL.filter { it.id !in editorFieldOrder }
-        return chosen + rest
+        val saved = editorFieldOrder.mapNotNull { byId[it] }
+        if (saved.isEmpty()) return EditorField.ALL
+        val savedIds = saved.map { it.id }.toSet()
+        val result = saved.toMutableList()
+        for (f in EditorField.ALL) {
+            if (f.id in savedIds) continue
+            val canonicalIdx = EditorField.ALL.indexOf(f)
+            val successor = EditorField.ALL.drop(canonicalIdx + 1).firstOrNull { it.id in savedIds }
+            val pos = if (successor != null) result.indexOfFirst { it.id == successor.id } else result.size
+            result.add(pos.coerceIn(0, result.size), f)
+        }
+        return result
     }
 
     /** R107 — capacity in MINUTES for a given weekday: per-day override if set, else the flat daily figure.
@@ -952,18 +964,30 @@ data class AppSettings(
  * sit at [AppSettings.TIER_ALWAYS]; power features default to "More" and reveal on demand.
  */
 enum class EditorField(val id: String, val label: String, val defaultTier: Int) {
-    REPEAT("repeat", "Repeat", AppSettings.TIER_ALWAYS),
-    REMINDERS("reminders", "Reminders", AppSettings.TIER_ALWAYS),
+    // Core structural elements — since P1 every element the editor draws is a field, so Settings can
+    // arrange or hide any of them. These default to Always and each still renders only when it has
+    // something to show (Progress once there's progress; Time tracking with the Time module on; the
+    // recurrence insight only for a repeating task). The scheduling controls (date, start, deadline,
+    // repeat rule, reminders) all live inside the Date sheet now, reached from the Schedule row — the
+    // old "Reminders"/"Deadline" phantom fields (which rendered nothing here) were retired in P1.
+    PROGRESS("progress", "Progress", AppSettings.TIER_ALWAYS),
+    SCHEDULE("schedule", "Date & schedule", AppSettings.TIER_ALWAYS),
+    LEADTIME("leadtime", "Surface before due", AppSettings.TIER_ALWAYS),
+    TIMETRACKING("timetracking", "Time tracking", AppSettings.TIER_ALWAYS),
+    PRIORITY("priority", "Priority", AppSettings.TIER_ALWAYS),
+    LIST("list", "List / folder", AppSettings.TIER_ALWAYS),
     CHECKLIST("checklist", "Checklist / subtasks", AppSettings.TIER_ALWAYS),
-    DEADLINE("deadline", "Deadline", AppSettings.TIER_MORE),
-    ENERGY("energy", "Energy", AppSettings.TIER_MORE),
-    FLAG("flag", "Flag", AppSettings.TIER_MORE),
-    ATTACHMENTS("attachments", "Attachments", AppSettings.TIER_MORE),
+    // Optional fields — revealed under "More fields" by default; a filled one always shows.
     TAGS("tags", "Tags & contexts", AppSettings.TIER_MORE),
+    FLAG("flag", "Flag", AppSettings.TIER_MORE),
+    ENERGY("energy", "Energy", AppSettings.TIER_MORE),
+    ATTACHMENTS("attachments", "Attachments", AppSettings.TIER_MORE),
     BLOCKED("blocked", "Blocked by", AppSettings.TIER_MORE),
-    ACTIVITY("activity", "Activity log", AppSettings.TIER_MORE),
     ADVANCED("advanced", "Estimate, goal, project, review", AppSettings.TIER_MORE),
-    REFLECTION("reflection", "Reflection (win, mood, notes)", AppSettings.TIER_MORE);
+    ACTIVITY("activity", "Activity log", AppSettings.TIER_MORE),
+    REPEAT("repeat", "Recurrence reliability", AppSettings.TIER_ALWAYS),
+    REFLECTION("reflection", "Reflection (win, mood, notes)", AppSettings.TIER_MORE),
+    COACH("coach", "Coach tips", AppSettings.TIER_ALWAYS);
 
     companion object {
         val ALL: List<EditorField> = entries.toList()
