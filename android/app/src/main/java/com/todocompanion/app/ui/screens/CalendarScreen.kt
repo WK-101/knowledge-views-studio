@@ -537,6 +537,38 @@ fun CalendarScreen(
                     Text(if (overlaps == 1) "Two events overlap today" else "$overlaps overlaps today",
                         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onErrorContainer)
                 }
+                // Phase 2 P3 — the unscheduled tray. Loose, undated tasks sit in a strip above the day; one
+                // tap drops a task into the day's first free 30-min slot in working hours (drag's calmer kin).
+                val unscheduled = remember(tasks) {
+                    tasks.filter { !it.completed && !it.trashed && !it.abandoned && !it.someday && it.dueDate == null && it.parentId == null && !it.isNote }.take(16)
+                }
+                if (unscheduled.isNotEmpty()) {
+                    val trayMuted = MaterialTheme.colorScheme.onSurfaceVariant
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Unscheduled", style = MaterialTheme.typography.labelSmall, color = trayMuted, modifier = Modifier.padding(end = 2.dp))
+                        unscheduled.forEach { t ->
+                            Surface(color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .55f), shape = RoundedCornerShape(16.dp)) {
+                                Row(Modifier.clickable {
+                                    val ws = s.workStartHour.coerceIn(0, 23); val we = s.workEndHour.coerceIn(ws + 1, 24)
+                                    val busy = eventBlocksFor(anchor).map { it.startMin to (it.startMin + it.durMin) } +
+                                        dueByDate[anchor].orEmpty().filter { !it.isAllDay && it.dueDate != null && hasTime(it.dueDate!!, zone) }.map {
+                                            val z = Instant.ofEpochMilli(it.dueDate!!).atZone(zone); val sm = z.hour * 60 + z.minute
+                                            sm to (sm + (it.durationMin ?: it.estimateMin ?: 60))
+                                        }
+                                    var slot = ws * 60; var guard = 0
+                                    while (guard++ < 48 && slot + 30 <= we * 60 && busy.any { slot < it.second && slot + 30 > it.first }) slot += 30
+                                    val at = anchor.atStartOfDay(zone).toInstant().toEpochMilli() + slot * 60000L
+                                    vm.scheduleTaskAt(t.id, at)
+                                }.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Filled.Add, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    Spacer(Modifier.size(4.dp))
+                                    Text(t.title.ifBlank { "Untitled" }, style = MaterialTheme.typography.labelMedium, maxLines = 1, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                }
+                            }
+                        }
+                    }
+                }
                 TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone)
             }
             "year" -> YearView(anchor, dueByDate, onPrev = prev, onNext = next, onMonth = { m -> onAnchor(m.atDay(1)); onModeChange("month") }, onDay = { d -> onAnchor(d); onModeChange("day") })
