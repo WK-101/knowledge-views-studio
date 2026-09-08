@@ -24,8 +24,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -49,6 +51,10 @@ class PlaybackService : Service() {
     private var audioManager: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
     private var startedForeground = false
+    /** Playback (TTS) begins a beat after the service starts — the engine warms up async — so the
+     *  first state emission is still idle. We only tear down on an *inactive* state once playback has
+     *  actually been active, otherwise we'd kill the service before it ever plays. */
+    private var everActive = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -67,8 +73,21 @@ class PlaybackService : Service() {
             })
             isActive = true
         }
-        // Mirror playback state into the session + notification; stop ourselves when it ends.
+        // Promote to the foreground immediately, so the startForegroundService() contract is
+        // satisfied the instant we're created — independent of the async TTS warm-up, the first
+        // state emission, and onStartCommand ordering (the race that crashed the app before).
+        promoteToForeground(tts.state.value)
+        // Mirror playback state into the session + notification; stop ourselves once it ends.
         tts.state.onEach { render(it) }.launchIn(scope)
+        // Watchdog: if playback never actually starts (e.g. the TTS engine fails to init), don't sit
+        // as a stuck foreground service — give up after a short grace window.
+        scope.launch {
+            delay(12_000)
+            if (!everActive) {
+                AppLog.diag("PlaybackService: no playback within grace window → stopping")
+                stopForegroundAndSelf()
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -85,11 +104,17 @@ class PlaybackService : Service() {
 
     private fun render(s: TtsReader.State) {
         if (!s.active) {
-            AppLog.diag("PlaybackService: playback inactive → stopping")
-            abandonFocus()
-            stopForegroundAndSelf()
+            // Only tear down once playback has actually been active. On the initial idle emission
+            // (during TTS warm-up) this must NOT stop the service, or we'd violate the foreground
+            // contract and Android would kill the app.
+            if (everActive) {
+                AppLog.diag("PlaybackService: playback ended → stopping")
+                abandonFocus()
+                stopForegroundAndSelf()
+            }
             return
         }
+        everActive = true
         if (s.playing) requestFocus()
         session?.setMetadata(
             MediaMetadata.Builder()
