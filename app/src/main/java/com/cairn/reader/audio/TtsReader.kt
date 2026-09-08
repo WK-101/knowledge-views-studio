@@ -102,6 +102,10 @@ class TtsReader @Inject constructor(
     fun startQueue(newTracks: List<Track>, startAt: Int = 0) {
         val filtered = newTracks.filter { it.chunks.isNotEmpty() }
         if (filtered.isEmpty()) return
+        // Bring up the foreground playback service so read-aloud survives backgrounding and gets
+        // lock-screen controls. Started from a user action while the app is foregrounded, so the
+        // Android 12+ foreground-service-start restriction is satisfied.
+        PlaybackService.start(context)
         tracks = filtered
         ensureEngine {
             _state.update { it.copy(active = true, trackCount = filtered.size) }

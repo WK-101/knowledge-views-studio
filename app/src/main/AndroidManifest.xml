@@ -64,6 +64,13 @@
             android:permission="android.permission.BIND_REMOTEVIEWS"
             android:exported="false" />
 
+        <!-- Keeps read-aloud (TTS) playing when backgrounded, with lock-screen / notification
+             controls via a MediaSession. Foreground service, media-playback type. -->
+        <service
+            android:name=".audio.PlaybackService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="false" />
+
         <!-- Handles Mark-read / Save quick actions on new-article notifications. -->
         <receiver
             android:name=".notifications.NotificationActionReceiver"
