@@ -43,7 +43,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Schedule
@@ -144,6 +148,30 @@ import com.todocompanion.app.ui.components.appCardColor
 
 /** P5 — respects the app's "Reduce motion" setting inside the editor's expand/collapse animations. */
 private val LocalReduceMotion = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+/** Moat — enrich-on-capture. A one-tap action detected on-device from a task's text. */
+private data class SmartAction(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val intent: android.content.Intent)
+/** Scan [text] for a link / email / phone number and offer the matching implicit-intent action. Fully
+ *  offline and permission-free — the OS routes the intent to whatever app the user already has. */
+private fun detectSmartActions(text: String): List<SmartAction> {
+    val out = mutableListOf<SmartAction>()
+    val seen = HashSet<String>()
+    Regex("https?://[^\\s]+").findAll(text).forEach { m ->
+        val u = m.value.trimEnd('.', ',', ')', ']', '}', '"', '\'')
+        if (seen.add("url:$u")) out += SmartAction("Open link", Icons.Filled.Link,
+            android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)))
+    }
+    Regex("[\\w.+-]+@[\\w-]+\\.[\\w.-]+").findAll(text).forEach { m ->
+        if (seen.add("mail:${m.value}")) out += SmartAction("Email ${m.value.take(24)}", Icons.Filled.Email,
+            android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:${m.value}")))
+    }
+    Regex("(?<![\\w@.])[+]?[0-9][0-9 ()\\-]{6,}[0-9]").findAll(text).forEach { m ->
+        val digits = m.value.count { it.isDigit() }
+        if (digits in 7..15 && seen.add("tel:${m.value}")) out += SmartAction("Call", Icons.Filled.Call,
+            android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:${m.value.replace(" ", "")}")))
+    }
+    return out.take(4)
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -329,6 +357,24 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+            // ---------- Moat: enrich-on-capture — one-tap actions for a link / email / phone in the text ----------
+            // Detected on-device from the title + notes; fired via implicit intents, so no network and no
+            // permission. Capture that *does* something — impossible for a cloud-only app to do privately.
+            val smartActions = remember(task.title, task.note) { detectSmartActions(task.title + "\n" + task.note) }
+            if (smartActions.isNotEmpty()) {
+                androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    smartActions.forEach { act ->
+                        Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.secondaryContainer,
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { runCatching { pickerCtx.startActivity(act.intent) }.onFailure { onPickerError("Nothing on this device can open that.") } }) {
+                            Row(Modifier.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(act.icon, null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(15.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(act.label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                }
+            }
 
             // ---------- Unified field model (P1) ----------
             // Every element the editor draws is an EditorField now, rendered in one ordered pass whose
@@ -374,6 +420,12 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             var moreExpanded by remember(task.id) { mutableStateOf(false) }
             val anyCollapsed = orderedFields.any { it != com.todocompanion.app.domain.EditorField.COACH && settings.editorTier(it) == com.todocompanion.app.domain.AppSettings.TIER_MORE && !hasFieldValue(it) }
 
+            // F6 — the fields block animates its height when "More fields" reveals/hides a field, so the
+            // reveal is felt, not instant (gated on Reduce motion). Keeps the 10.dp inter-field rhythm.
+            Column(
+                Modifier.fillMaxWidth().then(if (LocalReduceMotion.current) Modifier else Modifier.animateContentSize()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
             orderedFields.forEach { f ->
                 // The coach card is contextual guidance pinned to the very bottom (below the More toggle),
                 // so it renders after the loop rather than at its ordered slot.
@@ -531,8 +583,18 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             Spacer(Modifier.width(14.dp))
                             Text("Priority", style = MaterialTheme.typography.bodyMedium)
                             if (settings.priorityComputed) {
-                                IconButton(onClick = { showScore = true }, modifier = Modifier.size(20.dp).offset(y = (-5).dp)) {
-                                    Icon(Icons.Outlined.Info, "Why this priority?", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                                // Moat — a private, explainable "why-now" score. The chip shows this task's
+                                // live Do-Next score; tapping opens the full breakdown (all on-device).
+                                val bd = remember(task, allDeps, settings) { vm.explainScore(task) }
+                                Spacer(Modifier.width(8.dp))
+                                Row(
+                                    Modifier.clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = .12f))
+                                        .clickable { showScore = true }.padding(horizontal = 7.dp, vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(Icons.Outlined.Info, null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.width(3.dp))
+                                    Text("Now ${bd.total.toInt()}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                                 }
                             }
                             Spacer(Modifier.weight(1f))
@@ -877,6 +939,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
 
                     com.todocompanion.app.domain.EditorField.COACH -> {}
                 }
+            }
             }
             // Progressive-disclosure toggle: reveals the "More" fields that have no value yet.
             if (anyCollapsed || moreExpanded) {

@@ -1060,6 +1060,33 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setPriorityMany(ids: Set<String>, level: PriorityLevel) = viewModelScope.launch {
         ids.mapNotNull { repo.getTask(it) }.forEach { repo.saveTask(it.copy(importance = level.importance, urgency = level.urgency)) }
     }
+    /** Move a task's due date to [target] keeping its time-of-day (all-day stays all-day). */
+    private fun redate(t: TaskEntity, target: java.time.LocalDate): Long {
+        val cur = t.dueDate?.let { java.time.Instant.ofEpochMilli(it).atZone(zone) }
+        val time = if (cur != null && (cur.hour != 0 || cur.minute != 0)) java.time.LocalTime.of(cur.hour, cur.minute) else java.time.LocalTime.MIDNIGHT
+        return target.atTime(time).atZone(zone).toInstant().toEpochMilli()
+    }
+    /** Wave C — deterministic bulk reschedule of a multi-selection: shift every task by [days] (a dateless
+     *  one anchors at today), the offline analogue of "rebuild my week" without any cloud auto-scheduler.
+     *  Each write re-arms reminders via F1. */
+    fun shiftSelectionDays(ids: Set<String>, days: Int) = viewModelScope.launch {
+        val todayStart = java.time.LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
+        ids.mapNotNull { repo.getTask(it) }.forEach { t -> repo.saveTask(t.copy(dueDate = (t.dueDate ?: todayStart) + days * 86_400_000L)) }
+        toast(if (ids.size == 1) "Moved ${if (days >= 0) "+$days" else "$days"} day${if (kotlin.math.abs(days) == 1) "" else "s"}." else "Moved ${ids.size} tasks.")
+    }
+    /** Wave C — bulk move the selection to Today, keeping each task's time-of-day. */
+    fun rescheduleSelectionToToday(ids: Set<String>) = viewModelScope.launch {
+        val today = java.time.LocalDate.now(zone)
+        ids.mapNotNull { repo.getTask(it) }.forEach { t -> repo.saveTask(t.copy(dueDate = redate(t, today))) }
+        toast("Moved ${ids.size} to Today.")
+    }
+    /** Wave C — bulk move the selection to the next weekday (skips Sat/Sun), keeping time-of-day. */
+    fun rescheduleSelectionToNextWeekday(ids: Set<String>) = viewModelScope.launch {
+        var d = java.time.LocalDate.now(zone).plusDays(1)
+        while (d.dayOfWeek == java.time.DayOfWeek.SATURDAY || d.dayOfWeek == java.time.DayOfWeek.SUNDAY) d = d.plusDays(1)
+        ids.mapNotNull { repo.getTask(it) }.forEach { t -> repo.saveTask(t.copy(dueDate = redate(t, d))) }
+        toast("Moved ${ids.size} to ${d.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault())}.")
+    }
     fun moveMany(ids: Set<String>, listId: String) = viewModelScope.launch { ids.forEach { repo.moveToList(it, listId) } }
     fun moveManyToFolder(ids: Set<String>, folderId: String) = viewModelScope.launch { ids.forEach { repo.moveToFolder(it, folderId) } }
     fun moveTaskToFolder(t: TaskEntity, folderId: String) = viewModelScope.launch { repo.moveToFolder(t.id, folderId) }

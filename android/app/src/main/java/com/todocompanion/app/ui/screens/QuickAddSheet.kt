@@ -37,6 +37,7 @@ import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Schedule
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.filled.Send
@@ -394,6 +395,19 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
                             text = { Text("Dictate task") },
                             leadingIcon = { Icon(Icons.Filled.Mic, null) },
                             onClick = { moreMenu = false; startVoice() })
+                        // Moat — time-block from capture: drop the task onto today's time grid at the next
+                        // half-hour using its duration (default 30m). Capture → a real plan, one gesture, offline.
+                        DropdownMenuItem(
+                            text = { Text("Block on today") },
+                            leadingIcon = { Icon(Icons.Filled.Schedule, null) },
+                            onClick = {
+                                moreMenu = false
+                                val z = java.time.ZoneId.systemDefault()
+                                val now = java.time.ZonedDateTime.now(z).withSecond(0).withNano(0)
+                                val slot = if (now.minute < 30) now.withMinute(30) else now.plusHours(1).withMinute(0)
+                                due = slot.toInstant().toEpochMilli(); hasTime = true
+                                if (durationMin == null) durationMin = 30
+                            })
                     }
                 }
             }

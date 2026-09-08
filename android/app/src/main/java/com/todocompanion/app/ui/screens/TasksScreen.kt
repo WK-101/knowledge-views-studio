@@ -9,6 +9,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
@@ -298,9 +299,12 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
             onMoveClick = { pendingMove = selected },
             onSubtask = { pendingSubtaskOf = selected },
             onSomeday = { vm.setSomedayMany(selected); selected = emptySet() },
+            onShiftDays = { d -> vm.shiftSelectionDays(selected, d); selected = emptySet() },
+            onToToday = { vm.rescheduleSelectionToToday(selected); selected = emptySet() },
+            onToNextWeekday = { vm.rescheduleSelectionToNextWeekday(selected); selected = emptySet() },
             onSelectAll = { selected = if (selected.size == allVisibleIds.size) emptySet() else allVisibleIds },
             onClear = { selected = emptySet() },
-            canSubtask = !isTrash, canSomeday = !isTrash,
+            canSubtask = !isTrash, canSomeday = !isTrash, canReschedule = !isTrash,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
         pendingPermanentDelete?.let { t ->
@@ -376,6 +380,7 @@ private fun SelectionBar(
     onComplete: () -> Unit, onDelete: () -> Unit, onPriority: (PriorityLevel) -> Unit,
     onMoveClick: () -> Unit, onSubtask: () -> Unit, onSelectAll: () -> Unit, onClear: () -> Unit,
     onSomeday: () -> Unit = {}, canSomeday: Boolean = true,
+    onShiftDays: (Int) -> Unit = {}, onToToday: () -> Unit = {}, onToNextWeekday: () -> Unit = {}, canReschedule: Boolean = true,
     dangerousDelete: Boolean = false, canSubtask: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
@@ -400,6 +405,21 @@ private fun SelectionBar(
             }
             // Nest the selection under a chosen parent task (multi-select "make subtask of…").
             if (canSubtask) androidx.compose.material3.IconButton(onClick = onSubtask) { Icon(Icons.AutoMirrored.Filled.FormatIndentIncrease, "Make subtask of…") }
+            // Wave C — deterministic bulk reschedule (offline "rebuild my week"): shift by N days, or jump
+            // the whole selection to Today / the next weekday.
+            if (canReschedule) {
+                var schedMenu by remember { mutableStateOf(false) }
+                Box {
+                    androidx.compose.material3.IconButton(onClick = { schedMenu = true }) { Icon(Icons.Filled.CalendarMonth, "Reschedule") }
+                    androidx.compose.material3.DropdownMenu(expanded = schedMenu, onDismissRequest = { schedMenu = false }) {
+                        androidx.compose.material3.DropdownMenuItem(text = { Text("Today") }, onClick = { schedMenu = false; onToToday() })
+                        androidx.compose.material3.DropdownMenuItem(text = { Text("Next weekday") }, onClick = { schedMenu = false; onToNextWeekday() })
+                        androidx.compose.material3.DropdownMenuItem(text = { Text("Postpone 1 day") }, onClick = { schedMenu = false; onShiftDays(1) })
+                        androidx.compose.material3.DropdownMenuItem(text = { Text("Postpone 1 week") }, onClick = { schedMenu = false; onShiftDays(7) })
+                        androidx.compose.material3.DropdownMenuItem(text = { Text("Pull back 1 day") }, onClick = { schedMenu = false; onShiftDays(-1) })
+                    }
+                }
+            }
             if (canSomeday) androidx.compose.material3.IconButton(onClick = onSomeday) { Icon(Icons.Filled.Cloud, "Someday / Maybe") }
             androidx.compose.material3.IconButton(onClick = onMoveClick) { Icon(Icons.AutoMirrored.Filled.DriveFileMove, "Move to list or folder") }
             androidx.compose.material3.IconButton(onClick = onDelete) { Icon(if (dangerousDelete) Icons.Filled.DeleteForever else Icons.Filled.Delete, if (dangerousDelete) "Delete forever" else "Delete", tint = MaterialTheme.colorScheme.error) }
