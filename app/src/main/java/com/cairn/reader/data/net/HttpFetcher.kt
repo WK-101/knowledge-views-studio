@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.nio.charset.Charset
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -39,10 +40,14 @@ class HttpFetcher @Inject constructor(
 
         client.newCall(builder.build()).execute().use { response ->
             val notModified = response.code == 304
+            val contentType = response.header("Content-Type")
             val body = if (notModified) {
                 null
             } else {
-                response.peekBody(maxBytes).string()
+                // Decode by detected charset (BOM → HTTP header → XML prolog / <meta charset>
+                // → UTF-8) rather than OkHttp's .string(), which defaults to UTF-8 and silently
+                // mojibakes the many feeds/pages that declare a legacy charset only in their prolog.
+                BodyDecoder.decode(response.peekBody(maxBytes).bytes(), contentType)
             }
             FetchResult(
                 status = response.code,
@@ -51,10 +56,11 @@ class HttpFetcher @Inject constructor(
                 etag = response.header("ETag"),
                 lastModified = response.header("Last-Modified"),
                 finalUrl = response.request.url.toString(),
-                contentType = response.header("Content-Type"),
+                contentType = contentType,
             )
         }
     }
+
 
     /** Raw bytes for a binary resource (used to cache article images for the offline copy),
      *  paired with the reported content type. Null on any failure or an oversized body. */
@@ -71,4 +77,42 @@ class HttpFetcher @Inject constructor(
             }
         }.getOrNull()
     }
+
+}
+
+/**
+ * Charset-aware decoding of a fetched body. Pure and dependency-free so it can be unit-tested
+ * directly. Resolution order: byte-order mark → HTTP Content-Type charset → in-document
+ * declaration (XML prolog `encoding=` / HTML `<meta charset>`) → UTF-8.
+ */
+internal object BodyDecoder {
+    // <?xml version="1.0" encoding="ISO-8859-1"?>
+    private val DECL_ENCODING = Regex("""encoding=["']([A-Za-z0-9._\-]+)["']""", RegexOption.IGNORE_CASE)
+    // <meta charset="..."> or <meta http-equiv=... content="...; charset=...">
+    private val DECL_META_CHARSET = Regex("""<meta[^>]+charset=["']?([A-Za-z0-9._\-]+)""", RegexOption.IGNORE_CASE)
+
+    fun decode(bytes: ByteArray, contentTypeHeader: String?): String {
+        if (bytes.isEmpty()) return ""
+        when {
+            bytes.size >= 3 && bytes[0] == 0xEF.toByte() && bytes[1] == 0xBB.toByte() && bytes[2] == 0xBF.toByte() ->
+                return String(bytes, 3, bytes.size - 3, Charsets.UTF_8)
+            bytes.size >= 2 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xFE.toByte() ->
+                return String(bytes, 2, bytes.size - 2, Charsets.UTF_16LE)
+            bytes.size >= 2 && bytes[0] == 0xFE.toByte() && bytes[1] == 0xFF.toByte() ->
+                return String(bytes, 2, bytes.size - 2, Charsets.UTF_16BE)
+        }
+        charsetFromContentType(contentTypeHeader)?.let { return String(bytes, it) }
+        // Sniff the head as Latin-1 (each byte -> one char, lossless) so the regex sees the raw bytes.
+        val head = String(bytes, 0, minOf(bytes.size, 2048), Charsets.ISO_8859_1)
+        (DECL_ENCODING.find(head)?.groupValues?.get(1) ?: DECL_META_CHARSET.find(head)?.groupValues?.get(1))
+            ?.let { safeCharset(it) }?.let { return String(bytes, it) }
+        return String(bytes, Charsets.UTF_8)
+    }
+
+    private fun charsetFromContentType(header: String?): Charset? =
+        header?.let { Regex("charset=([^;\\s]+)", RegexOption.IGNORE_CASE).find(it)?.groupValues?.get(1) }
+            ?.let { safeCharset(it) }
+
+    private fun safeCharset(name: String): Charset? =
+        runCatching { Charset.forName(name.trim().trim('"', '\'')) }.getOrNull()
 }
