@@ -332,6 +332,23 @@ interface ItemDao {
     @Query("UPDATE item_states SET isReadLater = :readLater, updatedAt = :ts WHERE itemId = :id")
     suspend fun setReadLater(id: String, readLater: Boolean, ts: Long)
 
+    // -- Batch state mutations (bulk multi-select) -----------------------------
+    // One UPDATE for the whole selection instead of N single-row updates; the repository
+    // pairs each with a single coalesced insert of sync-ops. Callers chunk the id list to
+    // stay under SQLite's bound-variable limit.
+
+    @Query("UPDATE item_states SET isRead = :read, updatedAt = :ts WHERE itemId IN (:ids)")
+    suspend fun setReadMany(ids: List<String>, read: Boolean, ts: Long)
+
+    @Query("UPDATE item_states SET isStarred = :starred, updatedAt = :ts WHERE itemId IN (:ids)")
+    suspend fun setStarredMany(ids: List<String>, starred: Boolean, ts: Long)
+
+    @Query("UPDATE item_states SET isArchived = :archived, updatedAt = :ts WHERE itemId IN (:ids)")
+    suspend fun setArchivedMany(ids: List<String>, archived: Boolean, ts: Long)
+
+    @Query("UPDATE item_states SET isReadLater = :readLater, updatedAt = :ts WHERE itemId IN (:ids)")
+    suspend fun setReadLaterMany(ids: List<String>, readLater: Boolean, ts: Long)
+
     @Query("UPDATE item_states SET readProgress = :progress, lastReadAt = :ts, updatedAt = :ts WHERE itemId = :id")
     suspend fun setProgress(id: String, progress: Float, ts: Long)
 
@@ -702,6 +719,10 @@ interface ItemDao {
     /** Move an item to the Trash (non-null timestamp) or restore it (null). */
     @Query("UPDATE items SET trashedAt = :ts WHERE id = :id")
     suspend fun setTrashed(id: String, ts: Long?)
+
+    /** Trash or restore a whole selection in one UPDATE (chunked by the caller). */
+    @Query("UPDATE items SET trashedAt = :ts WHERE id IN (:ids)")
+    suspend fun setTrashedMany(ids: List<String>, ts: Long?)
 
     /** The trashed-at timestamp for an item, or null if it is not trashed. */
     @Query("SELECT trashedAt FROM items WHERE id = :id")

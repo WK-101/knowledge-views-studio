@@ -1,5 +1,7 @@
 package com.cairn.reader.ui.trash
 
+import com.cairn.reader.util.MultiSelectStore
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cairn.reader.data.db.ItemListRow
@@ -152,13 +154,13 @@ class TrashViewModel @Inject constructor(
     fun emptyTrash() = viewModelScope.launch { feedRepository.emptyTrash() }
 
     // -- Multi-select (bulk actions) -------------------------------------------
-    private val _picked = MutableStateFlow<Set<String>>(emptySet())
-    val picked: StateFlow<Set<String>> = _picked.asStateFlow()
+    private val picks = MultiSelectStore<String>()
+    val picked: StateFlow<Set<String>> = picks.selected
 
-    fun togglePick(id: String) { _picked.value = _picked.value.let { if (id in it) it - id else it + id } }
-    fun clearPicks() { _picked.value = emptySet() }
-    fun pickAll() { _picked.value = items.value.map { it.id }.toSet() }
-    private fun consumePicks(): Set<String> = _picked.value.also { _picked.value = emptySet() }
+    fun togglePick(id: String) = picks.toggle(id)
+    fun clearPicks() = picks.clear()
+    fun pickAll() = picks.selectAll(items.value.map { it.id })
+    private fun consumePicks(): Set<String> = picks.consume()
 
     fun restorePicked() = viewModelScope.launch { feedRepository.restoreFromTrash(consumePicks()) }
     fun deletePickedForever() = viewModelScope.launch { feedRepository.deleteForever(consumePicks()) }

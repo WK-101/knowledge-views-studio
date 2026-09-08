@@ -1,5 +1,7 @@
 package com.cairn.reader.ui.library
 
+import com.cairn.reader.util.MultiSelectStore
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cairn.reader.data.db.CollectionWithCount
@@ -54,8 +56,8 @@ class LibraryViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
 ) : ViewModel() {
 
-    private val _selection = MutableStateFlow<Set<String>>(emptySet())
-    val selection: StateFlow<Set<String>> = _selection.asStateFlow()
+    private val picks = MultiSelectStore<String>()
+    val selection: StateFlow<Set<String>> = picks.selected
 
     val collections: StateFlow<List<CollectionWithCount>> =
         collectionRepository.collections().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -263,32 +265,24 @@ class LibraryViewModel @Inject constructor(
 
     // -- Bulk selection --------------------------------------------------------
 
-    fun toggleSelect(id: String) {
-        _selection.value = _selection.value.let { if (id in it) it - id else it + id }
-    }
+    fun toggleSelect(id: String) = picks.toggle(id)
 
-    fun clearSelection() { _selection.value = emptySet() }
+    fun clearSelection() = picks.clear()
 
     fun moveSelected(collectionId: String?) = viewModelScope.launch {
-        val ids = _selection.value
-        ids.forEach { collectionRepository.moveItem(it, collectionId) }
-        _selection.value = emptySet()
+        collectionRepository.moveItems(picks.consume(), collectionId)
     }
 
     /** Archive the selection (or unarchive it when viewing the Archive scope). */
     fun archiveSelected() = viewModelScope.launch {
         val archive = _scope.value != LibraryScope.Archive
-        _selection.value.forEach { itemRepository.setArchived(it, archive) }
-        _selection.value = emptySet()
+        itemRepository.setArchivedBatch(picks.consume(), archive)
     }
 
     fun removeSelectedFromLibrary() = viewModelScope.launch {
-        val ids = _selection.value
-        ids.forEach { id ->
-            itemRepository.setReadLater(id, false)
-            itemRepository.setStarred(id, false)
-            collectionRepository.moveItem(id, null)
-        }
-        _selection.value = emptySet()
+        val ids = picks.consume()
+        itemRepository.setReadLaterBatch(ids, false)
+        itemRepository.setStarredBatch(ids, false)
+        collectionRepository.moveItems(ids, null)
     }
 }

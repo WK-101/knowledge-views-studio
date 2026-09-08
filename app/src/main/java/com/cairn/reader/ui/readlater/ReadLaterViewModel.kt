@@ -1,5 +1,7 @@
 package com.cairn.reader.ui.readlater
 
+import com.cairn.reader.util.MultiSelectStore
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cairn.reader.data.db.CollectionWithCount
@@ -108,23 +110,22 @@ class ReadLaterViewModel @Inject constructor(
     fun saveLink(url: String) = viewModelScope.launch { feedRepository.saveUrl(url) }
 
     // -- Multi-select (bulk actions) -------------------------------------------
-    private val _picked = MutableStateFlow<Set<String>>(emptySet())
-    val picked: StateFlow<Set<String>> = _picked.asStateFlow()
+    private val picks = MultiSelectStore<String>()
+    val picked: StateFlow<Set<String>> = picks.selected
 
-    fun togglePick(id: String) { _picked.value = _picked.value.let { if (id in it) it - id else it + id } }
-    fun clearPicks() { _picked.value = emptySet() }
-    fun pickAll() { _picked.value = items.value.map { it.id }.toSet() }
-    private fun consumePicks(): Set<String> = _picked.value.also { _picked.value = emptySet() }
+    fun togglePick(id: String) = picks.toggle(id)
+    fun clearPicks() = picks.clear()
+    fun pickAll() = picks.selectAll(items.value.map { it.id })
+    private fun consumePicks(): Set<String> = picks.consume()
 
-    fun markPickedRead(read: Boolean) = viewModelScope.launch { consumePicks().forEach { itemRepository.setRead(it, read) } }
-    fun archivePicked() = viewModelScope.launch { consumePicks().forEach { itemRepository.setArchived(it, true) } }
-    fun removePicked() = viewModelScope.launch { consumePicks().forEach { itemRepository.setReadLater(it, false) } }
+    fun markPickedRead(read: Boolean) = viewModelScope.launch { itemRepository.setReadBatch(consumePicks(), read) }
+    fun archivePicked() = viewModelScope.launch { itemRepository.setArchivedBatch(consumePicks(), true) }
+    fun removePicked() = viewModelScope.launch { itemRepository.setReadLaterBatch(consumePicks(), false) }
     fun deletePicked() = viewModelScope.launch { feedRepository.trashItems(consumePicks()) }
     fun saveToLibraryPicked() = viewModelScope.launch {
-        consumePicks().forEach { id ->
-            itemRepository.setStarred(id, true)
-            itemRepository.setReadLater(id, false)
-        }
+        val ids = consumePicks()
+        itemRepository.setStarredBatch(ids, true)
+        itemRepository.setReadLaterBatch(ids, false)
     }
     fun savePickedOffline() = viewModelScope.launch { consumePicks().forEach { feedRepository.saveOffline(it) } }
 }

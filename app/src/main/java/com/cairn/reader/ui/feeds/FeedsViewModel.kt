@@ -1,5 +1,7 @@
 package com.cairn.reader.ui.feeds
 
+import com.cairn.reader.util.MultiSelectStore
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cairn.reader.data.db.SourceEntity
@@ -95,14 +97,12 @@ class FeedsViewModel @Inject constructor(
 
     // -- Multi-select ---------------------------------------------------------
 
-    private val _selection = MutableStateFlow<Set<String>>(emptySet())
-    val selection: StateFlow<Set<String>> = _selection.asStateFlow()
+    private val picks = MultiSelectStore<String>()
+    val selection: StateFlow<Set<String>> = picks.selected
 
-    fun toggleSelect(id: String) {
-        _selection.value = _selection.value.let { if (id in it) it - id else it + id }
-    }
-    fun clearSelection() { _selection.value = emptySet() }
-    fun selectAllVisible() { _selection.value = displayed.value.map { it.id }.toSet() }
+    fun toggleSelect(id: String) = picks.toggle(id)
+    fun clearSelection() = picks.clear()
+    fun selectAllVisible() = picks.selectAll(displayed.value.map { it.id })
 
     private val _snacks = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val snacks = _snacks.asSharedFlow()
@@ -134,37 +134,32 @@ class FeedsViewModel @Inject constructor(
     // -- Bulk actions (operate on the current selection) ----------------------
 
     fun bulkMoveToFolder(folder: String?) = viewModelScope.launch {
-        val ids = _selection.value
+        val ids = picks.consume()
         ids.forEach { sourceRepository.setFolder(it, folder) }
-        _selection.value = emptySet()
         _snacks.emit(if (folder != null) "Moved ${ids.size} to $folder" else "Removed ${ids.size} from their folder")
     }
 
     fun bulkMarkRead() = viewModelScope.launch {
-        val ids = _selection.value
+        val ids = picks.consume()
         ids.forEach { itemRepository.markAllRead(sourceId = it, folder = null) }
-        _selection.value = emptySet()
         _snacks.emit("Marked ${ids.size} feed${if (ids.size == 1) "" else "s"} read")
     }
 
     fun bulkSetFullText(enabled: Boolean) = viewModelScope.launch {
-        val ids = _selection.value
+        val ids = picks.consume()
         ids.forEach { sourceRepository.setFullText(it, enabled) }
-        _selection.value = emptySet()
         _snacks.emit(if (enabled) "Full-text on for ${ids.size}" else "Full-text off for ${ids.size}")
     }
 
     fun bulkSetNotify(enabled: Boolean) = viewModelScope.launch {
-        val ids = _selection.value
+        val ids = picks.consume()
         ids.forEach { sourceRepository.setNotify(it, enabled) }
-        _selection.value = emptySet()
         _snacks.emit(if (enabled) "Notifications on for ${ids.size}" else "Notifications off for ${ids.size}")
     }
 
     fun bulkDelete() = viewModelScope.launch {
-        val ids = _selection.value
+        val ids = picks.consume()
         ids.forEach { sourceRepository.delete(it) }
-        _selection.value = emptySet()
         _snacks.emit("Removed ${ids.size} feed${if (ids.size == 1) "" else "s"}")
     }
 

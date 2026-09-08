@@ -1,5 +1,7 @@
 package com.cairn.reader.ui.inbox
 
+import com.cairn.reader.util.MultiSelectStore
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cairn.reader.data.db.FeedUnread
@@ -161,7 +163,7 @@ class InboxViewModel @Inject constructor(
 
     /** Mark several items read with no snackbar — used by scroll-to-read so it doesn't spam undo. */
     fun markReadSilent(ids: List<String>) = viewModelScope.launch {
-        ids.forEach { itemRepository.setRead(it, true) }
+        itemRepository.setReadBatch(ids, true)
     }
 
     /** The four two-stage swipe actions (right-half, right-full, left-half, left-full). */
@@ -309,43 +311,41 @@ class InboxViewModel @Inject constructor(
     // -- Multi-select (bulk actions) -------------------------------------------
     // Distinct from the drawer [selection] scope above: this is the set of items the
     // user has tick-selected in the list to act on together.
-    private val _picked = MutableStateFlow<Set<String>>(emptySet())
-    val picked: StateFlow<Set<String>> = _picked.asStateFlow()
+    private val picks = MultiSelectStore<String>()
+    val picked: StateFlow<Set<String>> = picks.selected
 
-    fun togglePick(id: String) {
-        _picked.value = _picked.value.let { if (id in it) it - id else it + id }
-    }
+    fun togglePick(id: String) = picks.toggle(id)
 
-    fun clearPicks() { _picked.value = emptySet() }
+    fun clearPicks() = picks.clear()
 
     /** Select every item currently shown in the list. */
-    fun pickAll() { _picked.value = state.value.items.map { it.id }.toSet() }
+    fun pickAll() = picks.selectAll(state.value.items.map { it.id })
 
-    private fun consumePicks(): Set<String> = _picked.value.also { _picked.value = emptySet() }
+    private fun consumePicks(): Set<String> = picks.consume()
 
     fun markPickedRead(read: Boolean) = viewModelScope.launch {
         val ids = consumePicks()
-        ids.forEach { itemRepository.setRead(it, read) }
+        itemRepository.setReadBatch(ids, read)
         _snacks.emit(Snack(if (read) "Marked ${ids.size} read" else "Marked ${ids.size} unread"))
     }
 
     fun starPicked(starred: Boolean) = viewModelScope.launch {
         val ids = consumePicks()
-        ids.forEach { itemRepository.setStarred(it, starred) }
+        itemRepository.setStarredBatch(ids, starred)
         _snacks.emit(Snack(if (starred) "Starred ${ids.size}" else "Unstarred ${ids.size}"))
     }
 
     fun savePicked(save: Boolean) = viewModelScope.launch {
         val ids = consumePicks()
-        ids.forEach { itemRepository.setReadLater(it, save) }
+        itemRepository.setReadLaterBatch(ids, save)
         _snacks.emit(Snack(if (save) "Saved ${ids.size} for later" else "Removed ${ids.size} from Saved"))
     }
 
     fun archivePicked() = viewModelScope.launch {
         val ids = consumePicks()
-        ids.forEach { itemRepository.setArchived(it, true) }
+        itemRepository.setArchivedBatch(ids, true)
         _snacks.emit(Snack("Archived ${ids.size}", "Undo") {
-            viewModelScope.launch { ids.forEach { itemRepository.setArchived(it, false) } }
+            viewModelScope.launch { itemRepository.setArchivedBatch(ids, false) }
         })
     }
 

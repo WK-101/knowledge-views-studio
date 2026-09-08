@@ -228,6 +228,10 @@ interface SyncDao {
     @Insert
     suspend fun enqueue(op: SyncOpEntity)
 
+    /** Append many outbox ops in one insert — the batch equivalent of [enqueue]. */
+    @Insert
+    suspend fun enqueueAll(ops: List<SyncOpEntity>)
+
     @Query("SELECT * FROM sync_ops ORDER BY createdAt")
     suspend fun pending(): List<SyncOpEntity>
 

@@ -17,6 +17,9 @@ import javax.inject.Singleton
 import com.cairn.reader.data.db.ContentSource
 import com.cairn.reader.data.db.ExtractStatus
 
+/** Max ids per IN(:ids) statement, keeping a large "select all" under SQLite's bound-variable limit. */
+private const val BATCH_CHUNK = 500
+
 /**
  * The app's read/write gateway for items. Mutations update local state immediately and
  * append a [SyncOpEntity] to the outbox, so an optional remote backend can reconcile
@@ -175,6 +178,24 @@ class ItemRepository @Inject constructor(
         enqueue("setArchived", id, archived.toString(), now)
     }
 
+    /**
+     * Bulk variants for multi-select: one UPDATE for the whole selection instead of N single-row
+     * updates, each paired with one coalesced insert of per-item sync-ops (so the outbox stays a
+     * faithful change log for backup-merge / device transfer). Replaces the old `ids.forEach { … }`
+     * loops that issued N UPDATEs + N sync-op INSERTs.
+     */
+    suspend fun setReadBatch(ids: Collection<String>, read: Boolean) =
+        mutateStateBatch(ids, "setRead", read.toString()) { chunk, ts -> itemDao.setReadMany(chunk, read, ts) }
+
+    suspend fun setStarredBatch(ids: Collection<String>, starred: Boolean) =
+        mutateStateBatch(ids, "setStarred", starred.toString()) { chunk, ts -> itemDao.setStarredMany(chunk, starred, ts) }
+
+    suspend fun setReadLaterBatch(ids: Collection<String>, readLater: Boolean) =
+        mutateStateBatch(ids, "setReadLater", readLater.toString()) { chunk, ts -> itemDao.setReadLaterMany(chunk, readLater, ts) }
+
+    suspend fun setArchivedBatch(ids: Collection<String>, archived: Boolean) =
+        mutateStateBatch(ids, "setArchived", archived.toString()) { chunk, ts -> itemDao.setArchivedMany(chunk, archived, ts) }
+
     suspend fun setProgress(id: String, progress: Float) {
         itemDao.setProgress(id, progress.coerceIn(0f, 1f), clock())
     }
@@ -183,6 +204,24 @@ class ItemRepository @Inject constructor(
         syncDao.enqueue(
             SyncOpEntity(id = UUID.randomUUID().toString(), op = op, itemId = itemId, fields = fields, createdAt = now),
         )
+    }
+
+    /** Shared body for the batch state mutations: chunk the ids, run one UPDATE per chunk, and
+     *  append one coalesced set of sync-ops per chunk. */
+    private suspend fun mutateStateBatch(
+        ids: Collection<String>,
+        op: String,
+        fields: String?,
+        update: suspend (List<String>, Long) -> Unit,
+    ) {
+        if (ids.isEmpty()) return
+        val now = clock()
+        ids.chunked(BATCH_CHUNK).forEach { chunk ->
+            update(chunk, now)
+            syncDao.enqueueAll(
+                chunk.map { SyncOpEntity(id = UUID.randomUUID().toString(), op = op, itemId = it, fields = fields, createdAt = now) },
+            )
+        }
     }
 
     /** Seeds a small starter library the first time the app runs, so the UI has real

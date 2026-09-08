@@ -372,17 +372,22 @@ class FeedRepository @Inject constructor(
     /** Move an item to the Trash (reversible). */
     suspend fun trashItem(id: String) = itemDao.setTrashed(id, System.currentTimeMillis())
 
-    /** Move several items to the Trash at once (bulk multi-select). */
+    /** Move several items to the Trash at once (bulk multi-select) — one UPDATE per id chunk. */
     suspend fun trashItems(ids: Collection<String>) {
+        if (ids.isEmpty()) return
         val now = System.currentTimeMillis()
-        ids.forEach { itemDao.setTrashed(it, now) }
+        // chunked to stay under SQLite's bound-variable limit on a large "select all".
+        ids.chunked(500).forEach { itemDao.setTrashedMany(it, now) }
     }
 
     /** Restore an item from the Trash, intact (offline copy and all). */
     suspend fun restoreFromTrash(id: String) = itemDao.setTrashed(id, null)
 
-    /** Restore several items from the Trash. */
-    suspend fun restoreFromTrash(ids: Collection<String>) = ids.forEach { itemDao.setTrashed(it, null) }
+    /** Restore several items from the Trash — one UPDATE per id chunk. */
+    suspend fun restoreFromTrash(ids: Collection<String>) {
+        if (ids.isEmpty()) return
+        ids.chunked(500).forEach { itemDao.setTrashedMany(it, null) }
+    }
 
     /** Permanently erase a single item that is in the Trash (blob + index + tombstone). */
     suspend fun deleteForever(id: String) = deleteItemFully(id)

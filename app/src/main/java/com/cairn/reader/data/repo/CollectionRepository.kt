@@ -59,6 +59,24 @@ class CollectionRepository @Inject constructor(
         )
     }
 
+    /** File several items into a collection at once (bulk multi-select). The membership toggle is
+     *  inherently per-item (cross-ref rows), but the outbox ops are coalesced into one insert. */
+    suspend fun moveItems(itemIds: Collection<String>, collectionId: String?) {
+        if (itemIds.isEmpty()) return
+        val now = clock()
+        itemIds.forEach { itemId ->
+            if (collectionId == null) {
+                itemDao.clearItemCollections(itemId)
+                itemDao.setCollection(itemId, null)
+            } else {
+                itemDao.setInCollection(itemId, collectionId, true)
+            }
+        }
+        syncDao.enqueueAll(
+            itemIds.map { SyncOpEntity(id = UUID.randomUUID().toString(), op = "moveToCollection", itemId = it, fields = collectionId, createdAt = now) },
+        )
+    }
+
     /** Whether an item is currently filed in a given collection. */
     fun collectionsFor(itemId: String): kotlinx.coroutines.flow.Flow<List<String>> = itemDao.observeCollectionIdsFor(itemId)
 
