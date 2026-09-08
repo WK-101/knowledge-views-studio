@@ -1,5 +1,6 @@
 package com.todocompanion.app.ui.screens
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -207,7 +208,10 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
         val capChips = capTok.sources + capParsed.sources
         if (capChips.isNotEmpty()) {
             androidx.compose.foundation.layout.FlowRow(
-                Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
+                Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp)
+                    // P5 — the chip row grows/shrinks smoothly as tokens are recognised (chip-commit),
+                    // unless the viewer has Reduce motion on.
+                    .then(if (settings.reduceMotion) Modifier else Modifier.animateContentSize()),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 capChips.forEach { tk ->

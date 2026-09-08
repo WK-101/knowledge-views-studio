@@ -142,6 +142,9 @@ import com.todocompanion.app.ui.components.formatDue
 import com.todocompanion.app.ui.components.formatDueSpan
 import com.todocompanion.app.ui.components.appCardColor
 
+/** P5 — respects the app's "Reduce motion" setting inside the editor's expand/collapse animations. */
+private val LocalReduceMotion = androidx.compose.runtime.staticCompositionLocalOf { false }
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJustStart: ((String) -> Unit)? = null, onOpenTask: ((String) -> Unit)? = null) {
@@ -228,6 +231,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     BackHandler { attemptBack() }
 
     val task = draft
+    androidx.compose.runtime.CompositionLocalProvider(LocalReduceMotion provides settings.reduceMotion) {
     Scaffold(topBar = {
         TopAppBar(expandedHeight = 52.dp, 
             title = { Text("Task") },
@@ -885,6 +889,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             Spacer(Modifier.height(24.dp))
         }
     }
+    }
 
     if (showScore && task != null) {
         val bd = remember(task, allDeps, settings) { vm.explainScore(task) }
@@ -1357,13 +1362,21 @@ private fun relativeTime(at: Long): String {
 @Composable
 private fun DetailSection(title: String, badge: String?, initiallyOpen: Boolean, content: @Composable ColumnScope.() -> Unit) {
     var open by remember { mutableStateOf(initiallyOpen) }
+    val reduce = LocalReduceMotion.current
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { open = !open }.padding(horizontal = 6.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             if (badge != null) Box(Modifier.padding(end = 8.dp).clip(RoundedCornerShape(999.dp)).background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 8.dp, vertical = 1.dp)) { Text(badge, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer) }
             Icon(if (open) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, if (open) "Collapse" else "Expand", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
         }
-        if (open) Column(Modifier.fillMaxWidth().padding(start = 6.dp, end = 2.dp, bottom = 6.dp), content = content)
+        // P5 — expressive expand/collapse (a plain show/hide when Reduce motion is on).
+        if (reduce) {
+            if (open) Column(Modifier.fillMaxWidth().padding(start = 6.dp, end = 2.dp, bottom = 6.dp), content = content)
+        } else {
+            androidx.compose.animation.AnimatedVisibility(visible = open) {
+                Column(Modifier.fillMaxWidth().padding(start = 6.dp, end = 2.dp, bottom = 6.dp), content = content)
+            }
+        }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
     }
 }
