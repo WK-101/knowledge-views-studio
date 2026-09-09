@@ -1043,7 +1043,7 @@ data class AppSettings(
  * and are not listed here. Defaults keep a first-timer's editor lean: only the everyday fields
  * sit at [AppSettings.TIER_ALWAYS]; power features default to "More" and reveal on demand.
  */
-enum class EditorField(val id: String, val label: String, val defaultTier: Int, val core: Boolean = false) {
+enum class EditorField(val id: String, val label: String, val defaultTier: Int, val core: Boolean = false, val foldable: Boolean = false) {
     // Core structural elements — since P1 every element the editor draws is a field, so Settings can
     // arrange or hide any of them. These default to Always and each still renders only when it has
     // something to show (Progress once there's progress; Time tracking with the Time module on; the
@@ -1059,20 +1059,24 @@ enum class EditorField(val id: String, val label: String, val defaultTier: Int, 
     TIMETRACKING("timetracking", "Time tracking", AppSettings.TIER_ALWAYS),
     PRIORITY("priority", "Priority", AppSettings.TIER_ALWAYS, core = true),
     LIST("list", "List / folder", AppSettings.TIER_ALWAYS, core = true),
-    CHECKLIST("checklist", "Checklist", AppSettings.TIER_ALWAYS),
+    // "foldable" fields render as a collapsible section (a title header + a body worth hiding), so a
+    // per-field "Folded" default is meaningful for them and controls whether that one header opens
+    // expanded. Single-row fields (Date, Priority, List, Flag, Energy, …) are their own header with no
+    // separate body, so folding would add nothing and no Folded chip is offered for them.
+    CHECKLIST("checklist", "Checklist", AppSettings.TIER_ALWAYS, foldable = true),
     // Real nested subtasks (child tasks with their own priority/date), distinct from the lightweight
     // Checklist above. Auto-shows once the task has children; otherwise revealable under "More".
-    SUBTASKS("subtasks", "Subtasks (nested tasks)", AppSettings.TIER_MORE),
+    SUBTASKS("subtasks", "Subtasks (nested tasks)", AppSettings.TIER_MORE, foldable = true),
     // Optional fields — revealed under "More fields" by default; a filled one always shows.
-    TAGS("tags", "Tags & contexts", AppSettings.TIER_MORE),
+    TAGS("tags", "Tags & contexts", AppSettings.TIER_MORE, foldable = true),
     FLAG("flag", "Flag", AppSettings.TIER_MORE),
     ENERGY("energy", "Energy", AppSettings.TIER_MORE),
-    ATTACHMENTS("attachments", "Attachments", AppSettings.TIER_MORE),
-    BLOCKED("blocked", "Blocked by", AppSettings.TIER_MORE),
-    ADVANCED("advanced", "Estimate, goal, project, review", AppSettings.TIER_MORE),
-    ACTIVITY("activity", "Activity log", AppSettings.TIER_MORE),
+    ATTACHMENTS("attachments", "Attachments", AppSettings.TIER_MORE, foldable = true),
+    BLOCKED("blocked", "Blocked by", AppSettings.TIER_MORE, foldable = true),
+    ADVANCED("advanced", "Estimate, goal, project, review", AppSettings.TIER_MORE, foldable = true),
+    ACTIVITY("activity", "Activity log", AppSettings.TIER_MORE, foldable = true),
     REPEAT("repeat", "Recurrence reliability", AppSettings.TIER_ALWAYS),
-    REFLECTION("reflection", "Reflection (win, mood, notes)", AppSettings.TIER_MORE),
+    REFLECTION("reflection", "Reflection (win, mood, notes)", AppSettings.TIER_MORE, foldable = true),
     COACH("coach", "Coach tips", AppSettings.TIER_ALWAYS);
 
     companion object {

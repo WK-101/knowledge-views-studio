@@ -796,7 +796,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             "Reminders notification daily summary evening review morning brief exact alarm battery optimization intensity gentle persistent insistent snooze duration escalate",
         )
         SettingsGroup(Icons.Filled.EditNote, "Task editor", open["editor"] == true, { open["editor"] = open["editor"] != true }, keywords = "fields tier always more hidden reorder reflection estimate energy flag attachments") {
-            Text("Fold the editor to taste, field by field: “Always” keeps a field unfolded and visible, “Under More” folds it away by default (one tap on “More fields” reveals it), and “Hidden” removes it entirely. Reorder with the arrows. A field you’ve already filled always shows, whatever you pick here.",
+            Text("Tune the editor field by field. Placement: “Always” shows a field, “Under “More”” tucks it behind the “More fields” tap, and “Hidden” removes it. Reorder with the arrows. A field you’ve already filled always shows, whatever you pick. Separately, “Folded” (offered on fields with a body worth collapsing — Subtasks, Checklist, Attachments, Tags, Blocked, Advanced, Activity, Reflection) makes that field open collapsed to its title; tap the title to expand it.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
             // F5 — Coach is always pinned to the bottom of the editor and can't move, so it doesn't belong in
             // the reorderable list (its arrows were a no-op). It gets a dedicated show/hide toggle below.
@@ -832,13 +832,17 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                         }.forEach { (t, label) ->
                             FilterChip(selected = tier == t, onClick = { vm.saveSettings(s.copy(editorFieldTiers = s.editorFieldTiers + (f.id to t))) }, label = { Text(label, style = MaterialTheme.typography.labelMedium) })
                         }
-                        // Per-field FOLD default: when on, the field opens as a tappable header that expands
-                        // to its controls on demand — orthogonal to where it sits (Always / Under More).
-                        val folded = f.id in s.editorFieldFolded
-                        FilterChip(selected = folded,
-                            onClick = { vm.saveSettings(s.copy(editorFieldFolded = if (folded) s.editorFieldFolded - f.id else s.editorFieldFolded + f.id)) },
-                            leadingIcon = if (folded) ({ Icon(Icons.Filled.UnfoldLess, null, modifier = Modifier.size(16.dp)) }) else null,
-                            label = { Text("Folded", style = MaterialTheme.typography.labelMedium) })
+                        // Per-field FOLD default (only for fields with a collapsible body — Subtasks, Checklist,
+                        // Attachments, Tags, Blocked, Advanced, Activity, Reflection). When on, that field's own
+                        // section header opens collapsed; tap it to expand. Orthogonal to where it sits (Always /
+                        // Under More). Single-row fields have no body to fold, so they show no chip.
+                        if (f.foldable) {
+                            val folded = f.id in s.editorFieldFolded
+                            FilterChip(selected = folded,
+                                onClick = { vm.saveSettings(s.copy(editorFieldFolded = if (folded) s.editorFieldFolded - f.id else s.editorFieldFolded + f.id)) },
+                                leadingIcon = if (folded) ({ Icon(Icons.Filled.UnfoldLess, null, modifier = Modifier.size(16.dp)) }) else null,
+                                label = { Text("Folded", style = MaterialTheme.typography.labelMedium) })
+                        }
                     }
                     if (f.core) Text("Core field — always available (can’t be hidden).",
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,

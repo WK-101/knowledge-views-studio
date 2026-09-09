@@ -449,20 +449,13 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     // Reflection still auto-appears on a finished task — unless the user hid it.
                     (f == com.todocompanion.app.domain.EditorField.REFLECTION && task.completed && tier != com.todocompanion.app.domain.AppSettings.TIER_HIDDEN)
                 if (!visible) return@forEach
-                // Per-field folding: a field marked "Folded" in Settings opens as a tappable header
-                // (its name + a chevron) and reveals its controls only when tapped. Orthogonal to the
-                // Always / Under-More placement; runtime expand state is per (task, field).
-                val fldFolded = settings.editorFolded(f)
-                var fldExpanded by remember(task.id, f.id) { mutableStateOf(false) }
-                if (fldFolded) {
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { fldExpanded = !fldExpanded }
-                        .padding(horizontal = 6.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(f.label, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
-                        Icon(if (fldExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                            if (fldExpanded) "Collapse" else "Expand", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                if (!fldFolded || fldExpanded) {
+                // Per-field folding: a field marked "Folded" in Settings opens collapsed. Foldable fields
+                // render through DetailSection, which already IS a single collapsible header (title +
+                // chevron) over its body — so folding just sets that one header's initial state via
+                // initiallyOpen = !fldFolded. No extra wrapper header, so there is exactly one fold per
+                // field and never a doubled title. Non-foldable single-row fields have no separate body,
+                // so fldFolded stays false for them (guarded by f.foldable) and nothing changes.
+                val fldFolded = f.foldable && settings.editorFolded(f)
                 when (f) {
                     // ---------- Progress readout (rollup for a parent, manual % for a leaf) ----------
                     com.todocompanion.app.domain.EditorField.PROGRESS -> {
@@ -685,7 +678,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     }
 
                     com.todocompanion.app.domain.EditorField.CHECKLIST ->
-                     DetailSection("Checklist", if (myCheck.isEmpty()) null else "${myCheck.count { it.checked }}/${myCheck.size}", true) {
+                     DetailSection("Checklist", if (myCheck.isEmpty()) null else "${myCheck.count { it.checked }}/${myCheck.size}", !fldFolded) {
                 myCheck.forEach { item ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = item.checked, onCheckedChange = { vm.toggleChecklist(item) })
@@ -719,7 +712,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
 
                     com.todocompanion.app.domain.EditorField.SUBTASKS -> {
                         val children = allTasks.filter { it.parentId == task.id && !it.trashed }.sortedBy { it.sortOrder }
-                        DetailSection("Subtasks", if (children.isEmpty()) null else "${children.count { it.completed }}/${children.size}", true) {
+                        DetailSection("Subtasks", if (children.isEmpty()) null else "${children.count { it.completed }}/${children.size}", !fldFolded) {
                             Text("Real nested tasks — each has its own priority, date and detail, and counts toward this task's progress. Subtasks are separate tasks: adding, checking or re-prioritising one saves right away (it isn't staged with this task). (For a quick list of steps, use the Checklist above.)",
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
                             children.forEach { child ->
@@ -742,7 +735,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     }
 
                     com.todocompanion.app.domain.EditorField.ATTACHMENTS ->
-                     DetailSection("Attachments", if (attachments.isEmpty()) null else "${attachments.size}", true) {
+                     DetailSection("Attachments", if (attachments.isEmpty()) null else "${attachments.size}", !fldFolded) {
                 attachments.forEach { a ->
                     Row(Modifier.fillMaxWidth().clickable { vm.openAttachment(a.id, a.fileName, a.mime) }.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (a.isImage) AttachmentThumb(vm, a.id) else {
@@ -774,7 +767,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             }
 
                     com.todocompanion.app.domain.EditorField.TAGS ->
-                     DetailSection("Tags & contexts", (assignedTags.size + assignedCtx.size).takeIf { it > 0 }?.toString(), true) {
+                     DetailSection("Tags & contexts", (assignedTags.size + assignedCtx.size).takeIf { it > 0 }?.toString(), !fldFolded) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     allTags.forEach { tag ->
                         FilterChip(selected = tag.id in assignedTags, onClick = {
@@ -814,7 +807,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             listOf<Pair<Int?, String>>(null to "Any", 1 to "Low", 2 to "Medium", 3 to "High")) { e -> update { it.copy(energy = e) } }
 
                     com.todocompanion.app.domain.EditorField.BLOCKED ->
-                     DetailSection("Blocked by", myDeps.size.takeIf { it > 0 }?.toString(), true) {
+                     DetailSection("Blocked by", myDeps.size.takeIf { it > 0 }?.toString(), !fldFolded) {
                 val byId = allTasks.associateBy { it.id }
                 if (myDeps.isEmpty()) Text("Not blocked — this task can be done now.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 myDeps.forEach { dep ->
@@ -845,7 +838,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             }
 
                     com.todocompanion.app.domain.EditorField.ADVANCED ->
-                     DetailSection("Estimate, goals & review", null, true) {
+                     DetailSection("Estimate, goals & review", null, !fldFolded) {
                 if (totalN == 0) {
                     // Leaf manual progress lives here when not already set/shown above.
                     var p by remember(task.id, task.progressPct) { mutableFloatStateOf((task.progressPct ?: 0).toFloat()) }
@@ -889,7 +882,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             }
 
                     com.todocompanion.app.domain.EditorField.ACTIVITY ->
-                     DetailSection("Activity", activityLog.size.takeIf { it > 0 }?.toString(), true) {
+                     DetailSection("Activity", activityLog.size.takeIf { it > 0 }?.toString(), !fldFolded) {
                 // R23: activity entries are an independent append-only log — any one (including "created")
                 // can be deleted with no cascade; each deletion is confirmed first.
                 var confirmDel by remember { mutableStateOf<com.todocompanion.app.data.entity.ActivityEntity?>(null) }
@@ -931,7 +924,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     com.todocompanion.app.domain.EditorField.REFLECTION -> {
                         // R27/R29 #5, R30 #2 — reflection: win, mood, outcome, lesson, praise. Opens straight
                         // to its controls (no second fold), still shown by default on a finished task.
-                        DetailSection("Reflection", if (task.winFlag) "★" else null, true) {
+                        DetailSection("Reflection", if (task.winFlag) "★" else null, !fldFolded) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Filled.EmojiEvents, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(10.dp))
@@ -967,7 +960,6 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
 
                     com.todocompanion.app.domain.EditorField.COACH -> {}
                 }
-                } // end fold gate
             }
             }
             // Progressive-disclosure toggle: reveals the "More" fields that have no value yet.
@@ -1458,7 +1450,9 @@ private fun relativeTime(at: Long): String {
  *  on tap. Collapsed by default when it has no content, so simple tasks stay short. */
 @Composable
 private fun DetailSection(title: String, badge: String?, initiallyOpen: Boolean, content: @Composable ColumnScope.() -> Unit) {
-    var open by remember { mutableStateOf(initiallyOpen) }
+    // Keyed to initiallyOpen so the per-field "Folded" default is honoured whenever a task is (re)opened
+    // and re-applied if the default changes; the user's own expand/collapse taps still stick within a view.
+    var open by remember(initiallyOpen) { mutableStateOf(initiallyOpen) }
     val reduce = LocalReduceMotion.current
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { open = !open }.padding(horizontal = 6.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
