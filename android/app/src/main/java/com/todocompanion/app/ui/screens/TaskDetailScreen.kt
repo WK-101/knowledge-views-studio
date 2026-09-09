@@ -449,6 +449,20 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     // Reflection still auto-appears on a finished task — unless the user hid it.
                     (f == com.todocompanion.app.domain.EditorField.REFLECTION && task.completed && tier != com.todocompanion.app.domain.AppSettings.TIER_HIDDEN)
                 if (!visible) return@forEach
+                // Per-field folding: a field marked "Folded" in Settings opens as a tappable header
+                // (its name + a chevron) and reveals its controls only when tapped. Orthogonal to the
+                // Always / Under-More placement; runtime expand state is per (task, field).
+                val fldFolded = settings.editorFolded(f)
+                var fldExpanded by remember(task.id, f.id) { mutableStateOf(false) }
+                if (fldFolded) {
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { fldExpanded = !fldExpanded }
+                        .padding(horizontal = 6.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(f.label, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
+                        Icon(if (fldExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                            if (fldExpanded) "Collapse" else "Expand", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                if (!fldFolded || fldExpanded) {
                 when (f) {
                     // ---------- Progress readout (rollup for a parent, manual % for a leaf) ----------
                     com.todocompanion.app.domain.EditorField.PROGRESS -> {
@@ -953,6 +967,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
 
                     com.todocompanion.app.domain.EditorField.COACH -> {}
                 }
+                } // end fold gate
             }
             }
             // Progressive-disclosure toggle: reveals the "More" fields that have no value yet.

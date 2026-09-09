@@ -254,6 +254,10 @@ data class AppSettings(
     val editorFieldTiers: Map<String, Int> = emptyMap(),
     // User's arrangement of the optional editor fields (EditorField ids). Empty = canonical order.
     val editorFieldOrder: List<String> = emptyList(),
+    // Editor fields that start FOLDED — shown as a tappable header (name + summary) that expands to the
+    // field's controls on tap. Orthogonal to the tier: tier decides whether a field appears at all,
+    // folding decides whether an appearing field opens collapsed. Empty = every field starts expanded.
+    val editorFieldFolded: Set<String> = emptySet(),
     // ── Tier U · time-tracking behaviour (all opt-in; the simple defaults are unchanged) ──
     // U5: "account for my whole day" — starting an activity closes any gap since the last one ended,
     // and the day view surfaces untracked gaps as tappable chips. Off = sparse tracking (gaps are fine).
@@ -399,6 +403,9 @@ data class AppSettings(
         // back to MORE so it stays reachable under "More fields" even on a task with no value to auto-show.
         return if (f.core && t == AppSettings.TIER_HIDDEN) AppSettings.TIER_MORE else t
     }
+
+    /** Whether an editor field should open FOLDED (a tappable header that expands on demand). */
+    fun editorFolded(f: EditorField): Boolean = f.id in editorFieldFolded
 
     /** Editor fields in the user's saved arrangement. Fields that didn't exist when the arrangement
      *  was saved (e.g. the P1 core fields added to an older custom order) are re-inserted at their
@@ -551,6 +558,7 @@ data class AppSettings(
         Keys.BOARD_LISTS to boardLists.joinToString(","),
         Keys.EDITOR_TIERS to editorFieldTiers.entries.joinToString(",") { "${it.key}:${it.value}" },
         Keys.EDITOR_ORDER to editorFieldOrder.joinToString(","),
+        Keys.EDITOR_FOLDED to editorFieldFolded.joinToString(","),
         Keys.TIMELINE_FILL to timelineFill.toString(),
         Keys.MULTI_TIMER to multiTimer.toString(),
         Keys.AUTO_TRACK_PROMPT to autoTrackPrompt.toString(),
@@ -741,6 +749,7 @@ data class AppSettings(
         const val BOARD_LISTS = "board_lists"
         const val EDITOR_TIERS = "editor_tiers"
         const val EDITOR_ORDER = "editor_order"
+        const val EDITOR_FOLDED = "editor_folded"
         const val TIMELINE_FILL = "timeline_fill"
         const val MULTI_TIMER = "multi_timer"
         const val AUTO_TRACK_PROMPT = "auto_track_prompt"
@@ -902,6 +911,7 @@ data class AppSettings(
                 if (p[0].isNotBlank() && t in 0..2) p[0] to t else null
             }.toMap(),
             editorFieldOrder = (m[Keys.EDITOR_ORDER] ?: "").split(",").filter { it.isNotBlank() },
+            editorFieldFolded = (m[Keys.EDITOR_FOLDED] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             timelineFill = m[Keys.TIMELINE_FILL]?.toBooleanStrictOrNull() ?: false,
             multiTimer = m[Keys.MULTI_TIMER]?.toBooleanStrictOrNull() ?: false,
             autoTrackPrompt = m[Keys.AUTO_TRACK_PROMPT]?.toBooleanStrictOrNull() ?: false,

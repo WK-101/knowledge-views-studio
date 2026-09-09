@@ -59,6 +59,7 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.UnfoldLess
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Notifications
@@ -831,6 +832,13 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                         }.forEach { (t, label) ->
                             FilterChip(selected = tier == t, onClick = { vm.saveSettings(s.copy(editorFieldTiers = s.editorFieldTiers + (f.id to t))) }, label = { Text(label, style = MaterialTheme.typography.labelMedium) })
                         }
+                        // Per-field FOLD default: when on, the field opens as a tappable header that expands
+                        // to its controls on demand — orthogonal to where it sits (Always / Under More).
+                        val folded = f.id in s.editorFieldFolded
+                        FilterChip(selected = folded,
+                            onClick = { vm.saveSettings(s.copy(editorFieldFolded = if (folded) s.editorFieldFolded - f.id else s.editorFieldFolded + f.id)) },
+                            leadingIcon = if (folded) ({ Icon(Icons.Filled.UnfoldLess, null, modifier = Modifier.size(16.dp)) }) else null,
+                            label = { Text("Folded", style = MaterialTheme.typography.labelMedium) })
                     }
                     if (f.core) Text("Core field — always available (can’t be hidden).",
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
