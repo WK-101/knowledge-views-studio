@@ -207,6 +207,10 @@ data class AppSettings(
     val autoBackupHour: Int = 2,
     // How often the automatic backup runs, in days: 1 = daily, 7 = weekly, 30 = monthly.
     val autoBackupIntervalDays: Int = 1,
+    // For weekly backups, the ISO weekday to run on (1 = Mon … 7 = Sun; 0 = next eligible day, unpinned).
+    val autoBackupDow: Int = 0,
+    // For monthly backups, the day-of-month to run on (1–31, clamped to the month's length).
+    val autoBackupDom: Int = 1,
     // When the last successful backup (auto, "Back up now", or a Downloads export) completed, so the
     // Momentum data-safety card can show a real "last backup" age even without folder sync.
     val lastBackupAt: Long = 0L,
@@ -258,6 +262,10 @@ data class AppSettings(
     // field's controls on tap. Orthogonal to the tier: tier decides whether a field appears at all,
     // folding decides whether an appearing field opens collapsed. Empty = every field starts expanded.
     val editorFieldFolded: Set<String> = emptySet(),
+    // Smart-list helper cards (Today / Do-Next / Next-7) the viewer has EXPANDED. These cards fold to their
+    // title by default so the task list is right there; expanding one adds its key here so the choice
+    // sticks. Empty = every card starts folded.
+    val smartCardsExpanded: Set<String> = emptySet(),
     // ── Tier U · time-tracking behaviour (all opt-in; the simple defaults are unchanged) ──
     // U5: "account for my whole day" — starting an activity closes any gap since the last one ended,
     // and the day view surfaces untracked gaps as tappable chips. Off = sparse tracking (gaps are fine).
@@ -536,6 +544,8 @@ data class AppSettings(
         Keys.AUTOBK_DIR to autoBackupFolder,
         Keys.AUTOBK_H to autoBackupHour.toString(),
         Keys.AUTOBK_EVERY to autoBackupIntervalDays.toString(),
+        Keys.AUTOBK_DOW to autoBackupDow.toString(),
+        Keys.AUTOBK_DOM to autoBackupDom.toString(),
         Keys.LAST_BACKUP to lastBackupAt.toString(),
         Keys.SYNC_ON to syncEnabled.toString(),
         Keys.SYNC_DIR to syncFolder,
@@ -559,6 +569,7 @@ data class AppSettings(
         Keys.EDITOR_TIERS to editorFieldTiers.entries.joinToString(",") { "${it.key}:${it.value}" },
         Keys.EDITOR_ORDER to editorFieldOrder.joinToString(","),
         Keys.EDITOR_FOLDED to editorFieldFolded.joinToString(","),
+        Keys.SMART_CARDS_EXPANDED to smartCardsExpanded.joinToString(","),
         Keys.TIMELINE_FILL to timelineFill.toString(),
         Keys.MULTI_TIMER to multiTimer.toString(),
         Keys.AUTO_TRACK_PROMPT to autoTrackPrompt.toString(),
@@ -727,6 +738,8 @@ data class AppSettings(
         const val AUTOBK_DIR = "autobackup_dir"
         const val AUTOBK_H = "autobackup_h"
         const val AUTOBK_EVERY = "autobackup_every_days"
+        const val AUTOBK_DOW = "autobackup_dow"
+        const val AUTOBK_DOM = "autobackup_dom"
         const val LAST_BACKUP = "last_backup_at"
         const val SYNC_ON = "sync_on"
         const val SYNC_DIR = "sync_dir"
@@ -750,6 +763,7 @@ data class AppSettings(
         const val EDITOR_TIERS = "editor_tiers"
         const val EDITOR_ORDER = "editor_order"
         const val EDITOR_FOLDED = "editor_folded"
+        const val SMART_CARDS_EXPANDED = "smart_cards_expanded"
         const val TIMELINE_FILL = "timeline_fill"
         const val MULTI_TIMER = "multi_timer"
         const val AUTO_TRACK_PROMPT = "auto_track_prompt"
@@ -912,6 +926,7 @@ data class AppSettings(
             }.toMap(),
             editorFieldOrder = (m[Keys.EDITOR_ORDER] ?: "").split(",").filter { it.isNotBlank() },
             editorFieldFolded = (m[Keys.EDITOR_FOLDED] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
+            smartCardsExpanded = (m[Keys.SMART_CARDS_EXPANDED] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             timelineFill = m[Keys.TIMELINE_FILL]?.toBooleanStrictOrNull() ?: false,
             multiTimer = m[Keys.MULTI_TIMER]?.toBooleanStrictOrNull() ?: false,
             autoTrackPrompt = m[Keys.AUTO_TRACK_PROMPT]?.toBooleanStrictOrNull() ?: false,
@@ -996,6 +1011,8 @@ data class AppSettings(
             autoBackupFolder = m[Keys.AUTOBK_DIR] ?: "",
             autoBackupHour = m[Keys.AUTOBK_H]?.toIntOrNull()?.coerceIn(0, 23) ?: 2,
             autoBackupIntervalDays = m[Keys.AUTOBK_EVERY]?.toIntOrNull()?.coerceIn(1, 30) ?: 1,
+            autoBackupDow = m[Keys.AUTOBK_DOW]?.toIntOrNull()?.coerceIn(0, 7) ?: 0,
+            autoBackupDom = m[Keys.AUTOBK_DOM]?.toIntOrNull()?.coerceIn(1, 31) ?: 1,
             lastBackupAt = m[Keys.LAST_BACKUP]?.toLongOrNull() ?: 0L,
             syncEnabled = m[Keys.SYNC_ON]?.toBooleanStrictOrNull() ?: false,
             syncFolder = m[Keys.SYNC_DIR] ?: "",

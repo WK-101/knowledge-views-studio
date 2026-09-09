@@ -562,7 +562,7 @@ fun CalendarScreen(
         // R59 (Wave 4) — dual-timezone ruler in the day/week grid, using the pinned secondary zone.
         val secZone = s.secondaryZoneId.takeIf { it.isNotBlank() }?.let { runCatching { java.time.ZoneId.of(it) }.getOrNull() }
         when (mode) {
-            "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { onSelected(it) }, onPrev = prev, onNext = next, onOpenTask = onOpenTask, swipe = swipe, onAdd = { onAddOnDate(selected) },
+            "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { onSelected(it) }, onPrev = prev, onNext = next, onOpenTask = onOpenTask, swipe = swipe, onCloseDay = onCloseDay,
                 collapsed = monthCollapsed, onCollapsedChange = { monthCollapsed = it },
                 habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, countdownsFor = countdownsFor, trackedDayInfo = trackedDayInfo,
                 eventOccForDay = eventOccForDay, onOpenEvent = openEvent, onOpenOccasion = onOpenOccasion, onOccasionDetails = { detailsOccasion = it }, lunar = s.lunarOverlay,
@@ -581,6 +581,32 @@ fun CalendarScreen(
             "day" -> Column(Modifier.fillMaxSize()) {
                 // Phase 2 P1 — the DayTicker rides above the single-day timeline; tap a date to hop days.
                 DayTicker(anchor, dueByDate, eventOccForDay, habitBlocksFor, { colorOf(it.event, eventCalById) }) { d -> onAnchor(d); onSelected(d) }
+                // Occasions on this day — compact pills, the same as month view (the day view used to omit them).
+                val dayOcc = countdownsFor(anchor)
+                if (dayOcc.isNotEmpty()) {
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        dayOcc.forEach { cd ->
+                            val c = cd.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.secondary
+                            Row(Modifier.clip(RoundedCornerShape(20.dp)).background(c.copy(alpha = .14f))
+                                .border(1.dp, c.copy(alpha = .45f), RoundedCornerShape(20.dp))
+                                .clickable { detailsOccasion = cd }.padding(horizontal = 11.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Text((cd.emoji?.plus(" ") ?: (com.todocompanion.app.domain.LifeEvent.type(cd).emoji + " ")) + com.todocompanion.app.domain.LifeEvent.calendarLabel(cd),
+                                    style = MaterialTheme.typography.labelMedium, maxLines = 1, color = MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                    }
+                }
+                // Untimed habits as compact pills (consistent with month view) instead of full-width rows.
+                // Timed habits still render in the grid below at their reminder time.
+                val dayUntimedHabits = habitBlocksFor(anchor).filter { it.untimed }.distinctBy { it.id }
+                if (dayUntimedHabits.isNotEmpty()) {
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        dayUntimedHabits.forEach { hb -> HabitPill(hb, onOpenHabit) }
+                    }
+                }
                 // N3 — a quiet, cluster-aware conflict cue. The naive version counted every overlapping
                 // PAIR, so three things stacked on one hour screamed "3 overlaps". This sweeps the day's
                 // timed commitments — events AND timed tasks alike — into maximal busy runs and counts the
@@ -638,25 +664,42 @@ fun CalendarScreen(
                     val plannedMin = evMin + taskMin + habMin
                     val trackedMin = trackedBlocksFor(anchor).sumOf { it.durMin }
                     val capMin = ((s.workEndHour.coerceIn(0, 24) - s.workStartHour.coerceIn(0, 24)) * 60).coerceAtLeast(60)
-                    if (plannedMin > 0 || trackedMin > 0) {
+                    val ledgerPastOrToday = !anchor.isAfter(LocalDate.now(zone))
+                    val hasLedger = plannedMin > 0 || trackedMin > 0
+                    // Show whenever there's something to weigh OR the day can be closed — the compact
+                    // "Close the day" now lives inline at the right of this bar instead of taking its own row.
+                    if (hasLedger || ledgerPastOrToday) {
                         val frac = (plannedMin.toFloat() / capMin).coerceIn(0f, 1f)
                         val over = plannedMin > capMin
                         val muted = MaterialTheme.colorScheme.onSurfaceVariant
                         val barFill = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                         Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Committed ${hm(plannedMin)} of ${hm(capMin)}", style = MaterialTheme.typography.labelMedium, color = if (over) MaterialTheme.colorScheme.error else muted)
-                                if (over) Text("  · over by ${hm(plannedMin - capMin)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                                if (hasLedger) {
+                                    Text("Committed ${hm(plannedMin)} of ${hm(capMin)}", style = MaterialTheme.typography.labelMedium, color = if (over) MaterialTheme.colorScheme.error else muted)
+                                    if (over) Text("  · over by ${hm(plannedMin - capMin)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                                    if (s.calendarRealityShadow && trackedMin > 0) { Spacer(Modifier.width(10.dp)); Text("lived ${hm(trackedMin)}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary) }
+                                } else {
+                                    Text("Nothing committed yet", style = MaterialTheme.typography.labelMedium, color = muted)
+                                }
                                 Spacer(Modifier.weight(1f))
-                                if (s.calendarRealityShadow && trackedMin > 0) Text("lived ${hm(trackedMin)}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
+                                if (ledgerPastOrToday) {
+                                    Row(Modifier.clip(RoundedCornerShape(8.dp)).clickable { onCloseDay(anchor) }.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Filled.WbSunny, null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.primary)
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Close the day", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
                             }
-                            Spacer(Modifier.height(3.dp))
-                            Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f))) {
-                                Box(Modifier.fillMaxWidth(frac).height(4.dp).clip(RoundedCornerShape(2.dp)).background(barFill))
-                                if (s.calendarRealityShadow && trackedMin > 0) {
-                                    val lf = (trackedMin.toFloat() / capMin).coerceIn(0f, 1f)
-                                    Box(Modifier.fillMaxWidth(lf).height(4.dp)) {
-                                        Box(Modifier.align(Alignment.CenterEnd).width(2.dp).height(9.dp).offset(y = (-2).dp).background(MaterialTheme.colorScheme.secondary))
+                            if (hasLedger) {
+                                Spacer(Modifier.height(3.dp))
+                                Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f))) {
+                                    Box(Modifier.fillMaxWidth(frac).height(4.dp).clip(RoundedCornerShape(2.dp)).background(barFill))
+                                    if (s.calendarRealityShadow && trackedMin > 0) {
+                                        val lf = (trackedMin.toFloat() / capMin).coerceIn(0f, 1f)
+                                        Box(Modifier.fillMaxWidth(lf).height(4.dp)) {
+                                            Box(Modifier.align(Alignment.CenterEnd).width(2.dp).height(9.dp).offset(y = (-2).dp).background(MaterialTheme.colorScheme.secondary))
+                                        }
                                     }
                                 }
                             }
@@ -697,7 +740,9 @@ fun CalendarScreen(
                     }
                     val unschedCount = remember(tasks) { tasks.count { !it.completed && !it.trashed && !it.abandoned && !it.someday && it.dueDate == null && it.parentId == null && !it.isNote } }
                     val showAutoFill = unschedCount > 0 && !anchor.isBefore(today0)
-                    if (fits != null || pastOrToday || showAutoFill) {
+                    // "Close the day" moved to the committed/lived bar above; this row is now just
+                    // what-fits-now (B3) and auto-fill (D1).
+                    if (fits != null || showAutoFill) {
                         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (fits != null) {
@@ -718,12 +763,6 @@ fun CalendarScreen(
                                 TextButton(onClick = { vm.autoScheduleDay(anchor.toEpochDay()) { n -> vm.toastMsg(if (n == 0) "No free slots to fill" else if (n == 1) "Placed 1 task" else "Placed $n tasks") } },
                                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
                                     Icon(Icons.Filled.AutoAwesome, null, Modifier.size(15.dp)); Spacer(Modifier.size(4.dp)); Text("Auto-fill", style = MaterialTheme.typography.labelMedium)
-                                }
-                            }
-                            if (pastOrToday) {
-                                TextButton(onClick = { onCloseDay(anchor) },
-                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
-                                    Icon(Icons.Filled.WbSunny, null, Modifier.size(15.dp)); Spacer(Modifier.size(4.dp)); Text("Close the day", style = MaterialTheme.typography.labelMedium)
                                 }
                             }
                         }
@@ -796,7 +835,7 @@ fun CalendarScreen(
                         }
                     }
                 }
-                TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone, onDrawRange = openRange, energyByHour = energyByHour, daylightFor = daylightFor, protectedFor = protectedFor, ghostFor = ghostFor)
+                TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone, onDrawRange = openRange, energyByHour = energyByHour, daylightFor = daylightFor, protectedFor = protectedFor, ghostFor = ghostFor, showUntimedHabits = false)
             }
             "year" -> YearView(anchor, dueByDate, onPrev = prev, onNext = next, onMonth = { m -> onAnchor(m.atDay(1)); onModeChange("month") }, onDay = { d -> onAnchor(d); onModeChange("day") })
             else -> AgendaView(dueByDate, onOpenTask, swipe)
@@ -1144,7 +1183,7 @@ private fun MonthYearPicker(current: YearMonth, onDismiss: () -> Unit, onPick: (
 }
 
 @Composable
-private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onAdd: () -> Unit, collapsed: Boolean, onCollapsedChange: (Boolean) -> Unit, habitBlocksFor: (LocalDate) -> List<HabitBlock>, onOpenHabit: (String) -> Unit, countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity>, trackedDayInfo: (LocalDate) -> Pair<Int, androidx.compose.ui.graphics.Color?> = { 0 to null }, eventOccForDay: (LocalDate) -> List<com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence> = { emptyList() }, onOpenEvent: (String) -> Unit = {}, onOpenOccasion: (String?) -> Unit = {}, onOccasionDetails: (com.todocompanion.app.data.entity.CountdownEntity) -> Unit = {}, lunar: Boolean = false, eventColorOf: (com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence) -> Color = { Color(it.event.colorArgb ?: 0xFF7C3AED) }, onMoveToDay: (LocalDate, String) -> Unit) {
+private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onCloseDay: (LocalDate) -> Unit, collapsed: Boolean, onCollapsedChange: (Boolean) -> Unit, habitBlocksFor: (LocalDate) -> List<HabitBlock>, onOpenHabit: (String) -> Unit, countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity>, trackedDayInfo: (LocalDate) -> Pair<Int, androidx.compose.ui.graphics.Color?> = { 0 to null }, eventOccForDay: (LocalDate) -> List<com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence> = { emptyList() }, onOpenEvent: (String) -> Unit = {}, onOpenOccasion: (String?) -> Unit = {}, onOccasionDetails: (com.todocompanion.app.data.entity.CountdownEntity) -> Unit = {}, lunar: Boolean = false, eventColorOf: (com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence) -> Color = { Color(it.event.colorArgb ?: 0xFF7C3AED) }, onMoveToDay: (LocalDate, String) -> Unit) {
     val ym = YearMonth.from(anchor)
     val labels = (0..6).map { firstDow.plus(it.toLong()) }
     val first = ym.atDay(1)
@@ -1273,7 +1312,12 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                     tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp),
                 )
             }
-            TextButton(onClick = onAdd) { Text("＋ Add") }
+            // "＋ Add" was redundant with the FAB; this slot now closes the selected day (past or today).
+            if (!selected.isAfter(today)) {
+                TextButton(onClick = { onCloseDay(selected) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 2.dp)) {
+                    Icon(Icons.Filled.WbSunny, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Close the day")
+                }
+            }
         }
         // G2: habits scheduled for the selected day, shown right under the date so month-view users
         // (the default view) see and can open their habits without switching to a timeline view.
@@ -1331,7 +1375,12 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                 }
             }
         }
-        val agenda = dueByDate[selected].orEmpty()
+        // Order the day's tasks by time-of-day (all-day/undated first), then by priority, then title —
+        // the grouped map was previously unsorted, so rows followed raw storage order.
+        val agenda = dueByDate[selected].orEmpty().sortedWith(
+            compareBy<TaskEntity> { it.dueDate ?: Long.MAX_VALUE }
+                .thenByDescending { it.importance + it.urgency }
+                .thenBy { it.title.lowercase() })
         if (agenda.isEmpty() && dayCountdowns.isEmpty() && dayEvents.isEmpty()) Text("Nothing due — enjoy the day", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         else if (agenda.isEmpty()) Spacer(Modifier.height(4.dp))
         else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 2.dp, bottom = 100.dp)) {
@@ -1454,6 +1503,9 @@ private fun TimelineView(
     secZone: ZoneId? = null, onDrawRange: (LocalDate, Int, Int) -> Unit = { _, _, _ -> },
     energyByHour: IntArray? = null, daylightFor: (LocalDate) -> Pair<Int, Int>? = { null }, protectedFor: (LocalDate) -> List<Pair<Int, Int>> = { emptyList() },
     ghostFor: (LocalDate) -> Int? = { null },
+    // The single-day view renders untimed habits as a compact pill strip above the grid (like month view),
+    // so it turns this off to avoid drawing them twice.
+    showUntimedHabits: Boolean = true,
 ) {
     val allDayByDay = days.associateWith { d -> dueByDate[d].orEmpty().filter { it.isAllDay || !hasTime(it.dueDate!!, zone) } }
     val hasAllDay = allDayByDay.values.any { it.isNotEmpty() }
@@ -1548,7 +1600,7 @@ private fun TimelineView(
         // R27 #3: untimed habits (no reminder time) sit in a header band ABOVE the hour grid — not pinned to
         // a fake ~01:00 inside the timeline, where they used to stack and read as 1-o'clock events. Each day
         // column lists its own; the grid below then carries only timed habits at their real reminder time.
-        val untimedByDay = days.associateWith { d -> habitBlocksFor(d).filter { it.untimed }.distinctBy { hb -> hb.id } }
+        val untimedByDay = if (!showUntimedHabits) emptyMap() else days.associateWith { d -> habitBlocksFor(d).filter { it.untimed }.distinctBy { hb -> hb.id } }
         if (untimedByDay.values.any { it.isNotEmpty() }) {
             Row(Modifier.fillMaxWidth().heightIn(max = 104.dp)) {
                 if (manyCols) Spacer(Modifier.width(gutterW))

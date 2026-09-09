@@ -212,7 +212,7 @@ class ReminderReceiver : BroadcastReceiver() {
                             // next run honouring the chosen interval; on failure keep the old stamp but still re-arm.
                             val stampedAt = if (ok) System.currentTimeMillis() else s.lastBackupAt
                             if (ok) app.repository.saveSettings(app.repository.settingsSnapshot().copy(lastBackupAt = stampedAt))
-                            AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour, s.autoBackupIntervalDays, stampedAt)
+                            AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour, s.autoBackupIntervalDays, stampedAt, s.autoBackupDow, s.autoBackupDom)
                         }
                     } finally { pending.finish() }
                 }
@@ -391,7 +391,7 @@ class BootReceiver : BroadcastReceiver() {
                 if (s.eveningReviewEnabled) AlarmScheduler.scheduleEveningReviewSmart(context, app.repository)
                 if (s.morningBriefEnabled) AlarmScheduler.scheduleMorningBrief(context, s.morningBriefHour)
                 if (s.occasionNudge) AlarmScheduler.scheduleOccasionNudge(context, s.occasionNudgeHour)
-                if (s.autoBackupEnabled && s.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour, s.autoBackupIntervalDays, s.lastBackupAt)
+                if (s.autoBackupEnabled && s.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour, s.autoBackupIntervalDays, s.lastBackupAt, s.autoBackupDow, s.autoBackupDom)
                 if (s.autoTrackPrompt) AlarmScheduler.scheduleTrackPrompts(context, app.repository)
                 AlarmScheduler.rescheduleEventAlerts(context, app.repository)
                 AlarmScheduler.rescheduleSealedLetters(context, app.repository)   // Track 3.4

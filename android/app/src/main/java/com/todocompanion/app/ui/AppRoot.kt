@@ -406,13 +406,16 @@ fun AppRoot(
         // Hoisted per-tab controls, surfaced in the shared top bar to free screen space.
         var calMode by remember { mutableStateOf(settings.calendarDefaultMode) }
         // Honor the chosen default view. On first load, sync calMode to the persisted default (the raw
-        // `remember` above can capture a stale default while settings are still loading). After that, only
-        // re-sync when "remember my last view" is OFF — so switching the default in Settings takes effect
-        // and every entry lands on it, while local view-switching within a session is preserved.
+        // `remember` above can capture a stale default while settings are still loading). After that, when
+        // "remember my last view" is OFF, snap back to the chosen default every time the Calendar tab is
+        // (re)entered and whenever the chosen default changes — so "Opens in: Month" really opens on Month
+        // each time, not the last view used this session. (calMode lives at AppRoot level and survives tab
+        // switches, so without the `tab` key it would otherwise keep whatever view was last shown.) With
+        // "remember last" ON, onModeChange persists the last view and we leave calMode alone.
         var calModeSynced by remember { mutableStateOf(false) }
-        LaunchedEffect(settings.calendarDefaultMode, settings.calendarRememberLast) {
+        LaunchedEffect(tab, settings.calendarDefaultMode, settings.calendarRememberLast) {
             if (!calModeSynced) { calMode = settings.calendarDefaultMode; calModeSynced = true }
-            else if (!settings.calendarRememberLast) calMode = settings.calendarDefaultMode
+            else if (!settings.calendarRememberLast && tab == Tab.CALENDAR) calMode = settings.calendarDefaultMode
         }
         // Calendar navigation state, hoisted so the combined header can live in the app-bar slot.
         var calAnchor by remember { mutableStateOf(java.time.LocalDate.now()) }
@@ -497,8 +500,14 @@ fun AppRoot(
         }
         val occasionsForNotif by vm.countdowns.collectAsState()
         LaunchedEffect(settings.occasionLiveNotif, occasionsForNotif) { vm.refreshOccasionNotification() }
-        LaunchedEffect(settings.autoBackupEnabled, settings.autoBackupHour, settings.autoBackupFolder) {
-            if (settings.autoBackupEnabled && settings.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, settings.autoBackupHour)
+        // Re-arm the auto-backup alarm on launch and whenever the schedule changes. Must pass the chosen
+        // interval (and weekday/day-of-month + last-backup time) — omitting them made every launch fall back
+        // to the daily default, so a "weekly"/"monthly" choice silently reverted to daily.
+        LaunchedEffect(settings.autoBackupEnabled, settings.autoBackupHour, settings.autoBackupFolder,
+            settings.autoBackupIntervalDays, settings.autoBackupDow, settings.autoBackupDom) {
+            if (settings.autoBackupEnabled && settings.autoBackupFolder.isNotBlank())
+                AlarmScheduler.scheduleAutoBackup(context, settings.autoBackupHour, settings.autoBackupIntervalDays,
+                    settings.lastBackupAt, settings.autoBackupDow, settings.autoBackupDom)
             else AlarmScheduler.cancelAutoBackup(context)
         }
         // U2: (re)schedule today's timebox → track prompts whenever the toggle is on.

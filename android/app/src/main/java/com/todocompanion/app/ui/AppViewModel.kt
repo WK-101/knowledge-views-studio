@@ -3339,6 +3339,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             orderIndex = repo.eventCalendarsOnce().size, workspaceId = settings.value.activeWorkspaceId, createdAt = System.currentTimeMillis()))
     }
     fun setEventCalendarVisible(c: com.todocompanion.app.data.entity.EventCalendarEntity, visible: Boolean) = viewModelScope.launch { repo.upsertEventCalendar(c.copy(visible = visible)) }
+    /** Make [id] the default calendar new events land in; clears the flag on every other calendar in this
+     *  workspace so exactly one is default. */
+    fun setDefaultEventCalendar(id: String) = viewModelScope.launch {
+        val ws = settings.value.activeWorkspaceId
+        repo.eventCalendarsOnce().filter { it.workspaceId == ws }.forEach { c ->
+            val shouldBe = c.id == id
+            if (c.isDefault != shouldBe) repo.upsertEventCalendar(c.copy(isDefault = shouldBe))
+        }
+    }
     fun renameEventCalendar(c: com.todocompanion.app.data.entity.EventCalendarEntity, name: String, color: Long) = viewModelScope.launch { repo.upsertEventCalendar(c.copy(name = name.trim().ifBlank { c.name }, colorArgb = color)) }
     fun deleteEventCalendar(id: String) = viewModelScope.launch {
         val evs = repo.eventsOnce().filter { it.calendarId == id }
@@ -4960,7 +4969,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      *  effect immediately rather than waiting for the next app launch or boot. */
     private fun rearmAutoBackup(s: com.todocompanion.app.domain.AppSettings) {
         if (s.autoBackupEnabled && s.autoBackupFolder.ifBlank { s.syncFolder }.isNotBlank())
-            com.todocompanion.app.reminders.AlarmScheduler.scheduleAutoBackup(appCtx, s.autoBackupHour, s.autoBackupIntervalDays, s.lastBackupAt)
+            com.todocompanion.app.reminders.AlarmScheduler.scheduleAutoBackup(appCtx, s.autoBackupHour, s.autoBackupIntervalDays, s.lastBackupAt, s.autoBackupDow, s.autoBackupDom)
         else com.todocompanion.app.reminders.AlarmScheduler.cancelAutoBackup(appCtx)
     }
     fun setAutoBackupFolder(uri: String) = viewModelScope.launch {
@@ -4976,6 +4985,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** The hour of day (0–23) the automatic backup fires. */
     fun setAutoBackupHour(hour: Int) = viewModelScope.launch {
         val s = settings.value.copy(autoBackupHour = hour.coerceIn(0, 23)); repo.saveSettings(s); rearmAutoBackup(s)
+    }
+    /** For weekly backups: which ISO weekday to run on (1 = Mon … 7 = Sun). */
+    fun setAutoBackupDow(dow: Int) = viewModelScope.launch {
+        val s = settings.value.copy(autoBackupDow = dow.coerceIn(0, 7)); repo.saveSettings(s); rearmAutoBackup(s)
+    }
+    /** For monthly backups: which day-of-month to run on (1–31, clamped to the month's length). */
+    fun setAutoBackupDom(dom: Int) = viewModelScope.launch {
+        val s = settings.value.copy(autoBackupDom = dom.coerceIn(1, 31)); repo.saveSettings(s); rearmAutoBackup(s)
+    }
+    /** Toggle a smart-list helper card between folded (default) and expanded; the choice persists. */
+    fun toggleSmartCard(key: String) = viewModelScope.launch {
+        val cur = settings.value.smartCardsExpanded
+        repo.saveSettings(settings.value.copy(smartCardsExpanded = if (key in cur) cur - key else cur + key))
     }
     fun setSyncEnabled(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(syncEnabled = on)) }
     fun markOnboarded() = viewModelScope.launch { repo.saveSettings(settings.value.copy(onboarded = true)) }

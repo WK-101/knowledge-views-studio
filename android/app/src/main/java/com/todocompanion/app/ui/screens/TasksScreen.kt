@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.FormatIndentIncrease
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -563,6 +564,22 @@ private fun subtaskDepth(task: TaskEntity, byId: Map<String, TaskEntity>): Int {
 /** Tap-a-label navigation: jump to a task's list / context / tag view. */
 class TaskLabelNav(val onList: (String) -> Unit, val onContext: (String) -> Unit, val onTag: (String) -> Unit)
 
+/** A smart-list helper card that folds to just its title by default; the expand choice persists per card
+ *  (settings.smartCardsExpanded). One header, one fold — the body renders only when expanded, so a
+ *  cluttered Today/Do-Next opens as a clean task list with these cards collapsed and one tap away. */
+@Composable
+private fun FoldableCard(vm: AppViewModel, cardKey: String, title: String, content: @Composable ColumnScope.() -> Unit) {
+    val s by vm.settings.collectAsState()
+    val expanded = cardKey in s.smartCardsExpanded
+    AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 12.dp) {
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { vm.toggleSmartCard(cardKey) }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Icon(Icons.Filled.KeyboardArrowDown, if (expanded) "Collapse" else "Expand", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.rotate(if (expanded) 180f else 0f))
+        }
+        if (expanded) { Spacer(Modifier.size(8.dp)); content() }
+    }
+}
+
 /** The top strips (list description + smart-view helpers) shared by both list layouts. */
 private fun androidx.compose.foundation.lazy.LazyListScope.taskListHeaders(vm: AppViewModel, view: ViewRef, viewDescription: String?, onOpenOccasion: (String?) -> Unit = {}, onOpenRoutineRun: (String) -> Unit = {}) {
     viewDescription?.let { desc -> item(key = "viewdesc") {
@@ -843,13 +860,9 @@ private fun RecoveryStrip(vm: AppViewModel) {
     val overdue = remember(tasks) { vm.overdueOpenTasks() }
     if (overdue.size < 4) return
     val ctx = LocalContext.current
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .7f)) {
-        Column(Modifier.padding(14.dp)) {
-            Text("${overdue.size} tasks are overdue — let's reset.", style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+    FoldableCard(vm, "recovery", "${overdue.size} overdue — reset") {
             Text("A pile-up isn't a verdict. Pull them to today, push to tomorrow, or open them one at a time.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.padding(top = 2.dp))
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 8.dp)) {
                 androidx.compose.material3.FilledTonalButton(onClick = {
                     vm.rescheduleOverdue(toTomorrow = false) { n -> android.widget.Toast.makeText(ctx, "Moved $n to today", android.widget.Toast.LENGTH_SHORT).show() }
@@ -858,7 +871,6 @@ private fun RecoveryStrip(vm: AppViewModel) {
                     vm.rescheduleOverdue(toTomorrow = true) { n -> android.widget.Toast.makeText(ctx, "Pushed $n to tomorrow", android.widget.Toast.LENGTH_SHORT).show() }
                 }) { Text("Push to tomorrow") }
             }
-        }
     }
 }
 
@@ -876,12 +888,13 @@ private fun HabitsDueStrip(vm: AppViewModel) {
         HabitStats.dueToday(h, today, doneDays, hc.firstOrNull { it.epochDay == today }?.count ?: 0)
     }
     if (due.isEmpty()) return
-    // R34: the habits card is foldable — unfolded by default, but the header collapses it so the task
-    // list is one tap away when the day's habits aren't the focus. State survives scroll & restart.
-    var expanded by rememberSaveable { mutableStateOf(true) }
+    // R34: the habits card is foldable. Folded by default now (persisted in settings), so Today/Do-Next
+    // open as a task list and the day's habits are one tap away when you want them.
+    val s by vm.settings.collectAsState()
+    val expanded = "habitsdue" in s.smartCardsExpanded
     AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 12.dp) {
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { expanded = !expanded }.padding(vertical = 2.dp),
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { vm.toggleSmartCard("habitsdue") }.padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Habits · ${due.size} due today", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
@@ -926,10 +939,10 @@ private fun RoutinesDueStrip(vm: AppViewModel, onOpenRoutineRun: (String) -> Uni
     // routinesDueToday() reads routinesJson + routineRunsJson off settings, so recompute when settings change.
     val due = remember(settings.routinesJson, settings.routineRunsJson) { vm.routinesDueToday() }
     if (due.isEmpty()) return
-    var expanded by rememberSaveable { mutableStateOf(true) }
+    val expanded = "routinesdue" in settings.smartCardsExpanded
     AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 12.dp) {
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { expanded = !expanded }.padding(vertical = 2.dp),
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { vm.toggleSmartCard("routinesdue") }.padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Rituals · ${due.size} to run today", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
@@ -985,10 +998,11 @@ private fun PlansStrip(vm: AppViewModel) {
     if (plans.isEmpty()) return
     val ifThen = plans.filter { it.kind == com.todocompanion.app.domain.MicroPlans.IF_THEN }
     val bundles = plans.filter { it.kind == com.todocompanion.app.domain.MicroPlans.BUNDLE }
-    var expanded by rememberSaveable { mutableStateOf(true) }
+    val s by vm.settings.collectAsState()
+    val expanded = "microplans" in s.smartCardsExpanded
     AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 12.dp) {
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { expanded = !expanded }.padding(vertical = 2.dp),
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { vm.toggleSmartCard("microplans") }.padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Your plans · ${plans.size}", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
@@ -1041,7 +1055,8 @@ private fun NudgeStrip(vm: AppViewModel) {
         opportunityVariants.forEach { (habitId, variant) -> vm.logNudgeShown(habitId, variant, today) }
     }
     if (nudges.isEmpty()) return
-    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    FoldableCard(vm, "twnudges", if (nudges.size == 1) "Nudge" else "Nudges · ${nudges.size}") {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         nudges.forEach { n ->
             val risk = n.kind == "risk"
             val text = if (n.kind == "opportunity") opportunityVariants[n.habitId]?.let { v -> "${com.todocompanion.app.domain.habit.FourthWave.NUDGE_VARIANTS[v]} — ${n.text}" } ?: n.text else n.text
@@ -1052,6 +1067,7 @@ private fun NudgeStrip(vm: AppViewModel) {
                     Text(text, style = MaterialTheme.typography.bodyMedium, color = if (risk) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer)
                 }
             }
+        }
         }
     }
 }
@@ -1071,18 +1087,14 @@ private fun FreshStartStrip(vm: AppViewModel) {
         landmark != null -> { emoji = landmark.emoji; msg = landmark.label }
         else -> return
     }
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .6f)) {
-        Column(Modifier.padding(14.dp)) {
-            Row(Modifier.clickable { vm.lifeSystemsRoute.value = "freshstart" }, verticalAlignment = Alignment.CenterVertically) {
-                Text(emoji, Modifier.padding(end = 12.dp), style = MaterialTheme.typography.titleMedium)
-                Text(msg, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+    FoldableCard(vm, "freshstart", "$emoji  Fresh start") {
+            Row(Modifier.fillMaxWidth().clickable { vm.lifeSystemsRoute.value = "freshstart" }, verticalAlignment = Alignment.CenterVertically) {
+                Text(msg, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
             }
             // R37 · Port 8 — a landmark is when re-planning sticks: one tap pulls stale overdue onto today.
             androidx.compose.material3.TextButton(onClick = { vm.freshStartReschedule() }, modifier = Modifier.padding(top = 2.dp)) {
-                Text("Plan the week — pull overdue onto today", color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text("Plan the week — pull overdue onto today")
             }
-        }
     }
 }
 
@@ -1096,12 +1108,9 @@ private fun TaskWipStrip(vm: AppViewModel) {
     val now = System.currentTimeMillis()
     val wip = remember(tasks, settings.taskWipLimit) { com.todocompanion.app.domain.task.TaskCoach.wip(tasks, settings.taskWipLimit, now, dayStartMin = settings.dayStartMinuteOfDay()) }
     if (!wip.overCap) return
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .55f)) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("🧯", Modifier.padding(end = 10.dp))
+    FoldableCard(vm, "taskwip", "🧯  ${wip.count} in progress (limit ${wip.limit})") {
             Text("${wip.count} tasks in progress (your limit is ${wip.limit}). Finishing beats starting — close one before you pick up another.",
-                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
-        }
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -1115,12 +1124,8 @@ private fun TaskLessonStrip(vm: AppViewModel) {
     val childCounts = remember(tasks) { tasks.filter { it.parentId != null }.groupingBy { it.parentId!! }.eachCount() }
     val lesson = remember(tasks, hour) { com.todocompanion.app.domain.task.TaskCoach.todayLesson(tasks, childCounts, hour, now, dayStartMin = settings.dayStartMinuteOfDay()) }
     if (lesson == null) return
-    AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 14.dp) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(lesson.emoji, Modifier.padding(end = 10.dp), style = MaterialTheme.typography.titleMedium)
-                Text(lesson.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            }
-            Text(lesson.body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+    FoldableCard(vm, "tasklesson", "${lesson.emoji}  ${lesson.title}") {
+            Text(lesson.body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -1135,10 +1140,9 @@ private fun ShutdownStrip(vm: AppViewModel) {
     if (hour < 17) return
     val open = remember(tasks, today) { com.todocompanion.app.domain.habit.FourthWave.shutdownCarryForward(tasks, today) }
     if (open.isEmpty()) return
-    AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 14.dp) {
-            Text("🌇 Daily shutdown", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+    FoldableCard(vm, "shutdown", "🌇 Daily shutdown") {
             Text("${open.size} task${if (open.size == 1) "" else "s"} still open for today. Carry them forward and close the day — an intentional stop, not a loose end.",
-                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 androidx.compose.material3.FilledTonalButton(onClick = { vm.carryForwardTasks(open.map { it.id }) }) { Text("Carry ${open.size} to tomorrow") }
             }
@@ -1160,8 +1164,7 @@ private fun BookendCard(vm: AppViewModel) {
     if (alreadyDone) return
     var text by remember(evening, today) { mutableStateOf("") }
     var mood by remember(evening, today) { mutableIntStateOf(0) }
-    AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 14.dp) {
-            Text(if (evening) "🌙 Evening review" else "🌅 Morning intention", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+    FoldableCard(vm, "bookend", if (evening) "🌙 Evening review" else "🌅 Morning intention") {
             Text(if (evening) "One honest line on how today went." else "One line on what today is for.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.size(6.dp))
             com.todocompanion.app.ui.components.AppTextField(text, { text = it }, singleLine = true, label = { Text(if (evening) "How did it go?" else "Today, I will…") }, modifier = Modifier.fillMaxWidth())
@@ -1204,10 +1207,11 @@ private fun CountdownDueStrip(vm: AppViewModel, kind: SmartKind, onOpenOccasion:
     // the tighter windows (Today / Next-7) already self-limit, so they show all that fall inside them.
     val cap = if (kind == SmartKind.SCHEDULED) 2 else relevant.size
     val shown = relevant.take(cap)
-    // R51 — the Scheduled strip is collapsible (open by default) so a long Scheduled list can hide it.
-    var expanded by remember(kind) { mutableStateOf(true) }
+    // Occasions fold to their title by default (persisted in settings), so a long list isn't buried under them.
+    val s by vm.settings.collectAsState()
+    val expanded = "countdowns" in s.smartCardsExpanded
     AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 12.dp) {
-            Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }, verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().clickable { vm.toggleSmartCard("countdowns") }, verticalAlignment = Alignment.CenterVertically) {
                 Text(if (expanded) "▾ Occasions" else "▸ Occasions", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                 if (!expanded) Text("  (${relevant.size})", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.weight(1f))

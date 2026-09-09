@@ -1197,10 +1197,28 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 // How often + when the automatic backup runs.
                 Text("How often", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp, bottom = 2.dp))
                 OptionChips(listOf(1, 7, 30), s.autoBackupIntervalDays, { vm.setAutoBackupInterval(it) }, spacing = 6) { when (it) { 1 -> "Daily"; 7 -> "Weekly"; else -> "Monthly" } }
+                // Weekly → pick the weekday; Monthly → pick the date. (Daily needs neither.)
+                if (s.autoBackupIntervalDays == 7) {
+                    Text("On", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp, bottom = 2.dp))
+                    val dowNames = listOf(1 to "Mon", 2 to "Tue", 3 to "Wed", 4 to "Thu", 5 to "Fri", 6 to "Sat", 7 to "Sun")
+                    OptionChips(dowNames.map { it.first }, s.autoBackupDow.takeIf { it in 1..7 } ?: 1, { vm.setAutoBackupDow(it) }, spacing = 6) { d -> dowNames.first { it.first == d }.second }
+                } else if (s.autoBackupIntervalDays >= 28) {
+                    Text("On day of the month", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp, bottom = 2.dp))
+                    OptionChips((1..31).toList(), s.autoBackupDom.coerceIn(1, 31), { vm.setAutoBackupDom(it) }, spacing = 6) { it.toString() }
+                    Text("Dates past a shorter month's end (29–31) fall back to that month's last day.",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 // One time-of-day grammar: tap a row to open the clock picker, exactly like quiet hours,
                 // the morning brief and the reflection time — not a lone −/+ stepper.
                 TimeSettingRow("Around", s.autoBackupHour * 60) { m -> vm.setAutoBackupHour(((m + 30) / 60).coerceIn(0, 23)) }
-                val freqWord = when (s.autoBackupIntervalDays) { 1 -> "daily"; 7 -> "weekly"; 30 -> "monthly"; else -> "every ${s.autoBackupIntervalDays} days" }
+                val dom = s.autoBackupDom.coerceIn(1, 31)
+                val domOrdinal = dom.toString() + when { dom in 11..13 -> "th"; dom % 10 == 1 -> "st"; dom % 10 == 2 -> "nd"; dom % 10 == 3 -> "rd"; else -> "th" }
+                val freqWord = when (s.autoBackupIntervalDays) {
+                    1 -> "daily"
+                    7 -> "every " + (listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday").getOrNull((s.autoBackupDow.takeIf { it in 1..7 } ?: 1) - 1) ?: "week")
+                    30 -> "monthly on the $domOrdinal"
+                    else -> "every ${s.autoBackupIntervalDays} days"
+                }
                 Text("A dated JSON copy is written $freqWord around ${"%02d:00".format(s.autoBackupHour)}. Choose a synced folder (Drive / Dropbox / Syncthing) to keep copies off-device.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

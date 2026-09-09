@@ -302,16 +302,41 @@ object AlarmScheduler {
     }
 
     // ---------- automatic backup ----------
-    /** Schedule the next auto-backup at [hour] on the first eligible day: at least [intervalDays] after
-     *  the last backup (daily=1, weekly=7, monthly=30), and never in the past. */
-    fun scheduleAutoBackup(context: Context, hour: Int, intervalDays: Int = 1, lastBackupAt: Long = 0L, zone: ZoneId = ZoneId.systemDefault()) {
+    /** Schedule the next auto-backup at [hour], honouring the frequency:
+     *  - Weekly ([intervalDays] == 7) with [dow] in 1..7 (Mon..Sun) → the next occurrence of that weekday.
+     *  - Monthly ([intervalDays] >= 28) with [dom] in 1..31 → that day-of-month (clamped to the month length).
+     *  - Otherwise → the interval-in-days rule (daily, or weekly/monthly with no specific day pinned):
+     *    at least [intervalDays] after the last backup.
+     *  Never schedules a time in the past. */
+    fun scheduleAutoBackup(context: Context, hour: Int, intervalDays: Int = 1, lastBackupAt: Long = 0L, dow: Int = 0, dom: Int = 0, zone: ZoneId = ZoneId.systemDefault()) {
         val now = System.currentTimeMillis()
-        val every = intervalDays.coerceIn(1, 30).toLong()
+        val h = hour.coerceIn(0, 23)
         val today = LocalDate.now(zone)
-        val lastDay = if (lastBackupAt > 0L) java.time.Instant.ofEpochMilli(lastBackupAt).atZone(zone).toLocalDate() else today.minusDays(every)
-        var day = maxOf(today, lastDay.plusDays(every))
-        var next = day.atTime(LocalTime.of(hour.coerceIn(0, 23), 0)).atZone(zone).toInstant().toEpochMilli()
-        if (next <= now) next += every * 86_400_000L
+        fun at(d: LocalDate): Long = d.atTime(LocalTime.of(h, 0)).atZone(zone).toInstant().toEpochMilli()
+        val next: Long = when {
+            // Monthly on a chosen date. Clamp the date to the month's length (e.g. the 31st in February).
+            intervalDays >= 28 && dom in 1..31 -> {
+                fun dOf(base: LocalDate) = base.withDayOfMonth(minOf(dom, base.lengthOfMonth()))
+                var d = dOf(today)
+                if (at(d) <= now) d = dOf(today.plusMonths(1))
+                at(d)
+            }
+            // Weekly on a chosen weekday — step forward to that weekday (and past today if its hour has gone).
+            intervalDays == 7 && dow in 1..7 -> {
+                var d = today; var guard = 0
+                while (guard++ < 14 && (d.dayOfWeek.value != dow || at(d) <= now)) d = d.plusDays(1)
+                at(d)
+            }
+            // Interval rule: at least [intervalDays] after the last backup, never in the past.
+            else -> {
+                val every = intervalDays.coerceIn(1, 30).toLong()
+                val lastDay = if (lastBackupAt > 0L) java.time.Instant.ofEpochMilli(lastBackupAt).atZone(zone).toLocalDate() else today.minusDays(every)
+                val day = maxOf(today, lastDay.plusDays(every))
+                var t = at(day)
+                if (t <= now) t += every * 86_400_000L
+                t
+            }
+        }
         setAlarm(context, next, broadcast(context, ACTION_AUTO_BACKUP, AUTOBACKUP_REQ, emptyMap()))
     }
     fun cancelAutoBackup(context: Context) {

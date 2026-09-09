@@ -37,6 +37,8 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.AlertDialog
@@ -150,7 +152,17 @@ internal fun CalendarsManager(vm: AppViewModel, calendars: List<EventCalendarEnt
                     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(16.dp).clip(CircleShape).background(Color(c.colorArgb)))
                         Spacer(Modifier.width(10.dp))
-                        Text(c.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                        Column(Modifier.weight(1f)) {
+                            Text(c.name, style = MaterialTheme.typography.bodyLarge)
+                            if (c.isDefault) Text("Default — new events land here", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                        // Star = this is the calendar new events are created in. Tap a non-default calendar's
+                        // outline star to make it the default (there is always exactly one).
+                        IconButton(onClick = { if (!c.isDefault) vm.setDefaultEventCalendar(c.id) }, enabled = !c.isDefault, modifier = Modifier.size(36.dp)) {
+                            Icon(if (c.isDefault) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                if (c.isDefault) "Default calendar" else "Make default",
+                                Modifier.size(18.dp), tint = if (c.isDefault) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         IconButton(onClick = { renaming = c }, modifier = Modifier.size(32.dp)) { Icon(Icons.Filled.Edit, "Rename", Modifier.size(16.dp)) }
                         Switch(checked = c.visible, onCheckedChange = { vm.setEventCalendarVisible(c, it) })
                     }
