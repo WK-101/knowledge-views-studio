@@ -409,8 +409,12 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             fun hasFieldValue(f: com.todocompanion.app.domain.EditorField): Boolean = when (f) {
                 com.todocompanion.app.domain.EditorField.PROGRESS -> totalN > 0 || (task.progressPct ?: 0) > 0
                 com.todocompanion.app.domain.EditorField.SCHEDULE -> task.dueDate != null || task.startDate != null || task.deadlineDate != null
-                com.todocompanion.app.domain.EditorField.LEADTIME -> task.dueDate != null
-                com.todocompanion.app.domain.EditorField.TIMETRACKING -> timeOn
+                // "Filled" = the user actually set a custom lead time — NOT merely that the task has a due
+                // date — so a field placed under "More"/"Hidden" stays folded until they give it a value.
+                com.todocompanion.app.domain.EditorField.LEADTIME -> task.leadTimeMin != null
+                // Likewise Time tracking counts as filled only when this task has tracked entries, not just
+                // because the Time module is on — otherwise it could never be moved under "More"/"Hidden".
+                com.todocompanion.app.domain.EditorField.TIMETRACKING -> timeEntries.any { it.taskId == task.id }
                 com.todocompanion.app.domain.EditorField.PRIORITY -> true
                 com.todocompanion.app.domain.EditorField.LIST -> true
                 com.todocompanion.app.domain.EditorField.REPEAT -> !task.rrule.isNullOrBlank()
@@ -490,7 +494,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     // ---------- Surface before due (how far ahead the task ramps up in urgency) ----------
                     com.todocompanion.app.domain.EditorField.LEADTIME -> {
                         if (task.dueDate != null) MenuRow("Surface before due", task.leadTimeMin?.let { "${it / 1440}d before" } ?: "Default",
-                            listOf<Pair<Int?, String>>(null to "Default (7 days)", 1 to "1 day before", 3 to "3 days before", 7 to "1 week before", 14 to "2 weeks before")) { d -> update { it.copy(leadTimeMin = d?.let { n -> n * 1440 }) } }
+                            listOf<Pair<Int?, String>>(null to "Default (3 days)", 1 to "1 day before", 3 to "3 days before", 7 to "1 week before", 14 to "2 weeks before")) { d -> update { it.copy(leadTimeMin = d?.let { n -> n * 1440 }) } }
                     }
 
                     // ---------- Time tracking (Time module) ----------

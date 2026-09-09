@@ -111,6 +111,7 @@ data class AppSettings(
     val calendarRememberLast: Boolean = true,
     // Honest-calendar display layers (all on-device; drawn only when there's data to show).
     val calendarCaptureCollapsed: Boolean = false,   // N1 — fold the type-to-create bar
+    val calendarQuickAdd: Boolean = true,            // show the type-to-create bar at all (off = more grid space)
     val calendarRealityShadow: Boolean = true,       // A1 — tracked actuals behind the plan + planned/lived footer
     val calendarFocusWeather: Boolean = false,       // B2 — chronotype energy gradient behind the day
     val calendarGhostWeek: Boolean = false,          // B4 — median-of-last-4 overlay behind the week
@@ -478,6 +479,7 @@ data class AppSettings(
         Keys.CAL_MODE to calendarDefaultMode,
         Keys.CAL_REMEMBER to calendarRememberLast.toString(),
         Keys.CAL_CAPTURE_COLLAPSED to calendarCaptureCollapsed.toString(),
+        Keys.CAL_QUICKADD to calendarQuickAdd.toString(),
         Keys.CAL_REALITY to calendarRealityShadow.toString(),
         Keys.CAL_FOCUS_WX to calendarFocusWeather.toString(),
         Keys.CAL_GHOST to calendarGhostWeek.toString(),
@@ -667,6 +669,7 @@ data class AppSettings(
         const val CAL_MODE = "cal_mode"
         const val CAL_REMEMBER = "cal_remember"
         const val CAL_CAPTURE_COLLAPSED = "cal_capture_collapsed"
+        const val CAL_QUICKADD = "cal_quickadd"
         const val CAL_REALITY = "cal_reality_shadow"
         const val CAL_FOCUS_WX = "cal_focus_weather"
         const val CAL_GHOST = "cal_ghost_week"
@@ -875,6 +878,7 @@ data class AppSettings(
             calendarDefaultMode = m[Keys.CAL_MODE] ?: "month",
             calendarRememberLast = m[Keys.CAL_REMEMBER]?.toBooleanStrictOrNull() ?: true,
             calendarCaptureCollapsed = m[Keys.CAL_CAPTURE_COLLAPSED]?.toBooleanStrictOrNull() ?: false,
+            calendarQuickAdd = m[Keys.CAL_QUICKADD]?.toBooleanStrictOrNull() ?: true,
             calendarRealityShadow = m[Keys.CAL_REALITY]?.toBooleanStrictOrNull() ?: true,
             calendarFocusWeather = m[Keys.CAL_FOCUS_WX]?.toBooleanStrictOrNull() ?: false,
             calendarGhostWeek = m[Keys.CAL_GHOST]?.toBooleanStrictOrNull() ?: false,
@@ -1041,7 +1045,7 @@ enum class EditorField(val id: String, val label: String, val defaultTier: Int, 
     // to a date, and a dateless task shows no value, so hiding it would strand the task with no way to add a
     // date at all (F2). editorTier() clamps a stale HIDDEN on any core field back up to "More".
     SCHEDULE("schedule", "Date & schedule", AppSettings.TIER_ALWAYS, core = true),
-    LEADTIME("leadtime", "Surface before due", AppSettings.TIER_ALWAYS),
+    LEADTIME("leadtime", "Surface before due", AppSettings.TIER_MORE),
     TIMETRACKING("timetracking", "Time tracking", AppSettings.TIER_ALWAYS),
     PRIORITY("priority", "Priority", AppSettings.TIER_ALWAYS, core = true),
     LIST("list", "List / folder", AppSettings.TIER_ALWAYS, core = true),

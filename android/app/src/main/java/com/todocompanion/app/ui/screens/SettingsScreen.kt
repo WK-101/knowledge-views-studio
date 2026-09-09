@@ -510,7 +510,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        SettingsGroup(Icons.Filled.CalendarMonth, "Calendar & planner", open["calendar"] == true, { open["calendar"] = open["calendar"] != true }, keywords = "calendar view default opens remember habits blocks lunar moon phase protected window context mode routine planner defragment reflow agenda day week month year reality shadow lived tracked focus weather energy chronotype daylight rail sunrise sunset latitude ghost typical week honest committed capacity") {
+        SettingsGroup(Icons.Filled.CalendarMonth, "Calendar & planner", open["calendar"] == true, { open["calendar"] = open["calendar"] != true }, keywords = "calendar view default opens remember habits blocks lunar moon phase protected window context mode routine planner defragment reflow agenda day week month year reality shadow lived tracked focus weather energy chronotype daylight rail sunrise sunset latitude ghost typical week honest committed capacity quick add bar type to create space clash conflict") {
             // Phase 0 S2 — the calendar now remembers your last view (or opens on a fixed one).
             Sub("Opens in")
             Toggle("Remember my last view", s.calendarRememberLast) { on -> vm.saveSettings(s.copy(calendarRememberLast = on)) }
@@ -524,6 +524,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 }
             }
             Spacer(Modifier.height(6.dp))
+            Toggle("Quick-add bar", s.calendarQuickAdd) { on -> vm.saveSettings(s.copy(calendarQuickAdd = on)) }
+            Text("The type-to-create bar above the calendar. Turn it off to give the day and week grids more room; you can still add with the ＋ button and by tapping the grid.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Toggle("Show habits on the calendar", s.habitCalendarBlocks) { on -> vm.saveSettings(s.copy(habitCalendarBlocks = on)) }
             Text("Draw timed habits as blocks in the day and week calendar, next to your task time-blocks. Off by default.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -792,7 +795,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             "Reminders notification daily summary evening review morning brief exact alarm battery optimization intensity gentle persistent insistent snooze duration escalate",
         )
         SettingsGroup(Icons.Filled.EditNote, "Task editor", open["editor"] == true, { open["editor"] = open["editor"] != true }, keywords = "fields tier always more hidden reorder reflection estimate energy flag attachments") {
-            Text("The editor shows a lean set of fields first and reveals the rest under “More fields.” Choose when each appears, or drag the order to match how you work. A field you’ve already filled always shows, whatever you pick here.",
+            Text("Fold the editor to taste, field by field: “Always” keeps a field unfolded and visible, “Under More” folds it away by default (one tap on “More fields” reveals it), and “Hidden” removes it entirely. Reorder with the arrows. A field you’ve already filled always shows, whatever you pick here.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
             // F5 — Coach is always pinned to the bottom of the editor and can't move, so it doesn't belong in
             // the reorderable list (its arrows were a no-op). It gets a dedicated show/hide toggle below.

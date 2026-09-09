@@ -24,7 +24,7 @@ import kotlin.math.pow
 object PriorityEngine {
 
     private const val DAY_MS = 86_400_000.0
-    private const val DEFAULT_LEAD_DAYS = 7.0
+    private const val DEFAULT_LEAD_DAYS = 3.0
     private const val NEUTRAL = 3        // importance/urgency are 1..5, neutral 3 → factor 1.0
 
     enum class Mode { IMPORTANCE, URGENCY, BOTH }

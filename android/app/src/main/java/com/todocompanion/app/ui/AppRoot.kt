@@ -405,6 +405,15 @@ fun AppRoot(
         var menu by remember { mutableStateOf(false) }
         // Hoisted per-tab controls, surfaced in the shared top bar to free screen space.
         var calMode by remember { mutableStateOf(settings.calendarDefaultMode) }
+        // Honor the chosen default view. On first load, sync calMode to the persisted default (the raw
+        // `remember` above can capture a stale default while settings are still loading). After that, only
+        // re-sync when "remember my last view" is OFF — so switching the default in Settings takes effect
+        // and every entry lands on it, while local view-switching within a session is preserved.
+        var calModeSynced by remember { mutableStateOf(false) }
+        LaunchedEffect(settings.calendarDefaultMode, settings.calendarRememberLast) {
+            if (!calModeSynced) { calMode = settings.calendarDefaultMode; calModeSynced = true }
+            else if (!settings.calendarRememberLast) calMode = settings.calendarDefaultMode
+        }
         // Calendar navigation state, hoisted so the combined header can live in the app-bar slot.
         var calAnchor by remember { mutableStateOf(java.time.LocalDate.now()) }
         var calSelected by remember { mutableStateOf(java.time.LocalDate.now()) }

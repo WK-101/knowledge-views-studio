@@ -68,6 +68,7 @@ import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.EditCalendar
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -96,6 +97,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Repeat
@@ -266,7 +268,13 @@ fun CalendarScreen(
     val eventCals by vm.eventCalendars.collectAsState()
     val visEventCalIds = remember(eventCals) { eventCals.filter { it.visible }.map { it.id }.toSet() }
     val eventCalById = remember(eventCals) { eventCals.associateBy { it.id } }
-    val visEvents = remember(eventsAll, visEventCalIds) { eventsAll.filter { it.calendarId in visEventCalIds } }
+    // Show events whose calendar is visible — but if NOTHING is visible (e.g. a context mode hid every
+    // calendar, or a calendar referenced by a stale context was removed), fall back to showing them all
+    // rather than a blank grid. An empty visible-set almost always means a misconfiguration, and a silent
+    // "all events vanished" is the worst possible outcome; a visible calendar always narrows normally.
+    val visEvents = remember(eventsAll, visEventCalIds) {
+        if (visEventCalIds.isEmpty()) eventsAll else eventsAll.filter { it.calendarId in visEventCalIds }
+    }
     val eventOccForDay: (LocalDate) -> List<com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence> = { d ->
         com.todocompanion.app.domain.calendar.CalendarEngine.onDay(visEvents, d.toEpochDay(), zone)
     }
@@ -486,13 +494,13 @@ fun CalendarScreen(
         // Phase 2 P2 — type-to-create. A slim natural-language bar: "Lunch Fri 1pm 90m at Cafe" becomes a
         // real event on-device (a leading "remind me to…"/"todo" makes it a task). N8: available on Month
         // too now (only the Year navigation surface skips it). N1: foldable, remembered across sessions.
-        if (mode != "year" && s.calendarCaptureCollapsed) {
+        if (mode != "year" && s.calendarQuickAdd && s.calendarCaptureCollapsed) {
             androidx.compose.material3.TextButton(onClick = { vm.saveSettings(s.copy(calendarCaptureCollapsed = false)) },
                 modifier = Modifier.padding(start = 8.dp)) {
                 Icon(Icons.Filled.Add, null, Modifier.size(18.dp)); Spacer(Modifier.size(4.dp)); Text("Quick add")
             }
         }
-        if (mode != "year" && !s.calendarCaptureCollapsed) {
+        if (mode != "year" && s.calendarQuickAdd && !s.calendarCaptureCollapsed) {
             var capture by androidx.compose.runtime.saveable.rememberSaveable(mode) { mutableStateOf("") }
             val preview = remember(capture, selected) {
                 if (capture.isBlank()) null
@@ -594,14 +602,31 @@ fun CalendarScreen(
                     }
                     clusters
                 }
+                // N3 (details) — the banner is a button now: tap it to see exactly what clashes, by how
+                // much, and jump straight to either side. The day's timed items (events + timed tasks).
+                var clashOpen by remember(anchor) { mutableStateOf(false) }
+                val clashItems = remember(anchor, eventsAll, dueByDate, visEventCalIds) {
+                    val list = ArrayList<TimedItem>()
+                    eventBlocksFor(anchor).forEach { list += TimedItem(it.id, it.title.ifBlank { "Event" }, it.startMin, it.startMin + it.durMin, true) }
+                    dueByDate[anchor].orEmpty().filter { !it.isAllDay && it.dueDate != null && hasTime(it.dueDate!!, zone) }.forEach {
+                        val z = Instant.ofEpochMilli(it.dueDate!!).atZone(zone); val sm = z.hour * 60 + z.minute
+                        list += TimedItem(it.id, it.title.ifBlank { "Task" }, sm, sm + (it.durationMin ?: it.estimateMin ?: 60), false)
+                    }
+                    list.sortedBy { it.start }
+                }
                 if (overlaps > 0) Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
                     .clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.errorContainer.copy(alpha = .5f))
+                    .clickable { clashOpen = true }
                     .padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.Warning, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
                     Spacer(Modifier.size(6.dp))
                     Text(if (overlaps == 1) "One time clash today" else "$overlaps time clashes today",
                         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                    Spacer(Modifier.weight(1f))
+                    Text("View", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Filled.KeyboardArrowRight, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
                 }
+                if (clashOpen) ClashDialog(clashItems, onOpen = { id, isEvent -> clashOpen = false; if (isEvent) openEvent(id) else onOpenTask(id) }, onDismiss = { clashOpen = false })
                 // Wave 2 · The day's honest ledger — B1 water-line (committed vs your working capacity) and,
                 // when Reality shadow is on, A1's "lived" read from tracked time. One quiet line so the plan
                 // and what you actually lived sit side by side, instead of the plan pretending to be the day.
@@ -1844,6 +1869,57 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
 private fun UntimedHabitChip(hb: HabitBlock, onOpenHabit: (String) -> Unit) {
     // R56 — the shared HabitPill (dense, full width) so the header band matches month view exactly.
     HabitPill(hb, onOpenHabit, modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp), dense = true)
+}
+
+/** N3 — one timed thing on the day (an event or a timed task), used by the clash-details dialog. */
+private data class TimedItem(val id: String, val title: String, val start: Int, val end: Int, val isEvent: Boolean)
+
+/** N3 — the clash breakdown: every overlapping pair on the day, most-overlapping first, with the shared
+ *  window, how long the clash runs, and a tap-through to open either side (event editor or task). */
+@Composable
+private fun ClashDialog(items: List<TimedItem>, onOpen: (String, Boolean) -> Unit, onDismiss: () -> Unit) {
+    val pairs = remember(items) {
+        val out = ArrayList<Triple<TimedItem, TimedItem, Int>>()
+        for (i in items.indices) for (j in i + 1 until items.size) {
+            val a = items[i]; val b = items[j]
+            val os = maxOf(a.start, b.start); val oe = minOf(a.end, b.end)
+            if (oe > os) out += Triple(a, b, oe - os)
+        }
+        out.sortedByDescending { it.third }
+    }
+    fun hm(m: Int) = if (m < 60) "${m}m" else if (m % 60 == 0) "${m / 60}h" else "${m / 60}h${m % 60}"
+    @Composable
+    fun clashRow(it: TimedItem) {
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onOpen(it.id, it.isEvent) }.padding(vertical = 5.dp, horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Icon(if (it.isEvent) Icons.Filled.Event else Icons.Filled.CheckCircle, null, Modifier.size(16.dp),
+                tint = if (it.isEvent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary)
+            Spacer(Modifier.size(8.dp))
+            Text(it.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("${minLabel(it.start)}–${minLabel(it.end)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.size(2.dp))
+            Icon(Icons.Filled.KeyboardArrowRight, null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Done") } },
+        icon = { Icon(Icons.Filled.Warning, null, tint = MaterialTheme.colorScheme.error) },
+        title = { Text(if (pairs.size == 1) "1 time clash" else "${pairs.size} time clashes") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                if (pairs.isEmpty()) Text("Nothing overlaps right now.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                pairs.forEachIndexed { idx, (a, b, mins) ->
+                    val os = maxOf(a.start, b.start); val oe = minOf(a.end, b.end)
+                    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Text("${minLabel(os)}–${minLabel(oe)} · ${hm(mins)} overlap", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
+                        clashRow(a); clashRow(b)
+                    }
+                    if (idx < pairs.lastIndex) androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+                }
+            }
+        },
+    )
 }
 
 /** M1: a timed habit drawn as a read-only block in the calendar's day/week grid. */
