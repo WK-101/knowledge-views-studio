@@ -37,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
@@ -354,6 +355,8 @@ fun AppRoot(
         }
         var editing by remember { mutableStateOf<String?>(null) }
         var editingNote by remember { mutableStateOf<String?>(null) }
+        var notesSearchOpen by remember { mutableStateOf(false) }
+        var notesQuery by remember { mutableStateOf("") }
         var showQuickAdd by remember { mutableStateOf(false) }
         // Where to return when Back is pressed inside an archive view (Trash / Completed / Won't-do): the
         // (tab, view) you opened it from — so Back goes back there instead of exiting the app (R19).
@@ -865,6 +868,15 @@ fun AppRoot(
                                 Tab.MATRIX -> IconButton(onClick = { matrixSettings = true }) { Icon(Icons.Filled.Tune, "Matrix settings") }
                                 Tab.TIME -> IconButton(onClick = { showTimeStats = true }) { Icon(Icons.Filled.BarChart, "Time stats") }
                                 Tab.SEARCH -> if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Filled.Close, "Clear") }
+                                Tab.NOTES -> {
+                                    val gridOn = settings.noteDefaultView != "list"
+                                    IconButton(onClick = { vm.setNoteDefaultView(if (gridOn) "list" else "grid") }) {
+                                        Icon(if (gridOn) Icons.AutoMirrored.Filled.List else Icons.Filled.GridView, if (gridOn) "List view" else "Grid view")
+                                    }
+                                    IconButton(onClick = { notesSearchOpen = !notesSearchOpen; if (!notesSearchOpen) notesQuery = "" }) {
+                                        Icon(if (notesSearchOpen) Icons.Filled.Close else Icons.Filled.Search, if (notesSearchOpen) "Close search" else "Search notes")
+                                    }
+                                }
                                 else -> {}
                             }
                         },
@@ -982,7 +994,7 @@ fun AppRoot(
                                 onOpenEvent = { eid -> calEventAction = "open:$eid"; tab = Tab.CALENDAR },
                                 onOpenOccasion = openOccasion)
                             Tab.SETTINGS -> SettingsScreen(vm)
-          Tab.NOTES -> com.todocompanion.app.ui.screens.NotesScreen(vm, onOpenNote = ::openNote)
+          Tab.NOTES -> com.todocompanion.app.ui.screens.NotesScreen(vm, onOpenNote = ::openNote, query = notesQuery, onQueryChange = { notesQuery = it }, searchOpen = notesSearchOpen)
                             Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it; if (settings.calendarRememberLast) vm.saveSettings(settings.copy(calendarDefaultMode = it)) },
                                 calAnchor, calSelected, { calAnchor = it }, { calSelected = it },
                                 onAddOnDate = { d ->
@@ -1027,7 +1039,8 @@ fun AppRoot(
         // Notes module (v66) — the full-screen note editor overlay (same pattern as the task editor).
         // A note can jump back to its linked task (Phase 2 woven link).
         editingNote?.let { id -> com.todocompanion.app.ui.screens.NoteEditorScreen(vm, id,
-            onBack = { editingNote = null }, onOpenTask = { tid -> editingNote = null; editing = tid }) }
+            onBack = { editingNote = null }, onOpenTask = { tid -> editingNote = null; editing = tid },
+            onOpenNote = { nid -> editingNote = nid }) }
 
         // Habit analytics + editor: full-screen overlays (like the task editor) so each shows a single
         // top bar and Back returns to the Habits list, never the inbox.

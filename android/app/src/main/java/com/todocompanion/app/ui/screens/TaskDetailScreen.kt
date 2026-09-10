@@ -341,15 +341,15 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             }
             // No separate "Notes" heading (R21 #7) — the placeholder itself labels the field, reclaiming a row.
             // The view/edit eye floats at the top-end of the notes area, only when there's a note to preview.
-            Box(Modifier.fillMaxWidth().padding(start = 42.dp, end = 4.dp)) {
+            Box(Modifier.fillMaxWidth().padding(end = 4.dp)) {
                 if (task.note.isNotBlank() && notePreview) {
                     // View-only: the note renders as formatted text and only the eye button switches to editing —
                     // tapping the body no longer flips it into an editor. Wrapped so the rendered text is
-                    // selectable (copy) while reading (R22).
+                    // selectable (copy) while reading (R22). start=42 clears the left gutter for the linked-note icon.
                     androidx.compose.foundation.text.selection.SelectionContainer {
                         com.todocompanion.app.ui.components.MarkdownText(
                             task.note,
-                            modifier = Modifier.fillMaxWidth().padding(end = 34.dp, bottom = 4.dp),
+                            modifier = Modifier.fillMaxWidth().padding(start = 42.dp, end = 34.dp, bottom = 4.dp),
                         )
                     }
                 } else {
@@ -357,32 +357,30 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                         task.note, { v -> update { it.copy(note = v) } }, "Notes — Markdown supported",
                         textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
                         singleLine = false,
-                        modifier = Modifier.fillMaxWidth().padding(end = 34.dp),
+                        modifier = Modifier.fillMaxWidth().padding(start = 42.dp, end = 34.dp),
                     )
+                }
+                // Phase 2 — a full linked note (distinct from the quick inline note): iconized in the left
+                // gutter, inline with the notes field. Filled tint when a note exists, muted "add" otherwise.
+                if (onOpenNote != null) {
+                    val linkedNote = allNotes.firstOrNull { it.linkedTaskId == taskId }
+                    IconButton(
+                        onClick = { if (linkedNote != null) onOpenNote(linkedNote.id) else vm.openTaskNote(taskId, task.title) { onOpenNote(it) } },
+                        modifier = Modifier.align(Alignment.TopStart).size(32.dp),
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.Article,
+                            contentDescription = if (linkedNote != null) "Open linked note" else "Add a linked note",
+                            modifier = Modifier.size(18.dp),
+                            tint = if (linkedNote != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 if (task.note.isNotBlank()) {
                     IconButton(onClick = { notePreview = !notePreview }, modifier = Modifier.align(Alignment.TopEnd).size(32.dp)) {
                         if (notePreview) Icon(Icons.Outlined.Edit, "Edit notes", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         else Icon(Icons.Outlined.Visibility, "Preview notes", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
                     }
-                }
-            }
-            // Phase 2 — a full linked note (distinct from the quick inline note above): open it, or start one.
-            if (onOpenNote != null) {
-                val linkedNote = allNotes.firstOrNull { it.linkedTaskId == taskId }
-                Row(
-                    Modifier.fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable { if (linkedNote != null) onOpenNote(linkedNote.id) else vm.openTaskNote(taskId, task.title) { onOpenNote(it) } }
-                        .padding(start = 42.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Article, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        if (linkedNote != null) "Open linked note" else "Add a linked note",
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
-                    )
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))

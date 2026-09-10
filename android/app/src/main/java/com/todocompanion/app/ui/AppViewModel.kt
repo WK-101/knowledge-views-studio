@@ -309,6 +309,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         )))
     }
 
+    // ── Phase 3: expert connection layer — [[wiki-links]] (by title) + checkbox → task ──────────────
+    /** Open the note titled [title] (case-insensitive), creating it if none exists — a [[wiki-link]] jump. */
+    fun openOrCreateNoteByTitle(title: String, onOpen: (String) -> Unit) = viewModelScope.launch {
+        val ws = activeWorkspace()
+        val t = title.trim()
+        val existing = repo.getNotesOnce().firstOrNull { !it.trashed && it.workspaceId == ws && it.title.equals(t, ignoreCase = true) }
+        onOpen(existing?.id ?: repo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(id = "", title = t, workspaceId = ws)))
+    }
+
+    /** Turn each unchecked "- [ ]" line in a note into a real Inbox task; reports how many were created. */
+    fun extractNoteCheckboxes(noteId: String, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
+        val n = repo.getNote(noteId) ?: return@launch
+        val items = com.todocompanion.app.domain.NoteLinks.uncheckedCheckboxes(n.body)
+        items.forEach { repo.createTask(com.todocompanion.app.data.entity.ListEntity.INBOX_ID, it) }
+        onDone(items.size)
+    }
+
     /**
      * R43 — save a full life-event / occasion (birthday, anniversary, memorial, name day, holiday or a
      * plain countdown) and keep its optional "prepare" task in sync: when prepLeadDays > 0 we create or

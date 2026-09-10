@@ -25,13 +25,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -82,7 +80,13 @@ private fun plainPreview(md: String): String =
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotesScreen(vm: AppViewModel, onOpenNote: (String) -> Unit) {
+fun NotesScreen(
+    vm: AppViewModel,
+    onOpenNote: (String) -> Unit,
+    query: String = "",
+    onQueryChange: (String) -> Unit = {},
+    searchOpen: Boolean = false,
+) {
     val settings by vm.settings.collectAsState()
     val notes by vm.notes.collectAsState()
     val notebooks by vm.notebooks.collectAsState()
@@ -91,7 +95,6 @@ fun NotesScreen(vm: AppViewModel, onOpenNote: (String) -> Unit) {
     val useNotebooks = settings.notesNotebookMode == "notebooks"
     val grid = settings.noteDefaultView != "list"
 
-    var query by remember { mutableStateOf("") }
     var container by remember { mutableStateOf<String?>(null) }   // selected notebookId/folderId, null = All
 
     // Containers to offer as filter chips, per the user's chosen grouping mode.
@@ -110,27 +113,17 @@ fun NotesScreen(vm: AppViewModel, onOpenNote: (String) -> Unit) {
         .sortedWith(compareByDescending<NoteEntity> { it.pinned }.thenByDescending { it.updatedAt })
         .toList()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Notes") },
-                actions = {
-                    IconButton(onClick = { vm.setNoteDefaultView(if (grid) "list" else "grid") }) {
-                        Icon(
-                            if (grid) Icons.AutoMirrored.Filled.List else Icons.Filled.GridView,
-                            contentDescription = if (grid) "List view" else "Grid view",
-                        )
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize()) {
+    // The app's shared top bar owns the title ("Notes"), the grid/list toggle and the search button
+    // (wired in AppRoot) — so this screen renders content only, matching every other module's tab.
+    Column(Modifier.fillMaxSize()) {
+        if (searchOpen) {
             AppTextField(
-                value = query, onValueChange = { query = it },
+                value = query, onValueChange = onQueryChange,
                 placeholder = { Text("Search notes") }, singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
             )
+        }
+        run {
             if (containers.isNotEmpty()) {
                 androidx.compose.foundation.lazy.LazyRow(
                     contentPadding = PaddingValues(horizontal = 12.dp),
@@ -222,7 +215,14 @@ private fun NoteCard(n: NoteEntity, onOpen: () -> Unit, onTogglePin: () -> Unit)
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NoteEditorScreen(vm: AppViewModel, noteId: String, onBack: () -> Unit, onOpenTask: (String) -> Unit = {}) {
+fun NoteEditorScreen(
+    vm: AppViewModel,
+    noteId: String,
+    onBack: () -> Unit,
+    onOpenTask: (String) -> Unit = {},
+    onOpenNote: (String) -> Unit = {},
+) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     val settings by vm.settings.collectAsState()
     val notes by vm.notes.collectAsState()
     val notebooks by vm.notebooks.collectAsState()
@@ -272,6 +272,18 @@ fun NoteEditorScreen(vm: AppViewModel, noteId: String, onBack: () -> Unit, onOpe
                     Box {
                         IconButton(onClick = { menu = true }) { Icon(Icons.Filled.Delete, "More") }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            val boxCount = com.todocompanion.app.domain.NoteLinks.uncheckedCheckboxes(d.body).size
+                            if (boxCount > 0) {
+                                DropdownMenuItem(
+                                    text = { Text("Extract $boxCount checkbox${if (boxCount == 1) "" else "es"} as tasks") },
+                                    onClick = {
+                                        menu = false
+                                        vm.extractNoteCheckboxes(noteId) { n ->
+                                            android.widget.Toast.makeText(ctx, "Added $n task${if (n == 1) "" else "s"} to Inbox", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                )
+                            }
                             DropdownMenuItem(text = { Text("Move to Trash") }, onClick = { menu = false; vm.trashNote(noteId); onBack() })
                             DropdownMenuItem(text = { Text("Delete permanently") }, onClick = { menu = false; showDelete = true })
                         }
@@ -337,6 +349,32 @@ fun NoteEditorScreen(vm: AppViewModel, noteId: String, onBack: () -> Unit, onOpe
                     IconButton(onClick = { preview = !preview }, modifier = Modifier.align(Alignment.TopEnd).size(32.dp)) {
                         if (preview) Icon(Icons.Outlined.Edit, "Edit", modifier = Modifier.size(18.dp))
                         else Icon(Icons.Outlined.Visibility, "Preview", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+            // Phase 3 — [[wiki-links]] out (tap to open, or create if new) and backlinks in ("Linked from").
+            // Title-based like Obsidian; backlinks computed on the fly from other notes' bodies.
+            val outTitles = com.todocompanion.app.domain.NoteLinks.outgoingTitles(d.body)
+            val existingTitles = remember(notes) { notes.filter { !it.trashed }.map { it.title.trim().lowercase() }.toHashSet() }
+            val backlinks = notes.filter { it.id != noteId && !it.trashed && d.title.isNotBlank() && com.todocompanion.app.domain.NoteLinks.links(it.body, d.title) }
+            if (outTitles.isNotEmpty()) {
+                Text("Links", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(outTitles, key = { it }) { t ->
+                        val exists = t.trim().lowercase() in existingTitles
+                        FilterChip(
+                            selected = false,
+                            onClick = { draft?.let { vm.saveNote(it) }; vm.openOrCreateNoteByTitle(t) { id -> onOpenNote(id) } },
+                            label = { Text((if (exists) "🔗  " else "＋  ") + t) },
+                        )
+                    }
+                }
+            }
+            if (backlinks.isNotEmpty()) {
+                Text("Linked from", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(backlinks, key = { it.id }) { b ->
+                        FilterChip(selected = false, onClick = { onOpenNote(b.id) }, label = { Text(b.title.ifBlank { "Untitled" }) })
                     }
                 }
             }
