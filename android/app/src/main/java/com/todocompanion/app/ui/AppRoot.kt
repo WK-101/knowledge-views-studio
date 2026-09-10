@@ -990,6 +990,7 @@ fun AppRoot(
                                 }, onAddAt = { d, minute -> blockAt = d to minute },
                                 eventAction = calEventAction, onEventActionConsumed = { calEventAction = null },
                                 onOpenOccasion = openOccasion,
+                                onOpenNote = { editingNote = it },
                                 // A3 — the two-sided day: closing the day from the calendar opens the Daily
                                 // Review in close mode for exactly the day you were looking at.
                                 onCloseDay = { d -> dayReviewStartClose = true; dayReviewStartWeekly = false; showDayReview = d.toEpochDay() })
@@ -1020,10 +1021,13 @@ fun AppRoot(
 
         editing?.let { id -> TaskDetailScreen(vm, id, onBack = { editing = null },
             onJustStart = { tid -> vm.pendingFocusTaskId.value = tid; editing = null; tab = Tab.FOCUS },
-            onOpenTask = { tid -> editing = tid }) }
+            onOpenTask = { tid -> editing = tid },
+            onOpenNote = { nid -> editingNote = nid }) }
 
         // Notes module (v66) — the full-screen note editor overlay (same pattern as the task editor).
-        editingNote?.let { id -> com.todocompanion.app.ui.screens.NoteEditorScreen(vm, id, onBack = { editingNote = null }) }
+        // A note can jump back to its linked task (Phase 2 woven link).
+        editingNote?.let { id -> com.todocompanion.app.ui.screens.NoteEditorScreen(vm, id,
+            onBack = { editingNote = null }, onOpenTask = { tid -> editingNote = null; editing = tid }) }
 
         // Habit analytics + editor: full-screen overlays (like the task editor) so each shows a single
         // top bar and Back returns to the Habits list, never the inbox.
@@ -1052,7 +1056,7 @@ fun AppRoot(
         if (showDone) com.todocompanion.app.ui.screens.DoneScreen(vm, onOpenTask = { showDone = false; openTask(it) }, onBack = { showDone = false })
         if (showPlan) com.todocompanion.app.ui.screens.PlanYourDayScreen(vm, onOpenTask = { showPlan = false; openTask(it) }, onBack = { showPlan = false })
         if (showReview) com.todocompanion.app.ui.screens.ReviewScreen(vm, onOpenTask = { showReview = false; openTask(it) }, onBack = { showReview = false })
-        showDayReview?.let { d -> com.todocompanion.app.ui.screens.DayReviewScreen(vm, d, startInClose = dayReviewStartClose, startInWeekly = dayReviewStartWeekly, onOpenTask = { showDayReview = null; dayReviewStartClose = false; dayReviewStartWeekly = false; openTask(it) }, onBack = { showDayReview = null; dayReviewStartClose = false; dayReviewStartWeekly = false }) }
+        showDayReview?.let { d -> com.todocompanion.app.ui.screens.DayReviewScreen(vm, d, startInClose = dayReviewStartClose, startInWeekly = dayReviewStartWeekly, onOpenTask = { showDayReview = null; dayReviewStartClose = false; dayReviewStartWeekly = false; openTask(it) }, onOpenNote = { editingNote = it }, onBack = { showDayReview = null; dayReviewStartClose = false; dayReviewStartWeekly = false }) }
         if (showMomentum) com.todocompanion.app.ui.screens.MomentumScreen(vm, onBack = { showMomentum = false }, onOpenGoals = { showGoals = true })
         if (showRoutines) com.todocompanion.app.ui.screens.RoutinesScreen(vm, onBack = { showRoutines = false })
         if (showGoals) com.todocompanion.app.ui.screens.GoalsScreen(vm, onBack = { showGoals = false })

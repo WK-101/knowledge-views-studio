@@ -27,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
@@ -145,7 +146,7 @@ import kotlin.math.roundToInt
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = false, startInWeekly: Boolean = false, onOpenTask: (String) -> Unit, onBack: () -> Unit) {
+fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = false, startInWeekly: Boolean = false, onOpenTask: (String) -> Unit, onOpenNote: (String) -> Unit = {}, onBack: () -> Unit) {
     BackHandler { onBack() }
     val ctx = LocalContext.current
     val zone = ZoneId.systemDefault()
@@ -329,6 +330,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
                 title = { Text(if (mode == PeriodRange.ALL) "All-time review" else "${mode.label} review") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 actions = {
+                    IconButton(onClick = { vm.openDailyNote(day) { id -> onOpenNote(id) } }) { Icon(Icons.AutoMirrored.Filled.Article, "Daily note") }
                     IconButton(onClick = { sharePreselect = SharePeriod.DAY; showShare = true }) { Icon(Icons.Filled.Share, "Share day") }
                     if (!isToday) TextButton(onClick = { day = todayEd }) { Text("Today") }
                 },

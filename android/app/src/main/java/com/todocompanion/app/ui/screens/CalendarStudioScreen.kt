@@ -261,7 +261,7 @@ internal fun GapFinder(events: List<EventEntity>, day: Long, zone: ZoneId, workS
 @Composable
 internal fun EventEditor(
     vm: AppViewModel, zone: ZoneId, calendars: List<EventCalendarEntity>, existing: EventEntity?,
-    seedStart: Long, seedEnd: Long, onClose: () -> Unit,
+    seedStart: Long, seedEnd: Long, onOpenNote: (String) -> Unit = {}, onClose: () -> Unit,
 ) {
     val defaultCal = calendars.firstOrNull { it.isDefault } ?: calendars.firstOrNull()
     var title by remember { mutableStateOf(existing?.title ?: "") }
@@ -431,6 +431,13 @@ internal fun EventEditor(
             Spacer(Modifier.height(8.dp))
             AppTextField(value = notes, onValueChange = { notes = it }, placeholder = { Text("Notes") },
                 leadingIcon = { Icon(Icons.Filled.Notes, null) }, modifier = Modifier.fillMaxWidth())
+            // Phase 2 — a full meeting note (Notes module) bound to this event. Only for a saved event,
+            // which has a stable id; opening it dismisses the sheet so the note editor takes over.
+            if (existing != null) {
+                androidx.compose.material3.TextButton(onClick = {
+                    vm.openEventNote(existing.id, title) { nid -> onClose(); onOpenNote(nid) }
+                }) { Text("📝  Meeting note") }
+            }
             Spacer(Modifier.height(8.dp))
             AppTextField(value = url, onValueChange = { url = it }, placeholder = { Text("Link (URL)") },
                 singleLine = true, modifier = Modifier.fillMaxWidth())

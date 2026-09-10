@@ -245,6 +245,7 @@ fun CalendarScreen(
     eventAction: String? = null, onEventActionConsumed: () -> Unit = {},
     onOpenOccasion: (String?) -> Unit = {},
     onCloseDay: (LocalDate) -> Unit = {},
+    onOpenNote: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val s by vm.settings.collectAsState()
@@ -889,7 +890,7 @@ fun CalendarScreen(
         if (eventAction != null) onEventActionConsumed()
     }
     if (plannerOpen) PlannerSheet(vm, zone, selected.toEpochDay(), plannerTab) { plannerOpen = false }
-    if (eventEditorOpen) EventEditor(vm, zone, eventCals, eventEditing, eventSeedStart, eventSeedEnd) { eventEditorOpen = false; eventEditing = null }
+    if (eventEditorOpen) EventEditor(vm, zone, eventCals, eventEditing, eventSeedStart, eventSeedEnd, onOpenNote = onOpenNote) { eventEditorOpen = false; eventEditing = null }
     if (eventCalsOpen) CalendarsManager(vm, eventCals) { eventCalsOpen = false }
     importIcsUri?.let { uri ->
         IcsImportTargetDialog(eventCals,

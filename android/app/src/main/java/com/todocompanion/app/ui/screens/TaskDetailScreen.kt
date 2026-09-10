@@ -185,7 +185,7 @@ private fun detectSmartActions(text: String): List<SmartAction> {
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJustStart: ((String) -> Unit)? = null, onOpenTask: ((String) -> Unit)? = null) {
+fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJustStart: ((String) -> Unit)? = null, onOpenTask: ((String) -> Unit)? = null, onOpenNote: ((String) -> Unit)? = null) {
     val loaded by vm.observeTask(taskId).collectAsState(initial = null)
     var draft by remember(taskId) { mutableStateOf<TaskEntity?>(null) }
     if (draft == null && loaded != null) draft = loaded
@@ -203,6 +203,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     val activityLog by remember(taskId) { vm.taskActivity(taskId) }.collectAsState(initial = emptyList())
     val allDeps by vm.dependencies.collectAsState()
     val allTasks by vm.tasks.collectAsState()
+    val allNotes by vm.notes.collectAsState()   // Phase 2 — the note linked to this task, if any
     val timeEntries by vm.timeEntries.collectAsState()   // T2
     val timeActivities by vm.timeActivities.collectAsState()
 
@@ -364,6 +365,24 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                         if (notePreview) Icon(Icons.Outlined.Edit, "Edit notes", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         else Icon(Icons.Outlined.Visibility, "Preview notes", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
                     }
+                }
+            }
+            // Phase 2 — a full linked note (distinct from the quick inline note above): open it, or start one.
+            if (onOpenNote != null) {
+                val linkedNote = allNotes.firstOrNull { it.linkedTaskId == taskId }
+                Row(
+                    Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { if (linkedNote != null) onOpenNote(linkedNote.id) else vm.openTaskNote(taskId, task.title) { onOpenNote(it) } }
+                        .padding(start = 42.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Article, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        if (linkedNote != null) "Open linked note" else "Add a linked note",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))

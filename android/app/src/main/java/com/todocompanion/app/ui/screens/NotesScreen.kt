@@ -222,7 +222,7 @@ private fun NoteCard(n: NoteEntity, onOpen: () -> Unit, onTogglePin: () -> Unit)
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NoteEditorScreen(vm: AppViewModel, noteId: String, onBack: () -> Unit) {
+fun NoteEditorScreen(vm: AppViewModel, noteId: String, onBack: () -> Unit, onOpenTask: (String) -> Unit = {}) {
     val settings by vm.settings.collectAsState()
     val notes by vm.notes.collectAsState()
     val notebooks by vm.notebooks.collectAsState()
@@ -308,6 +308,17 @@ fun NoteEditorScreen(vm: AppViewModel, noteId: String, onBack: () -> Unit) {
                     onClick = { showContainer = true },
                     label = { Text(containerName ?: if (useNotebooks) "Notebook" else "Folder") },
                 )
+            }
+            // Woven context (Phase 2): what this note is bound to — the day, a meeting, or a task.
+            val dayLabel = if (d.kind == "journal" && d.dayEpoch != null) runCatching {
+                java.time.LocalDate.ofEpochDay(d.dayEpoch!!).format(java.time.format.DateTimeFormatter.ofPattern("EEE, d MMM yyyy"))
+            }.getOrNull() else null
+            if (dayLabel != null || d.linkedEventId != null || d.linkedTaskId != null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (dayLabel != null) FilterChip(selected = true, onClick = {}, label = { Text("🗓  $dayLabel") })
+                    if (d.linkedEventId != null) FilterChip(selected = true, onClick = {}, label = { Text("📅  Meeting note") })
+                    if (d.linkedTaskId != null) FilterChip(selected = true, onClick = { onOpenTask(d.linkedTaskId!!) }, label = { Text("🔗  Linked task") })
+                }
             }
             // Body — viewer until edit
             Box(Modifier.fillMaxWidth().weight(1f)) {

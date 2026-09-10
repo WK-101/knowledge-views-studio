@@ -276,6 +276,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         noteSearchIds.value = if (query.isBlank()) emptyList() else repo.searchNoteIds(query)
     }
 
+    // ── Phase 2: woven notes — find-or-create the note bound to a day / event / task ─────────────────
+    private fun dayNoteTitle(epochDay: Long): String = runCatching {
+        java.time.LocalDate.ofEpochDay(epochDay)
+            .format(java.time.format.DateTimeFormatter.ofPattern("EEE, d MMM yyyy"))
+    }.getOrDefault("Daily note")
+
+    /** Open (creating if needed) the journal note for [epochDay] — the day's page, tied to Day Review. */
+    fun openDailyNote(epochDay: Long, onOpen: (String) -> Unit) = viewModelScope.launch {
+        val ws = activeWorkspace()
+        val existing = repo.getNotesOnce().firstOrNull { !it.trashed && it.workspaceId == ws && it.kind == "journal" && it.dayEpoch == epochDay }
+        onOpen(existing?.id ?: repo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(
+            id = "", kind = "journal", dayEpoch = epochDay, title = dayNoteTitle(epochDay), workspaceId = ws,
+        )))
+    }
+
+    /** Open (creating if needed) the meeting note bound to a calendar event. */
+    fun openEventNote(eventId: String, eventTitle: String, onOpen: (String) -> Unit) = viewModelScope.launch {
+        val ws = activeWorkspace()
+        val existing = repo.getNotesOnce().firstOrNull { !it.trashed && it.workspaceId == ws && it.linkedEventId == eventId }
+        onOpen(existing?.id ?: repo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(
+            id = "", kind = "meeting", linkedEventId = eventId, title = eventTitle.ifBlank { "Meeting note" }, workspaceId = ws,
+        )))
+    }
+
+    /** Open (creating if needed) the note bound to a task. */
+    fun openTaskNote(taskId: String, taskTitle: String, onOpen: (String) -> Unit) = viewModelScope.launch {
+        val ws = activeWorkspace()
+        val existing = repo.getNotesOnce().firstOrNull { !it.trashed && it.workspaceId == ws && it.linkedTaskId == taskId }
+        onOpen(existing?.id ?: repo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(
+            id = "", linkedTaskId = taskId, title = taskTitle.ifBlank { "Note" }, workspaceId = ws,
+        )))
+    }
+
     /**
      * R43 — save a full life-event / occasion (birthday, anniversary, memorial, name day, holiday or a
      * plain countdown) and keep its optional "prepare" task in sync: when prepLeadDays > 0 we create or
