@@ -410,20 +410,30 @@ object Notifications {
     }
 
     const val NOTE_REMINDER_BASE = 424500
+    private fun noteNotifId(noteId: String): Int = NOTE_REMINDER_BASE + (noteId.hashCode() and 0x3FF)
 
-    /** Wave F — a note's own reminder fired. Tapping opens that note (open_note:<id>). One-shot, no
-     *  task actions — the reminder simply resurfaces the note at the moment the user asked for it. */
-    fun showNote(context: Context, noteId: String, title: String) {
+    /** Wave F/H — a note's reminder fired. Tapping opens that note (open_note:<id>). Snooze re-arms it a
+     *  few minutes out; Done clears the reminder (relevant to recurring / keep-until-opened reminders). */
+    fun showNote(context: Context, noteId: String, title: String, keep: Boolean = false) {
         ensureChannel(context)
+        val extras = mapOf(AlarmScheduler.EXTRA_NOTE_ID to noteId, AlarmScheduler.EXTRA_NOTE_TITLE to title)
+        val snooze = broadcast(context, AlarmScheduler.ACTION_NOTE_SNOOZE, ("nsnz$noteId").hashCode(), extras)
+        val done = broadcast(context, AlarmScheduler.ACTION_NOTE_DONE, ("ndone$noteId").hashCode(), extras)
         val n = builder(context)
             .setSmallIcon(android.R.drawable.ic_menu_edit)
             .setContentTitle(title.ifBlank { "Note reminder" })
-            .setContentText("Tap to open your note.")
+            .setContentText(if (keep) "Tap to open — I'll keep reminding until you do." else "Tap to open your note.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(openAppRoute(context, "open_note:$noteId", ("noterem:$noteId").hashCode()))
+            .addAction(0, "Snooze ${snoozeLabel()}", snooze)
+            .addAction(0, "Done", done)
             .build()
-        post(context, NOTE_REMINDER_BASE + (noteId.hashCode() and 0x3FF), n)
+        post(context, noteNotifId(noteId), n)
+    }
+
+    fun cancelNote(context: Context, noteId: String) {
+        runCatching { NotificationManagerCompat.from(context).cancel(noteNotifId(noteId)) }
     }
 
     /** N2: celebrate a habit reaching its self-chosen reward streak. */

@@ -779,10 +779,22 @@ interface NoteDao {
     @Query("SELECT COALESCE(MAX(sortOrder), 0.0) FROM notes")
     suspend fun maxSortOrder(): Double
 
-    // Wave F — set/clear a note's one-shot reminder without touching updatedAt (a reminder is metadata,
-    // not an edit) or re-running FTS/link materialization.
+    // Wave F/H — set/clear a note's reminder without touching updatedAt (a reminder is metadata, not an
+    // edit) or re-running FTS/link materialization.
     @Query("UPDATE notes SET reminderAt = :atMillis WHERE id = :id")
     suspend fun setReminderAt(id: String, atMillis: Long?)
+
+    @Query("UPDATE notes SET reminderAt = :at, reminderRrule = :rrule, reminderExtra = :extra, reminderKeep = :keep WHERE id = :id")
+    suspend fun setReminderAll(id: String, at: Long?, rrule: String?, extra: String, keep: Boolean)
+
+    @Query("UPDATE notes SET reminderAt = :at, reminderRrule = :rrule WHERE id = :id")
+    suspend fun setReminderPrimary(id: String, at: Long?, rrule: String?)
+
+    @Query("UPDATE notes SET reminderExtra = :extra WHERE id = :id")
+    suspend fun setReminderExtra(id: String, extra: String)
+
+    @Query("UPDATE notes SET reminderAt = NULL, reminderRrule = NULL, reminderExtra = '', reminderKeep = 0 WHERE id = :id")
+    suspend fun clearReminderAll(id: String)
 
     @Upsert
     suspend fun upsert(note: NoteEntity)

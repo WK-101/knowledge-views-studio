@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Build
 import com.todocompanion.app.data.AppRepository
 import com.todocompanion.app.data.entity.EventEntity
+import com.todocompanion.app.data.entity.NoteEntity
 import com.todocompanion.app.data.entity.ReminderEntity
 import com.todocompanion.app.data.entity.TaskEntity
 import java.time.Instant
@@ -56,11 +57,17 @@ object AlarmScheduler {
     const val EXTRA_ROUTINE_ID = "routineId"
     const val EXTRA_ROUTINE_NAME = "routineName"
     const val EXTRA_ROUTINE_MIN = "routineMin"
-    // Wave F — a note's own one-shot local reminder. Fires once at the user-chosen time through the exact-
-    // alarm + notification infra already in the manifest (no new permission).
+    // Wave F/H — a note's own local reminder(s). Fires through the exact-alarm + notification infra already
+    // in the manifest (no new permission). Wave H adds recurrence, multiple times (slots), keep-reminding,
+    // snooze and done actions.
     const val ACTION_NOTE_REMINDER = "com.todocompanion.app.action.NOTE_REMINDER"
+    const val ACTION_NOTE_SNOOZE = "com.todocompanion.app.action.NOTE_SNOOZE"
+    const val ACTION_NOTE_DONE = "com.todocompanion.app.action.NOTE_DONE"
     const val EXTRA_NOTE_ID = "noteId"
     const val EXTRA_NOTE_TITLE = "noteTitle"
+    const val EXTRA_NOTE_FIRE_AT = "noteFireAt"   // epoch-millis this alarm was armed for (String)
+    const val EXTRA_NOTE_PRIMARY = "notePrimary"   // true = the primary reminderAt slot; false = an extra
+    const val EXTRA_NOTE_SLOT = "noteSlot"         // request-code slot (0 = primary, 1+ = extras)
 
     private const val SUMMARY_REQ = 918_273
     private const val EVENING_REQ = 918_275
@@ -496,30 +503,51 @@ object AlarmScheduler {
         repo.eventsOnce().filter { it.recurrenceParentId == null }.forEach { scheduleEventAlerts(context, it) }
     }
 
-    // ---------- Wave F · note reminders ----------
-    private fun noteReqCode(noteId: String): Int = (("note:$noteId").hashCode() and 0x3FFFFFFF) + 6_000_000
+    // ---------- Wave F/H · note reminders ----------
+    private const val NOTE_MAX_SLOTS = 8   // slot 0 = primary (reminderAt); 1..7 = extra one-shot times
+    private fun noteReqCode(noteId: String, slot: Int = 0): Int =
+        (("note:$noteId").hashCode() and 0x3FFFFFFF) + 6_000_000 + slot
 
-    /** Arm a one-shot reminder for a note at [atMillis]. Idempotent per note id (FLAG_UPDATE_CURRENT), so
-     *  re-arming with a new time simply replaces the pending alarm. A past time is ignored. */
-    fun scheduleNoteReminder(context: Context, noteId: String, title: String, atMillis: Long) {
+    fun parseExtraReminders(csv: String): List<Long> = csv.split(",").mapNotNull { it.trim().toLongOrNull() }
+
+    private fun armNoteSlot(context: Context, noteId: String, title: String, atMillis: Long, slot: Int, primary: Boolean) {
         if (atMillis <= System.currentTimeMillis()) return
-        setAlarm(context, atMillis, broadcast(context, ACTION_NOTE_REMINDER, noteReqCode(noteId),
-            mapOf(EXTRA_NOTE_ID to noteId, EXTRA_NOTE_TITLE to title)))
+        setAlarm(context, atMillis, broadcast(context, ACTION_NOTE_REMINDER, noteReqCode(noteId, slot),
+            mapOf(EXTRA_NOTE_ID to noteId, EXTRA_NOTE_TITLE to title,
+                EXTRA_NOTE_FIRE_AT to atMillis.toString(), EXTRA_NOTE_PRIMARY to primary, EXTRA_NOTE_SLOT to slot)))
     }
 
+    /** Re-arm one slot at [atMillis] (used by the receiver's quiet-hours deferral to preserve the slot). */
+    fun rearmNoteSlot(context: Context, noteId: String, title: String, atMillis: Long, slot: Int, primary: Boolean) =
+        armNoteSlot(context, noteId, title, atMillis, slot, primary)
+
+    /** Wave F compatibility — arm just the primary reminder (slot 0). */
+    fun scheduleNoteReminder(context: Context, noteId: String, title: String, atMillis: Long) =
+        armNoteSlot(context, noteId, title, atMillis, 0, primary = true)
+
+    /** Cancel every slot for a note (primary + all extras). */
     fun cancelNoteReminder(context: Context, noteId: String) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
-        am.cancel(broadcast(context, ACTION_NOTE_REMINDER, noteReqCode(noteId), emptyMap()))
+        for (slot in 0 until NOTE_MAX_SLOTS) am.cancel(broadcast(context, ACTION_NOTE_REMINDER, noteReqCode(noteId, slot), emptyMap()))
     }
 
-    /** Re-arm every note whose reminder is still in the future (app start / boot). Self-healing: a note
-     *  whose reminder has passed, been cleared, or been trashed simply doesn't schedule. */
+    /** Arm a note's whole reminder set: the primary [NoteEntity.reminderAt] (slot 0) plus each extra time.
+     *  Reconciles (cancel-then-arm) so a removed/changed time never lingers — the desired-vs-active pattern. */
+    fun armNoteReminders(context: Context, note: NoteEntity) {
+        cancelNoteReminder(context, note.id)
+        if (note.trashed) return
+        val title = note.title.ifBlank { "Note" }
+        note.reminderAt?.let { armNoteSlot(context, note.id, title, it, 0, primary = true) }
+        parseExtraReminders(note.reminderExtra).forEachIndexed { i, at ->
+            if (i + 1 < NOTE_MAX_SLOTS) armNoteSlot(context, note.id, title, at, i + 1, primary = false)
+        }
+    }
+
+    /** Re-arm every note's reminders (app start / boot). Reconciles: cancels then re-arms the current set,
+     *  so a reminder edited while the device was off is corrected. Self-healing: trashed/empty notes skip. */
     suspend fun rescheduleAllNoteReminders(context: Context, repo: AppRepository) {
-        val now = System.currentTimeMillis()
         repo.getNotesOnce().forEach { n ->
-            val at = n.reminderAt ?: return@forEach
-            if (n.trashed || at <= now) return@forEach
-            scheduleNoteReminder(context, n.id, n.title.ifBlank { "Note" }, at)
+            if (!n.trashed && (n.reminderAt != null || n.reminderExtra.isNotBlank())) armNoteReminders(context, n)
         }
     }
 }

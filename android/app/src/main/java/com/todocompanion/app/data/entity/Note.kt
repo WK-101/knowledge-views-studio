@@ -52,6 +52,13 @@ data class NoteEntity(
     // Wave F (v70): an optional local reminder time. Fired by the existing AlarmScheduler/Notifications
     // engine (no new permission) and rides the note's own backup — no envelope change.
     val reminderAt: Long? = null,
+    // Wave H (v71): a recurring reminder (an RRULE reusing the shared Recurrence engine — when [reminderAt]
+    // fires it rolls forward instead of clearing), extra one-shot reminder times (CSV of epoch-millis =
+    // multiple reminders per note; [reminderAt] mirrors the soonest), and "keep reminding until opened".
+    // All ride the note's own backup — no envelope change.
+    val reminderRrule: String? = null,
+    val reminderExtra: String = "",
+    val reminderKeep: Boolean = false,
 )
 
 /**

@@ -296,15 +296,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun restoreNoteRevision(noteId: String, title: String, body: String) = viewModelScope.launch {
         repo.getNote(noteId)?.let { repo.upsertNote(it.copy(title = title, body = body)) }
     }
-    // ── Wave F: a note's own one-shot local reminder (reuses the existing AlarmScheduler — no new permission).
-    /** Set (or clear, when [atMillis] is null) a note's reminder and arm/cancel its alarm accordingly. */
-    fun setNoteReminder(noteId: String, atMillis: Long?) = viewModelScope.launch {
-        repo.setNoteReminderAt(noteId, atMillis)
-        val title = repo.getNote(noteId)?.title?.ifBlank { "Note" } ?: "Note"
-        if (atMillis != null && atMillis > System.currentTimeMillis())
-            com.todocompanion.app.reminders.AlarmScheduler.scheduleNoteReminder(appCtx, noteId, title, atMillis)
-        else
+    // ── Wave F/H: a note's own local reminder(s) (reuses the existing AlarmScheduler — no new permission).
+    /** Set a note's whole reminder set: a primary [atMillis] with an optional recurrence [rrule], any
+     *  [extra] one-shot times, and "keep reminding until opened" ([keep]). Passing a null primary and no
+     *  extras clears everything. Persists (metadata-only) then reconciles the alarms. */
+    fun setNoteReminder(noteId: String, atMillis: Long?, rrule: String? = null, extra: List<Long> = emptyList(), keep: Boolean = false) = viewModelScope.launch {
+        val now = System.currentTimeMillis()
+        val extraCsv = extra.filter { it > now }.sorted().joinToString(",")
+        if (atMillis == null && extraCsv.isEmpty()) {
+            repo.clearNoteReminder(noteId)
             com.todocompanion.app.reminders.AlarmScheduler.cancelNoteReminder(appCtx, noteId)
+            return@launch
+        }
+        repo.setNoteReminderAll(noteId, atMillis, rrule?.ifBlank { null }, extraCsv, keep)
+        repo.getNote(noteId)?.let { com.todocompanion.app.reminders.AlarmScheduler.armNoteReminders(appCtx, it) }
     }
     fun setNotesTrashRetention(days: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesTrashRetentionDays = days)) }
     fun setNotesMaxRevisions(n: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesMaxRevisions = n)) }

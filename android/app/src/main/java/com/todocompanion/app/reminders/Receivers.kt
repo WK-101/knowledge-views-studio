@@ -376,22 +376,76 @@ class ReminderReceiver : BroadcastReceiver() {
                 if (app == null) return
                 val noteId = intent.getStringExtra(AlarmScheduler.EXTRA_NOTE_ID) ?: return
                 val noteTitle = intent.getStringExtra(AlarmScheduler.EXTRA_NOTE_TITLE) ?: "Note"
+                val fireAt = intent.getStringExtra(AlarmScheduler.EXTRA_NOTE_FIRE_AT)?.toLongOrNull()
+                val isPrimary = intent.getBooleanExtra(AlarmScheduler.EXTRA_NOTE_PRIMARY, true)
+                val slot = intent.getIntExtra(AlarmScheduler.EXTRA_NOTE_SLOT, 0)
                 val pending = goAsync()
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
                         val note = app.repository.getNote(noteId) ?: return@launch
-                        // Self-heal: the reminder was cleared or the note trashed after arming — do nothing.
-                        if (note.trashed || note.reminderAt == null) return@launch
-                        // R59 — honour quiet hours: hold the ping until quiet hours end, then re-arm.
+                        if (note.trashed) return@launch
+                        val title = note.title.ifBlank { noteTitle }
+                        // R59 — quiet hours: hold this ping until they end, re-arming the SAME slot.
                         val deferUntil = AlarmScheduler.quietDeferUntil(System.currentTimeMillis())
                         if (deferUntil != null) {
-                            AlarmScheduler.scheduleNoteReminder(context, noteId, note.title.ifBlank { noteTitle }, deferUntil)
+                            AlarmScheduler.rearmNoteSlot(context, noteId, title, deferUntil, slot, isPrimary)
                             return@launch
                         }
-                        Notifications.showNote(context, noteId, note.title.ifBlank { noteTitle })
-                        // One-shot: clear the reminder so it neither re-fires on boot nor lingers in the editor.
-                        app.repository.clearNoteReminder(noteId)
+                        Notifications.showNote(context, noteId, title, note.reminderKeep)
+                        val zone = ZoneId.systemDefault()
+                        if (isPrimary) {
+                            val rule = note.reminderRrule
+                            val basis = fireAt ?: note.reminderAt ?: System.currentTimeMillis()
+                            when {
+                                // Recurring: roll the primary forward (Recurrence.advance decrements COUNT / honours UNTIL).
+                                !rule.isNullOrBlank() -> {
+                                    val (nextAt, nextRule) = com.todocompanion.app.domain.recurrence.Recurrence.advance(rule, basis, zone)
+                                    if (nextAt != null) {
+                                        app.repository.setNoteReminderPrimary(noteId, nextAt, nextRule)
+                                        AlarmScheduler.scheduleNoteReminder(context, noteId, title, nextAt)
+                                    } else app.repository.setNoteReminderPrimary(noteId, null, null)
+                                }
+                                // Keep reminding until opened/cleared: re-arm a while out.
+                                note.reminderKeep -> {
+                                    val nextAt = System.currentTimeMillis() + Notifications.snoozeMinutes.coerceAtLeast(30).toLong() * 60_000L
+                                    app.repository.setNoteReminderPrimary(noteId, nextAt, null)
+                                    AlarmScheduler.scheduleNoteReminder(context, noteId, title, nextAt)
+                                }
+                                // One-shot: clear the primary.
+                                else -> app.repository.setNoteReminderPrimary(noteId, null, null)
+                            }
+                        } else if (fireAt != null) {
+                            // An extra one-shot fired — drop it from the CSV so it neither re-fires nor lingers.
+                            val remaining = AlarmScheduler.parseExtraReminders(note.reminderExtra).filter { it != fireAt }
+                            app.repository.setNoteReminderExtra(noteId, remaining.joinToString(","))
+                        }
                     } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_NOTE_SNOOZE -> {
+                if (app == null) return
+                val noteId = intent.getStringExtra(AlarmScheduler.EXTRA_NOTE_ID) ?: return
+                val title = intent.getStringExtra(AlarmScheduler.EXTRA_NOTE_TITLE) ?: "Note"
+                Notifications.cancelNote(context, noteId)
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val at = System.currentTimeMillis() + Notifications.snoozeMinutes.toLong() * 60_000L
+                        app.repository.setNoteReminderPrimary(noteId, at, app.repository.getNote(noteId)?.reminderRrule)
+                        AlarmScheduler.scheduleNoteReminder(context, noteId, title, at)
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_NOTE_DONE -> {
+                if (app == null) return
+                val noteId = intent.getStringExtra(AlarmScheduler.EXTRA_NOTE_ID) ?: return
+                Notifications.cancelNote(context, noteId)
+                AlarmScheduler.cancelNoteReminder(context, noteId)
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try { app.repository.clearNoteReminder(noteId) } finally { pending.finish() }
                 }
             }
         }

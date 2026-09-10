@@ -454,7 +454,7 @@ fun NoteEditorScreen(
                     if (dayLabel != null) FilterChip(selected = true, onClick = {}, label = { Text("🗓  $dayLabel") })
                     if (d.linkedEventId != null) FilterChip(selected = true, onClick = {}, label = { Text("📅  Meeting note") })
                     if (d.linkedTaskId != null) FilterChip(selected = true, onClick = { onOpenTask(d.linkedTaskId!!) }, label = { Text("🔗  Linked task") })
-                    if (reminderLabel != null) FilterChip(selected = true, onClick = { showReminder = true }, label = { Text("⏰  $reminderLabel") })
+                    if (reminderLabel != null) FilterChip(selected = true, onClick = { showReminder = true }, label = { Text("⏰  $reminderLabel" + if (d.reminderRrule != null) "  ↻" else "") })
                 }
             }
             // Body — viewer until edit. Preview checkboxes are tappable and round-trip to the Markdown
@@ -611,7 +611,15 @@ fun NoteEditorScreen(
     if (showOutline) NoteOutlineDialog(d.body, onDismiss = { showOutline = false })
     if (showReminder) NoteReminderDialog(
         current = d.reminderAt,
-        onSet = { at -> vm.setNoteReminder(noteId, at); draft = d.copy(reminderAt = at); showReminder = false },
+        currentRrule = d.reminderRrule,
+        currentExtra = com.todocompanion.app.reminders.AlarmScheduler.parseExtraReminders(d.reminderExtra),
+        currentKeep = d.reminderKeep,
+        onApply = { at, rrule, extra, keep ->
+            vm.setNoteReminder(noteId, at, rrule, extra, keep)
+            val extraCsv = extra.filter { it > System.currentTimeMillis() }.sorted().joinToString(",")
+            draft = d.copy(reminderAt = at, reminderRrule = rrule?.ifBlank { null }, reminderExtra = extraCsv, reminderKeep = keep)
+            showReminder = false
+        },
         onDismiss = { showReminder = false },
     )
     if (showHistory) NoteVersionHistoryDialog(

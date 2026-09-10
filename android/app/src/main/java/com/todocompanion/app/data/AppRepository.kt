@@ -678,9 +678,13 @@ class AppRepository(private val db: AppDatabase) {
     fun observeNotebooks(): Flow<List<com.todocompanion.app.data.entity.NotebookEntity>> = notebooks.observeAll()
     suspend fun getNotesOnce(): List<com.todocompanion.app.data.entity.NoteEntity> = notes.getAll()
     suspend fun getNote(id: String): com.todocompanion.app.data.entity.NoteEntity? = notes.getById(id)
-    // Wave F — set/clear a note's one-shot reminder time (metadata-only; leaves updatedAt/FTS/links alone).
+    // Wave F/H — set/clear a note's reminder (metadata-only; leaves updatedAt/FTS/links alone).
     suspend fun setNoteReminderAt(id: String, atMillis: Long?) = notes.setReminderAt(id, atMillis)
-    suspend fun clearNoteReminder(id: String) = notes.setReminderAt(id, null)
+    suspend fun setNoteReminderAll(id: String, at: Long?, rrule: String?, extra: String, keep: Boolean) =
+        notes.setReminderAll(id, at, rrule, extra, keep)
+    suspend fun setNoteReminderPrimary(id: String, at: Long?, rrule: String?) = notes.setReminderPrimary(id, at, rrule)
+    suspend fun setNoteReminderExtra(id: String, extra: String) = notes.setReminderExtra(id, extra)
+    suspend fun clearNoteReminder(id: String) = notes.clearReminderAll(id)
     suspend fun getNotebooksOnce(): List<com.todocompanion.app.data.entity.NotebookEntity> = notebooks.getAll()
 
     /** Create (or update) a note, stamping timestamps + sort order, and keep the FTS index fresh. */

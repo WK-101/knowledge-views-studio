@@ -90,7 +90,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.NoteLinkEntity::class,
         com.todocompanion.app.data.entity.SmartViewEntity::class,
     ],
-    version = 70,
+    version = 71,
     // R73 — export the schema JSON (to app/schemas/) on every build. With 54 hand-written migrations
     // this is the safety net: it lets an instrumented MigrationTest replay the whole chain in CI and
     // fail the build the moment a migration drifts from the entity definitions. Turned on from v59;
@@ -875,6 +875,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Wave H — recurring/multiple/keep-until-opened note reminders.
+        private val MIGRATION_70_71 = object : Migration(70, 71) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `reminderRrule` TEXT")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `reminderExtra` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `reminderKeep` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         /**
          * The complete, ordered v5→v63 migration chain. Exposed (and used by the builder below) so an
          * instrumented [androidTest] MigrationTest can replay it against a real SQLite DB and assert the
@@ -892,6 +901,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_53_54, MIGRATION_54_55, MIGRATION_55_56, MIGRATION_56_57, MIGRATION_57_58, MIGRATION_58_59,
             MIGRATION_59_60, MIGRATION_60_61, MIGRATION_61_62, MIGRATION_62_63, MIGRATION_63_64,
             MIGRATION_64_65, MIGRATION_65_66, MIGRATION_66_67, MIGRATION_67_68, MIGRATION_68_69, MIGRATION_69_70,
+            MIGRATION_70_71,
         )
 
         fun get(context: Context): AppDatabase =
