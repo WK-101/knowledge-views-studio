@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,7 +34,11 @@ import androidx.compose.ui.unit.sp
  * strikethrough/code/links. Links are shown styled but inert (offline app).
  */
 @Composable
-fun MarkdownText(text: String, modifier: Modifier = Modifier) {
+fun MarkdownText(
+    text: String,
+    modifier: Modifier = Modifier,
+    onToggleCheckbox: ((sourceLineIndex: Int) -> Unit)? = null,
+) {
     val lines = text.replace("\r\n", "\n").split("\n")
     Column(modifier) {
         var i = 0
@@ -69,8 +74,15 @@ fun MarkdownText(text: String, modifier: Modifier = Modifier) {
                 isTaskItem(trimmed) -> {
                     val checked = trimmed.startsWith("- [x]", true) || trimmed.startsWith("* [x]", true)
                     val body = trimmed.replaceFirst(Regex("^[-*] \\[[ xX]] ?"), "")
+                    val srcLine = i   // exact source-line index — lets the editor round-trip a tap to the Markdown
                     Row(Modifier.padding(start = 4.dp, top = 1.dp, bottom = 1.dp)) {
-                        Text(if (checked) "☑ " else "☐ ", color = MaterialTheme.colorScheme.primary)
+                        val glyph = if (checked) "☑ " else "☐ "
+                        if (onToggleCheckbox != null) {
+                            Text(glyph, color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.clickable { onToggleCheckbox(srcLine) })
+                        } else {
+                            Text(glyph, color = MaterialTheme.colorScheme.primary)
+                        }
                         Text(inline(body, strike = checked, linkColor = MaterialTheme.colorScheme.primary), style = MaterialTheme.typography.bodyMedium,
                             color = if (checked) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface)
                     }

@@ -84,13 +84,21 @@ data class QuickAddOptions(
     val splitSubtasks: Boolean = false,
 )
 
-enum class UndoKind { COMPLETED, ABANDONED, TRASHED, CREATED_MANY }
+enum class UndoKind { COMPLETED, ABANDONED, TRASHED, CREATED_MANY, NOTE_TRASHED, NOTE_ARCHIVED }
 
 /** What the full-screen habit editor is editing. A null [habit] means "create a new habit". */
 data class HabitEditRequest(val habit: com.todocompanion.app.data.entity.HabitEntity? = null)
 /** [restore], when set, is the exact pre-action task snapshot to write back on Undo — used for a
  *  recurring task's roll-forward, where "uncomplete" isn't enough (the due date & rule advanced). */
-data class UndoEvent(val kind: UndoKind, val taskId: String, val message: String, val restore: TaskEntity? = null, val taskIds: List<String> = emptyList())
+data class UndoEvent(
+    val kind: UndoKind,
+    val taskId: String,
+    val message: String,
+    val restore: TaskEntity? = null,
+    val taskIds: List<String> = emptyList(),
+    /** The exact pre-action note snapshot to write back on Undo (note trash / archive). */
+    val noteRestore: com.todocompanion.app.data.entity.NoteEntity? = null,
+)
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -253,7 +261,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun saveNote(n: com.todocompanion.app.data.entity.NoteEntity) = viewModelScope.launch {
         repo.upsertNote(n.copy(workspaceId = n.workspaceId.ifBlank { activeWorkspace() }))
     }
-    fun trashNote(id: String) = viewModelScope.launch { repo.trashNote(id, true) }
+    fun trashNote(id: String) = viewModelScope.launch {
+        val prev = repo.getNote(id)   // exact pre-trash snapshot for a full undo
+        repo.trashNote(id, true)
+        if (prev != null) undoEvents.tryEmit(UndoEvent(UndoKind.NOTE_TRASHED, id, "Moved to Trash", noteRestore = prev))
+    }
     fun deleteNote(id: String) = viewModelScope.launch { repo.deleteNote(id) }
     fun setNoteTags(noteId: String, tagIds: List<String>) = viewModelScope.launch { repo.setNoteTags(noteId, tagIds) }
     fun setNoteContexts(noteId: String, contextIds: List<String>) = viewModelScope.launch { repo.setNoteContexts(noteId, contextIds) }
@@ -1210,12 +1222,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // A recurring roll-forward carries the exact pre-completion snapshot; restore it wholesale so the
         // due date and rule return to where they were, not just the completed flag.
         if (e.restore != null) { repo.saveTask(e.restore); return@launch }
+        // Note trash / archive carry the exact pre-action note snapshot — write it back wholesale.
+        if (e.noteRestore != null) { repo.upsertNote(e.noteRestore); return@launch }
         when (e.kind) {
             UndoKind.COMPLETED -> repo.getTask(e.taskId)?.let { repo.setCompleted(it, false) }
             UndoKind.ABANDONED -> repo.getTask(e.taskId)?.let { repo.setAbandoned(it, false) }
             UndoKind.TRASHED -> repo.setTrashed(e.taskId, false)
             // N2 — undo a bulk-paste / inline-subtree add by trashing everything it created (recoverable).
             UndoKind.CREATED_MANY -> e.taskIds.forEach { repo.setTrashed(it, true, settings.value.activeWorkspaceId) }
+            // Note trash/archive are restored via [noteRestore] above (short-circuited before this when).
+            UndoKind.NOTE_TRASHED, UndoKind.NOTE_ARCHIVED -> Unit
         }
     }
     fun restore(t: TaskEntity) = viewModelScope.launch { repo.setTrashed(t.id, false) }

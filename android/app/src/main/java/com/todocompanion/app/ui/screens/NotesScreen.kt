@@ -242,6 +242,7 @@ fun NoteEditorScreen(
     var showEmoji by remember { mutableStateOf(false) }
     var showContainer by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
+    var showAbout by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
 
     fun persist(n: NoteEntity) { draft = n; vm.saveNote(n) }
@@ -284,6 +285,7 @@ fun NoteEditorScreen(
                                     },
                                 )
                             }
+                            DropdownMenuItem(text = { Text("About") }, onClick = { menu = false; showAbout = true })
                             DropdownMenuItem(text = { Text("Move to Trash") }, onClick = { menu = false; vm.trashNote(noteId); onBack() })
                             DropdownMenuItem(text = { Text("Delete permanently") }, onClick = { menu = false; showDelete = true })
                         }
@@ -332,16 +334,20 @@ fun NoteEditorScreen(
                     if (d.linkedTaskId != null) FilterChip(selected = true, onClick = { onOpenTask(d.linkedTaskId!!) }, label = { Text("🔗  Linked task") })
                 }
             }
-            // Body — viewer until edit
+            // Body — viewer until edit. Preview checkboxes are tappable and round-trip to the Markdown
+            // source; editing goes through NoteBodyEditor (toolbar · smart lists · undo/redo).
             Box(Modifier.fillMaxWidth().weight(1f)) {
                 if (d.body.isNotBlank() && preview) {
                     androidx.compose.foundation.text.selection.SelectionContainer {
-                        MarkdownText(d.body, modifier = Modifier.fillMaxWidth().padding(end = 36.dp))
+                        MarkdownText(
+                            d.body,
+                            modifier = Modifier.fillMaxWidth().padding(end = 36.dp),
+                            onToggleCheckbox = { line -> persist(d.copy(body = com.todocompanion.app.domain.NoteEditing.toggleCheckboxAtLine(d.body, line))) },
+                        )
                     }
                 } else {
-                    AppTextField(
+                    NoteBodyEditor(
                         value = d.body, onValueChange = { draft = d.copy(body = it) },
-                        placeholder = { Text("Write in Markdown…") },
                         modifier = Modifier.fillMaxWidth().padding(end = 36.dp),
                     )
                 }
@@ -433,6 +439,7 @@ fun NoteEditorScreen(
             },
         )
     }
+    if (showAbout) NoteAboutDialog(d, onDismiss = { showAbout = false })
     if (showDelete) {
         AlertDialog(
             onDismissRequest = { showDelete = false },
