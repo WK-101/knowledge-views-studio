@@ -157,6 +157,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val backupFolderLauncher: () -> Unit = { com.todocompanion.app.util.SystemPicker.openTree(onError = err) { uri -> persist(uri); vm.setAutoBackupFolder(uri.toString()) } }
     val syncFolderLauncher: () -> Unit = { com.todocompanion.app.util.SystemPicker.openTree(onError = err) { uri -> persist(uri); vm.setSyncFolder(uri.toString()) } }
     val exportMdLauncher: (String) -> Unit = { name -> com.todocompanion.app.util.SystemPicker.createFile("text/markdown", name, onError = err) { uri -> vm.exportMarkdownTo(uri, includeCompleted = true) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() } } }
+    // Wave K — a folder of one `.md` per note (Obsidian/Bear-style), for round-trip interop with any editor.
+    val notesFolderExportLauncher: () -> Unit = { com.todocompanion.app.util.SystemPicker.openTree(onError = err) { uri -> persist(uri); vm.exportNotesToFolder(uri.toString()) } }
+    val notesFolderImportLauncher: () -> Unit = { com.todocompanion.app.util.SystemPicker.openTree(onError = err) { uri -> persist(uri); vm.importNotesFromFolder(uri.toString()) } }
     val exportCsvLauncher: (String) -> Unit = { name -> com.todocompanion.app.util.SystemPicker.createFile("text/csv", name, onError = err) { uri -> vm.exportCsvTo(uri, includeCompleted = true) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() } } }
     val exportIcsLauncher: (String) -> Unit = { name -> com.todocompanion.app.util.SystemPicker.createFile("text/calendar", name, onError = err) { uri -> vm.exportIcsTo(uri, includeCompleted = false) { ok -> Toast.makeText(context, if (ok) "Calendar exported" else "Export failed", Toast.LENGTH_SHORT).show() } } }
     val exportHabitsLauncher: (String) -> Unit = { name -> com.todocompanion.app.util.SystemPicker.createFile("text/csv", name, onError = err) { uri -> vm.exportHabitsCsvTo(uri) { ok -> Toast.makeText(context, if (ok) "Habits exported" else "Export failed", Toast.LENGTH_SHORT).show() } } }
@@ -284,6 +287,12 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                             shape = SegmentedButtonDefaults.itemShape(i, opts.size)) { Text("$v", maxLines = 1) }
                     }
                 }
+                Spacer(Modifier.height(10.dp))
+                Sub("Markdown files")
+                Action("Export notes as .md files…") { safePick { notesFolderExportLauncher() } }
+                Action("Import .md files from a folder…") { safePick { notesFolderImportLauncher() } }
+                Text("Each note becomes one .md file with a small YAML header, so any editor (Obsidian, Bear, iA Writer) can read it. Re-importing the same folder updates notes in place instead of duplicating them.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 

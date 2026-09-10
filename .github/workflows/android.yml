@@ -84,6 +84,26 @@ jobs:
       - name: Build release APK
         run: ./gradlew assembleRelease --stacktrace
 
+      - name: Verify permissions — 0 INTERNET / location (the privacy invariant)
+        # Kairo is offline-first and permission-free by design: it must never request INTERNET or any
+        # location permission. This gate reads the *built release APK's* merged manifest with aapt2 and
+        # fails the build if any forbidden permission slipped in (a new dependency's manifest, a stray
+        # <uses-permission>, etc.) — the same check done by hand every release, now enforced in CI.
+        run: |
+          set -euo pipefail
+          AAPT2="$(find "$ANDROID_HOME/build-tools" -name aapt2 | sort -V | tail -n1)"
+          if [ -z "$AAPT2" ]; then echo "::error::aapt2 not found in build-tools"; exit 1; fi
+          APK=app/build/outputs/apk/release/app-release.apk
+          echo "Using $AAPT2 on $APK"
+          PERMS="$("$AAPT2" dump permissions "$APK" || true)"
+          echo "--- declared permissions ---"; echo "$PERMS"
+          FORBIDDEN="$(echo "$PERMS" | grep -Ei 'permission.*(INTERNET|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|ACCESS_BACKGROUND_LOCATION)' || true)"
+          if [ -n "$FORBIDDEN" ]; then
+            echo "::error::Forbidden permission(s) found in the release APK:"; echo "$FORBIDDEN"
+            exit 1
+          fi
+          echo "OK — no INTERNET or location permission in the release APK."
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:

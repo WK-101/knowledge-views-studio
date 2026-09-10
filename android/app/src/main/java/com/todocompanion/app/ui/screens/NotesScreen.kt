@@ -253,7 +253,7 @@ fun NotesScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    items(filtered, key = { it.id }) { n -> NoteCard(n, onOpen = { onOpenNote(n.id) }, onTogglePin = { vm.saveNote(n.copy(pinned = !n.pinned)) }) }
+                    items(filtered, key = { it.id }) { n -> NoteCard(n, Modifier.animateItem(), onOpen = { onOpenNote(n.id) }, onTogglePin = { vm.saveNote(n.copy(pinned = !n.pinned)) }) }
                 }
             } else {
                 LazyColumn(
@@ -261,7 +261,7 @@ fun NotesScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    items(filtered, key = { it.id }) { n -> NoteCard(n, onOpen = { onOpenNote(n.id) }, onTogglePin = { vm.saveNote(n.copy(pinned = !n.pinned)) }) }
+                    items(filtered, key = { it.id }) { n -> NoteCard(n, Modifier.animateItem(), onOpen = { onOpenNote(n.id) }, onTogglePin = { vm.saveNote(n.copy(pinned = !n.pinned)) }) }
                 }
             }
         }
@@ -269,9 +269,10 @@ fun NotesScreen(
 }
 
 @Composable
-private fun NoteCard(n: NoteEntity, onOpen: () -> Unit, onTogglePin: () -> Unit) {
+private fun NoteCard(n: NoteEntity, modifier: Modifier = Modifier, onOpen: () -> Unit, onTogglePin: () -> Unit) {
     val accent = n.colorArgb?.let { Color(it) }
-    AppCard(onClick = onOpen, padding = 0.dp) {
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    AppCard(modifier = modifier, onClick = onOpen, padding = 0.dp) {
         Row(Modifier.fillMaxWidth()) {
             if (accent != null) Box(Modifier.width(4.dp).height(if (n.body.isBlank()) 56.dp else 96.dp).background(accent))
             Column(Modifier.padding(12.dp).fillMaxWidth()) {
@@ -290,7 +291,7 @@ private fun NoteCard(n: NoteEntity, onOpen: () -> Unit, onTogglePin: () -> Unit)
                         Icon(Icons.Filled.Star, "Favorite", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
                     }
-                    IconButton(onClick = onTogglePin, modifier = Modifier.size(28.dp)) {
+                    IconButton(onClick = { haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress); onTogglePin() }, modifier = Modifier.size(28.dp)) {
                         Icon(
                             if (n.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
                             contentDescription = if (n.pinned) "Unpin" else "Pin",

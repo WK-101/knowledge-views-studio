@@ -351,6 +351,57 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             appCtx.startActivity(android.content.Intent.createChooser(send, "Export note").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
         }.onFailure { toast("No app to share to") }
     }
+    // ── Wave K: `.md`-per-note folder interop (Obsidian/Bear-style). Fully offline — SAF tree grant only. ──
+    /** Write one `.md` (YAML front-matter + body) per non-trashed note in the active workspace. */
+    fun exportNotesToFolder(folderUri: String) = viewModelScope.launch {
+        val ws = repo.activeWs()
+        val list = repo.getNotesOnce().filter { !it.trashed && it.workspaceId == ws }
+        if (list.isEmpty()) { toast("No notes to export"); return@launch }
+        val tagName = repo.getTagsOnce().associate { it.id to it.name }
+        val refs = repo.getNoteTagCrossRefs().groupBy { it.noteId }
+        val payload = list.map { n -> n to refs[n.id].orEmpty().mapNotNull { tagName[it.tagId] } }
+        val count = withContext(Dispatchers.IO) {
+            com.todocompanion.app.util.NoteFolderSync.exportAll(appCtx, folderUri, payload)
+        }
+        toast(if (count > 0) "Exported $count ${if (count == 1) "note" else "notes"} as .md" else "Couldn't write to that folder")
+    }
+
+    /** Read every `.md` in the folder and merge into notes — by id where the front-matter carries one
+     *  (updating in place, preserving fields the file doesn't hold), else as a fresh note. Tags named in
+     *  the header are resolved (created if new) within the active workspace. */
+    fun importNotesFromFolder(folderUri: String) = viewModelScope.launch {
+        val parsed = withContext(Dispatchers.IO) {
+            com.todocompanion.app.util.NoteFolderSync.importAll(appCtx, folderUri)
+        }
+        if (parsed.isEmpty()) { toast("No .md files found in that folder"); return@launch }
+        val ws = repo.activeWs()
+        val existingTags = repo.getTagsOnce().filter { it.workspaceId == ws }.associateBy { it.name.lowercase() }.toMutableMap()
+        var imported = 0
+        for (p in parsed) {
+            val existing = p.id?.let { repo.getNote(it) }
+            val base = existing ?: com.todocompanion.app.data.entity.NoteEntity(id = "", workspaceId = ws)
+            val merged = base.copy(
+                title = p.title, body = p.body, kind = p.kind, pinned = p.pinned, favorite = p.favorite,
+                colorArgb = p.colorArgb, coverEmoji = p.coverEmoji, dayEpoch = p.dayEpoch,
+                createdAt = p.createdAt ?: base.createdAt,
+                workspaceId = base.workspaceId.ifBlank { ws },
+            )
+            val newId = repo.upsertNote(merged)
+            if (p.tags.isNotEmpty()) {
+                val tagIds = p.tags.map { name ->
+                    val key = name.lowercase()
+                    existingTags[key]?.id ?: UUID.randomUUID().toString().also { id ->
+                        repo.upsertTag(TagEntity(id, name, workspaceId = ws))
+                        existingTags[key] = TagEntity(id, name, workspaceId = ws)
+                    }
+                }
+                repo.setNoteTags(newId, tagIds.distinct())
+            }
+            imported++
+        }
+        toast("Imported $imported ${if (imported == 1) "note" else "notes"}")
+    }
+
     /** Save the note and capture a version snapshot in one ordered coroutine (used on editor close). */
     fun closeNoteEditor(n: com.todocompanion.app.data.entity.NoteEntity) = viewModelScope.launch {
         repo.upsertNote(n.copy(workspaceId = n.workspaceId.ifBlank { activeWorkspace() }))
