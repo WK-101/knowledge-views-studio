@@ -74,6 +74,13 @@ class BackupRoundTripTest {
         // Attachment whose bytes are inlined as base64 (the self-contained-backup guarantee).
         val attachBytes = "hello-bytes".toByteArray()
         srcRepo.addAttachment(t1, "note.txt", "text/plain", attachBytes)
+        // Notes module (v66): a notebook + a note in it, a tag linked to the note.
+        val nbId = srcRepo.upsertNotebook(com.todocompanion.app.data.entity.NotebookEntity(id = "nb1", name = "Journal"))
+        srcRepo.upsertTag(com.todocompanion.app.data.entity.TagEntity(id = "ntag1", name = "idea"))
+        val noteId = srcRepo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(
+            id = "n1", title = "First note", body = "# Heading\n\nseed-note-body", notebookId = nbId, kind = "journal",
+        ))
+        srcRepo.setNoteTags(noteId, listOf("ntag1"))
 
         val json = srcRepo.exportJson()
         src.close()
@@ -111,6 +118,13 @@ class BackupRoundTripTest {
         // Attachment bytes: they must reappear in a fresh export of the restored store.
         val b64 = android.util.Base64.encodeToString(attachBytes, android.util.Base64.NO_WRAP)
         assertTrue("attachment bytes survive", dstRepo.exportJson().contains(b64))
+        // Notes module: note + notebook + note↔tag link round-trip.
+        val restoredNote = dstRepo.getNote("n1")
+        assertEquals("note survives with body", "# Heading\n\nseed-note-body", restoredNote?.body)
+        assertEquals("note keeps its notebook", "nb1", restoredNote?.notebookId)
+        assertEquals("note keeps its kind", "journal", restoredNote?.kind)
+        assertTrue("notebook survives", dstRepo.getNotebooksOnce().any { it.id == "nb1" && it.name == "Journal" })
+        assertTrue("note↔tag link survives", dstRepo.getNoteTagCrossRefs().any { it.noteId == "n1" && it.tagId == "ntag1" })
         dst.close()
     }
 

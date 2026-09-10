@@ -67,10 +67,17 @@ data class BackupFile(
     // R38 — the dedicated-calendar layer: local calendars + events. Additive; old backups carry empty.
     val eventCalendars: List<com.todocompanion.app.data.entity.EventCalendarEntity> = emptyList(),
     val events: List<com.todocompanion.app.data.entity.EventEntity> = emptyList(),
+    // Notes module (v66) — first-class notes + optional notebooks + their tag/context links. Additive;
+    // old backups carry empty lists, so an older file restores cleanly (no notes) and a newer file's notes
+    // ride the lossless JSON round-trip.
+    val notes: List<com.todocompanion.app.data.entity.NoteEntity> = emptyList(),
+    val notebooks: List<com.todocompanion.app.data.entity.NotebookEntity> = emptyList(),
+    val noteTags: List<com.todocompanion.app.data.entity.NoteTagCrossRef> = emptyList(),
+    val noteContexts: List<com.todocompanion.app.data.entity.NoteContextCrossRef> = emptyList(),
 ) {
     companion object {
         const val FORMAT = "todo-companion"
-        const val VERSION = 15
+        const val VERSION = 16
     }
 }
 

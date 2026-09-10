@@ -82,8 +82,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.NudgeEventEntity::class,
         com.todocompanion.app.data.entity.EventCalendarEntity::class,
         com.todocompanion.app.data.entity.EventEntity::class,
+        com.todocompanion.app.data.entity.NoteEntity::class,
+        com.todocompanion.app.data.entity.NotebookEntity::class,
+        com.todocompanion.app.data.entity.NoteTagCrossRef::class,
+        com.todocompanion.app.data.entity.NoteContextCrossRef::class,
     ],
-    version = 65,
+    version = 66,
     // R73 — export the schema JSON (to app/schemas/) on every build. With 54 hand-written migrations
     // this is the safety net: it lets an instrumented MigrationTest replay the whole chain in CI and
     // fail the build the moment a migration drifts from the entity definitions. Turned on from v59;
@@ -125,6 +129,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun nudgeEventDao(): com.todocompanion.app.data.dao.NudgeEventDao
     abstract fun eventCalendarDao(): com.todocompanion.app.data.dao.EventCalendarDao
     abstract fun eventDao(): com.todocompanion.app.data.dao.EventDao
+    abstract fun noteDao(): com.todocompanion.app.data.dao.NoteDao
+    abstract fun notebookDao(): com.todocompanion.app.data.dao.NotebookDao
 
     companion object {
         @Volatile
@@ -772,6 +778,47 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Notes module (Phase 0) — a first-class NoteEntity plus an optional dedicated notebook tree, and
+        // note↔tag / note↔context join tables. Attachments gain a nullable `noteId` so the one hub table is
+        // shared with notes. Purely additive: four fresh tables (no column DEFAULTs, to match Room's
+        // generated schema exactly, as with the time-tracking tables) + one nullable ALTER. No data touched.
+        private val MIGRATION_65_66 = object : Migration(65, 66) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `notes` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, " +
+                        "`body` TEXT NOT NULL, `notebookId` TEXT, `folderId` TEXT, `colorArgb` INTEGER, " +
+                        "`pinned` INTEGER NOT NULL, `coverEmoji` TEXT, `kind` TEXT NOT NULL, `dayEpoch` INTEGER, " +
+                        "`linkedTaskId` TEXT, `linkedEventId` TEXT, `sortOrder` REAL NOT NULL, " +
+                        "`archived` INTEGER NOT NULL, `trashed` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, " +
+                        "`updatedAt` INTEGER NOT NULL, `workspaceId` TEXT NOT NULL, PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_notebookId` ON `notes` (`notebookId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_folderId` ON `notes` (`folderId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_workspaceId` ON `notes` (`workspaceId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_linkedTaskId` ON `notes` (`linkedTaskId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `notebooks` (`id` TEXT NOT NULL, `parentId` TEXT, " +
+                        "`name` TEXT NOT NULL, `icon` TEXT, `colorArgb` INTEGER, `sortOrder` REAL NOT NULL, " +
+                        "`collapsed` INTEGER NOT NULL, `archived` INTEGER NOT NULL, `workspaceId` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notebooks_parentId` ON `notebooks` (`parentId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notebooks_workspaceId` ON `notebooks` (`workspaceId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `note_tags` (`noteId` TEXT NOT NULL, `tagId` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`noteId`, `tagId`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_note_tags_tagId` ON `note_tags` (`tagId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `note_contexts` (`noteId` TEXT NOT NULL, `contextId` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`noteId`, `contextId`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_note_contexts_contextId` ON `note_contexts` (`contextId`)")
+                db.execSQL("ALTER TABLE `attachments` ADD COLUMN `noteId` TEXT")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_attachments_noteId` ON `attachments` (`noteId`)")
+            }
+        }
+
         /**
          * The complete, ordered v5→v63 migration chain. Exposed (and used by the builder below) so an
          * instrumented [androidTest] MigrationTest can replay it against a real SQLite DB and assert the
@@ -788,7 +835,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_47_48, MIGRATION_48_49, MIGRATION_49_50, MIGRATION_50_51, MIGRATION_51_52, MIGRATION_52_53,
             MIGRATION_53_54, MIGRATION_54_55, MIGRATION_55_56, MIGRATION_56_57, MIGRATION_57_58, MIGRATION_58_59,
             MIGRATION_59_60, MIGRATION_60_61, MIGRATION_61_62, MIGRATION_62_63, MIGRATION_63_64,
-            MIGRATION_64_65,
+            MIGRATION_64_65, MIGRATION_65_66,
         )
 
         fun get(context: Context): AppDatabase =

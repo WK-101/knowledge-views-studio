@@ -243,6 +243,11 @@ data class AppSettings(
     val primaryModule: String = "tasks",
     val disabledModules: Set<String> = emptySet(),
     val onboardedModules: Boolean = false,   // has the first-run "what's your main use" picker been shown
+    // Notes module (v66). noteDefaultView ∈ {grid, list} — the home layout (decision #2 default: grid).
+    // notesNotebookMode ∈ {folderTree, notebooks} — group notes under the shared folder tree or a dedicated
+    // notebook entity (the user's chosen Settings option for decision #1).
+    val noteDefaultView: String = "grid",
+    val notesNotebookMode: String = "folderTree",
     // Sidebar section keys currently collapsed (persisted so folds survive an app restart).
     val sidebarCollapsed: Set<String> = emptySet(),
     // Sidebar section keys the user has hidden entirely from the drawer.
@@ -478,6 +483,8 @@ data class AppSettings(
         Keys.BOTTOM_HIDDEN to bottomTabsHidden.joinToString(","),
         Keys.PRIMARY_MODULE to primaryModule,
         Keys.DISABLED_MODULES to disabledModules.joinToString(","),
+        Keys.NOTE_DEFAULT_VIEW to noteDefaultView,
+        Keys.NOTES_NOTEBOOK_MODE to notesNotebookMode,
         Keys.ONBOARDED_MODULES to onboardedModules.toString(),
         Keys.ACTIVE_WS to activeWorkspaceId,
         Keys.MX_IMP to matrixImportanceThreshold.toString(),
@@ -664,6 +671,8 @@ data class AppSettings(
         const val BOTTOM_HIDDEN = "bottom_hidden"
         const val PRIMARY_MODULE = "primary_module"
         const val DISABLED_MODULES = "disabled_modules"
+        const val NOTE_DEFAULT_VIEW = "note_default_view"
+        const val NOTES_NOTEBOOK_MODE = "notes_notebook_mode"
         const val ONBOARDED_MODULES = "onboarded_modules"
         const val ACTIVE_WS = "active_ws"
         const val PRIO_MODE = "prio_mode"
@@ -885,6 +894,8 @@ data class AppSettings(
             bottomTabsHidden = (m[Keys.BOTTOM_HIDDEN] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             primaryModule = m[Keys.PRIMARY_MODULE]?.takeIf { it.isNotBlank() } ?: "tasks",
             disabledModules = (m[Keys.DISABLED_MODULES] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
+            noteDefaultView = m[Keys.NOTE_DEFAULT_VIEW]?.takeIf { it.isNotBlank() } ?: "grid",
+            notesNotebookMode = m[Keys.NOTES_NOTEBOOK_MODE]?.takeIf { it.isNotBlank() } ?: "folderTree",
             onboardedModules = m[Keys.ONBOARDED_MODULES]?.toBooleanStrictOrNull() ?: false,
             activeWorkspaceId = m[Keys.ACTIVE_WS]?.ifBlank { "default" } ?: "default",
             matrixImportanceThreshold = m[Keys.MX_IMP]?.toIntOrNull() ?: 4,

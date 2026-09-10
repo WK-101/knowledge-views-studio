@@ -26,6 +26,10 @@ import com.todocompanion.app.data.entity.TemplateEntity
 import com.todocompanion.app.data.entity.WorkspaceEntity
 import com.todocompanion.app.data.entity.AttachmentEntity
 import com.todocompanion.app.data.entity.AttachmentMeta
+import com.todocompanion.app.data.entity.NoteEntity
+import com.todocompanion.app.data.entity.NotebookEntity
+import com.todocompanion.app.data.entity.NoteTagCrossRef
+import com.todocompanion.app.data.entity.NoteContextCrossRef
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -722,6 +726,13 @@ interface AttachmentDao {
     @Query("DELETE FROM attachments WHERE taskId = :taskId")
     suspend fun deleteForTask(taskId: String)
 
+    /** Metadata for a note's attachments (v66 — the hub is shared with notes). */
+    @Query("SELECT id, taskId, fileName, mime, sizeBytes, isImage, addedAt FROM attachments WHERE noteId = :noteId ORDER BY addedAt")
+    fun observeMetaForNote(noteId: String): Flow<List<AttachmentMeta>>
+
+    @Query("DELETE FROM attachments WHERE noteId = :noteId")
+    suspend fun deleteForNote(noteId: String)
+
     @Query("DELETE FROM attachments")
     suspend fun clear()
 }
@@ -748,4 +759,97 @@ interface TimeTrackingDao {
     @Query("DELETE FROM time_entries WHERE activityId = :activityId") suspend fun deleteEntriesForActivity(activityId: String)
     @Query("DELETE FROM time_entries WHERE endMillis IS NULL") suspend fun clearRunning()
     @Query("DELETE FROM time_entries") suspend fun clearEntries()
+}
+
+// ── Notes module (v66) ───────────────────────────────────────────────────────────────────────────
+@Dao
+interface NoteDao {
+    @Query("SELECT * FROM notes ORDER BY sortOrder")
+    fun observeAll(): Flow<List<NoteEntity>>
+
+    @Query("SELECT * FROM notes")
+    suspend fun getAll(): List<NoteEntity>
+
+    @Query("SELECT * FROM notes WHERE id = :id")
+    suspend fun getById(id: String): NoteEntity?
+
+    @Query("SELECT COALESCE(MAX(sortOrder), 0.0) FROM notes")
+    suspend fun maxSortOrder(): Double
+
+    @Upsert
+    suspend fun upsert(note: NoteEntity)
+
+    @Upsert
+    suspend fun upsertAll(notes: List<NoteEntity>)
+
+    @Query("DELETE FROM notes WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM notes")
+    suspend fun clear()
+
+    // Note ↔ Tag
+    @Query("SELECT * FROM note_tags")
+    suspend fun getTagCrossRefs(): List<NoteTagCrossRef>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun linkTag(ref: NoteTagCrossRef)
+
+    @Delete
+    suspend fun unlinkTag(ref: NoteTagCrossRef)
+
+    @Query("DELETE FROM note_tags WHERE noteId = :noteId")
+    suspend fun unlinkAllTagsForNote(noteId: String)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun linkTags(refs: List<NoteTagCrossRef>)
+
+    @Query("DELETE FROM note_tags")
+    suspend fun clearTagCrossRefs()
+
+    // Note ↔ Context
+    @Query("SELECT * FROM note_contexts")
+    suspend fun getContextCrossRefs(): List<NoteContextCrossRef>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun linkContext(ref: NoteContextCrossRef)
+
+    @Delete
+    suspend fun unlinkContext(ref: NoteContextCrossRef)
+
+    @Query("DELETE FROM note_contexts WHERE noteId = :noteId")
+    suspend fun unlinkAllContextsForNote(noteId: String)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun linkContexts(refs: List<NoteContextCrossRef>)
+
+    @Query("DELETE FROM note_contexts")
+    suspend fun clearContextCrossRefs()
+}
+
+@Dao
+interface NotebookDao {
+    @Query("SELECT * FROM notebooks ORDER BY sortOrder")
+    fun observeAll(): Flow<List<NotebookEntity>>
+
+    @Query("SELECT * FROM notebooks")
+    suspend fun getAll(): List<NotebookEntity>
+
+    @Query("SELECT * FROM notebooks WHERE id = :id")
+    suspend fun getById(id: String): NotebookEntity?
+
+    @Query("SELECT COALESCE(MAX(sortOrder), 0.0) FROM notebooks")
+    suspend fun maxSortOrder(): Double
+
+    @Upsert
+    suspend fun upsert(notebook: NotebookEntity)
+
+    @Upsert
+    suspend fun upsertAll(notebooks: List<NotebookEntity>)
+
+    @Query("DELETE FROM notebooks WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM notebooks")
+    suspend fun clear()
 }

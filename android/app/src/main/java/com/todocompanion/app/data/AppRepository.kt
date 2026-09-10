@@ -139,6 +139,50 @@ class AppRepository(private val db: AppDatabase) {
         }.getOrDefault(emptyList())
     }
 
+    // ── Notes module · full-text search (FTS4) ──────────────────────────────────────────────────────
+    // Same shape as task_fts: a raw-SQL virtual table invisible to Room's schema, guarded end-to-end, with
+    // an in-memory fallback. Kept fresh by an incremental upsert on save + a cheap count-mismatch rebuild.
+    private fun noteFtsCreate(sdb: androidx.sqlite.db.SupportSQLiteDatabase) {
+        sdb.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS note_fts USING fts4(noteId, title, body, tokenize=unicode61)")
+    }
+    private fun rebuildNoteFtsBlocking(sdb: androidx.sqlite.db.SupportSQLiteDatabase) {
+        noteFtsCreate(sdb)
+        sdb.execSQL("DELETE FROM note_fts")
+        sdb.execSQL("INSERT INTO note_fts(noteId, title, body) SELECT id, title, body FROM notes")
+    }
+    /** Incremental index update for one note's searchable content. Off the main thread, fully guarded. */
+    suspend fun syncNoteFts(id: String, title: String, body: String) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        runCatching {
+            val sdb = ftsDb(); noteFtsCreate(sdb)
+            sdb.execSQL("DELETE FROM note_fts WHERE noteId = ?", arrayOf<Any?>(id))
+            sdb.execSQL("INSERT INTO note_fts(noteId, title, body) VALUES(?, ?, ?)", arrayOf<Any?>(id, title, body))
+        }
+        Unit
+    }
+    private fun deleteNoteFts(sdb: androidx.sqlite.db.SupportSQLiteDatabase, id: String) {
+        runCatching { sdb.execSQL("DELETE FROM note_fts WHERE noteId = ?", arrayOf<Any?>(id)) }
+    }
+    private fun ensureNoteFtsFresh(sdb: androidx.sqlite.db.SupportSQLiteDatabase) {
+        noteFtsCreate(sdb)
+        val ftsCount = runCatching { sdb.query("SELECT count(*) FROM note_fts").use { if (it.moveToFirst()) it.getLong(0) else -1L } }.getOrDefault(-1L)
+        val noteCount = runCatching { sdb.query("SELECT count(*) FROM notes").use { if (it.moveToFirst()) it.getLong(0) else -2L } }.getOrDefault(-2L)
+        if (ftsCount != noteCount) rebuildNoteFtsBlocking(sdb)
+    }
+    /** Note ids whose title/body match [query] (prefix, all-terms). Empty on any failure → caller falls back. */
+    suspend fun searchNoteIds(query: String): List<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        runCatching {
+            val match = query.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+                .joinToString(" ") { it.replace(Regex("[\"*^:()]"), "") + "*" }
+            if (match.isBlank()) return@runCatching emptyList<String>()
+            val sdb = ftsDb(); ensureNoteFtsFresh(sdb)
+            val ids = ArrayList<String>()
+            sdb.query("SELECT noteId FROM note_fts WHERE note_fts MATCH ?", arrayOf<Any?>(match)).use { c ->
+                while (c.moveToNext()) ids += c.getString(0)
+            }
+            ids
+        }.getOrDefault(emptyList())
+    }
+
     /**
      * R56 (Wave B / robustness R1) — DB-side COUNT(*) aggregates. A `SELECT count(*)` is orders of
      * magnitude cheaper than materialising rows into memory just to count them, and it stays fast as the
@@ -190,6 +234,8 @@ class AppRepository(private val db: AppDatabase) {
     private val nudgeEvents = db.nudgeEventDao()
     private val eventCalendars = db.eventCalendarDao()
     private val events = db.eventDao()
+    private val notes = db.noteDao()
+    private val notebooks = db.notebookDao()
     private val templateJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     // ----- task time-travel: sparse revision history (H5) -----
@@ -623,6 +669,68 @@ class AppRepository(private val db: AppDatabase) {
 
     private fun now() = System.currentTimeMillis()
     private fun uid() = UUID.randomUUID().toString()
+
+    // ============ notes (v66) ============
+    fun observeNotes(): Flow<List<com.todocompanion.app.data.entity.NoteEntity>> = notes.observeAll()
+    fun observeNotebooks(): Flow<List<com.todocompanion.app.data.entity.NotebookEntity>> = notebooks.observeAll()
+    suspend fun getNotesOnce(): List<com.todocompanion.app.data.entity.NoteEntity> = notes.getAll()
+    suspend fun getNote(id: String): com.todocompanion.app.data.entity.NoteEntity? = notes.getById(id)
+    suspend fun getNotebooksOnce(): List<com.todocompanion.app.data.entity.NotebookEntity> = notebooks.getAll()
+
+    /** Create (or update) a note, stamping timestamps + sort order, and keep the FTS index fresh. */
+    suspend fun upsertNote(n: com.todocompanion.app.data.entity.NoteEntity): String {
+        val id = n.id.ifBlank { uid() }
+        val stamped = n.copy(
+            id = id,
+            sortOrder = if (n.sortOrder == 0.0) now().toDouble() else n.sortOrder,
+            createdAt = if (n.createdAt == 0L) now() else n.createdAt,
+            updatedAt = now(),
+        )
+        notes.upsert(stamped)
+        syncNoteFts(id, stamped.title, stamped.body)
+        return id
+    }
+
+    /** Soft-delete → Trash (kept for a possible restore, like tasks). FTS row dropped so it stops matching. */
+    suspend fun trashNote(id: String, trashed: Boolean = true) {
+        notes.getById(id)?.let { notes.upsert(it.copy(trashed = trashed, updatedAt = now())) }
+        if (trashed) runCatching { deleteNoteFts(ftsDb(), id) } else notes.getById(id)?.let { syncNoteFts(id, it.title, it.body) }
+    }
+
+    /** Hard-delete a note and everything hanging off it (tags, contexts, attachments, FTS). */
+    suspend fun deleteNote(id: String) {
+        notes.unlinkAllTagsForNote(id)
+        notes.unlinkAllContextsForNote(id)
+        attachments.deleteForNote(id)
+        notes.deleteById(id)
+        runCatching { deleteNoteFts(ftsDb(), id) }
+    }
+
+    suspend fun setNoteTags(noteId: String, tagIds: List<String>) {
+        notes.unlinkAllTagsForNote(noteId)
+        notes.linkTags(tagIds.map { com.todocompanion.app.data.entity.NoteTagCrossRef(noteId, it) })
+    }
+    suspend fun setNoteContexts(noteId: String, contextIds: List<String>) {
+        notes.unlinkAllContextsForNote(noteId)
+        notes.linkContexts(contextIds.map { com.todocompanion.app.data.entity.NoteContextCrossRef(noteId, it) })
+    }
+    suspend fun getNoteTagCrossRefs(): List<com.todocompanion.app.data.entity.NoteTagCrossRef> = notes.getTagCrossRefs()
+    suspend fun getNoteContextCrossRefs(): List<com.todocompanion.app.data.entity.NoteContextCrossRef> = notes.getContextCrossRefs()
+
+    suspend fun upsertNotebook(nb: com.todocompanion.app.data.entity.NotebookEntity): String {
+        val id = nb.id.ifBlank { uid() }
+        notebooks.upsert(nb.copy(
+            id = id,
+            sortOrder = if (nb.sortOrder == 0.0) now().toDouble() else nb.sortOrder,
+            createdAt = if (nb.createdAt == 0L) now() else nb.createdAt,
+        ))
+        return id
+    }
+    /** Delete a notebook; its notes fall back to "no notebook" (never deleted with the notebook). */
+    suspend fun deleteNotebook(id: String) {
+        notes.getAll().filter { it.notebookId == id }.forEach { notes.upsert(it.copy(notebookId = null, updatedAt = now())) }
+        notebooks.deleteById(id)
+    }
 
     // ============ tasks ============
     suspend fun createTask(
@@ -1372,6 +1480,10 @@ class AppRepository(private val db: AppDatabase) {
             revisions = revisions.getAll(),
             eventCalendars = eventCalendars.getAll(),
             events = events.getAll(),
+            notes = notes.getAll(),
+            notebooks = notebooks.getAll(),
+            noteTags = notes.getTagCrossRefs(),
+            noteContexts = notes.getContextCrossRefs(),
         )
     )
 
@@ -1434,6 +1546,7 @@ class AppRepository(private val db: AppDatabase) {
         coreValues.clear(); witnesses.clear(); scorecard.clear(); buddies.clear(); integrityReviews.clear()
         experiments.clear(); activation.clear(); dayLogs.clear()
         escrows.clear(); nudgeEvents.clear(); eventCalendars.clear(); events.clear()
+        notes.clear(); notes.clearTagCrossRefs(); notes.clearContextCrossRefs(); notebooks.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -1462,6 +1575,8 @@ class AppRepository(private val db: AppDatabase) {
         experiments.upsertAll(b.experiments); activation.upsertAll(b.activationItems); dayLogs.upsertAll(b.dayLogs)
         escrows.upsertAll(b.escrows); nudgeEvents.upsertAll(b.nudgeEvents); revisions.upsertAll(b.revisions)
         eventCalendars.upsertAll(b.eventCalendars); events.upsertAll(b.events)
+        notebooks.upsertAll(b.notebooks); notes.upsertAll(b.notes)
+        notes.linkTags(b.noteTags); notes.linkContexts(b.noteContexts)
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()
@@ -1507,6 +1622,10 @@ class AppRepository(private val db: AppDatabase) {
         eventCalendars.upsertAll(missing(eventCalendars.getAll(), b.eventCalendars) { it.id })
         events.upsertAll(missing(events.getAll(), b.events) { it.id })
         attachments.upsertAll(missing(attachments.getAll(), b.attachments) { it.id })
+        notebooks.upsertAll(missing(notebooks.getAll(), b.notebooks) { it.id })
+        notes.upsertAll(missing(notes.getAll(), b.notes) { it.id })
+        notes.linkTags(missing(notes.getTagCrossRefs(), b.noteTags) { it.noteId to it.tagId })
+        notes.linkContexts(missing(notes.getContextCrossRefs(), b.noteContexts) { it.noteId to it.contextId })
     }
 
     /** Full snapshot of the current data as a BackupFile (for sync merges). */
