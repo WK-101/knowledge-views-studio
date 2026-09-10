@@ -402,6 +402,31 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         toast("Imported $imported ${if (imported == 1) "note" else "notes"}")
     }
 
+    /** Wave L — resolve a note's image references (by fileName or attachment id) to local `file://` paths
+     *  for the rich WebView renderer. Inline base64 attachments are materialized into cacheDir once. Fully
+     *  local — no network, no new permission. */
+    suspend fun noteImageMap(noteId: String): Map<String, String> = withContext(Dispatchers.IO) {
+        val out = HashMap<String, String>()
+        val dir = java.io.File(appCtx.cacheDir, "richimg").apply { mkdirs() }
+        repo.noteAttachments(noteId).filter { it.isImage }.forEach { a ->
+            val path = when {
+                !a.filePath.isNullOrBlank() && java.io.File(a.filePath!!).exists() -> a.filePath
+                a.contentBase64.isNotBlank() -> runCatching {
+                    val safe = a.fileName.replace(Regex("[^A-Za-z0-9._-]"), "_").ifBlank { "img" }
+                    val f = java.io.File(dir, "${a.id}_$safe")
+                    if (!f.exists()) f.writeBytes(android.util.Base64.decode(a.contentBase64, android.util.Base64.DEFAULT))
+                    f.absolutePath
+                }.getOrNull()
+                else -> null
+            } ?: return@forEach
+            val uri = "file://$path"
+            out[a.fileName] = uri
+            out["attachment:${a.id}"] = uri
+            out[a.id] = uri
+        }
+        out
+    }
+
     /** Save the note and capture a version snapshot in one ordered coroutine (used on editor close). */
     fun closeNoteEditor(n: com.todocompanion.app.data.entity.NoteEntity) = viewModelScope.launch {
         repo.upsertNote(n.copy(workspaceId = n.workspaceId.ifBlank { activeWorkspace() }))

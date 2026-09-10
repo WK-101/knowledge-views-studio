@@ -748,6 +748,8 @@ class AppRepository(private val db: AppDatabase) {
         notes.linkContexts(contextIds.map { com.todocompanion.app.data.entity.NoteContextCrossRef(noteId, it) })
     }
     suspend fun getNoteTagCrossRefs(): List<com.todocompanion.app.data.entity.NoteTagCrossRef> = notes.getTagCrossRefs()
+    // Wave L — a note's attachment rows (for the rich renderer's inline-image resolution).
+    suspend fun noteAttachments(noteId: String): List<com.todocompanion.app.data.entity.AttachmentEntity> = notes.attachmentsForNote(noteId)
     suspend fun getNoteContextCrossRefs(): List<com.todocompanion.app.data.entity.NoteContextCrossRef> = notes.getContextCrossRefs()
 
     suspend fun upsertNotebook(nb: com.todocompanion.app.data.entity.NotebookEntity): String {

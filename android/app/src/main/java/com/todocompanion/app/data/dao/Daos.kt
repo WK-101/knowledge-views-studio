@@ -808,6 +808,10 @@ interface NoteDao {
     @Query("SELECT fileName FROM attachments WHERE noteId = :noteId")
     suspend fun attachmentNamesForNote(noteId: String): List<String>
 
+    // Wave L — full attachment rows for a note, so the rich renderer can resolve inline images to files.
+    @Query("SELECT * FROM attachments WHERE noteId = :noteId")
+    suspend fun attachmentsForNote(noteId: String): List<com.todocompanion.app.data.entity.AttachmentEntity>
+
     @Upsert
     suspend fun upsert(note: NoteEntity)
 

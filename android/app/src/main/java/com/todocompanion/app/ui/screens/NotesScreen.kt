@@ -490,7 +490,20 @@ fun NoteEditorScreen(
             // source; editing goes through NoteBodyEditor (toolbar · smart lists · undo/redo).
             Box(Modifier.fillMaxWidth().weight(1f)) {
                 if (d.body.isNotBlank() && (preview || d.readonly)) {
-                    androidx.compose.foundation.text.selection.SelectionContainer {
+                    // Wave L — notes with math ($…$ / $$…$$), Mermaid diagrams, or inline images render in
+                    // the offline rich WebView (KaTeX/Mermaid/Prism, bundled). Plain notes keep the native
+                    // renderer, which has tappable checkboxes and [[wiki-link]] taps the WebView can't offer.
+                    val rich = com.todocompanion.app.util.NoteRichRenderer.hasMath(d.body) ||
+                        com.todocompanion.app.util.NoteRichRenderer.hasMermaid(d.body) || d.body.contains("![")
+                    if (rich) {
+                        var richImgs by remember(noteId) { mutableStateOf<Map<String, String>>(emptyMap()) }
+                        androidx.compose.runtime.LaunchedEffect(noteId, d.body) {
+                            richImgs = if (d.body.contains("![")) vm.noteImageMap(noteId) else emptyMap()
+                        }
+                        com.todocompanion.app.ui.components.RichNoteView(
+                            d.body, richImgs, Modifier.fillMaxSize().padding(end = 36.dp),
+                        )
+                    } else androidx.compose.foundation.text.selection.SelectionContainer {
                         MarkdownText(
                             d.body,
                             modifier = Modifier.fillMaxWidth().padding(end = 36.dp),
