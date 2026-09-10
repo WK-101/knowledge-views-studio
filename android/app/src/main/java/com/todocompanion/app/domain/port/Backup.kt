@@ -78,10 +78,12 @@ data class BackupFile(
     val noteRevisions: List<com.todocompanion.app.data.entity.NoteRevisionEntity> = emptyList(),
     // Wave C (v68) — cross-module note→entity link edges. Additive; old backups carry an empty list.
     val noteLinks: List<com.todocompanion.app.data.entity.NoteLinkEntity> = emptyList(),
+    // Wave D (v69) — saved Smart Views (predicate filters). Additive; old backups carry an empty list.
+    val smartViews: List<com.todocompanion.app.data.entity.SmartViewEntity> = emptyList(),
 ) {
     companion object {
         const val FORMAT = "todo-companion"
-        const val VERSION = 18
+        const val VERSION = 19
     }
 }
 

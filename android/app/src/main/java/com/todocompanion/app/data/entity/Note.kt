@@ -91,6 +91,24 @@ data class NoteLinkEntity(
 )
 
 /**
+ * Wave D — a Smart View: a saved, dynamic filter over notes (Standard Notes' predicate model). The
+ * filter itself is a [com.todocompanion.app.domain.NotePredicate] serialized into [predicateJson]; the
+ * app evaluates it on the fly, so a view always reflects the current notes.
+ */
+@Serializable
+@Entity(tableName = "smart_views", indices = [Index("workspaceId")])
+@androidx.compose.runtime.Immutable
+data class SmartViewEntity(
+    @PrimaryKey val id: String,
+    val title: String,
+    val icon: String? = null,
+    val predicateJson: String,
+    val sortOrder: Double = 0.0,
+    val workspaceId: String = WorkspaceEntity.DEFAULT_ID,
+    val createdAt: Long = 0L,
+)
+
+/**
  * An optional dedicated notebook (a folder for notes) — used only when the user picks the "separate
  * notebooks" grouping in Settings. Nestable via [parentId], mirroring [FolderEntity]. When the user
  * instead reuses the folder tree, this table simply stays empty; notes are grouped by [NoteEntity.folderId].

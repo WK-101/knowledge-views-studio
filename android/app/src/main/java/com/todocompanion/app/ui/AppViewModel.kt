@@ -185,6 +185,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // Note ↔ tag cross-refs (for chips on cards / editor). Refreshed on the notes flow so edits reflect.
     val noteTagRefs: StateFlow<List<com.todocompanion.app.data.entity.NoteTagCrossRef>> =
         notes.map { repo.getNoteTagCrossRefs() }.state(emptyList())
+    val smartViews = repo.observeSmartViews().scopedBy { it.workspaceId }
     // R34 — life-systems layer flows.
     val coreValues = repo.allCoreValues.scopedBy { it.workspaceId }
     // R67 — temptation-bundling + implementation-intention micro-plans (settings-JSON, no schema).
@@ -281,6 +282,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun saveNoteRevision(id: String) = viewModelScope.launch { repo.saveNoteRevision(id, settings.value.notesMaxRevisions) }
     fun observeNoteRevisions(id: String) = repo.observeNoteRevisions(id)
     fun observeNoteLinks(id: String) = repo.observeNoteLinks(id)
+    fun saveSmartView(id: String?, title: String, icon: String?, predicate: com.todocompanion.app.domain.NotePredicate) = viewModelScope.launch {
+        val existing = id?.let { vid -> smartViews.value.firstOrNull { it.id == vid } }
+        repo.upsertSmartView(
+            (existing ?: com.todocompanion.app.data.entity.SmartViewEntity(id = "", title = title, predicateJson = "", workspaceId = activeWorkspace()))
+                .copy(title = title.trim().ifBlank { "View" }, icon = icon, predicateJson = com.todocompanion.app.domain.NoteSmartViews.encode(predicate)),
+        )
+    }
+    fun deleteSmartView(id: String) = viewModelScope.launch { repo.deleteSmartView(id) }
     fun restoreNoteRevision(noteId: String, title: String, body: String) = viewModelScope.launch {
         repo.getNote(noteId)?.let { repo.upsertNote(it.copy(title = title, body = body)) }
     }

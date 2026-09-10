@@ -673,6 +673,7 @@ class AppRepository(private val db: AppDatabase) {
     // ============ notes (v66) ============
     private val noteRevisions = db.noteRevisionDao()
     private val noteLinks = db.noteLinkDao()
+    private val smartViews = db.smartViewDao()
     fun observeNotes(): Flow<List<com.todocompanion.app.data.entity.NoteEntity>> = notes.observeAll()
     fun observeNotebooks(): Flow<List<com.todocompanion.app.data.entity.NotebookEntity>> = notebooks.observeAll()
     suspend fun getNotesOnce(): List<com.todocompanion.app.data.entity.NoteEntity> = notes.getAll()
@@ -819,6 +820,20 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun notesLinkingTo(type: String, id: String): List<String> = noteLinks.notesLinkingTo(type, id)
     fun observeNoteLinks(noteId: String): kotlinx.coroutines.flow.Flow<List<com.todocompanion.app.data.entity.NoteLinkEntity>> = noteLinks.observeForNote(noteId)
     suspend fun getNoteLinksOnce(): List<com.todocompanion.app.data.entity.NoteLinkEntity> = noteLinks.getAll()
+
+    // ---- Wave D: Smart Views ----
+    fun observeSmartViews(): kotlinx.coroutines.flow.Flow<List<com.todocompanion.app.data.entity.SmartViewEntity>> = smartViews.observeAll()
+    suspend fun getSmartViewsOnce(): List<com.todocompanion.app.data.entity.SmartViewEntity> = smartViews.getAll()
+    suspend fun upsertSmartView(v: com.todocompanion.app.data.entity.SmartViewEntity): String {
+        val id = v.id.ifBlank { uid() }
+        smartViews.upsert(v.copy(
+            id = id,
+            sortOrder = if (v.sortOrder == 0.0) now().toDouble() else v.sortOrder,
+            createdAt = if (v.createdAt == 0L) now() else v.createdAt,
+        ))
+        return id
+    }
+    suspend fun deleteSmartView(id: String) = smartViews.deleteById(id)
 
     // ============ tasks ============
     suspend fun createTask(
@@ -1574,6 +1589,7 @@ class AppRepository(private val db: AppDatabase) {
             noteContexts = notes.getContextCrossRefs(),
             noteRevisions = noteRevisions.getAll(),
             noteLinks = noteLinks.getAll(),
+            smartViews = smartViews.getAll(),
         )
     )
 
@@ -1636,7 +1652,7 @@ class AppRepository(private val db: AppDatabase) {
         coreValues.clear(); witnesses.clear(); scorecard.clear(); buddies.clear(); integrityReviews.clear()
         experiments.clear(); activation.clear(); dayLogs.clear()
         escrows.clear(); nudgeEvents.clear(); eventCalendars.clear(); events.clear()
-        notes.clear(); notes.clearTagCrossRefs(); notes.clearContextCrossRefs(); notebooks.clear(); noteRevisions.clear(); noteLinks.clear()
+        notes.clear(); notes.clearTagCrossRefs(); notes.clearContextCrossRefs(); notebooks.clear(); noteRevisions.clear(); noteLinks.clear(); smartViews.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -1669,6 +1685,7 @@ class AppRepository(private val db: AppDatabase) {
         notes.linkTags(b.noteTags); notes.linkContexts(b.noteContexts)
         noteRevisions.insertAll(b.noteRevisions)
         noteLinks.insertAll(b.noteLinks)
+        smartViews.upsertAll(b.smartViews)
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()
@@ -1720,6 +1737,7 @@ class AppRepository(private val db: AppDatabase) {
         notes.linkContexts(missing(notes.getContextCrossRefs(), b.noteContexts) { it.noteId to it.contextId })
         noteRevisions.insertAll(missing(noteRevisions.getAll(), b.noteRevisions) { it.id })
         noteLinks.insertAll(missing(noteLinks.getAll(), b.noteLinks) { it.noteId to it.targetTitle })
+        smartViews.upsertAll(missing(smartViews.getAll(), b.smartViews) { it.id })
     }
 
     /** Full snapshot of the current data as a BackupFile (for sync merges). */

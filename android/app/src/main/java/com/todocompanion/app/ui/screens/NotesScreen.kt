@@ -63,6 +63,7 @@ import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.AppColorPicker
 import com.todocompanion.app.ui.components.AppTextField
+import com.todocompanion.app.ui.components.ConfirmDialog
 import com.todocompanion.app.ui.components.EmojiGridPicker
 import com.todocompanion.app.ui.components.EmptyState
 import com.todocompanion.app.ui.components.MarkdownText
@@ -93,6 +94,8 @@ fun NotesScreen(
     val notes by vm.notes.collectAsState()
     val notebooks by vm.notebooks.collectAsState()
     val folders by vm.folders.collectAsState()
+    val smartViews by vm.smartViews.collectAsState()
+    val noteTagRefs by vm.noteTagRefs.collectAsState()
 
     val useNotebooks = settings.notesNotebookMode == "notebooks"
     val grid = settings.noteDefaultView != "list"
@@ -100,6 +103,11 @@ fun NotesScreen(
     var container by remember { mutableStateOf<String?>(null) }   // selected notebookId/folderId, null = All
     var archiveView by remember { mutableStateOf(false) }         // Wave B — the Archive (third state) view
     androidx.compose.runtime.LaunchedEffect(Unit) { vm.purgeExpiredNoteTrash() }  // lazy auto-empty-trash sweep
+    // Wave D — Smart Views: the active predicate filter (null = none), its chip id/label, and dialog state.
+    var activePredicate by remember { mutableStateOf<com.todocompanion.app.domain.NotePredicate?>(null) }
+    var activeLabel by remember { mutableStateOf<String?>(null) }
+    var showBuilder by remember { mutableStateOf(false) }
+    var deleteView by remember { mutableStateOf<com.todocompanion.app.data.entity.SmartViewEntity?>(null) }
 
     // Containers to offer as filter chips, per the user's chosen grouping mode.
     val containers: List<Pair<String, String>> =
@@ -108,9 +116,16 @@ fun NotesScreen(
 
     val filtered = notes
         .asSequence()
-        .filter { n -> if (archiveView) n.archived else !n.archived }
         .filter { n ->
-            container == null || (if (useNotebooks) n.notebookId == container else n.folderId == container)
+            val p = activePredicate
+            if (p != null) com.todocompanion.app.domain.NoteSmartViews.matches(
+                p, com.todocompanion.app.domain.NoteSmartViews.Ctx(
+                    n.pinned, n.favorite, n.archived, n.trashed, n.title, n.body, n.kind, n.updatedAt,
+                    noteTagRefs.filter { it.noteId == n.id }.map { it.tagId }.toSet(), System.currentTimeMillis(),
+                ),
+            )
+            else (if (archiveView) n.archived else !n.archived) &&
+                (container == null || (if (useNotebooks) n.notebookId == container else n.folderId == container))
         }
         .filter { n ->
             query.isBlank() || n.title.contains(query, true) || n.body.contains(query, true)
@@ -135,16 +150,66 @@ fun NotesScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     item {
-                        FilterChip(selected = container == null && !archiveView, onClick = { container = null; archiveView = false }, label = { Text("All") })
+                        FilterChip(selected = container == null && !archiveView && activePredicate == null, onClick = { container = null; archiveView = false; activePredicate = null; activeLabel = null }, label = { Text("All") })
                     }
                     items(containers, key = { it.first }) { (id, name) ->
-                        FilterChip(selected = container == id && !archiveView, onClick = { container = id; archiveView = false }, label = { Text(name) })
+                        FilterChip(selected = container == id && !archiveView && activePredicate == null, onClick = { container = id; archiveView = false; activePredicate = null; activeLabel = null }, label = { Text(name) })
                     }
                     item {
-                        FilterChip(selected = archiveView, onClick = { archiveView = true; container = null }, label = { Text("🗄 Archived") })
+                        FilterChip(selected = archiveView && activePredicate == null, onClick = { archiveView = true; container = null; activePredicate = null; activeLabel = null }, label = { Text("🗄 Archived") })
                     }
                 }
                 Spacer(Modifier.height(4.dp))
+                // Smart Views row: system views + saved views (delete via the trailing ✕) + builder.
+                androidx.compose.foundation.lazy.LazyRow(
+                    contentPadding = PaddingValues(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    val sys = listOf(
+                        "★ Favorites" to com.todocompanion.app.domain.NoteSmartViews.FAVORITES,
+                        "📌 Pinned" to com.todocompanion.app.domain.NoteSmartViews.PINNED,
+                        "🏷 Untagged" to com.todocompanion.app.domain.NoteSmartViews.UNTAGGED,
+                    )
+                    items(sys, key = { it.first }) { (lbl, pred) ->
+                        FilterChip(
+                            selected = activeLabel == lbl,
+                            onClick = {
+                                if (activeLabel == lbl) { activePredicate = null; activeLabel = null }
+                                else { activePredicate = pred; activeLabel = lbl; container = null; archiveView = false }
+                            },
+                            label = { Text(lbl) },
+                        )
+                    }
+                    items(smartViews, key = { it.id }) { v ->
+                        val decoded = remember(v.predicateJson) { com.todocompanion.app.domain.NoteSmartViews.decode(v.predicateJson) }
+                        FilterChip(
+                            selected = activeLabel == v.id,
+                            onClick = {
+                                if (activeLabel == v.id) { activePredicate = null; activeLabel = null }
+                                else if (decoded != null) { activePredicate = decoded; activeLabel = v.id; container = null; archiveView = false }
+                            },
+                            label = { Text((v.icon?.let { "$it " } ?: "🔎 ") + v.title) },
+                            trailingIcon = { Icon(Icons.Filled.Delete, "Delete view", modifier = Modifier.size(16.dp).clickable { deleteView = v }) },
+                        )
+                    }
+                    item {
+                        FilterChip(selected = false, onClick = { showBuilder = true }, label = { Text("＋ Smart View") })
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+            if (showBuilder) SmartViewBuilderDialog(
+                onSave = { t, pred -> vm.saveSmartView(null, t, null, pred); showBuilder = false },
+                onDismiss = { showBuilder = false },
+            )
+            deleteView?.let { v ->
+                ConfirmDialog(
+                    title = "Delete Smart View?",
+                    body = "\"${v.title}\" will be removed. Your notes are untouched.",
+                    confirmLabel = "Delete",
+                    onConfirm = { vm.deleteSmartView(v.id); if (activeLabel == v.id) { activePredicate = null; activeLabel = null }; deleteView = null },
+                    onDismiss = { deleteView = null },
+                )
             }
 
             if (filtered.isEmpty()) {

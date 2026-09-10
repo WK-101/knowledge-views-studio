@@ -32,6 +32,7 @@ import com.todocompanion.app.data.entity.NoteTagCrossRef
 import com.todocompanion.app.data.entity.NoteContextCrossRef
 import com.todocompanion.app.data.entity.NoteRevisionEntity
 import com.todocompanion.app.data.entity.NoteLinkEntity
+import com.todocompanion.app.data.entity.SmartViewEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -903,5 +904,29 @@ interface NoteLinkDao {
     suspend fun clearForNote(noteId: String)
 
     @Query("DELETE FROM note_links")
+    suspend fun clear()
+}
+
+@Dao
+interface SmartViewDao {
+    @Query("SELECT * FROM smart_views ORDER BY sortOrder")
+    fun observeAll(): Flow<List<SmartViewEntity>>
+
+    @Query("SELECT * FROM smart_views")
+    suspend fun getAll(): List<SmartViewEntity>
+
+    @Query("SELECT COALESCE(MAX(sortOrder), 0.0) FROM smart_views")
+    suspend fun maxSortOrder(): Double
+
+    @Upsert
+    suspend fun upsert(view: SmartViewEntity)
+
+    @Upsert
+    suspend fun upsertAll(views: List<SmartViewEntity>)
+
+    @Query("DELETE FROM smart_views WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM smart_views")
     suspend fun clear()
 }

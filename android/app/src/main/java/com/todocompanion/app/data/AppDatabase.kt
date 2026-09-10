@@ -88,8 +88,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.NoteContextCrossRef::class,
         com.todocompanion.app.data.entity.NoteRevisionEntity::class,
         com.todocompanion.app.data.entity.NoteLinkEntity::class,
+        com.todocompanion.app.data.entity.SmartViewEntity::class,
     ],
-    version = 68,
+    version = 69,
     // R73 — export the schema JSON (to app/schemas/) on every build. With 54 hand-written migrations
     // this is the safety net: it lets an instrumented MigrationTest replay the whole chain in CI and
     // fail the build the moment a migration drifts from the entity definitions. Turned on from v59;
@@ -135,6 +136,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun notebookDao(): com.todocompanion.app.data.dao.NotebookDao
     abstract fun noteRevisionDao(): com.todocompanion.app.data.dao.NoteRevisionDao
     abstract fun noteLinkDao(): com.todocompanion.app.data.dao.NoteLinkDao
+    abstract fun smartViewDao(): com.todocompanion.app.data.dao.SmartViewDao
 
     companion object {
         @Volatile
@@ -854,6 +856,18 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Wave D — Smart Views (saved predicate filters over notes).
+        private val MIGRATION_68_69 = object : Migration(68, 69) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `smart_views` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, " +
+                        "`icon` TEXT, `predicateJson` TEXT NOT NULL, `sortOrder` REAL NOT NULL, " +
+                        "`workspaceId` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_smart_views_workspaceId` ON `smart_views` (`workspaceId`)")
+            }
+        }
+
         /**
          * The complete, ordered v5→v63 migration chain. Exposed (and used by the builder below) so an
          * instrumented [androidTest] MigrationTest can replay it against a real SQLite DB and assert the
@@ -870,7 +884,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_47_48, MIGRATION_48_49, MIGRATION_49_50, MIGRATION_50_51, MIGRATION_51_52, MIGRATION_52_53,
             MIGRATION_53_54, MIGRATION_54_55, MIGRATION_55_56, MIGRATION_56_57, MIGRATION_57_58, MIGRATION_58_59,
             MIGRATION_59_60, MIGRATION_60_61, MIGRATION_61_62, MIGRATION_62_63, MIGRATION_63_64,
-            MIGRATION_64_65, MIGRATION_65_66, MIGRATION_66_67, MIGRATION_67_68,
+            MIGRATION_64_65, MIGRATION_65_66, MIGRATION_66_67, MIGRATION_67_68, MIGRATION_68_69,
         )
 
         fun get(context: Context): AppDatabase =
