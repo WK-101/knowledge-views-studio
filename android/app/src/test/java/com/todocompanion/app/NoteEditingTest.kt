@@ -3,6 +3,7 @@ package com.todocompanion.app
 import com.todocompanion.app.domain.NoteEditing
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Wave A — the pure editor mechanics (toolbar wrapping, line prefixes, smart list continuation). */
@@ -76,5 +77,32 @@ class NoteEditingTest {
         assertEquals("# Plan\n- [x] a\n- [x] b", NoteEditing.toggleCheckboxAtLine(text, 1))
         assertEquals("# Plan\n- [ ] a\n- [ ] b", NoteEditing.toggleCheckboxAtLine(text, 2))
         assertEquals(text, NoteEditing.toggleCheckboxAtLine(text, 0))   // heading line: no-op
+    }
+
+    // ── Wave G · quick-insert palette ──
+    @Test fun quickQueryOnlyAtLineStartSlash() {
+        assertEquals("", NoteEditing.quickQuery("/", 1))
+        assertEquals("head", NoteEditing.quickQuery("/head", 5))
+        assertEquals("h1", NoteEditing.quickQuery("intro\n/h1", 9))   // second line begins with / (caret at end)
+        assertNull(NoteEditing.quickQuery("a /head", 7))              // slash not at line start
+        assertNull(NoteEditing.quickQuery("/he ad", 6))              // whitespace dismisses
+    }
+
+    @Test fun filterQuickPrefixRanksFirst() {
+        val hits = NoteEditing.filterQuick("h")
+        assertTrue(hits.isNotEmpty())
+        assertTrue(hits.first().id.startsWith("h"))   // h1/h2/h3 rank above substring matches
+        assertTrue(NoteEditing.filterQuick("zzz").isEmpty())
+    }
+
+    @Test fun applyQuickReplacesSlashTokenAndPlacesCaret() {
+        // "/todo" on its own line → checklist prefix, caret after "- [ ] "
+        val e = NoteEditing.applyQuick("/todo", 5, "- [ ] ", 6)
+        assertEquals("- [ ] ", e.text)
+        assertEquals(6, e.selStart)
+        // preserves following lines and only rewrites the caret's line
+        val e2 = NoteEditing.applyQuick("/quote\nkeep", 6, "> ", 2)
+        assertEquals("> \nkeep", e2.text)
+        assertEquals(2, e2.selStart)
     }
 }

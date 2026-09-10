@@ -180,6 +180,15 @@ dependencies {
     // QR encoding for offline proof-of-work verification (pure Java, no network, no extra permission).
     implementation("com.google.zxing:core:3.5.3")
 
+    // Wave G — CommonMark (GFM) note rendering. Pure-Java, fully offline parser; no network, no extra
+    // permission. Core + tables + strikethrough + task-list-items give headings, tables, callouts (custom),
+    // nested lists, task checkboxes and code blocks; yaml-front-matter powers the .md file interop (Wave K).
+    implementation("org.commonmark:commonmark:0.24.0")
+    implementation("org.commonmark:commonmark-ext-gfm-tables:0.24.0")
+    implementation("org.commonmark:commonmark-ext-gfm-strikethrough:0.24.0")
+    implementation("org.commonmark:commonmark-ext-task-list-items:0.24.0")
+    implementation("org.commonmark:commonmark-ext-yaml-front-matter:0.24.0")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     testImplementation("junit:junit:4.13.2")

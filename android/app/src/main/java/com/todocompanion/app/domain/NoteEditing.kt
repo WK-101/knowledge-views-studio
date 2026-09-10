@@ -2,16 +2,16 @@ package com.todocompanion.app.domain
 
 /**
  * Wave A — the pure text mechanics behind the Notes editor's "feel". No Compose, no Android: just
- * (text, selection) → (text, selection) transforms, so the whole thing is unit-testable and the
+ * (text, selection) -> (text, selection) transforms, so the whole thing is unit-testable and the
  * Compose layer stays a thin shell. Mirrors the [NoteLinks] pattern (pure domain + a test peer).
  *
- *   • [wrapInline]        — bold/italic/strike/code: wrap the selection, or drop an empty pair with
- *                           the caret parked inside (the WriteOn `TextRange` trick, improved to wrap
- *                           a real selection when one exists).
- *   • [insertLinePrefix]  — heading/quote/bullet/checkbox: prepend a marker to the caret's line.
- *   • [continueList]      — smart list continuation on Enter (bullets, auto-incrementing numbers,
- *                           `- [ ]`, preserved indent; an empty marker line exits the list).
- *   • [toggleCheckboxAtLine] — flip `[ ]`↔`[x]` on one source line, for tappable preview checkboxes.
+ *   - [wrapInline]         — bold/italic/strike/code: wrap the selection, or drop an empty pair with
+ *                            the caret parked inside.
+ *   - [insertLinePrefix]   — heading/quote/bullet/checkbox: prepend a marker to the caret's line.
+ *   - [continueList]       — smart list continuation on Enter (bullets, auto-incrementing numbers,
+ *                            `- [ ]`, preserved indent; an empty marker line exits the list).
+ *   - [toggleCheckboxAtLine] — flip `[ ]`<->`[x]` on one source line, for tappable preview checkboxes.
+ *   - Wave G: the `/` quick-insert palette ([quickQuery]/[filterQuick]/[applyQuick]).
  */
 object NoteEditing {
     /** A text edit plus where the selection should land afterwards (a collapsed caret when start==end). */
@@ -99,6 +99,63 @@ object NoteEditing {
         val next = if (state.equals("x", ignoreCase = true)) " " else "x"
         lines[lineIndex] = "$pre[$next]$rest"
         return lines.joinToString("\n")
+    }
+
+    // ── Wave G · the "/" quick-insert palette (Markleaf-style) ──────────────────────────────────────
+    /** A slash-command: [label] shown, [hint] the syntax preview, [snippet] inserted verbatim, and
+     *  [caretOffset] = where the caret lands inside the snippet (-1 = its end). [dynamic] commands
+     *  (date/time) carry an empty snippet, resolved by the caller at insert time. */
+    data class QuickCommand(
+        val id: String, val label: String, val hint: String,
+        val snippet: String, val caretOffset: Int = -1, val dynamic: Boolean = false,
+    )
+
+    val QUICK_COMMANDS: List<QuickCommand> = listOf(
+        QuickCommand("h1", "Heading 1", "# ", "# ", 2),
+        QuickCommand("h2", "Heading 2", "## ", "## ", 3),
+        QuickCommand("h3", "Heading 3", "### ", "### ", 4),
+        QuickCommand("bullet", "Bullet list", "- ", "- ", 2),
+        QuickCommand("number", "Numbered list", "1. ", "1. ", 3),
+        QuickCommand("todo", "Checklist item", "- [ ] ", "- [ ] ", 6),
+        QuickCommand("quote", "Quote", "> ", "> ", 2),
+        QuickCommand("callout", "Callout", "> [!NOTE]", "> [!NOTE]\n> "),
+        QuickCommand("code", "Code block", "``` ```", "```\n\n```", 4),
+        QuickCommand("table", "Table", "| col | col |", "| Column | Column |\n| --- | --- |\n|  |  |\n"),
+        QuickCommand("divider", "Divider", "---", "\n---\n"),
+        QuickCommand("wikilink", "Wiki-link", "[[ ]]", "[[]]", 2),
+        QuickCommand("date", "Today's date", "YYYY-MM-DD", "", dynamic = true),
+        QuickCommand("time", "Current time", "HH:mm", "", dynamic = true),
+    )
+
+    /** If the caret sits in a `/query` token that begins its own line, return the query (may be empty just
+     *  after typing `/`); else null. Whitespace in the token dismisses the palette. */
+    fun quickQuery(text: String, caret: Int): String? {
+        val c = caret.coerceIn(0, text.length)
+        val lineStart = lineStartOf(text, c)
+        if (lineStart >= text.length || text[lineStart] != '/') return null
+        val seg = text.substring(lineStart + 1, c)
+        if (seg.any { it.isWhitespace() }) return null
+        return seg
+    }
+
+    /** Commands matching [query] (prefix on id/label ranks first; then substring). */
+    fun filterQuick(query: String): List<QuickCommand> {
+        val q = query.trim().lowercase()
+        if (q.isEmpty()) return QUICK_COMMANDS
+        return QUICK_COMMANDS
+            .filter { it.id.contains(q) || it.label.lowercase().contains(q) }
+            .sortedByDescending { it.id.startsWith(q) || it.label.lowercase().startsWith(q) }
+    }
+
+    /** Replace the `/query` token on the caret's line with [snippet], landing the caret at [caretOffset]
+     *  within it (-1 = end). For a [QuickCommand.dynamic] command pass the resolved text as [snippet]. */
+    fun applyQuick(text: String, caret: Int, snippet: String, caretOffset: Int = -1): Edit {
+        val c = caret.coerceIn(0, text.length)
+        val lineStart = lineStartOf(text, c)
+        val nt = text.substring(0, lineStart) + snippet + text.substring(c)
+        val within = if (caretOffset in 0..snippet.length) caretOffset else snippet.length
+        val sel = lineStart + within
+        return Edit(nt, sel, sel)
     }
 
     private fun continueWith(text: String, caret: Int, marker: String): Edit {

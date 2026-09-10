@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -104,6 +105,17 @@ fun NoteBodyEditor(
                 onUndo = { if (undo.isNotEmpty()) { val prev = undo.removeAt(undo.lastIndex); redo.add(tfv); tfv = prev; onValueChange(prev.text) } },
                 onRedo = { if (redo.isNotEmpty()) { val nx = redo.removeAt(redo.lastIndex); undo.add(tfv); tfv = nx; onValueChange(nx.text) } },
             )
+            // Wave G — the "/" quick-insert palette: type "/" at the start of a line for a filterable menu
+            // of block snippets (headings, lists, callout, code, table, wiki-link, date/time). Pure logic
+            // lives in NoteEditing; this is the thin chip row over it.
+            val slashQuery = if (tfv.selection.collapsed) NoteEditing.quickQuery(tfv.text, tfv.selection.start) else null
+            if (slashQuery != null) {
+                val cmds = NoteEditing.filterQuick(slashQuery)
+                if (cmds.isNotEmpty()) QuickInsertBar(cmds) { cmd ->
+                    val snippet = if (cmd.dynamic) dynamicSnippet(cmd.id) else cmd.snippet
+                    apply(NoteEditing.applyQuick(tfv.text, tfv.selection.start, snippet, if (cmd.dynamic) -1 else cmd.caretOffset))
+                }
+            }
         }
         TextField(
             value = tfv,
@@ -116,6 +128,36 @@ fun NoteBodyEditor(
             shape = RoundedCornerShape(12.dp),
         )
     }
+}
+
+/** Wave G — the slash-command chip row shown while typing a `/query` at line start. */
+@Composable
+private fun QuickInsertBar(commands: List<NoteEditing.QuickCommand>, onPick: (NoteEditing.QuickCommand) -> Unit) {
+    LazyRow(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        items(commands, key = { it.id }) { cmd ->
+            Surface(
+                onClick = { onPick(cmd) },
+                shape = RoundedCornerShape(9.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                modifier = Modifier.height(34.dp),
+            ) {
+                Row(Modifier.padding(horizontal = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(cmd.label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Text("  ${cmd.hint}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = .6f), maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+/** Resolve a dynamic quick-insert snippet (date/time) at insert time — fully local, no locale surprises. */
+private fun dynamicSnippet(id: String): String = when (id) {
+    "date" -> java.time.LocalDate.now().toString()
+    "time" -> java.time.LocalTime.now().let { "%02d:%02d".format(it.hour, it.minute) }
+    else -> ""
 }
 
 @Composable
