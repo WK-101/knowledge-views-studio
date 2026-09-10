@@ -551,6 +551,8 @@ fun AppRoot(
                     quickAddDue = null; quickAddWithTime = false; showQuickAdd = true; goTasks(); launchAction.value = null
                 }
                 a != null && a.startsWith("open_task:") -> { openTask(a.removePrefix("open_task:")); launchAction.value = null }
+                // Wave F — a note reminder fired: open that note's editor (overlay, tab-independent).
+                a != null && a.startsWith("open_note:") -> { openNote(a.removePrefix("open_note:")); launchAction.value = null }
                 // R59 (Wave 2) — permission-free place reminder: an NFC/QR/shortcut arrival fires armed reminders.
                 a != null && a.startsWith("arrive:") -> { vm.fireArrivalReminders(a.removePrefix("arrive:")); launchAction.value = null }
                 a == "open_focus" -> { tab = Tab.FOCUS; launchAction.value = null }

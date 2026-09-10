@@ -409,6 +409,23 @@ object Notifications {
         post(context, SEALED_LETTER_BASE + (id.hashCode() and 0x3FF), n)
     }
 
+    const val NOTE_REMINDER_BASE = 424500
+
+    /** Wave F — a note's own reminder fired. Tapping opens that note (open_note:<id>). One-shot, no
+     *  task actions — the reminder simply resurfaces the note at the moment the user asked for it. */
+    fun showNote(context: Context, noteId: String, title: String) {
+        ensureChannel(context)
+        val n = builder(context)
+            .setSmallIcon(android.R.drawable.ic_menu_edit)
+            .setContentTitle(title.ifBlank { "Note reminder" })
+            .setContentText("Tap to open your note.")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(openAppRoute(context, "open_note:$noteId", ("noterem:$noteId").hashCode()))
+            .build()
+        post(context, NOTE_REMINDER_BASE + (noteId.hashCode() and 0x3FF), n)
+    }
+
     /** N2: celebrate a habit reaching its self-chosen reward streak. */
     fun showReward(context: Context, name: String, reward: String, streak: Int) {
         ensureChannel(context)

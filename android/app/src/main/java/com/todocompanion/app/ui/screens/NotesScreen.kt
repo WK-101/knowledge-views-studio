@@ -337,6 +337,7 @@ fun NoteEditorScreen(
     val scope = rememberCoroutineScope()
     var showHistory by remember { mutableStateOf(false) }
     var showOutline by remember { mutableStateOf(false) }
+    var showReminder by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
 
     fun persist(n: NoteEntity) { draft = n; vm.saveNote(n) }
@@ -388,6 +389,7 @@ fun NoteEditorScreen(
                             }
                             DropdownMenuItem(text = { Text(if (d.readonly) "Allow editing" else "Make read-only") }, onClick = { val wasRo = d.readonly; menu = false; persist(d.copy(readonly = !wasRo)); if (!wasRo) preview = true })
                             DropdownMenuItem(text = { Text("Outline") }, onClick = { menu = false; showOutline = true })
+                            DropdownMenuItem(text = { Text(if (d.reminderAt != null) "⏰ Reminder set — change…" else "⏰ Remind me…") }, onClick = { menu = false; showReminder = true })
                             DropdownMenuItem(text = { Text("Version history") }, onClick = { menu = false; showHistory = true })
                             DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menu = false; draft?.let { vm.closeNoteEditor(it) }; vm.duplicateNote(noteId) { id -> onOpenNote(id) } })
                             DropdownMenuItem(text = { Text("Archive") }, onClick = { menu = false; vm.archiveNote(noteId); onBack() })
@@ -440,11 +442,19 @@ fun NoteEditorScreen(
             val dayLabel = if (d.kind == "journal" && d.dayEpoch != null) runCatching {
                 java.time.LocalDate.ofEpochDay(d.dayEpoch!!).format(java.time.format.DateTimeFormatter.ofPattern("EEE, d MMM yyyy"))
             }.getOrNull() else null
-            if (dayLabel != null || d.linkedEventId != null || d.linkedTaskId != null) {
+            // Wave F — a glanceable chip for the note's own reminder (tap to change/clear).
+            val reminderLabel = d.reminderAt?.let { at ->
+                runCatching {
+                    java.time.Instant.ofEpochMilli(at).atZone(java.time.ZoneId.systemDefault())
+                        .format(java.time.format.DateTimeFormatter.ofPattern("d MMM · h:mm a"))
+                }.getOrNull()
+            }
+            if (dayLabel != null || d.linkedEventId != null || d.linkedTaskId != null || reminderLabel != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (dayLabel != null) FilterChip(selected = true, onClick = {}, label = { Text("🗓  $dayLabel") })
                     if (d.linkedEventId != null) FilterChip(selected = true, onClick = {}, label = { Text("📅  Meeting note") })
                     if (d.linkedTaskId != null) FilterChip(selected = true, onClick = { onOpenTask(d.linkedTaskId!!) }, label = { Text("🔗  Linked task") })
+                    if (reminderLabel != null) FilterChip(selected = true, onClick = { showReminder = true }, label = { Text("⏰  $reminderLabel") })
                 }
             }
             // Body — viewer until edit. Preview checkboxes are tappable and round-trip to the Markdown
@@ -599,6 +609,11 @@ fun NoteEditorScreen(
     }
     if (showAbout) NoteAboutDialog(d, onDismiss = { showAbout = false })
     if (showOutline) NoteOutlineDialog(d.body, onDismiss = { showOutline = false })
+    if (showReminder) NoteReminderDialog(
+        current = d.reminderAt,
+        onSet = { at -> vm.setNoteReminder(noteId, at); draft = d.copy(reminderAt = at); showReminder = false },
+        onDismiss = { showReminder = false },
+    )
     if (showHistory) NoteVersionHistoryDialog(
         revisions = revisions,
         onRestore = { r -> vm.restoreNoteRevision(noteId, r.title, r.body); draft = d.copy(title = r.title, body = r.body); showHistory = false },

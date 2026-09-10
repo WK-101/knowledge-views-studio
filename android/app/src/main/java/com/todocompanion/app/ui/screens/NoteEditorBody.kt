@@ -17,12 +17,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -261,6 +266,91 @@ fun NoteOutlineDialog(body: String, onDismiss: () -> Unit) {
             }
         },
     )
+}
+
+/**
+ * Wave F — a note's own one-shot reminder picker. Presets cover the common cases; "Pick date & time"
+ * steps through a themed date then time picker. Fully offline — it just chooses an epoch-milli that the
+ * existing AlarmScheduler/Notifications engine fires (no new permission). [onSet] receives null to clear.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NoteReminderDialog(
+    current: Long?,
+    onSet: (Long?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val zone = java.time.ZoneId.systemDefault()
+    val now = java.time.LocalDateTime.now(zone)
+    fun ms(dt: java.time.LocalDateTime) = dt.atZone(zone).toInstant().toEpochMilli()
+    var step by remember { mutableStateOf("presets") }        // presets | date | time
+    var pickedDate by remember { mutableStateOf(now.toLocalDate()) }
+
+    when (step) {
+        "date" -> {
+            val dateState = rememberDatePickerState(
+                initialSelectedDateMillis = pickedDate.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli(),
+            )
+            DatePickerDialog(
+                onDismissRequest = onDismiss,
+                confirmButton = {
+                    TextButton(onClick = {
+                        dateState.selectedDateMillis?.let { pickedDate = java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneOffset.UTC).toLocalDate() }
+                        step = "time"
+                    }) { Text("Next") }
+                },
+                dismissButton = { TextButton(onClick = { step = "presets" }) { Text("Back") } },
+            ) { DatePicker(state = dateState, showModeToggle = false) }
+        }
+        "time" -> {
+            val timeState = rememberTimePickerState(initialHour = 9, initialMinute = 0, is24Hour = false)
+            AlertDialog(
+                onDismissRequest = onDismiss,
+                confirmButton = { TextButton(onClick = { onSet(ms(pickedDate.atTime(timeState.hour, timeState.minute))) }) { Text("Set") } },
+                dismissButton = { TextButton(onClick = { step = "date" }) { Text("Back") } },
+                title = { Text("Reminder time") },
+                text = { Column { TimePicker(state = timeState) } },
+            )
+        }
+        else -> {
+            val evening = now.toLocalDate().atTime(18, 0).let { if (it.isAfter(now)) it else it.plusDays(1) }
+            val presets = listOf(
+                "In 1 hour" to now.plusHours(1),
+                "This evening · 6:00 PM" to evening,
+                "Tomorrow · 9:00 AM" to now.toLocalDate().plusDays(1).atTime(9, 0),
+                "In 3 days · 9:00 AM" to now.toLocalDate().plusDays(3).atTime(9, 0),
+                "Next week · 9:00 AM" to now.toLocalDate().plusWeeks(1).atTime(9, 0),
+            )
+            AlertDialog(
+                onDismissRequest = onDismiss,
+                confirmButton = {},
+                dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+                title = { Text("Remind me") },
+                text = {
+                    Column {
+                        if (current != null) {
+                            val cur = runCatching {
+                                java.time.Instant.ofEpochMilli(current).atZone(zone)
+                                    .format(java.time.format.DateTimeFormatter.ofPattern("EEE, d MMM · h:mm a"))
+                            }.getOrDefault("")
+                            Text("Current · $cur", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 6.dp))
+                        }
+                        presets.forEach { (label, dt) ->
+                            Text(label, Modifier.fillMaxWidth().clickable { onSet(ms(dt)) }.padding(vertical = 11.dp),
+                                style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                        Text("Pick date & time…", Modifier.fillMaxWidth().clickable { pickedDate = now.toLocalDate(); step = "date" }.padding(vertical = 11.dp),
+                            style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+                        if (current != null) {
+                            Text("Clear reminder", Modifier.fillMaxWidth().clickable { onSet(null) }.padding(vertical = 11.dp),
+                                style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                },
+            )
+        }
+    }
 }
 
 @Composable

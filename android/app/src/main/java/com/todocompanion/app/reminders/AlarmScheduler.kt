@@ -56,6 +56,11 @@ object AlarmScheduler {
     const val EXTRA_ROUTINE_ID = "routineId"
     const val EXTRA_ROUTINE_NAME = "routineName"
     const val EXTRA_ROUTINE_MIN = "routineMin"
+    // Wave F — a note's own one-shot local reminder. Fires once at the user-chosen time through the exact-
+    // alarm + notification infra already in the manifest (no new permission).
+    const val ACTION_NOTE_REMINDER = "com.todocompanion.app.action.NOTE_REMINDER"
+    const val EXTRA_NOTE_ID = "noteId"
+    const val EXTRA_NOTE_TITLE = "noteTitle"
 
     private const val SUMMARY_REQ = 918_273
     private const val EVENING_REQ = 918_275
@@ -489,5 +494,32 @@ object AlarmScheduler {
     /** Re-arm every event's alerts (startup / boot). Self-healing: past occurrences simply don't schedule. */
     suspend fun rescheduleEventAlerts(context: Context, repo: AppRepository) {
         repo.eventsOnce().filter { it.recurrenceParentId == null }.forEach { scheduleEventAlerts(context, it) }
+    }
+
+    // ---------- Wave F · note reminders ----------
+    private fun noteReqCode(noteId: String): Int = (("note:$noteId").hashCode() and 0x3FFFFFFF) + 6_000_000
+
+    /** Arm a one-shot reminder for a note at [atMillis]. Idempotent per note id (FLAG_UPDATE_CURRENT), so
+     *  re-arming with a new time simply replaces the pending alarm. A past time is ignored. */
+    fun scheduleNoteReminder(context: Context, noteId: String, title: String, atMillis: Long) {
+        if (atMillis <= System.currentTimeMillis()) return
+        setAlarm(context, atMillis, broadcast(context, ACTION_NOTE_REMINDER, noteReqCode(noteId),
+            mapOf(EXTRA_NOTE_ID to noteId, EXTRA_NOTE_TITLE to title)))
+    }
+
+    fun cancelNoteReminder(context: Context, noteId: String) {
+        val am = context.getSystemService(AlarmManager::class.java) ?: return
+        am.cancel(broadcast(context, ACTION_NOTE_REMINDER, noteReqCode(noteId), emptyMap()))
+    }
+
+    /** Re-arm every note whose reminder is still in the future (app start / boot). Self-healing: a note
+     *  whose reminder has passed, been cleared, or been trashed simply doesn't schedule. */
+    suspend fun rescheduleAllNoteReminders(context: Context, repo: AppRepository) {
+        val now = System.currentTimeMillis()
+        repo.getNotesOnce().forEach { n ->
+            val at = n.reminderAt ?: return@forEach
+            if (n.trashed || at <= now) return@forEach
+            scheduleNoteReminder(context, n.id, n.title.ifBlank { "Note" }, at)
+        }
     }
 }

@@ -296,6 +296,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun restoreNoteRevision(noteId: String, title: String, body: String) = viewModelScope.launch {
         repo.getNote(noteId)?.let { repo.upsertNote(it.copy(title = title, body = body)) }
     }
+    // ── Wave F: a note's own one-shot local reminder (reuses the existing AlarmScheduler — no new permission).
+    /** Set (or clear, when [atMillis] is null) a note's reminder and arm/cancel its alarm accordingly. */
+    fun setNoteReminder(noteId: String, atMillis: Long?) = viewModelScope.launch {
+        repo.setNoteReminderAt(noteId, atMillis)
+        val title = repo.getNote(noteId)?.title?.ifBlank { "Note" } ?: "Note"
+        if (atMillis != null && atMillis > System.currentTimeMillis())
+            com.todocompanion.app.reminders.AlarmScheduler.scheduleNoteReminder(appCtx, noteId, title, atMillis)
+        else
+            com.todocompanion.app.reminders.AlarmScheduler.cancelNoteReminder(appCtx, noteId)
+    }
     fun setNotesTrashRetention(days: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesTrashRetentionDays = days)) }
     fun setNotesMaxRevisions(n: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesMaxRevisions = n)) }
     /** Lazy on-open sweep — hard-delete trashed notes older than the retention setting (0 = never). */

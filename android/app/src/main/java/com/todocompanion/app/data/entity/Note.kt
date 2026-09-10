@@ -49,6 +49,9 @@ data class NoteEntity(
     val readonly: Boolean = false,
     val deletedAt: Long? = null,
     val deletedBy: String? = null,      // user | app | expired
+    // Wave F (v70): an optional local reminder time. Fired by the existing AlarmScheduler/Notifications
+    // engine (no new permission) and rides the note's own backup — no envelope change.
+    val reminderAt: Long? = null,
 )
 
 /**

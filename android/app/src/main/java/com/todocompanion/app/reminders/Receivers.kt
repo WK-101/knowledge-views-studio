@@ -371,6 +371,29 @@ class ReminderReceiver : BroadcastReceiver() {
                     } finally { pending.finish() }
                 }
             }
+
+            AlarmScheduler.ACTION_NOTE_REMINDER -> {
+                if (app == null) return
+                val noteId = intent.getStringExtra(AlarmScheduler.EXTRA_NOTE_ID) ?: return
+                val noteTitle = intent.getStringExtra(AlarmScheduler.EXTRA_NOTE_TITLE) ?: "Note"
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val note = app.repository.getNote(noteId) ?: return@launch
+                        // Self-heal: the reminder was cleared or the note trashed after arming — do nothing.
+                        if (note.trashed || note.reminderAt == null) return@launch
+                        // R59 — honour quiet hours: hold the ping until quiet hours end, then re-arm.
+                        val deferUntil = AlarmScheduler.quietDeferUntil(System.currentTimeMillis())
+                        if (deferUntil != null) {
+                            AlarmScheduler.scheduleNoteReminder(context, noteId, note.title.ifBlank { noteTitle }, deferUntil)
+                            return@launch
+                        }
+                        Notifications.showNote(context, noteId, note.title.ifBlank { noteTitle })
+                        // One-shot: clear the reminder so it neither re-fires on boot nor lingers in the editor.
+                        app.repository.clearNoteReminder(noteId)
+                    } finally { pending.finish() }
+                }
+            }
         }
     }
 }
@@ -395,6 +418,7 @@ class BootReceiver : BroadcastReceiver() {
                 if (s.autoTrackPrompt) AlarmScheduler.scheduleTrackPrompts(context, app.repository)
                 AlarmScheduler.rescheduleEventAlerts(context, app.repository)
                 AlarmScheduler.rescheduleSealedLetters(context, app.repository)   // Track 3.4
+                AlarmScheduler.rescheduleAllNoteReminders(context, app.repository)   // Wave F
                 com.todocompanion.app.widget.Widgets.scheduleMidnight(context)
             } finally { pending.finish() }
         }
