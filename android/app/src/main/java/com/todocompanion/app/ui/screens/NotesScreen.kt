@@ -515,6 +515,8 @@ fun NoteEditorScreen(
                         value = d.body, onValueChange = { draft = d.copy(body = it) },
                         modifier = Modifier.fillMaxWidth().padding(end = 36.dp),
                         readOnly = d.readonly,
+                        noteTitles = notes.filter { it.id != noteId && !it.trashed && it.title.isNotBlank() }.map { it.title },
+                        tagNames = tags.map { it.name },
                     )
                 }
                 if (d.body.isNotBlank() && !d.readonly) {

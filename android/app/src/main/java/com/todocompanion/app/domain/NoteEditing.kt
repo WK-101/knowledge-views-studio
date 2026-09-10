@@ -158,6 +158,51 @@ object NoteEditing {
         return Edit(nt, sel, sel)
     }
 
+    // ── Wave M · cursor-anchored [[wiki]] / #tag autocomplete (FastLog-style backward scan) ──────────
+    /** If the caret sits inside an open `[[…` (no closing `]]`, `[[`, or newline between), return the
+     *  partial title being typed (may be empty right after `[[`); else null. */
+    fun linkAutocompleteQuery(text: String, caret: Int): String? {
+        val c = caret.coerceIn(0, text.length)
+        val open = text.lastIndexOf("[[", (c - 1).coerceAtLeast(0))
+        if (open < 0 || open + 2 > c) return null
+        val seg = text.substring(open + 2, c)
+        if (seg.contains('\n') || seg.contains("]]") || seg.contains("[[")) return null
+        return seg
+    }
+
+    /** If the caret is at the end of an inline `#token` (≥1 char after `#`, tag chars only, preceded by
+     *  whitespace/start so a `# heading` doesn't trigger), return the partial tag; else null. */
+    fun tagAutocompleteQuery(text: String, caret: Int): String? {
+        val c = caret.coerceIn(0, text.length)
+        var i = c
+        while (i > 0 && !text[i - 1].isWhitespace()) i--
+        val token = text.substring(i, c)
+        if (token.length < 2 || token[0] != '#') return null
+        val body = token.substring(1)
+        if (body.any { !(it.isLetterOrDigit() || it == '-' || it == '_' || it == '/') }) return null
+        return body
+    }
+
+    /** Replace the open `[[query` at the caret with a finished `[[title]]`, caret after the `]]`. */
+    fun applyLink(text: String, caret: Int, title: String): Edit {
+        val c = caret.coerceIn(0, text.length)
+        val open = text.lastIndexOf("[[", (c - 1).coerceAtLeast(0))
+        if (open < 0) return Edit(text, c, c)
+        val nt = text.substring(0, open) + "[[" + title + "]]" + text.substring(c)
+        val sel = open + 2 + title.length + 2
+        return Edit(nt, sel, sel)
+    }
+
+    /** Replace the `#query` token at the caret with `#tag ` (trailing space), caret after it. */
+    fun applyTag(text: String, caret: Int, tag: String): Edit {
+        val c = caret.coerceIn(0, text.length)
+        var i = c
+        while (i > 0 && !text[i - 1].isWhitespace()) i--
+        val nt = text.substring(0, i) + "#" + tag + " " + text.substring(c)
+        val sel = i + 1 + tag.length + 1
+        return Edit(nt, sel, sel)
+    }
+
     private fun continueWith(text: String, caret: Int, marker: String): Edit {
         val nt = text.substring(0, caret) + marker + text.substring(caret)
         return Edit(nt, caret + marker.length, caret + marker.length)

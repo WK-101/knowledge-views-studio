@@ -54,7 +54,8 @@ object NoteRichRenderer {
      * Assemble the complete HTML document. [images] maps a Markdown image ref (the `src` as written) to a
      * resolved local `file://` path; refs not in the map that look remote (`http`) render as blocked.
      */
-    fun buildDocument(md: String, theme: Theme, images: Map<String, String> = emptyMap()): String {
+    fun buildDocument(source: String, theme: Theme, images: Map<String, String> = emptyMap()): String {
+        val md = csvToTables(source)   // Wave M — a ```csv block becomes a GFM table before parsing
         val math = hasMath(md); val mermaid = hasMermaid(md); val code = hasCode(md)
         val body = rewriteImages(bodyHtml(md), images)
         val prismTheme = if (theme.dark) "prism/prism-dark.css" else "prism/prism-light.css"
@@ -168,6 +169,39 @@ object NoteRichRenderer {
           border-radius:8px;color:${t.muted};font-size:.85em}
         .katex-display{overflow-x:auto;overflow-y:hidden;padding:.2em 0}
     """.trimIndent()
+
+    // ── Wave M · CSV → GFM table (a ```csv fenced block renders as a real table) ──
+    private val csvFence = Regex("(?ms)^```csv[^\\n]*\\n(.*?)\\n```[ \\t]*$")
+    internal fun csvToTables(md: String): String = csvFence.replace(md) { m -> csvToGfm(m.groupValues[1]) }
+
+    private fun csvToGfm(block: String): String {
+        val rows = block.trim('\n').split("\n").filter { it.isNotBlank() }.map { splitCsv(it) }
+        if (rows.isEmpty()) return block
+        val cols = rows.maxOf { it.size }.coerceAtLeast(1)
+        val sb = StringBuilder("\n")
+        fun row(cells: List<String>) {
+            sb.append("|")
+            for (i in 0 until cols) sb.append(' ').append((cells.getOrNull(i) ?: "").trim().replace("|", "\\|")).append(" |")
+            sb.append("\n")
+        }
+        row(rows[0]); sb.append("|"); repeat(cols) { sb.append(" --- |") }; sb.append("\n")
+        rows.drop(1).forEach { row(it) }
+        return sb.toString()
+    }
+
+    private fun splitCsv(line: String): List<String> {
+        val out = ArrayList<String>(); val sb = StringBuilder(); var q = false; var i = 0
+        while (i < line.length) {
+            val ch = line[i]
+            when {
+                ch == '"' -> if (q && i + 1 < line.length && line[i + 1] == '"') { sb.append('"'); i++ } else q = !q
+                ch == ',' && !q -> { out.add(sb.toString()); sb.setLength(0) }
+                else -> sb.append(ch)
+            }
+            i++
+        }
+        out.add(sb.toString()); return out
+    }
 
     private fun escape(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     private fun escapeAttr(s: String) = s.replace("&", "&amp;").replace("\"", "&quot;")

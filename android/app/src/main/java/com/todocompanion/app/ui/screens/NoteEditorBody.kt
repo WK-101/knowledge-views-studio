@@ -66,6 +66,8 @@ fun NoteBodyEditor(
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     readOnly: Boolean = false,
+    noteTitles: List<String> = emptyList(),
+    tagNames: List<String> = emptyList(),
 ) {
     var tfv by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
     // Resync only when the body changes from OUTSIDE (a toolbar-inserted link elsewhere, a fresh note);
@@ -120,6 +122,23 @@ fun NoteBodyEditor(
                     apply(NoteEditing.applyQuick(tfv.text, tfv.selection.start, snippet, if (cmd.dynamic) -1 else cmd.caretOffset))
                 }
             }
+            // Wave M — [[wiki]] / #tag autocomplete: type "[[" or "#word" for matching titles / tags.
+            val linkQ = if (tfv.selection.collapsed) NoteEditing.linkAutocompleteQuery(tfv.text, tfv.selection.start) else null
+            if (linkQ != null && noteTitles.isNotEmpty()) {
+                val q = linkQ.trim().lowercase()
+                val matches = noteTitles.asSequence().filter { it.isNotBlank() }.distinct()
+                    .filter { q.isEmpty() || it.lowercase().contains(q) }
+                    .sortedByDescending { it.lowercase().startsWith(q) }.take(8).toList()
+                if (matches.isNotEmpty()) TokenBar(matches.map { "[[$it]]" }, matches) { t -> apply(NoteEditing.applyLink(tfv.text, tfv.selection.start, t)) }
+            }
+            val tagQ = if (tfv.selection.collapsed) NoteEditing.tagAutocompleteQuery(tfv.text, tfv.selection.start) else null
+            if (tagQ != null && tagNames.isNotEmpty()) {
+                val q = tagQ.trim().lowercase()
+                val matches = tagNames.asSequence().filter { it.isNotBlank() }.distinct()
+                    .filter { it.lowercase().contains(q) }
+                    .sortedByDescending { it.lowercase().startsWith(q) }.take(8).toList()
+                if (matches.isNotEmpty()) TokenBar(matches.map { "#$it" }, matches) { t -> apply(NoteEditing.applyTag(tfv.text, tfv.selection.start, t)) }
+            }
         }
         TextField(
             value = tfv,
@@ -151,6 +170,29 @@ private fun QuickInsertBar(commands: List<NoteEditing.QuickCommand>, onPick: (No
                 Row(Modifier.padding(horizontal = 11.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(cmd.label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
                     Text("  ${cmd.hint}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = .6f), maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+/** Wave M — a chip row of autocomplete candidates ([[wiki]] titles or #tags); [labels] are shown,
+ *  the parallel [values] are handed to [onPick]. */
+@Composable
+private fun TokenBar(labels: List<String>, values: List<String>, onPick: (String) -> Unit) {
+    LazyRow(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        items(labels.indices.toList(), key = { it }) { i ->
+            Surface(
+                onClick = { onPick(values[i]) },
+                shape = RoundedCornerShape(9.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                modifier = Modifier.height(34.dp),
+            ) {
+                Row(Modifier.padding(horizontal = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(labels[i], style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer, maxLines = 1)
                 }
             }
         }
@@ -281,32 +323,47 @@ fun NoteVersionHistoryDialog(
     )
 }
 
-/** Wave C — a table-of-contents / outline built from the note's Markdown headings (indented by level). */
+/** Wave C/M — a table-of-contents / outline (fenced-code-aware), plus word/reading stats and a few
+ *  Markdown lint nits. Pure logic lives in [com.todocompanion.app.domain.NoteOutline] / NoteLint. */
 @Composable
 fun NoteOutlineDialog(body: String, onDismiss: () -> Unit) {
-    val headings = remember(body) {
-        body.lineSequence().mapNotNull { ln ->
-            val m = Regex("""^(#{1,6})\s+(.*\S)\s*$""").find(ln.trim()) ?: return@mapNotNull null
-            m.groupValues[1].length to m.groupValues[2]
-        }.toList()
-    }
+    val headings = remember(body) { com.todocompanion.app.domain.NoteOutline.outline(body) }
+    val stats = remember(body) { com.todocompanion.app.domain.NoteOutline.stats(body) }
+    val issues = remember(body) { com.todocompanion.app.domain.NoteLint.lint(body) }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
-        title = { Text("Outline") },
+        title = { Text("Outline & stats") },
         text = {
-            if (headings.isEmpty()) {
-                Text("No headings yet. Use #, ## or ### in the note to build an outline.")
-            } else {
-                LazyColumn(Modifier.heightIn(max = 380.dp)) {
-                    items(headings.size) { i ->
-                        val (lvl, txt) = headings[i]
-                        Text(
-                            txt,
-                            Modifier.fillMaxWidth().padding(start = ((lvl - 1) * 14).dp, top = 6.dp, bottom = 6.dp),
-                            style = if (lvl <= 1) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface, maxLines = 1,
-                        )
+            Column {
+                Text(
+                    "${stats.words} words · ${stats.readMinutes} min read · ${stats.lines} lines",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                if (headings.isEmpty()) {
+                    Text("No headings yet. Use #, ## or ### to build an outline.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                        items(headings.size) { i ->
+                            val h = headings[i]
+                            Text(
+                                h.title,
+                                Modifier.fillMaxWidth().padding(start = ((h.level - 1) * 14).dp, top = 6.dp, bottom = 6.dp),
+                                style = if (h.level <= 1) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface, maxLines = 1,
+                            )
+                        }
+                    }
+                }
+                if (issues.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    Text("${issues.size} style nit${if (issues.size == 1) "" else "s"}",
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    issues.take(4).forEach { iss ->
+                        Text("· line ${iss.line + 1}: ${iss.message}",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     }
                 }
             }
