@@ -64,6 +64,10 @@ data class NoteEntity(
     val sealedUntil: Long? = null,
 )
 
+/** Wave O — a note sealed until a future date is hidden from the list AND kept out of every plaintext
+ *  egress (folder export, two-way mirror, single-note export) until it reveals. */
+fun NoteEntity.isSealed(now: Long): Boolean = sealedUntil?.let { it > now } == true
+
 /**
  * Wave B (v67) — a local version snapshot of a note, captured per editing session. Fully on-device,
  * no network. [charDelta] is the cheap change magnitude vs. the previous snapshot (Standard Notes'

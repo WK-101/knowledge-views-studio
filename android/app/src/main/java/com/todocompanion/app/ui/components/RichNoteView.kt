@@ -73,3 +73,19 @@ private fun hex(c: Color): String {
     val a = c.toArgb()
     return "#%02X%02X%02X".format((a shr 16) and 0xFF, (a shr 8) and 0xFF, a and 0xFF)
 }
+
+/**
+ * Wave O — while [active] (e.g. a sealed note is open), set the window's FLAG_SECURE so the screen can't
+ * be screenshotted and won't appear in the recents thumbnail — even if the app-wide "secure screen"
+ * setting is off. On leave, the flag is restored to the global setting [globalOn], not blindly cleared.
+ */
+@androidx.compose.runtime.Composable
+fun SecureFlagWhile(active: Boolean, globalOn: Boolean) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    androidx.compose.runtime.DisposableEffect(active, globalOn) {
+        val window = (view.context as? android.app.Activity)?.window
+        val flag = android.view.WindowManager.LayoutParams.FLAG_SECURE
+        if (active || globalOn) window?.addFlags(flag) else window?.clearFlags(flag)
+        onDispose { if (globalOn) window?.addFlags(flag) else window?.clearFlags(flag) }
+    }
+}

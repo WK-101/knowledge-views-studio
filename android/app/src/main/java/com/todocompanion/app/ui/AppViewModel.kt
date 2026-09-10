@@ -332,6 +332,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ── Wave I: single-note export (TXT/MD/HTML/JSON via the share sheet; PDF prints from the UI). ──
     fun exportNote(noteId: String, format: com.todocompanion.app.util.NoteExport.Format) = viewModelScope.launch {
         val note = repo.getNote(noteId) ?: return@launch
+        if (note.sealedUntil != null && note.sealedUntil!! > System.currentTimeMillis()) { toast("This note is sealed — unseal it to export"); return@launch }
         val content = com.todocompanion.app.util.NoteExport.buildContent(note, format)
         val uri = withContext(Dispatchers.IO) {
             runCatching {
@@ -355,7 +356,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Write one `.md` (YAML front-matter + body) per non-trashed note in the active workspace. */
     fun exportNotesToFolder(folderUri: String) = viewModelScope.launch {
         val ws = repo.activeWs()
-        val list = repo.getNotesOnce().filter { !it.trashed && it.workspaceId == ws }
+        val now0 = System.currentTimeMillis()
+        val list = repo.getNotesOnce().filter { !it.trashed && it.workspaceId == ws && (it.sealedUntil == null || it.sealedUntil!! <= now0) }
         if (list.isEmpty()) { toast("No notes to export"); return@launch }
         val tagName = repo.getTagsOnce().associate { it.id to it.name }
         val refs = repo.getNoteTagCrossRefs().groupBy { it.noteId }
@@ -470,7 +472,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      *  Baseline hashes live in the folder's own `.kairo/mirror.json`. */
     fun syncNotesFolder(folderUri: String) = viewModelScope.launch {
         val ws = repo.activeWs()
-        val notes = repo.getNotesOnce().filter { !it.trashed && it.workspaceId == ws }
+        val nowSync = System.currentTimeMillis()
+        // Sealed-until-future notes are kept out of the mirror entirely (redaction at egress).
+        val notes = repo.getNotesOnce().filter { !it.trashed && it.workspaceId == ws && (it.sealedUntil == null || it.sealedUntil!! <= nowSync) }
         val tagNameById = repo.getTagsOnce().associate { it.id to it.name }
         val refs = repo.getNoteTagCrossRefs().groupBy { it.noteId }
         val tagMap = repo.getTagsOnce().filter { it.workspaceId == ws }.associateBy { it.name.lowercase() }.toMutableMap()
@@ -5289,6 +5293,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val backup by lazy { com.todocompanion.app.data.backup.BackupExporter(appCtx, repo) { zone } }
 
     fun exportTo(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch { onDone(backup.exportJson(uri)) }
+
+    // Wave O — device-independent passphrase-encrypted backup (PBKDF2 + AES-GCM). Restores on any device
+    // from the passphrase alone, unlike the Keystore-bound SQLCipher DB. Fully local — no network.
+    fun exportEncryptedBackup(uri: Uri, passphrase: String, onDone: (Boolean) -> Unit) = viewModelScope.launch {
+        val ok = withContext(Dispatchers.IO) {
+            runCatching {
+                val jsonStr = repo.exportJson()
+                val blob = com.todocompanion.app.util.PortableCrypto.encrypt(jsonStr, passphrase.toCharArray())
+                appCtx.contentResolver.openOutputStream(uri, "wt")?.use { it.write(blob.toByteArray()) }
+                true
+            }.getOrDefault(false)
+        }
+        onDone(ok)
+    }
+    fun importEncryptedBackup(uri: Uri, passphrase: String, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
+        val text = withContext(Dispatchers.IO) { runCatching { appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull() }
+        if (text == null) { onDone(false, "Couldn't read the file"); return@launch }
+        val plain = com.todocompanion.app.util.PortableCrypto.decrypt(text, passphrase.toCharArray())
+        if (plain == null) { onDone(false, "Wrong passphrase or damaged backup"); return@launch }
+        withContext(Dispatchers.IO) { repo.importJsonMerge(plain) }
+        onDone(true, "Restored from encrypted backup")
+    }
     fun exportMarkdownTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = viewModelScope.launch { onDone(backup.exportMarkdown(uri, includeCompleted)) }
     fun exportCsvTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = viewModelScope.launch { onDone(backup.exportCsv(uri, includeCompleted)) }
     fun exportIcsTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = viewModelScope.launch { onDone(backup.exportIcs(uri, includeCompleted)) }

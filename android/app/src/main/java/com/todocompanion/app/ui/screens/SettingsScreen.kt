@@ -194,6 +194,46 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             },
         )
     }
+    // Wave O — passphrase-encrypted portable backup (device-independent).
+    var pwMode by remember { mutableStateOf<String?>(null) }
+    var pw by remember { mutableStateOf("") }
+    if (pwMode != null) {
+        val mode = pwMode!!
+        AlertDialog(
+            onDismissRequest = { pwMode = null; pw = "" },
+            title = { Text(if (mode == "export") "Encrypted backup" else "Restore encrypted backup") },
+            text = {
+                Column {
+                    Text(
+                        if (mode == "export") "Choose a passphrase. You'll need it to restore on any device — it's never stored."
+                        else "Enter the passphrase this backup was encrypted with.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    androidx.compose.material3.OutlinedTextField(
+                        value = pw, onValueChange = { pw = it }, singleLine = true, label = { Text("Passphrase") },
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = pw.length >= 4, onClick = {
+                    val pass = pw; pwMode = null; pw = ""
+                    if (mode == "export") {
+                        com.todocompanion.app.util.SystemPicker.createFile("application/octet-stream", "kairo-encrypted-backup.kef", onError = err) { uri ->
+                            vm.exportEncryptedBackup(uri, pass) { ok -> Toast.makeText(context, if (ok) "Encrypted backup saved" else "Export failed", Toast.LENGTH_SHORT).show() }
+                        }
+                    } else {
+                        com.todocompanion.app.util.SystemPicker.openFile(arrayOf("*/*"), onError = err) { uri ->
+                            vm.importEncryptedBackup(uri, pass) { _, msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
+                        }
+                    }
+                }) { Text("Continue") }
+            },
+            dismissButton = { TextButton(onClick = { pwMode = null; pw = "" }) { Text("Cancel") } },
+        )
+    }
     val exportCsvLauncher: (String) -> Unit = { name -> com.todocompanion.app.util.SystemPicker.createFile("text/csv", name, onError = err) { uri -> vm.exportCsvTo(uri, includeCompleted = true) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() } } }
     val exportIcsLauncher: (String) -> Unit = { name -> com.todocompanion.app.util.SystemPicker.createFile("text/calendar", name, onError = err) { uri -> vm.exportIcsTo(uri, includeCompleted = false) { ok -> Toast.makeText(context, if (ok) "Calendar exported" else "Export failed", Toast.LENGTH_SHORT).show() } } }
     val exportHabitsLauncher: (String) -> Unit = { name -> com.todocompanion.app.util.SystemPicker.createFile("text/csv", name, onError = err) { uri -> vm.exportHabitsCsvTo(uri) { ok -> Toast.makeText(context, if (ok) "Habits exported" else "Export failed", Toast.LENGTH_SHORT).show() } } }
@@ -1232,6 +1272,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             // shows your files straight away. The in-app browser is only the fallback (offered below, and
             // reached automatically if the device has no system picker at all).
             Action("Restore a backup…") { safeImport { importLauncher(arrayOf("*/*")) } }
+            Action("Encrypted backup (passphrase)…") { pw = ""; pwMode = "export" }
+            Action("Restore encrypted backup…") { pw = ""; pwMode = "import" }
             Action("Send a copy to another device") { vm.shareBackupCopy() }
             // A permissionless alternative: a list of backups the app can already reach (its own saved
             // copies in Downloads + anything dropped into the import inbox). No picker, no permission.

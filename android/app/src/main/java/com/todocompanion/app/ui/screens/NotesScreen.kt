@@ -344,6 +344,9 @@ fun NoteEditorScreen(
     val d = draft
     if (d == null) { Box(Modifier.fillMaxSize()) {}; return }
 
+    // Wave O — a sealed note gets screenshot / recents-thumbnail protection while open, regardless of the
+    // app-wide secure-screen setting (restored to that setting on leave).
+    com.todocompanion.app.ui.components.SecureFlagWhile(active = d.sealedUntil != null, globalOn = settings.secureScreen)
     var preview by remember(noteId) { mutableStateOf(d.body.isNotBlank()) }
     var showEmoji by remember { mutableStateOf(false) }
     var showContainer by remember { mutableStateOf(false) }
