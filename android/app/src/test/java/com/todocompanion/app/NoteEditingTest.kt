@@ -63,6 +63,14 @@ class NoteEditingTest {
         assertNull(NoteEditing.continueList("plain\n", 6))  // previous line not a list item
     }
 
+    @Test fun linksFirstPlainMention() {
+        assertEquals("see [[Project Alpha]] soon", NoteEditing.linkMention("see Project Alpha soon", "Project Alpha"))
+        // already bracketed → unchanged
+        assertEquals("see [[Project Alpha]]", NoteEditing.linkMention("see [[Project Alpha]]", "Project Alpha"))
+        // absent → unchanged
+        assertEquals("nothing here", NoteEditing.linkMention("nothing here", "Project Alpha"))
+    }
+
     @Test fun togglesCheckboxOnLine() {
         val text = "# Plan\n- [ ] a\n- [x] b"
         assertEquals("# Plan\n- [x] a\n- [x] b", NoteEditing.toggleCheckboxAtLine(text, 1))

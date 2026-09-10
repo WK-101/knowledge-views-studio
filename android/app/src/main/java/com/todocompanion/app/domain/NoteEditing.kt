@@ -79,6 +79,17 @@ object NoteEditing {
         return null
     }
 
+    /** Wave E — wrap the first plain (un-bracketed) occurrence of [title] in `[[ ]]`, turning an unlinked
+     *  mention into a real wiki-link. No-op if the title isn't present or is already bracketed there. */
+    fun linkMention(body: String, title: String): String {
+        if (title.isBlank()) return body
+        val idx = body.indexOf(title, ignoreCase = true)
+        if (idx < 0) return body
+        if (idx >= 2 && body.substring(idx - 2, idx) == "[[") return body
+        val actual = body.substring(idx, idx + title.length)
+        return body.substring(0, idx) + "[[" + actual + "]]" + body.substring(idx + title.length)
+    }
+
     /** Flip the checkbox state on [lineIndex] (0-based split on `\n`); no-op if that line isn't a box. */
     fun toggleCheckboxAtLine(text: String, lineIndex: Int): String {
         val lines = text.split("\n").toMutableList()

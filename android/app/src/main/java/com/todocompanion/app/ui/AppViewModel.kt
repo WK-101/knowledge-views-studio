@@ -282,6 +282,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun saveNoteRevision(id: String) = viewModelScope.launch { repo.saveNoteRevision(id, settings.value.notesMaxRevisions) }
     fun observeNoteRevisions(id: String) = repo.observeNoteRevisions(id)
     fun observeNoteLinks(id: String) = repo.observeNoteLinks(id)
+    suspend fun unlinkedMentions(body: String, excludeNoteId: String) = repo.unlinkedMentions(body, excludeNoteId)
+    suspend fun noteLinksSnapshot() = repo.getNoteLinksOnce()
+    suspend fun dayDigestMarkdown(epochDay: Long) = repo.dayDigestMarkdown(epochDay)
     fun saveSmartView(id: String?, title: String, icon: String?, predicate: com.todocompanion.app.domain.NotePredicate) = viewModelScope.launch {
         val existing = id?.let { vid -> smartViews.value.firstOrNull { it.id == vid } }
         repo.upsertSmartView(

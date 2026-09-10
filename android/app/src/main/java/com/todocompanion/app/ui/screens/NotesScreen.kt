@@ -67,7 +67,9 @@ import com.todocompanion.app.ui.components.ConfirmDialog
 import com.todocompanion.app.ui.components.EmojiGridPicker
 import com.todocompanion.app.ui.components.EmptyState
 import com.todocompanion.app.ui.components.MarkdownText
+import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** Strip the most common Markdown marks so a card preview reads as plain prose. */
 private fun plainPreview(md: String): String =
@@ -108,6 +110,7 @@ fun NotesScreen(
     var activeLabel by remember { mutableStateOf<String?>(null) }
     var showBuilder by remember { mutableStateOf(false) }
     var deleteView by remember { mutableStateOf<com.todocompanion.app.data.entity.SmartViewEntity?>(null) }
+    var showGraph by remember { mutableStateOf(false) }
 
     // Containers to offer as filter chips, per the user's chosen grouping mode.
     val containers: List<Pair<String, String>> =
@@ -132,6 +135,12 @@ fun NotesScreen(
         }
         .sortedWith(compareByDescending<NoteEntity> { it.pinned }.thenByDescending { it.updatedAt })
         .toList()
+
+    // Wave E — the Life Graph opens as a full-screen overlay (early return keeps it simple, no nav change).
+    if (showGraph) {
+        NoteGraphScreen(vm, onOpenNote = { showGraph = false; onOpenNote(it) }, onClose = { showGraph = false })
+        return
+    }
 
     // The app's shared top bar owns the title ("Notes"), the grid/list toggle and the search button
     // (wired in AppRoot) — so this screen renders content only, matching every other module's tab.
@@ -194,6 +203,9 @@ fun NotesScreen(
                     }
                     item {
                         FilterChip(selected = false, onClick = { showBuilder = true }, label = { Text("＋ Smart View") })
+                    }
+                    item {
+                        FilterChip(selected = false, onClick = { showGraph = true }, label = { Text("◉ Graph") })
                     }
                 }
                 Spacer(Modifier.height(4.dp))
@@ -322,6 +334,7 @@ fun NoteEditorScreen(
     var showContainer by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     var showHistory by remember { mutableStateOf(false) }
     var showOutline by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
@@ -379,6 +392,12 @@ fun NoteEditorScreen(
                             DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menu = false; draft?.let { vm.closeNoteEditor(it) }; vm.duplicateNote(noteId) { id -> onOpenNote(id) } })
                             DropdownMenuItem(text = { Text("Archive") }, onClick = { menu = false; vm.archiveNote(noteId); onBack() })
                             DropdownMenuItem(text = { Text("About") }, onClick = { menu = false; showAbout = true })
+                            if (d.kind == "journal" && d.dayEpoch != null) {
+                                DropdownMenuItem(text = { Text("⟳ Insert today's digest") }, onClick = {
+                                    menu = false
+                                    scope.launch { val md = vm.dayDigestMarkdown(d.dayEpoch!!); persist(d.copy(body = md + "\n" + d.body)) }
+                                })
+                            }
                             DropdownMenuItem(text = { Text("Move to Trash") }, onClick = { menu = false; vm.trashNote(noteId); onBack() })
                             DropdownMenuItem(text = { Text("Delete permanently") }, onClick = { menu = false; showDelete = true })
                         }
@@ -489,6 +508,37 @@ fun NoteEditorScreen(
                 androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(backlinks, key = { it.id }) { b ->
                         FilterChip(selected = false, onClick = { onOpenNote(b.id) }, label = { Text(b.title.ifBlank { "Untitled" }) })
+                    }
+                }
+            }
+            // Wave E — unlinked mentions: existing note/task/habit/event titles present in the body but not
+            // yet [[linked]]. One tap wraps the first occurrence into a wiki-link (Roam's feature, cross-module).
+            var mentions by remember(noteId) { mutableStateOf<List<String>>(emptyList()) }
+            androidx.compose.runtime.LaunchedEffect(d.body) { delay(400); mentions = runCatching { vm.unlinkedMentions(d.body, noteId) }.getOrDefault(emptyList()) }
+            if (mentions.isNotEmpty()) {
+                Text("Mentions", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(mentions, key = { it }) { m ->
+                        FilterChip(selected = false, onClick = { persist(d.copy(body = com.todocompanion.app.domain.NoteEditing.linkMention(d.body, m))) }, label = { Text("＋ [[$m]]") })
+                    }
+                }
+            }
+            // Wave E — "On this day": earlier daily notes that share this day-of-month (temporal recall).
+            if (d.kind == "journal" && d.dayEpoch != null) {
+                val me = remember(d.dayEpoch) { runCatching { java.time.LocalDate.ofEpochDay(d.dayEpoch!!) }.getOrNull() }
+                val onThisDay = remember(notes, d.dayEpoch) {
+                    if (me == null) emptyList() else notes.filter {
+                        it.id != noteId && it.kind == "journal" && !it.trashed && it.dayEpoch != null &&
+                            runCatching { java.time.LocalDate.ofEpochDay(it.dayEpoch!!) }.getOrNull()?.let { dt -> dt.dayOfMonth == me.dayOfMonth && dt != me } == true
+                    }.sortedByDescending { it.dayEpoch }
+                }
+                if (onThisDay.isNotEmpty()) {
+                    Text("On this day", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(onThisDay, key = { it.id }) { o ->
+                            val lbl = runCatching { java.time.LocalDate.ofEpochDay(o.dayEpoch!!).format(java.time.format.DateTimeFormatter.ofPattern("MMM yyyy")) }.getOrDefault("—")
+                            FilterChip(selected = false, onClick = { onOpenNote(o.id) }, label = { Text("🗓 $lbl") })
+                        }
                     }
                 }
             }

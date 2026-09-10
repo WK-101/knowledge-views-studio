@@ -821,6 +821,44 @@ class AppRepository(private val db: AppDatabase) {
     fun observeNoteLinks(noteId: String): kotlinx.coroutines.flow.Flow<List<com.todocompanion.app.data.entity.NoteLinkEntity>> = noteLinks.observeForNote(noteId)
     suspend fun getNoteLinksOnce(): List<com.todocompanion.app.data.entity.NoteLinkEntity> = noteLinks.getAll()
 
+    /** Wave E — titles of existing notes/tasks/habits/events that appear in [body] but aren't `[[linked]]`
+     *  yet (the "unlinked mentions" affordance). Computed against the passed body so it tracks the draft. */
+    suspend fun unlinkedMentions(body: String, excludeNoteId: String): List<String> {
+        if (body.isBlank()) return emptyList()
+        val lower = body.lowercase()
+        val linked = com.todocompanion.app.domain.NoteLinks.outgoingTitles(body).map { it.lowercase() }.toSet()
+        val self = notes.getById(excludeNoteId)?.title?.trim()?.lowercase()
+        val titles = (
+            notes.getAll().filter { !it.trashed && it.id != excludeNoteId }.map { it.title } +
+                tasks.getAll().map { it.title } + habits.getAll().map { it.name } + events.getAll().map { it.title }
+            ).map { it.trim() }.filter { it.length >= 3 }.distinct()
+        return titles.filter { t -> val tl = t.lowercase(); tl != self && tl !in linked && lower.contains(tl) }.take(8)
+    }
+
+    /** Wave E (moonshot) — the self-writing daily note: a Markdown digest of a day, assembled from the
+     *  rest of the app (tasks completed, time tracked, habits kept, felt rating). No notes app can do
+     *  this; Kairo can, because the day's real data lives right here. */
+    suspend fun dayDigestMarkdown(epochDay: Long): String {
+        val zone = java.time.ZoneId.systemDefault()
+        val start = java.time.LocalDate.ofEpochDay(epochDay).atStartOfDay(zone).toInstant().toEpochMilli()
+        val end = start + 86_400_000L
+        val doneTasks = tasks.getAll().filter { val c = it.completedAt; c != null && c in start until end }
+        val entries = timeTrack.getEntries().filter { it.startMillis in start until end }
+        val trackedMin = entries.sumOf { val e = it.endMillis; (if (e != null) e - it.startMillis else 0L).coerceAtLeast(0L) } / 60_000L
+        val checkins = habits.getCheckins().filter { it.epochDay == epochDay && it.count > 0 }
+        val habitNames = habits.getAll().associateBy { it.id }
+        val log = dayLogs.getAll().firstOrNull { it.epochDay == epochDay }
+        return buildString {
+            append("## Today\n")
+            append("- ✅ Tasks completed: ${doneTasks.size}")
+            if (doneTasks.isNotEmpty()) append(" — " + doneTasks.take(6).joinToString(", ") { it.title })
+            append("\n")
+            if (trackedMin > 0) append("- ⏱ Time tracked: ${trackedMin / 60}h ${trackedMin % 60}m across ${entries.size} block${if (entries.size == 1) "" else "s"}\n")
+            if (checkins.isNotEmpty()) append("- 🔁 Habits: " + checkins.mapNotNull { habitNames[it.habitId]?.name }.take(6).joinToString(", ") + "\n")
+            if (log != null && log.dayRating > 0) append("- 🙂 Day rating: ${log.dayRating}/5\n")
+        }
+    }
+
     // ---- Wave D: Smart Views ----
     fun observeSmartViews(): kotlinx.coroutines.flow.Flow<List<com.todocompanion.app.data.entity.SmartViewEntity>> = smartViews.observeAll()
     suspend fun getSmartViewsOnce(): List<com.todocompanion.app.data.entity.SmartViewEntity> = smartViews.getAll()
