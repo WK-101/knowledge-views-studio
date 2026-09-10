@@ -697,9 +697,20 @@ class AppRepository(private val db: AppDatabase) {
             updatedAt = now(),
         )
         notes.upsert(stamped)
-        syncNoteFts(id, stamped.title, stamped.body)
+        reindexNoteFts(stamped)
         materializeNoteLinks(id)
         return id
+    }
+
+    /** Wave I — (re)index a note into note_fts, mirroring its tag + attachment names into the body text
+     *  so search finds the note by those too (child-row denormalization). Metadata-only; safe to call often. */
+    suspend fun reindexNoteFts(note: com.todocompanion.app.data.entity.NoteEntity) {
+        val extra = buildList {
+            runCatching { addAll(notes.tagNamesForNote(note.id)) }
+            runCatching { addAll(notes.attachmentNamesForNote(note.id)) }
+        }.joinToString(" ")
+        val body = if (extra.isBlank()) note.body else note.body + "\n" + extra
+        syncNoteFts(note.id, note.title, body)
     }
 
     /** Soft-delete → Trash (kept for a possible restore, like tasks). FTS row dropped so it stops matching.
@@ -729,6 +740,7 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun setNoteTags(noteId: String, tagIds: List<String>) {
         notes.unlinkAllTagsForNote(noteId)
         notes.linkTags(tagIds.map { com.todocompanion.app.data.entity.NoteTagCrossRef(noteId, it) })
+        notes.getById(noteId)?.let { reindexNoteFts(it) }   // Wave I — keep tag names in the FTS index fresh
     }
     suspend fun setNoteContexts(noteId: String, contextIds: List<String>) {
         notes.unlinkAllContextsForNote(noteId)

@@ -315,6 +315,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setNotesMaxRevisions(n: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesMaxRevisions = n)) }
     /** Lazy on-open sweep — hard-delete trashed notes older than the retention setting (0 = never). */
     fun purgeExpiredNoteTrash() = viewModelScope.launch { repo.purgeExpiredTrashedNotes(settings.value.notesTrashRetentionDays) }
+
+    // ── Wave I: single-note export (TXT/MD/HTML/JSON via the share sheet; PDF prints from the UI). ──
+    fun exportNote(noteId: String, format: com.todocompanion.app.util.NoteExport.Format) = viewModelScope.launch {
+        val note = repo.getNote(noteId) ?: return@launch
+        val content = com.todocompanion.app.util.NoteExport.buildContent(note, format)
+        val uri = withContext(Dispatchers.IO) {
+            runCatching {
+                val dir = java.io.File(appCtx.cacheDir, "shared").apply { mkdirs() }
+                val base = note.title.ifBlank { "note" }.replace(Regex("[^A-Za-z0-9._-]"), "_").take(40).ifBlank { "note" }
+                val f = java.io.File(dir, "$base.${format.ext}").apply { writeText(content) }
+                androidx.core.content.FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", f)
+            }.getOrNull()
+        } ?: return@launch
+        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = format.mime
+            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            putExtra(android.content.Intent.EXTRA_TITLE, note.title.ifBlank { "Note" })
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        runCatching {
+            appCtx.startActivity(android.content.Intent.createChooser(send, "Export note").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        }.onFailure { toast("No app to share to") }
+    }
     /** Save the note and capture a version snapshot in one ordered coroutine (used on editor close). */
     fun closeNoteEditor(n: com.todocompanion.app.data.entity.NoteEntity) = viewModelScope.launch {
         repo.upsertNote(n.copy(workspaceId = n.workspaceId.ifBlank { activeWorkspace() }))

@@ -338,6 +338,7 @@ fun NoteEditorScreen(
     var showHistory by remember { mutableStateOf(false) }
     var showOutline by remember { mutableStateOf(false) }
     var showReminder by remember { mutableStateOf(false) }
+    var showExport by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
 
     fun persist(n: NoteEntity) { draft = n; vm.saveNote(n) }
@@ -394,6 +395,7 @@ fun NoteEditorScreen(
                             DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menu = false; draft?.let { vm.closeNoteEditor(it) }; vm.duplicateNote(noteId) { id -> onOpenNote(id) } })
                             DropdownMenuItem(text = { Text("Archive") }, onClick = { menu = false; vm.archiveNote(noteId); onBack() })
                             DropdownMenuItem(text = { Text("About") }, onClick = { menu = false; showAbout = true })
+                            DropdownMenuItem(text = { Text("Export…") }, onClick = { menu = false; showExport = true })
                             if (d.kind == "journal" && d.dayEpoch != null) {
                                 DropdownMenuItem(text = { Text("⟳ Insert today's digest") }, onClick = {
                                     menu = false
@@ -607,6 +609,24 @@ fun NoteEditorScreen(
             },
         )
     }
+    if (showExport) AlertDialog(
+        onDismissRequest = { showExport = false },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = { showExport = false }) { Text("Cancel") } },
+        title = { Text("Export note") },
+        text = {
+            Column {
+                com.todocompanion.app.util.NoteExport.Format.entries.forEach { fmt ->
+                    Text(fmt.label, Modifier.fillMaxWidth().clickable {
+                        showExport = false
+                        if (fmt == com.todocompanion.app.util.NoteExport.Format.PDF)
+                            com.todocompanion.app.util.NoteExport.printPdf(ctx, d)
+                        else vm.exportNote(noteId, fmt)
+                    }.padding(vertical = 12.dp), style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        },
+    )
     if (showAbout) NoteAboutDialog(d, onDismiss = { showAbout = false })
     if (showOutline) NoteOutlineDialog(d.body, onDismiss = { showOutline = false })
     if (showReminder) NoteReminderDialog(

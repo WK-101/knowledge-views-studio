@@ -796,6 +796,14 @@ interface NoteDao {
     @Query("UPDATE notes SET reminderAt = NULL, reminderRrule = NULL, reminderExtra = '', reminderKeep = 0 WHERE id = :id")
     suspend fun clearReminderAll(id: String)
 
+    // Wave I — child-row text mirrored into the FTS index so a search finds a note by its tag or
+    // attachment names, not just its title/body.
+    @Query("SELECT t.name FROM tags t INNER JOIN note_tags nt ON nt.tagId = t.id WHERE nt.noteId = :noteId")
+    suspend fun tagNamesForNote(noteId: String): List<String>
+
+    @Query("SELECT fileName FROM attachments WHERE noteId = :noteId")
+    suspend fun attachmentNamesForNote(noteId: String): List<String>
+
     @Upsert
     suspend fun upsert(note: NoteEntity)
 
