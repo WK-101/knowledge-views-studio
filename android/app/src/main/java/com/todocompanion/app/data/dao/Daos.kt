@@ -30,6 +30,7 @@ import com.todocompanion.app.data.entity.NoteEntity
 import com.todocompanion.app.data.entity.NotebookEntity
 import com.todocompanion.app.data.entity.NoteTagCrossRef
 import com.todocompanion.app.data.entity.NoteContextCrossRef
+import com.todocompanion.app.data.entity.NoteRevisionEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -851,5 +852,33 @@ interface NotebookDao {
     suspend fun deleteById(id: String)
 
     @Query("DELETE FROM notebooks")
+    suspend fun clear()
+}
+
+@Dao
+interface NoteRevisionDao {
+    @Query("SELECT * FROM note_revisions WHERE noteId = :noteId ORDER BY createdAt DESC")
+    fun observeForNote(noteId: String): Flow<List<NoteRevisionEntity>>
+
+    @Query("SELECT * FROM note_revisions WHERE noteId = :noteId ORDER BY createdAt DESC LIMIT 1")
+    suspend fun latestForNote(noteId: String): NoteRevisionEntity?
+
+    @Query("SELECT * FROM note_revisions")
+    suspend fun getAll(): List<NoteRevisionEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(revision: NoteRevisionEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(revisions: List<NoteRevisionEntity>)
+
+    /** Keep only the newest [keep] snapshots for a note; drop the rest so storage stays bounded. */
+    @Query("DELETE FROM note_revisions WHERE noteId = :noteId AND id NOT IN (SELECT id FROM note_revisions WHERE noteId = :noteId ORDER BY createdAt DESC LIMIT :keep)")
+    suspend fun pruneForNote(noteId: String, keep: Int)
+
+    @Query("DELETE FROM note_revisions WHERE noteId = :noteId")
+    suspend fun clearForNote(noteId: String)
+
+    @Query("DELETE FROM note_revisions")
     suspend fun clear()
 }

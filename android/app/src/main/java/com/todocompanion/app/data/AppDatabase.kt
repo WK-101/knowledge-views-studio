@@ -86,8 +86,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.NotebookEntity::class,
         com.todocompanion.app.data.entity.NoteTagCrossRef::class,
         com.todocompanion.app.data.entity.NoteContextCrossRef::class,
+        com.todocompanion.app.data.entity.NoteRevisionEntity::class,
     ],
-    version = 66,
+    version = 67,
     // R73 — export the schema JSON (to app/schemas/) on every build. With 54 hand-written migrations
     // this is the safety net: it lets an instrumented MigrationTest replay the whole chain in CI and
     // fail the build the moment a migration drifts from the entity definitions. Turned on from v59;
@@ -131,6 +132,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun eventDao(): com.todocompanion.app.data.dao.EventDao
     abstract fun noteDao(): com.todocompanion.app.data.dao.NoteDao
     abstract fun notebookDao(): com.todocompanion.app.data.dao.NotebookDao
+    abstract fun noteRevisionDao(): com.todocompanion.app.data.dao.NoteRevisionDao
 
     companion object {
         @Volatile
@@ -819,6 +821,25 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Wave B — Notes: favourite/read-only flags + trash bookkeeping (deletedAt/deletedBy for the
+        // auto-empty sweep), and the local note-version-history table. NOT NULL columns added via ALTER
+        // carry a SQL DEFAULT (SQLite requires it); the fresh CREATE TABLE for note_revisions omits
+        // defaults to match Room's generated schema exactly (same convention as the v66 tables).
+        private val MIGRATION_66_67 = object : Migration(66, 67) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `favorite` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `readonly` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `deletedAt` INTEGER")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `deletedBy` TEXT")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `note_revisions` (`id` TEXT NOT NULL, `noteId` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, `title` TEXT NOT NULL, `body` TEXT NOT NULL, " +
+                        "`charDelta` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_note_revisions_noteId` ON `note_revisions` (`noteId`)")
+            }
+        }
+
         /**
          * The complete, ordered v5→v63 migration chain. Exposed (and used by the builder below) so an
          * instrumented [androidTest] MigrationTest can replay it against a real SQLite DB and assert the
@@ -835,7 +856,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_47_48, MIGRATION_48_49, MIGRATION_49_50, MIGRATION_50_51, MIGRATION_51_52, MIGRATION_52_53,
             MIGRATION_53_54, MIGRATION_54_55, MIGRATION_55_56, MIGRATION_56_57, MIGRATION_57_58, MIGRATION_58_59,
             MIGRATION_59_60, MIGRATION_60_61, MIGRATION_61_62, MIGRATION_62_63, MIGRATION_63_64,
-            MIGRATION_64_65, MIGRATION_65_66,
+            MIGRATION_64_65, MIGRATION_65_66, MIGRATION_66_67,
         )
 
         fun get(context: Context): AppDatabase =

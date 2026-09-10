@@ -266,6 +266,24 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 }
                 Text("Folder tree reuses your existing folders for notes. Notebooks keeps a separate set of notebooks just for notes.",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(10.dp))
+                Sub("Empty Trash after")
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    val opts = listOf(0 to "Never", 7 to "7d", 14 to "14d", 30 to "30d", 90 to "90d")
+                    opts.forEachIndexed { i, (v, lbl) ->
+                        SegmentedButton(selected = s.notesTrashRetentionDays == v, onClick = { vm.setNotesTrashRetention(v) },
+                            shape = SegmentedButtonDefaults.itemShape(i, opts.size)) { Text(lbl, maxLines = 1) }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Sub("Keep versions per note")
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    val opts = listOf(10, 25, 50, 100)
+                    opts.forEachIndexed { i, v ->
+                        SegmentedButton(selected = s.notesMaxRevisions == v, onClick = { vm.setNotesMaxRevisions(v) },
+                            shape = SegmentedButtonDefaults.itemShape(i, opts.size)) { Text("$v", maxLines = 1) }
+                    }
+                }
             }
         }
 

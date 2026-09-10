@@ -248,6 +248,9 @@ data class AppSettings(
     // notebook entity (the user's chosen Settings option for decision #1).
     val noteDefaultView: String = "grid",
     val notesNotebookMode: String = "folderTree",
+    // Wave B — auto-empty Trash after N days (0 = Never) and how many version snapshots to keep per note.
+    val notesTrashRetentionDays: Int = 0,
+    val notesMaxRevisions: Int = 50,
     // Sidebar section keys currently collapsed (persisted so folds survive an app restart).
     val sidebarCollapsed: Set<String> = emptySet(),
     // Sidebar section keys the user has hidden entirely from the drawer.
@@ -485,6 +488,8 @@ data class AppSettings(
         Keys.DISABLED_MODULES to disabledModules.joinToString(","),
         Keys.NOTE_DEFAULT_VIEW to noteDefaultView,
         Keys.NOTES_NOTEBOOK_MODE to notesNotebookMode,
+        Keys.NOTES_TRASH_RETENTION_DAYS to notesTrashRetentionDays.toString(),
+        Keys.NOTES_MAX_REVISIONS to notesMaxRevisions.toString(),
         Keys.ONBOARDED_MODULES to onboardedModules.toString(),
         Keys.ACTIVE_WS to activeWorkspaceId,
         Keys.MX_IMP to matrixImportanceThreshold.toString(),
@@ -673,6 +678,8 @@ data class AppSettings(
         const val DISABLED_MODULES = "disabled_modules"
         const val NOTE_DEFAULT_VIEW = "note_default_view"
         const val NOTES_NOTEBOOK_MODE = "notes_notebook_mode"
+        const val NOTES_TRASH_RETENTION_DAYS = "notes_trash_retention_days"
+        const val NOTES_MAX_REVISIONS = "notes_max_revisions"
         const val ONBOARDED_MODULES = "onboarded_modules"
         const val ACTIVE_WS = "active_ws"
         const val PRIO_MODE = "prio_mode"
@@ -896,6 +903,8 @@ data class AppSettings(
             disabledModules = (m[Keys.DISABLED_MODULES] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             noteDefaultView = m[Keys.NOTE_DEFAULT_VIEW]?.takeIf { it.isNotBlank() } ?: "grid",
             notesNotebookMode = m[Keys.NOTES_NOTEBOOK_MODE]?.takeIf { it.isNotBlank() } ?: "folderTree",
+            notesTrashRetentionDays = m[Keys.NOTES_TRASH_RETENTION_DAYS]?.toIntOrNull() ?: 0,
+            notesMaxRevisions = m[Keys.NOTES_MAX_REVISIONS]?.toIntOrNull() ?: 50,
             onboardedModules = m[Keys.ONBOARDED_MODULES]?.toBooleanStrictOrNull() ?: false,
             activeWorkspaceId = m[Keys.ACTIVE_WS]?.ifBlank { "default" } ?: "default",
             matrixImportanceThreshold = m[Keys.MX_IMP]?.toIntOrNull() ?: 4,

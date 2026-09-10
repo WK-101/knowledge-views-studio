@@ -671,6 +671,7 @@ class AppRepository(private val db: AppDatabase) {
     private fun uid() = UUID.randomUUID().toString()
 
     // ============ notes (v66) ============
+    private val noteRevisions = db.noteRevisionDao()
     fun observeNotes(): Flow<List<com.todocompanion.app.data.entity.NoteEntity>> = notes.observeAll()
     fun observeNotebooks(): Flow<List<com.todocompanion.app.data.entity.NotebookEntity>> = notebooks.observeAll()
     suspend fun getNotesOnce(): List<com.todocompanion.app.data.entity.NoteEntity> = notes.getAll()
@@ -691,9 +692,16 @@ class AppRepository(private val db: AppDatabase) {
         return id
     }
 
-    /** Soft-delete → Trash (kept for a possible restore, like tasks). FTS row dropped so it stops matching. */
+    /** Soft-delete → Trash (kept for a possible restore, like tasks). FTS row dropped so it stops matching.
+     *  Stamps deletedAt/deletedBy so the auto-empty-trash sweep can age it out. */
     suspend fun trashNote(id: String, trashed: Boolean = true) {
-        notes.getById(id)?.let { notes.upsert(it.copy(trashed = trashed, updatedAt = now())) }
+        notes.getById(id)?.let {
+            notes.upsert(it.copy(
+                trashed = trashed, updatedAt = now(),
+                deletedAt = if (trashed) now() else null,
+                deletedBy = if (trashed) "user" else null,
+            ))
+        }
         if (trashed) runCatching { deleteNoteFts(ftsDb(), id) } else notes.getById(id)?.let { syncNoteFts(id, it.title, it.body) }
     }
 
@@ -702,6 +710,7 @@ class AppRepository(private val db: AppDatabase) {
         notes.unlinkAllTagsForNote(id)
         notes.unlinkAllContextsForNote(id)
         attachments.deleteForNote(id)
+        noteRevisions.clearForNote(id)
         notes.deleteById(id)
         runCatching { deleteNoteFts(ftsDb(), id) }
     }
@@ -730,6 +739,52 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun deleteNotebook(id: String) {
         notes.getAll().filter { it.notebookId == id }.forEach { notes.upsert(it.copy(notebookId = null, updatedAt = now())) }
         notebooks.deleteById(id)
+    }
+
+    // ---- Wave B: archive · duplicate · version history · auto-empty-trash ----
+    /** Archive (or un-archive) — a third state beyond Trash: out of the main list but still live. */
+    suspend fun archiveNote(id: String, archived: Boolean = true) {
+        notes.getById(id)?.let { notes.upsert(it.copy(archived = archived, updatedAt = now())) }
+    }
+
+    /** Duplicate a note (body, colour, container, tags & contexts) as a fresh, un-pinned note. */
+    suspend fun duplicateNote(id: String): String? {
+        val n = notes.getById(id) ?: return null
+        val newId = uid()
+        notes.upsert(n.copy(
+            id = newId, title = n.title.ifBlank { "Untitled" } + " (copy)",
+            pinned = false, favorite = false, archived = false, trashed = false, deletedAt = null, deletedBy = null,
+            createdAt = now(), updatedAt = now(), sortOrder = now().toDouble(),
+        ))
+        val tagIds = notes.getTagCrossRefs().filter { it.noteId == id }.map { it.tagId }
+        val ctxIds = notes.getContextCrossRefs().filter { it.noteId == id }.map { it.contextId }
+        if (tagIds.isNotEmpty()) notes.linkTags(tagIds.map { com.todocompanion.app.data.entity.NoteTagCrossRef(newId, it) })
+        if (ctxIds.isNotEmpty()) notes.linkContexts(ctxIds.map { com.todocompanion.app.data.entity.NoteContextCrossRef(newId, it) })
+        notes.getById(newId)?.let { syncNoteFts(newId, it.title, it.body) }
+        return newId
+    }
+
+    fun observeNoteRevisions(noteId: String): Flow<List<com.todocompanion.app.data.entity.NoteRevisionEntity>> = noteRevisions.observeForNote(noteId)
+    suspend fun getNoteRevisionsOnce(): List<com.todocompanion.app.data.entity.NoteRevisionEntity> = noteRevisions.getAll()
+
+    /** Capture a version snapshot if the note changed since the last one; prune to [keep] newest. */
+    suspend fun saveNoteRevision(noteId: String, keep: Int) {
+        val n = notes.getById(noteId) ?: return
+        if (n.title.isBlank() && n.body.isBlank()) return
+        val last = noteRevisions.latestForNote(noteId)
+        if (last != null && last.title == n.title && last.body == n.body) return
+        val delta = n.body.length - (last?.body?.length ?: 0)
+        noteRevisions.insert(com.todocompanion.app.data.entity.NoteRevisionEntity(
+            id = uid(), noteId = noteId, createdAt = now(), title = n.title, body = n.body, charDelta = delta,
+        ))
+        noteRevisions.pruneForNote(noteId, keep.coerceAtLeast(1))
+    }
+
+    /** Lazy on-launch sweep: hard-delete trashed notes older than [retentionDays] (0 = never). */
+    suspend fun purgeExpiredTrashedNotes(retentionDays: Int) {
+        if (retentionDays <= 0) return
+        val cutoff = now() - retentionDays.toLong() * 86_400_000L
+        notes.getAll().filter { it.trashed && (it.deletedAt ?: 0L) in 1 until cutoff }.forEach { deleteNote(it.id) }
     }
 
     // ============ tasks ============
@@ -1484,6 +1539,7 @@ class AppRepository(private val db: AppDatabase) {
             notebooks = notebooks.getAll(),
             noteTags = notes.getTagCrossRefs(),
             noteContexts = notes.getContextCrossRefs(),
+            noteRevisions = noteRevisions.getAll(),
         )
     )
 
@@ -1546,7 +1602,7 @@ class AppRepository(private val db: AppDatabase) {
         coreValues.clear(); witnesses.clear(); scorecard.clear(); buddies.clear(); integrityReviews.clear()
         experiments.clear(); activation.clear(); dayLogs.clear()
         escrows.clear(); nudgeEvents.clear(); eventCalendars.clear(); events.clear()
-        notes.clear(); notes.clearTagCrossRefs(); notes.clearContextCrossRefs(); notebooks.clear()
+        notes.clear(); notes.clearTagCrossRefs(); notes.clearContextCrossRefs(); notebooks.clear(); noteRevisions.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -1577,6 +1633,7 @@ class AppRepository(private val db: AppDatabase) {
         eventCalendars.upsertAll(b.eventCalendars); events.upsertAll(b.events)
         notebooks.upsertAll(b.notebooks); notes.upsertAll(b.notes)
         notes.linkTags(b.noteTags); notes.linkContexts(b.noteContexts)
+        noteRevisions.insertAll(b.noteRevisions)
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()
@@ -1626,6 +1683,7 @@ class AppRepository(private val db: AppDatabase) {
         notes.upsertAll(missing(notes.getAll(), b.notes) { it.id })
         notes.linkTags(missing(notes.getTagCrossRefs(), b.noteTags) { it.noteId to it.tagId })
         notes.linkContexts(missing(notes.getContextCrossRefs(), b.noteContexts) { it.noteId to it.contextId })
+        noteRevisions.insertAll(missing(noteRevisions.getAll(), b.noteRevisions) { it.id })
     }
 
     /** Full snapshot of the current data as a BackupFile (for sync merges). */

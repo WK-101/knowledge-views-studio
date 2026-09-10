@@ -74,10 +74,12 @@ data class BackupFile(
     val notebooks: List<com.todocompanion.app.data.entity.NotebookEntity> = emptyList(),
     val noteTags: List<com.todocompanion.app.data.entity.NoteTagCrossRef> = emptyList(),
     val noteContexts: List<com.todocompanion.app.data.entity.NoteContextCrossRef> = emptyList(),
+    // Wave B (v67) — local note version-history snapshots. Additive; old backups carry an empty list.
+    val noteRevisions: List<com.todocompanion.app.data.entity.NoteRevisionEntity> = emptyList(),
 ) {
     companion object {
         const val FORMAT = "todo-companion"
-        const val VERSION = 16
+        const val VERSION = 17
     }
 }
 

@@ -270,6 +270,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setNoteTags(noteId: String, tagIds: List<String>) = viewModelScope.launch { repo.setNoteTags(noteId, tagIds) }
     fun setNoteContexts(noteId: String, contextIds: List<String>) = viewModelScope.launch { repo.setNoteContexts(noteId, contextIds) }
 
+    // ── Wave B: archive · duplicate · version history · auto-empty-trash ──
+    fun archiveNote(id: String, archived: Boolean = true) = viewModelScope.launch {
+        val prev = repo.getNote(id)
+        repo.archiveNote(id, archived)
+        if (archived && prev != null) undoEvents.tryEmit(UndoEvent(UndoKind.NOTE_ARCHIVED, id, "Archived", noteRestore = prev))
+    }
+    fun duplicateNote(id: String, onDone: (String) -> Unit = {}) = viewModelScope.launch { repo.duplicateNote(id)?.let { onDone(it) } }
+    /** Capture a version snapshot (bounded to the user's "keep versions" setting). Call on editor close. */
+    fun saveNoteRevision(id: String) = viewModelScope.launch { repo.saveNoteRevision(id, settings.value.notesMaxRevisions) }
+    fun observeNoteRevisions(id: String) = repo.observeNoteRevisions(id)
+    fun restoreNoteRevision(noteId: String, title: String, body: String) = viewModelScope.launch {
+        repo.getNote(noteId)?.let { repo.upsertNote(it.copy(title = title, body = body)) }
+    }
+    fun setNotesTrashRetention(days: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesTrashRetentionDays = days)) }
+    fun setNotesMaxRevisions(n: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesMaxRevisions = n)) }
+    /** Lazy on-open sweep — hard-delete trashed notes older than the retention setting (0 = never). */
+    fun purgeExpiredNoteTrash() = viewModelScope.launch { repo.purgeExpiredTrashedNotes(settings.value.notesTrashRetentionDays) }
+    /** Save the note and capture a version snapshot in one ordered coroutine (used on editor close). */
+    fun closeNoteEditor(n: com.todocompanion.app.data.entity.NoteEntity) = viewModelScope.launch {
+        repo.upsertNote(n.copy(workspaceId = n.workspaceId.ifBlank { activeWorkspace() }))
+        repo.saveNoteRevision(n.id, settings.value.notesMaxRevisions)
+    }
+
     fun saveNotebook(id: String?, name: String, icon: String?, colorArgb: Long?) = viewModelScope.launch {
         val existing = id?.let { nid -> notebooks.value.firstOrNull { it.id == nid } }
         repo.upsertNotebook(

@@ -79,8 +79,10 @@ class BackupRoundTripTest {
         srcRepo.upsertTag(com.todocompanion.app.data.entity.TagEntity(id = "ntag1", name = "idea"))
         val noteId = srcRepo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(
             id = "n1", title = "First note", body = "# Heading\n\nseed-note-body", notebookId = nbId, kind = "journal",
+            favorite = true, readonly = true,   // Wave B flags
         ))
         srcRepo.setNoteTags(noteId, listOf("ntag1"))
+        srcRepo.saveNoteRevision(noteId, 50)   // Wave B — a version snapshot must ride the backup too
 
         val json = srcRepo.exportJson()
         src.close()
@@ -125,6 +127,9 @@ class BackupRoundTripTest {
         assertEquals("note keeps its kind", "journal", restoredNote?.kind)
         assertTrue("notebook survives", dstRepo.getNotebooksOnce().any { it.id == "nb1" && it.name == "Journal" })
         assertTrue("note↔tag link survives", dstRepo.getNoteTagCrossRefs().any { it.noteId == "n1" && it.tagId == "ntag1" })
+        assertTrue("note favorite flag survives", restoredNote?.favorite == true)
+        assertTrue("note read-only flag survives", restoredNote?.readonly == true)
+        assertTrue("note version snapshot survives", dstRepo.getNoteRevisionsOnce().any { it.noteId == "n1" })
         dst.close()
     }
 

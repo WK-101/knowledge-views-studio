@@ -1,5 +1,6 @@
 package com.todocompanion.app.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,7 +10,10 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -34,6 +38,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.data.entity.NoteEntity
+import com.todocompanion.app.data.entity.NoteRevisionEntity
 import com.todocompanion.app.domain.NoteEditing
 import com.todocompanion.app.ui.components.borderlessFieldColors
 
@@ -177,6 +182,49 @@ fun NoteAboutDialog(note: NoteEntity, onDismiss: () -> Unit) {
                 AboutRow("Read time", readMin)
                 AboutRow("Created", fmt(note.createdAt))
                 AboutRow("Edited", fmt(note.updatedAt))
+            }
+        },
+    )
+}
+
+/** Wave B — the local version-history timeline: each snapshot with its time, a ±char delta, and Restore. */
+@Composable
+fun NoteVersionHistoryDialog(
+    revisions: List<NoteRevisionEntity>,
+    onRestore: (NoteRevisionEntity) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    fun fmt(ts: Long): String = runCatching {
+        java.time.Instant.ofEpochMilli(ts).atZone(java.time.ZoneId.systemDefault())
+            .format(java.time.format.DateTimeFormatter.ofPattern("d MMM, HH:mm"))
+    }.getOrDefault("—")
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        title = { Text("Version history") },
+        text = {
+            if (revisions.isEmpty()) {
+                Text("No versions yet. Snapshots are captured automatically as you edit and close the note.")
+            } else {
+                LazyColumn(Modifier.heightIn(max = 380.dp)) {
+                    items(revisions, key = { it.id }) { r ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable { onRestore(r) }.padding(vertical = 10.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(fmt(r.createdAt), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                                val preview = r.title.ifBlank { r.body.take(60).ifBlank { "(empty)" } }
+                                Text(preview, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                            }
+                            Text(
+                                if (r.charDelta >= 0) "+${r.charDelta}" else "${r.charDelta}",
+                                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text("Restore", Modifier.padding(start = 12.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
             }
         },
     )

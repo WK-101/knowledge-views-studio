@@ -43,6 +43,30 @@ data class NoteEntity(
     val createdAt: Long = 0L,
     val updatedAt: Long = 0L,
     val workspaceId: String = WorkspaceEntity.DEFAULT_ID,
+    // Wave B (v67): a favourite star (independent of pin), a read-only lock, and richer trash bookkeeping
+    // (deletedAt drives the auto-empty-trash sweep; deletedBy distinguishes user vs. app vs. expiry).
+    val favorite: Boolean = false,
+    val readonly: Boolean = false,
+    val deletedAt: Long? = null,
+    val deletedBy: String? = null,      // user | app | expired
+)
+
+/**
+ * Wave B (v67) — a local version snapshot of a note, captured per editing session. Fully on-device,
+ * no network. [charDelta] is the cheap change magnitude vs. the previous snapshot (Standard Notes'
+ * session-history model); the editor's history timeline shows it and restores any snapshot. Pruned to
+ * the user's "keep versions" setting so storage stays bounded.
+ */
+@Serializable
+@Entity(tableName = "note_revisions", indices = [Index("noteId")])
+@androidx.compose.runtime.Immutable
+data class NoteRevisionEntity(
+    @PrimaryKey val id: String,
+    val noteId: String,
+    val createdAt: Long,
+    val title: String,
+    val body: String,
+    val charDelta: Int,
 )
 
 /**

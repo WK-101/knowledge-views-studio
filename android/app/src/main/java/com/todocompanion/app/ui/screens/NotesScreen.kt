@@ -26,8 +26,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
@@ -96,6 +98,8 @@ fun NotesScreen(
     val grid = settings.noteDefaultView != "list"
 
     var container by remember { mutableStateOf<String?>(null) }   // selected notebookId/folderId, null = All
+    var archiveView by remember { mutableStateOf(false) }         // Wave B — the Archive (third state) view
+    androidx.compose.runtime.LaunchedEffect(Unit) { vm.purgeExpiredNoteTrash() }  // lazy auto-empty-trash sweep
 
     // Containers to offer as filter chips, per the user's chosen grouping mode.
     val containers: List<Pair<String, String>> =
@@ -104,6 +108,7 @@ fun NotesScreen(
 
     val filtered = notes
         .asSequence()
+        .filter { n -> if (archiveView) n.archived else !n.archived }
         .filter { n ->
             container == null || (if (useNotebooks) n.notebookId == container else n.folderId == container)
         }
@@ -124,16 +129,19 @@ fun NotesScreen(
             )
         }
         run {
-            if (containers.isNotEmpty()) {
+            run {
                 androidx.compose.foundation.lazy.LazyRow(
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     item {
-                        FilterChip(selected = container == null, onClick = { container = null }, label = { Text("All") })
+                        FilterChip(selected = container == null && !archiveView, onClick = { container = null; archiveView = false }, label = { Text("All") })
                     }
                     items(containers, key = { it.first }) { (id, name) ->
-                        FilterChip(selected = container == id, onClick = { container = id }, label = { Text(name) })
+                        FilterChip(selected = container == id && !archiveView, onClick = { container = id; archiveView = false }, label = { Text(name) })
+                    }
+                    item {
+                        FilterChip(selected = archiveView, onClick = { archiveView = true; container = null }, label = { Text("🗄 Archived") })
                     }
                 }
                 Spacer(Modifier.height(4.dp))
@@ -187,6 +195,10 @@ private fun NoteCard(n: NoteEntity, onOpen: () -> Unit, onTogglePin: () -> Unit)
                         maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
                         color = MaterialTheme.colorScheme.onSurface,
                     )
+                    if (n.favorite) {
+                        Icon(Icons.Filled.Star, "Favorite", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                    }
                     IconButton(onClick = onTogglePin, modifier = Modifier.size(28.dp)) {
                         Icon(
                             if (n.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
@@ -229,6 +241,7 @@ fun NoteEditorScreen(
     val folders by vm.folders.collectAsState()
     val tags by vm.tags.collectAsState()
     val noteTagRefs by vm.noteTagRefs.collectAsState()
+    val revisions by vm.observeNoteRevisions(noteId).collectAsState(initial = emptyList())
 
     val useNotebooks = settings.notesNotebookMode == "notebooks"
     val note = notes.firstOrNull { it.id == noteId }
@@ -243,6 +256,7 @@ fun NoteEditorScreen(
     var showContainer by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
+    var showHistory by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
 
     fun persist(n: NoteEntity) { draft = n; vm.saveNote(n) }
@@ -251,7 +265,7 @@ fun NoteEditorScreen(
         delay(600)
         draft?.let { vm.saveNote(it) }
     }
-    BackHandler { draft?.let { vm.saveNote(it) }; onBack() }
+    BackHandler { draft?.let { vm.closeNoteEditor(it) }; onBack() }
 
     val myTagIds = noteTagRefs.filter { it.noteId == noteId }.map { it.tagId }.toSet()
     val containerName = if (useNotebooks) notebooks.firstOrNull { it.id == d.notebookId }?.name
@@ -260,9 +274,16 @@ fun NoteEditorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                navigationIcon = { IconButton(onClick = { draft?.let { vm.saveNote(it) }; onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = { draft?.let { vm.closeNoteEditor(it) }; onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 title = { Text("Note") },
                 actions = {
+                    IconButton(onClick = { persist(d.copy(favorite = !d.favorite)) }) {
+                        Icon(
+                            if (d.favorite) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                            contentDescription = if (d.favorite) "Unfavorite" else "Favorite",
+                            tint = if (d.favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     IconButton(onClick = { persist(d.copy(pinned = !d.pinned)) }) {
                         Icon(
                             if (d.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
@@ -285,6 +306,10 @@ fun NoteEditorScreen(
                                     },
                                 )
                             }
+                            DropdownMenuItem(text = { Text(if (d.readonly) "Allow editing" else "Make read-only") }, onClick = { val wasRo = d.readonly; menu = false; persist(d.copy(readonly = !wasRo)); if (!wasRo) preview = true })
+                            DropdownMenuItem(text = { Text("Version history") }, onClick = { menu = false; showHistory = true })
+                            DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menu = false; draft?.let { vm.closeNoteEditor(it) }; vm.duplicateNote(noteId) { id -> onOpenNote(id) } })
+                            DropdownMenuItem(text = { Text("Archive") }, onClick = { menu = false; vm.archiveNote(noteId); onBack() })
                             DropdownMenuItem(text = { Text("About") }, onClick = { menu = false; showAbout = true })
                             DropdownMenuItem(text = { Text("Move to Trash") }, onClick = { menu = false; vm.trashNote(noteId); onBack() })
                             DropdownMenuItem(text = { Text("Delete permanently") }, onClick = { menu = false; showDelete = true })
@@ -322,6 +347,7 @@ fun NoteEditorScreen(
                     onClick = { showContainer = true },
                     label = { Text(containerName ?: if (useNotebooks) "Notebook" else "Folder") },
                 )
+                if (d.readonly) FilterChip(selected = true, onClick = { persist(d.copy(readonly = false)) }, label = { Text("🔒 Read-only") })
             }
             // Woven context (Phase 2): what this note is bound to — the day, a meeting, or a task.
             val dayLabel = if (d.kind == "journal" && d.dayEpoch != null) runCatching {
@@ -337,21 +363,22 @@ fun NoteEditorScreen(
             // Body — viewer until edit. Preview checkboxes are tappable and round-trip to the Markdown
             // source; editing goes through NoteBodyEditor (toolbar · smart lists · undo/redo).
             Box(Modifier.fillMaxWidth().weight(1f)) {
-                if (d.body.isNotBlank() && preview) {
+                if (d.body.isNotBlank() && (preview || d.readonly)) {
                     androidx.compose.foundation.text.selection.SelectionContainer {
                         MarkdownText(
                             d.body,
                             modifier = Modifier.fillMaxWidth().padding(end = 36.dp),
-                            onToggleCheckbox = { line -> persist(d.copy(body = com.todocompanion.app.domain.NoteEditing.toggleCheckboxAtLine(d.body, line))) },
+                            onToggleCheckbox = if (d.readonly) null else { line -> persist(d.copy(body = com.todocompanion.app.domain.NoteEditing.toggleCheckboxAtLine(d.body, line))) },
                         )
                     }
                 } else {
                     NoteBodyEditor(
                         value = d.body, onValueChange = { draft = d.copy(body = it) },
                         modifier = Modifier.fillMaxWidth().padding(end = 36.dp),
+                        readOnly = d.readonly,
                     )
                 }
-                if (d.body.isNotBlank()) {
+                if (d.body.isNotBlank() && !d.readonly) {
                     IconButton(onClick = { preview = !preview }, modifier = Modifier.align(Alignment.TopEnd).size(32.dp)) {
                         if (preview) Icon(Icons.Outlined.Edit, "Edit", modifier = Modifier.size(18.dp))
                         else Icon(Icons.Outlined.Visibility, "Preview", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
@@ -440,6 +467,11 @@ fun NoteEditorScreen(
         )
     }
     if (showAbout) NoteAboutDialog(d, onDismiss = { showAbout = false })
+    if (showHistory) NoteVersionHistoryDialog(
+        revisions = revisions,
+        onRestore = { r -> vm.restoreNoteRevision(noteId, r.title, r.body); draft = d.copy(title = r.title, body = r.body); showHistory = false },
+        onDismiss = { showHistory = false },
+    )
     if (showDelete) {
         AlertDialog(
             onDismissRequest = { showDelete = false },
