@@ -551,6 +551,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         noteSyncConflicts.value = noteSyncConflicts.value.filterNot { it.noteId == noteId }
     }
 
+    // ── Wave P (moat · N1): the dynamic note — live transclusion of app data ───────────────────────
+    /** Expand `{{today:agenda}}` / `{{tasks:overdue|today}}` / `{{note:Title}}` tokens against live data,
+     *  recomputed on open. Read-only projection — a briefing the note writes from your tasks and notes
+     *  (this is also M3's daily cockpit). Unknown/failed tokens are left verbatim. */
+    suspend fun expandNoteTransclusion(body: String): String {
+        if (!com.todocompanion.app.util.NoteTransclusion.hasTokens(body)) return body
+        val zone = java.time.ZoneId.systemDefault()
+        val todayStart = java.time.LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
+        val todayEnd = todayStart + 86_400_000L
+        val open = tasks.value.filter { !it.completed }
+        val notes = repo.getNotesOnce()
+        fun list(ts: List<com.todocompanion.app.data.entity.TaskEntity>): String =
+            if (ts.isEmpty()) "_Nothing here_"
+            else ts.sortedBy { it.dueDate ?: Long.MAX_VALUE }.joinToString("\n") { "- [ ] ${it.title}" }
+        return com.todocompanion.app.util.NoteTransclusion.expand(body) { scope, arg ->
+            when (scope) {
+                "tasks" -> when (arg) {
+                    "overdue" -> list(open.filter { it.dueDate != null && it.dueDate!! < todayStart })
+                    "today" -> list(open.filter { it.dueDate != null && it.dueDate!! in todayStart until todayEnd })
+                    else -> null
+                }
+                "today" -> if (arg.isEmpty() || arg == "agenda")
+                    list(open.filter { it.dueDate != null && it.dueDate!! < todayEnd }) else null
+                "note" -> notes.firstOrNull { !it.trashed && it.title.trim().equals(arg, true) }?.body
+                    ?: "_Note “$arg” not found_"
+                else -> null
+            }
+        }
+    }
+
     /** Save the note and capture a version snapshot in one ordered coroutine (used on editor close). */
     fun closeNoteEditor(n: com.todocompanion.app.data.entity.NoteEntity) = viewModelScope.launch {
         repo.upsertNote(n.copy(workspaceId = n.workspaceId.ifBlank { activeWorkspace() }))
