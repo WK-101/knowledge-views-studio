@@ -160,6 +160,40 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     // Wave K — a folder of one `.md` per note (Obsidian/Bear-style), for round-trip interop with any editor.
     val notesFolderExportLauncher: () -> Unit = { com.todocompanion.app.util.SystemPicker.openTree(onError = err) { uri -> persist(uri); vm.exportNotesToFolder(uri.toString()) } }
     val notesFolderImportLauncher: () -> Unit = { com.todocompanion.app.util.SystemPicker.openTree(onError = err) { uri -> persist(uri); vm.importNotesFromFolder(uri.toString()) } }
+    // Wave N — two-way "living mirror": reconcile the folder with in-app notes (push/pull/conflict).
+    val notesFolderSyncLauncher: () -> Unit = { com.todocompanion.app.util.SystemPicker.openTree(onError = err) { uri -> persist(uri); vm.syncNotesFolder(uri.toString()) } }
+    val syncConflicts = vm.noteSyncConflicts.collectAsState().value
+    if (syncConflicts.isNotEmpty()) {
+        val c = syncConflicts.first()
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("Sync conflict") },
+            text = {
+                Column {
+                    Text("“${c.appTitle}” changed both in Kairo and in the .md file since the last sync.",
+                        style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(10.dp))
+                    Text("In Kairo", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text(c.appPreview.ifBlank { "(empty)" }, style = MaterialTheme.typography.bodySmall, maxLines = 4, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    Text("In the file", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text(c.filePreview.ifBlank { "(empty)" }, style = MaterialTheme.typography.bodySmall, maxLines = 4, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (syncConflicts.size > 1) {
+                        Spacer(Modifier.height(8.dp))
+                        Text("${syncConflicts.size - 1} more conflict${if (syncConflicts.size - 1 == 1) "" else "s"} after this",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { vm.resolveNoteConflict(c.noteId, "app") }) { Text("Keep Kairo") } },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { vm.resolveNoteConflict(c.noteId, "file") }) { Text("Keep file") }
+                    TextButton(onClick = { vm.resolveNoteConflict(c.noteId, "both") }) { Text("Keep both") }
+                }
+            },
+        )
+    }
     val exportCsvLauncher: (String) -> Unit = { name -> com.todocompanion.app.util.SystemPicker.createFile("text/csv", name, onError = err) { uri -> vm.exportCsvTo(uri, includeCompleted = true) { ok -> Toast.makeText(context, if (ok) "Exported" else "Export failed", Toast.LENGTH_SHORT).show() } } }
     val exportIcsLauncher: (String) -> Unit = { name -> com.todocompanion.app.util.SystemPicker.createFile("text/calendar", name, onError = err) { uri -> vm.exportIcsTo(uri, includeCompleted = false) { ok -> Toast.makeText(context, if (ok) "Calendar exported" else "Export failed", Toast.LENGTH_SHORT).show() } } }
     val exportHabitsLauncher: (String) -> Unit = { name -> com.todocompanion.app.util.SystemPicker.createFile("text/csv", name, onError = err) { uri -> vm.exportHabitsCsvTo(uri) { ok -> Toast.makeText(context, if (ok) "Habits exported" else "Export failed", Toast.LENGTH_SHORT).show() } } }
@@ -291,7 +325,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Sub("Markdown files")
                 Action("Export notes as .md files…") { safePick { notesFolderExportLauncher() } }
                 Action("Import .md files from a folder…") { safePick { notesFolderImportLauncher() } }
-                Text("Each note becomes one .md file with a small YAML header, so any editor (Obsidian, Bear, iA Writer) can read it. Re-importing the same folder updates notes in place instead of duplicating them.",
+                Action("Sync .md folder (two-way)…") { safePick { notesFolderSyncLauncher() } }
+                Text("Each note becomes one .md file with a small YAML header, so any editor (Obsidian, Bear, iA Writer) can read it. Two-way sync reconciles the folder with your notes — pushing your changes out, pulling edits made elsewhere in, and asking you which to keep when both changed. Sync state lives in the folder's own .kairo/ so nothing is stored twice.",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

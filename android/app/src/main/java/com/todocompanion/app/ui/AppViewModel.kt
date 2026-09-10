@@ -427,6 +427,126 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         out
     }
 
+    // ── Wave N: the living two-way `.md` mirror ─────────────────────────────────────────────────────
+    /** A note that changed on BOTH sides since the last sync — surfaced for the user to resolve. */
+    data class NoteSyncConflict(
+        val noteId: String, val fileName: String,
+        val appTitle: String, val appPreview: String, val fileTitle: String, val filePreview: String,
+    )
+    val noteSyncConflicts = MutableStateFlow<List<NoteSyncConflict>>(emptyList())
+    private var syncFolderUri: String = ""
+    private val pendingConflicts = mutableMapOf<String, Pair<com.todocompanion.app.data.entity.NoteEntity, com.todocompanion.app.util.NoteMarkdownFile.Parsed>>()
+
+    /** Upsert a note from a parsed `.md` (merge by id, resolve/create tags), returning its id. */
+    private suspend fun upsertFromParsed(p: com.todocompanion.app.util.NoteMarkdownFile.Parsed, ws: String, tagMap: MutableMap<String, TagEntity>): String {
+        val existing = p.id?.let { repo.getNote(it) }
+        val base = existing ?: com.todocompanion.app.data.entity.NoteEntity(id = "", workspaceId = ws)
+        val newId = repo.upsertNote(base.copy(
+            title = p.title, body = p.body, kind = p.kind, pinned = p.pinned, favorite = p.favorite,
+            colorArgb = p.colorArgb, coverEmoji = p.coverEmoji, dayEpoch = p.dayEpoch,
+            createdAt = p.createdAt ?: base.createdAt, workspaceId = base.workspaceId.ifBlank { ws },
+        ))
+        if (p.tags.isNotEmpty()) {
+            val tagIds = p.tags.map { name ->
+                val key = name.lowercase()
+                tagMap[key]?.id ?: UUID.randomUUID().toString().also { id ->
+                    val t = TagEntity(id, name, workspaceId = ws); repo.upsertTag(t); tagMap[key] = t
+                }
+            }
+            repo.setNoteTags(newId, tagIds.distinct())
+        }
+        return newId
+    }
+
+    private fun canonHash(n: com.todocompanion.app.data.entity.NoteEntity, tags: List<String>) =
+        com.todocompanion.app.util.NoteMirror.hash(com.todocompanion.app.util.NoteMirror.canonical(
+            n.title, n.body, tags, n.kind, n.pinned, n.favorite, n.colorArgb, n.coverEmoji))
+    private fun canonHash(p: com.todocompanion.app.util.NoteMarkdownFile.Parsed) =
+        com.todocompanion.app.util.NoteMirror.hash(com.todocompanion.app.util.NoteMirror.canonical(
+            p.title, p.body, p.tags, p.kind, p.pinned, p.favorite, p.colorArgb, p.coverEmoji))
+
+    /** Two-way reconcile the active workspace's notes with the `.md` folder: push app-only changes out,
+     *  pull file-only changes in, and surface both-changed notes as conflicts (never last-writer-wins).
+     *  Baseline hashes live in the folder's own `.kairo/mirror.json`. */
+    fun syncNotesFolder(folderUri: String) = viewModelScope.launch {
+        val ws = repo.activeWs()
+        val notes = repo.getNotesOnce().filter { !it.trashed && it.workspaceId == ws }
+        val tagNameById = repo.getTagsOnce().associate { it.id to it.name }
+        val refs = repo.getNoteTagCrossRefs().groupBy { it.noteId }
+        val tagMap = repo.getTagsOnce().filter { it.workspaceId == ws }.associateBy { it.name.lowercase() }.toMutableMap()
+        fun tagsOf(id: String) = refs[id].orEmpty().mapNotNull { tagNameById[it.tagId] }
+
+        val baselineText = withContext(Dispatchers.IO) { com.todocompanion.app.util.NoteFolderSync.readConfig(appCtx, folderUri, ".kairo", "mirror.json") }
+        val disk = withContext(Dispatchers.IO) { com.todocompanion.app.util.NoteFolderSync.importWithNames(appCtx, folderUri) }
+        if (disk.isEmpty() && notes.isEmpty()) { toast("Nothing to sync"); return@launch }
+        val baseline = com.todocompanion.app.util.NoteMirror.decodeBaseline(baselineText)
+
+        val dbById = notes.associateBy { it.id }
+        val diskById = HashMap<String, Pair<String, com.todocompanion.app.util.NoteMarkdownFile.Parsed>>()
+        val diskNoId = ArrayList<Pair<String, com.todocompanion.app.util.NoteMarkdownFile.Parsed>>()
+        for ((name, p) in disk) { val id = p.id; if (id != null) diskById[id] = name to p else diskNoId.add(name to p) }
+
+        val out = com.todocompanion.app.util.NoteMirror.Baseline()
+        val conflicts = LinkedHashMap<String, Pair<com.todocompanion.app.data.entity.NoteEntity, com.todocompanion.app.util.NoteMarkdownFile.Parsed>>()
+        var pushed = 0; var pulled = 0
+        val taken = mutableSetOf<String>()
+        val ids = LinkedHashSet<String>().apply { addAll(dbById.keys); addAll(diskById.keys) }
+        for (id in ids) {
+            val n = dbById[id]; val fp = diskById[id]
+            val dbHash = n?.let { canonHash(it, tagsOf(it.id)) }
+            val diskHash = fp?.let { canonHash(it.second) }
+            val base = baseline.notes[id]?.hash
+            val fileName = fp?.first ?: n?.let { com.todocompanion.app.util.NoteMarkdownFile.fileName(it, taken) } ?: continue
+            when (com.todocompanion.app.util.NoteMirror.reconcile(base, diskHash, dbHash)) {
+                com.todocompanion.app.util.NoteMirror.Action.PUSH, com.todocompanion.app.util.NoteMirror.Action.NEW_DB ->
+                    if (n != null && dbHash != null) {
+                        withContext(Dispatchers.IO) { com.todocompanion.app.util.NoteFolderSync.writeOne(appCtx, folderUri, fileName, com.todocompanion.app.util.NoteMarkdownFile.serialize(n, tagsOf(n.id))) }
+                        out.notes[id] = com.todocompanion.app.util.NoteMirror.Base(fileName, dbHash); pushed++
+                    }
+                com.todocompanion.app.util.NoteMirror.Action.PULL, com.todocompanion.app.util.NoteMirror.Action.NEW_LOCAL ->
+                    if (fp != null && diskHash != null) { upsertFromParsed(fp.second, ws, tagMap); out.notes[id] = com.todocompanion.app.util.NoteMirror.Base(fileName, diskHash); pulled++ }
+                com.todocompanion.app.util.NoteMirror.Action.CONFLICT ->
+                    if (n != null && fp != null) { conflicts[id] = n to fp.second; baseline.notes[id]?.let { out.notes[id] = it } }
+                com.todocompanion.app.util.NoteMirror.Action.NONE -> {
+                    val h = dbHash ?: diskHash ?: base
+                    if (h != null) out.notes[id] = com.todocompanion.app.util.NoteMirror.Base(fileName, h)
+                }
+            }
+        }
+        for ((name, p) in diskNoId) {
+            val newId = upsertFromParsed(p, ws, tagMap)
+            out.notes[newId] = com.todocompanion.app.util.NoteMirror.Base(name, canonHash(p)); pulled++
+        }
+        withContext(Dispatchers.IO) { com.todocompanion.app.util.NoteFolderSync.writeConfig(appCtx, folderUri, ".kairo", "mirror.json", com.todocompanion.app.util.NoteMirror.encodeBaseline(out)) }
+        syncFolderUri = folderUri
+        pendingConflicts.clear(); pendingConflicts.putAll(conflicts)
+        noteSyncConflicts.value = conflicts.map { (id, pair) ->
+            NoteSyncConflict(id, "", pair.first.title.ifBlank { "Untitled" }, pair.first.body.take(140),
+                pair.second.title.ifBlank { "Untitled" }, pair.second.body.take(140))
+        }
+        toast("Synced · $pushed out · $pulled in" + if (conflicts.isNotEmpty()) " · ${conflicts.size} conflict${if (conflicts.size == 1) "" else "s"}" else "")
+    }
+
+    /** Resolve one mirror conflict: keep "app" (push to file), "file" (pull into app), or "both". */
+    fun resolveNoteConflict(noteId: String, keep: String) = viewModelScope.launch {
+        val pair = pendingConflicts[noteId] ?: return@launch
+        val (appNote, fileParsed) = pair
+        val ws = repo.activeWs()
+        val tagMap = repo.getTagsOnce().filter { it.workspaceId == ws }.associateBy { it.name.lowercase() }.toMutableMap()
+        val refs = repo.getNoteTagCrossRefs().groupBy { it.noteId }
+        val tagNameById = repo.getTagsOnce().associate { it.id to it.name }
+        val appTags = refs[noteId].orEmpty().mapNotNull { tagNameById[it.tagId] }
+        val fileName = com.todocompanion.app.util.NoteMarkdownFile.fileName(appNote, mutableSetOf())
+        when (keep) {
+            "file" -> upsertFromParsed(fileParsed, ws, tagMap)
+            "both" -> { withContext(Dispatchers.IO) { com.todocompanion.app.util.NoteFolderSync.writeOne(appCtx, syncFolderUri, fileName, com.todocompanion.app.util.NoteMarkdownFile.serialize(appNote, appTags)) }
+                upsertFromParsed(fileParsed.copy(id = null, title = fileParsed.title + " (from file)"), ws, tagMap) }
+            else -> withContext(Dispatchers.IO) { com.todocompanion.app.util.NoteFolderSync.writeOne(appCtx, syncFolderUri, fileName, com.todocompanion.app.util.NoteMarkdownFile.serialize(appNote, appTags)) }
+        }
+        pendingConflicts.remove(noteId)
+        noteSyncConflicts.value = noteSyncConflicts.value.filterNot { it.noteId == noteId }
+    }
+
     /** Save the note and capture a version snapshot in one ordered coroutine (used on editor close). */
     fun closeNoteEditor(n: com.todocompanion.app.data.entity.NoteEntity) = viewModelScope.launch {
         repo.upsertNote(n.copy(workspaceId = n.workspaceId.ifBlank { activeWorkspace() }))
