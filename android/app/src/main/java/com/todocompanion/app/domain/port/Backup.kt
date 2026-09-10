@@ -76,10 +76,12 @@ data class BackupFile(
     val noteContexts: List<com.todocompanion.app.data.entity.NoteContextCrossRef> = emptyList(),
     // Wave B (v67) — local note version-history snapshots. Additive; old backups carry an empty list.
     val noteRevisions: List<com.todocompanion.app.data.entity.NoteRevisionEntity> = emptyList(),
+    // Wave C (v68) — cross-module note→entity link edges. Additive; old backups carry an empty list.
+    val noteLinks: List<com.todocompanion.app.data.entity.NoteLinkEntity> = emptyList(),
 ) {
     companion object {
         const val FORMAT = "todo-companion"
-        const val VERSION = 17
+        const val VERSION = 18
     }
 }
 

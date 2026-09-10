@@ -242,6 +242,7 @@ fun NoteEditorScreen(
     val tags by vm.tags.collectAsState()
     val noteTagRefs by vm.noteTagRefs.collectAsState()
     val revisions by vm.observeNoteRevisions(noteId).collectAsState(initial = emptyList())
+    val links by vm.observeNoteLinks(noteId).collectAsState(initial = emptyList())
 
     val useNotebooks = settings.notesNotebookMode == "notebooks"
     val note = notes.firstOrNull { it.id == noteId }
@@ -257,6 +258,7 @@ fun NoteEditorScreen(
     var showDelete by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
+    var showOutline by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
 
     fun persist(n: NoteEntity) { draft = n; vm.saveNote(n) }
@@ -307,6 +309,7 @@ fun NoteEditorScreen(
                                 )
                             }
                             DropdownMenuItem(text = { Text(if (d.readonly) "Allow editing" else "Make read-only") }, onClick = { val wasRo = d.readonly; menu = false; persist(d.copy(readonly = !wasRo)); if (!wasRo) preview = true })
+                            DropdownMenuItem(text = { Text("Outline") }, onClick = { menu = false; showOutline = true })
                             DropdownMenuItem(text = { Text("Version history") }, onClick = { menu = false; showHistory = true })
                             DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menu = false; draft?.let { vm.closeNoteEditor(it) }; vm.duplicateNote(noteId) { id -> onOpenNote(id) } })
                             DropdownMenuItem(text = { Text("Archive") }, onClick = { menu = false; vm.archiveNote(noteId); onBack() })
@@ -391,14 +394,27 @@ fun NoteEditorScreen(
             val existingTitles = remember(notes) { notes.filter { !it.trashed }.map { it.title.trim().lowercase() }.toHashSet() }
             val backlinks = notes.filter { it.id != noteId && !it.trashed && d.title.isNotBlank() && com.todocompanion.app.domain.NoteLinks.links(it.body, d.title) }
             if (outTitles.isNotEmpty()) {
+                // Cross-module (Wave C): each [[link]] is resolved (materialized on save) to a note / task /
+                // habit / event; the chip shows a type glyph and a task chip opens the task.
+                val linkByTitle = remember(links) { links.associateBy { it.targetTitle.trim().lowercase() } }
                 Text("Links", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(outTitles, key = { it }) { t ->
+                        val row = linkByTitle[t.trim().lowercase()]
                         val exists = t.trim().lowercase() in existingTitles
+                        val glyph = when (row?.targetType) {
+                            "task" -> "✅  "; "habit" -> "🔁  "; "event" -> "📅  "
+                            "note" -> if (row.targetId.isNotBlank()) "🔗  " else "＋  "
+                            else -> if (exists) "🔗  " else "＋  "
+                        }
                         FilterChip(
                             selected = false,
-                            onClick = { draft?.let { vm.saveNote(it) }; vm.openOrCreateNoteByTitle(t) { id -> onOpenNote(id) } },
-                            label = { Text((if (exists) "🔗  " else "＋  ") + t) },
+                            onClick = {
+                                draft?.let { vm.closeNoteEditor(it) }
+                                if (row?.targetType == "task" && row.targetId.isNotBlank()) onOpenTask(row.targetId)
+                                else vm.openOrCreateNoteByTitle(t) { id -> onOpenNote(id) }
+                            },
+                            label = { Text(glyph + t) },
                         )
                     }
                 }
@@ -467,6 +483,7 @@ fun NoteEditorScreen(
         )
     }
     if (showAbout) NoteAboutDialog(d, onDismiss = { showAbout = false })
+    if (showOutline) NoteOutlineDialog(d.body, onDismiss = { showOutline = false })
     if (showHistory) NoteVersionHistoryDialog(
         revisions = revisions,
         onRestore = { r -> vm.restoreNoteRevision(noteId, r.title, r.body); draft = d.copy(title = r.title, body = r.body); showHistory = false },

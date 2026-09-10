@@ -384,6 +384,27 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+            // Wave C — cross-module backlinks: notes that mention this task via a [[wiki-link]]. Computed
+            // on the fly by title (same engine as note backlinks), so it needs no extra query.
+            if (onOpenNote != null && task.title.isNotBlank()) {
+                val noteBacklinks = allNotes.filter { !it.trashed && com.todocompanion.app.domain.NoteLinks.links(it.body, task.title) }
+                if (noteBacklinks.isNotEmpty()) {
+                    Text("Notes about this", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        noteBacklinks.forEach { n ->
+                            Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { onOpenNote(n.id) }) {
+                                Row(Modifier.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.AutoMirrored.Filled.Article, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(n.title.ifBlank { "Untitled" }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+                }
+            }
             // ---------- Moat: enrich-on-capture — one-tap actions for a link / email / phone in the text ----------
             // Detected on-device from the title + notes; fired via implicit intents, so no network and no
             // permission. Capture that *does* something — impossible for a cloud-only app to do privately.

@@ -31,6 +31,7 @@ import com.todocompanion.app.data.entity.NotebookEntity
 import com.todocompanion.app.data.entity.NoteTagCrossRef
 import com.todocompanion.app.data.entity.NoteContextCrossRef
 import com.todocompanion.app.data.entity.NoteRevisionEntity
+import com.todocompanion.app.data.entity.NoteLinkEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -880,5 +881,27 @@ interface NoteRevisionDao {
     suspend fun clearForNote(noteId: String)
 
     @Query("DELETE FROM note_revisions")
+    suspend fun clear()
+}
+
+@Dao
+interface NoteLinkDao {
+    @Query("SELECT * FROM note_links WHERE noteId = :noteId")
+    fun observeForNote(noteId: String): Flow<List<NoteLinkEntity>>
+
+    @Query("SELECT * FROM note_links")
+    suspend fun getAll(): List<NoteLinkEntity>
+
+    /** Note ids whose body links to a given entity — powers "Notes about this" backlink panels. */
+    @Query("SELECT noteId FROM note_links WHERE targetType = :type AND targetId = :id")
+    suspend fun notesLinkingTo(type: String, id: String): List<String>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(links: List<NoteLinkEntity>)
+
+    @Query("DELETE FROM note_links WHERE noteId = :noteId")
+    suspend fun clearForNote(noteId: String)
+
+    @Query("DELETE FROM note_links")
     suspend fun clear()
 }

@@ -672,6 +672,7 @@ class AppRepository(private val db: AppDatabase) {
 
     // ============ notes (v66) ============
     private val noteRevisions = db.noteRevisionDao()
+    private val noteLinks = db.noteLinkDao()
     fun observeNotes(): Flow<List<com.todocompanion.app.data.entity.NoteEntity>> = notes.observeAll()
     fun observeNotebooks(): Flow<List<com.todocompanion.app.data.entity.NotebookEntity>> = notebooks.observeAll()
     suspend fun getNotesOnce(): List<com.todocompanion.app.data.entity.NoteEntity> = notes.getAll()
@@ -689,6 +690,7 @@ class AppRepository(private val db: AppDatabase) {
         )
         notes.upsert(stamped)
         syncNoteFts(id, stamped.title, stamped.body)
+        materializeNoteLinks(id)
         return id
     }
 
@@ -711,6 +713,7 @@ class AppRepository(private val db: AppDatabase) {
         notes.unlinkAllContextsForNote(id)
         attachments.deleteForNote(id)
         noteRevisions.clearForNote(id)
+        noteLinks.clearForNote(id)
         notes.deleteById(id)
         runCatching { deleteNoteFts(ftsDb(), id) }
     }
@@ -786,6 +789,36 @@ class AppRepository(private val db: AppDatabase) {
         val cutoff = now() - retentionDays.toLong() * 86_400_000L
         notes.getAll().filter { it.trashed && (it.deletedAt ?: 0L) in 1 until cutoff }.forEach { deleteNote(it.id) }
     }
+
+    // ---- Wave C: cross-module [[wiki-link]] edges (materialized on save) ----
+    /** Re-derive this note's outgoing links from its body, resolving each [[title]] to a note / task /
+     *  habit / event (first match, in that priority); an unresolved title is stored with targetId "". */
+    suspend fun materializeNoteLinks(noteId: String) {
+        val n = notes.getById(noteId) ?: return
+        noteLinks.clearForNote(noteId)
+        val titles = com.todocompanion.app.domain.NoteLinks.outgoingTitles(n.body)
+        if (titles.isEmpty()) return
+        val allNotes = notes.getAll(); val allTasks = tasks.getAll(); val allHabits = habits.getAll(); val allEvents = events.getAll()
+        fun norm(s: String) = s.trim().lowercase()
+        val rows = titles.map { t ->
+            val key = norm(t)
+            val note = allNotes.firstOrNull { !it.trashed && it.id != noteId && norm(it.title) == key }
+            val task = if (note == null) allTasks.firstOrNull { norm(it.title) == key } else null
+            val habit = if (note == null && task == null) allHabits.firstOrNull { norm(it.name) == key } else null
+            val event = if (note == null && task == null && habit == null) allEvents.firstOrNull { norm(it.title) == key } else null
+            when {
+                note != null -> com.todocompanion.app.data.entity.NoteLinkEntity(noteId, t, "note", note.id)
+                task != null -> com.todocompanion.app.data.entity.NoteLinkEntity(noteId, t, "task", task.id)
+                habit != null -> com.todocompanion.app.data.entity.NoteLinkEntity(noteId, t, "habit", habit.id)
+                event != null -> com.todocompanion.app.data.entity.NoteLinkEntity(noteId, t, "event", event.id)
+                else -> com.todocompanion.app.data.entity.NoteLinkEntity(noteId, t, "note", "")
+            }
+        }.distinctBy { it.targetTitle }
+        noteLinks.insertAll(rows)
+    }
+    suspend fun notesLinkingTo(type: String, id: String): List<String> = noteLinks.notesLinkingTo(type, id)
+    fun observeNoteLinks(noteId: String): kotlinx.coroutines.flow.Flow<List<com.todocompanion.app.data.entity.NoteLinkEntity>> = noteLinks.observeForNote(noteId)
+    suspend fun getNoteLinksOnce(): List<com.todocompanion.app.data.entity.NoteLinkEntity> = noteLinks.getAll()
 
     // ============ tasks ============
     suspend fun createTask(
@@ -1540,6 +1573,7 @@ class AppRepository(private val db: AppDatabase) {
             noteTags = notes.getTagCrossRefs(),
             noteContexts = notes.getContextCrossRefs(),
             noteRevisions = noteRevisions.getAll(),
+            noteLinks = noteLinks.getAll(),
         )
     )
 
@@ -1602,7 +1636,7 @@ class AppRepository(private val db: AppDatabase) {
         coreValues.clear(); witnesses.clear(); scorecard.clear(); buddies.clear(); integrityReviews.clear()
         experiments.clear(); activation.clear(); dayLogs.clear()
         escrows.clear(); nudgeEvents.clear(); eventCalendars.clear(); events.clear()
-        notes.clear(); notes.clearTagCrossRefs(); notes.clearContextCrossRefs(); notebooks.clear(); noteRevisions.clear()
+        notes.clear(); notes.clearTagCrossRefs(); notes.clearContextCrossRefs(); notebooks.clear(); noteRevisions.clear(); noteLinks.clear()
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -1634,6 +1668,7 @@ class AppRepository(private val db: AppDatabase) {
         notebooks.upsertAll(b.notebooks); notes.upsertAll(b.notes)
         notes.linkTags(b.noteTags); notes.linkContexts(b.noteContexts)
         noteRevisions.insertAll(b.noteRevisions)
+        noteLinks.insertAll(b.noteLinks)
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()
@@ -1684,6 +1719,7 @@ class AppRepository(private val db: AppDatabase) {
         notes.linkTags(missing(notes.getTagCrossRefs(), b.noteTags) { it.noteId to it.tagId })
         notes.linkContexts(missing(notes.getContextCrossRefs(), b.noteContexts) { it.noteId to it.contextId })
         noteRevisions.insertAll(missing(noteRevisions.getAll(), b.noteRevisions) { it.id })
+        noteLinks.insertAll(missing(noteLinks.getAll(), b.noteLinks) { it.noteId to it.targetTitle })
     }
 
     /** Full snapshot of the current data as a BackupFile (for sync merges). */

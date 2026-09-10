@@ -230,6 +230,39 @@ fun NoteVersionHistoryDialog(
     )
 }
 
+/** Wave C — a table-of-contents / outline built from the note's Markdown headings (indented by level). */
+@Composable
+fun NoteOutlineDialog(body: String, onDismiss: () -> Unit) {
+    val headings = remember(body) {
+        body.lineSequence().mapNotNull { ln ->
+            val m = Regex("""^(#{1,6})\s+(.*\S)\s*$""").find(ln.trim()) ?: return@mapNotNull null
+            m.groupValues[1].length to m.groupValues[2]
+        }.toList()
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        title = { Text("Outline") },
+        text = {
+            if (headings.isEmpty()) {
+                Text("No headings yet. Use #, ## or ### in the note to build an outline.")
+            } else {
+                LazyColumn(Modifier.heightIn(max = 380.dp)) {
+                    items(headings.size) { i ->
+                        val (lvl, txt) = headings[i]
+                        Text(
+                            txt,
+                            Modifier.fillMaxWidth().padding(start = ((lvl - 1) * 14).dp, top = 6.dp, bottom = 6.dp),
+                            style = if (lvl <= 1) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface, maxLines = 1,
+                        )
+                    }
+                }
+            }
+        },
+    )
+}
+
 @Composable
 private fun AboutRow(label: String, value: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {

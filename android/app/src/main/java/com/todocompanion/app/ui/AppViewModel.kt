@@ -280,6 +280,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Capture a version snapshot (bounded to the user's "keep versions" setting). Call on editor close. */
     fun saveNoteRevision(id: String) = viewModelScope.launch { repo.saveNoteRevision(id, settings.value.notesMaxRevisions) }
     fun observeNoteRevisions(id: String) = repo.observeNoteRevisions(id)
+    fun observeNoteLinks(id: String) = repo.observeNoteLinks(id)
     fun restoreNoteRevision(noteId: String, title: String, body: String) = viewModelScope.launch {
         repo.getNote(noteId)?.let { repo.upsertNote(it.copy(title = title, body = body)) }
     }

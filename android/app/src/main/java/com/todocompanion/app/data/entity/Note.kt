@@ -70,6 +70,27 @@ data class NoteRevisionEntity(
 )
 
 /**
+ * Wave C — the connective-tissue edge that makes Notes a first-class citizen of the whole app. A
+ * `[[wiki-link]]` in a note body is materialized (on save) into one row here, resolved to whatever the
+ * title names: another note, a task, a habit, or an event. This is the "limited incremental cross-ref"
+ * (per the data-model decision) — scoped to note→entity edges, not a fully generic relations graph.
+ * It powers backlink panels on tasks/habits/events ("Notes about this") and the on-device life graph.
+ * [targetId] is "" when the title matches nothing yet (an unresolved link, ready to become a new note).
+ */
+@Serializable
+@Entity(
+    tableName = "note_links",
+    primaryKeys = ["noteId", "targetTitle"],
+    indices = [Index("targetType", "targetId"), Index("noteId")],
+)
+data class NoteLinkEntity(
+    val noteId: String,
+    val targetTitle: String,
+    val targetType: String,   // note | task | habit | event
+    val targetId: String,
+)
+
+/**
  * An optional dedicated notebook (a folder for notes) — used only when the user picks the "separate
  * notebooks" grouping in Settings. Nestable via [parentId], mirroring [FolderEntity]. When the user
  * instead reuses the folder tree, this table simply stays empty; notes are grouped by [NoteEntity.folderId].
