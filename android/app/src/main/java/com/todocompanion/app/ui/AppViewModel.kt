@@ -171,6 +171,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val countdowns = repo.allCountdowns.scopedBy { it.workspaceId }
     val sealedNotes = repo.allSealedNotes.scopedBy { it.workspaceId }
     val cravings = repo.allCravings.scopedBy { it.workspaceId }
+    // Notes module (v66) — workspace-scoped, non-trashed notes + the optional dedicated notebook tree.
+    val notes = combine(repo.observeNotes(), activeWs) { n, ws -> n.filter { it.workspaceId == ws && !it.trashed } }.state(emptyList())
+    val notebooks = repo.observeNotebooks().scopedBy { it.workspaceId }
+    // Note ↔ tag cross-refs (for chips on cards / editor). Refreshed on the notes flow so edits reflect.
+    val noteTagRefs: StateFlow<List<com.todocompanion.app.data.entity.NoteTagCrossRef>> =
+        notes.map { repo.getNoteTagCrossRefs() }.state(emptyList())
     // R34 — life-systems layer flows.
     val coreValues = repo.allCoreValues.scopedBy { it.workspaceId }
     // R67 — temptation-bundling + implementation-intention micro-plans (settings-JSON, no schema).
@@ -222,6 +228,52 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 .copy(title = title.trim().ifBlank { "Countdown" }, targetMillis = targetMillis, emoji = emoji, colorArgb = colorArgb)
         )
         com.todocompanion.app.widget.CountdownWidget.refresh(appCtx)
+    }
+
+    // ── Notes module (v66) ───────────────────────────────────────────────────────────────────────
+    /** Create a brand-new note (stamped with the active workspace) and return its id via [onCreated]. */
+    fun createNote(
+        title: String = "",
+        body: String = "",
+        notebookId: String? = null,
+        folderId: String? = null,
+        kind: String = "note",
+        onCreated: (String) -> Unit = {},
+    ) = viewModelScope.launch {
+        val id = repo.upsertNote(
+            com.todocompanion.app.data.entity.NoteEntity(
+                id = "", title = title, body = body, notebookId = notebookId, folderId = folderId,
+                kind = kind, workspaceId = activeWorkspace(),
+            )
+        )
+        onCreated(id)
+    }
+
+    /** Persist an edited note; stamps the active workspace if the row arrives without one. */
+    fun saveNote(n: com.todocompanion.app.data.entity.NoteEntity) = viewModelScope.launch {
+        repo.upsertNote(n.copy(workspaceId = n.workspaceId.ifBlank { activeWorkspace() }))
+    }
+    fun trashNote(id: String) = viewModelScope.launch { repo.trashNote(id, true) }
+    fun deleteNote(id: String) = viewModelScope.launch { repo.deleteNote(id) }
+    fun setNoteTags(noteId: String, tagIds: List<String>) = viewModelScope.launch { repo.setNoteTags(noteId, tagIds) }
+    fun setNoteContexts(noteId: String, contextIds: List<String>) = viewModelScope.launch { repo.setNoteContexts(noteId, contextIds) }
+
+    fun saveNotebook(id: String?, name: String, icon: String?, colorArgb: Long?) = viewModelScope.launch {
+        val existing = id?.let { nid -> notebooks.value.firstOrNull { it.id == nid } }
+        repo.upsertNotebook(
+            (existing ?: com.todocompanion.app.data.entity.NotebookEntity(id = "", name = name, workspaceId = activeWorkspace()))
+                .copy(name = name.trim().ifBlank { "Notebook" }, icon = icon, colorArgb = colorArgb)
+        )
+    }
+    fun deleteNotebook(id: String) = viewModelScope.launch { repo.deleteNotebook(id) }
+
+    fun setNoteDefaultView(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(noteDefaultView = v)) }
+    fun setNotesNotebookMode(mode: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesNotebookMode = mode)) }
+
+    /** Note-search results (ids), driven by [searchNotes]; empty when the query is blank. */
+    val noteSearchIds = MutableStateFlow<List<String>>(emptyList())
+    fun searchNotes(query: String) = viewModelScope.launch {
+        noteSearchIds.value = if (query.isBlank()) emptyList() else repo.searchNoteIds(query)
     }
 
     /**

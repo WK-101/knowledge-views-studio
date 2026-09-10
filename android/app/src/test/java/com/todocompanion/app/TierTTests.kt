@@ -32,13 +32,15 @@ class ModulesTest {
 
     @Test fun enabledListsPrimaryFirst() {
         val st = s(Modules.HABITS, setOf(Modules.TIME))
-        assertEquals(listOf(Modules.HABITS, Modules.TASKS), Modules.enabled(st))
+        // Primary first, then the remaining enabled modules in ALL order (Notes joined the module set in v66).
+        assertEquals(listOf(Modules.HABITS, Modules.TASKS, Modules.NOTES), Modules.enabled(st))
     }
 
     @Test fun tabsMapToModules() {
         assertEquals(Modules.TASKS, Modules.moduleOfTab("CALENDAR"))
         assertEquals(Modules.HABITS, Modules.moduleOfTab("HABITS"))
         assertEquals(Modules.TIME, Modules.moduleOfTab("TIME"))
+        assertEquals(Modules.NOTES, Modules.moduleOfTab("NOTES"))
         assertNull(Modules.moduleOfTab("SETTINGS"))   // cross-cutting, always available
     }
 }

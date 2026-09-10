@@ -157,6 +157,7 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit, onOpenGoals: () -> Unit
         val ringTitle = if (enabledMods.size == 1) when (enabledMods[0]) {
             com.todocompanion.app.domain.Modules.HABITS -> "Your habits"
             com.todocompanion.app.domain.Modules.TIME -> "Your time"
+            com.todocompanion.app.domain.Modules.NOTES -> "Your notes"
             else -> "Your tasks"
         } else "Today's momentum"
 

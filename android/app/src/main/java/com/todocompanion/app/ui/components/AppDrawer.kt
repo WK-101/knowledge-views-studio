@@ -380,6 +380,7 @@ fun AppDrawer(
                 val primaryHomeTabName = when (com.todocompanion.app.domain.Modules.primary(settings)) {
                     com.todocompanion.app.domain.Modules.HABITS -> "HABITS"
                     com.todocompanion.app.domain.Modules.TIME -> "TIME"
+                    com.todocompanion.app.domain.Modules.NOTES -> "NOTES"
                     else -> "TASKS"
                 }
                 fun onBottomBar(t: String) = t != "FOCUS" && (t == primaryHomeTabName || t !in settings.bottomTabsHidden)

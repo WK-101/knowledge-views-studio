@@ -42,6 +42,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.automirrored.filled.List
@@ -246,6 +247,28 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
+        if (Modules.isEnabled(s, Modules.NOTES)) {
+            SettingsGroup(Icons.AutoMirrored.Filled.Article, "Notes", open["notes"] == true, { open["notes"] = open["notes"] != true }, keywords = "notes notebook grid list markdown default view folder tree journal") {
+                Sub("Default view")
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    listOf("grid" to "Grid", "list" to "List").forEachIndexed { i, (v, lbl) ->
+                        SegmentedButton(selected = s.noteDefaultView == v, onClick = { vm.setNoteDefaultView(v) },
+                            shape = SegmentedButtonDefaults.itemShape(i, 2)) { Text(lbl, maxLines = 1) }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Sub("Organise notes by")
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    listOf("folderTree" to "Folder tree", "notebooks" to "Notebooks").forEachIndexed { i, (v, lbl) ->
+                        SegmentedButton(selected = s.notesNotebookMode == v, onClick = { vm.setNotesNotebookMode(v) },
+                            shape = SegmentedButtonDefaults.itemShape(i, 2)) { Text(lbl, maxLines = 1) }
+                    }
+                }
+                Text("Folder tree reuses your existing folders for notes. Notebooks keeps a separate set of notebooks just for notes.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
         SettingsGroup(Icons.Filled.Palette, "Appearance", open["appearance"] == true, { open["appearance"] = open["appearance"] != true }, keywords = "theme dark light mode dynamic color accent palette theme pack background tint density compact spacing fab position swipe actions gestures") {
             Sub("Theme")
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -422,7 +445,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Toggle("Show entry counts", s.showEntryCounts) { vm.saveSettings(s.copy(showEntryCounts = it)) }
             Spacer(Modifier.height(10.dp)); Sub("Bottom bar")
             Text("Tasks always shows. Hidden tabs stay reachable from the drawer menu.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
-            listOf("CALENDAR" to "Calendar", "TIMELINE" to "Timeline", "MATRIX" to "Matrix", "HABITS" to "Habits", "FOCUS" to "Focus", "SEARCH" to "Search", "SETTINGS" to "Settings").forEach { (key, label) ->
+            listOf("CALENDAR" to "Calendar", "TIMELINE" to "Timeline", "MATRIX" to "Matrix", "HABITS" to "Habits", "NOTES" to "Notes", "FOCUS" to "Focus", "SEARCH" to "Search", "SETTINGS" to "Settings").forEach { (key, label) ->
                 Toggle(label, key !in s.bottomTabsHidden) { on ->
                     val next = if (on) s.bottomTabsHidden - key else s.bottomTabsHidden + key
                     vm.saveSettings(s.copy(bottomTabsHidden = next))

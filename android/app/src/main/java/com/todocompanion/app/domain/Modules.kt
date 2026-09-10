@@ -11,10 +11,11 @@ object Modules {
     const val TASKS = "tasks"
     const val HABITS = "habits"
     const val TIME = "time"
-    val ALL = listOf(TASKS, HABITS, TIME)
+    const val NOTES = "notes"
+    val ALL = listOf(TASKS, HABITS, TIME, NOTES)
 
     fun label(module: String): String = when (module) {
-        TASKS -> "Tasks"; HABITS -> "Habits"; TIME -> "Time"; else -> module
+        TASKS -> "Tasks"; HABITS -> "Habits"; TIME -> "Time"; NOTES -> "Notes"; else -> module
     }
 
     /** A module is enabled unless the user turned it off. The primary module is always enabled. */
@@ -37,6 +38,7 @@ object Modules {
         "TASKS", "CALENDAR", "TIMELINE", "MATRIX" -> TASKS
         "HABITS" -> HABITS
         "TIME" -> TIME
+        "NOTES" -> NOTES
         else -> null
     }
 }

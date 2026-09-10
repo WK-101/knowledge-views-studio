@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
@@ -147,6 +148,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
     MATRIX("Matrix", Icons.Filled.GridView),
     HABITS("Habits", Icons.Filled.LocalFireDepartment),
     TIME("Time", Icons.Filled.Schedule),
+    NOTES("Notes", Icons.AutoMirrored.Filled.Article),
     FOCUS("Focus", Icons.Filled.Timer),
     SEARCH("Search", Icons.Filled.Search),
     SETTINGS("Settings", Icons.Filled.Settings),
@@ -341,7 +343,7 @@ fun AppRoot(
         var landedInitial by remember { mutableStateOf(false) }
         LaunchedEffect(settings.primaryModule, settings.disabledModules) {
             val primaryHomeTab = when (Modules.primary(settings)) {
-                Modules.HABITS -> Tab.HABITS; Modules.TIME -> Tab.TIME; else -> Tab.TASKS
+                Modules.HABITS -> Tab.HABITS; Modules.TIME -> Tab.TIME; Modules.NOTES -> Tab.NOTES; else -> Tab.TASKS
             }
             if (!landedInitial) {
                 landedInitial = true
@@ -351,6 +353,7 @@ fun AppRoot(
             if (m != null && !Modules.isEnabled(settings, m)) tab = primaryHomeTab
         }
         var editing by remember { mutableStateOf<String?>(null) }
+        var editingNote by remember { mutableStateOf<String?>(null) }
         var showQuickAdd by remember { mutableStateOf(false) }
         // Where to return when Back is pressed inside an archive view (Trash / Completed / Won't-do): the
         // (tab, view) you opened it from — so Back goes back there instead of exiting the app (R19).
@@ -531,6 +534,7 @@ fun AppRoot(
         }
 
         fun openTask(id: String) { editing = id }
+        fun openNote(id: String) { editingNote = id }
         fun goTasks() { tab = Tab.TASKS }
         fun openQuickAdd(due: Long?, withTime: Boolean = false) { quickAddDue = due; quickAddWithTime = withTime; quickAddText = ""; showQuickAdd = true }
 
@@ -875,7 +879,7 @@ fun AppRoot(
                         // module's home tab is always shown (relaxing the old "Tasks always shown"); the rest
                         // still honour bottomTabsHidden.
                         val primaryHomeTab = when (Modules.primary(settings)) {
-                            Modules.HABITS -> Tab.HABITS; Modules.TIME -> Tab.TIME; else -> Tab.TASKS
+                            Modules.HABITS -> Tab.HABITS; Modules.TIME -> Tab.TIME; Modules.NOTES -> Tab.NOTES; else -> Tab.TASKS
                         }
                         val visibleTabs = Tab.entries.filter { t ->
                             val m = Modules.moduleOfTab(t.name)
@@ -937,6 +941,10 @@ fun AppRoot(
                         FloatingActionButton(onClick = { vm.habitQuickAddOpen.value = true }) {
                             Icon(Icons.Filled.Add, "New habit")
                         }
+                    } else if (tab == Tab.NOTES) {
+                        FloatingActionButton(onClick = { vm.createNote { id -> editingNote = id } }) {
+                            Icon(Icons.Filled.Add, "New note")
+                        }
                     } else if (tab == Tab.TIME && !timeFocus) {
                         // Double-action FAB (R18/R19): a single tap starts a new timer straight away (smart
                         // pick); press-and-hold opens the "add a past entry" dialog. The common action
@@ -974,6 +982,7 @@ fun AppRoot(
                                 onOpenEvent = { eid -> calEventAction = "open:$eid"; tab = Tab.CALENDAR },
                                 onOpenOccasion = openOccasion)
                             Tab.SETTINGS -> SettingsScreen(vm)
+          Tab.NOTES -> com.todocompanion.app.ui.screens.NotesScreen(vm, onOpenNote = ::openNote)
                             Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it; if (settings.calendarRememberLast) vm.saveSettings(settings.copy(calendarDefaultMode = it)) },
                                 calAnchor, calSelected, { calAnchor = it }, { calSelected = it },
                                 onAddOnDate = { d ->
@@ -1012,6 +1021,9 @@ fun AppRoot(
         editing?.let { id -> TaskDetailScreen(vm, id, onBack = { editing = null },
             onJustStart = { tid -> vm.pendingFocusTaskId.value = tid; editing = null; tab = Tab.FOCUS },
             onOpenTask = { tid -> editing = tid }) }
+
+        // Notes module (v66) — the full-screen note editor overlay (same pattern as the task editor).
+        editingNote?.let { id -> com.todocompanion.app.ui.screens.NoteEditorScreen(vm, id, onBack = { editingNote = null }) }
 
         // Habit analytics + editor: full-screen overlays (like the task editor) so each shows a single
         // top bar and Back returns to the Habits list, never the inbox.
