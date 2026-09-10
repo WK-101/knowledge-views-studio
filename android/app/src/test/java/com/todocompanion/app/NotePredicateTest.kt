@@ -46,4 +46,46 @@ class NotePredicateTest {
         assertTrue(NoteSmartViews.matches(old, ctx(updatedAt = 0L, now = 40L * 86_400_000L)))
         assertFalse(NoteSmartViews.matches(old, ctx(updatedAt = 0L, now = 10L * 86_400_000L)))
     }
+
+    // Wave J (M4) — cross-module conditions the engine answers but a notes-only app cannot.
+    private fun crossCtx(
+        hasReminder: Boolean = false, hasOpenItems: Boolean = false,
+        linkedTaskId: String? = null, linkedEventId: String? = null,
+        openTaskIds: Set<String> = emptySet(), overdueTaskIds: Set<String> = emptySet(),
+    ) = NoteSmartViews.Ctx(
+        pinned = false, favorite = false, archived = false, trashed = false,
+        title = "", body = "", kind = "note", updatedAt = 0L, tagIds = emptySet(), now = 0L,
+        hasReminder = hasReminder, hasOpenItems = hasOpenItems,
+        linkedTaskId = linkedTaskId, linkedEventId = linkedEventId,
+        openTaskIds = openTaskIds, overdueTaskIds = overdueTaskIds,
+    )
+
+    @Test fun hasReminderAndOpenItems() {
+        assertTrue(NoteSmartViews.matches(NotePredicate.Cond("hasReminder"), crossCtx(hasReminder = true)))
+        assertFalse(NoteSmartViews.matches(NotePredicate.Cond("hasReminder"), crossCtx(hasReminder = false)))
+        assertTrue(NoteSmartViews.matches(NotePredicate.Cond("hasOpenItems"), crossCtx(hasOpenItems = true)))
+        assertFalse(NoteSmartViews.matches(NotePredicate.Cond("hasOpenItems"), crossCtx(hasOpenItems = false)))
+    }
+
+    @Test fun linkedTaskLiveStatus() {
+        // linkedTask / linkedEvent — mere existence of the weave.
+        assertTrue(NoteSmartViews.matches(NotePredicate.Cond("linkedTask"), crossCtx(linkedTaskId = "t1")))
+        assertFalse(NoteSmartViews.matches(NotePredicate.Cond("linkedTask"), crossCtx(linkedTaskId = null)))
+        assertTrue(NoteSmartViews.matches(NotePredicate.Cond("linkedEvent"), crossCtx(linkedEventId = "e1")))
+        assertFalse(NoteSmartViews.matches(NotePredicate.Cond("linkedEvent"), crossCtx(linkedEventId = null)))
+
+        // linkedTaskOpen — the woven task is currently open (live task-module state).
+        assertTrue(NoteSmartViews.matches(
+            NotePredicate.Cond("linkedTaskOpen"), crossCtx(linkedTaskId = "t1", openTaskIds = setOf("t1"))))
+        assertFalse(NoteSmartViews.matches(
+            NotePredicate.Cond("linkedTaskOpen"), crossCtx(linkedTaskId = "t1", openTaskIds = setOf("t2"))))
+        assertFalse(NoteSmartViews.matches(
+            NotePredicate.Cond("linkedTaskOpen"), crossCtx(linkedTaskId = null, openTaskIds = setOf("t1"))))
+
+        // linkedTaskOverdue — the woven task is overdue right now.
+        assertTrue(NoteSmartViews.matches(
+            NotePredicate.Cond("linkedTaskOverdue"), crossCtx(linkedTaskId = "t1", overdueTaskIds = setOf("t1"))))
+        assertFalse(NoteSmartViews.matches(
+            NotePredicate.Cond("linkedTaskOverdue"), crossCtx(linkedTaskId = "t1", overdueTaskIds = emptySet())))
+    }
 }

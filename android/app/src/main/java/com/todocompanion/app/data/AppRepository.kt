@@ -685,6 +685,7 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun setNoteReminderPrimary(id: String, at: Long?, rrule: String?) = notes.setReminderPrimary(id, at, rrule)
     suspend fun setNoteReminderExtra(id: String, extra: String) = notes.setReminderExtra(id, extra)
     suspend fun clearNoteReminder(id: String) = notes.clearReminderAll(id)
+    suspend fun setNoteSealedUntil(id: String, until: Long?) = notes.setSealedUntil(id, until)
     suspend fun getNotebooksOnce(): List<com.todocompanion.app.data.entity.NotebookEntity> = notebooks.getAll()
 
     /** Create (or update) a note, stamping timestamps + sort order, and keep the FTS index fresh. */

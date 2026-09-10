@@ -796,6 +796,10 @@ interface NoteDao {
     @Query("UPDATE notes SET reminderAt = NULL, reminderRrule = NULL, reminderExtra = '', reminderKeep = 0 WHERE id = :id")
     suspend fun clearReminderAll(id: String)
 
+    // Wave J (M8) — seal/unseal a note to the future (metadata-only).
+    @Query("UPDATE notes SET sealedUntil = :until WHERE id = :id")
+    suspend fun setSealedUntil(id: String, until: Long?)
+
     // Wave I — child-row text mirrored into the FTS index so a search finds a note by its tag or
     // attachment names, not just its title/body.
     @Query("SELECT t.name FROM tags t INNER JOIN note_tags nt ON nt.tagId = t.id WHERE nt.noteId = :noteId")

@@ -59,6 +59,9 @@ data class NoteEntity(
     val reminderRrule: String? = null,
     val reminderExtra: String = "",
     val reminderKeep: Boolean = false,
+    // Wave J (M8): seal a note to your future self — hidden from the note list until [sealedUntil], when a
+    // reveal reminder (the existing engine) resurfaces it. Reuses Kairo's sealed-letter idea for any note.
+    val sealedUntil: Long? = null,
 )
 
 /**

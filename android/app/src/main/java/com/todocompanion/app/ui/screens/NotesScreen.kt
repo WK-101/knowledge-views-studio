@@ -117,6 +117,13 @@ fun NotesScreen(
         if (useNotebooks) notebooks.sortedBy { it.sortOrder }.map { it.id to (it.icon?.let { e -> "$e " } ?: "") + it.name }
         else folders.sortedBy { it.sortOrder }.map { it.id to (it.icon?.let { e -> "$e " } ?: "") + it.name }
 
+    // Wave J (M4) — engine facts for cross-module smart-view conditions (linked-task status, etc.).
+    val tasks by vm.tasks.collectAsState()
+    val openTaskIds = remember(tasks) { tasks.asSequence().filter { !it.completed && !it.trashed && !it.abandoned }.map { it.id }.toSet() }
+    val overdueTaskIds = remember(tasks) {
+        val now = System.currentTimeMillis()
+        tasks.asSequence().filter { !it.completed && !it.trashed && !it.abandoned && (it.dueDate ?: Long.MAX_VALUE) < now }.map { it.id }.toSet()
+    }
     val filtered = notes
         .asSequence()
         .filter { n ->
@@ -125,10 +132,17 @@ fun NotesScreen(
                 p, com.todocompanion.app.domain.NoteSmartViews.Ctx(
                     n.pinned, n.favorite, n.archived, n.trashed, n.title, n.body, n.kind, n.updatedAt,
                     noteTagRefs.filter { it.noteId == n.id }.map { it.tagId }.toSet(), System.currentTimeMillis(),
+                    hasReminder = n.reminderAt != null || n.reminderExtra.isNotBlank(),
+                    hasOpenItems = com.todocompanion.app.domain.NoteLinks.uncheckedCheckboxes(n.body).isNotEmpty(),
+                    linkedTaskId = n.linkedTaskId, linkedEventId = n.linkedEventId,
+                    openTaskIds = openTaskIds, overdueTaskIds = overdueTaskIds,
                 ),
             )
             else (if (archiveView) n.archived else !n.archived) &&
-                (container == null || (if (useNotebooks) n.notebookId == container else n.folderId == container))
+                (container == null || (if (useNotebooks) n.notebookId == container else n.folderId == container)) &&
+                // Wave J (M8) — a note sealed to the future is hidden from browsing until its reveal date
+                // (it's still findable via search, so it can be unsealed early).
+                (n.sealedUntil == null || n.sealedUntil!! <= System.currentTimeMillis())
         }
         .filter { n ->
             query.isBlank() || n.title.contains(query, true) || n.body.contains(query, true)
@@ -339,6 +353,7 @@ fun NoteEditorScreen(
     var showOutline by remember { mutableStateOf(false) }
     var showReminder by remember { mutableStateOf(false) }
     var showExport by remember { mutableStateOf(false) }
+    var showSeal by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
 
     fun persist(n: NoteEntity) { draft = n; vm.saveNote(n) }
@@ -396,6 +411,10 @@ fun NoteEditorScreen(
                             DropdownMenuItem(text = { Text("Archive") }, onClick = { menu = false; vm.archiveNote(noteId); onBack() })
                             DropdownMenuItem(text = { Text("About") }, onClick = { menu = false; showAbout = true })
                             DropdownMenuItem(text = { Text("Export…") }, onClick = { menu = false; showExport = true })
+                            if (d.sealedUntil != null && d.sealedUntil!! > System.currentTimeMillis())
+                                DropdownMenuItem(text = { Text("🔒 Unseal") }, onClick = { menu = false; vm.unsealNote(noteId); draft = d.copy(sealedUntil = null, reminderAt = null) })
+                            else
+                                DropdownMenuItem(text = { Text("🔒 Seal to the future…") }, onClick = { menu = false; showSeal = true })
                             if (d.kind == "journal" && d.dayEpoch != null) {
                                 DropdownMenuItem(text = { Text("⟳ Insert today's digest") }, onClick = {
                                     menu = false
@@ -451,12 +470,19 @@ fun NoteEditorScreen(
                         .format(java.time.format.DateTimeFormatter.ofPattern("d MMM · h:mm a"))
                 }.getOrNull()
             }
-            if (dayLabel != null || d.linkedEventId != null || d.linkedTaskId != null || reminderLabel != null) {
+            val sealedLabel = d.sealedUntil?.takeIf { it > System.currentTimeMillis() }?.let { at ->
+                runCatching {
+                    java.time.Instant.ofEpochMilli(at).atZone(java.time.ZoneId.systemDefault())
+                        .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy"))
+                }.getOrNull()
+            }
+            if (dayLabel != null || d.linkedEventId != null || d.linkedTaskId != null || reminderLabel != null || sealedLabel != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (dayLabel != null) FilterChip(selected = true, onClick = {}, label = { Text("🗓  $dayLabel") })
                     if (d.linkedEventId != null) FilterChip(selected = true, onClick = {}, label = { Text("📅  Meeting note") })
                     if (d.linkedTaskId != null) FilterChip(selected = true, onClick = { onOpenTask(d.linkedTaskId!!) }, label = { Text("🔗  Linked task") })
                     if (reminderLabel != null) FilterChip(selected = true, onClick = { showReminder = true }, label = { Text("⏰  $reminderLabel" + if (d.reminderRrule != null) "  ↻" else "") })
+                    if (sealedLabel != null) FilterChip(selected = true, onClick = {}, label = { Text("🔒  Sealed until $sealedLabel") })
                 }
             }
             // Body — viewer until edit. Preview checkboxes are tappable and round-trip to the Markdown
@@ -627,6 +653,33 @@ fun NoteEditorScreen(
             }
         },
     )
+    if (showSeal) {
+        val nowMs = System.currentTimeMillis()
+        val presets = listOf(
+            "In a week" to nowMs + 7L * 86_400_000L,
+            "In a month" to nowMs + 30L * 86_400_000L,
+            "In 3 months" to nowMs + 90L * 86_400_000L,
+            "In a year" to nowMs + 365L * 86_400_000L,
+        )
+        AlertDialog(
+            onDismissRequest = { showSeal = false },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { showSeal = false }) { Text("Cancel") } },
+            title = { Text("Seal to the future") },
+            text = {
+                Column {
+                    Text("Hide this note until the date you choose — then a reminder brings it back.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 6.dp))
+                    presets.forEach { (label, at) ->
+                        Text(label, Modifier.fillMaxWidth().clickable {
+                            showSeal = false; vm.sealNote(noteId, at); draft = d.copy(sealedUntil = at, reminderAt = at); onBack()
+                        }.padding(vertical = 11.dp), style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            },
+        )
+    }
     if (showAbout) NoteAboutDialog(d, onDismiss = { showAbout = false })
     if (showOutline) NoteOutlineDialog(d.body, onDismiss = { showOutline = false })
     if (showReminder) NoteReminderDialog(

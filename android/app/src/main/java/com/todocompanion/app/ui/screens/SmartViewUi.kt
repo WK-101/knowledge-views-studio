@@ -40,6 +40,10 @@ import com.todocompanion.app.ui.components.AppTextField
 private val SV_FIELDS = listOf(
     "pinned" to "Pinned", "favorite" to "Favorite", "archived" to "Archived", "untagged" to "Untagged",
     "titleContains" to "Title contains", "bodyContains" to "Body contains", "olderThanDays" to "Older than (days)",
+    // Wave J (M4) — cross-module conditions no notes-only app can express.
+    "hasReminder" to "Has a reminder", "hasOpenItems" to "Has open action items",
+    "linkedTask" to "Linked to a task", "linkedEvent" to "Linked to an event",
+    "linkedTaskOpen" to "Linked task still open", "linkedTaskOverdue" to "Linked task overdue",
 )
 private fun svNeedsValue(field: String) = field in setOf("titleContains", "bodyContains", "olderThanDays")
 private fun svLabel(field: String) = SV_FIELDS.firstOrNull { it.first == field }?.second ?: field

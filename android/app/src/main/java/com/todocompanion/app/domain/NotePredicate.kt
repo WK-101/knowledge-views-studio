@@ -26,11 +26,19 @@ object NoteSmartViews {
     fun decode(s: String): NotePredicate? =
         runCatching { json.decodeFromString(NotePredicate.serializer(), s) }.getOrNull()
 
-    /** The note fields a condition can test. [now] lets `olderThanDays` be evaluated deterministically. */
+    /** The note fields a condition can test. [now] lets `olderThanDays` be evaluated deterministically.
+     *  Wave J (M4) — the last block is cross-module state (a note's reminder, its open action items, and
+     *  the live status of the task it's woven to): the thing a notes-only app cannot filter on. */
     data class Ctx(
         val pinned: Boolean, val favorite: Boolean, val archived: Boolean, val trashed: Boolean,
         val title: String, val body: String, val kind: String, val updatedAt: Long,
         val tagIds: Set<String>, val now: Long,
+        val hasReminder: Boolean = false,
+        val hasOpenItems: Boolean = false,
+        val linkedTaskId: String? = null,
+        val linkedEventId: String? = null,
+        val openTaskIds: Set<String> = emptySet(),
+        val overdueTaskIds: Set<String> = emptySet(),
     )
 
     fun matches(p: NotePredicate, c: Ctx): Boolean = when (p) {
@@ -50,6 +58,13 @@ object NoteSmartViews {
         "textContains" -> value.isNotBlank() && (c.title.contains(value, true) || c.body.contains(value, true))
         "kind" -> c.kind == value
         "olderThanDays" -> (value.toLongOrNull() ?: 0L).let { d -> d > 0 && (c.now - c.updatedAt) > d * 86_400_000L }
+        // Wave J (M4) — cross-module conditions the engine answers.
+        "hasReminder" -> c.hasReminder
+        "hasOpenItems" -> c.hasOpenItems              // has unchecked "- [ ]" action items
+        "linkedTask" -> c.linkedTaskId != null
+        "linkedEvent" -> c.linkedEventId != null
+        "linkedTaskOpen" -> c.linkedTaskId != null && c.linkedTaskId in c.openTaskIds
+        "linkedTaskOverdue" -> c.linkedTaskId != null && c.linkedTaskId in c.overdueTaskIds
         else -> false
     }
 

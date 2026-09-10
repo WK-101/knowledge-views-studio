@@ -311,6 +311,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.setNoteReminderAll(noteId, atMillis, rrule?.ifBlank { null }, extraCsv, keep)
         repo.getNote(noteId)?.let { com.todocompanion.app.reminders.AlarmScheduler.armNoteReminders(appCtx, it) }
     }
+    // ── Wave J (M8): seal a note to your future self. Hidden from the list until [untilMillis], when a
+    // reveal reminder (the existing engine — no new permission) resurfaces it.
+    fun sealNote(noteId: String, untilMillis: Long) = viewModelScope.launch {
+        if (untilMillis <= System.currentTimeMillis()) return@launch
+        repo.setNoteSealedUntil(noteId, untilMillis)
+        repo.setNoteReminderAll(noteId, untilMillis, null, "", false)
+        repo.getNote(noteId)?.let { com.todocompanion.app.reminders.AlarmScheduler.armNoteReminders(appCtx, it) }
+    }
+    fun unsealNote(noteId: String) = viewModelScope.launch {
+        repo.setNoteSealedUntil(noteId, null)
+        repo.clearNoteReminder(noteId)
+        com.todocompanion.app.reminders.AlarmScheduler.cancelNoteReminder(appCtx, noteId)
+    }
     fun setNotesTrashRetention(days: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesTrashRetentionDays = days)) }
     fun setNotesMaxRevisions(n: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesMaxRevisions = n)) }
     /** Lazy on-open sweep — hard-delete trashed notes older than the retention setting (0 = never). */
@@ -408,7 +421,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun extractNoteCheckboxes(noteId: String, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
         val n = repo.getNote(noteId) ?: return@launch
         val items = com.todocompanion.app.domain.NoteLinks.uncheckedCheckboxes(n.body)
-        items.forEach { repo.createTask(com.todocompanion.app.data.entity.ListEntity.INBOX_ID, it) }
+        // Wave J (M2) — a meeting/event-linked note's action items become tasks due at the event's start,
+        // so the checkboxes you jot in a meeting land on your list dated to the meeting itself.
+        val due = n.linkedEventId?.let { repo.eventById(it)?.startMillis }
+        items.forEach { repo.createTask(com.todocompanion.app.data.entity.ListEntity.INBOX_ID, it, dueDate = due) }
         onDone(items.size)
     }
 
