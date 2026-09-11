@@ -238,6 +238,18 @@ fun NotesScreen(
                 )
             }
 
+            // Wave S — notes as a local database: an in-home view mode. Cards (grid/list per setting),
+            // Board (columns grouped by notebook/folder), Calendar (grouped by month).
+            var viewMode by remember { mutableStateOf("cards") }
+            androidx.compose.foundation.lazy.LazyRow(
+                contentPadding = PaddingValues(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(listOf("cards" to "▦ Cards", "board" to "▤ Board", "calendar" to "🗓 Calendar"), key = { it.first }) { (id, lbl) ->
+                    FilterChip(selected = viewMode == id, onClick = { viewMode = id }, label = { Text(lbl) })
+                }
+            }
+            Spacer(Modifier.height(4.dp))
             if (filtered.isEmpty()) {
                 EmptyState(
                     emoji = "📝",
@@ -245,23 +257,92 @@ fun NotesScreen(
                     body = if (query.isNotBlank()) "Try a different search."
                     else "Tap + to write your first note. Notes support Markdown and can link to tasks and days.",
                 )
-            } else if (grid) {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(168.dp),
-                    contentPadding = PaddingValues(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    items(filtered, key = { it.id }) { n -> NoteCard(n, Modifier.animateItem(), onOpen = { onOpenNote(n.id) }, onTogglePin = { vm.saveNote(n.copy(pinned = !n.pinned)) }) }
+            } else when (viewMode) {
+                "board" -> NotesBoardView(filtered, containers, useNotebooks, onOpen = onOpenNote, onTogglePin = { n -> vm.saveNote(n.copy(pinned = !n.pinned)) })
+                "calendar" -> NotesCalendarView(filtered, onOpen = onOpenNote)
+                else -> if (grid) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(168.dp),
+                        contentPadding = PaddingValues(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        items(filtered, key = { it.id }) { n -> NoteCard(n, Modifier.animateItem(), onOpen = { onOpenNote(n.id) }, onTogglePin = { vm.saveNote(n.copy(pinned = !n.pinned)) }) }
+                    }
+                } else {
+                    LazyColumn(
+                        contentPadding = PaddingValues(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        items(filtered, key = { it.id }) { n -> NoteCard(n, Modifier.animateItem(), onOpen = { onOpenNote(n.id) }, onTogglePin = { vm.saveNote(n.copy(pinned = !n.pinned)) }) }
+                    }
                 }
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    items(filtered, key = { it.id }) { n -> NoteCard(n, Modifier.animateItem(), onOpen = { onOpenNote(n.id) }, onTogglePin = { vm.saveNote(n.copy(pinned = !n.pinned)) }) }
+            }
+        }
+    }
+}
+
+/** Wave S — Board view: a shelf per notebook/folder (mobile-friendly kanban), each a horizontal row of cards. */
+@Composable
+private fun NotesBoardView(
+    notes: List<NoteEntity>,
+    containers: List<Pair<String, String>>,
+    useNotebooks: Boolean,
+    onOpen: (String) -> Unit,
+    onTogglePin: (NoteEntity) -> Unit,
+) {
+    val byContainer = remember(notes) { notes.groupBy { if (useNotebooks) it.notebookId else it.folderId } }
+    val groups = remember(byContainer, containers) {
+        buildList {
+            containers.forEach { (id, name) -> byContainer[id]?.let { add(name to it) } }
+            byContainer[null]?.let { add((if (useNotebooks) "Unsorted" else "Unfiled") to it) }
+        }
+    }
+    LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
+        items(groups) { (name, groupNotes) ->
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(name, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                    Spacer(Modifier.width(8.dp))
+                    Text("${groupNotes.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(Modifier.height(6.dp))
+                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(groupNotes, key = { it.id }) { n ->
+                        Box(Modifier.width(210.dp)) { NoteCard(n, onOpen = { onOpen(n.id) }, onTogglePin = { onTogglePin(n) }) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Wave S — Calendar view: notes grouped by month (a journal note's dayEpoch, else its updated date). */
+@Composable
+private fun NotesCalendarView(notes: List<NoteEntity>, onOpen: (String) -> Unit) {
+    val zone = java.time.ZoneId.systemDefault()
+    fun ms(n: NoteEntity): Long = n.dayEpoch?.let { java.time.LocalDate.ofEpochDay(it).atStartOfDay(zone).toInstant().toEpochMilli() } ?: n.updatedAt
+    val groups = remember(notes) {
+        notes.sortedByDescending { ms(it) }
+            .groupBy { java.time.Instant.ofEpochMilli(ms(it)).atZone(zone).let { z -> z.year * 100 + z.monthValue } }
+            .toList().sortedByDescending { it.first }
+    }
+    LazyColumn(contentPadding = PaddingValues(12.dp), modifier = Modifier.fillMaxSize()) {
+        groups.forEach { (ym, monthNotes) ->
+            item(key = "m$ym") {
+                val label = runCatching { java.time.YearMonth.of(ym / 100, ym % 100).format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy")) }.getOrDefault("")
+                Text(label, Modifier.padding(top = 10.dp, bottom = 6.dp), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            }
+            items(monthNotes, key = { it.id }) { n ->
+                val day = runCatching { java.time.Instant.ofEpochMilli(ms(n)).atZone(zone).format(java.time.format.DateTimeFormatter.ofPattern("EEE d")) }.getOrDefault("")
+                Surface(onClick = { onOpen(n.id) }, color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+                    Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(day, Modifier.width(54.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text((n.coverEmoji?.ifBlank { null }?.let { "$it " } ?: "") + n.title.ifBlank { "(untitled)" },
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                    }
                 }
             }
         }
@@ -367,6 +448,7 @@ fun NoteEditorScreen(
     // Wave Q — focus (immersive) mode: hide the meta/context chrome so it's just the words.
     var focus by remember { mutableStateOf(settings.notesFocusMode) }
     var showReorder by remember { mutableStateOf(false) }   // Wave R — reorder sections
+    var showProps by remember { mutableStateOf(false) }     // Wave S — frontmatter properties
 
     fun persist(n: NoteEntity) { draft = n; vm.saveNote(n) }
     // Debounced autosave for free-typing (title/body) so we don't hit the DB/FTS every keystroke.
@@ -425,6 +507,7 @@ fun NoteEditorScreen(
                             DropdownMenuItem(text = { Text("Outline") }, onClick = { menu = false; showOutline = true })
                             DropdownMenuItem(text = { Text(if (focus) "Exit focus mode" else "Focus mode") }, onClick = { menu = false; focus = !focus; if (focus) preview = false })
                             DropdownMenuItem(text = { Text("Reorder sections") }, onClick = { menu = false; preview = false; showReorder = true })
+                            DropdownMenuItem(text = { Text("Properties…") }, onClick = { menu = false; showProps = true })
                             DropdownMenuItem(text = { Text(if (d.reminderAt != null) "⏰ Reminder set — change…" else "⏰ Remind me…") }, onClick = { menu = false; showReminder = true })
                             DropdownMenuItem(text = { Text("Version history") }, onClick = { menu = false; showHistory = true })
                             DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menu = false; draft?.let { vm.closeNoteEditor(it) }; vm.duplicateNote(noteId) { id -> onOpenNote(id) } })
@@ -513,25 +596,32 @@ fun NoteEditorScreen(
                     // the offline rich WebView (KaTeX/Mermaid/Prism, bundled). Plain notes keep the native
                     // renderer, which has tappable checkboxes and [[wiki-link]] taps the WebView can't offer.
                     // Wave P (N1) — render the transclusion-expanded body when present (read-only projection).
-                    val shown = expandedBody ?: d.body
+                    val rawShown = expandedBody ?: d.body
+                    // Wave S — a leading YAML frontmatter block renders as property chips, not raw text.
+                    val noteProps = remember(rawShown) { com.todocompanion.app.domain.NoteProperties.parse(rawShown) }
+                    val shown = remember(rawShown) { com.todocompanion.app.domain.NoteProperties.strip(rawShown) }
                     val rich = com.todocompanion.app.util.NoteRichRenderer.hasMath(shown) ||
                         com.todocompanion.app.util.NoteRichRenderer.hasMermaid(shown) || shown.contains("![")
-                    if (rich) {
-                        var richImgs by remember(noteId) { mutableStateOf<Map<String, String>>(emptyMap()) }
-                        androidx.compose.runtime.LaunchedEffect(noteId, shown) {
-                            richImgs = if (shown.contains("![")) vm.noteImageMap(noteId) else emptyMap()
+                    Column(Modifier.fillMaxSize()) {
+                        if (noteProps.isNotEmpty()) NotePropertyChips(noteProps)
+                        if (rich) {
+                            var richImgs by remember(noteId) { mutableStateOf<Map<String, String>>(emptyMap()) }
+                            androidx.compose.runtime.LaunchedEffect(noteId, shown) {
+                                richImgs = if (shown.contains("![")) vm.noteImageMap(noteId) else emptyMap()
+                            }
+                            com.todocompanion.app.ui.components.RichNoteView(
+                                shown, richImgs, Modifier.fillMaxWidth().weight(1f).padding(end = 36.dp),
+                                readingThemeId = settings.notesReadingTheme, type = noteType,
+                            )
+                        } else androidx.compose.foundation.text.selection.SelectionContainer(Modifier.fillMaxWidth().weight(1f)) {
+                            MarkdownText(
+                                shown,
+                                modifier = Modifier.fillMaxWidth().padding(end = 36.dp),
+                                // Line-toggle maps to the raw body; disable it on an expanded projection or when
+                                // frontmatter shifts line numbers.
+                                onToggleCheckbox = if (d.readonly || expandedBody != null || noteProps.isNotEmpty()) null else { line -> persist(d.copy(body = com.todocompanion.app.domain.NoteEditing.toggleCheckboxAtLine(d.body, line))) },
+                            )
                         }
-                        com.todocompanion.app.ui.components.RichNoteView(
-                            shown, richImgs, Modifier.fillMaxSize().padding(end = 36.dp),
-                            readingThemeId = settings.notesReadingTheme, type = noteType,
-                        )
-                    } else androidx.compose.foundation.text.selection.SelectionContainer {
-                        MarkdownText(
-                            shown,
-                            modifier = Modifier.fillMaxWidth().padding(end = 36.dp),
-                            // Checkbox line-toggle maps to the raw body, so disable it on an expanded projection.
-                            onToggleCheckbox = if (d.readonly || expandedBody != null) null else { line -> persist(d.copy(body = com.todocompanion.app.domain.NoteEditing.toggleCheckboxAtLine(d.body, line))) },
-                        )
                     }
                 } else {
                     NoteBodyEditor(
@@ -723,6 +813,7 @@ fun NoteEditorScreen(
     if (showAbout) NoteAboutDialog(d, onDismiss = { showAbout = false })
     if (showOutline) NoteOutlineDialog(d.body, onDismiss = { showOutline = false })
     if (showReorder) SectionReorderDialog(d.body, onApply = { persist(d.copy(body = it)); showReorder = false }, onDismiss = { showReorder = false })
+    if (showProps) NotePropertiesDialog(d.body, onApply = { persist(d.copy(body = it)); showProps = false }, onDismiss = { showProps = false })
     if (showReminder) NoteReminderDialog(
         current = d.reminderAt,
         currentRrule = d.reminderRrule,

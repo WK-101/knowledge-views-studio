@@ -405,6 +405,64 @@ private fun Tb(label: String, bold: Boolean = false, italic: Boolean = false, en
     }
 }
 
+/** Wave S — render a note's frontmatter properties as compact key:value chips (shown above the read view). */
+@Composable
+fun NotePropertyChips(props: Map<String, String>) {
+    LazyRow(Modifier.fillMaxWidth().padding(bottom = 6.dp, end = 36.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        items(props.entries.toList(), key = { it.key }) { (k, v) ->
+            Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f)) {
+                Row(Modifier.padding(horizontal = 9.dp, vertical = 4.dp)) {
+                    Text("$k ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    Text(v.ifBlank { "—" }, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Wave S — edit a note's frontmatter properties (Obsidian Properties / Tana fields). Add/rename/remove
+ * key:value pairs; on apply the pure [com.todocompanion.app.domain.NoteProperties] rewrites the leading
+ * `---` block (an empty set removes it). Powers group-by board views and property predicates, on-device.
+ */
+@Composable
+fun NotePropertiesDialog(body: String, onApply: (String) -> Unit, onDismiss: () -> Unit) {
+    val keys = remember { mutableStateListOf<String>().apply { addAll(com.todocompanion.app.domain.NoteProperties.parse(body).keys) } }
+    val vals = remember { mutableStateListOf<String>().apply { addAll(com.todocompanion.app.domain.NoteProperties.parse(body).values) } }
+    fun build(): String {
+        val m = LinkedHashMap<String, String>()
+        for (i in keys.indices) { val k = keys[i].trim(); if (k.isNotEmpty()) m[k] = vals.getOrElse(i) { "" } }
+        return com.todocompanion.app.domain.NoteProperties.withProperties(body, m)
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = { onApply(build()) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Properties") },
+        text = {
+            Column {
+                if (keys.isEmpty()) Text("Add typed fields — status, rating, author… — to power board views and filters.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                    items(keys.indices.toList(), key = { it }) { i ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            TextField(keys.getOrElse(i) { "" }, { keys[i] = it }, singleLine = true, placeholder = { Text("key") },
+                                modifier = Modifier.weight(1f), colors = borderlessFieldColors(), textStyle = MaterialTheme.typography.bodyMedium)
+                            Spacer(Modifier.height(0.dp))
+                            TextField(vals.getOrElse(i) { "" }, { while (vals.size <= i) vals.add(""); vals[i] = it }, singleLine = true, placeholder = { Text("value") },
+                                modifier = Modifier.weight(1.2f), colors = borderlessFieldColors(), textStyle = MaterialTheme.typography.bodyMedium)
+                            Text("✕", Modifier.clickable { if (i < keys.size) keys.removeAt(i); if (i < vals.size) vals.removeAt(i) }.padding(8.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                Text("＋ Add property", Modifier.fillMaxWidth().clickable { keys.add(""); vals.add("") }.padding(vertical = 10.dp),
+                    style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            }
+        },
+    )
+}
+
 /** Wave A — a note's "About" sheet: word/character counts, an estimated read time, and timestamps. */
 @Composable
 fun NoteAboutDialog(note: NoteEntity, onDismiss: () -> Unit) {
