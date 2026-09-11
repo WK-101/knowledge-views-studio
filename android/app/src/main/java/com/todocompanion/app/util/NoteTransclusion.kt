@@ -12,8 +12,8 @@ package com.todocompanion.app.util
  * and are intentionally NOT matched here.
  */
 object NoteTransclusion {
-    /** Scopes currently backed by live data. (events/habits are planned follow-ups.) */
-    private val TOKEN = Regex("\\{\\{(today|tasks|note)(?::([^}]*))?}}")
+    /** Scopes backed by live data. `note` also accepts `Title#Heading` for block-level transclusion (Wave T). */
+    private val TOKEN = Regex("\\{\\{(today|tasks|note|events|habits)(?::([^}]*))?}}")
 
     data class Token(val scope: String, val arg: String)
 

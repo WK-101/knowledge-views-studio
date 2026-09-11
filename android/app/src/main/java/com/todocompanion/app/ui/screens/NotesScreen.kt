@@ -449,6 +449,7 @@ fun NoteEditorScreen(
     var focus by remember { mutableStateOf(settings.notesFocusMode) }
     var showReorder by remember { mutableStateOf(false) }   // Wave R — reorder sections
     var showProps by remember { mutableStateOf(false) }     // Wave S — frontmatter properties
+    var showRelated by remember { mutableStateOf(false) }   // Wave T — related notes
 
     fun persist(n: NoteEntity) { draft = n; vm.saveNote(n) }
     // Debounced autosave for free-typing (title/body) so we don't hit the DB/FTS every keystroke.
@@ -508,6 +509,7 @@ fun NoteEditorScreen(
                             DropdownMenuItem(text = { Text(if (focus) "Exit focus mode" else "Focus mode") }, onClick = { menu = false; focus = !focus; if (focus) preview = false })
                             DropdownMenuItem(text = { Text("Reorder sections") }, onClick = { menu = false; preview = false; showReorder = true })
                             DropdownMenuItem(text = { Text("Properties…") }, onClick = { menu = false; showProps = true })
+                            DropdownMenuItem(text = { Text("Related notes") }, onClick = { menu = false; showRelated = true })
                             DropdownMenuItem(text = { Text(if (d.reminderAt != null) "⏰ Reminder set — change…" else "⏰ Remind me…") }, onClick = { menu = false; showReminder = true })
                             DropdownMenuItem(text = { Text("Version history") }, onClick = { menu = false; showHistory = true })
                             DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menu = false; draft?.let { vm.closeNoteEditor(it) }; vm.duplicateNote(noteId) { id -> onOpenNote(id) } })
@@ -814,6 +816,12 @@ fun NoteEditorScreen(
     if (showOutline) NoteOutlineDialog(d.body, onDismiss = { showOutline = false })
     if (showReorder) SectionReorderDialog(d.body, onApply = { persist(d.copy(body = it)); showReorder = false }, onDismiss = { showReorder = false })
     if (showProps) NotePropertiesDialog(d.body, onApply = { persist(d.copy(body = it)); showProps = false }, onDismiss = { showProps = false })
+    if (showRelated) {
+        val hits = remember(noteId, notes) {
+            com.todocompanion.app.domain.NoteRelated.related(noteId, notes.filter { !it.trashed }.map { com.todocompanion.app.domain.NoteRelated.Doc(it.id, it.title, it.body) })
+        }
+        RelatedNotesDialog(hits, onOpen = { showRelated = false; onOpenNote(it) }, onDismiss = { showRelated = false })
+    }
     if (showReminder) NoteReminderDialog(
         current = d.reminderAt,
         currentRrule = d.reminderRrule,

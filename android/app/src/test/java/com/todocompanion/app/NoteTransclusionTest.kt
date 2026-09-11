@@ -31,4 +31,13 @@ class NoteTransclusionTest {
     @Test fun nullProviderLeavesTokenVerbatim() {
         assertEquals("{{note:X}}", NoteTransclusion.expand("{{note:X}}") { _, _ -> null })
     }
+
+    @Test fun recognizesLifeScopes() {   // Wave T — events/habits joined the grammar
+        assertTrue(NoteTransclusion.hasTokens("{{events:today}}"))
+        assertTrue(NoteTransclusion.hasTokens("{{habits:due}}"))
+        assertEquals(
+            listOf(Token("events", "today"), Token("habits", "")),
+            NoteTransclusion.tokens("{{events:today}} and {{habits}}"),
+        )
+    }
 }

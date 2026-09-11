@@ -405,6 +405,30 @@ private fun Tb(label: String, bold: Boolean = false, italic: Boolean = false, en
     }
 }
 
+/** Wave T — on-device "related notes" (shared tags / [[links]] / vocabulary, no cloud). Tap to open. */
+@Composable
+fun RelatedNotesDialog(hits: List<com.todocompanion.app.domain.NoteRelated.Hit>, onOpen: (String) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        title = { Text("Related notes") },
+        text = {
+            if (hits.isEmpty()) Text(
+                "No related notes yet. Shared #tags, [[links]] and vocabulary surface connections here — all computed on your device, no cloud.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            ) else LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                items(hits, key = { it.id }) { h ->
+                    Text(
+                        h.title.ifBlank { "(untitled)" },
+                        Modifier.fillMaxWidth().clickable { onOpen(h.id) }.padding(vertical = 10.dp),
+                        style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary, maxLines = 1,
+                    )
+                }
+            }
+        },
+    )
+}
+
 /** Wave S — render a note's frontmatter properties as compact key:value chips (shown above the read view). */
 @Composable
 fun NotePropertyChips(props: Map<String, String>) {

@@ -565,6 +565,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         fun list(ts: List<com.todocompanion.app.data.entity.TaskEntity>): String =
             if (ts.isEmpty()) "_Nothing here_"
             else ts.sortedBy { it.dueDate ?: Long.MAX_VALUE }.joinToString("\n") { "- [ ] ${it.title}" }
+        // Wave T — the self-writing life note draws on events and habits too, not just tasks.
+        val evAll = events.value
+        fun evList(evs: List<com.todocompanion.app.data.entity.EventEntity>): String =
+            if (evs.isEmpty()) "_No events_"
+            else evs.sortedBy { it.startMillis }.joinToString("\n") { e ->
+                val t = if (e.allDay) "all-day" else java.time.Instant.ofEpochMilli(e.startMillis).atZone(zone)
+                    .format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"))
+                "- $t · ${e.title}"
+            }
+        val hbs = habits.value
+        fun habitList(): String = if (hbs.isEmpty()) "_No habits_"
+            else hbs.joinToString("\n") { h -> "- [ ] ${h.emoji?.let { "$it " } ?: ""}${h.name}" }
         return com.todocompanion.app.util.NoteTransclusion.expand(body) { scope, arg ->
             when (scope) {
                 "tasks" -> when (arg) {
@@ -574,8 +586,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 "today" -> if (arg.isEmpty() || arg == "agenda")
                     list(open.filter { it.dueDate != null && it.dueDate!! < todayEnd }) else null
-                "note" -> notes.firstOrNull { !it.trashed && it.title.trim().equals(arg, true) }?.body
-                    ?: "_Note “$arg” not found_"
+                "events" -> when (arg) {
+                    "", "today" -> evList(evAll.filter { it.startMillis in todayStart until todayEnd })
+                    "week" -> evList(evAll.filter { it.startMillis in todayStart until todayStart + 7 * 86_400_000L })
+                    else -> null
+                }
+                "habits" -> if (arg.isEmpty() || arg == "due" || arg == "today") habitList() else null
+                "note" -> {
+                    // Wave T — block-level transclusion: {{note:Title#Heading}} pulls just that section.
+                    val title = arg.substringBefore("#").trim()
+                    val heading = arg.substringAfter("#", "").trim()
+                    val n = notes.firstOrNull { !it.trashed && it.title.trim().equals(title, true) }
+                    when {
+                        n == null -> "_Note “$title” not found_"
+                        heading.isEmpty() -> n.body
+                        else -> com.todocompanion.app.domain.MarkdownSections.sections(n.body)
+                            .firstOrNull { it.heading.trimStart('#', ' ').trim().equals(heading, true) }
+                            ?.let { (it.heading + "\n" + it.body).trim() } ?: "_Heading “$heading” not found_"
+                    }
+                }
                 else -> null
             }
         }
