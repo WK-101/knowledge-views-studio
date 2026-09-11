@@ -452,6 +452,7 @@ fun NoteEditorScreen(
     var preview by remember(noteId) { mutableStateOf(d.readonly) }
     var showEmoji by remember { mutableStateOf(false) }
     var showContainer by remember { mutableStateOf(false) }
+    var showNewNotebook by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -489,9 +490,12 @@ fun NoteEditorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                expandedHeight = 52.dp,   // match every other screen's top bar height
                 navigationIcon = { IconButton(onClick = { draft?.let { vm.closeNoteEditor(it) }; onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                title = { Text("Note") },
+                title = { Text(containerName ?: "Note", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 actions = {
+                    // Colour picker lives in the top bar (like the habit editor).
+                    com.todocompanion.app.ui.components.AppColorPicker(current = d.colorArgb, onPick = { persist(d.copy(colorArgb = it)) }, allowNone = true)
                     IconButton(onClick = { persist(d.copy(favorite = !d.favorite)) }) {
                         Icon(
                             if (d.favorite) Icons.Filled.Star else Icons.Outlined.StarOutline,
@@ -557,24 +561,28 @@ fun NoteEditorScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Spacer(Modifier.height(2.dp))
-            // Title
-            AppTextField(
-                value = d.title, onValueChange = { draft = d.copy(title = it) },
-                placeholder = { Text("Title") }, singleLine = true,
-                textStyle = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            // Meta row: cover emoji · colour · notebook/folder  (hidden in focus mode)
-            if (!focus) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Title row — cover emoji inline to the LEFT of a borderless title (coherent, NotesNook-style).
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.size(40.dp).clip(CircleShape).clickable { showEmoji = true },
+                    modifier = Modifier.size(38.dp).clip(CircleShape).clickable { showEmoji = true },
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(d.coverEmoji?.ifBlank { "🙂" } ?: "🙂", style = MaterialTheme.typography.titleMedium)
                     }
                 }
-                AppColorPicker(current = d.colorArgb, onPick = { persist(d.copy(colorArgb = it)) }, allowNone = true)
+                Spacer(Modifier.width(8.dp))
+                androidx.compose.material3.TextField(
+                    value = d.title, onValueChange = { draft = d.copy(title = it) },
+                    placeholder = { Text("Title", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.titleLarge,
+                    colors = com.todocompanion.app.ui.components.clearFieldColors(),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            // Container + read-only chips (colour and emoji now live in the top bar / title row).
+            if (!focus) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
                     selected = containerName != null,
                     onClick = { showContainer = true },
@@ -764,9 +772,14 @@ fun NoteEditorScreen(
                             persist(if (useNotebooks) d.copy(notebookId = null) else d.copy(folderId = null)); showContainer = false
                         }
                     }
-                    if (useNotebooks) items(notebooks, key = { it.id }) { nb ->
-                        DropdownRow((nb.icon?.let { "$it " } ?: "") + nb.name, selected = d.notebookId == nb.id) {
-                            persist(d.copy(notebookId = nb.id)); showContainer = false
+                    if (useNotebooks) {
+                        items(notebooks, key = { it.id }) { nb ->
+                            DropdownRow((nb.icon?.let { "$it " } ?: "") + nb.name, selected = d.notebookId == nb.id) {
+                                persist(d.copy(notebookId = nb.id)); showContainer = false
+                            }
+                        }
+                        item {
+                            DropdownRow("＋  New notebook…", selected = false) { showContainer = false; showNewNotebook = true }
                         }
                     } else items(folders, key = { it.id }) { f ->
                         DropdownRow((f.icon?.let { "$it " } ?: "") + f.name, selected = d.folderId == f.id) {
@@ -774,6 +787,31 @@ fun NoteEditorScreen(
                         }
                     }
                 }
+            },
+        )
+    }
+    if (showNewNotebook) {
+        var nbName by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showNewNotebook = false },
+            confirmButton = {
+                TextButton(
+                    enabled = nbName.isNotBlank(),
+                    onClick = {
+                        val name = nbName
+                        showNewNotebook = false
+                        vm.createNotebook(name) { id -> persist(d.copy(notebookId = id)) }
+                    },
+                ) { Text("Create") }
+            },
+            dismissButton = { TextButton(onClick = { showNewNotebook = false }) { Text("Cancel") } },
+            title = { Text("New notebook") },
+            text = {
+                androidx.compose.material3.OutlinedTextField(
+                    value = nbName, onValueChange = { nbName = it },
+                    singleLine = true, placeholder = { Text("Notebook name") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             },
         )
     }

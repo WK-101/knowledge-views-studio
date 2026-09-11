@@ -624,6 +624,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
     fun deleteNotebook(id: String) = viewModelScope.launch { repo.deleteNotebook(id) }
+    /** Create a notebook and hand back its new id (so the caller can assign the current note to it). */
+    fun createNotebook(name: String, icon: String? = null, onCreated: (String) -> Unit = {}) = viewModelScope.launch {
+        val id = repo.upsertNotebook(
+            com.todocompanion.app.data.entity.NotebookEntity(
+                id = "", name = name.trim().ifBlank { "Notebook" }, icon = icon, workspaceId = activeWorkspace(),
+            )
+        )
+        onCreated(id)
+    }
 
     fun setNoteDefaultView(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(noteDefaultView = v)) }
     fun setNotesNotebookMode(mode: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesNotebookMode = mode)) }

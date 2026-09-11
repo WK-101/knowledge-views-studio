@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -118,44 +119,6 @@ fun NoteBodyEditor(
     var showTable by remember { mutableStateOf(false) }
 
     Column(modifier.fillMaxSize()) {
-        if (!readOnly) {
-            FormattingToolbar(
-                onWrap = { m -> apply(NoteEditing.wrapInline(tfv.text, tfv.selection.start, tfv.selection.end, m)) },
-                onLinePrefix = { p -> apply(NoteEditing.insertLinePrefix(tfv.text, tfv.selection.start, p)) },
-                onTable = { showTable = true },
-                canUndo = undo.isNotEmpty(), canRedo = redo.isNotEmpty(),
-                onUndo = { if (undo.isNotEmpty()) { val prev = undo.removeAt(undo.lastIndex); redo.add(tfv); tfv = prev; onValueChange(prev.text) } },
-                onRedo = { if (redo.isNotEmpty()) { val nx = redo.removeAt(redo.lastIndex); undo.add(tfv); tfv = nx; onValueChange(nx.text) } },
-            )
-            // Wave G — the "/" quick-insert palette: type "/" at the start of a line for a filterable menu
-            // of block snippets (headings, lists, callout, code, table, wiki-link, date/time). Pure logic
-            // lives in NoteEditing; this is the thin chip row over it.
-            val slashQuery = if (tfv.selection.collapsed) NoteEditing.quickQuery(tfv.text, tfv.selection.start) else null
-            if (slashQuery != null) {
-                val cmds = NoteEditing.filterQuick(slashQuery)
-                if (cmds.isNotEmpty()) QuickInsertBar(cmds) { cmd ->
-                    val snippet = if (cmd.dynamic) dynamicSnippet(cmd.id) else cmd.snippet
-                    apply(NoteEditing.applyQuick(tfv.text, tfv.selection.start, snippet, if (cmd.dynamic) -1 else cmd.caretOffset))
-                }
-            }
-            // Wave M — [[wiki]] / #tag autocomplete: type "[[" or "#word" for matching titles / tags.
-            val linkQ = if (tfv.selection.collapsed) NoteEditing.linkAutocompleteQuery(tfv.text, tfv.selection.start) else null
-            if (linkQ != null && noteTitles.isNotEmpty()) {
-                val q = linkQ.trim().lowercase()
-                val matches = noteTitles.asSequence().filter { it.isNotBlank() }.distinct()
-                    .filter { q.isEmpty() || it.lowercase().contains(q) }
-                    .sortedByDescending { it.lowercase().startsWith(q) }.take(8).toList()
-                if (matches.isNotEmpty()) TokenBar(matches.map { "[[$it]]" }, matches) { t -> apply(NoteEditing.applyLink(tfv.text, tfv.selection.start, t)) }
-            }
-            val tagQ = if (tfv.selection.collapsed) NoteEditing.tagAutocompleteQuery(tfv.text, tfv.selection.start) else null
-            if (tagQ != null && tagNames.isNotEmpty()) {
-                val q = tagQ.trim().lowercase()
-                val matches = tagNames.asSequence().filter { it.isNotBlank() }.distinct()
-                    .filter { it.lowercase().contains(q) }
-                    .sortedByDescending { it.lowercase().startsWith(q) }.take(8).toList()
-                if (matches.isNotEmpty()) TokenBar(matches.map { "#$it" }, matches) { t -> apply(NoteEditing.applyTag(tfv.text, tfv.selection.start, t)) }
-            }
-        }
         val cs = MaterialTheme.colorScheme
         val family = when (type.effectiveFont("system")) {
             "serif" -> androidx.compose.ui.text.font.FontFamily.Serif
@@ -174,17 +137,56 @@ fun NoteBodyEditor(
                 base = cs.onSurface, muted = cs.onSurfaceVariant, accent = cs.primary, code = cs.tertiary, quote = cs.outline,
             ) else androidx.compose.ui.text.input.VisualTransformation.None
         }
+        // The body fills the surface; the formatting toolbar sits at the BOTTOM, above the keyboard
+        // (NotesNook-style). Borderless container so title + body read as one continuous page.
         TextField(
             value = tfv,
             onValueChange = ::onFieldChange,
             readOnly = readOnly,
             placeholder = { Text("Write in Markdown…") },
             modifier = Modifier.fillMaxWidth().weight(1f),
-            colors = borderlessFieldColors(),
+            colors = com.todocompanion.app.ui.components.clearFieldColors(),
             textStyle = bodyStyle,
             visualTransformation = transform,
-            shape = RoundedCornerShape(12.dp),
         )
+        if (!readOnly) {
+            Column(Modifier.imePadding()) {
+                // Wave M — [[wiki]] / #tag autocomplete and the "/" quick-insert palette, shown just above
+                // the toolbar as you type.
+                val slashQuery = if (tfv.selection.collapsed) NoteEditing.quickQuery(tfv.text, tfv.selection.start) else null
+                if (slashQuery != null) {
+                    val cmds = NoteEditing.filterQuick(slashQuery)
+                    if (cmds.isNotEmpty()) QuickInsertBar(cmds) { cmd ->
+                        val snippet = if (cmd.dynamic) dynamicSnippet(cmd.id) else cmd.snippet
+                        apply(NoteEditing.applyQuick(tfv.text, tfv.selection.start, snippet, if (cmd.dynamic) -1 else cmd.caretOffset))
+                    }
+                }
+                val linkQ = if (tfv.selection.collapsed) NoteEditing.linkAutocompleteQuery(tfv.text, tfv.selection.start) else null
+                if (linkQ != null && noteTitles.isNotEmpty()) {
+                    val q = linkQ.trim().lowercase()
+                    val matches = noteTitles.asSequence().filter { it.isNotBlank() }.distinct()
+                        .filter { q.isEmpty() || it.lowercase().contains(q) }
+                        .sortedByDescending { it.lowercase().startsWith(q) }.take(8).toList()
+                    if (matches.isNotEmpty()) TokenBar(matches.map { "[[$it]]" }, matches) { t -> apply(NoteEditing.applyLink(tfv.text, tfv.selection.start, t)) }
+                }
+                val tagQ = if (tfv.selection.collapsed) NoteEditing.tagAutocompleteQuery(tfv.text, tfv.selection.start) else null
+                if (tagQ != null && tagNames.isNotEmpty()) {
+                    val q = tagQ.trim().lowercase()
+                    val matches = tagNames.asSequence().filter { it.isNotBlank() }.distinct()
+                        .filter { it.lowercase().contains(q) }
+                        .sortedByDescending { it.lowercase().startsWith(q) }.take(8).toList()
+                    if (matches.isNotEmpty()) TokenBar(matches.map { "#$it" }, matches) { t -> apply(NoteEditing.applyTag(tfv.text, tfv.selection.start, t)) }
+                }
+                FormattingToolbar(
+                    onWrap = { m -> apply(NoteEditing.wrapInline(tfv.text, tfv.selection.start, tfv.selection.end, m)) },
+                    onLinePrefix = { p -> apply(NoteEditing.insertLinePrefix(tfv.text, tfv.selection.start, p)) },
+                    onTable = { showTable = true },
+                    canUndo = undo.isNotEmpty(), canRedo = redo.isNotEmpty(),
+                    onUndo = { if (undo.isNotEmpty()) { val prev = undo.removeAt(undo.lastIndex); redo.add(tfv); tfv = prev; onValueChange(prev.text) } },
+                    onRedo = { if (redo.isNotEmpty()) { val nx = redo.removeAt(redo.lastIndex); undo.add(tfv); tfv = nx; onValueChange(nx.text) } },
+                )
+            }
+        }
     }
     if (showTable) TableEditorDialog(onInsert = { insertBlock(it); showTable = false }, onDismiss = { showTable = false })
 }

@@ -446,6 +446,21 @@ fun borderlessFieldColors(): TextFieldColors = TextFieldDefaults.colors(
     errorIndicatorColor = Color.Transparent,
 )
 
+/** A fully transparent text-field style (no container fill, no indicator) — for a coherent, borderless
+ *  writing surface like NotesNook where the title and body read as one continuous page, not boxes. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun clearFieldColors(): TextFieldColors = TextFieldDefaults.colors(
+    focusedContainerColor = Color.Transparent,
+    unfocusedContainerColor = Color.Transparent,
+    disabledContainerColor = Color.Transparent,
+    errorContainerColor = Color.Transparent,
+    focusedIndicatorColor = Color.Transparent,
+    unfocusedIndicatorColor = Color.Transparent,
+    disabledIndicatorColor = Color.Transparent,
+    errorIndicatorColor = Color.Transparent,
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppTextField(
