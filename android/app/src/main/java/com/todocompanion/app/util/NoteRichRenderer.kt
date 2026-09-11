@@ -24,7 +24,19 @@ object NoteRichRenderer {
     data class Theme(
         val bg: String, val fg: String, val muted: String, val accent: String,
         val codeBg: String, val border: String, val quoteBar: String, val dark: Boolean,
+        // Wave Q — typography, so a reading theme + the user's type settings flow into the WebView too.
+        val fontFamily: String = "system",   // system | serif | sans | mono
+        val fontScalePct: Int = 100,
+        val lineHeight: Float = 1.62f,
+        val measureCh: Int = 0,               // 0 = full width; >0 caps the reading measure
     )
+
+    private fun fontStack(f: String): String = when (f) {
+        "serif" -> "Georgia,'Times New Roman','Noto Serif',serif"
+        "sans" -> "'Segoe UI',Roboto,system-ui,-apple-system,sans-serif"
+        "mono" -> "ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace"
+        else -> "-apple-system,Roboto,'Segoe UI',system-ui,sans-serif"
+    }
 
     private val parser: Parser = Parser.builder()
         .extensions(listOf(TablesExtension.create(), StrikethroughExtension.create(), TaskListItemsExtension.create()))
@@ -141,9 +153,9 @@ object NoteRichRenderer {
 
     private fun css(t: Theme) = """
         html,body{margin:0;padding:0;background:${t.bg};color:${t.fg};
-          font-family:-apple-system,Roboto,'Segoe UI',system-ui,sans-serif;line-height:1.62;font-size:16px;
+          font-family:${fontStack(t.fontFamily)};line-height:${t.lineHeight};font-size:${16 * t.fontScalePct / 100}px;
           -webkit-text-size-adjust:100%;overflow-wrap:break-word;word-break:break-word;}
-        .kairo-note{padding:14px 16px 40px;}
+        .kairo-note{padding:14px 16px 40px;${if (t.measureCh > 0) "max-width:${t.measureCh}ch;margin:0 auto;" else ""}}
         h1,h2,h3,h4{line-height:1.25;margin:1.1em 0 .5em;font-weight:650;}
         h1{font-size:1.7em} h2{font-size:1.4em} h3{font-size:1.2em}
         a{color:${t.accent};text-decoration:none} a:active{opacity:.6}

@@ -251,6 +251,16 @@ data class AppSettings(
     // Wave B — auto-empty Trash after N days (0 = Never) and how many version snapshots to keep per note.
     val notesTrashRetentionDays: Int = 0,
     val notesMaxRevisions: Int = 50,
+    // Wave Q — the reading experience. Inline live-styling in the editor, a curated reading theme, and
+    // typography (font / size / line-height / measure). All local; they drive both the native editor and
+    // the offline rich WebView. notesFocusMode persists the last-used immersive editor state.
+    val notesLiveStyle: Boolean = true,
+    val notesReadingTheme: String = "match",   // match | paper | sepia | graphite | solarized | midnight | kairo
+    val notesFont: String = "system",          // system | serif | sans | mono
+    val notesFontScale: Int = 100,             // 85..150 (%)
+    val notesLineHeight: String = "normal",    // compact | normal | relaxed
+    val notesMeasure: Boolean = false,         // limit reading line width (measure)
+    val notesFocusMode: Boolean = false,
     // Sidebar section keys currently collapsed (persisted so folds survive an app restart).
     val sidebarCollapsed: Set<String> = emptySet(),
     // Sidebar section keys the user has hidden entirely from the drawer.
@@ -490,6 +500,13 @@ data class AppSettings(
         Keys.NOTES_NOTEBOOK_MODE to notesNotebookMode,
         Keys.NOTES_TRASH_RETENTION_DAYS to notesTrashRetentionDays.toString(),
         Keys.NOTES_MAX_REVISIONS to notesMaxRevisions.toString(),
+        Keys.NOTES_LIVE_STYLE to notesLiveStyle.toString(),
+        Keys.NOTES_READING_THEME to notesReadingTheme,
+        Keys.NOTES_FONT to notesFont,
+        Keys.NOTES_FONT_SCALE to notesFontScale.toString(),
+        Keys.NOTES_LINE_HEIGHT to notesLineHeight,
+        Keys.NOTES_MEASURE to notesMeasure.toString(),
+        Keys.NOTES_FOCUS_MODE to notesFocusMode.toString(),
         Keys.ONBOARDED_MODULES to onboardedModules.toString(),
         Keys.ACTIVE_WS to activeWorkspaceId,
         Keys.MX_IMP to matrixImportanceThreshold.toString(),
@@ -680,6 +697,13 @@ data class AppSettings(
         const val NOTES_NOTEBOOK_MODE = "notes_notebook_mode"
         const val NOTES_TRASH_RETENTION_DAYS = "notes_trash_retention_days"
         const val NOTES_MAX_REVISIONS = "notes_max_revisions"
+        const val NOTES_LIVE_STYLE = "notes_live_style"
+        const val NOTES_READING_THEME = "notes_reading_theme"
+        const val NOTES_FONT = "notes_font"
+        const val NOTES_FONT_SCALE = "notes_font_scale"
+        const val NOTES_LINE_HEIGHT = "notes_line_height"
+        const val NOTES_MEASURE = "notes_measure"
+        const val NOTES_FOCUS_MODE = "notes_focus_mode"
         const val ONBOARDED_MODULES = "onboarded_modules"
         const val ACTIVE_WS = "active_ws"
         const val PRIO_MODE = "prio_mode"
@@ -905,6 +929,13 @@ data class AppSettings(
             notesNotebookMode = m[Keys.NOTES_NOTEBOOK_MODE]?.takeIf { it.isNotBlank() } ?: "folderTree",
             notesTrashRetentionDays = m[Keys.NOTES_TRASH_RETENTION_DAYS]?.toIntOrNull() ?: 0,
             notesMaxRevisions = m[Keys.NOTES_MAX_REVISIONS]?.toIntOrNull() ?: 50,
+            notesLiveStyle = m[Keys.NOTES_LIVE_STYLE]?.toBooleanStrictOrNull() ?: true,
+            notesReadingTheme = m[Keys.NOTES_READING_THEME]?.takeIf { it.isNotBlank() } ?: "match",
+            notesFont = m[Keys.NOTES_FONT]?.takeIf { it.isNotBlank() } ?: "system",
+            notesFontScale = m[Keys.NOTES_FONT_SCALE]?.toIntOrNull() ?: 100,
+            notesLineHeight = m[Keys.NOTES_LINE_HEIGHT]?.takeIf { it.isNotBlank() } ?: "normal",
+            notesMeasure = m[Keys.NOTES_MEASURE]?.toBooleanStrictOrNull() ?: false,
+            notesFocusMode = m[Keys.NOTES_FOCUS_MODE]?.toBooleanStrictOrNull() ?: false,
             onboardedModules = m[Keys.ONBOARDED_MODULES]?.toBooleanStrictOrNull() ?: false,
             activeWorkspaceId = m[Keys.ACTIVE_WS]?.ifBlank { "default" } ?: "default",
             matrixImportanceThreshold = m[Keys.MX_IMP]?.toIntOrNull() ?: 4,

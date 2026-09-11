@@ -598,6 +598,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setNoteDefaultView(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(noteDefaultView = v)) }
     fun setNotesNotebookMode(mode: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesNotebookMode = mode)) }
+    // Wave Q — the reading experience: live-styling, reading theme, and typography setters.
+    fun setNotesLiveStyle(v: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesLiveStyle = v)) }
+    fun setNotesReadingTheme(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesReadingTheme = v)) }
+    fun setNotesFont(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesFont = v)) }
+    fun setNotesFontScale(v: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesFontScale = v)) }
+    fun setNotesLineHeight(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesLineHeight = v)) }
+    fun setNotesMeasure(v: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesMeasure = v)) }
+    fun setNotesFocusMode(v: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesFocusMode = v)) }
 
     /** Note-search results (ids), driven by [searchNotes]; empty when the query is blank. */
     val noteSearchIds = MutableStateFlow<List<String>>(emptyList())

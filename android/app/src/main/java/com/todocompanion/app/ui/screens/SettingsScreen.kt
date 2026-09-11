@@ -362,6 +362,44 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     }
                 }
                 Spacer(Modifier.height(10.dp))
+                Sub("Reading & typography")
+                Toggle("Live-style Markdown as I type", s.notesLiveStyle) { vm.setNotesLiveStyle(it) }
+                Spacer(Modifier.height(6.dp))
+                Sub("Reading theme")
+                FlowRow(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
+                    com.todocompanion.app.domain.NoteAppearance.THEMES.forEach { t ->
+                        FilterChip(selected = s.notesReadingTheme == t.id, onClick = { vm.setNotesReadingTheme(t.id) }, label = { Text(t.name) })
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Sub("Font")
+                FlowRow(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
+                    com.todocompanion.app.domain.NoteAppearance.FONTS.forEach { (id, lbl) ->
+                        FilterChip(selected = s.notesFont == id, onClick = { vm.setNotesFont(id) }, label = { Text(lbl) })
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Sub("Text size")
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    val opts = com.todocompanion.app.domain.NoteAppearance.SCALES
+                    opts.forEachIndexed { i, v ->
+                        SegmentedButton(selected = s.notesFontScale == v, onClick = { vm.setNotesFontScale(v) },
+                            shape = SegmentedButtonDefaults.itemShape(i, opts.size)) { Text("$v%", maxLines = 1) }
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Sub("Line height")
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    val opts = com.todocompanion.app.domain.NoteAppearance.LINE_HEIGHTS
+                    opts.forEachIndexed { i, (id, lbl) ->
+                        SegmentedButton(selected = s.notesLineHeight == id, onClick = { vm.setNotesLineHeight(id) },
+                            shape = SegmentedButtonDefaults.itemShape(i, opts.size)) { Text(lbl, maxLines = 1) }
+                    }
+                }
+                Toggle("Limit reading width", s.notesMeasure) { vm.setNotesMeasure(it) }
+                Text("Live-styling and typography apply to the editor; the reading theme and measure also style the rich read view. Named themes coordinate paper, ink, accent and code as a set.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(10.dp))
                 Sub("Markdown files")
                 Action("Export notes as .md files…") { safePick { notesFolderExportLauncher() } }
                 Action("Import .md files from a folder…") { safePick { notesFolderImportLauncher() } }

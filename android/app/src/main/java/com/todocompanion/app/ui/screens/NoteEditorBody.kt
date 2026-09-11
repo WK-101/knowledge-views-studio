@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.todocompanion.app.data.entity.NoteEntity
 import com.todocompanion.app.data.entity.NoteRevisionEntity
 import com.todocompanion.app.domain.NoteEditing
@@ -68,6 +69,8 @@ fun NoteBodyEditor(
     readOnly: Boolean = false,
     noteTitles: List<String> = emptyList(),
     tagNames: List<String> = emptyList(),
+    liveStyle: Boolean = false,
+    type: com.todocompanion.app.domain.NoteAppearance.NoteType = com.todocompanion.app.domain.NoteAppearance.NoteType(),
 ) {
     var tfv by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
     // Resync only when the body changes from OUTSIDE (a toolbar-inserted link elsewhere, a fresh note);
@@ -140,6 +143,24 @@ fun NoteBodyEditor(
                 if (matches.isNotEmpty()) TokenBar(matches.map { "#$it" }, matches) { t -> apply(NoteEditing.applyTag(tfv.text, tfv.selection.start, t)) }
             }
         }
+        val cs = MaterialTheme.colorScheme
+        val family = when (type.effectiveFont("system")) {
+            "serif" -> androidx.compose.ui.text.font.FontFamily.Serif
+            "mono" -> androidx.compose.ui.text.font.FontFamily.Monospace
+            "sans" -> androidx.compose.ui.text.font.FontFamily.SansSerif
+            else -> androidx.compose.ui.text.font.FontFamily.Default
+        }
+        val baseSize = 16.sp * type.scale()
+        val bodyStyle = MaterialTheme.typography.bodyLarge.copy(
+            fontFamily = family, fontSize = baseSize, lineHeight = baseSize * type.lineFactor(),
+        )
+        // Wave Q — inline Markdown live-styling: style syntax in place (identity offsets), so editing feel
+        // matches the read view. Dimmed markers, styled bold/italic/code/links — Bear's Panda, on Android.
+        val transform: androidx.compose.ui.text.input.VisualTransformation = remember(liveStyle, cs) {
+            if (liveStyle) com.todocompanion.app.ui.components.MarkdownVisualTransformation(
+                base = cs.onSurface, muted = cs.onSurfaceVariant, accent = cs.primary, code = cs.tertiary, quote = cs.outline,
+            ) else androidx.compose.ui.text.input.VisualTransformation.None
+        }
         TextField(
             value = tfv,
             onValueChange = ::onFieldChange,
@@ -147,7 +168,8 @@ fun NoteBodyEditor(
             placeholder = { Text("Write in Markdown…") },
             modifier = Modifier.fillMaxWidth().weight(1f),
             colors = borderlessFieldColors(),
-            textStyle = MaterialTheme.typography.bodyLarge,
+            textStyle = bodyStyle,
+            visualTransformation = transform,
             shape = RoundedCornerShape(12.dp),
         )
     }
@@ -260,6 +282,8 @@ fun NoteAboutDialog(note: NoteEntity, onDismiss: () -> Unit) {
     val words = note.body.trim().split(Regex("\\s+")).count { it.isNotBlank() }
     val chars = note.body.length
     val readMin = (words / 200.0).let { if (it < 1) "< 1 min" else "${Math.round(it)} min" }
+    val outLinks = Regex("\\[\\[[^\\]]+]]").findAll(note.body).count()
+    val tagCount = Regex("(?<![\\w#/])#[A-Za-z][\\w/-]*").findAll(note.body).count()
     fun fmt(ts: Long): String = if (ts <= 0L) "—" else runCatching {
         java.time.Instant.ofEpochMilli(ts).atZone(java.time.ZoneId.systemDefault())
             .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm"))
@@ -273,6 +297,8 @@ fun NoteAboutDialog(note: NoteEntity, onDismiss: () -> Unit) {
                 AboutRow("Words", "$words")
                 AboutRow("Characters", "$chars")
                 AboutRow("Read time", readMin)
+                if (outLinks > 0) AboutRow("Links out", "$outLinks")
+                if (tagCount > 0) AboutRow("Tags", "$tagCount")
                 AboutRow("Created", fmt(note.createdAt))
                 AboutRow("Edited", fmt(note.updatedAt))
             }

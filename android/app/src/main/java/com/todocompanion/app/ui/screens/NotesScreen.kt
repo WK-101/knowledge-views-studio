@@ -338,6 +338,11 @@ fun NoteEditorScreen(
 
     val useNotebooks = settings.notesNotebookMode == "notebooks"
     val note = notes.firstOrNull { it.id == noteId }
+    // Wave Q — the reading experience: typography + reading theme (read view / WebView) and inline
+    // live-styling in the editor, all from Settings.
+    val noteType = remember(settings.notesFont, settings.notesFontScale, settings.notesLineHeight, settings.notesMeasure) {
+        com.todocompanion.app.domain.NoteAppearance.NoteType(settings.notesFont, settings.notesFontScale, settings.notesLineHeight, settings.notesMeasure)
+    }
 
     var draft by remember(noteId) { mutableStateOf<NoteEntity?>(null) }
     androidx.compose.runtime.LaunchedEffect(note?.id) { if (draft == null && note != null) draft = note }
@@ -359,6 +364,8 @@ fun NoteEditorScreen(
     var showExport by remember { mutableStateOf(false) }
     var showSeal by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
+    // Wave Q — focus (immersive) mode: hide the meta/context chrome so it's just the words.
+    var focus by remember { mutableStateOf(settings.notesFocusMode) }
 
     fun persist(n: NoteEntity) { draft = n; vm.saveNote(n) }
     // Debounced autosave for free-typing (title/body) so we don't hit the DB/FTS every keystroke.
@@ -415,6 +422,7 @@ fun NoteEditorScreen(
                             }
                             DropdownMenuItem(text = { Text(if (d.readonly) "Allow editing" else "Make read-only") }, onClick = { val wasRo = d.readonly; menu = false; persist(d.copy(readonly = !wasRo)); if (!wasRo) preview = true })
                             DropdownMenuItem(text = { Text("Outline") }, onClick = { menu = false; showOutline = true })
+                            DropdownMenuItem(text = { Text(if (focus) "Exit focus mode" else "Focus mode") }, onClick = { menu = false; focus = !focus; if (focus) preview = false })
                             DropdownMenuItem(text = { Text(if (d.reminderAt != null) "⏰ Reminder set — change…" else "⏰ Remind me…") }, onClick = { menu = false; showReminder = true })
                             DropdownMenuItem(text = { Text("Version history") }, onClick = { menu = false; showHistory = true })
                             DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menu = false; draft?.let { vm.closeNoteEditor(it) }; vm.duplicateNote(noteId) { id -> onOpenNote(id) } })
@@ -451,8 +459,8 @@ fun NoteEditorScreen(
                 textStyle = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.fillMaxWidth(),
             )
-            // Meta row: cover emoji · colour · notebook/folder
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Meta row: cover emoji · colour · notebook/folder  (hidden in focus mode)
+            if (!focus) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Surface(
                     shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant,
                     modifier = Modifier.size(40.dp).clip(CircleShape).clickable { showEmoji = true },
@@ -486,7 +494,7 @@ fun NoteEditorScreen(
                         .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy"))
                 }.getOrNull()
             }
-            if (dayLabel != null || d.linkedEventId != null || d.linkedTaskId != null || reminderLabel != null || sealedLabel != null) {
+            if (!focus && (dayLabel != null || d.linkedEventId != null || d.linkedTaskId != null || reminderLabel != null || sealedLabel != null)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (dayLabel != null) FilterChip(selected = true, onClick = {}, label = { Text("🗓  $dayLabel") })
                     if (d.linkedEventId != null) FilterChip(selected = true, onClick = {}, label = { Text("📅  Meeting note") })
@@ -513,6 +521,7 @@ fun NoteEditorScreen(
                         }
                         com.todocompanion.app.ui.components.RichNoteView(
                             shown, richImgs, Modifier.fillMaxSize().padding(end = 36.dp),
+                            readingThemeId = settings.notesReadingTheme, type = noteType,
                         )
                     } else androidx.compose.foundation.text.selection.SelectionContainer {
                         MarkdownText(
@@ -529,6 +538,7 @@ fun NoteEditorScreen(
                         readOnly = d.readonly,
                         noteTitles = notes.filter { it.id != noteId && !it.trashed && it.title.isNotBlank() }.map { it.title },
                         tagNames = tags.map { it.name },
+                        liveStyle = settings.notesLiveStyle, type = noteType,
                     )
                 }
                 if (d.body.isNotBlank() && !d.readonly) {

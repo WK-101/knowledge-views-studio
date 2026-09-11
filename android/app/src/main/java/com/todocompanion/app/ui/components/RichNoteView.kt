@@ -23,18 +23,37 @@ import java.io.ByteArrayInputStream
  * even though the app holds no INTERNET permission, nothing here can reach out.
  */
 @Composable
-fun RichNoteView(markdown: String, images: Map<String, String>, modifier: Modifier = Modifier) {
+fun RichNoteView(
+    markdown: String,
+    images: Map<String, String>,
+    modifier: Modifier = Modifier,
+    readingThemeId: String = "match",
+    type: com.todocompanion.app.domain.NoteAppearance.NoteType = com.todocompanion.app.domain.NoteAppearance.NoteType(),
+) {
     val cs = MaterialTheme.colorScheme
     val dark = cs.surface.luminance() < 0.5f
-    val theme = remember(cs) {
-        NoteRichRenderer.Theme(
-            bg = hex(cs.surface), fg = hex(cs.onSurface), muted = hex(cs.onSurfaceVariant),
-            accent = hex(cs.primary), codeBg = hex(cs.surfaceVariant), border = hex(cs.outlineVariant),
-            quoteBar = hex(cs.outline), dark = dark,
-        )
+    val theme = remember(cs, readingThemeId, type) {
+        val rt = com.todocompanion.app.domain.NoteAppearance.theme(readingThemeId)
+        val p = rt.palette(dark)
+        val font = type.effectiveFont(rt.font)
+        if (p != null) {
+            NoteRichRenderer.Theme(
+                bg = p.bg, fg = p.fg, muted = p.muted, accent = p.accent,
+                codeBg = p.codeBg, border = p.border, quoteBar = p.quoteBar, dark = dark,
+                fontFamily = font, fontScalePct = type.scalePct, lineHeight = type.lineFactor(), measureCh = type.measureCh(),
+            )
+        } else {
+            NoteRichRenderer.Theme(
+                bg = hex(cs.surface), fg = hex(cs.onSurface), muted = hex(cs.onSurfaceVariant),
+                accent = hex(cs.primary), codeBg = hex(cs.surfaceVariant), border = hex(cs.outlineVariant),
+                quoteBar = hex(cs.outline), dark = dark,
+                fontFamily = font, fontScalePct = type.scalePct, lineHeight = type.lineFactor(), measureCh = type.measureCh(),
+            )
+        }
     }
     val html = remember(markdown, images, theme) { NoteRichRenderer.buildDocument(markdown, theme, images) }
-    val bg = cs.surface.toArgb()
+    // A non-"match" reading theme paints its own paper; otherwise follow the Material surface.
+    val bg = remember(theme) { android.graphics.Color.parseColor(theme.bg) }
 
     AndroidView(
         modifier = modifier,
