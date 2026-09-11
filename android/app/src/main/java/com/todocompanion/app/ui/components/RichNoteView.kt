@@ -51,9 +51,10 @@ fun RichNoteView(
             )
         }
     }
-    val html = remember(markdown, images, theme) { NoteRichRenderer.buildDocument(markdown, theme, images) }
-    // A non-"match" reading theme paints its own paper; otherwise follow the Material surface.
-    val bg = remember(theme) { android.graphics.Color.parseColor(theme.bg) }
+    val html = remember(markdown, images, theme) { runCatching { NoteRichRenderer.buildDocument(markdown, theme, images) }.getOrElse { "<pre>" + markdown + "</pre>" } }
+    // A non-"match" reading theme paints its own paper; otherwise follow the Material surface. Never throw.
+    val fallbackBg = cs.surface.toArgb()
+    val bg = remember(theme, fallbackBg) { runCatching { android.graphics.Color.parseColor(theme.bg) }.getOrDefault(fallbackBg) }
 
     AndroidView(
         modifier = modifier,

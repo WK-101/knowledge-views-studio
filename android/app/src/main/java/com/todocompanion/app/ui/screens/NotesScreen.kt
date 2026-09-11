@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Edit
@@ -446,7 +447,9 @@ fun NoteEditorScreen(
     // Wave O — a sealed note gets screenshot / recents-thumbnail protection while open, regardless of the
     // app-wide secure-screen setting (restored to that setting on leave).
     com.todocompanion.app.ui.components.SecureFlagWhile(active = d.sealedUntil != null, globalOn = settings.secureScreen)
-    var preview by remember(noteId) { mutableStateOf(d.body.isNotBlank()) }
+    // Edit-first (NotesNook-style): a note opens in the editor. The rendered read view is a toggle; a
+    // read-only note still opens rendered.
+    var preview by remember(noteId) { mutableStateOf(d.readonly) }
     var showEmoji by remember { mutableStateOf(false) }
     var showContainer by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
@@ -504,7 +507,7 @@ fun NoteEditorScreen(
                         )
                     }
                     Box {
-                        IconButton(onClick = { menu = true }) { Icon(Icons.Filled.Delete, "More") }
+                        IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "More") }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             val boxCount = com.todocompanion.app.domain.NoteLinks.uncheckedCheckboxes(d.body).size
                             if (boxCount > 0) {
@@ -605,40 +608,32 @@ fun NoteEditorScreen(
                     if (sealedLabel != null) FilterChip(selected = true, onClick = {}, label = { Text("🔒  Sealed until $sealedLabel") })
                 }
             }
-            // Body — viewer until edit. Preview checkboxes are tappable and round-trip to the Markdown
-            // source; editing goes through NoteBodyEditor (toolbar · smart lists · undo/redo).
+            // Body. Edit-first (NotesNook-style): the note opens in the editor; the fully-rendered read
+            // view (math/diagrams/[[links]]) is a toggle. Wave P — render the transclusion-expanded body
+            // in read mode. Wave S — a leading YAML frontmatter block shows as chips, stripped from display.
+            val rawShown = expandedBody ?: d.body
+            val noteProps = remember(rawShown) { com.todocompanion.app.domain.NoteProperties.parse(rawShown) }
+            val shownBody = remember(rawShown) { com.todocompanion.app.domain.NoteProperties.strip(rawShown) }
+            if (!focus && noteProps.isNotEmpty() && (preview || d.readonly)) NotePropertyChips(noteProps)
             Box(Modifier.fillMaxWidth().weight(1f)) {
                 if (d.body.isNotBlank() && (preview || d.readonly)) {
-                    // Wave L — notes with math ($…$ / $$…$$), Mermaid diagrams, or inline images render in
-                    // the offline rich WebView (KaTeX/Mermaid/Prism, bundled). Plain notes keep the native
-                    // renderer, which has tappable checkboxes and [[wiki-link]] taps the WebView can't offer.
-                    // Wave P (N1) — render the transclusion-expanded body when present (read-only projection).
-                    val rawShown = expandedBody ?: d.body
-                    // Wave S — a leading YAML frontmatter block renders as property chips, not raw text.
-                    val noteProps = remember(rawShown) { com.todocompanion.app.domain.NoteProperties.parse(rawShown) }
-                    val shown = remember(rawShown) { com.todocompanion.app.domain.NoteProperties.strip(rawShown) }
-                    val rich = com.todocompanion.app.util.NoteRichRenderer.hasMath(shown) ||
-                        com.todocompanion.app.util.NoteRichRenderer.hasMermaid(shown) || shown.contains("![")
-                    Column(Modifier.fillMaxSize()) {
-                        if (noteProps.isNotEmpty()) NotePropertyChips(noteProps)
-                        if (rich) {
-                            var richImgs by remember(noteId) { mutableStateOf<Map<String, String>>(emptyMap()) }
-                            androidx.compose.runtime.LaunchedEffect(noteId, shown) {
-                                richImgs = if (shown.contains("![")) vm.noteImageMap(noteId) else emptyMap()
-                            }
-                            com.todocompanion.app.ui.components.RichNoteView(
-                                shown, richImgs, Modifier.fillMaxWidth().weight(1f).padding(end = 36.dp),
-                                readingThemeId = settings.notesReadingTheme, type = noteType,
-                            )
-                        } else androidx.compose.foundation.text.selection.SelectionContainer(Modifier.fillMaxWidth().weight(1f)) {
-                            MarkdownText(
-                                shown,
-                                modifier = Modifier.fillMaxWidth().padding(end = 36.dp),
-                                // Line-toggle maps to the raw body; disable it on an expanded projection or when
-                                // frontmatter shifts line numbers.
-                                onToggleCheckbox = if (d.readonly || expandedBody != null || noteProps.isNotEmpty()) null else { line -> persist(d.copy(body = com.todocompanion.app.domain.NoteEditing.toggleCheckboxAtLine(d.body, line))) },
-                            )
+                    val rich = com.todocompanion.app.util.NoteRichRenderer.hasMath(shownBody) ||
+                        com.todocompanion.app.util.NoteRichRenderer.hasMermaid(shownBody) || shownBody.contains("![")
+                    if (rich) {
+                        var richImgs by remember(noteId) { mutableStateOf<Map<String, String>>(emptyMap()) }
+                        androidx.compose.runtime.LaunchedEffect(noteId, shownBody) {
+                            richImgs = if (shownBody.contains("![")) vm.noteImageMap(noteId) else emptyMap()
                         }
+                        com.todocompanion.app.ui.components.RichNoteView(
+                            shownBody, richImgs, Modifier.fillMaxSize().padding(end = 36.dp),
+                            readingThemeId = settings.notesReadingTheme, type = noteType,
+                        )
+                    } else androidx.compose.foundation.text.selection.SelectionContainer {
+                        MarkdownText(
+                            shownBody,
+                            modifier = Modifier.fillMaxWidth().padding(end = 36.dp),
+                            onToggleCheckbox = if (d.readonly || expandedBody != null || noteProps.isNotEmpty()) null else { line -> persist(d.copy(body = com.todocompanion.app.domain.NoteEditing.toggleCheckboxAtLine(d.body, line))) },
+                        )
                     }
                 } else {
                     NoteBodyEditor(
