@@ -405,6 +405,26 @@ private fun Tb(label: String, bold: Boolean = false, italic: Boolean = false, en
     }
 }
 
+/** Wave U — pick a cross-module template (a note scaffold that pulls tasks/events/habits in live). */
+@Composable
+fun NoteTemplateDialog(onPick: (com.todocompanion.app.domain.NoteTemplates.Template) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Start from a template") },
+        text = {
+            LazyColumn(Modifier.heightIn(max = 380.dp)) {
+                items(com.todocompanion.app.domain.NoteTemplates.ALL, key = { it.id }) { t ->
+                    Row(Modifier.fillMaxWidth().clickable { onPick(t) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(t.emoji + "  ", style = MaterialTheme.typography.titleMedium)
+                        Text(t.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+        },
+    )
+}
+
 /** Wave T — on-device "related notes" (shared tags / [[links]] / vocabulary, no cloud). Tap to open. */
 @Composable
 fun RelatedNotesDialog(hits: List<com.todocompanion.app.domain.NoteRelated.Hit>, onOpen: (String) -> Unit, onDismiss: () -> Unit) {

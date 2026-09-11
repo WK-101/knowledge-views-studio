@@ -450,6 +450,7 @@ fun NoteEditorScreen(
     var showReorder by remember { mutableStateOf(false) }   // Wave R — reorder sections
     var showProps by remember { mutableStateOf(false) }     // Wave S — frontmatter properties
     var showRelated by remember { mutableStateOf(false) }   // Wave T — related notes
+    var showTemplate by remember { mutableStateOf(false) }  // Wave U — cross-module templates
 
     fun persist(n: NoteEntity) { draft = n; vm.saveNote(n) }
     // Debounced autosave for free-typing (title/body) so we don't hit the DB/FTS every keystroke.
@@ -510,6 +511,7 @@ fun NoteEditorScreen(
                             DropdownMenuItem(text = { Text("Reorder sections") }, onClick = { menu = false; preview = false; showReorder = true })
                             DropdownMenuItem(text = { Text("Properties…") }, onClick = { menu = false; showProps = true })
                             DropdownMenuItem(text = { Text("Related notes") }, onClick = { menu = false; showRelated = true })
+                            DropdownMenuItem(text = { Text("Apply template…") }, onClick = { menu = false; showTemplate = true })
                             DropdownMenuItem(text = { Text(if (d.reminderAt != null) "⏰ Reminder set — change…" else "⏰ Remind me…") }, onClick = { menu = false; showReminder = true })
                             DropdownMenuItem(text = { Text("Version history") }, onClick = { menu = false; showHistory = true })
                             DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menu = false; draft?.let { vm.closeNoteEditor(it) }; vm.duplicateNote(noteId) { id -> onOpenNote(id) } })
@@ -822,6 +824,12 @@ fun NoteEditorScreen(
         }
         RelatedNotesDialog(hits, onOpen = { showRelated = false; onOpenNote(it) }, onDismiss = { showRelated = false })
     }
+    if (showTemplate) NoteTemplateDialog(onPick = { t ->
+        val (ti, b) = com.todocompanion.app.domain.NoteTemplates.apply(t)
+        // Fresh note → adopt the whole scaffold; existing note → append body only (skip its frontmatter).
+        val newBody = if (d.body.isBlank()) b else d.body.trimEnd() + "\n\n" + com.todocompanion.app.domain.NoteProperties.strip(b)
+        persist(d.copy(title = if (d.title.isBlank()) ti else d.title, body = newBody)); preview = false; showTemplate = false
+    }, onDismiss = { showTemplate = false })
     if (showReminder) NoteReminderDialog(
         current = d.reminderAt,
         currentRrule = d.reminderRrule,
