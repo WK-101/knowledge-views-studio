@@ -111,6 +111,7 @@ fun NotesScreen(
     var showBuilder by remember { mutableStateOf(false) }
     var deleteView by remember { mutableStateOf<com.todocompanion.app.data.entity.SmartViewEntity?>(null) }
     var showGraph by remember { mutableStateOf(false) }
+    var showWrapped by remember { mutableStateOf(false) }   // Wave V — Notes Wrapped recap
 
     // Containers to offer as filter chips, per the user's chosen grouping mode.
     val containers: List<Pair<String, String>> =
@@ -221,6 +222,9 @@ fun NotesScreen(
                     item {
                         FilterChip(selected = false, onClick = { showGraph = true }, label = { Text("◉ Graph") })
                     }
+                    item {
+                        FilterChip(selected = false, onClick = { showWrapped = true }, label = { Text("✨ Wrapped") })
+                    }
                 }
                 Spacer(Modifier.height(4.dp))
             }
@@ -250,6 +254,15 @@ fun NotesScreen(
                 }
             }
             Spacer(Modifier.height(4.dp))
+            if (showWrapped) {
+                val stats = remember(notes) {
+                    com.todocompanion.app.domain.NoteWrapped.compute(
+                        notes.filter { !it.trashed }.map { com.todocompanion.app.domain.NoteWrapped.In(it.id, it.title, it.body, it.createdAt, it.kind, it.dayEpoch) },
+                        java.time.Year.now().value,
+                    )
+                }
+                NoteWrappedDialog(stats, onDismiss = { showWrapped = false })
+            }
             if (filtered.isEmpty()) {
                 EmptyState(
                     emoji = "📝",

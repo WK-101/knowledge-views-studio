@@ -405,6 +405,36 @@ private fun Tb(label: String, bold: Boolean = false, italic: Boolean = false, en
     }
 }
 
+/** Wave V — Notes Wrapped: a locally-generated yearly recap. Pure stats in NoteWrapped. */
+@Composable
+fun NoteWrappedDialog(stats: com.todocompanion.app.domain.NoteWrapped.Stats, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        title = { Text("Notes Wrapped ${stats.year}") },
+        text = {
+            if (stats.isEmpty) Text(
+                "No notes from ${stats.year} yet. Come back once you've written a few — your recap is generated right here on your device.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            ) else Column {
+                AboutRow("Notes written", "${stats.created}")
+                AboutRow("Words", "${stats.words}")
+                AboutRow("Busiest month", "${stats.busiestMonth} (${stats.busiestMonthCount})")
+                AboutRow("Longest note", "${stats.longestTitle} · ${stats.longestWords} words")
+                if (stats.journalDays > 0) AboutRow("Journal days", "${stats.journalDays}")
+                if (stats.distinctTags > 0) AboutRow("Tags used", "${stats.distinctTags}")
+                if (stats.topTags.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text("Top tags", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    stats.topTags.forEach { (t, c) ->
+                        Text("#$t · $c", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                    }
+                }
+            }
+        },
+    )
+}
+
 /** Wave U — pick a cross-module template (a note scaffold that pulls tasks/events/habits in live). */
 @Composable
 fun NoteTemplateDialog(onPick: (com.todocompanion.app.domain.NoteTemplates.Template) -> Unit, onDismiss: () -> Unit) {
