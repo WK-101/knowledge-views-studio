@@ -90,6 +90,7 @@ object NoteRichRenderer {
                         "java", "kotlin", "python", "bash", "json", "yaml", "sql", "rust", "go"))
                     append("<script src=\"prism/prism-$c.min.js\"></script>")
                 append("<script>if(window.Prism)Prism.highlightAll();</script>")
+                append("<script>").append(codeChromeJs()).append("</script>")
             }
             if (mermaid) {
                 append("<script src=\"mermaid.min.js\"></script>")
@@ -151,6 +152,26 @@ object NoteRichRenderer {
         })();
     """.trimIndent()
 
+    /** Wave R — a language label + a Copy button on each highlighted code block. Copy uses a Range +
+     *  execCommand('copy') inside the click handler, which works in a WebView with no clipboard permission. */
+    private fun codeChromeJs() = """
+        (function(){
+          document.querySelectorAll('pre').forEach(function(pre){
+            var code=pre.querySelector('code'); if(!code||pre.classList.contains('mermaid'))return;
+            var m=code.className.match(/language-([\w+-]+)/); var lang=m?m[1]:'text';
+            var bar=document.createElement('div'); bar.className='code-bar';
+            var l=document.createElement('span'); l.className='code-lang'; l.textContent=lang;
+            var b=document.createElement('button'); b.className='code-copy'; b.type='button'; b.textContent='Copy';
+            b.addEventListener('click',function(){
+              try{var r=document.createRange(); r.selectNodeContents(code); var s=window.getSelection();
+                s.removeAllRanges(); s.addRange(r); document.execCommand('copy'); s.removeAllRanges();
+                b.textContent='Copied'; setTimeout(function(){b.textContent='Copy';},1200);}catch(e){}
+            });
+            bar.appendChild(l); bar.appendChild(b); pre.insertBefore(bar, pre.firstChild);
+          });
+        })();
+    """.trimIndent()
+
     private fun css(t: Theme) = """
         html,body{margin:0;padding:0;background:${t.bg};color:${t.fg};
           font-family:${fontStack(t.fontFamily)};line-height:${t.lineHeight};font-size:${16 * t.fontScalePct / 100}px;
@@ -165,9 +186,12 @@ object NoteRichRenderer {
         input[type=checkbox]{margin-inline-end:.4em;transform:scale(1.15)}
         code{font-family:ui-monospace,'JetBrains Mono',monospace;font-size:.9em;
           background:${t.codeBg};padding:.1em .35em;border-radius:5px}
-        pre{background:${t.codeBg};padding:.85em 1em;border-radius:12px;overflow-x:auto;margin:.7em 0}
+        pre{background:${t.codeBg};padding:1.7em 1em .85em;border-radius:12px;overflow-x:auto;margin:.7em 0;position:relative}
         pre code{background:none;padding:0;font-size:.86em;line-height:1.5}
-        pre.mermaid{background:transparent;text-align:center;overflow-x:auto}
+        pre.mermaid{background:transparent;text-align:center;overflow-x:auto;padding:.4em}
+        .code-bar{position:absolute;top:5px;inset-inline-end:8px;display:flex;gap:8px;align-items:center}
+        .code-lang{font-family:ui-monospace,monospace;font-size:.66em;color:${t.muted};text-transform:uppercase;letter-spacing:.05em}
+        .code-copy{font-family:inherit;font-size:.72em;color:${t.accent};background:${t.bg};border:1px solid ${t.border};border-radius:6px;padding:.15em .55em}
         blockquote{border-inline-start:3px solid ${t.quoteBar};margin:.7em 0;padding:.1em 1em;color:${t.muted}}
         blockquote.callout{border-inline-start-width:4px;background:${t.codeBg};border-radius:0 10px 10px 0;padding:.6em 1em}
         .callout-h{font-weight:700;margin-bottom:.2em;font-size:.92em;letter-spacing:.01em}

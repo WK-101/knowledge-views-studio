@@ -105,11 +105,24 @@ fun NoteBodyEditor(
 
     fun apply(edit: NoteEditing.Edit) = emit(TextFieldValue(edit.text, TextRange(edit.selStart, edit.selEnd)), true)
 
+    // Wave R — insert a block (e.g. a visually-built table) at the caret, on its own blank-line-separated lines.
+    fun insertBlock(block: String) {
+        val pos = tfv.selection.start.coerceIn(0, tfv.text.length)
+        val pre = tfv.text.substring(0, pos); val post = tfv.text.substring(pos)
+        val lead = if (pre.isNotEmpty() && !pre.endsWith("\n")) "\n\n" else ""
+        val trail = if (post.isNotEmpty() && !post.startsWith("\n")) "\n" else ""
+        val insert = lead + block + "\n" + trail
+        val caret = (pre + insert).length
+        emit(TextFieldValue(pre + insert + post, TextRange(caret)), true)
+    }
+    var showTable by remember { mutableStateOf(false) }
+
     Column(modifier.fillMaxSize()) {
         if (!readOnly) {
             FormattingToolbar(
                 onWrap = { m -> apply(NoteEditing.wrapInline(tfv.text, tfv.selection.start, tfv.selection.end, m)) },
                 onLinePrefix = { p -> apply(NoteEditing.insertLinePrefix(tfv.text, tfv.selection.start, p)) },
+                onTable = { showTable = true },
                 canUndo = undo.isNotEmpty(), canRedo = redo.isNotEmpty(),
                 onUndo = { if (undo.isNotEmpty()) { val prev = undo.removeAt(undo.lastIndex); redo.add(tfv); tfv = prev; onValueChange(prev.text) } },
                 onRedo = { if (redo.isNotEmpty()) { val nx = redo.removeAt(redo.lastIndex); undo.add(tfv); tfv = nx; onValueChange(nx.text) } },
@@ -173,6 +186,7 @@ fun NoteBodyEditor(
             shape = RoundedCornerShape(12.dp),
         )
     }
+    if (showTable) TableEditorDialog(onInsert = { insertBlock(it); showTable = false }, onDismiss = { showTable = false })
 }
 
 /** Wave G — the slash-command chip row shown while typing a `/query` at line start. */
@@ -232,6 +246,7 @@ private fun dynamicSnippet(id: String): String = when (id) {
 private fun FormattingToolbar(
     onWrap: (String) -> Unit,
     onLinePrefix: (String) -> Unit,
+    onTable: () -> Unit,
     canUndo: Boolean,
     canRedo: Boolean,
     onUndo: () -> Unit,
@@ -250,9 +265,123 @@ private fun FormattingToolbar(
         Tb("•") { onLinePrefix("- ") }
         Tb("☑") { onLinePrefix("- [ ] ") }
         Tb("1.") { onLinePrefix("1. ") }
+        Tb("▦", onClick = onTable)   // Wave R — visual table editor
         Tb("↶", enabled = canUndo, onClick = onUndo)
         Tb("↷", enabled = canRedo, onClick = onRedo)
     }
+}
+
+/**
+ * Wave R — a visual GFM table editor. Build/resize a grid of cells and insert it as Markdown; the pure
+ * [com.todocompanion.app.domain.MarkdownTable] serializes it. No more hand-aligning pipes.
+ */
+@Composable
+fun TableEditorDialog(initial: String? = null, onInsert: (String) -> Unit, onDismiss: () -> Unit) {
+    val start = remember { initial?.let { com.todocompanion.app.domain.MarkdownTable.parse(it) } ?: com.todocompanion.app.domain.MarkdownTable.empty(2, 2) }
+    val headers = remember { mutableStateListOf<String>().apply { addAll(start.headers) } }
+    val rows = remember { mutableStateListOf<SnapshotStateListWrapper>().apply { start.rows.forEach { add(SnapshotStateListWrapper(it)) } } }
+    fun cols() = headers.size
+    fun addCol() { headers.add(""); rows.forEach { it.cells.add("") } }
+    fun removeCol() { if (cols() > 1) { headers.removeAt(headers.lastIndex); rows.forEach { if (it.cells.isNotEmpty()) it.cells.removeAt(it.cells.lastIndex) } } }
+    fun addRow() { rows.add(SnapshotStateListWrapper(List(cols()) { "" })) }
+    fun removeRow() { if (rows.size > 1) rows.removeAt(rows.lastIndex) }
+    fun build(): String {
+        val t = com.todocompanion.app.domain.MarkdownTable.Table(headers.toList(), rows.map { it.cells.toList() })
+        return com.todocompanion.app.domain.MarkdownTable.serialize(t)
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = { onInsert(build()) }) { Text("Insert") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Table") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            headers.indices.forEach { c ->
+                                TableCell(headers[c], header = true) { headers[c] = it }
+                            }
+                        }
+                        rows.forEach { r ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                (0 until cols()).forEach { c ->
+                                    TableCell(r.cells.getOrElse(c) { "" }) { v -> while (r.cells.size <= c) r.cells.add(""); r.cells[c] = v }
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    MiniBtn("+ Col") { addCol() }; MiniBtn("− Col") { removeCol() }
+                    MiniBtn("+ Row") { addRow() }; MiniBtn("− Row") { removeRow() }
+                }
+            }
+        },
+    )
+}
+
+/** A mutable row of cells, wrapped so a [mutableStateListOf] of rows is stable. */
+class SnapshotStateListWrapper(initial: List<String>) {
+    val cells = androidx.compose.runtime.mutableStateListOf<String>().apply { addAll(initial) }
+}
+
+@Composable
+private fun TableCell(value: String, header: Boolean = false, onChange: (String) -> Unit) {
+    TextField(
+        value = value, onValueChange = onChange, singleLine = true,
+        modifier = Modifier.defaultMinSize(minWidth = 92.dp).heightIn(min = 48.dp),
+        textStyle = if (header) MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold) else MaterialTheme.typography.bodyMedium,
+        colors = borderlessFieldColors(),
+        placeholder = { Text(if (header) "Header" else "", style = MaterialTheme.typography.labelSmall) },
+    )
+}
+
+@Composable
+private fun MiniBtn(label: String, onClick: () -> Unit) {
+    Surface(onClick = onClick, shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.height(36.dp)) {
+        Box(Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+            Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
+        }
+    }
+}
+
+/**
+ * Wave R — reorder a note's heading-delimited sections (move whole sections up/down) without cut-and-paste.
+ * Pure logic in [com.todocompanion.app.domain.MarkdownSections].
+ */
+@Composable
+fun SectionReorderDialog(body: String, onApply: (String) -> Unit, onDismiss: () -> Unit) {
+    var working by remember { mutableStateOf(body) }
+    val sections = remember(working) { com.todocompanion.app.domain.MarkdownSections.sections(working) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = { onApply(working) }) { Text("Apply") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Reorder sections") },
+        text = {
+            if (sections.count { it.heading.isNotEmpty() } < 2) {
+                Text("Add at least two headings (#, ##, …) to reorder a note by section.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                LazyColumn(Modifier.heightIn(max = 380.dp)) {
+                    items(sections.size) { i ->
+                        val s = sections[i]
+                        val label = s.heading.ifEmpty { "(intro)" }.trimStart('#', ' ').ifBlank { "(intro)" }
+                        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("·".repeat((s.level - 1).coerceAtLeast(0)) + " " + label, Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                            Text("↑", Modifier.clickable { if (i > 0) working = com.todocompanion.app.domain.MarkdownSections.move(working, i, i - 1) }.padding(8.dp),
+                                color = if (i > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .4f))
+                            Text("↓", Modifier.clickable { if (i < sections.lastIndex) working = com.todocompanion.app.domain.MarkdownSections.move(working, i, i + 1) }.padding(8.dp),
+                                color = if (i < sections.lastIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .4f))
+                        }
+                    }
+                }
+            }
+        },
+    )
 }
 
 @Composable

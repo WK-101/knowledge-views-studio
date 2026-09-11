@@ -366,6 +366,7 @@ fun NoteEditorScreen(
     var menu by remember { mutableStateOf(false) }
     // Wave Q — focus (immersive) mode: hide the meta/context chrome so it's just the words.
     var focus by remember { mutableStateOf(settings.notesFocusMode) }
+    var showReorder by remember { mutableStateOf(false) }   // Wave R — reorder sections
 
     fun persist(n: NoteEntity) { draft = n; vm.saveNote(n) }
     // Debounced autosave for free-typing (title/body) so we don't hit the DB/FTS every keystroke.
@@ -423,6 +424,7 @@ fun NoteEditorScreen(
                             DropdownMenuItem(text = { Text(if (d.readonly) "Allow editing" else "Make read-only") }, onClick = { val wasRo = d.readonly; menu = false; persist(d.copy(readonly = !wasRo)); if (!wasRo) preview = true })
                             DropdownMenuItem(text = { Text("Outline") }, onClick = { menu = false; showOutline = true })
                             DropdownMenuItem(text = { Text(if (focus) "Exit focus mode" else "Focus mode") }, onClick = { menu = false; focus = !focus; if (focus) preview = false })
+                            DropdownMenuItem(text = { Text("Reorder sections") }, onClick = { menu = false; preview = false; showReorder = true })
                             DropdownMenuItem(text = { Text(if (d.reminderAt != null) "⏰ Reminder set — change…" else "⏰ Remind me…") }, onClick = { menu = false; showReminder = true })
                             DropdownMenuItem(text = { Text("Version history") }, onClick = { menu = false; showHistory = true })
                             DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menu = false; draft?.let { vm.closeNoteEditor(it) }; vm.duplicateNote(noteId) { id -> onOpenNote(id) } })
@@ -720,6 +722,7 @@ fun NoteEditorScreen(
     }
     if (showAbout) NoteAboutDialog(d, onDismiss = { showAbout = false })
     if (showOutline) NoteOutlineDialog(d.body, onDismiss = { showOutline = false })
+    if (showReorder) SectionReorderDialog(d.body, onApply = { persist(d.copy(body = it)); showReorder = false }, onDismiss = { showReorder = false })
     if (showReminder) NoteReminderDialog(
         current = d.reminderAt,
         currentRrule = d.reminderRrule,
