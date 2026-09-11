@@ -635,6 +635,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setNoteDefaultView(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(noteDefaultView = v)) }
+    fun setNotesSort(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesSort = v)) }
     fun setNotesNotebookMode(mode: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesNotebookMode = mode)) }
     // Wave Q — the reading experience: live-styling, reading theme, and typography setters.
     fun setNotesLiveStyle(v: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesLiveStyle = v)) }

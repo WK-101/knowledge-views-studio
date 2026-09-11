@@ -1,8 +1,10 @@
 package com.todocompanion.app.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,14 +27,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.StarOutline
-import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -113,6 +120,11 @@ fun NotesScreen(
     var deleteView by remember { mutableStateOf<com.todocompanion.app.data.entity.SmartViewEntity?>(null) }
     var showGraph by remember { mutableStateOf(false) }
     var showWrapped by remember { mutableStateOf(false) }   // Wave V — Notes Wrapped recap
+    // Multi-select (NotesNook-style) + sort.
+    var selection by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var sortMenu by remember { mutableStateOf(false) }
+    var batchMove by remember { mutableStateOf(false) }
+    BackHandler(enabled = selection.isNotEmpty()) { selection = emptySet() }
 
     // Containers to offer as filter chips, per the user's chosen grouping mode.
     val containers: List<Pair<String, String>> =
@@ -149,7 +161,17 @@ fun NotesScreen(
         .filter { n ->
             query.isBlank() || n.title.contains(query, true) || n.body.contains(query, true)
         }
-        .sortedWith(compareByDescending<NoteEntity> { it.pinned }.thenByDescending { it.updatedAt })
+        .sortedWith(
+            // Pinned always float to the top; the rest follow the chosen sort order.
+            compareByDescending<NoteEntity> { it.pinned }.then(
+                when (settings.notesSort) {
+                    "created" -> compareByDescending { it.createdAt }
+                    "titleAsc" -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.title.ifBlank { "￿" } }
+                    "titleDesc" -> compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.title.ifBlank { "" } }
+                    else -> compareByDescending { it.updatedAt }
+                }
+            )
+        )
         .toList()
 
     // Wave E — the Life Graph opens as a full-screen overlay (early return keeps it simple, no nav change).
@@ -166,6 +188,63 @@ fun NotesScreen(
                 value = query, onValueChange = onQueryChange,
                 placeholder = { Text("Search notes") }, singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+            )
+        }
+        // Multi-select action bar (shown while notes are selected). Batch actions apply to the whole set.
+        if (selection.isNotEmpty()) {
+            val chosen = filtered.filter { it.id in selection }
+            Surface(color = MaterialTheme.colorScheme.secondaryContainer, tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = { selection = emptySet() }) { Icon(Icons.Filled.Close, "Cancel selection") }
+                    Text("${selection.size}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Spacer(Modifier.weight(1f))
+                    // Select all currently-shown.
+                    TextButton(onClick = { selection = filtered.map { it.id }.toSet() }) { Text("All") }
+                    val anyUnpinned = chosen.any { !it.pinned }
+                    IconButton(onClick = { chosen.forEach { vm.saveNote(it.copy(pinned = anyUnpinned)) }; selection = emptySet() }) {
+                        Icon(if (anyUnpinned) Icons.Filled.PushPin else Icons.Outlined.PushPin, if (anyUnpinned) "Pin" else "Unpin")
+                    }
+                    val anyUnfav = chosen.any { !it.favorite }
+                    IconButton(onClick = { chosen.forEach { vm.saveNote(it.copy(favorite = anyUnfav)) }; selection = emptySet() }) {
+                        Icon(if (anyUnfav) Icons.Filled.Star else Icons.Outlined.StarOutline, if (anyUnfav) "Favorite" else "Unfavorite")
+                    }
+                    IconButton(onClick = { batchMove = true }) { Icon(Icons.Filled.DriveFileMove, "Move") }
+                    IconButton(onClick = { chosen.forEach { vm.archiveNote(it.id) }; selection = emptySet() }) { Icon(Icons.Filled.Archive, "Archive") }
+                    IconButton(onClick = { chosen.forEach { vm.trashNote(it.id) }; selection = emptySet() }) { Icon(Icons.Filled.Delete, "Move to Trash") }
+                }
+            }
+        }
+        // Move-selected dialog: assign every selected note to a notebook/folder (or none).
+        if (batchMove) {
+            val chosen = filtered.filter { it.id in selection }
+            AlertDialog(
+                onDismissRequest = { batchMove = false },
+                confirmButton = { TextButton(onClick = { batchMove = false }) { Text("Done") } },
+                title = { Text(if (useNotebooks) "Move to notebook" else "Move to folder") },
+                text = {
+                    LazyColumn {
+                        item {
+                            DropdownRow("None", selected = false) {
+                                chosen.forEach { vm.saveNote(if (useNotebooks) it.copy(notebookId = null) else it.copy(folderId = null)) }
+                                batchMove = false; selection = emptySet()
+                            }
+                        }
+                        if (useNotebooks) items(notebooks, key = { it.id }) { nb ->
+                            DropdownRow((nb.icon?.let { "$it " } ?: "") + nb.name, selected = false) {
+                                chosen.forEach { vm.saveNote(it.copy(notebookId = nb.id)) }
+                                batchMove = false; selection = emptySet()
+                            }
+                        } else items(folders, key = { it.id }) { f ->
+                            DropdownRow((f.icon?.let { "$it " } ?: "") + f.name, selected = false) {
+                                chosen.forEach { vm.saveNote(it.copy(folderId = f.id)) }
+                                batchMove = false; selection = emptySet()
+                            }
+                        }
+                    }
+                },
             )
         }
         run {
@@ -246,12 +325,31 @@ fun NotesScreen(
             // Wave S — notes as a local database: an in-home view mode. Cards (grid/list per setting),
             // Board (columns grouped by notebook/folder), Calendar (grouped by month).
             var viewMode by remember { mutableStateOf("cards") }
-            androidx.compose.foundation.lazy.LazyRow(
-                contentPadding = PaddingValues(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(listOf("cards" to "▦ Cards", "board" to "▤ Board", "calendar" to "🗓 Calendar"), key = { it.first }) { (id, lbl) ->
-                    FilterChip(selected = viewMode == id, onClick = { viewMode = id }, label = { Text(lbl) })
+            Row(Modifier.fillMaxWidth().padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.foundation.lazy.LazyRow(
+                    contentPadding = PaddingValues(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    items(listOf("cards" to "▦ Cards", "board" to "▤ Board", "calendar" to "🗓 Calendar"), key = { it.first }) { (id, lbl) ->
+                        FilterChip(selected = viewMode == id, onClick = { viewMode = id }, label = { Text(lbl) })
+                    }
+                }
+                Box {
+                    IconButton(onClick = { sortMenu = true }) { Icon(Icons.Filled.Sort, "Sort") }
+                    DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                        val opts = listOf(
+                            "updated" to "Last edited", "created" to "Date created",
+                            "titleAsc" to "Title A–Z", "titleDesc" to "Title Z–A",
+                        )
+                        opts.forEach { (id, lbl) ->
+                            DropdownMenuItem(
+                                text = { Text(lbl) },
+                                trailingIcon = { if (settings.notesSort == id) Icon(Icons.Filled.CheckCircle, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) },
+                                onClick = { vm.setNotesSort(id); sortMenu = false },
+                            )
+                        }
+                    }
                 }
             }
             Spacer(Modifier.height(4.dp))
@@ -282,7 +380,15 @@ fun NotesScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        items(filtered, key = { it.id }) { n -> NoteCard(n, Modifier.animateItem(), onOpen = { onOpenNote(n.id) }, onTogglePin = { vm.saveNote(n.copy(pinned = !n.pinned)) }) }
+                        items(filtered, key = { it.id }) { n ->
+                            NoteCard(
+                                n, Modifier.animateItem(),
+                                selected = n.id in selection, selecting = selection.isNotEmpty(),
+                                onOpen = { if (selection.isNotEmpty()) selection = if (n.id in selection) selection - n.id else selection + n.id else onOpenNote(n.id) },
+                                onTogglePin = { vm.saveNote(n.copy(pinned = !n.pinned)) },
+                                onLongPress = { selection = selection + n.id },
+                            )
+                        }
                     }
                 } else {
                     LazyColumn(
@@ -290,7 +396,15 @@ fun NotesScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        items(filtered, key = { it.id }) { n -> NoteCard(n, Modifier.animateItem(), onOpen = { onOpenNote(n.id) }, onTogglePin = { vm.saveNote(n.copy(pinned = !n.pinned)) }) }
+                        items(filtered, key = { it.id }) { n ->
+                            NoteCard(
+                                n, Modifier.animateItem(),
+                                selected = n.id in selection, selecting = selection.isNotEmpty(),
+                                onOpen = { if (selection.isNotEmpty()) selection = if (n.id in selection) selection - n.id else selection + n.id else onOpenNote(n.id) },
+                                onTogglePin = { vm.saveNote(n.copy(pinned = !n.pinned)) },
+                                onLongPress = { selection = selection + n.id },
+                            )
+                        }
                     }
                 }
             }
@@ -363,16 +477,39 @@ private fun NotesCalendarView(notes: List<NoteEntity>, onOpen: (String) -> Unit)
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun NoteCard(n: NoteEntity, modifier: Modifier = Modifier, onOpen: () -> Unit, onTogglePin: () -> Unit) {
+private fun NoteCard(
+    n: NoteEntity,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    selecting: Boolean = false,
+    onOpen: () -> Unit,
+    onTogglePin: () -> Unit,
+    onLongPress: () -> Unit = {},
+) {
     val accent = n.colorArgb?.let { Color(it) }
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
-    AppCard(modifier = modifier, onClick = onOpen, padding = 0.dp) {
+    val cardColor = if (selected) MaterialTheme.colorScheme.primaryContainer
+    else com.todocompanion.app.ui.components.appCardColor()
+    val clickMod = modifier.combinedClickable(
+        onClick = onOpen,
+        onLongClick = { haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress); onLongPress() },
+    )
+    AppCard(modifier = clickMod, onClick = null, padding = 0.dp, color = cardColor) {
         Row(Modifier.fillMaxWidth()) {
             if (accent != null) Box(Modifier.width(4.dp).height(if (n.body.isBlank()) 56.dp else 96.dp).background(accent))
             Column(Modifier.padding(12.dp).fillMaxWidth()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (!n.coverEmoji.isNullOrBlank()) {
+                    if (selecting) {
+                        Icon(
+                            if (selected) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked,
+                            contentDescription = if (selected) "Selected" else "Not selected",
+                            modifier = Modifier.size(18.dp),
+                            tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    } else if (!n.coverEmoji.isNullOrBlank()) {
                         Text(n.coverEmoji!!, style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.width(8.dp))
                     }
@@ -386,13 +523,17 @@ private fun NoteCard(n: NoteEntity, modifier: Modifier = Modifier, onOpen: () ->
                         Icon(Icons.Filled.Star, "Favorite", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
                     }
-                    IconButton(onClick = { haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress); onTogglePin() }, modifier = Modifier.size(28.dp)) {
-                        Icon(
-                            if (n.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                            contentDescription = if (n.pinned) "Unpin" else "Pin",
-                            modifier = Modifier.size(16.dp),
-                            tint = if (n.pinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    if (!selecting) {
+                        IconButton(onClick = { haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress); onTogglePin() }, modifier = Modifier.size(28.dp)) {
+                            Icon(
+                                if (n.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                                contentDescription = if (n.pinned) "Unpin" else "Pin",
+                                modifier = Modifier.size(16.dp),
+                                tint = if (n.pinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else if (n.pinned) {
+                        Icon(Icons.Filled.PushPin, "Pinned", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
                     }
                 }
                 val preview = plainPreview(n.body)
@@ -447,9 +588,11 @@ fun NoteEditorScreen(
     // Wave O — a sealed note gets screenshot / recents-thumbnail protection while open, regardless of the
     // app-wide secure-screen setting (restored to that setting on leave).
     com.todocompanion.app.ui.components.SecureFlagWhile(active = d.sealedUntil != null, globalOn = settings.secureScreen)
-    // Edit-first (NotesNook-style): a note opens in the editor. The rendered read view is a toggle; a
-    // read-only note still opens rendered.
-    var preview by remember(noteId) { mutableStateOf(d.readonly) }
+    // Edit-first (NotesNook-style): the note is always the editor surface (a read-only note shows a
+    // read-only editor). The fully-rendered view — math, diagrams, tables — is a clean full-screen
+    // overlay reached from the ⋮ menu ("Reading view"), never an in-place swap (which used to crash).
+    var showReading by remember(noteId) { mutableStateOf(false) }
+    var showTags by remember { mutableStateOf(false) }
     var showEmoji by remember { mutableStateOf(false) }
     var showContainer by remember { mutableStateOf(false) }
     var showNewNotebook by remember { mutableStateOf(false) }
@@ -475,10 +618,10 @@ fun NoteEditorScreen(
         delay(600)
         draft?.let { vm.saveNote(it) }
     }
-    // Wave P (N1) — in read mode, expand {{today:agenda}} / {{tasks:…}} / {{note:…}} against live data.
+    // Wave P (N1) — in the reading overlay, expand {{today:agenda}} / {{tasks:…}} / {{note:…}} live.
     var expandedBody by remember(noteId) { mutableStateOf<String?>(null) }
-    androidx.compose.runtime.LaunchedEffect(noteId, d.body, preview, d.readonly) {
-        expandedBody = if ((preview || d.readonly) && com.todocompanion.app.util.NoteTransclusion.hasTokens(d.body))
+    androidx.compose.runtime.LaunchedEffect(noteId, d.body, showReading) {
+        expandedBody = if (showReading && com.todocompanion.app.util.NoteTransclusion.hasTokens(d.body))
             vm.expandNoteTransclusion(d.body) else null
     }
     BackHandler { draft?.let { vm.closeNoteEditor(it) }; onBack() }
@@ -525,10 +668,13 @@ fun NoteEditorScreen(
                                     },
                                 )
                             }
-                            DropdownMenuItem(text = { Text(if (d.readonly) "Allow editing" else "Make read-only") }, onClick = { val wasRo = d.readonly; menu = false; persist(d.copy(readonly = !wasRo)); if (!wasRo) preview = true })
+                            DropdownMenuItem(text = { Text("Reading view") }, onClick = { menu = false; showReading = true })
+                            DropdownMenuItem(text = { Text(if (d.coverEmoji.isNullOrBlank()) "Add cover emoji…" else "Change cover emoji…") }, onClick = { menu = false; showEmoji = true })
+                            DropdownMenuItem(text = { Text(if (useNotebooks) "Notebook…" else "Folder…") }, onClick = { menu = false; showContainer = true })
+                            DropdownMenuItem(text = { Text(if (d.readonly) "Allow editing" else "Make read-only") }, onClick = { menu = false; persist(d.copy(readonly = !d.readonly)) })
                             DropdownMenuItem(text = { Text("Outline") }, onClick = { menu = false; showOutline = true })
-                            DropdownMenuItem(text = { Text(if (focus) "Exit focus mode" else "Focus mode") }, onClick = { menu = false; focus = !focus; if (focus) preview = false })
-                            DropdownMenuItem(text = { Text("Reorder sections") }, onClick = { menu = false; preview = false; showReorder = true })
+                            DropdownMenuItem(text = { Text(if (focus) "Exit focus mode" else "Focus mode") }, onClick = { menu = false; focus = !focus })
+                            DropdownMenuItem(text = { Text("Reorder sections") }, onClick = { menu = false; showReorder = true })
                             DropdownMenuItem(text = { Text("Properties…") }, onClick = { menu = false; showProps = true })
                             DropdownMenuItem(text = { Text("Related notes") }, onClick = { menu = false; showRelated = true })
                             DropdownMenuItem(text = { Text("Apply template…") }, onClick = { menu = false; showTemplate = true })
@@ -560,18 +706,44 @@ fun NoteEditorScreen(
             Modifier.padding(padding).fillMaxSize().padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Spacer(Modifier.height(2.dp))
-            // Title row — cover emoji inline to the LEFT of a borderless title (coherent, NotesNook-style).
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.size(38.dp).clip(CircleShape).clickable { showEmoji = true },
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(d.coverEmoji?.ifBlank { "🙂" } ?: "🙂", style = MaterialTheme.typography.titleMedium)
+            // Meta strip (NotesNook-style): live word count on the left, a single "＋ Add tag" in the
+            // corner on the right — not a whole tag list.
+            if (!focus) {
+                val wordCount = remember(d.body) {
+                    com.todocompanion.app.domain.NoteProperties.strip(d.body).trim()
+                        .split(Regex("\\s+")).count { it.isNotBlank() }
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "$wordCount ${if (wordCount == 1) "word" else "words"}",
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (d.readonly) {
+                        Spacer(Modifier.width(10.dp))
+                        Text("🔒 Read-only", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.clickable { persist(d.copy(readonly = false)) })
+                    }
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = { showTags = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                        Icon(Icons.Filled.Add, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(2.dp))
+                        Text("Add tag", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     }
                 }
-                Spacer(Modifier.width(8.dp))
+            } else Spacer(Modifier.height(2.dp))
+            // Title row — a borderless title; the cover emoji shows inline-left ONLY when one is set.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (!d.coverEmoji.isNullOrBlank()) {
+                    Surface(
+                        shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.size(38.dp).clip(CircleShape).clickable { showEmoji = true },
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(d.coverEmoji!!, style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                    Spacer(Modifier.width(8.dp))
+                }
                 androidx.compose.material3.TextField(
                     value = d.title, onValueChange = { draft = d.copy(title = it) },
                     placeholder = { Text("Title", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
@@ -581,14 +753,18 @@ fun NoteEditorScreen(
                     modifier = Modifier.weight(1f),
                 )
             }
-            // Container + read-only chips (colour and emoji now live in the top bar / title row).
-            if (!focus) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = containerName != null,
-                    onClick = { showContainer = true },
-                    label = { Text(containerName ?: if (useNotebooks) "Notebook" else "Folder") },
-                )
-                if (d.readonly) FilterChip(selected = true, onClick = { persist(d.copy(readonly = false)) }, label = { Text("🔒 Read-only") })
+            // Selected tags — compact chips right under the title (only when the note has tags). Tap ✕ removes.
+            if (!focus && myTagIds.isNotEmpty()) {
+                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(tags.filter { it.id in myTagIds }, key = { it.id }) { t ->
+                        Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+                            Row(Modifier.padding(start = 8.dp, end = 4.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("#${t.name}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                Icon(Icons.Filled.Close, "Remove tag", modifier = Modifier.size(14.dp).padding(start = 2.dp).clickable { vm.setNoteTags(noteId, (myTagIds - t.id).toList()) })
+                            }
+                        }
+                    }
+                }
             }
             // Woven context (Phase 2): what this note is bound to — the day, a meeting, or a task.
             val dayLabel = if (d.kind == "journal" && d.dayEpoch != null) runCatching {
@@ -616,49 +792,18 @@ fun NoteEditorScreen(
                     if (sealedLabel != null) FilterChip(selected = true, onClick = {}, label = { Text("🔒  Sealed until $sealedLabel") })
                 }
             }
-            // Body. Edit-first (NotesNook-style): the note opens in the editor; the fully-rendered read
-            // view (math/diagrams/[[links]]) is a toggle. Wave P — render the transclusion-expanded body
-            // in read mode. Wave S — a leading YAML frontmatter block shows as chips, stripped from display.
-            val rawShown = expandedBody ?: d.body
-            val noteProps = remember(rawShown) { com.todocompanion.app.domain.NoteProperties.parse(rawShown) }
-            val shownBody = remember(rawShown) { com.todocompanion.app.domain.NoteProperties.strip(rawShown) }
-            if (!focus && noteProps.isNotEmpty() && (preview || d.readonly)) NotePropertyChips(noteProps)
+            // Body — always the editor (NotesNook-style), full width. Inline live-styling renders
+            // bold/italic/headings/code as you type; the fully-rendered view (math/diagrams/tables) is
+            // the "Reading view" overlay in the ⋮ menu. No in-place swap → no crash, and all the space.
             Box(Modifier.fillMaxWidth().weight(1f)) {
-                if (d.body.isNotBlank() && (preview || d.readonly)) {
-                    val rich = com.todocompanion.app.util.NoteRichRenderer.hasMath(shownBody) ||
-                        com.todocompanion.app.util.NoteRichRenderer.hasMermaid(shownBody) || shownBody.contains("![")
-                    if (rich) {
-                        var richImgs by remember(noteId) { mutableStateOf<Map<String, String>>(emptyMap()) }
-                        androidx.compose.runtime.LaunchedEffect(noteId, shownBody) {
-                            richImgs = if (shownBody.contains("![")) vm.noteImageMap(noteId) else emptyMap()
-                        }
-                        com.todocompanion.app.ui.components.RichNoteView(
-                            shownBody, richImgs, Modifier.fillMaxSize().padding(end = 36.dp),
-                            readingThemeId = settings.notesReadingTheme, type = noteType,
-                        )
-                    } else androidx.compose.foundation.text.selection.SelectionContainer {
-                        MarkdownText(
-                            shownBody,
-                            modifier = Modifier.fillMaxWidth().padding(end = 36.dp),
-                            onToggleCheckbox = if (d.readonly || expandedBody != null || noteProps.isNotEmpty()) null else { line -> persist(d.copy(body = com.todocompanion.app.domain.NoteEditing.toggleCheckboxAtLine(d.body, line))) },
-                        )
-                    }
-                } else {
-                    NoteBodyEditor(
-                        value = d.body, onValueChange = { draft = d.copy(body = it) },
-                        modifier = Modifier.fillMaxWidth().padding(end = 36.dp),
-                        readOnly = d.readonly,
-                        noteTitles = notes.filter { it.id != noteId && !it.trashed && it.title.isNotBlank() }.map { it.title },
-                        tagNames = tags.map { it.name },
-                        liveStyle = settings.notesLiveStyle, type = noteType,
-                    )
-                }
-                if (d.body.isNotBlank() && !d.readonly) {
-                    IconButton(onClick = { preview = !preview }, modifier = Modifier.align(Alignment.TopEnd).size(32.dp)) {
-                        if (preview) Icon(Icons.Outlined.Edit, "Edit", modifier = Modifier.size(18.dp))
-                        else Icon(Icons.Outlined.Visibility, "Preview", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
+                NoteBodyEditor(
+                    value = d.body, onValueChange = { draft = d.copy(body = it) },
+                    modifier = Modifier.fillMaxSize(),
+                    readOnly = d.readonly,
+                    noteTitles = notes.filter { it.id != noteId && !it.trashed && it.title.isNotBlank() }.map { it.title },
+                    tagNames = tags.map { it.name },
+                    liveStyle = settings.notesLiveStyle, type = noteType,
+                )
             }
             // Phase 3 — [[wiki-links]] out (tap to open, or create if new) and backlinks in ("Linked from").
             // Title-based like Obsidian; backlinks computed on the fly from other notes' bodies.
@@ -730,25 +875,7 @@ fun NoteEditorScreen(
                     }
                 }
             }
-            // Tags
-            if (tags.isNotEmpty()) {
-                androidx.compose.foundation.lazy.LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(bottom = 12.dp),
-                ) {
-                    items(tags, key = { it.id }) { t ->
-                        val on = t.id in myTagIds
-                        FilterChip(
-                            selected = on,
-                            onClick = {
-                                val next = if (on) myTagIds - t.id else myTagIds + t.id
-                                vm.setNoteTags(noteId, next.toList())
-                            },
-                            label = { Text("#" + t.name) },
-                        )
-                    }
-                }
-            }
+            Spacer(Modifier.height(8.dp))
         }
     }
 
@@ -756,9 +883,79 @@ fun NoteEditorScreen(
         AlertDialog(
             onDismissRequest = { showEmoji = false },
             confirmButton = { TextButton(onClick = { showEmoji = false }) { Text("Done") } },
+            dismissButton = {
+                if (!d.coverEmoji.isNullOrBlank())
+                    TextButton(onClick = { persist(d.copy(coverEmoji = null)); showEmoji = false }) { Text("Remove") }
+            },
             title = { Text("Cover emoji") },
             text = { EmojiGridPicker(current = d.coverEmoji) { picked -> persist(d.copy(coverEmoji = picked)); showEmoji = false } },
         )
+    }
+    // Tags dialog (opened from the "＋ Add tag" corner): toggle existing tags or create a new one.
+    if (showTags) {
+        var newTag by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showTags = false },
+            confirmButton = { TextButton(onClick = { showTags = false }) { Text("Done") } },
+            title = { Text("Tags") },
+            text = {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = newTag, onValueChange = { newTag = it },
+                            singleLine = true, placeholder = { Text("New tag") },
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(
+                            enabled = newTag.isNotBlank(),
+                            onClick = { val name = newTag.trim(); newTag = ""; if (name.isNotBlank()) vm.createTag(name) },
+                        ) { Text("Add") }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                        items(tags, key = { it.id }) { t ->
+                            val on = t.id in myTagIds
+                            DropdownRow("#${t.name}", selected = on) {
+                                vm.setNoteTags(noteId, (if (on) myTagIds - t.id else myTagIds + t.id).toList())
+                            }
+                        }
+                    }
+                }
+            },
+        )
+    }
+    // Reading view — a clean full-screen overlay hosting the offline rich renderer (math, diagrams,
+    // tables, images). Composed fresh in a Dialog, so it can never destabilise the editor surface.
+    if (showReading) {
+        val rawShown = expandedBody ?: d.body
+        val shownBody = remember(rawShown) { com.todocompanion.app.domain.NoteProperties.strip(rawShown) }
+        var richImgs by remember(noteId) { mutableStateOf<Map<String, String>>(emptyMap()) }
+        androidx.compose.runtime.LaunchedEffect(noteId, shownBody) {
+            richImgs = if (shownBody.contains("![")) vm.noteImageMap(noteId) else emptyMap()
+        }
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showReading = false },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+                Column(Modifier.fillMaxSize()) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { showReading = false }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back to editor") }
+                        Text(d.title.ifBlank { "Reading view" }, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    }
+                    if (shownBody.isBlank()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("Nothing to preview yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else {
+                        com.todocompanion.app.ui.components.RichNoteView(
+                            shownBody, richImgs, Modifier.fillMaxSize(),
+                            readingThemeId = settings.notesReadingTheme, type = noteType,
+                        )
+                    }
+                }
+            }
+        }
     }
     if (showContainer) {
         AlertDialog(
@@ -874,7 +1071,7 @@ fun NoteEditorScreen(
         val (ti, b) = com.todocompanion.app.domain.NoteTemplates.apply(t)
         // Fresh note → adopt the whole scaffold; existing note → append body only (skip its frontmatter).
         val newBody = if (d.body.isBlank()) b else d.body.trimEnd() + "\n\n" + com.todocompanion.app.domain.NoteProperties.strip(b)
-        persist(d.copy(title = if (d.title.isBlank()) ti else d.title, body = newBody)); preview = false; showTemplate = false
+        persist(d.copy(title = if (d.title.isBlank()) ti else d.title, body = newBody)); showTemplate = false
     }, onDismiss = { showTemplate = false })
     if (showReminder) NoteReminderDialog(
         current = d.reminderAt,

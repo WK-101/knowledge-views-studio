@@ -248,6 +248,7 @@ data class AppSettings(
     // notebook entity (the user's chosen Settings option for decision #1).
     val noteDefaultView: String = "grid",
     val notesNotebookMode: String = "folderTree",
+    val notesSort: String = "updated",         // updated | created | titleAsc | titleDesc — home sort order
     // Wave B — auto-empty Trash after N days (0 = Never) and how many version snapshots to keep per note.
     val notesTrashRetentionDays: Int = 0,
     val notesMaxRevisions: Int = 50,
@@ -498,6 +499,7 @@ data class AppSettings(
         Keys.DISABLED_MODULES to disabledModules.joinToString(","),
         Keys.NOTE_DEFAULT_VIEW to noteDefaultView,
         Keys.NOTES_NOTEBOOK_MODE to notesNotebookMode,
+        Keys.NOTES_SORT to notesSort,
         Keys.NOTES_TRASH_RETENTION_DAYS to notesTrashRetentionDays.toString(),
         Keys.NOTES_MAX_REVISIONS to notesMaxRevisions.toString(),
         Keys.NOTES_LIVE_STYLE to notesLiveStyle.toString(),
@@ -695,6 +697,7 @@ data class AppSettings(
         const val DISABLED_MODULES = "disabled_modules"
         const val NOTE_DEFAULT_VIEW = "note_default_view"
         const val NOTES_NOTEBOOK_MODE = "notes_notebook_mode"
+        const val NOTES_SORT = "notes_sort"
         const val NOTES_TRASH_RETENTION_DAYS = "notes_trash_retention_days"
         const val NOTES_MAX_REVISIONS = "notes_max_revisions"
         const val NOTES_LIVE_STYLE = "notes_live_style"
@@ -927,6 +930,7 @@ data class AppSettings(
             disabledModules = (m[Keys.DISABLED_MODULES] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             noteDefaultView = m[Keys.NOTE_DEFAULT_VIEW]?.takeIf { it.isNotBlank() } ?: "grid",
             notesNotebookMode = m[Keys.NOTES_NOTEBOOK_MODE]?.takeIf { it.isNotBlank() } ?: "folderTree",
+            notesSort = m[Keys.NOTES_SORT]?.takeIf { it.isNotBlank() } ?: "updated",
             notesTrashRetentionDays = m[Keys.NOTES_TRASH_RETENTION_DAYS]?.toIntOrNull() ?: 0,
             notesMaxRevisions = m[Keys.NOTES_MAX_REVISIONS]?.toIntOrNull() ?: 50,
             notesLiveStyle = m[Keys.NOTES_LIVE_STYLE]?.toBooleanStrictOrNull() ?: true,
