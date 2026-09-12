@@ -119,7 +119,7 @@ import kotlinx.coroutines.launch
  * is a Dialog is a value here. Collapsing 15 booleans into one nullable state removes the whole class of
  * “two sheets open at once” bugs and makes dismissal a single `sheet = null`.
  */
-private enum class NoteSheet { Tags, Emoji, Container, NewNotebook, Delete, About, History, Outline, Reminder, Export, Seal, Reorder, Props, Related, Template }
+private enum class NoteSheet { Tags, Contexts, Emoji, Container, NewNotebook, Delete, About, History, Outline, Reminder, Export, Seal, Reorder, Props, Related, Template }
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -137,6 +137,8 @@ fun NoteEditorScreen(
     val folders by vm.folders.collectAsState()
     val tags by vm.tags.collectAsState()
     val noteTagRefs by vm.noteTagRefs.collectAsState()
+    val contexts by vm.contexts.collectAsState()
+    val noteContextRefs by vm.noteContextRefs.collectAsState()
     val revisions by vm.observeNoteRevisions(noteId).collectAsState(initial = emptyList())
     val links by vm.observeNoteLinks(noteId).collectAsState(initial = emptyList())
 
@@ -187,6 +189,7 @@ fun NoteEditorScreen(
     BackHandler { if (showReading) showReading = false else { draft?.let { vm.closeNoteEditor(it) }; onBack() } }
 
     val myTagIds = noteTagRefs.filter { it.noteId == noteId }.map { it.tagId }.toSet()
+    val myContextIds = noteContextRefs.filter { it.noteId == noteId }.map { it.contextId }.toSet()
     val containerName = if (useNotebooks) notebooks.firstOrNull { it.id == d.notebookId }?.name
     else folders.firstOrNull { it.id == d.folderId }?.name
 
@@ -298,6 +301,24 @@ fun NoteEditorScreen(
                         Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.Add, "Add tag", modifier = Modifier.size(15.dp), tint = MaterialTheme.colorScheme.primary)
                             if (myTagIds.isEmpty()) { Spacer(Modifier.width(2.dp)); Text("Add tag", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary) }
+                        }
+                    }
+                    // Context chips (@context) — the same first-class picker tasks have, so a note can carry
+                    // its where/with-what just like a task. Only shown once assigned; add via the "@" chip.
+                    contexts.filter { it.id in myContextIds }.forEach { c ->
+                        Surface(shape = NotesTokens.Pill, color = MaterialTheme.colorScheme.tertiaryContainer,
+                            modifier = Modifier.align(Alignment.CenterVertically)) {
+                            Row(Modifier.clickable(onClickLabel = "Edit contexts", role = androidx.compose.ui.semantics.Role.Button) { sheet = NoteSheet.Contexts }.padding(start = 8.dp, end = 4.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("@${c.name}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                Icon(Icons.Filled.Close, "Remove context ${c.name}", modifier = Modifier.size(18.dp).clip(CircleShape).clickable(onClickLabel = "Remove context", role = androidx.compose.ui.semantics.Role.Button) { vm.setNoteContexts(noteId, (myContextIds - c.id).toList()) }.padding(2.dp))
+                            }
+                        }
+                    }
+                    Surface(shape = NotesTokens.Pill, color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f),
+                        modifier = Modifier.align(Alignment.CenterVertically).clickable(onClickLabel = "Add context", role = androidx.compose.ui.semantics.Role.Button) { sheet = NoteSheet.Contexts }) {
+                        Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Add, "Add context", modifier = Modifier.size(15.dp), tint = MaterialTheme.colorScheme.primary)
+                            if (myContextIds.isEmpty()) { Spacer(Modifier.width(2.dp)); Text("Context", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary) }
                         }
                     }
                     // Notebook / folder pill — shows the container name when set, else "＋ Notebook/Folder". Tap picks one.
@@ -590,6 +611,40 @@ fun NoteEditorScreen(
                             val on = t.id in myTagIds
                             DropdownRow("#${t.name}", selected = on) {
                                 vm.setNoteTags(noteId, (if (on) myTagIds - t.id else myTagIds + t.id).toList())
+                            }
+                        }
+                    }
+                }
+            },
+        )
+    }
+    // Contexts dialog — mirrors Tags exactly (toggle existing or create-and-assign), so a note's @contexts
+    // are managed the same way as a task's.
+    if (sheet == NoteSheet.Contexts) {
+        var newCtx by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { sheet = null },
+            confirmButton = { TextButton(onClick = { sheet = null }) { Text("Done") } },
+            title = { Text("Contexts") },
+            text = {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = newCtx, onValueChange = { newCtx = it },
+                            singleLine = true, placeholder = { Text("New context") },
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(
+                            enabled = newCtx.isNotBlank(),
+                            onClick = { val name = newCtx.trim(); newCtx = ""; if (name.isNotBlank()) vm.createAndAssignNoteContext(noteId, name, myContextIds.toList()) },
+                        ) { Text("Add") }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                        items(contexts, key = { it.id }) { c ->
+                            val on = c.id in myContextIds
+                            DropdownRow("@${c.name}", selected = on) {
+                                vm.setNoteContexts(noteId, (if (on) myContextIds - c.id else myContextIds + c.id).toList())
                             }
                         }
                     }

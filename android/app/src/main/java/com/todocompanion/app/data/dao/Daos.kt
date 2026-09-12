@@ -851,6 +851,10 @@ interface NoteDao {
     @Query("SELECT * FROM note_contexts")
     suspend fun getContextCrossRefs(): List<NoteContextCrossRef>
 
+    /** Observe note↔context links so the editor reflects a context toggle immediately (mirrors tags). */
+    @Query("SELECT * FROM note_contexts")
+    fun observeContextCrossRefs(): kotlinx.coroutines.flow.Flow<List<NoteContextCrossRef>>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun linkContext(ref: NoteContextCrossRef)
 

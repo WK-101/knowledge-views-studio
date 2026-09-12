@@ -73,5 +73,4 @@ object NoteSmartViews {
     val PINNED = NotePredicate.Cond("pinned")
     val FAVORITES = NotePredicate.Cond("favorite")
     val UNTAGGED = NotePredicate.Cond("untagged")
-    val ARCHIVED = NotePredicate.Cond("archived")
 }

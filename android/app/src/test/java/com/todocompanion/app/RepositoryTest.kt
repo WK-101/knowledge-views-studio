@@ -98,6 +98,34 @@ class RepositoryTest {
         assertTrue("orphan attachments", db.noteDao().attachmentsForNote(noteId).isEmpty())
     }
 
+    @Test fun inlineBodyTagsMaterializeIntoStructuredTags() = runBlocking {
+        // A body with two inline #tags — and one already-typed duplicate case (#Idea vs #idea).
+        val noteId = repo.upsertNote(NoteEntity(id = "", title = "Plan", body = "Ship #project and capture #idea. Again #idea."))
+        // Structured tags now exist for both names (deduped, case-insensitive), created once.
+        val tagNames = db.tagDao().getAll().map { it.name.lowercase() }.toSet()
+        assertTrue("project tag created", "project" in tagNames)
+        assertTrue("idea tag created", "idea" in tagNames)
+        // The note is linked to both — so chips / untagged / hasTag all agree with the body.
+        val linkedTagIds = repo.getNoteTagCrossRefs().filter { it.noteId == noteId }.map { it.tagId }.toSet()
+        val ideaId = db.tagDao().getAll().first { it.name.equals("idea", true) }.id
+        val projectId = db.tagDao().getAll().first { it.name.equals("project", true) }.id
+        assertTrue(ideaId in linkedTagIds && projectId in linkedTagIds)
+        assertEquals("no duplicate tag rows for #idea/#Idea", 2, db.tagDao().getAll().count { it.name.lowercase() in setOf("project", "idea") })
+    }
+
+    @Test fun materializeNoteTags_isAdditive_keepsManualTags() = runBlocking {
+        val noteId = repo.upsertNote(NoteEntity(id = "", title = "N", body = "just #alpha"))
+        // A manually-assigned tag not present in the body.
+        db.tagDao().upsert(com.todocompanion.app.data.entity.TagEntity("manual", "manual"))
+        repo.setNoteTags(noteId, (repo.getNoteTagCrossRefs().filter { it.noteId == noteId }.map { it.tagId } + "manual").distinct())
+        // Re-save (body unchanged): the body tag re-materializes but the manual tag is untouched.
+        repo.upsertNote(repo.getNote(noteId)!!)
+        val linked = repo.getNoteTagCrossRefs().filter { it.noteId == noteId }.map { it.tagId }.toSet()
+        assertTrue("manual tag survives re-save", "manual" in linked)
+        val alphaId = db.tagDao().getAll().first { it.name.equals("alpha", true) }.id
+        assertTrue("body tag still present", alphaId in linked)
+    }
+
     @Test fun deleteNotebook_reparentsNotesInsteadOfDeleting() = runBlocking {
         val nbId = repo.upsertNotebook(NotebookEntity(id = "", name = "Work"))
         val noteId = repo.upsertNote(NoteEntity(id = "", title = "In notebook", notebookId = nbId))

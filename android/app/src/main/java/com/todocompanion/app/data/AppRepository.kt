@@ -693,9 +693,34 @@ class AppRepository(private val db: AppDatabase) {
             updatedAt = now(),
         )
         notes.upsert(stamped)
-        reindexNoteFts(stamped)
+        materializeNoteTags(id)   // inline body #tags → structured note_tags (before FTS so tag names index)
         materializeNoteLinks(id)
+        reindexNoteFts(stamped)
         return id
+    }
+
+    /**
+     * P6 — one tag set. Materialize the inline `#tags` in a note's body into structured [note_tags] rows
+     * (creating a workspace tag once per name), so the header chips, the `untagged`/`hasTag` Smart-View
+     * predicates, and the Wrapped recap all agree on the same tags instead of tracking two parallel
+     * notions. Additive + idempotent (INSERT OR IGNORE), exactly like [materializeNoteLinks]: the body is
+     * the source, so an inline tag reappears on the next save if re-typed, and a tag assigned only through
+     * the picker (never in the body) is never removed here.
+     */
+    suspend fun materializeNoteTags(noteId: String) {
+        val n = notes.getById(noteId) ?: return
+        val names = com.todocompanion.app.domain.NoteGrammar.TAG.findAll(n.body)
+            .map { it.groupValues[1] }.filter { it.isNotBlank() }.distinctBy { it.lowercase() }.toList()
+        if (names.isEmpty()) return
+        val ws = n.workspaceId
+        val byName = tags.getAll().filter { it.workspaceId == ws }.associateBy { it.name.lowercase() }
+        val refs = names.map { name ->
+            val id = byName[name.lowercase()]?.id ?: uid().also {
+                tags.upsert(com.todocompanion.app.data.entity.TagEntity(it, name, workspaceId = ws))
+            }
+            com.todocompanion.app.data.entity.NoteTagCrossRef(noteId, id)
+        }
+        notes.linkTags(refs)
     }
 
     /** Wave I — (re)index a note into note_fts, mirroring its tag + attachment names into the body text
@@ -751,6 +776,8 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun getNoteTagCrossRefs(): List<com.todocompanion.app.data.entity.NoteTagCrossRef> = notes.getTagCrossRefs()
     /** Live note↔tag links — so the editor reflects a tag toggle immediately (writing note_tags doesn't touch the notes table). */
     fun observeNoteTagCrossRefs(): kotlinx.coroutines.flow.Flow<List<com.todocompanion.app.data.entity.NoteTagCrossRef>> = notes.observeTagCrossRefs()
+    /** Live note↔context links — so the editor reflects a context toggle immediately (mirrors tags). */
+    fun observeNoteContextCrossRefs(): kotlinx.coroutines.flow.Flow<List<com.todocompanion.app.data.entity.NoteContextCrossRef>> = notes.observeContextCrossRefs()
     // Wave L — a note's attachment rows (for the rich renderer's inline-image resolution).
     suspend fun noteAttachments(noteId: String): List<com.todocompanion.app.data.entity.AttachmentEntity> = notes.attachmentsForNote(noteId)
     suspend fun getNoteContextCrossRefs(): List<com.todocompanion.app.data.entity.NoteContextCrossRef> = notes.getContextCrossRefs()

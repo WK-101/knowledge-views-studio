@@ -189,6 +189,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // the notes flow left the editor's chips stale (tags looked un-addable/un-selectable).
     val noteTagRefs: StateFlow<List<com.todocompanion.app.data.entity.NoteTagCrossRef>> =
         repo.observeNoteTagCrossRefs().state(emptyList())
+    val noteContextRefs: StateFlow<List<com.todocompanion.app.data.entity.NoteContextCrossRef>> =
+        repo.observeNoteContextCrossRefs().state(emptyList())
     val smartViews = repo.observeSmartViews().scopedBy { it.workspaceId }
     // R34 — life-systems layer flows.
     val coreValues = repo.allCoreValues.scopedBy { it.workspaceId }
@@ -4969,6 +4971,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         tags.value.firstOrNull { it.id == tagId }?.let { repo.upsertTag(it.copy(parentId = parentId)) }
     }
     fun createContext(name: String, parentId: String? = null) = viewModelScope.launch { repo.upsertContext(ContextEntity(id = UUID.randomUUID().toString(), name = name.trim(), parentId = parentId, workspaceId = settings.value.activeWorkspaceId)) }
+    /** Create a context (or reuse one with the same name) and assign it to a note in one step — the
+     *  context equivalent of [createAndAssignNoteTag], so Notes matches how Tasks handle contexts. */
+    fun createAndAssignNoteContext(noteId: String, name: String, currentContextIds: List<String>) = viewModelScope.launch {
+        val clean = name.trim()
+        if (clean.isBlank()) return@launch
+        val ws = settings.value.activeWorkspaceId
+        val existing = contexts.value.firstOrNull { it.name.equals(clean, ignoreCase = true) }
+        val id = existing?.id ?: UUID.randomUUID().toString()
+        if (existing == null) repo.upsertContext(ContextEntity(id = id, name = clean, workspaceId = ws))
+        repo.setNoteContexts(noteId, (currentContextIds + id).distinct())
+    }
     /**
      * The dialog hands each mutator an open-time [ContextEntity] snapshot that is never refreshed, so
      * a `c.copy(...)` on it silently reverts every field another mutator changed while the dialog was
