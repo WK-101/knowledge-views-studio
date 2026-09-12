@@ -708,6 +708,8 @@ fun NoteEditorScreen(
     var showEmoji by remember { mutableStateOf(false) }
     var showContainer by remember { mutableStateOf(false) }
     var showNewNotebook by remember { mutableStateOf(false) }
+    var renameNotebook by remember { mutableStateOf<com.todocompanion.app.data.entity.NotebookEntity?>(null) }  // notebook being renamed
+    var deleteNotebookAsk by remember { mutableStateOf<com.todocompanion.app.data.entity.NotebookEntity?>(null) }  // notebook pending delete-confirm
     var showDelete by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -884,6 +886,9 @@ fun NoteEditorScreen(
                 androidx.compose.foundation.text.BasicTextField(
                     value = d.title, onValueChange = { draft = d.copy(title = it) },
                     singleLine = true,
+                    // Read-only note → the title is locked too (previously only the body honoured readonly,
+                    // so a "read only" note could still have its title edited).
+                    readOnly = d.readonly,
                     textStyle = MaterialTheme.typography.headlineSmall.copy(color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold),
                     cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
                     modifier = Modifier.weight(1f).padding(top = 2.dp, bottom = 1.dp),
@@ -1142,8 +1147,22 @@ fun NoteEditorScreen(
                     }
                     if (useNotebooks) {
                         items(notebooks, key = { it.id }) { nb ->
-                            DropdownRow((nb.icon?.let { "$it " } ?: "") + nb.name, selected = d.notebookId == nb.id) {
-                                persist(d.copy(notebookId = nb.id)); showContainer = false
+                            // Select on tap, plus rename / delete affordances (previously a notebook could be
+                            // created but never edited or removed).
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    (nb.icon?.let { "$it " } ?: "") + nb.name,
+                                    modifier = Modifier.weight(1f)
+                                        .clickable { persist(d.copy(notebookId = nb.id)); showContainer = false }
+                                        .padding(vertical = 12.dp, horizontal = 4.dp),
+                                    color = if (d.notebookId == nb.id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                )
+                                IconButton(onClick = { renameNotebook = nb }, modifier = Modifier.size(36.dp)) {
+                                    Icon(Icons.Filled.Edit, "Rename notebook", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                IconButton(onClick = { deleteNotebookAsk = nb }, modifier = Modifier.size(36.dp)) {
+                                    Icon(Icons.Filled.Delete, "Delete notebook", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         }
                         item {
@@ -1179,6 +1198,46 @@ fun NoteEditorScreen(
                     value = nbName, onValueChange = { nbName = it },
                     singleLine = true, placeholder = { Text("Notebook name") },
                     modifier = Modifier.fillMaxWidth(),
+                )
+            },
+        )
+    }
+    renameNotebook?.let { nb ->
+        var newName by remember(nb.id) { mutableStateOf(nb.name) }
+        AlertDialog(
+            onDismissRequest = { renameNotebook = null },
+            confirmButton = {
+                TextButton(enabled = newName.isNotBlank(), onClick = {
+                    vm.saveNotebook(nb.id, newName.trim(), nb.icon, nb.colorArgb); renameNotebook = null
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { renameNotebook = null }) { Text("Cancel") } },
+            title = { Text("Rename notebook") },
+            text = {
+                androidx.compose.material3.OutlinedTextField(
+                    value = newName, onValueChange = { newName = it },
+                    singleLine = true, placeholder = { Text("Notebook name") }, modifier = Modifier.fillMaxWidth(),
+                )
+            },
+        )
+    }
+    deleteNotebookAsk?.let { nb ->
+        val count = notes.count { it.notebookId == nb.id && !it.trashed }
+        AlertDialog(
+            onDismissRequest = { deleteNotebookAsk = null },
+            confirmButton = {
+                TextButton(onClick = {
+                    // If the open note lives in this notebook, drop its link locally so the pill updates at once.
+                    if (d.notebookId == nb.id) persist(d.copy(notebookId = null))
+                    vm.deleteNotebook(nb.id); deleteNotebookAsk = null
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { deleteNotebookAsk = null }) { Text("Cancel") } },
+            title = { Text("Delete notebook?") },
+            text = {
+                Text(
+                    if (count > 0) "\"${nb.name}\" and its label will be removed. The $count note${if (count == 1) "" else "s"} inside stay — they just move to no notebook."
+                    else "\"${nb.name}\" will be removed. It has no notes."
                 )
             },
         )
