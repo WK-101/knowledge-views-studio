@@ -17,6 +17,17 @@ import kotlinx.serialization.Serializable
  * rides the lossless JSON backup. Room's generated schema ignores the Kotlin defaults below, so the
  * v65→v66 migration creates each column with the matching affinity/nullability (no SQL DEFAULT on the
  * fresh CREATE TABLE, exactly like the time-tracking tables).
+ *
+ * **Referential integrity — by design, no `@ForeignKey`.** Notes reference containers (folderId /
+ * notebookId), tasks and events by id, but declare no SQL foreign keys — matching every other table in
+ * this database (tasks, habits, events, time entries…). This is deliberate, not an omission: the app's
+ * soft-delete/Trash lifecycle, cross-workspace merge-import, and "notebook delete reparents its notes"
+ * semantics all need a reference to *survive* its target briefly, which SQL `ON DELETE CASCADE`/`RESTRICT`
+ * would forbid. Integrity is instead enforced at the repository layer, which is the single writer:
+ * [AppRepository.deleteNote] cascades every child row (tags, contexts, links, revisions, attachments,
+ * FTS), and [AppRepository.deleteNotebook] reparents notes to "no notebook" rather than deleting them.
+ * That guarantee is covered by an orphan-free repository test. Adding foreign keys to *only* the note
+ * tables would make this one module inconsistent with the rest of the schema for no correctness gain.
  */
 @Serializable
 @Entity(

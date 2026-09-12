@@ -114,6 +114,14 @@ import kotlinx.coroutines.launch
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 // Note editor — Markdown body (viewer-until-edit), notebook/folder, colour, cover emoji, tags, pin.
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
+/**
+ * The note editor's ⋮-menu dialogs, modelled as one-at-a-time state. Reading view and focus mode are
+ * *modes* (they replace or restyle the whole editor), so they stay their own booleans; everything that
+ * is a Dialog is a value here. Collapsing 15 booleans into one nullable state removes the whole class of
+ * “two sheets open at once” bugs and makes dismissal a single `sheet = null`.
+ */
+private enum class NoteSheet { Tags, Emoji, Container, NewNotebook, Delete, About, History, Outline, Reminder, Export, Seal, Reorder, Props, Related, Template }
+
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun NoteEditorScreen(
@@ -153,28 +161,16 @@ fun NoteEditorScreen(
     // read-only editor). The fully-rendered view — math, diagrams, tables — is a clean full-screen
     // overlay reached from the ⋮ menu ("Reading view"), never an in-place swap (which used to crash).
     var showReading by remember(noteId) { mutableStateOf(false) }
-    var showTags by remember { mutableStateOf(false) }
-    var showEmoji by remember { mutableStateOf(false) }
-    var showContainer by remember { mutableStateOf(false) }
-    var showNewNotebook by remember { mutableStateOf(false) }
+    // One modal dialog open at a time — a single nullable [NoteSheet] replaces the old fan of 15
+    // per-dialog booleans, so two dialogs can never show at once and `sheet = null` dismisses any.
+    var sheet by remember(noteId) { mutableStateOf<NoteSheet?>(null) }
     var renameNotebook by remember { mutableStateOf<com.todocompanion.app.data.entity.NotebookEntity?>(null) }  // notebook being renamed
     var deleteNotebookAsk by remember { mutableStateOf<com.todocompanion.app.data.entity.NotebookEntity?>(null) }  // notebook pending delete-confirm
-    var showDelete by remember { mutableStateOf(false) }
-    var showAbout by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    var showHistory by remember { mutableStateOf(false) }
-    var showOutline by remember { mutableStateOf(false) }
-    var showReminder by remember { mutableStateOf(false) }
-    var showExport by remember { mutableStateOf(false) }
-    var showSeal by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     // Wave Q — focus (immersive) mode: hide the meta/context chrome so it's just the words.
     var focus by remember { mutableStateOf(settings.notesFocusMode) }
-    var showReorder by remember { mutableStateOf(false) }   // Wave R — reorder sections
     var editDate by remember { mutableStateOf<String?>(null) }  // NotesNook-style editable "created"/"updated"
-    var showProps by remember { mutableStateOf(false) }     // Wave S — frontmatter properties
-    var showRelated by remember { mutableStateOf(false) }   // Wave T — related notes
-    var showTemplate by remember { mutableStateOf(false) }  // Wave U — cross-module templates
 
     fun persist(n: NoteEntity) { draft = n; vm.saveNote(n) }
     // Debounced autosave for free-typing (title/body) so we don't hit the DB/FTS every keystroke.
@@ -286,12 +282,12 @@ fun NoteEditorScreen(
                     if (dayLabel != null) MetaPill("🗓 $dayLabel")
                     if (d.linkedEventId != null) MetaPill("📅 Meeting")
                     if (d.linkedTaskId != null) MetaPill("🔗 Task") { onOpenTask(d.linkedTaskId!!) }
-                    if (reminderLabel != null) MetaPill("⏰ $reminderLabel" + if (d.reminderRrule != null) " ↻" else "") { showReminder = true }
+                    if (reminderLabel != null) MetaPill("⏰ $reminderLabel" + if (d.reminderRrule != null) " ↻" else "") { sheet = NoteSheet.Reminder }
                     if (sealedLabel != null) MetaPill("🔒 Sealed until $sealedLabel")
                     tags.filter { it.id in myTagIds }.forEach { t ->
                         Surface(shape = NotesTokens.Pill, color = MaterialTheme.colorScheme.secondaryContainer,
                             modifier = Modifier.align(Alignment.CenterVertically)) {
-                            Row(Modifier.clickable(onClickLabel = "Edit tags", role = androidx.compose.ui.semantics.Role.Button) { showTags = true }.padding(start = 8.dp, end = 4.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.clickable(onClickLabel = "Edit tags", role = androidx.compose.ui.semantics.Role.Button) { sheet = NoteSheet.Tags }.padding(start = 8.dp, end = 4.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text("#${t.name}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
                                 Icon(Icons.Filled.Close, "Remove tag ${t.name}", modifier = Modifier.size(18.dp).clip(CircleShape).clickable(onClickLabel = "Remove tag", role = androidx.compose.ui.semantics.Role.Button) { vm.setNoteTags(noteId, (myTagIds - t.id).toList()) }.padding(2.dp))
                             }
@@ -299,7 +295,7 @@ fun NoteEditorScreen(
                     }
                     // "＋" tag adder — labelled "Add tag" while the note has none, a compact "＋" once it has some.
                     Surface(shape = NotesTokens.Pill, color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f),
-                        modifier = Modifier.align(Alignment.CenterVertically).clickable(onClickLabel = "Add tag", role = androidx.compose.ui.semantics.Role.Button) { showTags = true }) {
+                        modifier = Modifier.align(Alignment.CenterVertically).clickable(onClickLabel = "Add tag", role = androidx.compose.ui.semantics.Role.Button) { sheet = NoteSheet.Tags }) {
                         Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.Add, "Add tag", modifier = Modifier.size(15.dp), tint = MaterialTheme.colorScheme.primary)
                             if (myTagIds.isEmpty()) { Spacer(Modifier.width(2.dp)); Text("Add tag", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary) }
@@ -309,7 +305,7 @@ fun NoteEditorScreen(
                     val hasContainer = if (useNotebooks) d.notebookId != null else d.folderId != null
                     Surface(shape = NotesTokens.Pill,
                         color = if (hasContainer) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f),
-                        modifier = Modifier.align(Alignment.CenterVertically).clickable(onClickLabel = if (useNotebooks) "Choose notebook" else "Choose folder", role = androidx.compose.ui.semantics.Role.Button) { showContainer = true }) {
+                        modifier = Modifier.align(Alignment.CenterVertically).clickable(onClickLabel = if (useNotebooks) "Choose notebook" else "Choose folder", role = androidx.compose.ui.semantics.Role.Button) { sheet = NoteSheet.Container }) {
                         Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.Book, null, modifier = Modifier.size(14.dp),
                                 tint = if (hasContainer) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.primary)
@@ -329,7 +325,7 @@ fun NoteEditorScreen(
                 if (!d.coverEmoji.isNullOrBlank()) {
                     Surface(
                         shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.size(38.dp).clip(CircleShape).clickable { showEmoji = true },
+                        modifier = Modifier.size(38.dp).clip(CircleShape).clickable { sheet = NoteSheet.Emoji },
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Text(d.coverEmoji!!, style = MaterialTheme.typography.titleMedium)
@@ -466,31 +462,31 @@ fun NoteEditorScreen(
             add(PTile(Icons.Filled.MenuBook, "Reading view") { menu = false; showReading = true })
             add(PTile(if (d.readonly) Icons.Filled.Edit else Icons.Filled.EditOff, if (d.readonly) "Allow editing" else "Read only", d.readonly) { persist(d.copy(readonly = !d.readonly)) })
             add(PTile(Icons.Filled.Fullscreen, "Focus mode", focus) { menu = false; focus = !focus; vm.setNotesFocusMode(focus) })
-            add(PTile(Icons.Filled.Book, if (useNotebooks) "Notebook" else "Folder") { menu = false; showContainer = true })
-            add(PTile(Icons.Filled.EmojiEmotions, if (d.coverEmoji.isNullOrBlank()) "Cover emoji" else "Change emoji") { menu = false; showEmoji = true })
-            add(PTile(Icons.Filled.Alarm, "Remind me", d.reminderAt != null) { menu = false; showReminder = true })
-            add(PTile(Icons.Filled.History, "History") { menu = false; showHistory = true })
-            add(PTile(Icons.Filled.Link, "Related") { menu = false; showRelated = true })
-            add(PTile(Icons.Filled.FormatListBulleted, "Outline") { menu = false; showOutline = true })
-            add(PTile(Icons.Filled.Info, "Note info") { menu = false; showAbout = true })
-            add(PTile(Icons.Filled.SwapVert, "Reorder") { menu = false; showReorder = true })
-            add(PTile(Icons.Filled.Tune, "Properties") { menu = false; showProps = true })
-            add(PTile(Icons.Filled.Dashboard, "Template") { menu = false; showTemplate = true })
+            add(PTile(Icons.Filled.Book, if (useNotebooks) "Notebook" else "Folder") { menu = false; sheet = NoteSheet.Container })
+            add(PTile(Icons.Filled.EmojiEmotions, if (d.coverEmoji.isNullOrBlank()) "Cover emoji" else "Change emoji") { menu = false; sheet = NoteSheet.Emoji })
+            add(PTile(Icons.Filled.Alarm, "Remind me", d.reminderAt != null) { menu = false; sheet = NoteSheet.Reminder })
+            add(PTile(Icons.Filled.History, "History") { menu = false; sheet = NoteSheet.History })
+            add(PTile(Icons.Filled.Link, "Related") { menu = false; sheet = NoteSheet.Related })
+            add(PTile(Icons.Filled.FormatListBulleted, "Outline") { menu = false; sheet = NoteSheet.Outline })
+            add(PTile(Icons.Filled.Info, "Note info") { menu = false; sheet = NoteSheet.About })
+            add(PTile(Icons.Filled.SwapVert, "Reorder") { menu = false; sheet = NoteSheet.Reorder })
+            add(PTile(Icons.Filled.Tune, "Properties") { menu = false; sheet = NoteSheet.Props })
+            add(PTile(Icons.Filled.Dashboard, "Template") { menu = false; sheet = NoteSheet.Template })
             if (boxCount > 0) add(PTile(Icons.Filled.CheckBox, "Extract tasks") {
                 menu = false
                 vm.extractNoteCheckboxes(noteId) { n -> android.widget.Toast.makeText(ctx, "Added $n task${if (n == 1) "" else "s"} to Inbox", android.widget.Toast.LENGTH_SHORT).show() }
             })
             add(PTile(Icons.Filled.ContentCopy, "Duplicate") { menu = false; draft?.let { vm.closeNoteEditor(it) }; vm.duplicateNote(noteId) { id -> onOpenNote(id) } })
-            add(PTile(Icons.Filled.FileDownload, "Export") { menu = false; showExport = true })
+            add(PTile(Icons.Filled.FileDownload, "Export") { menu = false; sheet = NoteSheet.Export })
             if (d.kind == "journal" && d.dayEpoch != null) add(PTile(Icons.Filled.Autorenew, "Insert digest") {
                 menu = false; scope.launch { val md = vm.dayDigestMarkdown(d.dayEpoch!!); persist(d.copy(body = md + "\n" + d.body)) }
             })
             add(PTile(if (sealed) Icons.Filled.LockOpen else Icons.Filled.Lock, if (sealed) "Unseal" else "Seal") {
-                if (sealed) { vm.unsealNote(noteId); draft = d.copy(sealedUntil = null, reminderAt = null) } else { menu = false; showSeal = true }
+                if (sealed) { vm.unsealNote(noteId); draft = d.copy(sealedUntil = null, reminderAt = null) } else { menu = false; sheet = NoteSheet.Seal }
             })
             add(PTile(Icons.Filled.Archive, "Archive") { menu = false; vm.archiveNote(noteId); onBack() })
             add(PTile(Icons.Filled.Delete, "Move to trash", danger = true) { menu = false; vm.trashNote(noteId); onBack() })
-            add(PTile(Icons.Filled.DeleteForever, "Delete", danger = true) { menu = false; showDelete = true })
+            add(PTile(Icons.Filled.DeleteForever, "Delete", danger = true) { menu = false; sheet = NoteSheet.Delete })
         }
         ModalBottomSheet(onDismissRequest = { menu = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), dragHandle = null) {
             Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
@@ -506,7 +502,7 @@ fun NoteEditorScreen(
                 HorizontalDivider()
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     AssistChip(
-                        onClick = { menu = false; showTags = true },
+                        onClick = { menu = false; sheet = NoteSheet.Tags },
                         label = { Text(if (myTagIds.isEmpty()) "Add tag" else "${myTagIds.size} tag${if (myTagIds.size == 1) "" else "s"}") },
                         leadingIcon = { Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp)) },
                     )
@@ -554,24 +550,24 @@ fun NoteEditorScreen(
         )
     }
 
-    if (showEmoji) {
+    if (sheet == NoteSheet.Emoji) {
         AlertDialog(
-            onDismissRequest = { showEmoji = false },
-            confirmButton = { TextButton(onClick = { showEmoji = false }) { Text("Done") } },
+            onDismissRequest = { sheet = null },
+            confirmButton = { TextButton(onClick = { sheet = null }) { Text("Done") } },
             dismissButton = {
                 if (!d.coverEmoji.isNullOrBlank())
-                    TextButton(onClick = { persist(d.copy(coverEmoji = null)); showEmoji = false }) { Text("Remove") }
+                    TextButton(onClick = { persist(d.copy(coverEmoji = null)); sheet = null }) { Text("Remove") }
             },
             title = { Text("Cover emoji") },
-            text = { EmojiGridPicker(current = d.coverEmoji) { picked -> persist(d.copy(coverEmoji = picked)); showEmoji = false } },
+            text = { EmojiGridPicker(current = d.coverEmoji) { picked -> persist(d.copy(coverEmoji = picked)); sheet = null } },
         )
     }
     // Tags dialog (opened from the "＋ Add tag" corner): toggle existing tags or create a new one.
-    if (showTags) {
+    if (sheet == NoteSheet.Tags) {
         var newTag by remember { mutableStateOf("") }
         AlertDialog(
-            onDismissRequest = { showTags = false },
-            confirmButton = { TextButton(onClick = { showTags = false }) { Text("Done") } },
+            onDismissRequest = { sheet = null },
+            confirmButton = { TextButton(onClick = { sheet = null }) { Text("Done") } },
             title = { Text("Tags") },
             text = {
                 Column {
@@ -599,16 +595,16 @@ fun NoteEditorScreen(
             },
         )
     }
-    if (showContainer) {
+    if (sheet == NoteSheet.Container) {
         AlertDialog(
-            onDismissRequest = { showContainer = false },
-            confirmButton = { TextButton(onClick = { showContainer = false }) { Text("Done") } },
+            onDismissRequest = { sheet = null },
+            confirmButton = { TextButton(onClick = { sheet = null }) { Text("Done") } },
             title = { Text(if (useNotebooks) "Notebook" else "Folder") },
             text = {
                 LazyColumn {
                     item {
                         DropdownRow("None", selected = (if (useNotebooks) d.notebookId else d.folderId) == null) {
-                            persist(if (useNotebooks) d.copy(notebookId = null) else d.copy(folderId = null)); showContainer = false
+                            persist(if (useNotebooks) d.copy(notebookId = null) else d.copy(folderId = null)); sheet = null
                         }
                     }
                     if (useNotebooks) {
@@ -619,7 +615,7 @@ fun NoteEditorScreen(
                                 Text(
                                     (nb.icon?.let { "$it " } ?: "") + nb.name,
                                     modifier = Modifier.weight(1f)
-                                        .clickable { persist(d.copy(notebookId = nb.id)); showContainer = false }
+                                        .clickable { persist(d.copy(notebookId = nb.id)); sheet = null }
                                         .padding(vertical = 12.dp, horizontal = 4.dp),
                                     color = if (d.notebookId == nb.id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                 )
@@ -633,32 +629,32 @@ fun NoteEditorScreen(
                             }
                         }
                         item {
-                            DropdownRow("＋  New notebook…", selected = false) { showContainer = false; showNewNotebook = true }
+                            DropdownRow("＋  New notebook…", selected = false) { sheet = NoteSheet.NewNotebook }
                         }
                     } else items(folders, key = { it.id }) { f ->
                         DropdownRow((f.icon?.let { "$it " } ?: "") + f.name, selected = d.folderId == f.id) {
-                            persist(d.copy(folderId = f.id)); showContainer = false
+                            persist(d.copy(folderId = f.id)); sheet = null
                         }
                     }
                 }
             },
         )
     }
-    if (showNewNotebook) {
+    if (sheet == NoteSheet.NewNotebook) {
         var nbName by remember { mutableStateOf("") }
         AlertDialog(
-            onDismissRequest = { showNewNotebook = false },
+            onDismissRequest = { sheet = null },
             confirmButton = {
                 TextButton(
                     enabled = nbName.isNotBlank(),
                     onClick = {
                         val name = nbName
-                        showNewNotebook = false
+                        sheet = null
                         vm.createNotebook(name) { id -> persist(d.copy(notebookId = id)) }
                     },
                 ) { Text("Create") }
             },
-            dismissButton = { TextButton(onClick = { showNewNotebook = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { sheet = null }) { Text("Cancel") } },
             title = { Text("New notebook") },
             text = {
                 androidx.compose.material3.OutlinedTextField(
@@ -709,16 +705,16 @@ fun NoteEditorScreen(
             },
         )
     }
-    if (showExport) AlertDialog(
-        onDismissRequest = { showExport = false },
+    if (sheet == NoteSheet.Export) AlertDialog(
+        onDismissRequest = { sheet = null },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = { showExport = false }) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = { sheet = null }) { Text("Cancel") } },
         title = { Text("Export note") },
         text = {
             Column {
                 com.todocompanion.app.util.NoteExport.Format.entries.forEach { fmt ->
                     Text(fmt.label, Modifier.fillMaxWidth().clickable {
-                        showExport = false
+                        sheet = null
                         if (fmt == com.todocompanion.app.util.NoteExport.Format.PDF)
                             com.todocompanion.app.util.NoteExport.printPdf(ctx, d)
                         else vm.exportNote(noteId, fmt)
@@ -727,7 +723,7 @@ fun NoteEditorScreen(
             }
         },
     )
-    if (showSeal) {
+    if (sheet == NoteSheet.Seal) {
         val nowMs = System.currentTimeMillis()
         val presets = listOf(
             "In a week" to nowMs + 7L * 86_400_000L,
@@ -736,9 +732,9 @@ fun NoteEditorScreen(
             "In a year" to nowMs + 365L * 86_400_000L,
         )
         AlertDialog(
-            onDismissRequest = { showSeal = false },
+            onDismissRequest = { sheet = null },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = { showSeal = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { sheet = null }) { Text("Cancel") } },
             title = { Text("Seal to the future") },
             text = {
                 Column {
@@ -747,24 +743,24 @@ fun NoteEditorScreen(
                         modifier = Modifier.padding(bottom = 6.dp))
                     presets.forEach { (label, at) ->
                         Text(label, Modifier.fillMaxWidth().clickable {
-                            showSeal = false; vm.sealNote(noteId, at); draft = d.copy(sealedUntil = at, reminderAt = at); onBack()
+                            sheet = null; vm.sealNote(noteId, at); draft = d.copy(sealedUntil = at, reminderAt = at); onBack()
                         }.padding(vertical = 11.dp), style = MaterialTheme.typography.bodyLarge)
                     }
                 }
             },
         )
     }
-    if (showAbout) NoteAboutDialog(d, onDismiss = { showAbout = false })
-    if (showOutline) NoteOutlineDialog(d.body, onDismiss = { showOutline = false })
-    if (showReorder) SectionReorderDialog(d.body, onApply = { persist(d.copy(body = it)); showReorder = false }, onDismiss = { showReorder = false })
-    if (showProps) NotePropertiesDialog(d.body, onApply = { persist(d.copy(body = it)); showProps = false }, onDismiss = { showProps = false })
-    if (showRelated) {
+    if (sheet == NoteSheet.About) NoteAboutDialog(d, onDismiss = { sheet = null })
+    if (sheet == NoteSheet.Outline) NoteOutlineDialog(d.body, onDismiss = { sheet = null })
+    if (sheet == NoteSheet.Reorder) SectionReorderDialog(d.body, onApply = { persist(d.copy(body = it)); sheet = null }, onDismiss = { sheet = null })
+    if (sheet == NoteSheet.Props) NotePropertiesDialog(d.body, onApply = { persist(d.copy(body = it)); sheet = null }, onDismiss = { sheet = null })
+    if (sheet == NoteSheet.Related) {
         val hits = remember(noteId, notes) {
             com.todocompanion.app.domain.NoteRelated.related(noteId, notes.filter { !it.trashed }.map { com.todocompanion.app.domain.NoteRelated.Doc(it.id, it.title, it.body) })
         }
-        RelatedNotesDialog(hits, onOpen = { showRelated = false; onOpenNote(it) }, onDismiss = { showRelated = false })
+        RelatedNotesDialog(hits, onOpen = { sheet = null; onOpenNote(it) }, onDismiss = { sheet = null })
     }
-    if (showTemplate) {
+    if (sheet == NoteSheet.Template) {
         val customTemplates = remember(settings.notesTemplatesJson) { com.todocompanion.app.domain.NoteTemplates.parseCustom(settings.notesTemplatesJson) }
         NoteTemplateDialog(
             custom = customTemplates,
@@ -772,14 +768,14 @@ fun NoteEditorScreen(
                 val (ti, b) = com.todocompanion.app.domain.NoteTemplates.apply(t)
                 // Fresh note → adopt the whole scaffold; existing note → append body only (skip its frontmatter).
                 val newBody = if (d.body.isBlank()) b else d.body.trimEnd() + "\n\n" + com.todocompanion.app.domain.NoteProperties.strip(b)
-                persist(d.copy(title = if (d.title.isBlank()) ti else d.title, body = newBody)); showTemplate = false
+                persist(d.copy(title = if (d.title.isBlank()) ti else d.title, body = newBody)); sheet = null
             },
             onSaveCurrent = { name, emoji -> vm.saveNoteTemplate(name, emoji, d.body) },
             onDelete = { vm.deleteNoteTemplate(it) },
-            onDismiss = { showTemplate = false },
+            onDismiss = { sheet = null },
         )
     }
-    if (showReminder) NoteReminderDialog(
+    if (sheet == NoteSheet.Reminder) NoteReminderDialog(
         current = d.reminderAt,
         currentRrule = d.reminderRrule,
         currentExtra = com.todocompanion.app.reminders.AlarmScheduler.parseExtraReminders(d.reminderExtra),
@@ -788,20 +784,20 @@ fun NoteEditorScreen(
             vm.setNoteReminder(noteId, at, rrule, extra, keep)
             val extraCsv = extra.filter { it > System.currentTimeMillis() }.sorted().joinToString(",")
             draft = d.copy(reminderAt = at, reminderRrule = rrule?.ifBlank { null }, reminderExtra = extraCsv, reminderKeep = keep)
-            showReminder = false
+            sheet = null
         },
-        onDismiss = { showReminder = false },
+        onDismiss = { sheet = null },
     )
-    if (showHistory) NoteVersionHistoryDialog(
+    if (sheet == NoteSheet.History) NoteVersionHistoryDialog(
         revisions = revisions,
-        onRestore = { r -> vm.restoreNoteRevision(noteId, r.title, r.body); draft = d.copy(title = r.title, body = r.body); showHistory = false },
-        onDismiss = { showHistory = false },
+        onRestore = { r -> vm.restoreNoteRevision(noteId, r.title, r.body); draft = d.copy(title = r.title, body = r.body); sheet = null },
+        onDismiss = { sheet = null },
     )
-    if (showDelete) {
+    if (sheet == NoteSheet.Delete) {
         AlertDialog(
-            onDismissRequest = { showDelete = false },
-            confirmButton = { TextButton(onClick = { showDelete = false; vm.deleteNote(noteId); onBack() }) { Text("Delete") } },
-            dismissButton = { TextButton(onClick = { showDelete = false }) { Text("Cancel") } },
+            onDismissRequest = { sheet = null },
+            confirmButton = { TextButton(onClick = { sheet = null; vm.deleteNote(noteId); onBack() }) { Text("Delete") } },
+            dismissButton = { TextButton(onClick = { sheet = null }) { Text("Cancel") } },
             title = { Text("Delete note?") },
             text = { Text("This permanently removes the note and its attachments. This can't be undone.") },
         )

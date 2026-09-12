@@ -657,7 +657,9 @@ private fun NoteCard(
                         Icon(Icons.Filled.PushPin, "Pinned", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
                     }
                 }
-                val preview = plainPreview(n.body)
+                // Memoized per note (keyed on id+updatedAt) so the Markdown-stripping regex runs once per
+                // edit, not on every recomposition/scroll of a visible card.
+                val preview = remember(n.id, n.updatedAt) { plainPreview(n.body) }
                 if (preview.isNotBlank()) {
                     Spacer(Modifier.height(4.dp))
                     Text(

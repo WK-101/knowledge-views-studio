@@ -722,7 +722,13 @@ class AppRepository(private val db: AppDatabase) {
         if (trashed) runCatching { deleteNoteFts(ftsDb(), id) } else notes.getById(id)?.let { syncNoteFts(id, it.title, it.body) }
     }
 
-    /** Hard-delete a note and everything hanging off it (tags, contexts, attachments, FTS). */
+    /**
+     * Hard-delete a note and every child row hanging off it (tags, contexts, attachments, revisions,
+     * links, FTS). This method IS the referential-integrity contract for notes: the schema declares no
+     * SQL foreign keys (see [com.todocompanion.app.data.entity.NoteEntity]'s KDoc for why), so the
+     * repository is the single writer that keeps the graph orphan-free. An orphan-free repository test
+     * pins this guarantee — if a new child table is added for notes, its cleanup belongs here.
+     */
     suspend fun deleteNote(id: String) {
         notes.unlinkAllTagsForNote(id)
         notes.unlinkAllContextsForNote(id)
