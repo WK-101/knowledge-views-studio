@@ -247,6 +247,7 @@ data class AppSettings(
     // notesNotebookMode ∈ {folderTree, notebooks} — group notes under the shared folder tree or a dedicated
     // notebook entity (the user's chosen Settings option for decision #1).
     val noteDefaultView: String = "grid",
+    val notesViewMode: String = "cards",       // cards | board | calendar — the home layout family (persisted like sort)
     val notesNotebookMode: String = "folderTree",
     val notesSort: String = "updated",         // updated | created | titleAsc | titleDesc — home sort order
     // Wave B — auto-empty Trash after N days (0 = Never) and how many version snapshots to keep per note.
@@ -501,6 +502,7 @@ data class AppSettings(
         Keys.PRIMARY_MODULE to primaryModule,
         Keys.DISABLED_MODULES to disabledModules.joinToString(","),
         Keys.NOTE_DEFAULT_VIEW to noteDefaultView,
+        Keys.NOTES_VIEW_MODE to notesViewMode,
         Keys.NOTES_NOTEBOOK_MODE to notesNotebookMode,
         Keys.NOTES_SORT to notesSort,
         Keys.NOTES_TRASH_RETENTION_DAYS to notesTrashRetentionDays.toString(),
@@ -700,6 +702,7 @@ data class AppSettings(
         const val PRIMARY_MODULE = "primary_module"
         const val DISABLED_MODULES = "disabled_modules"
         const val NOTE_DEFAULT_VIEW = "note_default_view"
+        const val NOTES_VIEW_MODE = "notes_view_mode"
         const val NOTES_NOTEBOOK_MODE = "notes_notebook_mode"
         const val NOTES_SORT = "notes_sort"
         const val NOTES_TRASH_RETENTION_DAYS = "notes_trash_retention_days"
@@ -934,6 +937,7 @@ data class AppSettings(
             primaryModule = m[Keys.PRIMARY_MODULE]?.takeIf { it.isNotBlank() } ?: "tasks",
             disabledModules = (m[Keys.DISABLED_MODULES] ?: "").split(",").filter { it.isNotBlank() }.toSet(),
             noteDefaultView = m[Keys.NOTE_DEFAULT_VIEW]?.takeIf { it.isNotBlank() } ?: "grid",
+            notesViewMode = m[Keys.NOTES_VIEW_MODE]?.takeIf { it.isNotBlank() } ?: "cards",
             notesNotebookMode = m[Keys.NOTES_NOTEBOOK_MODE]?.takeIf { it.isNotBlank() } ?: "folderTree",
             notesSort = m[Keys.NOTES_SORT]?.takeIf { it.isNotBlank() } ?: "updated",
             notesTrashRetentionDays = m[Keys.NOTES_TRASH_RETENTION_DAYS]?.toIntOrNull() ?: 0,

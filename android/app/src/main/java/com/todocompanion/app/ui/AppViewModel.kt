@@ -657,6 +657,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setNoteDefaultView(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(noteDefaultView = v)) }
+    fun setNotesViewMode(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesViewMode = v)) }
     // Custom note templates (user-created) — stored as JSON in settings; sit beside the built-in starters.
     fun saveNoteTemplate(name: String, emoji: String, body: String) = viewModelScope.launch {
         val list = com.todocompanion.app.domain.NoteTemplates.parseCustom(settings.value.notesTemplatesJson) +

@@ -878,9 +878,13 @@ fun AppRoot(
                                 Tab.TIME -> IconButton(onClick = { showTimeStats = true }) { Icon(Icons.Filled.BarChart, "Time stats") }
                                 Tab.SEARCH -> if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Filled.Close, "Clear") }
                                 Tab.NOTES -> {
-                                    val gridOn = settings.noteDefaultView != "list"
-                                    IconButton(onClick = { vm.setNoteDefaultView(if (gridOn) "list" else "grid") }) {
-                                        Icon(if (gridOn) Icons.AutoMirrored.Filled.List else Icons.Filled.GridView, if (gridOn) "List view" else "Grid view")
+                                    // Grid⇄list only means something in the Cards layout — hidden for Board/Calendar,
+                                    // where the toolbar's view pill (persisted as notesViewMode) is the sole layout control.
+                                    if (settings.notesViewMode == "cards") {
+                                        val gridOn = settings.noteDefaultView != "list"
+                                        IconButton(onClick = { vm.setNoteDefaultView(if (gridOn) "list" else "grid") }) {
+                                            Icon(if (gridOn) Icons.AutoMirrored.Filled.List else Icons.Filled.GridView, if (gridOn) "List view" else "Grid view")
+                                        }
                                     }
                                     IconButton(onClick = { notesSearchOpen = !notesSearchOpen; if (!notesSearchOpen) notesQuery = "" }) {
                                         Icon(if (notesSearchOpen) Icons.Filled.Close else Icons.Filled.Search, if (notesSearchOpen) "Close search" else "Search notes")

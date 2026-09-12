@@ -297,7 +297,9 @@ fun NotesScreen(
             // NotesNook-style top toolbar: a View selector and a Views/Filter selector as compact dropdown
             // pills (Cards/Board/Calendar; All / containers / Archived / Favorites / Pinned / Untagged /
             // saved Smart Views / Graph / Wrapped), plus Sort — replacing the old sprawling chip rows.
-            var viewMode by remember { mutableStateOf("cards") }
+            // Persisted like sort — the Cards/Board/Calendar family survives navigation (P6-D), and the
+            // app-bar grid/list toggle is hidden unless this is "cards" (where it's the only thing it means).
+            val viewMode = settings.notesViewMode
             var viewMenu by remember { mutableStateOf(false) }
             var filterMenu by remember { mutableStateOf(false) }
             val viewLabel = when (viewMode) { "board" -> "▤ Board"; "calendar" -> "🗓 Calendar"; else -> "▦ Cards" }
@@ -323,7 +325,7 @@ fun NotesScreen(
                                 trailingIcon = { if (viewMode == id) Icon(Icons.Filled.CheckCircle, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) },
                                 // Multi-select only exists in Cards; leaving it would strand the selection
                                 // bar over Board/Calendar items you can't toggle. Clear it on switch away.
-                                onClick = { if (id != "cards") selection = emptySet(); viewMode = id; viewMenu = false },
+                                onClick = { if (id != "cards") selection = emptySet(); vm.setNotesViewMode(id); viewMenu = false },
                             )
                         }
                     }

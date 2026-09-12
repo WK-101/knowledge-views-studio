@@ -534,7 +534,9 @@ fun NoteEditorScreen(
                 }
                 HorizontalDivider()
                 Spacer(Modifier.height(4.dp))
-                tiles.chunked(4).forEach { rowTiles ->
+                // One reusable 4-up grid renderer for a set of tiles.
+                @Composable
+                fun tileGrid(items: List<PTile>) = items.chunked(4).forEach { rowTiles ->
                     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
                         rowTiles.forEach { t ->
                             Column(
@@ -555,6 +557,16 @@ fun NoteEditorScreen(
                         }
                         repeat(4 - rowTiles.size) { Spacer(Modifier.weight(1f)) }
                     }
+                }
+                // Destructive actions (Move to trash · Delete) are pulled into their own labelled group so
+                // they can't be mis-tapped among the everyday actions. Archive stays above — it's reversible.
+                val (danger, safe) = tiles.partition { it.danger }
+                tileGrid(safe)
+                if (danger.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text("Danger zone", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(start = 20.dp, bottom = 2.dp))
+                    tileGrid(danger)
                 }
             }
         }
@@ -700,6 +712,7 @@ fun NoteEditorScreen(
     }
     if (sheet == NoteSheet.NewNotebook) {
         var nbName by remember { mutableStateOf("") }
+        var nbIcon by remember { mutableStateOf<String?>(null) }
         AlertDialog(
             onDismissRequest = { sheet = null },
             confirmButton = {
@@ -708,37 +721,49 @@ fun NoteEditorScreen(
                     onClick = {
                         val name = nbName
                         sheet = null
-                        vm.createNotebook(name) { id -> persist(d.copy(notebookId = id)) }
+                        vm.createNotebook(name, nbIcon) { id -> persist(d.copy(notebookId = id)) }
                     },
                 ) { Text("Create") }
             },
             dismissButton = { TextButton(onClick = { sheet = null }) { Text("Cancel") } },
             title = { Text("New notebook") },
             text = {
-                androidx.compose.material3.OutlinedTextField(
-                    value = nbName, onValueChange = { nbName = it },
-                    singleLine = true, placeholder = { Text("Notebook name") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                Column {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = nbName, onValueChange = { nbName = it },
+                        singleLine = true, placeholder = { Text("Notebook name") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text("Icon (optional)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // Same emoji grid the rest of the app uses (cover emoji, folders, habits…).
+                    EmojiGridPicker(current = nbIcon) { nbIcon = it }
+                }
             },
         )
     }
     renameNotebook?.let { nb ->
         var newName by remember(nb.id) { mutableStateOf(nb.name) }
+        var newIcon by remember(nb.id) { mutableStateOf(nb.icon) }
         AlertDialog(
             onDismissRequest = { renameNotebook = null },
             confirmButton = {
                 TextButton(enabled = newName.isNotBlank(), onClick = {
-                    vm.saveNotebook(nb.id, newName.trim(), nb.icon, nb.colorArgb); renameNotebook = null
+                    vm.saveNotebook(nb.id, newName.trim(), newIcon, nb.colorArgb); renameNotebook = null
                 }) { Text("Save") }
             },
             dismissButton = { TextButton(onClick = { renameNotebook = null }) { Text("Cancel") } },
-            title = { Text("Rename notebook") },
+            title = { Text("Edit notebook") },
             text = {
-                androidx.compose.material3.OutlinedTextField(
-                    value = newName, onValueChange = { newName = it },
-                    singleLine = true, placeholder = { Text("Notebook name") }, modifier = Modifier.fillMaxWidth(),
-                )
+                Column {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = newName, onValueChange = { newName = it },
+                        singleLine = true, placeholder = { Text("Notebook name") }, modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text("Icon (optional)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    EmojiGridPicker(current = newIcon) { newIcon = it }
+                }
             },
         )
     }
