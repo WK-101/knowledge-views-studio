@@ -346,8 +346,11 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     // View-only: the note renders as formatted text and only the eye button switches to editing —
                     // tapping the body no longer flips it into an editor. Wrapped so the rendered text is
                     // selectable (copy) while reading (R22). start=42 clears the left gutter for the linked-note icon.
+                    // L13 — one shared inline renderer: plain notes stay lightweight Compose (selectable),
+                    // while a note with $math$ or a ```mermaid diagram now renders with the same offline
+                    // KaTeX/Mermaid/Prism engine the note reader uses, so task notes and notes never diverge.
                     androidx.compose.foundation.text.selection.SelectionContainer {
-                        com.todocompanion.app.ui.components.MarkdownText(
+                        com.todocompanion.app.ui.components.RichMarkdown(
                             task.note,
                             modifier = Modifier.fillMaxWidth().padding(start = 42.dp, end = 34.dp, bottom = 4.dp),
                         )

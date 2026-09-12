@@ -56,6 +56,7 @@ import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.OpenInFull
+import androidx.compose.material.icons.filled.VerticalSplit
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -183,6 +184,8 @@ fun NoteEditorScreen(
     // read-only editor). The fully-rendered view — math, diagrams, tables — is a clean full-screen
     // overlay reached from the ⋮ menu ("Reading view"), never an in-place swap (which used to crash).
     var showReading by remember(noteId) { mutableStateOf(false) }
+    // L12 — split preview: keep editing on top while a live rich render (math/diagrams/tables) tracks below.
+    var showSplit by remember(noteId) { mutableStateOf(false) }
     // One modal dialog open at a time — a single nullable [NoteSheet] replaces the old fan of 15
     // per-dialog booleans, so two dialogs can never show at once and `sheet = null` dismisses any.
     var sheet by remember(noteId) { mutableStateOf<NoteSheet?>(null) }
@@ -205,6 +208,16 @@ fun NoteEditorScreen(
     androidx.compose.runtime.LaunchedEffect(noteId, d.body, showReading) {
         expandedBody = if (showReading && com.todocompanion.app.util.NoteTransclusion.hasTokens(d.body))
             vm.expandNoteTransclusion(d.body, noteId) else null
+    }
+    // L12 — the split preview's rendered source, debounced so live typing doesn't reload the WebView on
+    // every keystroke. Seeded from the current body so opening the split shows content immediately.
+    var splitBody by remember(noteId) { mutableStateOf(com.todocompanion.app.domain.NoteProperties.strip(d.body)) }
+    androidx.compose.runtime.LaunchedEffect(d.body, showSplit) {
+        if (!showSplit) return@LaunchedEffect
+        delay(450)
+        val expanded = if (com.todocompanion.app.util.NoteTransclusion.hasTokens(d.body))
+            vm.expandNoteTransclusion(d.body, noteId) else d.body
+        splitBody = com.todocompanion.app.domain.NoteProperties.strip(expanded)
     }
     // Back closes the reading view first (if open), else leaves the editor.
     BackHandler { if (showReading) showReading = false else { draft?.let { vm.closeNoteEditor(it) }; onBack() } }
@@ -241,6 +254,14 @@ fun NoteEditorScreen(
                             if (d.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
                             contentDescription = if (d.pinned) "Unpin" else "Pin",
                             tint = if (d.pinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    // L12 — split preview: edit on top, live rich render below. Highlighted while active.
+                    IconButton(onClick = { showSplit = !showSplit }) {
+                        Icon(
+                            Icons.Filled.VerticalSplit,
+                            contentDescription = if (showSplit) "Hide split preview" else "Split preview",
+                            tint = if (showSplit) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     // Properties open a bottom sheet (NotesNook-style), not a dropdown.
@@ -407,7 +428,42 @@ fun NoteEditorScreen(
             // instead of re-scanning every note on every keystroke.
             val noteTitles = remember(notes, noteId) { notes.filter { it.id != noteId && !it.trashed && it.title.isNotBlank() }.map { it.title } }
             val tagNames = remember(tags) { tags.map { it.name } }
-            Box(Modifier.fillMaxWidth().weight(1f)) {
+            // L12 — split preview: the editor keeps the top half, a live rich render tracks below (debounced
+            // via [splitBody]), so tables/math/diagrams are visible while you type — no full-screen swap.
+            if (showSplit) {
+                Column(Modifier.fillMaxWidth().weight(1f)) {
+                    Box(Modifier.fillMaxWidth().weight(1f)) {
+                        NoteBodyEditor(
+                            value = d.body, onValueChange = { draft = d.copy(body = it) },
+                            modifier = Modifier.fillMaxSize(),
+                            readOnly = d.readonly,
+                            noteTitles = noteTitles,
+                            tagNames = tagNames,
+                            liveStyle = settings.notesLiveStyle, type = noteType,
+                            onFontScaleChange = { vm.setNotesFontScale(it) },
+                        )
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    val splitImages by androidx.compose.runtime.produceState(emptyMap<String, String>(), noteId, splitBody) {
+                        value = runCatching { vm.noteImageMap(noteId) }.getOrDefault(emptyMap())
+                    }
+                    Box(Modifier.fillMaxWidth().weight(1f)) {
+                        if (splitBody.isBlank()) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("Preview", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        } else {
+                            com.todocompanion.app.ui.components.RichNoteView(
+                                markdown = splitBody,
+                                images = splitImages,
+                                readingThemeId = settings.notesReadingTheme,
+                                type = noteType,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    }
+                }
+            } else Box(Modifier.fillMaxWidth().weight(1f)) {
                 NoteBodyEditor(
                     value = d.body, onValueChange = { draft = d.copy(body = it) },
                     modifier = Modifier.fillMaxSize(),

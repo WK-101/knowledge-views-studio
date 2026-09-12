@@ -1,16 +1,25 @@
 package com.todocompanion.app.ui.components
 
+import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.todocompanion.app.util.NoteRichRenderer
 import java.io.ByteArrayInputStream
@@ -21,6 +30,12 @@ import java.io.ByteArrayInputStream
  * It is locked down: JavaScript runs only our own assembled document, file access is allowed (for local
  * image attachments and the bundled JS/CSS), and every http(s) request and navigation is refused — so
  * even though the app holds no INTERNET permission, nothing here can reach out.
+ *
+ * L12/L13 — [autoHeight] sizes the view to its rendered content instead of filling its box, so the same
+ * engine can embed *inside a scrolling parent* (a task's notes, an inline preview) rather than only as a
+ * full-screen reader. A tiny `AndroidHeight` bridge reports `document` height (re-measured by a
+ * ResizeObserver after KaTeX/Mermaid finish laying out), clamped to [maxAutoHeight]; internal scrolling is
+ * off so the outer scroll owns the gesture.
  */
 @Composable
 fun RichNoteView(
@@ -29,6 +44,8 @@ fun RichNoteView(
     modifier: Modifier = Modifier,
     readingThemeId: String = "match",
     type: com.todocompanion.app.domain.NoteAppearance.NoteType = com.todocompanion.app.domain.NoteAppearance.NoteType(),
+    autoHeight: Boolean = false,
+    maxAutoHeight: Dp = 5000.dp,
 ) {
     val cs = MaterialTheme.colorScheme
     val dark = cs.surface.luminance() < 0.5f
@@ -56,8 +73,17 @@ fun RichNoteView(
     val fallbackBg = cs.surface.toArgb()
     val bg = remember(theme, fallbackBg) { runCatching { android.graphics.Color.parseColor(theme.bg) }.getOrDefault(fallbackBg) }
 
+    val density = LocalDensity.current
+    // device-px height reported by the page; 0 until the first measurement lands.
+    var heightPx by remember(markdown) { mutableIntStateOf(0) }
+    val maxPx = remember(maxAutoHeight, density) { with(density) { maxAutoHeight.roundToPx() } }
+
+    val sizedModifier = if (!autoHeight) modifier
+        else if (heightPx > 0) modifier.height(with(density) { heightPx.toDp() })
+        else modifier.heightIn(min = 1.dp)   // collapse until the page reports its real height
+
     AndroidView(
-        modifier = modifier,
+        modifier = sizedModifier,
         factory = { ctx ->
             WebView(ctx).apply {
                 @Suppress("SetJavaScriptEnabled")
@@ -70,7 +96,25 @@ fun RichNoteView(
                 settings.builtInZoomControls = false
                 settings.setSupportZoom(false)
                 setBackgroundColor(bg)
-                overScrollMode = WebView.OVER_SCROLL_NEVER
+                if (autoHeight) {
+                    // Sized-to-content: the outer scroll owns vertical gestures, so kill our own scrolling.
+                    isVerticalScrollBarEnabled = false
+                    isHorizontalScrollBarEnabled = false
+                    overScrollMode = WebView.OVER_SCROLL_NEVER
+                    val dm = resources.displayMetrics.density
+                    addJavascriptInterface(object {
+                        @JavascriptInterface
+                        fun onHeight(cssPx: Float) {
+                            // Bridge callback runs off the main thread — hop back before touching Compose state.
+                            post {
+                                val px = (cssPx * dm).toInt().coerceIn(0, maxPx)
+                                if (px > 0 && kotlin.math.abs(px - heightPx) > 1) heightPx = px
+                            }
+                        }
+                    }, "AndroidHeight")
+                } else {
+                    overScrollMode = WebView.OVER_SCROLL_NEVER
+                }
                 webViewClient = object : WebViewClient() {
                     override fun shouldInterceptRequest(view: WebView, req: WebResourceRequest): WebResourceResponse? {
                         val s = req.url.scheme?.lowercase()
@@ -79,6 +123,9 @@ fun RichNoteView(
                         else null   // file:///android_asset/ and file:// (local images) pass through
                     }
                     override fun shouldOverrideUrlLoading(view: WebView, req: WebResourceRequest): Boolean = true
+                    override fun onPageFinished(view: WebView, url: String?) {
+                        if (autoHeight) view.evaluateJavascript(HEIGHT_OBSERVER_JS, null)
+                    }
                 }
             }
         },
@@ -88,6 +135,18 @@ fun RichNoteView(
         },
     )
 }
+
+// Installed after the page loads (autoHeight only): report the document height now and on every reflow —
+// KaTeX and Mermaid lay out asynchronously, so a one-shot measurement would be short.
+private const val HEIGHT_OBSERVER_JS = """
+(function(){
+  function report(){ try { AndroidHeight.onHeight(Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0)); } catch(e){} }
+  try { new ResizeObserver(report).observe(document.documentElement); } catch(e){}
+  window.addEventListener('load', report);
+  setTimeout(report, 60); setTimeout(report, 400); setTimeout(report, 1200);
+  report();
+})();
+"""
 
 private fun hex(c: Color): String {
     val a = c.toArgb()
