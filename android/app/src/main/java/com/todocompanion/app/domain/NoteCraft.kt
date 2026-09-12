@@ -68,7 +68,9 @@ object NoteLint {
 }
 
 object NoteTokens {
-    private val TOKEN = Regex("\\{\\{(date|time)(?::([^}]+))?}}")
+    // Braces escaped (`\}`): Android's ICU regex rejects a bare literal `}` outside a quantifier, so an
+    // unescaped trailing `}}` threw ExceptionInInitializerError on-device (the JVM engine is lenient).
+    private val TOKEN = Regex("\\{\\{(date|time)(?::([^}]+))?\\}\\}")
 
     /** Expand date/time tokens against [now] (injected so it's deterministic in tests). Unknown patterns
      *  are left verbatim rather than throwing. */

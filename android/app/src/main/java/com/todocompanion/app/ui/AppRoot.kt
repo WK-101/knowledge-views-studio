@@ -115,9 +115,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.todocompanion.app.data.entity.FolderEntity
 import com.todocompanion.app.data.entity.ListEntity
@@ -330,6 +332,10 @@ fun AppRoot(
         com.todocompanion.app.ui.components.LocalColorPickerHost provides com.todocompanion.app.ui.components.ColorPickerHost(colorRecents, vm::rememberRecentColor)
       ) {
       AppLockGate(enabled = settings.appLockEnabled) {
+        // Surface the last captured crash (App.kt writes every uncaught crash to last_crash.txt). The file
+        // lives under Android/data/… which modern Android hides from file managers, so show it in-app: the
+        // user can read/copy the exact stack trace instead of the crash vanishing into a system dialog.
+        LastCrashDialog()
         val scope = rememberCoroutineScope()
         val drawerState = rememberDrawerState(DrawerValue.Closed)
         var tab by remember { mutableStateOf(Tab.TASKS) }
@@ -1980,6 +1986,56 @@ private fun ContextPickerDialog(title: String, all: List<com.todocompanion.app.d
                 items(all.filter { it.id !in exclude }, key = { it.id }) { c ->
                     Text("@" + c.name, Modifier.fillMaxWidth().clickable { onPick(c.id) }.padding(vertical = 12.dp))
                 }
+            }
+        },
+    )
+}
+
+/**
+ * Surface the last uncaught crash (App.kt writes it to last_crash.txt) inside the app, so the exact
+ * stack trace can be read/copied without a PC — the file lives under Android/data/… which modern
+ * Android hides from file managers. Shows once; "Dismiss" deletes the file so it won't reappear.
+ */
+@androidx.compose.runtime.Composable
+private fun LastCrashDialog() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val file = remember {
+        val dir = ctx.getExternalFilesDir(null) ?: ctx.filesDir
+        java.io.File(dir, "last_crash.txt")
+    }
+    var text by remember { mutableStateOf(runCatching { if (file.exists()) file.readText() else "" }.getOrDefault("")) }
+    if (text.isBlank()) return
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = { },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = {
+                runCatching { file.delete() }; text = ""
+            }) { androidx.compose.material3.Text("Dismiss") }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = {
+                clipboard.setText(androidx.compose.ui.text.AnnotatedString(text))
+            }) { androidx.compose.material3.Text("Copy") }
+        },
+        title = { androidx.compose.material3.Text("Last crash report") },
+        text = {
+            androidx.compose.foundation.layout.Column(
+                Modifier.heightIn(max = 420.dp).verticalScroll(androidx.compose.foundation.rememberScrollState()),
+            ) {
+                androidx.compose.material3.Text(
+                    "Copy this and send it over so the exact cause can be fixed:",
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
+                androidx.compose.material3.Text(
+                    text,
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 11.sp,
+                    ),
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
+                )
             }
         },
     )

@@ -56,6 +56,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SwapVert
@@ -276,66 +278,97 @@ fun NotesScreen(
             )
         }
         run {
-            run {
-                androidx.compose.foundation.lazy.LazyRow(
-                    contentPadding = PaddingValues(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    item {
-                        FilterChip(selected = container == null && !archiveView && activePredicate == null, onClick = { container = null; archiveView = false; activePredicate = null; activeLabel = null }, label = { Text("All") })
-                    }
-                    items(containers, key = { it.first }) { (id, name) ->
-                        FilterChip(selected = container == id && !archiveView && activePredicate == null, onClick = { container = id; archiveView = false; activePredicate = null; activeLabel = null }, label = { Text(name) })
-                    }
-                    item {
-                        FilterChip(selected = archiveView && activePredicate == null, onClick = { archiveView = true; container = null; activePredicate = null; activeLabel = null }, label = { Text("🗄 Archived") })
-                    }
-                }
-                Spacer(Modifier.height(4.dp))
-                // Smart Views row: system views + saved views (delete via the trailing ✕) + builder.
-                androidx.compose.foundation.lazy.LazyRow(
-                    contentPadding = PaddingValues(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    val sys = listOf(
-                        "★ Favorites" to com.todocompanion.app.domain.NoteSmartViews.FAVORITES,
-                        "📌 Pinned" to com.todocompanion.app.domain.NoteSmartViews.PINNED,
-                        "🏷 Untagged" to com.todocompanion.app.domain.NoteSmartViews.UNTAGGED,
-                    )
-                    items(sys, key = { it.first }) { (lbl, pred) ->
-                        FilterChip(
-                            selected = activeLabel == lbl,
-                            onClick = {
-                                if (activeLabel == lbl) { activePredicate = null; activeLabel = null }
-                                else { activePredicate = pred; activeLabel = lbl; container = null; archiveView = false }
-                            },
-                            label = { Text(lbl) },
-                        )
-                    }
-                    items(smartViews, key = { it.id }) { v ->
-                        val decoded = remember(v.predicateJson) { com.todocompanion.app.domain.NoteSmartViews.decode(v.predicateJson) }
-                        FilterChip(
-                            selected = activeLabel == v.id,
-                            onClick = {
-                                if (activeLabel == v.id) { activePredicate = null; activeLabel = null }
-                                else if (decoded != null) { activePredicate = decoded; activeLabel = v.id; container = null; archiveView = false }
-                            },
-                            label = { Text((v.icon?.let { "$it " } ?: "🔎 ") + v.title) },
-                            trailingIcon = { Icon(Icons.Filled.Delete, "Delete view", modifier = Modifier.size(16.dp).clickable { deleteView = v }) },
-                        )
-                    }
-                    item {
-                        FilterChip(selected = false, onClick = { showBuilder = true }, label = { Text("＋ Smart View") })
-                    }
-                    item {
-                        FilterChip(selected = false, onClick = { showGraph = true }, label = { Text("◉ Graph") })
-                    }
-                    item {
-                        FilterChip(selected = false, onClick = { showWrapped = true }, label = { Text("✨ Wrapped") })
-                    }
-                }
-                Spacer(Modifier.height(4.dp))
+            // NotesNook-style top toolbar: a View selector and a Views/Filter selector as compact dropdown
+            // pills (Cards/Board/Calendar; All / containers / Archived / Favorites / Pinned / Untagged /
+            // saved Smart Views / Graph / Wrapped), plus Sort — replacing the old sprawling chip rows.
+            var viewMode by remember { mutableStateOf("cards") }
+            var viewMenu by remember { mutableStateOf(false) }
+            var filterMenu by remember { mutableStateOf(false) }
+            val viewLabel = when (viewMode) { "board" -> "▤ Board"; "calendar" -> "🗓 Calendar"; else -> "▦ Cards" }
+            val activeFilterLabel = when {
+                activeLabel != null -> smartViews.firstOrNull { it.id == activeLabel }?.let { (it.icon?.plus(" ") ?: "🔎 ") + it.title } ?: activeLabel!!
+                archiveView -> "🗄 Archived"
+                container != null -> containers.firstOrNull { it.first == container }?.second ?: "All notes"
+                else -> "All notes"
             }
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box {
+                    ToolbarPill(viewLabel) { viewMenu = true }
+                    DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
+                        listOf("cards" to "▦ Cards", "board" to "▤ Board", "calendar" to "🗓 Calendar").forEach { (id, lbl) ->
+                            DropdownMenuItem(
+                                text = { Text(lbl) },
+                                trailingIcon = { if (viewMode == id) Icon(Icons.Filled.CheckCircle, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) },
+                                onClick = { viewMode = id; viewMenu = false },
+                            )
+                        }
+                    }
+                }
+                Box(Modifier.weight(1f, fill = false)) {
+                    ToolbarPill(activeFilterLabel, leadingIcon = Icons.Filled.FilterList) { filterMenu = true }
+                    DropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }) {
+                        val checkP = MaterialTheme.colorScheme.primary
+                        DropdownMenuItem(
+                            text = { Text("All notes") },
+                            trailingIcon = { if (container == null && !archiveView && activePredicate == null) Icon(Icons.Filled.CheckCircle, null, Modifier.size(18.dp), tint = checkP) },
+                            onClick = { container = null; archiveView = false; activePredicate = null; activeLabel = null; filterMenu = false },
+                        )
+                        containers.forEach { (id, name) ->
+                            DropdownMenuItem(
+                                text = { Text(name) },
+                                trailingIcon = { if (container == id && !archiveView && activePredicate == null) Icon(Icons.Filled.CheckCircle, null, Modifier.size(18.dp), tint = checkP) },
+                                onClick = { container = id; archiveView = false; activePredicate = null; activeLabel = null; filterMenu = false },
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text("🗄 Archived") },
+                            trailingIcon = { if (archiveView && activePredicate == null) Icon(Icons.Filled.CheckCircle, null, Modifier.size(18.dp), tint = checkP) },
+                            onClick = { archiveView = true; container = null; activePredicate = null; activeLabel = null; filterMenu = false },
+                        )
+                        HorizontalDivider()
+                        listOf(
+                            "★ Favorites" to com.todocompanion.app.domain.NoteSmartViews.FAVORITES,
+                            "📌 Pinned" to com.todocompanion.app.domain.NoteSmartViews.PINNED,
+                            "🏷 Untagged" to com.todocompanion.app.domain.NoteSmartViews.UNTAGGED,
+                        ).forEach { (lbl, pred) ->
+                            DropdownMenuItem(
+                                text = { Text(lbl) },
+                                trailingIcon = { if (activeLabel == lbl) Icon(Icons.Filled.CheckCircle, null, Modifier.size(18.dp), tint = checkP) },
+                                onClick = { activePredicate = pred; activeLabel = lbl; container = null; archiveView = false; filterMenu = false },
+                            )
+                        }
+                        smartViews.forEach { v ->
+                            val decoded = remember(v.predicateJson) { com.todocompanion.app.domain.NoteSmartViews.decode(v.predicateJson) }
+                            DropdownMenuItem(
+                                text = { Text((v.icon?.let { "$it " } ?: "🔎 ") + v.title) },
+                                trailingIcon = { Icon(Icons.Filled.Delete, "Delete view", Modifier.size(18.dp).clickable { deleteView = v; filterMenu = false }, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                onClick = { if (decoded != null) { activePredicate = decoded; activeLabel = v.id; container = null; archiveView = false }; filterMenu = false },
+                            )
+                        }
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text("＋ Smart View") }, onClick = { filterMenu = false; showBuilder = true })
+                        DropdownMenuItem(text = { Text("◉ Graph") }, onClick = { filterMenu = false; showGraph = true })
+                        DropdownMenuItem(text = { Text("✨ Wrapped") }, onClick = { filterMenu = false; showWrapped = true })
+                    }
+                }
+                Box {
+                    IconButton(onClick = { sortMenu = true }) { Icon(Icons.Filled.Sort, "Sort") }
+                    DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                        listOf("updated" to "Last edited", "created" to "Date created", "titleAsc" to "Title A–Z", "titleDesc" to "Title Z–A").forEach { (id, lbl) ->
+                            DropdownMenuItem(
+                                text = { Text(lbl) },
+                                trailingIcon = { if (settings.notesSort == id) Icon(Icons.Filled.CheckCircle, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) },
+                                onClick = { vm.setNotesSort(id); sortMenu = false },
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(2.dp))
             if (showBuilder) SmartViewBuilderDialog(
                 onSave = { t, pred -> vm.saveSmartView(null, t, null, pred); showBuilder = false },
                 onDismiss = { showBuilder = false },
@@ -350,37 +383,6 @@ fun NotesScreen(
                 )
             }
 
-            // Wave S — notes as a local database: an in-home view mode. Cards (grid/list per setting),
-            // Board (columns grouped by notebook/folder), Calendar (grouped by month).
-            var viewMode by remember { mutableStateOf("cards") }
-            Row(Modifier.fillMaxWidth().padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.foundation.lazy.LazyRow(
-                    contentPadding = PaddingValues(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    items(listOf("cards" to "▦ Cards", "board" to "▤ Board", "calendar" to "🗓 Calendar"), key = { it.first }) { (id, lbl) ->
-                        FilterChip(selected = viewMode == id, onClick = { viewMode = id }, label = { Text(lbl) })
-                    }
-                }
-                Box {
-                    IconButton(onClick = { sortMenu = true }) { Icon(Icons.Filled.Sort, "Sort") }
-                    DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
-                        val opts = listOf(
-                            "updated" to "Last edited", "created" to "Date created",
-                            "titleAsc" to "Title A–Z", "titleDesc" to "Title Z–A",
-                        )
-                        opts.forEach { (id, lbl) ->
-                            DropdownMenuItem(
-                                text = { Text(lbl) },
-                                trailingIcon = { if (settings.notesSort == id) Icon(Icons.Filled.CheckCircle, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) },
-                                onClick = { vm.setNotesSort(id); sortMenu = false },
-                            )
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(4.dp))
             if (showWrapped) {
                 val stats = remember(notes) {
                     com.todocompanion.app.domain.NoteWrapped.compute(
@@ -581,7 +583,7 @@ private fun NoteCard(
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 // Note editor — Markdown body (viewer-until-edit), notebook/folder, colour, cover emoji, tags, pin.
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun NoteEditorScreen(
     vm: AppViewModel,
@@ -715,32 +717,53 @@ fun NoteEditorScreen(
           // Header content (meta, title, tags, context) is inset 16dp; the body + bottom bar go
           // edge-to-edge so the formatting bar fills the screen width like NotesNook.
           Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            // Meta strip (NotesNook-style): live word count on the left, a single "＋ Add tag" in the
-            // corner on the right — not a whole tag list.
+            // Live word count, the note's woven-context pills (day / meeting / task / reminder / sealed) and
+            // its tags — ALL in one compact wrapping row above the title (NotesNook-style). Tags show as
+            // chips (tap to edit, ✕ removes); the "＋" adds. No separate tag/context rows → a tight header.
+            val wordCount = remember(d.body) {
+                com.todocompanion.app.domain.NoteProperties.strip(d.body).trim()
+                    .split(Regex("\\s+")).count { it.isNotBlank() }
+            }
+            val dayLabel = if (d.kind == "journal" && d.dayEpoch != null) runCatching {
+                java.time.LocalDate.ofEpochDay(d.dayEpoch!!).format(java.time.format.DateTimeFormatter.ofPattern("EEE, d MMM"))
+            }.getOrNull() else null
+            val reminderLabel = d.reminderAt?.let { at -> runCatching {
+                java.time.Instant.ofEpochMilli(at).atZone(java.time.ZoneId.systemDefault())
+                    .format(java.time.format.DateTimeFormatter.ofPattern("d MMM · h:mm a")) }.getOrNull() }
+            val sealedLabel = d.sealedUntil?.takeIf { it > System.currentTimeMillis() }?.let { at -> runCatching {
+                java.time.Instant.ofEpochMilli(at).atZone(java.time.ZoneId.systemDefault())
+                    .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy")) }.getOrNull() }
             if (!focus) {
-                val wordCount = remember(d.body) {
-                    com.todocompanion.app.domain.NoteProperties.strip(d.body).trim()
-                        .split(Regex("\\s+")).count { it.isNotBlank() }
-                }
-                // A compact row (not a 48dp Button) so word-count → title sits tight (no min-height padding).
-                Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "$wordCount ${if (wordCount == 1) "word" else "words"}",
+                androidx.compose.foundation.layout.FlowRow(
+                    Modifier.fillMaxWidth().padding(top = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text("$wordCount ${if (wordCount == 1) "word" else "words"}",
                         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    if (d.readonly) {
-                        Spacer(Modifier.width(10.dp))
-                        Text("🔒 Read-only", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.clickable { persist(d.copy(readonly = false)) })
+                        modifier = Modifier.align(Alignment.CenterVertically))
+                    if (d.readonly) MetaPill("🔒 Read-only") { persist(d.copy(readonly = false)) }
+                    if (dayLabel != null) MetaPill("🗓 $dayLabel")
+                    if (d.linkedEventId != null) MetaPill("📅 Meeting")
+                    if (d.linkedTaskId != null) MetaPill("🔗 Task") { onOpenTask(d.linkedTaskId!!) }
+                    if (reminderLabel != null) MetaPill("⏰ $reminderLabel" + if (d.reminderRrule != null) " ↻" else "") { showReminder = true }
+                    if (sealedLabel != null) MetaPill("🔒 Sealed until $sealedLabel")
+                    tags.filter { it.id in myTagIds }.forEach { t ->
+                        Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.secondaryContainer,
+                            modifier = Modifier.align(Alignment.CenterVertically)) {
+                            Row(Modifier.clickable { showTags = true }.padding(start = 8.dp, end = 4.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("#${t.name}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                Icon(Icons.Filled.Close, "Remove tag", modifier = Modifier.size(14.dp).padding(start = 2.dp).clickable { vm.setNoteTags(noteId, (myTagIds - t.id).toList()) })
+                            }
+                        }
                     }
-                    Spacer(Modifier.weight(1f))
-                    Row(
-                        Modifier.clip(RoundedCornerShape(8.dp)).clickable { showTags = true }.padding(horizontal = 6.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(Icons.Filled.Add, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(2.dp))
-                        Text("Add tag", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    // "＋" tag adder — labelled "Add tag" while the note has none, a compact "＋" once it has some.
+                    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f),
+                        modifier = Modifier.align(Alignment.CenterVertically).clickable { showTags = true }) {
+                        Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Add, "Add tag", modifier = Modifier.size(15.dp), tint = MaterialTheme.colorScheme.primary)
+                            if (myTagIds.isEmpty()) { Spacer(Modifier.width(2.dp)); Text("Add tag", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary) }
+                        }
                     }
                 }
             } else Spacer(Modifier.height(2.dp))
@@ -770,45 +793,6 @@ fun NoteEditorScreen(
                         inner()
                     },
                 )
-            }
-            // Selected tags — compact chips right under the title (only when the note has tags). Tap ✕ removes.
-            if (!focus && myTagIds.isNotEmpty()) {
-                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(tags.filter { it.id in myTagIds }, key = { it.id }) { t ->
-                        Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
-                            Row(Modifier.padding(start = 8.dp, end = 4.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text("#${t.name}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                                Icon(Icons.Filled.Close, "Remove tag", modifier = Modifier.size(14.dp).padding(start = 2.dp).clickable { vm.setNoteTags(noteId, (myTagIds - t.id).toList()) })
-                            }
-                        }
-                    }
-                }
-            }
-            // Woven context (Phase 2): what this note is bound to — the day, a meeting, or a task.
-            val dayLabel = if (d.kind == "journal" && d.dayEpoch != null) runCatching {
-                java.time.LocalDate.ofEpochDay(d.dayEpoch!!).format(java.time.format.DateTimeFormatter.ofPattern("EEE, d MMM yyyy"))
-            }.getOrNull() else null
-            // Wave F — a glanceable chip for the note's own reminder (tap to change/clear).
-            val reminderLabel = d.reminderAt?.let { at ->
-                runCatching {
-                    java.time.Instant.ofEpochMilli(at).atZone(java.time.ZoneId.systemDefault())
-                        .format(java.time.format.DateTimeFormatter.ofPattern("d MMM · h:mm a"))
-                }.getOrNull()
-            }
-            val sealedLabel = d.sealedUntil?.takeIf { it > System.currentTimeMillis() }?.let { at ->
-                runCatching {
-                    java.time.Instant.ofEpochMilli(at).atZone(java.time.ZoneId.systemDefault())
-                        .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy"))
-                }.getOrNull()
-            }
-            if (!focus && (dayLabel != null || d.linkedEventId != null || d.linkedTaskId != null || reminderLabel != null || sealedLabel != null)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (dayLabel != null) FilterChip(selected = true, onClick = {}, label = { Text("🗓  $dayLabel") })
-                    if (d.linkedEventId != null) FilterChip(selected = true, onClick = {}, label = { Text("📅  Meeting note") })
-                    if (d.linkedTaskId != null) FilterChip(selected = true, onClick = { onOpenTask(d.linkedTaskId!!) }, label = { Text("🔗  Linked task") })
-                    if (reminderLabel != null) FilterChip(selected = true, onClick = { showReminder = true }, label = { Text("⏰  $reminderLabel" + if (d.reminderRrule != null) "  ↻" else "") })
-                    if (sealedLabel != null) FilterChip(selected = true, onClick = {}, label = { Text("🔒  Sealed until $sealedLabel") })
-                }
             }
           }
             // Body — always the editor (NotesNook-style), edge-to-edge. Inline live-styling renders
@@ -1186,6 +1170,38 @@ fun NoteEditorScreen(
             dismissButton = { TextButton(onClick = { showDelete = false }) { Text("Cancel") } },
             title = { Text("Delete note?") },
             text = { Text("This permanently removes the note and its attachments. This can't be undone.") },
+        )
+    }
+}
+
+/** A compact dropdown "pill" for the Notes home toolbar — an optional leading icon, a label, and a
+ *  dropdown chevron. Opens its menu on tap (the caller anchors a DropdownMenu next to it). */
+@Composable
+private fun ToolbarPill(label: String, leadingIcon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Surface(shape = RoundedCornerShape(10.dp), color = cs.surfaceVariant.copy(alpha = .6f), onClick = onClick) {
+        Row(Modifier.padding(start = if (leadingIcon != null) 8.dp else 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (leadingIcon != null) { Icon(leadingIcon, null, Modifier.size(17.dp), tint = cs.onSurfaceVariant); Spacer(Modifier.width(5.dp)) }
+            Text(label, style = MaterialTheme.typography.labelLarge, color = cs.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Icon(Icons.Filled.ArrowDropDown, null, Modifier.size(20.dp), tint = cs.onSurfaceVariant)
+        }
+    }
+}
+
+/** A compact context pill for the note header's meta row (day / meeting / task / reminder / sealed).
+ *  A FlowRowScope extension so it can vertically-center within the wrapping meta row. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun androidx.compose.foundation.layout.FlowRowScope.MetaPill(label: String, onClick: (() -> Unit)? = null) {
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = cs.secondaryContainer.copy(alpha = .7f),
+        modifier = Modifier.align(Alignment.CenterVertically).let { if (onClick != null) it.clickable { onClick() } else it },
+    ) {
+        Text(
+            label, style = MaterialTheme.typography.labelMedium, color = cs.onSecondaryContainer, maxLines = 1,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
         )
     }
 }

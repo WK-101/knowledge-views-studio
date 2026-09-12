@@ -278,31 +278,27 @@ private fun MdTable(table: TableBlock, pal: MdPalette) {
     }
     val cols = maxOf(header.size, body.maxOfOrNull { it.size } ?: 0)
     if (cols == 0) return
-    // Each cell is a fixed 140.dp wide, so the table's total width is deterministic. Pin the inner
-    // Column to that width: inside a horizontalScroll the width constraint is unbounded, so a bare
-    // fillMaxWidth() divider would collapse to 0.dp (invisible row separators). An explicit width makes
-    // the header/row rules span the whole table and the border wrap it — so it reads as a real table.
-    val tableWidth = (cols * 140).dp
-    Box(Modifier.fillMaxWidth().padding(vertical = 6.dp).horizontalScroll(rememberScrollState())) {
-        Column(
-            Modifier.width(tableWidth).clip(RoundedCornerShape(8.dp))
-                .border(1.dp, pal.hair, RoundedCornerShape(8.dp)).background(pal.calloutBg),
-        ) {
-            if (header.isNotEmpty()) {
-                Row { for (c in 0 until cols) MdTableCell(header.getOrNull(c) ?: AnnotatedString(""), pal, headerRow = true) }
-                Box(Modifier.fillMaxWidth().height(1.dp).background(pal.hair))
-            }
-            body.forEachIndexed { idx, row ->
-                Row { for (c in 0 until cols) MdTableCell(row.getOrNull(c) ?: AnnotatedString(""), pal, headerRow = false) }
-                if (idx < body.lastIndex) Box(Modifier.fillMaxWidth().height(1.dp).background(pal.hair.copy(alpha = .5f)))
-            }
+    // A fillMaxWidth, weight-shared grid — no nested horizontalScroll (a horizontally-scrollable child of a
+    // vertically-scrolling reading view is a known device-only text-layout crash class; cells wrap instead
+    // of scrolling). Bordered, with header/row rules that span the full width, so it reads as a real table.
+    Column(
+        Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(8.dp))
+            .border(1.dp, pal.hair, RoundedCornerShape(8.dp)).background(pal.calloutBg),
+    ) {
+        if (header.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth()) { for (c in 0 until cols) MdTableCell(header.getOrNull(c) ?: AnnotatedString(""), pal, headerRow = true, weight = 1f) }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(pal.hair))
+        }
+        body.forEachIndexed { idx, row ->
+            Row(Modifier.fillMaxWidth()) { for (c in 0 until cols) MdTableCell(row.getOrNull(c) ?: AnnotatedString(""), pal, headerRow = false, weight = 1f) }
+            if (idx < body.lastIndex) Box(Modifier.fillMaxWidth().height(1.dp).background(pal.hair.copy(alpha = .5f)))
         }
     }
 }
 
 @Composable
-private fun MdTableCell(text: AnnotatedString, pal: MdPalette, headerRow: Boolean) {
-    Text(text, modifier = Modifier.width(140.dp).padding(horizontal = 10.dp, vertical = 7.dp),
+private fun androidx.compose.foundation.layout.RowScope.MdTableCell(text: AnnotatedString, pal: MdPalette, headerRow: Boolean, weight: Float) {
+    Text(text, modifier = Modifier.weight(weight).padding(horizontal = 10.dp, vertical = 7.dp),
         style = MaterialTheme.typography.bodyMedium,
         fontWeight = if (headerRow) FontWeight.SemiBold else FontWeight.Normal,
         color = if (headerRow) pal.onSurface else pal.muted)
