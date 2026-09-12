@@ -155,6 +155,9 @@ fun NoteEditorScreen(
 
     var draft by remember(noteId) { mutableStateOf<NoteEntity?>(null) }
     androidx.compose.runtime.LaunchedEffect(note?.id) { if (draft == null && note != null) draft = note }
+    // L5 — Shared Checkboxes (pull): on open, bring bound "- [ ] [[Task]]" lines into line with the live
+    // task state, so completing a task elsewhere shows here. Runs once per note open, before the draft edits.
+    androidx.compose.runtime.LaunchedEffect(noteId) { vm.reconcileNoteCheckboxes(noteId) }
     val d = draft
     if (d == null) { Box(Modifier.fillMaxSize()) {}; return }
 

@@ -762,8 +762,40 @@ class AppRepository(private val db: AppDatabase) {
         materializeNoteTags(id)      // inline body #tags → structured note_tags (before FTS so tag names index)
         materializeNoteContexts(id)  // L2 — inline body @contexts → structured note_contexts (first-class, like tags)
         materializeNoteLinks(id)
+        syncBoundCheckboxTasks(id)   // L5 — a ticked "- [ ] [[Task]]" line completes the task it's bound to
         reindexNoteFts(stamped)
         return id
+    }
+
+    /**
+     * L5 — push direction of Shared Checkboxes: for each checkbox line bound to a task by a `[[Title]]`
+     * wiki-link, set that task's completed state to match the box. So ticking an action item inside a note
+     * completes the real task (and un-ticking re-opens it). Title match is case-insensitive; only the first
+     * non-trashed task with that title is bound. Idempotent — a no-op when the states already agree.
+     */
+    suspend fun syncBoundCheckboxTasks(noteId: String) {
+        val n = notes.getById(noteId) ?: return
+        val boxes = com.todocompanion.app.domain.NoteCheckboxSync.boundBoxes(n.body)
+        if (boxes.isEmpty()) return
+        val byTitle = tasks.getAll().filter { !it.trashed }.associateBy { it.title.trim().lowercase() }
+        boxes.forEach { box ->
+            val task = byTitle[box.title.trim().lowercase()] ?: return@forEach
+            if (task.completed != box.checked) setCompleted(task, box.checked)
+        }
+    }
+
+    /**
+     * L5 — pull direction: rewrite a note's bound checkbox lines to match the live completion state of the
+     * tasks they link to, persisting only when something actually changed. Called when a note opens, so
+     * completing a task elsewhere shows up (checked) the next time you read the note. Loop-safe: after this
+     * the note and its tasks agree, so the save-time push is a no-op.
+     */
+    suspend fun reconcileNoteCheckboxesFromTasks(noteId: String) {
+        val n = notes.getById(noteId) ?: return
+        if (!com.todocompanion.app.domain.NoteCheckboxSync.hasBound(n.body)) return
+        val byTitle = tasks.getAll().filter { !it.trashed }.associateBy { it.title.trim().lowercase() }
+        val newBody = com.todocompanion.app.domain.NoteCheckboxSync.reconcile(n.body) { title -> byTitle[title.trim().lowercase()]?.completed }
+        if (newBody != n.body) upsertNote(n.copy(body = newBody))
     }
 
     /**

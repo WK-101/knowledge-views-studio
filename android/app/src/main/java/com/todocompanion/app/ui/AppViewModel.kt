@@ -599,12 +599,76 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val hbs = habits.value
         fun habitList(): String = if (hbs.isEmpty()) "_No habits_"
             else hbs.joinToString("\n") { h -> "- [ ] ${h.emoji?.let { "$it " } ?: ""}${h.name}" }
+        // L4 — a tiny quote-aware query parser for Living Query Blocks: bare flags (overdue), key=value
+        // (list=Work, tag="Deep Work"), and comparisons (due<7d). Returns null-safe empty on a blank arg.
+        fun parseQ(raw: String): Triple<Set<String>, Map<String, String>, List<Triple<String, Char, Long>>> {
+            val flags = HashSet<String>(); val kv = HashMap<String, String>(); val cmp = ArrayList<Triple<String, Char, Long>>()
+            Regex("\"[^\"]*\"|\\S+").findAll(raw).map { it.value }.forEach { tok ->
+                val eq = tok.indexOf('='); val lt = tok.indexOf('<'); val gt = tok.indexOf('>')
+                when {
+                    eq > 0 -> kv[tok.take(eq).lowercase()] = tok.substring(eq + 1).trim('"')
+                    lt > 0 || gt > 0 -> {
+                        val i = if (lt > 0) lt else gt
+                        tok.substring(i + 1).trimEnd('d', 'D').toLongOrNull()?.let { cmp.add(Triple(tok.take(i).lowercase(), tok[i], it)) }
+                    }
+                    else -> flags.add(tok.lowercase())
+                }
+            }
+            return Triple(flags, kv, cmp)
+        }
+        // L4 — data the notes/time query blocks draw on (cheap live snapshots).
+        val allLists = lists.value
+        val tagsByName = tags.value.associateBy { it.name.lowercase() }
+        val ctxByName = contexts.value.associateBy { it.name.lowercase() }
+        val tagRefs = noteTagRefs.value
+        val ctxRefs = noteContextRefs.value
         return com.todocompanion.app.util.NoteTransclusion.expand(body) { scope, arg ->
             when (scope) {
-                "tasks" -> when (arg) {
-                    "overdue" -> list(open.filter { it.dueDate != null && it.dueDate!! < todayStart })
-                    "today" -> list(open.filter { it.dueDate != null && it.dueDate!! in todayStart until todayEnd })
-                    else -> null
+                "tasks" -> {
+                    val (flags, kv, cmp) = parseQ(arg)
+                    if (flags.isEmpty() && kv.isEmpty() && cmp.isEmpty()) null
+                    else {
+                        var sel = open.asSequence()
+                        if ("overdue" in flags) sel = sel.filter { it.dueDate != null && it.dueDate!! < todayStart }
+                        if ("today" in flags) sel = sel.filter { it.dueDate != null && it.dueDate!! in todayStart until todayEnd }
+                        if ("week" in flags) sel = sel.filter { it.dueDate != null && it.dueDate!! in todayStart until todayStart + 7 * 86_400_000L }
+                        if ("flagged" in flags) sel = sel.filter { it.flagId != null }
+                        kv["list"]?.let { name -> val id = allLists.firstOrNull { it.name.equals(name, true) }?.id; sel = sel.filter { it.listId == id } }
+                        kv["energy"]?.let { e -> val lvl = when (e.lowercase()) { "high" -> 3; "med", "medium" -> 2; "low" -> 1; else -> e.toIntOrNull() ?: 0 }; sel = sel.filter { it.energy == lvl } }
+                        cmp.firstOrNull { it.first == "due" }?.let { (_, op, n) ->
+                            val bound = todayStart + n * 86_400_000L
+                            sel = if (op == '<') sel.filter { it.dueDate != null && it.dueDate!! < bound } else sel.filter { it.dueDate != null && it.dueDate!! > bound }
+                        }
+                        list(sel.toList())
+                    }
+                }
+                "notes" -> {
+                    val (flags, kv, _) = parseQ(arg)
+                    var sel = notes.asSequence().filter { !it.trashed && !it.archived && (it.sealedUntil == null || it.sealedUntil!! <= System.currentTimeMillis()) }
+                    kv["tag"]?.let { name -> val id = tagsByName[name.lowercase()]?.id; val ids = tagRefs.filter { it.tagId == id }.mapTo(HashSet()) { it.noteId }; sel = sel.filter { it.id in ids } }
+                    kv["context"]?.let { name -> val id = ctxByName[name.lowercase()]?.id; val ids = ctxRefs.filter { it.contextId == id }.mapTo(HashSet()) { it.noteId }; sel = sel.filter { it.id in ids } }
+                    kv["kind"]?.let { k -> sel = sel.filter { it.kind.equals(k, true) } }
+                    kv["contains"]?.let { s -> sel = sel.filter { it.title.contains(s, true) || it.body.contains(s, true) } }
+                    val hit = sel.sortedByDescending { it.updatedAt }.let { if (flags.isEmpty() && kv.isEmpty()) it.take(10) else it.take(40) }.toList()
+                    if (hit.isEmpty()) "_No notes_" else hit.joinToString("\n") { "- [[${it.title.ifBlank { "Untitled" }}]]" }
+                }
+                "time" -> {
+                    val (flags, kv, _) = parseQ(arg)
+                    val nowMs = System.currentTimeMillis()
+                    val days = when { "month" in flags -> 30L; "week" in flags -> 7L; else -> 1L }
+                    val windowStart = todayStart - (days - 1) * 86_400_000L
+                    var entries = timeEntries.value.asSequence().filter { it.startMillis >= windowStart }
+                    kv["activity"]?.let { name -> val id = timeActivities.value.firstOrNull { it.name.equals(name, true) }?.id; entries = entries.filter { it.activityId == id } }
+                    val es = entries.toList()
+                    val total = es.sumOf { it.minutes(nowMs) }
+                    if (total <= 0) "_No time tracked_" else buildString {
+                        val range = when { days == 30L -> "last 30 days"; days == 7L -> "last 7 days"; else -> "today" }
+                        append("**${total / 60}h ${total % 60}m** tracked ($range)\n")
+                        val actName = timeActivities.value.associate { it.id to it.name }
+                        es.groupBy { it.activityId }.mapValues { it.value.sumOf { e -> e.minutes(nowMs) } }
+                            .entries.sortedByDescending { it.value }.take(6)
+                            .forEach { (aid, min) -> append("- ${actName[aid] ?: "Untracked"}: ${min / 60}h ${min % 60}m\n") }
+                    }
                 }
                 "today" -> if (arg.isEmpty() || arg == "agenda")
                     list(open.filter { it.dueDate != null && it.dueDate!! < todayEnd }) else null
@@ -727,16 +791,35 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         onOpen(existing?.id ?: repo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(id = "", title = t, workspaceId = ws)))
     }
 
-    /** Turn each unchecked "- [ ]" line in a note into a real Inbox task; reports how many were created. */
+    /** Turn each unchecked "- [ ]" line in a note into a real Inbox task; reports how many were created.
+     *  L5 — each extracted line is then *bound* to its new task by rewriting it to `- [ ] [[Task title]]`,
+     *  so from then on ticking it in the note completes the task and vice-versa (Shared Checkboxes). */
     fun extractNoteCheckboxes(noteId: String, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
         val n = repo.getNote(noteId) ?: return@launch
-        val items = com.todocompanion.app.domain.NoteLinks.uncheckedCheckboxes(n.body)
         // Wave J (M2) — a meeting/event-linked note's action items become tasks due at the event's start,
         // so the checkboxes you jot in a meeting land on your list dated to the meeting itself.
         val due = n.linkedEventId?.let { repo.eventById(it)?.startMillis }
-        items.forEach { repo.createTask(com.todocompanion.app.data.entity.ListEntity.INBOX_ID, it, dueDate = due) }
-        onDone(items.size)
+        val boxRe = Regex("""^(\s*[-*+]\s+\[ ]\s+)(.*\S)\s*$""")
+        val lines = n.body.split("\n")
+        val bindText = HashMap<Int, String>()   // line index → task title to create + bind
+        lines.forEachIndexed { i, line ->
+            boxRe.matchEntire(line)?.let { m ->
+                val t = m.groupValues[2].trim()
+                if (t.isNotBlank() && !t.contains("[[")) bindText[i] = t   // skip lines already bound
+            }
+        }
+        bindText.values.forEach { repo.createTask(com.todocompanion.app.data.entity.ListEntity.INBOX_ID, it, dueDate = due) }
+        if (bindText.isNotEmpty()) {
+            val newBody = lines.mapIndexed { i, line ->
+                bindText[i]?.let { t -> boxRe.matchEntire(line)!!.groupValues[1] + "[[$t]]" } ?: line
+            }.joinToString("\n")
+            repo.upsertNote(n.copy(body = newBody))
+        }
+        onDone(bindText.size)
     }
+
+    /** L5 — pull a note's bound checkbox lines into line with their tasks' live state (called on open). */
+    fun reconcileNoteCheckboxes(noteId: String) = viewModelScope.launch { repo.reconcileNoteCheckboxesFromTasks(noteId) }
 
     /**
      * R43 — save a full life-event / occasion (birthday, anniversary, memorial, name day, holiday or a
