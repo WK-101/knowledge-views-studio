@@ -81,6 +81,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -645,7 +646,8 @@ private fun NoteCard(
                         Spacer(Modifier.width(4.dp))
                     }
                     if (!selecting) {
-                        IconButton(onClick = { haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress); onTogglePin() }, modifier = Modifier.size(28.dp)) {
+                        // 28dp visual, but a 48dp touch target (minimumInteractiveComponentSize) for a11y.
+                        IconButton(onClick = { haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress); onTogglePin() }, modifier = Modifier.minimumInteractiveComponentSize().size(28.dp)) {
                             Icon(
                                 if (n.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
                                 contentDescription = if (n.pinned) "Unpin" else "Pin",
@@ -677,7 +679,7 @@ private fun NoteCard(
 @Composable
 private fun ToolbarPill(label: String, leadingIcon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    Surface(shape = RoundedCornerShape(10.dp), color = cs.surfaceVariant.copy(alpha = .6f), onClick = onClick) {
+    Surface(shape = NotesTokens.Pill, color = cs.surfaceVariant.copy(alpha = .6f), onClick = onClick) {
         Row(Modifier.padding(start = if (leadingIcon != null) 8.dp else 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             if (leadingIcon != null) { Icon(leadingIcon, null, Modifier.size(17.dp), tint = cs.onSurfaceVariant); Spacer(Modifier.width(5.dp)) }
             Text(label, style = MaterialTheme.typography.labelLarge, color = cs.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)

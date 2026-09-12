@@ -289,17 +289,17 @@ fun NoteEditorScreen(
                     if (reminderLabel != null) MetaPill("⏰ $reminderLabel" + if (d.reminderRrule != null) " ↻" else "") { showReminder = true }
                     if (sealedLabel != null) MetaPill("🔒 Sealed until $sealedLabel")
                     tags.filter { it.id in myTagIds }.forEach { t ->
-                        Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.secondaryContainer,
+                        Surface(shape = NotesTokens.Pill, color = MaterialTheme.colorScheme.secondaryContainer,
                             modifier = Modifier.align(Alignment.CenterVertically)) {
-                            Row(Modifier.clickable { showTags = true }.padding(start = 8.dp, end = 4.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.clickable(onClickLabel = "Edit tags", role = androidx.compose.ui.semantics.Role.Button) { showTags = true }.padding(start = 8.dp, end = 4.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text("#${t.name}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                                Icon(Icons.Filled.Close, "Remove tag", modifier = Modifier.size(14.dp).padding(start = 2.dp).clickable { vm.setNoteTags(noteId, (myTagIds - t.id).toList()) })
+                                Icon(Icons.Filled.Close, "Remove tag ${t.name}", modifier = Modifier.size(18.dp).clip(CircleShape).clickable(onClickLabel = "Remove tag", role = androidx.compose.ui.semantics.Role.Button) { vm.setNoteTags(noteId, (myTagIds - t.id).toList()) }.padding(2.dp))
                             }
                         }
                     }
                     // "＋" tag adder — labelled "Add tag" while the note has none, a compact "＋" once it has some.
-                    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f),
-                        modifier = Modifier.align(Alignment.CenterVertically).clickable { showTags = true }) {
+                    Surface(shape = NotesTokens.Pill, color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f),
+                        modifier = Modifier.align(Alignment.CenterVertically).clickable(onClickLabel = "Add tag", role = androidx.compose.ui.semantics.Role.Button) { showTags = true }) {
                         Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.Add, "Add tag", modifier = Modifier.size(15.dp), tint = MaterialTheme.colorScheme.primary)
                             if (myTagIds.isEmpty()) { Spacer(Modifier.width(2.dp)); Text("Add tag", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary) }
@@ -307,9 +307,9 @@ fun NoteEditorScreen(
                     }
                     // Notebook / folder pill — shows the container name when set, else "＋ Notebook/Folder". Tap picks one.
                     val hasContainer = if (useNotebooks) d.notebookId != null else d.folderId != null
-                    Surface(shape = RoundedCornerShape(8.dp),
+                    Surface(shape = NotesTokens.Pill,
                         color = if (hasContainer) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f),
-                        modifier = Modifier.align(Alignment.CenterVertically).clickable { showContainer = true }) {
+                        modifier = Modifier.align(Alignment.CenterVertically).clickable(onClickLabel = if (useNotebooks) "Choose notebook" else "Choose folder", role = androidx.compose.ui.semantics.Role.Button) { showContainer = true }) {
                         Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.Book, null, modifier = Modifier.size(14.dp),
                                 tint = if (hasContainer) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.primary)
@@ -519,7 +519,7 @@ fun NoteEditorScreen(
                     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
                         rowTiles.forEach { t ->
                             Column(
-                                Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).clickable { t.onClick() }.padding(vertical = 10.dp),
+                                Modifier.weight(1f).clip(NotesTokens.Card).clickable { t.onClick() }.padding(vertical = 10.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
                                 Icon(
@@ -623,11 +623,12 @@ fun NoteEditorScreen(
                                         .padding(vertical = 12.dp, horizontal = 4.dp),
                                     color = if (d.notebookId == nb.id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                 )
-                                IconButton(onClick = { renameNotebook = nb }, modifier = Modifier.size(36.dp)) {
-                                    Icon(Icons.Filled.Edit, "Rename notebook", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                // Default IconButton size (48dp) keeps these at the a11y minimum touch target.
+                                IconButton(onClick = { renameNotebook = nb }) {
+                                    Icon(Icons.Filled.Edit, "Rename notebook ${nb.name}", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                IconButton(onClick = { deleteNotebookAsk = nb }, modifier = Modifier.size(36.dp)) {
-                                    Icon(Icons.Filled.Delete, "Delete notebook", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                IconButton(onClick = { deleteNotebookAsk = nb }) {
+                                    Icon(Icons.Filled.Delete, "Delete notebook ${nb.name}", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -805,9 +806,10 @@ fun NoteEditorScreen(
 private fun androidx.compose.foundation.layout.FlowRowScope.MetaPill(label: String, onClick: (() -> Unit)? = null) {
     val cs = MaterialTheme.colorScheme
     Surface(
-        shape = RoundedCornerShape(8.dp),
+        shape = NotesTokens.Pill,
         color = cs.secondaryContainer.copy(alpha = .7f),
-        modifier = Modifier.align(Alignment.CenterVertically).let { if (onClick != null) it.clickable { onClick() } else it },
+        modifier = Modifier.align(Alignment.CenterVertically)
+            .let { if (onClick != null) it.clickable(onClickLabel = label, role = androidx.compose.ui.semantics.Role.Button) { onClick() } else it },
     ) {
         Text(
             label, style = MaterialTheme.typography.labelMedium, color = cs.onSecondaryContainer, maxLines = 1,
@@ -820,7 +822,7 @@ private fun androidx.compose.foundation.layout.FlowRowScope.MetaPill(label: Stri
 @Composable
 private fun DateEditRow(label: String, value: String, onEdit: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(onClick = onEdit).padding(vertical = 6.dp, horizontal = 4.dp),
+        Modifier.fillMaxWidth().clip(NotesTokens.Pill).clickable(onClick = onEdit).padding(vertical = 6.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))

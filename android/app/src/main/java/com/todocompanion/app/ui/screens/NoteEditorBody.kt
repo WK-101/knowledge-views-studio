@@ -336,7 +336,7 @@ private fun HeadingMenu(level: Int, onPick: (Int) -> Unit) {
     Box {
         Surface(
             onClick = { open = true },
-            shape = RoundedCornerShape(9.dp),
+            shape = NotesTokens.Pill,
             color = if (level in 1..6) cs.secondaryContainer else cs.surfaceVariant.copy(alpha = .5f),
             modifier = Modifier.height(38.dp),
         ) {
@@ -373,7 +373,7 @@ private fun HeadingMenu(level: Int, onPick: (Int) -> Unit) {
 @Composable
 private fun SizeStepper(px: Int, onStep: (Int) -> Unit) {
     val cs = MaterialTheme.colorScheme
-    Surface(shape = RoundedCornerShape(9.dp), color = cs.surfaceVariant.copy(alpha = .5f), modifier = Modifier.height(38.dp)) {
+    Surface(shape = NotesTokens.Pill, color = cs.surfaceVariant.copy(alpha = .5f), modifier = Modifier.height(38.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { onStep(-1) }, modifier = Modifier.size(38.dp)) {
                 Icon(Icons.Filled.Remove, "Smaller text", Modifier.size(19.dp), tint = cs.onSurface)
@@ -396,7 +396,7 @@ private fun QuickInsertBar(commands: List<NoteEditing.QuickCommand>, onPick: (No
         items(commands, key = { it.id }) { cmd ->
             Surface(
                 onClick = { onPick(cmd) },
-                shape = RoundedCornerShape(9.dp),
+                shape = NotesTokens.Pill,
                 color = MaterialTheme.colorScheme.secondaryContainer,
                 modifier = Modifier.height(34.dp),
             ) {
@@ -420,7 +420,7 @@ private fun TokenBar(labels: List<String>, values: List<String>, onPick: (String
         items(labels.indices.toList(), key = { it }) { i ->
             Surface(
                 onClick = { onPick(values[i]) },
-                shape = RoundedCornerShape(9.dp),
+                shape = NotesTokens.Pill,
                 color = MaterialTheme.colorScheme.secondaryContainer,
                 modifier = Modifier.height(34.dp),
             ) {
@@ -509,7 +509,7 @@ private fun TableCell(value: String, header: Boolean = false, onChange: (String)
 
 @Composable
 private fun MiniBtn(label: String, onClick: () -> Unit) {
-    Surface(onClick = onClick, shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.height(36.dp)) {
+    Surface(onClick = onClick, shape = NotesTokens.Pill, color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.height(36.dp)) {
         Box(Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
             Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
         }
@@ -632,7 +632,7 @@ fun RelatedNotesDialog(hits: List<com.todocompanion.app.domain.NoteRelated.Hit>,
 fun NotePropertyChips(props: Map<String, String>) {
     LazyRow(Modifier.fillMaxWidth().padding(bottom = 6.dp, end = 36.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         items(props.entries.toList(), key = { it.key }) { (k, v) ->
-            Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f)) {
+            Surface(shape = NotesTokens.Pill, color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f)) {
                 Row(Modifier.padding(horizontal = 9.dp, vertical = 4.dp)) {
                     Text("$k ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     Text(v.ifBlank { "—" }, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
@@ -900,7 +900,7 @@ fun NoteReminderDialog(
                         Text("Add a time", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
                             items(presets, key = { it.first }) { (label, at) ->
-                                Surface(onClick = { addTime(at) }, shape = RoundedCornerShape(9.dp),
+                                Surface(onClick = { addTime(at) }, shape = NotesTokens.Pill,
                                     color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.height(34.dp)) {
                                     Box(Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
                                         Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
