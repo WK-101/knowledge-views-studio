@@ -768,21 +768,30 @@ class AppRepository(private val db: AppDatabase) {
     /** Create (or update) a note, stamping timestamps + sort order, and keep the FTS index fresh. */
     suspend fun upsertNote(n: com.todocompanion.app.data.entity.NoteEntity): String {
         val id = n.id.ifBlank { uid() }
+        // L11 — a vaulted note's body is a ciphertext envelope (the VM encrypts before calling here). It must
+        // never be scanned as plaintext: no derived preview, no tag/context/link materialization, no FTS.
+        val vaulted = n.vault && com.todocompanion.app.domain.NoteVault.isLocked(n.body)
         val stamped = n.copy(
             id = id,
             sortOrder = if (n.sortOrder == 0.0) now().toDouble() else n.sortOrder,
             createdAt = if (n.createdAt == 0L) now() else n.createdAt,
             updatedAt = now(),
             // P7 — materialize the card's derived render data so the home list reads columns, not regex.
-            preview = com.todocompanion.app.domain.NoteDerived.preview(n.body),
-            hasOpen = com.todocompanion.app.domain.NoteDerived.hasOpenItems(n.body),
+            preview = if (vaulted) "🔒 Locked" else com.todocompanion.app.domain.NoteDerived.preview(n.body),
+            hasOpen = if (vaulted) false else com.todocompanion.app.domain.NoteDerived.hasOpenItems(n.body),
         )
         notes.upsert(stamped)
-        materializeNoteTags(id)      // inline body #tags → structured note_tags (before FTS so tag names index)
-        materializeNoteContexts(id)  // L2 — inline body @contexts → structured note_contexts (first-class, like tags)
-        materializeNoteLinks(id)
-        syncBoundCheckboxTasks(id)   // L5 — a ticked "- [ ] [[Task]]" line completes the task it's bound to
-        reindexNoteFts(stamped)
+        if (vaulted) {
+            // Purge any structured trace from a prior plaintext save, and keep the note out of search.
+            notes.unlinkAllTagsForNote(id); notes.unlinkAllContextsForNote(id); noteLinks.clearForNote(id)
+            runCatching { deleteNoteFts(ftsDb(), id) }
+        } else {
+            materializeNoteTags(id)      // inline body #tags → structured note_tags (before FTS so tag names index)
+            materializeNoteContexts(id)  // L2 — inline body @contexts → structured note_contexts (first-class, like tags)
+            materializeNoteLinks(id)
+            syncBoundCheckboxTasks(id)   // L5 — a ticked "- [ ] [[Task]]" line completes the task it's bound to
+            reindexNoteFts(stamped)
+        }
         return id
     }
 

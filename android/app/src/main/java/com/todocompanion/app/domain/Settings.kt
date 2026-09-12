@@ -223,6 +223,10 @@ data class AppSettings(
     val syncPassphrase: String = "",
     // Human-readable summary of the last sync ("Synced · 3 updated from Tablet") — G2.
     val lastSyncSummary: String = "",
+    // L11 — Vault: a PortableCrypto envelope of a known token, encrypted with the user's vault passphrase.
+    // It stores no key — it only lets us VERIFY an entered passphrase (decrypts to the token) without ever
+    // persisting the passphrase itself. Blank = the vault has not been set up.
+    val notesVaultCheck: String = "",
     // First-run onboarding shown (Tier F1).
     val onboarded: Boolean = false,
     // Curated theme-pack id ("" = none / use dynamic-or-accent). See ThemePrefs.
@@ -589,6 +593,7 @@ data class AppSettings(
         Keys.DEVICE_ID to deviceId,
         Keys.LAST_SYNC to lastSyncAt.toString(),
         Keys.SYNC_PASS to syncPassphrase,
+        Keys.NOTES_VAULT_CHECK to notesVaultCheck,
         Keys.LAST_SYNC_SUMMARY to lastSyncSummary,
         Keys.ONBOARDED to onboarded.toString(),
         Keys.THEME_PACK to themePack,
@@ -797,6 +802,7 @@ data class AppSettings(
         const val DEVICE_ID = "device_id"
         const val LAST_SYNC = "last_sync"
         const val SYNC_PASS = "sync_pass"
+        const val NOTES_VAULT_CHECK = "notes_vault_check"
         const val LAST_SYNC_SUMMARY = "last_sync_summary"
         const val ONBOARDED = "onboarded"
         const val THEME_PACK = "theme_pack"
@@ -1084,6 +1090,7 @@ data class AppSettings(
             deviceId = m[Keys.DEVICE_ID] ?: "",
             lastSyncAt = m[Keys.LAST_SYNC]?.toLongOrNull() ?: 0L,
             syncPassphrase = m[Keys.SYNC_PASS] ?: "",
+            notesVaultCheck = m[Keys.NOTES_VAULT_CHECK] ?: "",
             lastSyncSummary = m[Keys.LAST_SYNC_SUMMARY] ?: "",
             onboarded = m[Keys.ONBOARDED]?.toBooleanStrictOrNull() ?: false,
             themePack = m[Keys.THEME_PACK] ?: "",

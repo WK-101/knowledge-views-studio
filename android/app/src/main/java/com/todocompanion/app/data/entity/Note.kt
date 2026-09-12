@@ -80,6 +80,11 @@ data class NoteEntity(
     // the body per note. [preview] is a plain-prose snippet; [hasOpen] flags an unchecked `- [ ]` item.
     val preview: String = "",
     val hasOpen: Boolean = false,
+    // L11 (v76): the note is in the Vault — its [body] is stored as a PortableCrypto envelope (AES-GCM,
+    // passphrase-derived), so it's ciphertext at rest AND in backups/.md exports, decryptable only with the
+    // vault passphrase (portable — survives a device change, unlike the KeyStore-bound DB key). A vaulted
+    // note is excluded from FTS, tag/context/link materialization, and every plaintext egress.
+    val vault: Boolean = false,
 )
 
 /** Wave O — a note sealed until a future date is hidden from the list AND kept out of every plaintext

@@ -153,13 +153,28 @@ fun NoteEditorScreen(
         com.todocompanion.app.domain.NoteAppearance.NoteType(settings.notesFont, settings.notesFontScale, settings.notesLineHeight, settings.notesMeasure)
     }
 
+    // L11 — Vault: a vaulted note's stored body is ciphertext; decrypt it for editing once unlocked, and
+    // re-key the draft the moment the session unlocks so we never render or edit the raw envelope.
+    val vaultUnlocked by vm.vaultUnlocked.collectAsState()
+    var vaultDialog by remember(noteId) { mutableStateOf(false) }
     var draft by remember(noteId) { mutableStateOf<NoteEntity?>(null) }
-    androidx.compose.runtime.LaunchedEffect(note?.id) { if (draft == null && note != null) draft = note }
+    androidx.compose.runtime.LaunchedEffect(note?.id, vaultUnlocked) {
+        val nn = note ?: return@LaunchedEffect
+        if (draft == null) draft = if (nn.vault && vaultUnlocked) nn.copy(body = vm.decryptNoteBody(nn)) else nn
+        else if (nn.vault && vaultUnlocked && com.todocompanion.app.domain.NoteVault.isLocked(draft!!.body)) draft = nn.copy(body = vm.decryptNoteBody(nn))
+    }
     // L5 — Shared Checkboxes (pull): on open, bring bound "- [ ] [[Task]]" lines into line with the live
     // task state, so completing a task elsewhere shows here. Runs once per note open, before the draft edits.
     androidx.compose.runtime.LaunchedEffect(noteId) { vm.reconcileNoteCheckboxes(noteId) }
+    // L11 — a locked vault note stays sealed until the session is unlocked: never show the ciphertext body.
+    if (note?.vault == true && !vaultUnlocked) {
+        VaultLockedPane(vm = vm, title = note.title, onBack = onBack)
+        return
+    }
     val d = draft
     if (d == null) { Box(Modifier.fillMaxSize()) {}; return }
+    // L11 — set up or unlock the Vault, then mark this note vaulted on success.
+    if (vaultDialog) VaultUnlockDialog(vm = vm, onReady = { draft = draft?.copy(vault = true); vaultDialog = false }, onDismiss = { vaultDialog = false })
 
     // Wave O — a sealed note gets screenshot / recents-thumbnail protection while open, regardless of the
     // app-wide secure-screen setting (restored to that setting on leave).
@@ -291,7 +306,8 @@ fun NoteEditorScreen(
                     if (d.linkedEventId != null) MetaPill("📅 Meeting")
                     if (d.linkedTaskId != null) MetaPill("🔗 Task") { onOpenTask(d.linkedTaskId!!) }
                     if (reminderLabel != null) MetaPill("⏰ $reminderLabel" + if (d.reminderRrule != null) " ↻" else "") { sheet = NoteSheet.Reminder }
-                    if (sealedLabel != null) MetaPill("🔒 Sealed until $sealedLabel")
+                    if (sealedLabel != null) MetaPill("🔒 Reveals $sealedLabel")
+                    if (d.vault) MetaPill("🔐 Vault")
                     tags.filter { it.id in myTagIds }.forEach { t ->
                         Surface(shape = NotesTokens.Pill, color = MaterialTheme.colorScheme.secondaryContainer,
                             modifier = Modifier.align(Alignment.CenterVertically)) {
@@ -513,8 +529,18 @@ fun NoteEditorScreen(
             if (d.kind == "journal" && d.dayEpoch != null) add(PTile(Icons.Filled.Autorenew, "Insert digest") {
                 menu = false; scope.launch { val md = vm.dayDigestMarkdown(d.dayEpoch!!); persist(d.copy(body = md + "\n" + d.body)) }
             })
-            add(PTile(if (sealed) Icons.Filled.LockOpen else Icons.Filled.Lock, if (sealed) "Unseal" else "Seal") {
+            add(PTile(if (sealed) Icons.Filled.LockOpen else Icons.Filled.Lock, if (sealed) "Unschedule reveal" else "Schedule reveal") {
                 if (sealed) { vm.unsealNote(noteId); draft = d.copy(sealedUntil = null, reminderAt = null) } else { menu = false; sheet = NoteSheet.Seal }
+            })
+            // L11 — Vault: real encryption at rest (portable, passphrase-derived), distinct from the
+            // time-lock "Schedule reveal". Enabling needs the vault set up + unlocked this session.
+            add(PTile(if (d.vault) Icons.Filled.LockOpen else Icons.Filled.Lock, if (d.vault) "Remove from Vault" else "Move to Vault") {
+                menu = false
+                when {
+                    d.vault -> draft = d.copy(vault = false)                 // body already decrypted in the editor
+                    vm.vaultConfigured() && vaultUnlocked -> draft = d.copy(vault = true)
+                    else -> vaultDialog = true                               // set up / unlock, then flag on success
+                }
             })
             // Toggle, not one-way: an archived note opened from the Archive filter must be able to come
             // back out — matching how lists/folders/countdowns expose Unarchive.

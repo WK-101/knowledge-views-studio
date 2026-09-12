@@ -266,7 +266,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Persist an edited note; stamps the active workspace if the row arrives without one. */
     fun saveNote(n: com.todocompanion.app.data.entity.NoteEntity) = viewModelScope.launch {
-        repo.upsertNote(n.copy(workspaceId = n.workspaceId.ifBlank { activeWorkspace() }))
+        // L11 — encrypt a vaulted note's body before it reaches the DB (no-op if already ciphertext / not vaulted).
+        repo.upsertNote(sealForVault(n.copy(workspaceId = n.workspaceId.ifBlank { activeWorkspace() })))
     }
     fun trashNote(id: String) = viewModelScope.launch {
         val prev = repo.getNote(id)   // exact pre-trash snapshot for a full undo
@@ -701,9 +702,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Save the note and capture a version snapshot in one ordered coroutine (used on editor close). */
+    /** Save the note and capture a version snapshot in one ordered coroutine (used on editor close).
+     *  L11 — a vaulted note is encrypted (sealForVault) before it ever reaches the DB. */
     fun closeNoteEditor(n: com.todocompanion.app.data.entity.NoteEntity) = viewModelScope.launch {
-        repo.upsertNote(n.copy(workspaceId = n.workspaceId.ifBlank { activeWorkspace() }))
+        repo.upsertNote(sealForVault(n.copy(workspaceId = n.workspaceId.ifBlank { activeWorkspace() })))
         repo.saveNoteRevision(n.id, settings.value.notesMaxRevisions)
     }
 
@@ -880,6 +882,48 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** L6 — start a time-tracking session against this note (Work-on-this-note), on the "Notes" activity. */
     fun startTimeTrackingForNote(noteId: String) = viewModelScope.launch { repo.startTimeTrackingForNote(noteId) }
+
+    // ── L11 — Vault: real, portable, passphrase-based encryption for a note's body at rest ────────────
+    // The passphrase lives only in memory for the session; it is never persisted. A note stays vaulted
+    // (ciphertext) until unlocked; the editor decrypts for editing and re-encrypts on save.
+    @Volatile private var vaultPass: CharArray? = null
+    val vaultUnlocked = MutableStateFlow(false)
+
+    /** True once the user has chosen a vault passphrase (a verifier is stored). */
+    fun vaultConfigured(): Boolean = settings.value.notesVaultCheck.isNotBlank()
+
+    /** First-time setup: choose the vault passphrase and store only a verifier (never the passphrase). */
+    fun setUpVault(pass: String) = viewModelScope.launch {
+        if (pass.isBlank()) return@launch
+        repo.saveSettings(settings.value.copy(notesVaultCheck = com.todocompanion.app.domain.NoteVault.makeCheck(pass.toCharArray())))
+        vaultPass = pass.toCharArray(); vaultUnlocked.value = true
+    }
+
+    /** Unlock the vault for this session; true if the passphrase is correct. */
+    fun unlockVault(pass: String): Boolean {
+        val ok = com.todocompanion.app.domain.NoteVault.verify(settings.value.notesVaultCheck, pass.toCharArray())
+        if (ok) { vaultPass = pass.toCharArray(); vaultUnlocked.value = true }
+        return ok
+    }
+
+    /** Re-lock the vault (clears the in-memory passphrase). */
+    fun lockVault() { vaultPass = null; vaultUnlocked.value = false }
+
+    /** Decrypt a vaulted note's body for display/editing; returns the body unchanged when not vaulted or
+     *  when locked and un-unlockable (never throws). */
+    fun decryptNoteBody(n: com.todocompanion.app.data.entity.NoteEntity): String {
+        val p = vaultPass
+        return if (n.vault && com.todocompanion.app.domain.NoteVault.isLocked(n.body) && p != null)
+            com.todocompanion.app.domain.NoteVault.unlock(n.body, p) ?: n.body else n.body
+    }
+
+    /** Encrypt a note's plaintext body if it is vaulted and unlocked; leaves an already-encrypted body
+     *  untouched (so a list-level toggle on a locked note never double-encrypts). */
+    private fun sealForVault(n: com.todocompanion.app.data.entity.NoteEntity): com.todocompanion.app.data.entity.NoteEntity {
+        val p = vaultPass
+        return if (n.vault && p != null && !com.todocompanion.app.domain.NoteVault.isLocked(n.body))
+            n.copy(body = com.todocompanion.app.domain.NoteVault.lock(n.body, p)) else n
+    }
 
     /**
      * R43 — save a full life-event / occasion (birthday, anniversary, memorial, name day, holiday or a
