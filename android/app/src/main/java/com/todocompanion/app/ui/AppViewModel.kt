@@ -655,6 +655,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setNoteDefaultView(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(noteDefaultView = v)) }
+    // Custom note templates (user-created) — stored as JSON in settings; sit beside the built-in starters.
+    fun saveNoteTemplate(name: String, emoji: String, body: String) = viewModelScope.launch {
+        val list = com.todocompanion.app.domain.NoteTemplates.parseCustom(settings.value.notesTemplatesJson) +
+            com.todocompanion.app.domain.NoteTemplates.newCustom(name, emoji, body)
+        repo.saveSettings(settings.value.copy(notesTemplatesJson = com.todocompanion.app.domain.NoteTemplates.encodeCustom(list)))
+    }
+    fun deleteNoteTemplate(id: String) = viewModelScope.launch {
+        val list = com.todocompanion.app.domain.NoteTemplates.parseCustom(settings.value.notesTemplatesJson).filterNot { it.id == id }
+        repo.saveSettings(settings.value.copy(notesTemplatesJson = com.todocompanion.app.domain.NoteTemplates.encodeCustom(list)))
+    }
     fun setNotesSort(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesSort = v)) }
     fun setNotesNotebookMode(mode: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesNotebookMode = mode)) }
     // Wave Q — the reading experience: live-styling, reading theme, and typography setters.

@@ -131,6 +131,7 @@ fun NotesScreen(
     query: String = "",
     onQueryChange: (String) -> Unit = {},
     searchOpen: Boolean = false,
+    onOpenGraph: () -> Unit = {},
 ) {
     val settings by vm.settings.collectAsState()
     val notes by vm.notes.collectAsState()
@@ -154,7 +155,6 @@ fun NotesScreen(
     var activeLabel by remember { mutableStateOf<String?>(null) }
     var showBuilder by remember { mutableStateOf(false) }
     var deleteView by remember { mutableStateOf<com.todocompanion.app.data.entity.SmartViewEntity?>(null) }
-    var showGraph by remember { mutableStateOf(false) }
     var showWrapped by remember { mutableStateOf(false) }   // Wave V — Notes Wrapped recap
     // Multi-select (NotesNook-style) + sort.
     var selection by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -218,11 +218,8 @@ fun NotesScreen(
         .toList()
     }
 
-    // Wave E — the Life Graph opens as a full-screen overlay (early return keeps it simple, no nav change).
-    if (showGraph) {
-        NoteGraphScreen(vm, onOpenNote = { showGraph = false; onOpenNote(it) }, onClose = { showGraph = false })
-        return
-    }
+    // Wave E — the Life Graph opens as a top-level overlay hoisted to AppRoot (same pattern as the note
+    // editor), so it covers the app chrome and shows a single header — not the notes top bar + its own.
 
     // The app's shared top bar owns the title ("Notes"), the grid/list toggle and the search button
     // (wired in AppRoot) — so this screen renders content only, matching every other module's tab.
@@ -307,7 +304,8 @@ fun NotesScreen(
                 else -> "All notes"
             }
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                // Tight against the app bar above and the note list below — no dead band around the toolbar.
+                Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 2.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -371,7 +369,7 @@ fun NotesScreen(
                         }
                         HorizontalDivider()
                         DropdownMenuItem(text = { Text("＋ Smart View") }, onClick = { filterMenu = false; showBuilder = true })
-                        DropdownMenuItem(text = { Text("◉ Graph") }, onClick = { filterMenu = false; showGraph = true })
+                        DropdownMenuItem(text = { Text("◉ Graph") }, onClick = { filterMenu = false; onOpenGraph() })
                         DropdownMenuItem(text = { Text("✨ Wrapped") }, onClick = { filterMenu = false; showWrapped = true })
                     }
                 }
@@ -451,7 +449,7 @@ fun NotesScreen(
                 else -> if (grid) {
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(168.dp),
-                        contentPadding = PaddingValues(12.dp),
+                        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.fillMaxSize(),
@@ -468,7 +466,7 @@ fun NotesScreen(
                     }
                 } else {
                     LazyColumn(
-                        contentPadding = PaddingValues(12.dp),
+                        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {

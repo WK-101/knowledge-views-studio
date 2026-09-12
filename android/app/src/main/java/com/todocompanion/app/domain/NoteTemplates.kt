@@ -1,5 +1,8 @@
 package com.todocompanion.app.domain
 
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+
 /**
  * Wave U — cross-module note templates: the fusion move only a whole-life app can make. Each template is
  * a note scaffold that pulls the rest of the app in *live* — frontmatter [properties][NoteProperties]
@@ -12,7 +15,27 @@ package com.todocompanion.app.domain
  * live {{…}} tokens are intentionally left for the read view to expand.
  */
 object NoteTemplates {
-    data class Template(val id: String, val name: String, val emoji: String, val titleHint: String, val body: String)
+    @kotlinx.serialization.Serializable
+    data class Template(
+        val id: String, val name: String, val emoji: String, val titleHint: String, val body: String,
+        val custom: Boolean = false,   // true = user-created (deletable), false = built-in starter
+    )
+
+    // ── Custom (user-created) templates: stored as a JSON array in settings.notesTemplatesJson ──
+    private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+    /** Decode the user's saved templates (always flagged custom = true). Empty/garbage → no templates. */
+    fun parseCustom(s: String): List<Template> =
+        if (s.isBlank()) emptyList()
+        else runCatching { json.decodeFromString<List<Template>>(s).map { it.copy(custom = true) } }.getOrDefault(emptyList())
+
+    fun encodeCustom(list: List<Template>): String = runCatching { json.encodeToString(list) }.getOrDefault("")
+
+    /** Build a new custom template from a name/emoji and the note body to reuse. Title hint is left blank
+     *  (the user names each new note themselves); the body is stored verbatim so its {{…}} tokens still live. */
+    fun newCustom(name: String, emoji: String, body: String): Template =
+        Template(id = java.util.UUID.randomUUID().toString(), name = name.trim().ifBlank { "My template" },
+            emoji = emoji.ifBlank { "📄" }, titleHint = "", body = body, custom = true)
 
     val ALL: List<Template> = listOf(
         Template(

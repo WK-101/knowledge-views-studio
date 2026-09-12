@@ -25,6 +25,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.FormatBold
@@ -49,6 +50,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -583,19 +585,78 @@ fun NoteWrappedDialog(stats: com.todocompanion.app.domain.NoteWrapped.Stats, onD
     )
 }
 
-/** Wave U — pick a cross-module template (a note scaffold that pulls tasks/events/habits in live). */
+/** Wave U — pick a cross-module template (a note scaffold that pulls tasks/events/habits in live), plus
+ *  the user's own saved templates. "Save current note as template" captures the open note's body so any
+ *  scaffold you build by hand becomes reusable; custom ones can be deleted here. */
 @Composable
-fun NoteTemplateDialog(onPick: (com.todocompanion.app.domain.NoteTemplates.Template) -> Unit, onDismiss: () -> Unit) {
+fun NoteTemplateDialog(
+    custom: List<com.todocompanion.app.domain.NoteTemplates.Template>,
+    onPick: (com.todocompanion.app.domain.NoteTemplates.Template) -> Unit,
+    onSaveCurrent: (name: String, emoji: String) -> Unit,
+    onDelete: (id: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var creating by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }
+    var emoji by remember { mutableStateOf("📄") }
+    val label = { text: String -> @Composable {
+        Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 10.dp, bottom = 2.dp))
+    } }
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Start from a template") },
+        confirmButton = {
+            if (creating) TextButton(enabled = name.isNotBlank(), onClick = { onSaveCurrent(name, emoji); onDismiss() }) { Text("Save") }
+            else TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        dismissButton = { if (creating) TextButton(onClick = { creating = false }) { Text("Back") } },
+        title = { Text(if (creating) "Save note as template" else "Templates") },
         text = {
-            LazyColumn(Modifier.heightIn(max = 380.dp)) {
-                items(com.todocompanion.app.domain.NoteTemplates.ALL, key = { it.id }) { t ->
-                    Row(Modifier.fillMaxWidth().clickable { onPick(t) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(t.emoji + "  ", style = MaterialTheme.typography.titleMedium)
-                        Text(t.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+            if (creating) {
+                Column {
+                    Text("This saves the current note's content as a reusable template.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(value = emoji, onValueChange = { emoji = it.take(2) }, singleLine = true,
+                            label = { Text("Icon") }, modifier = Modifier.width(88.dp))
+                        Spacer(Modifier.width(10.dp))
+                        OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true,
+                            label = { Text("Template name") }, modifier = Modifier.weight(1f))
+                    }
+                }
+            } else {
+                LazyColumn(Modifier.heightIn(max = 400.dp)) {
+                    if (custom.isNotEmpty()) {
+                        item { label("YOUR TEMPLATES")() }
+                        items(custom, key = { it.id }) { t ->
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Row(Modifier.weight(1f).clickable { onPick(t) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(t.emoji + "  ", style = MaterialTheme.typography.titleMedium)
+                                    Text(t.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                                }
+                                IconButton(onClick = { onDelete(t.id) }) {
+                                    androidx.compose.material3.Icon(Icons.Filled.Delete, "Delete template ${t.name}",
+                                        modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                        item { HorizontalDivider(Modifier.padding(vertical = 4.dp)) }
+                    }
+                    item { label("STARTER TEMPLATES")() }
+                    items(com.todocompanion.app.domain.NoteTemplates.ALL, key = { it.id }) { t ->
+                        Row(Modifier.fillMaxWidth().clickable { onPick(t) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(t.emoji + "  ", style = MaterialTheme.typography.titleMedium)
+                            Text(t.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                    item { HorizontalDivider(Modifier.padding(vertical = 4.dp)) }
+                    item {
+                        Row(Modifier.fillMaxWidth().clickable { name = ""; emoji = "📄"; creating = true }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            androidx.compose.material3.Icon(Icons.Filled.Add, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Save current note as template…", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 }
             }

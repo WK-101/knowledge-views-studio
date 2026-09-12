@@ -262,6 +262,9 @@ data class AppSettings(
     val notesLineHeight: String = "normal",    // compact | normal | relaxed
     val notesMeasure: Boolean = false,         // limit reading line width (measure)
     val notesFocusMode: Boolean = false,
+    // User-defined note templates, as a JSON array of {id,name,emoji,titleHint,body}. Sits beside the
+    // built-in starter templates in the picker; local + rides the settings backup.
+    val notesTemplatesJson: String = "",
     // Sidebar section keys currently collapsed (persisted so folds survive an app restart).
     val sidebarCollapsed: Set<String> = emptySet(),
     // Sidebar section keys the user has hidden entirely from the drawer.
@@ -509,6 +512,7 @@ data class AppSettings(
         Keys.NOTES_LINE_HEIGHT to notesLineHeight,
         Keys.NOTES_MEASURE to notesMeasure.toString(),
         Keys.NOTES_FOCUS_MODE to notesFocusMode.toString(),
+        Keys.NOTES_TEMPLATES_JSON to notesTemplatesJson,
         Keys.ONBOARDED_MODULES to onboardedModules.toString(),
         Keys.ACTIVE_WS to activeWorkspaceId,
         Keys.MX_IMP to matrixImportanceThreshold.toString(),
@@ -707,6 +711,7 @@ data class AppSettings(
         const val NOTES_LINE_HEIGHT = "notes_line_height"
         const val NOTES_MEASURE = "notes_measure"
         const val NOTES_FOCUS_MODE = "notes_focus_mode"
+        const val NOTES_TEMPLATES_JSON = "notes_templates_json"
         const val ONBOARDED_MODULES = "onboarded_modules"
         const val ACTIVE_WS = "active_ws"
         const val PRIO_MODE = "prio_mode"
@@ -940,6 +945,7 @@ data class AppSettings(
             notesLineHeight = m[Keys.NOTES_LINE_HEIGHT]?.takeIf { it.isNotBlank() } ?: "normal",
             notesMeasure = m[Keys.NOTES_MEASURE]?.toBooleanStrictOrNull() ?: false,
             notesFocusMode = m[Keys.NOTES_FOCUS_MODE]?.toBooleanStrictOrNull() ?: false,
+            notesTemplatesJson = m[Keys.NOTES_TEMPLATES_JSON] ?: "",
             onboardedModules = m[Keys.ONBOARDED_MODULES]?.toBooleanStrictOrNull() ?: false,
             activeWorkspaceId = m[Keys.ACTIVE_WS]?.ifBlank { "default" } ?: "default",
             matrixImportanceThreshold = m[Keys.MX_IMP]?.toIntOrNull() ?: 4,

@@ -361,6 +361,7 @@ fun AppRoot(
         }
         var editing by remember { mutableStateOf<String?>(null) }
         var editingNote by remember { mutableStateOf<String?>(null) }
+        var showNotesGraph by remember { mutableStateOf(false) }   // Life Graph — a top-level overlay (single header)
         var notesSearchOpen by remember { mutableStateOf(false) }
         var notesQuery by remember { mutableStateOf("") }
         var showQuickAdd by remember { mutableStateOf(false) }
@@ -1002,7 +1003,7 @@ fun AppRoot(
                                 onOpenEvent = { eid -> calEventAction = "open:$eid"; tab = Tab.CALENDAR },
                                 onOpenOccasion = openOccasion)
                             Tab.SETTINGS -> SettingsScreen(vm)
-          Tab.NOTES -> com.todocompanion.app.ui.screens.NotesScreen(vm, onOpenNote = ::openNote, query = notesQuery, onQueryChange = { notesQuery = it }, searchOpen = notesSearchOpen)
+          Tab.NOTES -> com.todocompanion.app.ui.screens.NotesScreen(vm, onOpenNote = ::openNote, query = notesQuery, onQueryChange = { notesQuery = it }, searchOpen = notesSearchOpen, onOpenGraph = { showNotesGraph = true })
                             Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it; if (settings.calendarRememberLast) vm.saveSettings(settings.copy(calendarDefaultMode = it)) },
                                 calAnchor, calSelected, { calAnchor = it }, { calSelected = it },
                                 onAddOnDate = { d ->
@@ -1049,6 +1050,10 @@ fun AppRoot(
         editingNote?.let { id -> com.todocompanion.app.ui.screens.NoteEditorScreen(vm, id,
             onBack = { editingNote = null }, onOpenTask = { tid -> editingNote = null; editing = tid },
             onOpenNote = { nid -> editingNote = nid }) }
+
+        // Life Graph — full-screen overlay above the app chrome (single header, like the note editor).
+        if (showNotesGraph) com.todocompanion.app.ui.screens.NoteGraphScreen(vm,
+            onOpenNote = { showNotesGraph = false; openNote(it) }, onClose = { showNotesGraph = false })
 
         // Habit analytics + editor: full-screen overlays (like the task editor) so each shows a single
         // top bar and Back returns to the Habits list, never the inbox.

@@ -764,12 +764,21 @@ fun NoteEditorScreen(
         }
         RelatedNotesDialog(hits, onOpen = { showRelated = false; onOpenNote(it) }, onDismiss = { showRelated = false })
     }
-    if (showTemplate) NoteTemplateDialog(onPick = { t ->
-        val (ti, b) = com.todocompanion.app.domain.NoteTemplates.apply(t)
-        // Fresh note → adopt the whole scaffold; existing note → append body only (skip its frontmatter).
-        val newBody = if (d.body.isBlank()) b else d.body.trimEnd() + "\n\n" + com.todocompanion.app.domain.NoteProperties.strip(b)
-        persist(d.copy(title = if (d.title.isBlank()) ti else d.title, body = newBody)); showTemplate = false
-    }, onDismiss = { showTemplate = false })
+    if (showTemplate) {
+        val customTemplates = remember(settings.notesTemplatesJson) { com.todocompanion.app.domain.NoteTemplates.parseCustom(settings.notesTemplatesJson) }
+        NoteTemplateDialog(
+            custom = customTemplates,
+            onPick = { t ->
+                val (ti, b) = com.todocompanion.app.domain.NoteTemplates.apply(t)
+                // Fresh note → adopt the whole scaffold; existing note → append body only (skip its frontmatter).
+                val newBody = if (d.body.isBlank()) b else d.body.trimEnd() + "\n\n" + com.todocompanion.app.domain.NoteProperties.strip(b)
+                persist(d.copy(title = if (d.title.isBlank()) ti else d.title, body = newBody)); showTemplate = false
+            },
+            onSaveCurrent = { name, emoji -> vm.saveNoteTemplate(name, emoji, d.body) },
+            onDelete = { vm.deleteNoteTemplate(it) },
+            onDismiss = { showTemplate = false },
+        )
+    }
     if (showReminder) NoteReminderDialog(
         current = d.reminderAt,
         currentRrule = d.reminderRrule,
