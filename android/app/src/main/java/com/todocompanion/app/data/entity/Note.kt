@@ -85,6 +85,21 @@ data class NoteEntity(
     // vault passphrase (portable — survives a device change, unlike the KeyStore-bound DB key). A vaulted
     // note is excluded from FTS, tag/context/link materialization, and every plaintext egress.
     val vault: Boolean = false,
+    // Wave 2 (v77) — cross-module note extensions, all permission-free and additive:
+    // • [reviewEvery]/[lastReviewedAt] — Evergreen Resurfacing: a spaced-review cadence (days; 0 = off)
+    //   the existing alarm engine uses to bring the note back deliberately (see domain/NoteReview).
+    // • [linkedHabitId] — Habit Practice Journal: the habit this note is the reflective log for.
+    // • [wordGoal] — Writing Sprints: a per-note word target celebrated when a focus sprint hits it.
+    // • [noBackup]/[noExport]/[noIndex] — Privacy Governance Dial: exclude this note from the JSON
+    //   backup, from .md export, and from Ask/related/FTS indexing respectively (controls only a
+    //   local, network-incapable app can actually honor).
+    val reviewEvery: Int = 0,
+    val lastReviewedAt: Long = 0L,
+    val linkedHabitId: String? = null,
+    val wordGoal: Int = 0,
+    val noBackup: Boolean = false,
+    val noExport: Boolean = false,
+    val noIndex: Boolean = false,
 )
 
 /** Wave O — a note sealed until a future date is hidden from the list AND kept out of every plaintext
@@ -167,6 +182,10 @@ data class NotebookEntity(
     val archived: Boolean = false,
     val workspaceId: String = WorkspaceEntity.DEFAULT_ID,
     val createdAt: Long = 0L,
+    // Wave 2 (v77) — Privacy Governance Dial: when set, notes in this notebook are moved to the Vault
+    // automatically as the editor closes (auto-lock-a-notebook), so a "private" notebook stays encrypted
+    // at rest without per-note action.
+    val autoVault: Boolean = false,
 )
 
 /** Note ↔ Tag many-to-many (reuses the existing [TagEntity]). */

@@ -90,7 +90,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.NoteLinkEntity::class,
         com.todocompanion.app.data.entity.SmartViewEntity::class,
     ],
-    version = 76,
+    version = 77,
     // R73 — export the schema JSON (to app/schemas/) on every build. With 54 hand-written migrations
     // this is the safety net: it lets an instrumented MigrationTest replay the whole chain in CI and
     // fail the build the moment a migration drifts from the entity definitions. Turned on from v59;
@@ -923,6 +923,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Wave 2 — cross-module note extensions: Evergreen review cadence, Habit Practice Journal link,
+        // Writing-sprint word goal, and the Privacy Governance Dial (per-note no-backup/no-export/no-index
+        // + per-notebook auto-vault). All additive NOT-NULL-DEFAULT columns (the proven pattern).
+        private val MIGRATION_76_77 = object : Migration(76, 77) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `reviewEvery` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `lastReviewedAt` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `linkedHabitId` TEXT")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `wordGoal` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `noBackup` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `noExport` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `noIndex` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `notebooks` ADD COLUMN `autoVault` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         /**
          * The complete, ordered v5→v63 migration chain. Exposed (and used by the builder below) so an
          * instrumented [androidTest] MigrationTest can replay it against a real SQLite DB and assert the
@@ -941,6 +957,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_59_60, MIGRATION_60_61, MIGRATION_61_62, MIGRATION_62_63, MIGRATION_63_64,
             MIGRATION_64_65, MIGRATION_65_66, MIGRATION_66_67, MIGRATION_67_68, MIGRATION_68_69, MIGRATION_69_70,
             MIGRATION_70_71, MIGRATION_71_72, MIGRATION_72_73, MIGRATION_73_74, MIGRATION_74_75, MIGRATION_75_76,
+            MIGRATION_76_77,
         )
 
         fun get(context: Context): AppDatabase =
