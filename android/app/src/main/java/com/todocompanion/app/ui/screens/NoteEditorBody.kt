@@ -178,7 +178,7 @@ fun NoteBodyEditor(
             value = tfv,
             onValueChange = ::onFieldChange,
             readOnly = readOnly,
-            modifier = Modifier.fillMaxWidth().weight(1f).padding(top = 2.dp),
+            modifier = Modifier.fillMaxWidth().weight(1f).padding(top = 2.dp, start = 16.dp, end = 16.dp),
             textStyle = bodyStyle,
             cursorBrush = SolidColor(cs.primary),
             visualTransformation = transform,
@@ -216,7 +216,7 @@ fun NoteBodyEditor(
                     if (matches.isNotEmpty()) TokenBar(matches.map { "#$it" }, matches) { t -> apply(NoteEditing.applyTag(tfv.text, tfv.selection.start, t)) }
                 }
                 // A proper anchored bottom bar (full width, solid surface, top divider) — not floating chips.
-                Surface(color = cs.surface, tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
+                Surface(color = cs.surface, modifier = Modifier.fillMaxWidth()) {
                     Column {
                         HorizontalDivider(color = cs.outlineVariant.copy(alpha = .6f))
                         if (moreFormat) {
