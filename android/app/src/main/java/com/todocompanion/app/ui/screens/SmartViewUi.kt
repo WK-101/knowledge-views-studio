@@ -84,7 +84,7 @@ fun SmartViewBuilderDialog(onSave: (String, NotePredicate) -> Unit, onDismiss: (
                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         var open by remember { mutableStateOf(false) }
                         Box {
-                            Surface(onClick = { open = true }, shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                            Surface(onClick = { open = true }, shape = NotesTokens.Pill, color = MaterialTheme.colorScheme.surfaceVariant) {
                                 Text(svLabel(f), Modifier.padding(horizontal = 10.dp, vertical = 8.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
                             }
                             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {

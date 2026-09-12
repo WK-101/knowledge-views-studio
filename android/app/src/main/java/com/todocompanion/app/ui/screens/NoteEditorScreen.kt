@@ -31,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CheckBox
@@ -108,8 +109,6 @@ import com.todocompanion.app.ui.components.EmptyState
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
-/** Strip the most common Markdown marks so a card preview reads as plain prose. */
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 // Note editor — Markdown body (viewer-until-edit), notebook/folder, colour, cover emoji, tags, pin.
@@ -484,7 +483,10 @@ fun NoteEditorScreen(
             add(PTile(if (sealed) Icons.Filled.LockOpen else Icons.Filled.Lock, if (sealed) "Unseal" else "Seal") {
                 if (sealed) { vm.unsealNote(noteId); draft = d.copy(sealedUntil = null, reminderAt = null) } else { menu = false; sheet = NoteSheet.Seal }
             })
-            add(PTile(Icons.Filled.Archive, "Archive") { menu = false; vm.archiveNote(noteId); onBack() })
+            // Toggle, not one-way: an archived note opened from the Archive filter must be able to come
+            // back out — matching how lists/folders/countdowns expose Unarchive.
+            add(PTile(if (d.archived) Icons.Filled.Unarchive else Icons.Filled.Archive,
+                if (d.archived) "Unarchive" else "Archive") { menu = false; vm.archiveNote(noteId, !d.archived); onBack() })
             add(PTile(Icons.Filled.Delete, "Move to trash", danger = true) { menu = false; vm.trashNote(noteId); onBack() })
             add(PTile(Icons.Filled.DeleteForever, "Delete", danger = true) { menu = false; sheet = NoteSheet.Delete })
         }
@@ -620,10 +622,11 @@ fun NoteEditorScreen(
                                     color = if (d.notebookId == nb.id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                 )
                                 // Default IconButton size (48dp) keeps these at the a11y minimum touch target.
-                                IconButton(onClick = { renameNotebook = nb }) {
+                                // Close the container sheet first so the rename/delete dialog doesn't stack on it.
+                                IconButton(onClick = { sheet = null; renameNotebook = nb }) {
                                     Icon(Icons.Filled.Edit, "Rename notebook ${nb.name}", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                IconButton(onClick = { deleteNotebookAsk = nb }) {
+                                IconButton(onClick = { sheet = null; deleteNotebookAsk = nb }) {
                                     Icon(Icons.Filled.Delete, "Delete notebook ${nb.name}", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }

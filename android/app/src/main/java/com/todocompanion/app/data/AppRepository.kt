@@ -783,6 +783,9 @@ class AppRepository(private val db: AppDatabase) {
         notes.upsert(n.copy(
             id = newId, title = n.title.ifBlank { "Untitled" } + " (copy)",
             pinned = false, favorite = false, archived = false, trashed = false, deletedAt = null, deletedBy = null,
+            // A copy starts clean: no reminder (we never arm one for the copy, so a carried-over pill would
+            // be a lie) and never sealed (a duplicate shouldn't silently vanish behind a future reveal date).
+            reminderAt = null, reminderRrule = null, reminderExtra = "", reminderKeep = false, sealedUntil = null,
             createdAt = now(), updatedAt = now(), sortOrder = now().toDouble(),
         ))
         val tagIds = notes.getTagCrossRefs().filter { it.noteId == id }.map { it.tagId }

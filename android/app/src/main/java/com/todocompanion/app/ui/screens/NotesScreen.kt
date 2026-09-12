@@ -183,6 +183,15 @@ fun NotesScreen(
         val now = System.currentTimeMillis()
         notes
         .asSequence()
+        // Base browse guards — apply to EVERY browse surface, Smart Views included (a Smart View is
+        // browsing, not an exception). (1) A note sealed to the future stays hidden until its reveal date
+        // — it's still findable via search so it can be unsealed early, but it must never surface (title +
+        // preview) in Favorites / Pinned / Untagged / a custom view. (2) The archive/active split too:
+        // archived notes show only in the Archive filter, never mixed into a predicate view.
+        .filter { n ->
+            (n.sealedUntil == null || n.sealedUntil!! <= now) &&
+                (if (archiveView) n.archived else !n.archived)
+        }
         .filter { n ->
             val p = activePredicate
             if (p != null) com.todocompanion.app.domain.NoteSmartViews.matches(
@@ -195,11 +204,7 @@ fun NotesScreen(
                     openTaskIds = openTaskIds, overdueTaskIds = overdueTaskIds,
                 ),
             )
-            else (if (archiveView) n.archived else !n.archived) &&
-                (container == null || (if (useNotebooks) n.notebookId == container else n.folderId == container)) &&
-                // Wave J (M8) — a note sealed to the future is hidden from browsing until its reveal date
-                // (it's still findable via search, so it can be unsealed early).
-                (n.sealedUntil == null || n.sealedUntil!! <= now)
+            else container == null || (if (useNotebooks) n.notebookId == container else n.folderId == container)
         }
         .filter { n ->
             query.isBlank() || n.title.contains(query, true) || n.body.contains(query, true)
@@ -316,7 +321,9 @@ fun NotesScreen(
                             DropdownMenuItem(
                                 text = { Text(lbl) },
                                 trailingIcon = { if (viewMode == id) Icon(Icons.Filled.CheckCircle, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) },
-                                onClick = { viewMode = id; viewMenu = false },
+                                // Multi-select only exists in Cards; leaving it would strand the selection
+                                // bar over Board/Calendar items you can't toggle. Clear it on switch away.
+                                onClick = { if (id != "cards") selection = emptySet(); viewMode = id; viewMenu = false },
                             )
                         }
                     }
@@ -369,7 +376,7 @@ fun NotesScreen(
                         }
                         HorizontalDivider()
                         DropdownMenuItem(text = { Text("＋ Smart View") }, onClick = { filterMenu = false; showBuilder = true })
-                        DropdownMenuItem(text = { Text("◉ Graph") }, onClick = { filterMenu = false; onOpenGraph() })
+                        DropdownMenuItem(text = { Text("◉ Life graph") }, onClick = { filterMenu = false; onOpenGraph() })
                         DropdownMenuItem(text = { Text("✨ Wrapped") }, onClick = { filterMenu = false; showWrapped = true })
                     }
                 }
