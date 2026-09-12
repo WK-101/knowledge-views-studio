@@ -126,6 +126,18 @@ class RepositoryTest {
         assertTrue("body tag still present", alphaId in linked)
     }
 
+    @Test fun upsertNote_materializesPreviewAndHasOpen() = runBlocking {
+        val id = repo.upsertNote(NoteEntity(id = "", title = "T", body = "# Heading\n\nSome prose here.\n- [ ] a todo"))
+        val n = repo.getNote(id)!!
+        assertTrue("preview is plain prose (markdown stripped)", n.preview.contains("Some prose here"))
+        assertTrue("preview drops the # heading mark", !n.preview.contains("#"))
+        assertTrue("hasOpen set from the unchecked item", n.hasOpen)
+        // Editing the body away from having an open item clears the flag on save.
+        val cleared = repo.getNote(id)!!.copy(body = "no tasks now")
+        repo.upsertNote(cleared)
+        assertTrue("hasOpen cleared", !repo.getNote(id)!!.hasOpen)
+    }
+
     // ── FTS search correctness — the manual index stays in step with edits, trash/restore, and tags. ──
 
     @Test fun search_findsByTitleAndBody_andHonorsTrashRestore() = runBlocking {

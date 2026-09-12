@@ -691,6 +691,9 @@ class AppRepository(private val db: AppDatabase) {
             sortOrder = if (n.sortOrder == 0.0) now().toDouble() else n.sortOrder,
             createdAt = if (n.createdAt == 0L) now() else n.createdAt,
             updatedAt = now(),
+            // P7 — materialize the card's derived render data so the home list reads columns, not regex.
+            preview = com.todocompanion.app.domain.NoteDerived.preview(n.body),
+            hasOpen = com.todocompanion.app.domain.NoteDerived.hasOpenItems(n.body),
         )
         notes.upsert(stamped)
         materializeNoteTags(id)   // inline body #tags → structured note_tags (before FTS so tag names index)

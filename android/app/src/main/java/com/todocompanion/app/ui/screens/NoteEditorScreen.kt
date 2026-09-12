@@ -93,6 +93,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -289,7 +292,11 @@ fun NoteEditorScreen(
                     tags.filter { it.id in myTagIds }.forEach { t ->
                         Surface(shape = NotesTokens.Pill, color = MaterialTheme.colorScheme.secondaryContainer,
                             modifier = Modifier.align(Alignment.CenterVertically)) {
-                            Row(Modifier.clickable(onClickLabel = "Edit tags", role = androidx.compose.ui.semantics.Role.Button) { sheet = NoteSheet.Tags }.padding(start = 8.dp, end = 4.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.clickable(onClickLabel = "Edit tags", role = androidx.compose.ui.semantics.Role.Button) { sheet = NoteSheet.Tags }
+                                // A11y: expose "Remove" as a first-class custom action on the chip, so TalkBack
+                                // users can drop the tag without having to hit the compact inline ✕ target.
+                                .semantics { customActions = listOf(CustomAccessibilityAction("Remove tag ${t.name}") { vm.setNoteTags(noteId, (myTagIds - t.id).toList()); true }) }
+                                .padding(start = 8.dp, end = 4.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text("#${t.name}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
                                 Icon(Icons.Filled.Close, "Remove tag ${t.name}", modifier = Modifier.size(18.dp).clip(CircleShape).clickable(onClickLabel = "Remove tag", role = androidx.compose.ui.semantics.Role.Button) { vm.setNoteTags(noteId, (myTagIds - t.id).toList()) }.padding(2.dp))
                             }
@@ -308,7 +315,9 @@ fun NoteEditorScreen(
                     contexts.filter { it.id in myContextIds }.forEach { c ->
                         Surface(shape = NotesTokens.Pill, color = MaterialTheme.colorScheme.tertiaryContainer,
                             modifier = Modifier.align(Alignment.CenterVertically)) {
-                            Row(Modifier.clickable(onClickLabel = "Edit contexts", role = androidx.compose.ui.semantics.Role.Button) { sheet = NoteSheet.Contexts }.padding(start = 8.dp, end = 4.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.clickable(onClickLabel = "Edit contexts", role = androidx.compose.ui.semantics.Role.Button) { sheet = NoteSheet.Contexts }
+                                .semantics { customActions = listOf(CustomAccessibilityAction("Remove context ${c.name}") { vm.setNoteContexts(noteId, (myContextIds - c.id).toList()); true }) }
+                                .padding(start = 8.dp, end = 4.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text("@${c.name}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
                                 Icon(Icons.Filled.Close, "Remove context ${c.name}", modifier = Modifier.size(18.dp).clip(CircleShape).clickable(onClickLabel = "Remove context", role = androidx.compose.ui.semantics.Role.Button) { vm.setNoteContexts(noteId, (myContextIds - c.id).toList()) }.padding(2.dp))
                             }

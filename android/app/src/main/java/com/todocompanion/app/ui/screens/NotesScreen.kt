@@ -190,7 +190,7 @@ fun NotesScreen(
                     n.pinned, n.favorite, n.archived, n.trashed, n.title, n.body, n.kind, n.updatedAt,
                     refsByNote[n.id] ?: emptySet(), now,
                     hasReminder = n.reminderAt != null || n.reminderExtra.isNotBlank(),
-                    hasOpenItems = com.todocompanion.app.domain.NoteLinks.uncheckedCheckboxes(n.body).isNotEmpty(),
+                    hasOpenItems = n.hasOpen,   // P7 — materialized column, no per-note regex in the filter loop
                     linkedTaskId = n.linkedTaskId, linkedEventId = n.linkedEventId,
                     openTaskIds = openTaskIds, overdueTaskIds = overdueTaskIds,
                 ),

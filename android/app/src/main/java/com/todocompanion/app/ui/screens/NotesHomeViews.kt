@@ -113,15 +113,9 @@ import kotlinx.coroutines.launch
 // Notes home — the standalone view composables (trash · board · calendar · card · toolbar pill) and the
 // card-preview helper, split out of NotesScreen.kt (P6-G) so each file stays a focused unit.
 
-/** Strip the most common Markdown marks so a card preview reads as plain prose. */
-
-internal fun plainPreview(md: String): String =
-    md.lineSequence()
-        .map { it.trim().trimStart('#', '>', '-', '*', '+', ' ', '`').trim() }
-        .filter { it.isNotBlank() }
-        .joinToString("  ")
-        .replace(Regex("[*_`~]"), "")
-        .take(160)
+/** Strip the most common Markdown marks so a card preview reads as plain prose. Delegates to the shared
+ *  [com.todocompanion.app.domain.NoteDerived] so the fallback here and the materialized column agree. */
+internal fun plainPreview(md: String): String = com.todocompanion.app.domain.NoteDerived.preview(md)
 
 /** The Trash — trashed notes awaiting restore or permanent deletion. A banner explains auto-empty; each
  *  row opens a Restore / Delete-forever choice. */
@@ -296,7 +290,9 @@ internal fun NoteCard(
                 }
                 // Memoized per note (keyed on id+updatedAt) so the Markdown-stripping regex runs once per
                 // edit, not on every recomposition/scroll of a visible card.
-                val preview = remember(n.id, n.updatedAt) { plainPreview(n.body) }
+                // Read the materialized preview column (P7); fall back to computing once for legacy rows
+                // saved before v74, which self-heal on their next save.
+                val preview = remember(n.id, n.updatedAt) { n.preview.ifBlank { plainPreview(n.body) } }
                 if (preview.isNotBlank()) {
                     Spacer(Modifier.height(4.dp))
                     Text(

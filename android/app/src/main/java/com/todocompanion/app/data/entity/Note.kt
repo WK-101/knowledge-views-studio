@@ -75,6 +75,11 @@ data class NoteEntity(
     // Wave J (M8): seal a note to your future self — hidden from the note list until [sealedUntil], when a
     // reveal reminder (the existing engine) resurfaces it. Reuses Kairo's sealed-letter idea for any note.
     val sealedUntil: Long? = null,
+    // P7 (v74): derived render data materialized on save (see [com.todocompanion.app.domain.NoteDerived])
+    // so the home card and the hasOpenItems Smart-View predicate read a column instead of regex-scanning
+    // the body per note. [preview] is a plain-prose snippet; [hasOpen] flags an unchecked `- [ ]` item.
+    val preview: String = "",
+    val hasOpen: Boolean = false,
 )
 
 /** Wave O — a note sealed until a future date is hidden from the list AND kept out of every plaintext
