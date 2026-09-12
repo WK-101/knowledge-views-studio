@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,10 +44,11 @@ import java.io.ByteArrayOutputStream
  * no storage permission — the bytes go straight into the note.
  */
 @Composable
-fun InkPadDialog(onSave: (ByteArray) -> Unit, onDismiss: () -> Unit) {
+fun InkPadDialog(onSave: (png: ByteArray, caption: String) -> Unit, onDismiss: () -> Unit) {
     val strokes = remember { mutableStateListOf<MutableList<Offset>>() }
     var tick by remember { mutableIntStateOf(0) }
     var size by remember { mutableStateOf(IntSize.Zero) }
+    var caption by remember { mutableStateOf("") }   // L14/Wave2 — a caption keeps handwriting FTS-searchable
     val strokeWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { 3.dp.toPx() }
     val paper = Color(0xFFFCFCF9)
     val inkColor = Color(0xFF20242B)
@@ -77,7 +80,7 @@ fun InkPadDialog(onSave: (ByteArray) -> Unit, onDismiss: () -> Unit) {
                     val out = ByteArrayOutputStream()
                     bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
                     bmp.recycle()
-                    onSave(out.toByteArray())
+                    onSave(out.toByteArray(), caption.trim())
                 },
             ) { Text("Save") }
         },
@@ -116,6 +119,12 @@ fun InkPadDialog(onSave: (ByteArray) -> Unit, onDismiss: () -> Unit) {
                         }
                     }
                 }
+                Spacer(Modifier.height(10.dp))
+                com.todocompanion.app.ui.components.AppTextField(
+                    value = caption, onValueChange = { caption = it.take(80) }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Caption (keeps this handwriting searchable)") },
+                )
             }
         },
     )

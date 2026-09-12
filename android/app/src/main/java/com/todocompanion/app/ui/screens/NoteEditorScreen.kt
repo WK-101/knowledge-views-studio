@@ -71,6 +71,7 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -193,7 +194,9 @@ fun NoteEditorScreen(
     var showInk by remember(noteId) { mutableStateOf(false) }
     // Wave 2 — Evergreen review cadence + Writing sprint state.
     var showReview by remember(noteId) { mutableStateOf(false) }
+    var showPrivacy by remember(noteId) { mutableStateOf(false) }   // Privacy Governance Dial
     var showSprintStart by remember(noteId) { mutableStateOf(false) }
+    var showAddThread by remember(noteId) { mutableStateOf(false) }  // Threads — Maps of Content
     var sprintStart by remember(noteId) { mutableStateOf<Long?>(null) }   // sprint begin millis; null = idle
     var sprintStartWords by remember(noteId) { androidx.compose.runtime.mutableIntStateOf(0) }
     var sprintNow by remember(noteId) { androidx.compose.runtime.mutableLongStateOf(0L) }
@@ -460,6 +463,16 @@ fun NoteEditorScreen(
                     },
                 )
             }
+            // Wave 2 · Threads — a prev/next bar for every thread (Map of Content) this note belongs to.
+            if (d.kind != com.todocompanion.app.domain.NoteThreads.KIND && d.title.isNotBlank()) {
+                val threadPositions = remember(notes, d.title, noteId) { vm.noteThreadPositions(d.title) }
+                threadPositions.forEach { pos ->
+                    ThreadBar(pos,
+                        onOpenPrev = { pos.prevTitle?.let { t -> draft?.let { n -> vm.closeNoteEditor(n) }; vm.openNoteByTitle(t) { id -> onOpenNote(id) } } },
+                        onOpenNext = { pos.nextTitle?.let { t -> draft?.let { n -> vm.closeNoteEditor(n) }; vm.openNoteByTitle(t) { id -> onOpenNote(id) } } },
+                        onOpenThread = { draft?.let { n -> vm.closeNoteEditor(n) }; onOpenNote(pos.threadId) })
+                }
+            }
             // L12 — split preview: the editor keeps the top half, a live rich render tracks below (debounced
             // via [splitBody]), so tables/math/diagrams are visible while you type — no full-screen swap.
             if (showSplit) {
@@ -628,6 +641,10 @@ fun NoteEditorScreen(
             add(PTile(Icons.Filled.Loop, if (d.reviewEvery > 0) "Review · ${com.todocompanion.app.domain.NoteReview.label(d.reviewEvery)}" else "Resurface", d.reviewEvery > 0) { menu = false; showReview = true })
             // Wave 2 · Writing Sprints — a timed word-goal sprint, logged as tracked time on this note.
             if (sprintStart == null) add(PTile(Icons.Filled.Timer, "Writing sprint") { menu = false; showSprintStart = true })
+            // Wave 2 · Threads (Maps of Content) — add this note into an ordered reading thread.
+            if (d.kind != com.todocompanion.app.domain.NoteThreads.KIND) add(PTile(Icons.AutoMirrored.Filled.List, "Add to thread") { menu = false; showAddThread = true })
+            // Wave 2 · Privacy Governance Dial — per-note exclude-from-backup/export/index + notebook auto-vault.
+            add(PTile(Icons.Filled.Lock, "Privacy", d.noBackup || d.noExport || d.noIndex) { menu = false; showPrivacy = true })
             add(PTile(if (sealed) Icons.Filled.LockOpen else Icons.Filled.Lock, if (sealed) "Unschedule reveal" else "Schedule reveal") {
                 if (sealed) { vm.unsealNote(noteId); draft = d.copy(sealedUntil = null, reminderAt = null) } else { menu = false; sheet = NoteSheet.Seal }
             })
@@ -973,7 +990,7 @@ fun NoteEditorScreen(
     if (sheet == NoteSheet.About) NoteAboutDialog(d, onDismiss = { sheet = null })
     // L14 — handwriting: rasterise the drawing to a note image attachment and append its Markdown ref.
     if (showInk) InkPadDialog(
-        onSave = { png -> vm.addInkToNote(noteId, png) { ref -> if (ref != null) persist(d.copy(body = if (d.body.isBlank()) ref else d.body.trimEnd() + "\n\n" + ref)) }; showInk = false },
+        onSave = { png, caption -> vm.addInkToNote(noteId, png, caption) { ref -> if (ref != null) persist(d.copy(body = if (d.body.isBlank()) ref else d.body.trimEnd() + "\n\n" + ref)) }; showInk = false },
         onDismiss = { showInk = false },
     )
     // Wave 2 — Evergreen review cadence + Writing sprint start.
@@ -987,6 +1004,28 @@ fun NoteEditorScreen(
         },
         onDismiss = { showSprintStart = false },
     )
+    // Wave 2 · Threads — add this note to an existing/new thread (Map of Content).
+    if (showAddThread) {
+        val memberTitle = d.title.ifBlank { "Untitled" }
+        AddToThreadDialog(
+            threads = remember(notes, showAddThread) { vm.threadList() }, suggestTitle = memberTitle,
+            onAdd = { tid -> persist(d); vm.addNoteToThread(tid, memberTitle); showAddThread = false
+                android.widget.Toast.makeText(ctx, "Added to thread", android.widget.Toast.LENGTH_SHORT).show() },
+            onCreate = { title -> persist(d); showAddThread = false
+                draft?.let { n -> vm.closeNoteEditor(n) }; vm.createThread(title, memberTitle) { id -> onOpenNote(id) } },
+            onDismiss = { showAddThread = false },
+        )
+    }
+    if (showPrivacy) {
+        val nb = if (useNotebooks) notebooks.firstOrNull { it.id == d.notebookId } else null
+        NotePrivacyDialog(
+            noBackup = d.noBackup, noExport = d.noExport, noIndex = d.noIndex,
+            notebookAutoVault = nb?.autoVault,
+            onChange = { b, e, i -> persist(d.copy(noBackup = b, noExport = e, noIndex = i)) },
+            onNotebookAutoVault = { on -> nb?.let { vm.setNotebookAutoVault(it.id, on) } },
+            onDismiss = { showPrivacy = false },
+        )
+    }
     if (sheet == NoteSheet.Outline) NoteOutlineDialog(d.body, onDismiss = { sheet = null })
     if (sheet == NoteSheet.Reorder) SectionReorderDialog(d.body, onApply = { persist(d.copy(body = it)); sheet = null }, onDismiss = { sheet = null })
     if (sheet == NoteSheet.Props) NotePropertiesDialog(d.body, onApply = { persist(d.copy(body = it)); sheet = null }, onDismiss = { sheet = null })

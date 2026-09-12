@@ -815,7 +815,9 @@ class AppRepository(private val db: AppDatabase) {
             materializeNoteContexts(id)  // L2 — inline body @contexts → structured note_contexts (first-class, like tags)
             materializeNoteLinks(id)
             syncBoundCheckboxTasks(id)   // L5 — a ticked "- [ ] [[Task]]" line completes the task it's bound to
-            reindexNoteFts(stamped)
+            // Wave 2 · Privacy Governance Dial — a note flagged noIndex keeps its structural links/tags but
+            // is dropped from FTS so it never surfaces in search / Ask / related.
+            if (n.noIndex) runCatching { deleteNoteFts(ftsDb(), id) } else reindexNoteFts(stamped)
         }
         return id
     }
@@ -1871,7 +1873,7 @@ class AppRepository(private val db: AppDatabase) {
             revisions = revisions.getAll(),
             eventCalendars = eventCalendars.getAll(),
             events = events.getAll(),
-            notes = notes.getAll(),
+            notes = notes.getAll().filter { !it.noBackup },   // Wave 2 · Privacy Dial — omit noBackup notes
             notebooks = notebooks.getAll(),
             noteTags = notes.getTagCrossRefs(),
             noteContexts = notes.getContextCrossRefs(),

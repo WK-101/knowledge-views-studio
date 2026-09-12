@@ -123,6 +123,7 @@ fun NotesScreen(
     onQueryChange: (String) -> Unit = {},
     searchOpen: Boolean = false,
     onOpenGraph: () -> Unit = {},
+    onOpenGarden: () -> Unit = {},
 ) {
     val settings by vm.settings.collectAsState()
     val notes by vm.notes.collectAsState()
@@ -380,6 +381,7 @@ fun NotesScreen(
                         HorizontalDivider()
                         DropdownMenuItem(text = { Text("＋ Smart View") }, onClick = { filterMenu = false; showBuilder = true })
                         DropdownMenuItem(text = { Text("◉ Life graph") }, onClick = { filterMenu = false; onOpenGraph() })
+                        DropdownMenuItem(text = { Text("🌱 Note garden") }, onClick = { filterMenu = false; onOpenGarden() })
                         DropdownMenuItem(text = { Text("✨ Wrapped") }, onClick = { filterMenu = false; showWrapped = true })
                         DropdownMenuItem(text = { Text("🔎 Ask your notes") }, onClick = { filterMenu = false; showAsk = true })
                         DropdownMenuItem(text = { Text("📍 Relevant now") }, onClick = { filterMenu = false; showNow = true })

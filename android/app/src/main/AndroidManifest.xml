@@ -184,6 +184,30 @@
             </intent-filter>
         </activity>
 
+        <!-- Wave 2 · Share-to-Kairo (notes): a distinct share target that drops any shared/selected text
+             straight into a new note. Text SEND on MainActivity captures a TASK; this captures a NOTE, so
+             the share sheet and the text-selection menu both offer "Kairo note". No window, no permission;
+             a tiny transparent activity that writes to Room and finishes. -->
+        <activity
+            android:name=".share.ShareToNoteActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:label="@string/share_to_note_label"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <!-- Shares a decoded attachment with a local viewer app. Grants are per-URI + temporary. -->
         <provider
             android:name="androidx.core.content.FileProvider"

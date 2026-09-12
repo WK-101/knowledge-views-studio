@@ -362,6 +362,7 @@ fun AppRoot(
         var editing by remember { mutableStateOf<String?>(null) }
         var editingNote by remember { mutableStateOf<String?>(null) }
         var showNotesGraph by remember { mutableStateOf(false) }   // Life Graph — a top-level overlay (single header)
+        var showNotesGarden by remember { mutableStateOf(false) }  // Note-Garden review — a top-level overlay
         var notesSearchOpen by remember { mutableStateOf(false) }
         var notesQuery by remember { mutableStateOf("") }
         var showQuickAdd by remember { mutableStateOf(false) }
@@ -1007,7 +1008,7 @@ fun AppRoot(
                                 onOpenEvent = { eid -> calEventAction = "open:$eid"; tab = Tab.CALENDAR },
                                 onOpenOccasion = openOccasion)
                             Tab.SETTINGS -> SettingsScreen(vm)
-          Tab.NOTES -> com.todocompanion.app.ui.screens.NotesScreen(vm, onOpenNote = ::openNote, query = notesQuery, onQueryChange = { notesQuery = it }, searchOpen = notesSearchOpen, onOpenGraph = { showNotesGraph = true })
+          Tab.NOTES -> com.todocompanion.app.ui.screens.NotesScreen(vm, onOpenNote = ::openNote, query = notesQuery, onQueryChange = { notesQuery = it }, searchOpen = notesSearchOpen, onOpenGraph = { showNotesGraph = true }, onOpenGarden = { showNotesGarden = true })
                             Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it; if (settings.calendarRememberLast) vm.saveSettings(settings.copy(calendarDefaultMode = it)) },
                                 calAnchor, calSelected, { calAnchor = it }, { calSelected = it },
                                 onAddOnDate = { d ->
@@ -1058,6 +1059,10 @@ fun AppRoot(
         // Life Graph — full-screen overlay above the app chrome (single header, like the note editor).
         if (showNotesGraph) com.todocompanion.app.ui.screens.NoteGraphScreen(vm,
             onOpenNote = { showNotesGraph = false; openNote(it) }, onClose = { showNotesGraph = false })
+
+        // Note-Garden review — full-screen overlay (same pattern as the graph).
+        if (showNotesGarden) com.todocompanion.app.ui.screens.NoteGardenScreen(vm,
+            onOpenNote = { showNotesGarden = false; openNote(it) }, onClose = { showNotesGarden = false })
 
         // Habit analytics + editor: full-screen overlays (like the task editor) so each shows a single
         // top bar and Back returns to the Habits list, never the inbox.

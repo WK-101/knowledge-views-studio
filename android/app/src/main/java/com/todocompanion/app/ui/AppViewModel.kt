@@ -371,7 +371,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun exportNotesToFolder(folderUri: String) = viewModelScope.launch {
         val ws = repo.activeWs()
         val now0 = System.currentTimeMillis()
-        val list = repo.getNotesOnce().filter { !it.trashed && it.workspaceId == ws && (it.sealedUntil == null || it.sealedUntil!! <= now0) }
+        // Wave 2 · Privacy Governance Dial — a note flagged noExport is kept out of the .md folder export.
+        val list = repo.getNotesOnce().filter { !it.trashed && !it.noExport && it.workspaceId == ws && (it.sealedUntil == null || it.sealedUntil!! <= now0) }
         if (list.isEmpty()) { toast("No notes to export"); return@launch }
         val tagName = repo.getTagsOnce().associate { it.id to it.name }
         val refs = repo.getNoteTagCrossRefs().groupBy { it.noteId }
@@ -705,10 +706,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Save the note and capture a version snapshot in one ordered coroutine (used on editor close).
      *  L11 — a vaulted note is encrypted (sealForVault) before it ever reaches the DB. */
     fun closeNoteEditor(n: com.todocompanion.app.data.entity.NoteEntity) = viewModelScope.launch {
-        repo.upsertNote(sealForVault(n.copy(workspaceId = n.workspaceId.ifBlank { activeWorkspace() })))
+        // Wave 2 · auto-vault-on-close — a note in an auto-vault notebook is encrypted as the editor closes,
+        // but only when the vault is set up and unlocked this session (else it would flag without encrypting).
+        val autoVault = n.notebookId != null && !n.vault && vaultConfigured() && vaultUnlocked.value &&
+            notebooks.value.firstOrNull { it.id == n.notebookId }?.autoVault == true
+        val toSave = if (autoVault) n.copy(vault = true) else n
+        repo.upsertNote(sealForVault(toSave.copy(workspaceId = toSave.workspaceId.ifBlank { activeWorkspace() })))
         repo.saveNoteRevision(n.id, settings.value.notesMaxRevisions)
     }
 
+    /** Wave 2 · Privacy Dial — toggle auto-vault-on-close for a whole notebook. */
+    fun setNotebookAutoVault(notebookId: String, on: Boolean) = viewModelScope.launch {
+        notebooks.value.firstOrNull { it.id == notebookId }?.let { repo.upsertNotebook(it.copy(autoVault = on)) }
+    }
     fun saveNotebook(id: String?, name: String, icon: String?, colorArgb: Long?) = viewModelScope.launch {
         val existing = id?.let { nid -> notebooks.value.firstOrNull { it.id == nid } }
         repo.upsertNotebook(
@@ -756,15 +766,42 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         noteSearchIds.value = if (query.isBlank()) emptyList() else repo.searchNoteIds(query)
     }
 
-    /** L9 — "Ask your notes": on-device, extractive answers (no model, no network). Driven by [askNotes]. */
+    /** L9 — "Ask your notes": on-device, extractive answers (no model, no network). Driven by [askNotes].
+     *  Wave 2 · when the literal, term-coverage pass finds little, a model-free MinHash semantic pass
+     *  ([NoteSemantic]) broadens the recall so paraphrases and synonyms of the question still surface. */
     val noteAnswers = MutableStateFlow<List<com.todocompanion.app.domain.NoteAsk.Answer>>(emptyList())
     fun askNotes(query: String) = viewModelScope.launch {
         if (query.isBlank()) { noteAnswers.value = emptyList(); return@launch }
         val now = System.currentTimeMillis()
-        val docs = repo.getNotesOnce()
-            .filter { !it.trashed && (it.sealedUntil == null || it.sealedUntil!! <= now) }
-            .map { com.todocompanion.app.domain.NoteAsk.Doc(it.id, it.title, it.body) }
-        noteAnswers.value = com.todocompanion.app.domain.NoteAsk.answer(query, docs)
+        val notes = repo.getNotesOnce()
+            .filter { !it.trashed && !it.noIndex && (it.sealedUntil == null || it.sealedUntil!! <= now) }
+        val docs = notes.map { com.todocompanion.app.domain.NoteAsk.Doc(it.id, it.title, it.body) }
+        val literal = com.todocompanion.app.domain.NoteAsk.answer(query, docs)
+        // Semantic fallback: fill up to 6 results with conceptually-near notes the literal pass missed.
+        val answers = if (literal.size >= 4) literal else {
+            val qSig = com.todocompanion.app.domain.NoteSemantic.signature(query)
+            val have = literal.map { it.id }.toSet()
+            val semantic = notes.asSequence()
+                .filter { it.id !in have }
+                .map { n ->
+                    val sim = com.todocompanion.app.domain.NoteSemantic.similarity(
+                        qSig, com.todocompanion.app.domain.NoteSemantic.signature("${n.title}\n${n.body}"))
+                    n to sim
+                }
+                .filter { it.second >= 0.12f }
+                .sortedByDescending { it.second }
+                .take(6 - literal.size)
+                .map { (n, sim) ->
+                    val body = n.body.split(Regex("\\n\\s*\\n")).firstOrNull { it.isNotBlank() }?.trim().orEmpty()
+                    com.todocompanion.app.domain.NoteAsk.Answer(
+                        n.id, n.title.ifBlank { "Untitled" },
+                        (if (body.length > 240) body.take(237).trimEnd() + "…" else body).ifBlank { n.title },
+                        sim.toDouble())
+                }
+                .toList()
+            literal + semantic
+        }
+        noteAnswers.value = answers
     }
 
     /** L10 — Right Note, Right Now: notes whose @context is *scheduled and open at this moment* (permission-
@@ -903,6 +940,52 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.getNote(noteId)?.let { repo.upsertNote(it.copy(lastReviewedAt = System.currentTimeMillis())) }
     }
 
+    /** The Note-Garden review — a snapshot of entropy in the vault (orphans, stale, dropped intentions,
+     *  near-duplicates), assembled on-device from projections. Refresh with [refreshNoteGarden]. */
+    data class NoteGardenReport(
+        val orphans: List<com.todocompanion.app.domain.NoteGarden.NoteView> = emptyList(),
+        val stale: List<com.todocompanion.app.domain.NoteGarden.NoteView> = emptyList(),
+        val dropped: List<Pair<com.todocompanion.app.domain.NoteGarden.NoteView, String>> = emptyList(),
+        val duplicates: List<com.todocompanion.app.domain.NoteGarden.DupePair> = emptyList(),
+        val scanned: Int = 0,
+    )
+    val noteGarden = MutableStateFlow(NoteGardenReport())
+    val noteGardenLoading = MutableStateFlow(false)
+    fun refreshNoteGarden() = viewModelScope.launch {
+        noteGardenLoading.value = true
+        val report = withContext(Dispatchers.Default) {
+            val now = System.currentTimeMillis()
+            val ws = activeWorkspace()
+            val live = notes.value.filter { it.workspaceId == ws && !it.trashed && !it.archived && !it.vault }
+            val links = runCatching { repo.getNoteLinksOnce() }.getOrDefault(emptyList())
+            val tagCounts = noteTagRefs.value.groupingBy { it.noteId }.eachCount()
+            val outCounts = links.filter { it.targetId.isNotBlank() }.groupingBy { it.noteId }.eachCount()
+            val inCounts = links.filter { it.targetType == "note" && it.targetId.isNotBlank() }
+                .groupingBy { it.targetId }.eachCount()
+            val views = live.map {
+                com.todocompanion.app.domain.NoteGarden.NoteView(
+                    id = it.id, title = it.title, body = it.body, updatedAt = it.updatedAt,
+                    tagCount = tagCounts[it.id] ?: 0, outLinks = outCounts[it.id] ?: 0, inLinks = inCounts[it.id] ?: 0)
+            }
+            val taskTitles = tasks.value.filter { !it.completed }.map { it.title }.toHashSet()
+            // Cap the O(n²) duplicate pass to the most recent notes so a huge vault stays responsive.
+            val dupeInput = views.sortedByDescending { it.updatedAt }.take(200)
+            com.todocompanion.app.ui.AppViewModel.NoteGardenReport(
+                orphans = com.todocompanion.app.domain.NoteGarden.orphans(views).sortedByDescending { it.updatedAt },
+                stale = com.todocompanion.app.domain.NoteGarden.stale(views, now),
+                dropped = com.todocompanion.app.domain.NoteGarden.droppedIntentions(views, taskTitles),
+                duplicates = com.todocompanion.app.domain.NoteGarden.duplicates(dupeInput),
+                scanned = views.size)
+        }
+        noteGarden.value = report
+        noteGardenLoading.value = false
+    }
+    /** Note-Garden "Make a task" — turn a dropped intention (a bare checkbox line) into a real task. */
+    fun createTaskFromIntention(title: String) = viewModelScope.launch {
+        val t = title.trim(); if (t.isBlank()) return@launch
+        repo.createTask(com.todocompanion.app.data.entity.ListEntity.INBOX_ID, t.take(140))
+    }
+
     /** Habit Practice Journal — open (creating if needed) the reflective note bound to a habit. */
     fun openHabitJournal(habitId: String, habitName: String, onOpen: (String) -> Unit) = viewModelScope.launch {
         val ws = activeWorkspace()
@@ -933,6 +1016,46 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Writing Sprints — log a finished sprint as tracked time on the note. */
     fun logNoteSprint(noteId: String, startMillis: Long, endMillis: Long) = viewModelScope.launch {
         repo.logNoteTime(noteId, startMillis, endMillis, "Writing sprint")
+    }
+
+    // ── Threads (Maps of Content) — a thread is a note (kind="thread") whose body lists ordered [[links]] ──
+    private fun threadTriples(): List<Triple<String, String, String>> {
+        val ws = activeWorkspace()
+        return notes.value.filter {
+            it.kind == com.todocompanion.app.domain.NoteThreads.KIND && !it.trashed && it.workspaceId == ws
+        }.map { Triple(it.id, it.title.ifBlank { "Untitled thread" }, it.body) }
+    }
+
+    /** The threads a note belongs to, with its prev/next neighbours in each (drives the editor's prev/next bar). */
+    fun noteThreadPositions(noteTitle: String): List<com.todocompanion.app.domain.NoteThreads.Position> =
+        com.todocompanion.app.domain.NoteThreads.positionsFor(noteTitle, threadTriples())
+
+    /** All thread notes in the active workspace as (id, title), most-recent first — for the "add to thread" picker. */
+    fun threadList(): List<Pair<String, String>> = threadTriples()
+        .map { it.first to it.second }
+        .sortedByDescending { p -> notes.value.firstOrNull { it.id == p.first }?.updatedAt ?: 0L }
+
+    /** Add [memberTitle] to an existing thread note. */
+    fun addNoteToThread(threadId: String, memberTitle: String) = viewModelScope.launch {
+        val th = repo.getNote(threadId) ?: return@launch
+        repo.upsertNote(th.copy(body = com.todocompanion.app.domain.NoteThreads.addItem(th.body, memberTitle)))
+    }
+
+    /** Create a new thread note listing [memberTitle], then open it. */
+    fun createThread(threadTitle: String, memberTitle: String, onOpen: (String) -> Unit) = viewModelScope.launch {
+        val id = repo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(
+            id = "", kind = com.todocompanion.app.domain.NoteThreads.KIND, workspaceId = activeWorkspace(),
+            title = threadTitle.ifBlank { "New thread" },
+            body = com.todocompanion.app.domain.NoteThreads.addItem(
+                "_A thread — an ordered map of content. Reorder the links below to reorder it._\n", memberTitle),
+        ))
+        onOpen(id)
+    }
+
+    /** Open the note whose title matches [title] (prev/next navigation within a thread); no-op if none. */
+    fun openNoteByTitle(title: String, onOpen: (String) -> Unit) {
+        val key = title.trim().lowercase()
+        notes.value.firstOrNull { it.title.trim().lowercase() == key && !it.trashed }?.let { onOpen(it.id) }
     }
 
     // ── L11 — Vault: real, portable, passphrase-based encryption for a note's body at rest ────────────
@@ -2060,12 +2183,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** L14 — save a handwriting/ink drawing as a note image attachment and hand back a Markdown reference
      *  (`![ink](attachment:<id>)`) the editor appends. Fully on-device; the PNG lives in the note like any
      *  image and renders via [noteImageMap]. [onDone] receives the reference, or null on failure. */
-    fun addInkToNote(noteId: String, png: ByteArray, onDone: (String?) -> Unit = {}) = viewModelScope.launch {
+    fun addInkToNote(noteId: String, png: ByteArray, caption: String = "", onDone: (String?) -> Unit = {}) = viewModelScope.launch {
         val id = withContext(Dispatchers.IO) {
             runCatching { repo.addNoteAttachment(noteId, "ink-${System.currentTimeMillis()}.png", "image/png", png) }.getOrNull()
         }
         if (id == null) { toast("Couldn't save the drawing"); onDone(null) }
-        else onDone("![ink](attachment:$id)")
+        // Wave 2 · Searchable Ink — the caption becomes the image alt-text, which the body FTS indexes.
+        else onDone("![${caption.ifBlank { "ink" }}](attachment:$id)")
     }
     /** R40 — attach several files at once from the system picker (SAF, multi-select). Each URI's bytes are
      *  copied into app-private storage; no storage permission is involved. [onDone] reports how many landed,
