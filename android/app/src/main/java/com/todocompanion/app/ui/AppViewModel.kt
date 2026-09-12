@@ -754,6 +754,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         noteSearchIds.value = if (query.isBlank()) emptyList() else repo.searchNoteIds(query)
     }
 
+    /** L9 — "Ask your notes": on-device, extractive answers (no model, no network). Driven by [askNotes]. */
+    val noteAnswers = MutableStateFlow<List<com.todocompanion.app.domain.NoteAsk.Answer>>(emptyList())
+    fun askNotes(query: String) = viewModelScope.launch {
+        if (query.isBlank()) { noteAnswers.value = emptyList(); return@launch }
+        val now = System.currentTimeMillis()
+        val docs = repo.getNotesOnce()
+            .filter { !it.trashed && (it.sealedUntil == null || it.sealedUntil!! <= now) }
+            .map { com.todocompanion.app.domain.NoteAsk.Doc(it.id, it.title, it.body) }
+        noteAnswers.value = com.todocompanion.app.domain.NoteAsk.answer(query, docs)
+    }
+
+    /** L10 — Right Note, Right Now: notes whose @context is *scheduled and open at this moment* (permission-
+     *  free, via ContextAvailability open-hours). Notes join the app's existing context engine — arrive in
+     *  a context's window and the notes you keep for it surface. */
+    val notesNow = MutableStateFlow<List<com.todocompanion.app.data.entity.NoteEntity>>(emptyList())
+    fun refreshNotesForNow() = viewModelScope.launch {
+        val t = java.time.LocalDateTime.now()
+        val dow = t.dayOfWeek.value            // 1..7, matching ContextAvailability
+        val minute = t.hour * 60 + t.minute
+        val ws = activeWorkspace()
+        val openCtx = contexts.value.filter {
+            it.workspaceId == ws &&
+                com.todocompanion.app.domain.context.ContextAvailability.parse(it.openHoursJson) != null &&
+                com.todocompanion.app.domain.context.ContextAvailability.isAvailable(it, dow, minute)
+        }.map { it.id }.toSet()
+        if (openCtx.isEmpty()) { notesNow.value = emptyList(); return@launch }
+        val ids = repo.getNoteContextCrossRefs().filter { it.contextId in openCtx }.map { it.noteId }.toSet()
+        val now = System.currentTimeMillis()
+        notesNow.value = repo.getNotesOnce().filter {
+            !it.trashed && !it.archived && it.id in ids && (it.sealedUntil == null || it.sealedUntil!! <= now)
+        }.sortedByDescending { it.updatedAt }
+    }
+
     // ── Phase 2: woven notes — find-or-create the note bound to a day / event / task ─────────────────
     private fun dayNoteTitle(epochDay: Long): String = runCatching {
         java.time.LocalDate.ofEpochDay(epochDay)

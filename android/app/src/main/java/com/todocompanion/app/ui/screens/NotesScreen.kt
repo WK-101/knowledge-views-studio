@@ -150,6 +150,8 @@ fun NotesScreen(
     var showBuilder by remember { mutableStateOf(false) }
     var deleteView by remember { mutableStateOf<com.todocompanion.app.data.entity.SmartViewEntity?>(null) }
     var showWrapped by remember { mutableStateOf(false) }   // Wave V — Notes Wrapped recap
+    var showAsk by remember { mutableStateOf(false) }       // L9 — Ask your notes (offline retrieval)
+    var showNow by remember { mutableStateOf(false) }       // L10 — Right note, right now (context)
     // Multi-select (NotesNook-style) + sort.
     var selection by remember { mutableStateOf<Set<String>>(emptySet()) }
     var sortMenu by remember { mutableStateOf(false) }
@@ -379,6 +381,8 @@ fun NotesScreen(
                         DropdownMenuItem(text = { Text("＋ Smart View") }, onClick = { filterMenu = false; showBuilder = true })
                         DropdownMenuItem(text = { Text("◉ Life graph") }, onClick = { filterMenu = false; onOpenGraph() })
                         DropdownMenuItem(text = { Text("✨ Wrapped") }, onClick = { filterMenu = false; showWrapped = true })
+                        DropdownMenuItem(text = { Text("🔎 Ask your notes") }, onClick = { filterMenu = false; showAsk = true })
+                        DropdownMenuItem(text = { Text("📍 Relevant now") }, onClick = { filterMenu = false; showNow = true })
                     }
                 }
                 Box {
@@ -421,6 +425,12 @@ fun NotesScreen(
                     )
                 }
                 NoteWrappedDialog(stats, onDismiss = { showWrapped = false })
+            }
+            if (showAsk) {
+                AskNotesDialog(vm = vm, onOpen = onOpenNote, onDismiss = { showAsk = false })
+            }
+            if (showNow) {
+                RightNowDialog(vm = vm, onOpen = onOpenNote, onDismiss = { showNow = false })
             }
             // A trashed note tapped → restore it or delete it forever.
             trashAction?.let { n ->
