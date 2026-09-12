@@ -13,7 +13,7 @@ object NoteRelated {
     data class Doc(val id: String, val title: String, val body: String)
 
     private val wiki = Regex("\\[\\[([^\\]\\n|]+)(?:\\|[^\\]\\n]*)?]]")
-    private val tag = Regex("(?<![\\w#/])#([A-Za-z][\\w/-]*)")
+    private val tag = NoteGrammar.TAG
     private val token = Regex("[A-Za-z][A-Za-z']{2,}")
     private val stop = setOf(
         "the", "and", "for", "are", "but", "not", "you", "your", "with", "this", "that", "from", "have",

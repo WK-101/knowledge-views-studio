@@ -15,7 +15,7 @@ object NoteOutline {
     data class Head(val title: String, val level: Int, val line: Int)
     data class Stats(val words: Int, val lines: Int, val chars: Int, val readMinutes: Int)
 
-    private val HEADING = Regex("^(#{1,6})\\s+(.*)$")
+    private val HEADING = NoteGrammar.HEADING_CONTENT
 
     /** Headings outside fenced code blocks, in document order. */
     fun outline(md: String): List<Head> {
@@ -44,7 +44,7 @@ object NoteOutline {
 object NoteLint {
     data class Issue(val line: Int, val message: String)
 
-    private val HEADING = Regex("^(#{1,6})\\s+(.*)$")
+    private val HEADING = NoteGrammar.HEADING_CONTENT
     private val HEADING_NO_SPACE = Regex("^#{1,6}[^#\\s]")
 
     fun lint(md: String): List<Issue> {

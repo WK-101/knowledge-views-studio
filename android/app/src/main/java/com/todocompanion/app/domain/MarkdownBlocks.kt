@@ -67,7 +67,7 @@ object MarkdownSections {
     data class Section(val heading: String, val level: Int, val body: String)
 
     private val fence = Regex("^\\s*(`{3,}|~{3,})")
-    private val heading = Regex("^(#{1,6})\\s+\\S")
+    private val heading = NoteGrammar.HEADING_LINE
 
     fun sections(text: String): List<Section> {
         val out = ArrayList<Section>()

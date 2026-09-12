@@ -28,7 +28,7 @@ object MarkdownStyle {
     data class Span(val start: Int, val end: Int, val kind: Kind)
 
     private val fenceLine = Regex("^\\s*(`{3,}|~{3,})")
-    private val heading = Regex("^(#{1,6})\\s+\\S")
+    private val heading = NoteGrammar.HEADING_LINE
     private val quote = Regex("^\\s*>\\s?")
     private val listMarker = Regex("^(\\s*)([-*+]\\s|\\d+[.)]\\s)")
     private val checkbox = Regex("^(\\s*)([-*+]\\s)\\[[ xX]\\]\\s")
@@ -39,9 +39,9 @@ object MarkdownStyle {
     private val bold = Regex("(\\*\\*|__)(?=\\S)(.+?)(?<=\\S)\\1")
     private val italic = Regex("(?<![*_\\w])([*_])(?=\\S)([^*_\\n]+?)(?<=\\S)\\1(?![*_\\w])")
     private val strike = Regex("~~(?=\\S)(.+?)(?<=\\S)~~")
-    private val wikiLink = Regex("\\[\\[[^\\]\\n]+]]")
-    private val mdLink = Regex("\\[[^\\]\\n]*]\\([^)\\n]+\\)")
-    private val tag = Regex("(?<![\\w#/])#[A-Za-z][\\w/-]*")
+    private val wikiLink = NoteGrammar.WIKI_LINK
+    private val mdLink = NoteGrammar.MD_LINK
+    private val tag = NoteGrammar.TAG
 
     fun spans(text: String): List<Span> {
         val out = ArrayList<Span>()

@@ -691,8 +691,8 @@ fun NoteAboutDialog(note: NoteEntity, onDismiss: () -> Unit) {
     val words = note.body.trim().split(Regex("\\s+")).count { it.isNotBlank() }
     val chars = note.body.length
     val readMin = (words / 200.0).let { if (it < 1) "< 1 min" else "${Math.round(it)} min" }
-    val outLinks = Regex("\\[\\[[^\\]]+]]").findAll(note.body).count()
-    val tagCount = Regex("(?<![\\w#/])#[A-Za-z][\\w/-]*").findAll(note.body).count()
+    val outLinks = com.todocompanion.app.domain.NoteGrammar.WIKI_LINK.findAll(note.body).count()
+    val tagCount = com.todocompanion.app.domain.NoteGrammar.TAG.findAll(note.body).count()
     fun fmt(ts: Long): String = if (ts <= 0L) "—" else runCatching {
         java.time.Instant.ofEpochMilli(ts).atZone(java.time.ZoneId.systemDefault())
             .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm"))

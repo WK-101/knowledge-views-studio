@@ -22,7 +22,7 @@ object NoteWrapped {
         val distinctTags: Int,
     ) { val isEmpty: Boolean get() = created == 0 }
 
-    private val tag = Regex("(?<![\\w#/])#([A-Za-z][\\w/-]*)")
+    private val tag = NoteGrammar.TAG
     private val months = arrayOf(
         "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December",

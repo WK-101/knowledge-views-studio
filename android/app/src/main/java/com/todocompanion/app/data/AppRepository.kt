@@ -97,95 +97,86 @@ class AppRepository(private val db: AppDatabase) {
     // migration or lose data — search always has an in-memory fallback. Kept fresh by an incremental
     // upsert on the two content-authoring paths (create/save) plus a cheap count-mismatch rebuild.
     private fun ftsDb() = db.openHelper.writableDatabase
-    private fun ftsCreate(sdb: androidx.sqlite.db.SupportSQLiteDatabase) {
-        sdb.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS task_fts USING fts4(taskId, title, note, tokenize=unicode61)")
-    }
-    private fun rebuildTaskFtsBlocking(sdb: androidx.sqlite.db.SupportSQLiteDatabase) {
-        ftsCreate(sdb)
-        sdb.execSQL("DELETE FROM task_fts")
-        sdb.execSQL("INSERT INTO task_fts(taskId, title, note) SELECT id, title, note FROM tasks")
-    }
-    /** Incremental index update for one task's searchable content. Off the main thread, fully guarded. */
-    suspend fun syncTaskFts(id: String, title: String, note: String) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        runCatching {
-            val sdb = ftsDb(); ftsCreate(sdb)
-            sdb.execSQL("DELETE FROM task_fts WHERE taskId = ?", arrayOf<Any?>(id))
-            sdb.execSQL("INSERT INTO task_fts(taskId, title, note) VALUES(?, ?, ?)", arrayOf<Any?>(id, title, note))
+    /**
+     * One FTS4 index, parameterized by table shape. Both the tasks and the notes index are the same
+     * machinery — a raw-SQL virtual table invisible to Room's schema, guarded end-to-end, kept fresh by an
+     * incremental upsert on save plus a cheap count-mismatch rebuild, with an empty-list fallback on any
+     * failure so search degrades to the in-memory path rather than crashing. Previously this was written
+     * out twice (task_fts / note_fts); the two copies drifted (only the note copy learned the `trashed`
+     * scoping), which is exactly the bug class a single implementation removes.
+     *
+     * @param source     the backing table to (re)build from.
+     * @param sourceWhere optional filter for which source rows belong in the index (e.g. non-trashed only).
+     */
+    private inner class FtsIndex(
+        val table: String,          // virtual-table name, e.g. "note_fts"
+        val idCol: String,          // id column, e.g. "noteId"
+        val contentCols: List<String>,   // searchable columns, e.g. ["title", "body"]
+        val source: String,         // backing table, e.g. "notes"
+        val sourceIdCol: String = "id",  // backing id column
+        val sourceWhere: String = "",    // e.g. "WHERE trashed = 0"; "" for all rows
+    ) {
+        private val allCols = (listOf(idCol) + contentCols).joinToString(", ")            // "noteId, title, body"
+        private val srcSelect = (listOf(sourceIdCol) + contentCols).joinToString(", ")    // "id, title, body"
+        private val placeholders = (0..contentCols.size).joinToString(", ") { "?" }       // "?, ?, ?"
+
+        fun create(sdb: androidx.sqlite.db.SupportSQLiteDatabase) =
+            sdb.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS $table USING fts4($allCols, tokenize=unicode61)")
+
+        fun rebuild(sdb: androidx.sqlite.db.SupportSQLiteDatabase) {
+            create(sdb)
+            sdb.execSQL("DELETE FROM $table")
+            sdb.execSQL("INSERT INTO $table($allCols) SELECT $srcSelect FROM $source $sourceWhere".trim())
         }
-        Unit
-    }
-    private fun deleteTaskFts(sdb: androidx.sqlite.db.SupportSQLiteDatabase, id: String) {
-        runCatching { sdb.execSQL("DELETE FROM task_fts WHERE taskId = ?", arrayOf<Any?>(id)) }
-    }
-    /** Create the index if missing; rebuild only when it's clearly stale (row-count mismatch — cheap). */
-    private fun ensureFtsFresh(sdb: androidx.sqlite.db.SupportSQLiteDatabase) {
-        ftsCreate(sdb)
-        val ftsCount = runCatching { sdb.query("SELECT count(*) FROM task_fts").use { if (it.moveToFirst()) it.getLong(0) else -1L } }.getOrDefault(-1L)
-        val taskCount = runCatching { sdb.query("SELECT count(*) FROM tasks").use { if (it.moveToFirst()) it.getLong(0) else -2L } }.getOrDefault(-2L)
-        if (ftsCount != taskCount) rebuildTaskFtsBlocking(sdb)
-    }
-    /** Task ids whose title/note match [query] (prefix, all-terms). Empty on any failure → caller falls back. */
-    suspend fun searchTaskIds(query: String): List<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        runCatching {
-            val match = query.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
-                .joinToString(" ") { it.replace(Regex("[\"*^:()]"), "") + "*" }
-            if (match.isBlank()) return@runCatching emptyList<String>()
-            val sdb = ftsDb(); ensureFtsFresh(sdb)
-            val ids = ArrayList<String>()
-            sdb.query("SELECT taskId FROM task_fts WHERE task_fts MATCH ?", arrayOf<Any?>(match)).use { c ->
-                while (c.moveToNext()) ids += c.getString(0)
+        fun deleteOne(sdb: androidx.sqlite.db.SupportSQLiteDatabase, id: String) =
+            runCatching { sdb.execSQL("DELETE FROM $table WHERE $idCol = ?", arrayOf<Any?>(id)) }.let {}
+
+        /** Incremental single-row upsert. Off the main thread, fully guarded. `values` matches [contentCols]. */
+        suspend fun syncOne(id: String, vararg values: String) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                val sdb = ftsDb(); create(sdb)
+                sdb.execSQL("DELETE FROM $table WHERE $idCol = ?", arrayOf<Any?>(id))
+                sdb.execSQL("INSERT INTO $table($allCols) VALUES($placeholders)", arrayOf<Any?>(id, *values))
             }
-            ids
-        }.getOrDefault(emptyList())
+            Unit
+        }
+        /** Create if missing; rebuild only when clearly stale (row-count mismatch vs the filtered source). */
+        fun ensureFresh(sdb: androidx.sqlite.db.SupportSQLiteDatabase) {
+            create(sdb)
+            val ftsCount = runCatching { sdb.query("SELECT count(*) FROM $table").use { if (it.moveToFirst()) it.getLong(0) else -1L } }.getOrDefault(-1L)
+            val srcCount = runCatching { sdb.query("SELECT count(*) FROM $source $sourceWhere".trim()).use { if (it.moveToFirst()) it.getLong(0) else -2L } }.getOrDefault(-2L)
+            if (ftsCount != srcCount) rebuild(sdb)
+        }
+        /** Ids whose content matches [query] (prefix, all-terms). Empty on any failure → caller falls back. */
+        suspend fun search(query: String): List<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                val match = query.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+                    .joinToString(" ") { it.replace(Regex("[\"*^:()]"), "") + "*" }
+                if (match.isBlank()) return@runCatching emptyList<String>()
+                val sdb = ftsDb(); ensureFresh(sdb)
+                val ids = ArrayList<String>()
+                sdb.query("SELECT $idCol FROM $table WHERE $table MATCH ?", arrayOf<Any?>(match)).use { c ->
+                    while (c.moveToNext()) ids += c.getString(0)
+                }
+                ids
+            }.getOrDefault(emptyList())
+        }
     }
 
-    // ── Notes module · full-text search (FTS4) ──────────────────────────────────────────────────────
-    // Same shape as task_fts: a raw-SQL virtual table invisible to Room's schema, guarded end-to-end, with
-    // an in-memory fallback. Kept fresh by an incremental upsert on save + a cheap count-mismatch rebuild.
-    private fun noteFtsCreate(sdb: androidx.sqlite.db.SupportSQLiteDatabase) {
-        sdb.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS note_fts USING fts4(noteId, title, body, tokenize=unicode61)")
-    }
-    private fun rebuildNoteFtsBlocking(sdb: androidx.sqlite.db.SupportSQLiteDatabase) {
-        noteFtsCreate(sdb)
-        sdb.execSQL("DELETE FROM note_fts")
-        // Only non-trashed notes belong in the index — a trashed note deletes its FTS row (deleteNoteFts),
-        // so re-adding it here would resurrect it into search results (and skew the freshness count).
-        sdb.execSQL("INSERT INTO note_fts(noteId, title, body) SELECT id, title, body FROM notes WHERE trashed = 0")
-    }
-    /** Incremental index update for one note's searchable content. Off the main thread, fully guarded. */
-    suspend fun syncNoteFts(id: String, title: String, body: String) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        runCatching {
-            val sdb = ftsDb(); noteFtsCreate(sdb)
-            sdb.execSQL("DELETE FROM note_fts WHERE noteId = ?", arrayOf<Any?>(id))
-            sdb.execSQL("INSERT INTO note_fts(noteId, title, body) VALUES(?, ?, ?)", arrayOf<Any?>(id, title, body))
-        }
-        Unit
-    }
-    private fun deleteNoteFts(sdb: androidx.sqlite.db.SupportSQLiteDatabase, id: String) {
-        runCatching { sdb.execSQL("DELETE FROM note_fts WHERE noteId = ?", arrayOf<Any?>(id)) }
-    }
-    private fun ensureNoteFtsFresh(sdb: androidx.sqlite.db.SupportSQLiteDatabase) {
-        noteFtsCreate(sdb)
-        val ftsCount = runCatching { sdb.query("SELECT count(*) FROM note_fts").use { if (it.moveToFirst()) it.getLong(0) else -1L } }.getOrDefault(-1L)
-        // Compare against NON-trashed notes only — the index excludes trashed rows, so counting all notes
-        // would mismatch on every search whenever anything is in the Trash and trigger a needless rebuild.
-        val noteCount = runCatching { sdb.query("SELECT count(*) FROM notes WHERE trashed = 0").use { if (it.moveToFirst()) it.getLong(0) else -2L } }.getOrDefault(-2L)
-        if (ftsCount != noteCount) rebuildNoteFtsBlocking(sdb)
-    }
-    /** Note ids whose title/body match [query] (prefix, all-terms). Empty on any failure → caller falls back. */
-    suspend fun searchNoteIds(query: String): List<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        runCatching {
-            val match = query.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
-                .joinToString(" ") { it.replace(Regex("[\"*^:()]"), "") + "*" }
-            if (match.isBlank()) return@runCatching emptyList<String>()
-            val sdb = ftsDb(); ensureNoteFtsFresh(sdb)
-            val ids = ArrayList<String>()
-            sdb.query("SELECT noteId FROM note_fts WHERE note_fts MATCH ?", arrayOf<Any?>(match)).use { c ->
-                while (c.moveToNext()) ids += c.getString(0)
-            }
-            ids
-        }.getOrDefault(emptyList())
-    }
+    private val taskFts = FtsIndex("task_fts", "taskId", listOf("title", "note"), "tasks")
+    // Notes: only non-trashed rows belong in the index — a trashed note deletes its FTS row on trash, so
+    // re-adding it on rebuild would resurrect it into search (and skew the freshness count).
+    private val noteFts = FtsIndex("note_fts", "noteId", listOf("title", "body"), "notes", sourceWhere = "WHERE trashed = 0")
+
+    // Thin, named delegators so every existing call site (save/trash/delete/import/search) is unchanged.
+    private fun rebuildTaskFtsBlocking(sdb: androidx.sqlite.db.SupportSQLiteDatabase) = taskFts.rebuild(sdb)
+    private fun rebuildNoteFtsBlocking(sdb: androidx.sqlite.db.SupportSQLiteDatabase) = noteFts.rebuild(sdb)
+    suspend fun syncTaskFts(id: String, title: String, note: String) = taskFts.syncOne(id, title, note)
+    suspend fun syncNoteFts(id: String, title: String, body: String) = noteFts.syncOne(id, title, body)
+    private fun deleteTaskFts(sdb: androidx.sqlite.db.SupportSQLiteDatabase, id: String) = taskFts.deleteOne(sdb, id)
+    private fun deleteNoteFts(sdb: androidx.sqlite.db.SupportSQLiteDatabase, id: String) = noteFts.deleteOne(sdb, id)
+    suspend fun searchTaskIds(query: String): List<String> = taskFts.search(query)
+    suspend fun searchNoteIds(query: String): List<String> = noteFts.search(query)
 
     /**
      * R56 (Wave B / robustness R1) — DB-side COUNT(*) aggregates. A `SELECT count(*)` is orders of
