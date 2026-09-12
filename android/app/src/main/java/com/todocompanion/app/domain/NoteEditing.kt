@@ -157,6 +157,9 @@ object NoteEditing {
         val c = caret.coerceIn(0, text.length)
         val lineStart = lineStartOf(text, c)
         if (lineStart >= text.length || text[lineStart] != '/') return null
+        // Caret at (or before) the leading '/' — no query token yet. Without this guard, substring(lineStart+1, c)
+        // is substring(c+1, c) when the caret sits at column 0 of a '/'-line → StringIndexOutOfBoundsException.
+        if (c <= lineStart) return null
         val seg = text.substring(lineStart + 1, c)
         if (seg.any { it.isWhitespace() }) return null
         return seg

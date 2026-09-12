@@ -148,7 +148,9 @@ class AppRepository(private val db: AppDatabase) {
     private fun rebuildNoteFtsBlocking(sdb: androidx.sqlite.db.SupportSQLiteDatabase) {
         noteFtsCreate(sdb)
         sdb.execSQL("DELETE FROM note_fts")
-        sdb.execSQL("INSERT INTO note_fts(noteId, title, body) SELECT id, title, body FROM notes")
+        // Only non-trashed notes belong in the index — a trashed note deletes its FTS row (deleteNoteFts),
+        // so re-adding it here would resurrect it into search results (and skew the freshness count).
+        sdb.execSQL("INSERT INTO note_fts(noteId, title, body) SELECT id, title, body FROM notes WHERE trashed = 0")
     }
     /** Incremental index update for one note's searchable content. Off the main thread, fully guarded. */
     suspend fun syncNoteFts(id: String, title: String, body: String) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -165,7 +167,9 @@ class AppRepository(private val db: AppDatabase) {
     private fun ensureNoteFtsFresh(sdb: androidx.sqlite.db.SupportSQLiteDatabase) {
         noteFtsCreate(sdb)
         val ftsCount = runCatching { sdb.query("SELECT count(*) FROM note_fts").use { if (it.moveToFirst()) it.getLong(0) else -1L } }.getOrDefault(-1L)
-        val noteCount = runCatching { sdb.query("SELECT count(*) FROM notes").use { if (it.moveToFirst()) it.getLong(0) else -2L } }.getOrDefault(-2L)
+        // Compare against NON-trashed notes only — the index excludes trashed rows, so counting all notes
+        // would mismatch on every search whenever anything is in the Trash and trigger a needless rebuild.
+        val noteCount = runCatching { sdb.query("SELECT count(*) FROM notes WHERE trashed = 0").use { if (it.moveToFirst()) it.getLong(0) else -2L } }.getOrDefault(-2L)
         if (ftsCount != noteCount) rebuildNoteFtsBlocking(sdb)
     }
     /** Note ids whose title/body match [query] (prefix, all-terms). Empty on any failure → caller falls back. */
@@ -1216,6 +1220,11 @@ class AppRepository(private val db: AppDatabase) {
         nudgeEvents.upsertAll(nudgeEvents.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
         // Events follow their calendar, so reassigning the calendars carries the events with them.
         eventCalendars.upsertAll(eventCalendars.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        // Notes module — these three tables are workspace-scoped too; reassign them or deleting a workspace
+        // would strand its notes/notebooks/smart-views on a dead workspaceId (invisible, unrecoverable).
+        notes.upsertAll(notes.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        notebooks.upsertAll(notebooks.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
+        smartViews.upsertAll(smartViews.getAll().filter { it.workspaceId == id }.map { it.copy(workspaceId = def) })
         workspaces.deleteById(id)
     }
 
@@ -1748,6 +1757,10 @@ class AppRepository(private val db: AppDatabase) {
         noteRevisions.insertAll(b.noteRevisions)
         noteLinks.insertAll(b.noteLinks)
         smartViews.upsertAll(b.smartViews)
+        // Reset the FTS indices to match the freshly-replaced rows. The count-freshness heuristic can't
+        // catch a same-cardinality replacement (restoring N notes over a different N), so rebuild eagerly
+        // or search would return stale, pre-restore ids.
+        runCatching { val sdb = ftsDb(); rebuildTaskFtsBlocking(sdb); rebuildNoteFtsBlocking(sdb) }
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()

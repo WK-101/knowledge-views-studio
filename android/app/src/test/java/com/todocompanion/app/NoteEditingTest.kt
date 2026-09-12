@@ -100,6 +100,14 @@ class NoteEditingTest {
     }
 
     // ── Wave G · quick-insert palette ──
+    @Test fun quickQueryDoesNotCrashAtColumnZeroOfSlashLine() {
+        // Caret at column 0 of a line whose first char is '/' — must return null, never throw.
+        assertEquals(null, NoteEditing.quickQuery("/date", 0))
+        assertEquals(null, NoteEditing.quickQuery("a\n/date", 2))   // caret just before the '/'
+        assertEquals("", NoteEditing.quickQuery("/date", 1))        // caret right after '/' → empty query
+        assertEquals("da", NoteEditing.quickQuery("/date", 3))      // mid-token
+    }
+
     @Test fun quickQueryOnlyAtLineStartSlash() {
         assertEquals("", NoteEditing.quickQuery("/", 1))
         assertEquals("head", NoteEditing.quickQuery("/head", 5))

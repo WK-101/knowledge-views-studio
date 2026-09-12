@@ -181,6 +181,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val cravings = repo.allCravings.scopedBy { it.workspaceId }
     // Notes module (v66) — workspace-scoped, non-trashed notes + the optional dedicated notebook tree.
     val notes = combine(repo.observeNotes(), activeWs) { n, ws -> n.filter { it.workspaceId == ws && !it.trashed } }.state(emptyList())
+    /** The Trash — workspace-scoped notes the user has trashed but not yet permanently deleted. */
+    val trashedNotes = combine(repo.observeNotes(), activeWs) { n, ws -> n.filter { it.workspaceId == ws && it.trashed } }.state(emptyList())
     val notebooks = repo.observeNotebooks().scopedBy { it.workspaceId }
     // Note ↔ tag cross-refs (for chips on cards / editor). Observe the note_tags table directly so a tag
     // toggle reflects immediately — writing note_tags doesn't touch the notes table, so deriving this from
@@ -270,6 +272,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (prev != null) undoEvents.tryEmit(UndoEvent(UndoKind.NOTE_TRASHED, id, "Moved to Trash", noteRestore = prev))
     }
     fun deleteNote(id: String) = viewModelScope.launch { repo.deleteNote(id) }
+    /** Bring a note back out of the Trash. */
+    fun restoreNoteFromTrash(id: String) = viewModelScope.launch { repo.trashNote(id, false) }
+    /** Permanently delete every trashed note in the active workspace ("Empty Trash"). */
+    fun emptyNoteTrash() = viewModelScope.launch {
+        val ws = activeWorkspace()
+        repo.getNotesOnce().filter { it.trashed && it.workspaceId == ws }.forEach { repo.deleteNote(it.id) }
+    }
     fun setNoteTags(noteId: String, tagIds: List<String>) = viewModelScope.launch { repo.setNoteTags(noteId, tagIds) }
     fun setNoteContexts(noteId: String, contextIds: List<String>) = viewModelScope.launch { repo.setNoteContexts(noteId, contextIds) }
 

@@ -136,12 +136,16 @@ fun NotesScreen(
     val folders by vm.folders.collectAsState()
     val smartViews by vm.smartViews.collectAsState()
     val noteTagRefs by vm.noteTagRefs.collectAsState()
+    val trashed by vm.trashedNotes.collectAsState()
 
     val useNotebooks = settings.notesNotebookMode == "notebooks"
     val grid = settings.noteDefaultView != "list"
 
     var container by remember { mutableStateOf<String?>(null) }   // selected notebookId/folderId, null = All
     var archiveView by remember { mutableStateOf(false) }         // Wave B — the Archive (third state) view
+    var trashView by remember { mutableStateOf(false) }           // the Trash — trashed notes, restore / delete forever
+    var trashAction by remember { mutableStateOf<NoteEntity?>(null) }  // tapped trashed note → restore/delete sheet
+    var confirmEmptyTrash by remember { mutableStateOf(false) }
     androidx.compose.runtime.LaunchedEffect(Unit) { vm.purgeExpiredNoteTrash() }  // lazy auto-empty-trash sweep
     // Wave D — Smart Views: the active predicate filter (null = none), its chip id/label, and dialog state.
     var activePredicate by remember { mutableStateOf<com.todocompanion.app.domain.NotePredicate?>(null) }
@@ -286,6 +290,7 @@ fun NotesScreen(
             var filterMenu by remember { mutableStateOf(false) }
             val viewLabel = when (viewMode) { "board" -> "▤ Board"; "calendar" -> "🗓 Calendar"; else -> "▦ Cards" }
             val activeFilterLabel = when {
+                trashView -> "🗑 Trash"
                 activeLabel != null -> smartViews.firstOrNull { it.id == activeLabel }?.let { (it.icon?.plus(" ") ?: "🔎 ") + it.title } ?: activeLabel!!
                 archiveView -> "🗄 Archived"
                 container != null -> containers.firstOrNull { it.first == container }?.second ?: "All notes"
@@ -314,20 +319,25 @@ fun NotesScreen(
                         val checkP = MaterialTheme.colorScheme.primary
                         DropdownMenuItem(
                             text = { Text("All notes") },
-                            trailingIcon = { if (container == null && !archiveView && activePredicate == null) Icon(Icons.Filled.CheckCircle, null, Modifier.size(18.dp), tint = checkP) },
-                            onClick = { container = null; archiveView = false; activePredicate = null; activeLabel = null; filterMenu = false },
+                            trailingIcon = { if (container == null && !archiveView && !trashView && activePredicate == null) Icon(Icons.Filled.CheckCircle, null, Modifier.size(18.dp), tint = checkP) },
+                            onClick = { container = null; archiveView = false; trashView = false; activePredicate = null; activeLabel = null; filterMenu = false },
                         )
                         containers.forEach { (id, name) ->
                             DropdownMenuItem(
                                 text = { Text(name) },
-                                trailingIcon = { if (container == id && !archiveView && activePredicate == null) Icon(Icons.Filled.CheckCircle, null, Modifier.size(18.dp), tint = checkP) },
-                                onClick = { container = id; archiveView = false; activePredicate = null; activeLabel = null; filterMenu = false },
+                                trailingIcon = { if (container == id && !archiveView && !trashView && activePredicate == null) Icon(Icons.Filled.CheckCircle, null, Modifier.size(18.dp), tint = checkP) },
+                                onClick = { container = id; archiveView = false; trashView = false; activePredicate = null; activeLabel = null; filterMenu = false },
                             )
                         }
                         DropdownMenuItem(
                             text = { Text("🗄 Archived") },
                             trailingIcon = { if (archiveView && activePredicate == null) Icon(Icons.Filled.CheckCircle, null, Modifier.size(18.dp), tint = checkP) },
-                            onClick = { archiveView = true; container = null; activePredicate = null; activeLabel = null; filterMenu = false },
+                            onClick = { archiveView = true; container = null; trashView = false; activePredicate = null; activeLabel = null; filterMenu = false },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("🗑 Trash" + if (trashed.isNotEmpty()) "  ·  ${trashed.size}" else "") },
+                            trailingIcon = { if (trashView) Icon(Icons.Filled.CheckCircle, null, Modifier.size(18.dp), tint = checkP) },
+                            onClick = { trashView = true; archiveView = false; container = null; activePredicate = null; activeLabel = null; filterMenu = false },
                         )
                         HorizontalDivider()
                         listOf(
@@ -338,7 +348,7 @@ fun NotesScreen(
                             DropdownMenuItem(
                                 text = { Text(lbl) },
                                 trailingIcon = { if (activeLabel == lbl) Icon(Icons.Filled.CheckCircle, null, Modifier.size(18.dp), tint = checkP) },
-                                onClick = { activePredicate = pred; activeLabel = lbl; container = null; archiveView = false; filterMenu = false },
+                                onClick = { activePredicate = pred; activeLabel = lbl; container = null; archiveView = false; trashView = false; filterMenu = false },
                             )
                         }
                         smartViews.forEach { v ->
@@ -346,7 +356,7 @@ fun NotesScreen(
                             DropdownMenuItem(
                                 text = { Text((v.icon?.let { "$it " } ?: "🔎 ") + v.title) },
                                 trailingIcon = { Icon(Icons.Filled.Delete, "Delete view", Modifier.size(18.dp).clickable { deleteView = v; filterMenu = false }, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                                onClick = { if (decoded != null) { activePredicate = decoded; activeLabel = v.id; container = null; archiveView = false }; filterMenu = false },
+                                onClick = { if (decoded != null) { activePredicate = decoded; activeLabel = v.id; container = null; archiveView = false; trashView = false }; filterMenu = false },
                             )
                         }
                         HorizontalDivider()
@@ -392,7 +402,33 @@ fun NotesScreen(
                 }
                 NoteWrappedDialog(stats, onDismiss = { showWrapped = false })
             }
-            if (filtered.isEmpty()) {
+            // A trashed note tapped → restore it or delete it forever.
+            trashAction?.let { n ->
+                AlertDialog(
+                    onDismissRequest = { trashAction = null },
+                    confirmButton = { TextButton(onClick = { vm.restoreNoteFromTrash(n.id); trashAction = null }) { Text("Restore") } },
+                    dismissButton = { TextButton(onClick = { vm.deleteNote(n.id); trashAction = null }) { Text("Delete forever", color = MaterialTheme.colorScheme.error) } },
+                    title = { Text(n.title.ifBlank { "Untitled note" }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    text = { Text("Restore this note to your notes, or delete it permanently? Deleting can't be undone.") },
+                )
+            }
+            if (confirmEmptyTrash) {
+                AlertDialog(
+                    onDismissRequest = { confirmEmptyTrash = false },
+                    confirmButton = { TextButton(onClick = { vm.emptyNoteTrash(); confirmEmptyTrash = false }) { Text("Empty Trash", color = MaterialTheme.colorScheme.error) } },
+                    dismissButton = { TextButton(onClick = { confirmEmptyTrash = false }) { Text("Cancel") } },
+                    title = { Text("Empty Trash?") },
+                    text = { Text("Permanently delete all ${trashed.size} note${if (trashed.size == 1) "" else "s"} in the Trash. This can't be undone.") },
+                )
+            }
+            if (trashView) {
+                NotesTrashView(
+                    trashed = trashed.filter { query.isBlank() || it.title.contains(query, true) || it.body.contains(query, true) },
+                    retentionDays = settings.notesTrashRetentionDays,
+                    onOpen = { trashAction = it },
+                    onEmpty = { if (trashed.isNotEmpty()) confirmEmptyTrash = true },
+                )
+            } else if (filtered.isEmpty()) {
                 EmptyState(
                     emoji = "📝",
                     title = if (query.isNotBlank()) "No matching notes" else "No notes yet",
@@ -434,6 +470,52 @@ fun NotesScreen(
                                 onTogglePin = { vm.saveNote(n.copy(pinned = !n.pinned)) },
                                 onLongPress = { selection = selection + n.id },
                             )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The Trash — trashed notes awaiting restore or permanent deletion. A banner explains auto-empty; each
+ *  row opens a Restore / Delete-forever choice. */
+@Composable
+private fun NotesTrashView(
+    trashed: List<NoteEntity>,
+    retentionDays: Int,
+    onOpen: (NoteEntity) -> Unit,
+    onEmpty: () -> Unit,
+) {
+    val df = remember { java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.getDefault()) }
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Filled.Delete, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                if (retentionDays > 0) "Notes here are deleted after $retentionDays days." else "Notes stay here until you delete them.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f),
+            )
+            if (trashed.isNotEmpty()) TextButton(onClick = onEmpty) { Text("Empty", color = MaterialTheme.colorScheme.error) }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+        if (trashed.isEmpty()) {
+            EmptyState(emoji = "🗑", title = "Trash is empty", body = "Notes you move to Trash appear here, where you can restore them or delete them for good.")
+        } else {
+            LazyColumn(contentPadding = PaddingValues(vertical = 4.dp), modifier = Modifier.fillMaxSize()) {
+                items(trashed, key = { it.id }) { n ->
+                    Surface(onClick = { onOpen(n) }, color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth().animateItem()) {
+                        Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text((n.coverEmoji?.ifBlank { null }?.let { "$it " } ?: "") + n.title.ifBlank { "(untitled)" },
+                                    style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("Edited ${df.format(java.util.Date(n.updatedAt))}",
+                                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                            }
+                            Text("›", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -763,6 +845,23 @@ fun NoteEditorScreen(
                         Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.Add, "Add tag", modifier = Modifier.size(15.dp), tint = MaterialTheme.colorScheme.primary)
                             if (myTagIds.isEmpty()) { Spacer(Modifier.width(2.dp)); Text("Add tag", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary) }
+                        }
+                    }
+                    // Notebook / folder pill — shows the container name when set, else "＋ Notebook/Folder". Tap picks one.
+                    val hasContainer = if (useNotebooks) d.notebookId != null else d.folderId != null
+                    Surface(shape = RoundedCornerShape(8.dp),
+                        color = if (hasContainer) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f),
+                        modifier = Modifier.align(Alignment.CenterVertically).clickable { showContainer = true }) {
+                        Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Book, null, modifier = Modifier.size(14.dp),
+                                tint = if (hasContainer) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(3.dp))
+                            Text(
+                                containerName ?: (if (useNotebooks) "Notebook" else "Folder"),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (hasContainer) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                            )
                         }
                     }
                 }
