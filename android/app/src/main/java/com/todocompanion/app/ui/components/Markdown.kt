@@ -1,6 +1,7 @@
 package com.todocompanion.app.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
@@ -277,12 +278,18 @@ private fun MdTable(table: TableBlock, pal: MdPalette) {
     }
     val cols = maxOf(header.size, body.maxOfOrNull { it.size } ?: 0)
     if (cols == 0) return
+    // Each cell is a fixed 140.dp wide, so the table's total width is deterministic. Pin the inner
+    // Column to that width: inside a horizontalScroll the width constraint is unbounded, so a bare
+    // fillMaxWidth() divider would collapse to 0.dp (invisible row separators). An explicit width makes
+    // the header/row rules span the whole table and the border wrap it — so it reads as a real table.
+    val tableWidth = (cols * 140).dp
     Box(Modifier.fillMaxWidth().padding(vertical = 6.dp).horizontalScroll(rememberScrollState())) {
-        Column(Modifier.clip(RoundedCornerShape(8.dp)).background(pal.calloutBg)) {
+        Column(
+            Modifier.width(tableWidth).clip(RoundedCornerShape(8.dp))
+                .border(1.dp, pal.hair, RoundedCornerShape(8.dp)).background(pal.calloutBg),
+        ) {
             if (header.isNotEmpty()) {
-                Row {
-                    for (c in 0 until cols) MdTableCell(header.getOrNull(c) ?: AnnotatedString(""), pal, headerRow = true)
-                }
+                Row { for (c in 0 until cols) MdTableCell(header.getOrNull(c) ?: AnnotatedString(""), pal, headerRow = true) }
                 Box(Modifier.fillMaxWidth().height(1.dp).background(pal.hair))
             }
             body.forEachIndexed { idx, row ->

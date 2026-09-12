@@ -25,6 +25,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatItalic
@@ -38,10 +39,13 @@ import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Redo
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Title
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -100,6 +104,7 @@ fun NoteBodyEditor(
     tagNames: List<String> = emptyList(),
     liveStyle: Boolean = false,
     type: com.todocompanion.app.domain.NoteAppearance.NoteType = com.todocompanion.app.domain.NoteAppearance.NoteType(),
+    onFontScaleChange: (Int) -> Unit = {},
 ) {
     var tfv by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
     // Resync only when the body changes from OUTSIDE (a toolbar-inserted link elsewhere, a fresh note);
@@ -221,10 +226,24 @@ fun NoteBodyEditor(
                         HorizontalDivider(color = cs.outlineVariant.copy(alpha = .6f))
                         if (moreFormat) {
                             Row(
-                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp),
+                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
-                                BarIcon(Icons.Filled.Title, "Heading") { onLinePrefix("# ") }
+                                // NotesNook-style paragraph/heading selector + font-size stepper.
+                                HeadingMenu(
+                                    level = NoteEditing.headingLevelOf(tfv.text, tfv.selection.start),
+                                    onPick = { lvl -> apply(NoteEditing.setLineHeading(tfv.text, tfv.selection.start, lvl)) },
+                                )
+                                SizeStepper(
+                                    px = Math.round(16f * (type.scalePct / 100f)),
+                                    onStep = { deltaPx ->
+                                        val cur = Math.round(16f * (type.scalePct / 100f))
+                                        val newPx = (cur + deltaPx).coerceIn(11, 32)
+                                        onFontScaleChange(Math.round(newPx / 16f * 100f))
+                                    },
+                                )
+                                Spacer(Modifier.width(2.dp))
                                 BarIcon(Icons.Filled.FormatQuote, "Quote") { onLinePrefix("> ") }
                                 BarIcon(Icons.Filled.FormatListBulleted, "Bulleted list") { onLinePrefix("- ") }
                                 BarIcon(Icons.Filled.FormatListNumbered, "Numbered list") { onLinePrefix("1. ") }
@@ -236,8 +255,9 @@ fun NoteBodyEditor(
                             HorizontalDivider(color = cs.outlineVariant.copy(alpha = .35f))
                         }
                         Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                            Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             BarIcon(Icons.Filled.Add, "Insert block") { showBlocks = true }
                             BarIcon(Icons.Filled.FormatBold, "Bold") { onWrap("**") }
@@ -245,7 +265,6 @@ fun NoteBodyEditor(
                             BarIcon(Icons.Filled.FormatStrikethrough, "Strikethrough") { onWrap("~~") }
                             BarIcon(Icons.Filled.Code, "Inline code") { onWrap("`") }
                             BarIcon(Icons.Filled.MoreVert, if (moreFormat) "Fewer options" else "More options", active = moreFormat) { moreFormat = !moreFormat }
-                            Spacer(Modifier.weight(1f))
                             BarIcon(Icons.Filled.Undo, "Undo", enabled = undo.isNotEmpty()) { doUndo() }
                             BarIcon(Icons.Filled.Redo, "Redo", enabled = redo.isNotEmpty()) { doRedo() }
                         }
@@ -256,7 +275,8 @@ fun NoteBodyEditor(
     }
     if (showTable) TableEditorDialog(onInsert = { insertBlock(it); showTable = false }, onDismiss = { showTable = false })
     if (showBlocks) {
-        ModalBottomSheet(onDismissRequest = { showBlocks = false }, sheetState = rememberModalBottomSheetState()) {
+        ModalBottomSheet(onDismissRequest = { showBlocks = false }, sheetState = rememberModalBottomSheetState(), dragHandle = null) {
+            Spacer(Modifier.height(8.dp))
             Text("Choose a block to insert", style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 6.dp))
             val blocks = listOf<Triple<androidx.compose.ui.graphics.vector.ImageVector, String, () -> Unit>>(
@@ -284,7 +304,8 @@ fun NoteBodyEditor(
     }
 }
 
-/** A flat, borderless icon button for the bottom formatting bar (NotesNook-style continuous bar). */
+/** A flat, borderless icon button for the bottom formatting bar (NotesNook-style continuous bar).
+ *  Sized to fill the row generously — bigger touch target and glyph than a default IconButton. */
 @Composable
 private fun BarIcon(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -293,15 +314,75 @@ private fun BarIcon(
     active: Boolean = false,
     onClick: () -> Unit,
 ) {
-    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(40.dp)) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(48.dp)) {
         Icon(
-            icon, contentDescription, modifier = Modifier.size(20.dp),
+            icon, contentDescription, modifier = Modifier.size(25.dp),
             tint = when {
                 !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .35f)
                 active -> MaterialTheme.colorScheme.primary
                 else -> MaterialTheme.colorScheme.onSurface
             },
         )
+    }
+}
+
+/** NotesNook-style paragraph / H1–H6 selector: a compact pill that shows the caret line's current
+ *  block level and opens a dropdown to change it. [level] 0 = Paragraph, 1..6 = that heading. */
+@Composable
+private fun HeadingMenu(level: Int, onPick: (Int) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val cs = MaterialTheme.colorScheme
+    val label = if (level in 1..6) "H$level" else "¶"
+    Box {
+        Surface(
+            onClick = { open = true },
+            shape = RoundedCornerShape(9.dp),
+            color = if (level in 1..6) cs.secondaryContainer else cs.surfaceVariant.copy(alpha = .5f),
+            modifier = Modifier.height(38.dp),
+        ) {
+            Row(Modifier.padding(start = 12.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (level in 1..6) "Heading $level" else "Paragraph",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (level in 1..6) cs.onSecondaryContainer else cs.onSurface,
+                    maxLines = 1,
+                )
+                Icon(Icons.Filled.ArrowDropDown, null, Modifier.size(20.dp), tint = cs.onSurfaceVariant)
+            }
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            val items = listOf(0 to "Paragraph", 1 to "Heading 1", 2 to "Heading 2", 3 to "Heading 3", 4 to "Heading 4", 5 to "Heading 5", 6 to "Heading 6")
+            items.forEach { (lvl, name) ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            name,
+                            style = if (lvl in 1..3) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
+                            fontWeight = if (lvl in 1..6) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (lvl == level) cs.primary else cs.onSurface,
+                        )
+                    },
+                    onClick = { onPick(lvl); open = false },
+                )
+            }
+        }
+    }
+}
+
+/** A "− 16px +" font-size stepper (NotesNook parity). [px] is the shown size; [onStep] gets ±1. */
+@Composable
+private fun SizeStepper(px: Int, onStep: (Int) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Surface(shape = RoundedCornerShape(9.dp), color = cs.surfaceVariant.copy(alpha = .5f), modifier = Modifier.height(38.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { onStep(-1) }, modifier = Modifier.size(38.dp)) {
+                Icon(Icons.Filled.Remove, "Smaller text", Modifier.size(19.dp), tint = cs.onSurface)
+            }
+            Text("${px}px", style = MaterialTheme.typography.labelLarge, color = cs.onSurface, maxLines = 1)
+            IconButton(onClick = { onStep(1) }, modifier = Modifier.size(38.dp)) {
+                Icon(Icons.Filled.Add, "Larger text", Modifier.size(19.dp), tint = cs.onSurface)
+            }
+        }
     }
 }
 

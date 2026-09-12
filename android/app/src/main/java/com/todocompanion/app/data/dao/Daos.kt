@@ -828,6 +828,10 @@ interface NoteDao {
     @Query("SELECT * FROM note_tags")
     suspend fun getTagCrossRefs(): List<NoteTagCrossRef>
 
+    /** Observe the note↔tag links so the editor's tag chips update the instant a tag is toggled. */
+    @Query("SELECT * FROM note_tags")
+    fun observeTagCrossRefs(): kotlinx.coroutines.flow.Flow<List<NoteTagCrossRef>>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun linkTag(ref: NoteTagCrossRef)
 

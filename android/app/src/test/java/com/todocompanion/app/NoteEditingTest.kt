@@ -28,6 +28,26 @@ class NoteEditingTest {
         assertEquals(7, e.selStart)  // caret shifted by 2
     }
 
+    @Test fun setLineHeadingAddsAndReplacesHashes() {
+        val text = "one\ntwo\nthree"
+        val caret = 5   // inside "two"
+        val h2 = NoteEditing.setLineHeading(text, caret, 2)
+        assertEquals("one\n## two\nthree", h2.text)
+        // Re-applying a different level replaces (does not stack) the leading #-run.
+        val h1 = NoteEditing.setLineHeading(h2.text, 6, 1)
+        assertEquals("one\n# two\nthree", h1.text)
+        // Level 0 strips back to a paragraph.
+        val p = NoteEditing.setLineHeading(h1.text, 5, 0)
+        assertEquals("one\ntwo\nthree", p.text)
+    }
+
+    @Test fun headingLevelOfReadsCaretLine() {
+        val text = "# Title\nbody\n### Deep"
+        assertEquals(1, NoteEditing.headingLevelOf(text, 2))    // in "# Title"
+        assertEquals(0, NoteEditing.headingLevelOf(text, 9))    // in "body"
+        assertEquals(3, NoteEditing.headingLevelOf(text, 18))   // in "### Deep"
+    }
+
     @Test fun continuesBulletList() {
         val text = "- milk\n"
         val e = NoteEditing.continueList(text, text.length)!!

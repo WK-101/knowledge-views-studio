@@ -636,6 +636,7 @@ fun NoteEditorScreen(
     // Wave Q — focus (immersive) mode: hide the meta/context chrome so it's just the words.
     var focus by remember { mutableStateOf(settings.notesFocusMode) }
     var showReorder by remember { mutableStateOf(false) }   // Wave R — reorder sections
+    var editDate by remember { mutableStateOf<String?>(null) }  // NotesNook-style editable "created"/"updated"
     var showProps by remember { mutableStateOf(false) }     // Wave S — frontmatter properties
     var showRelated by remember { mutableStateOf(false) }   // Wave T — related notes
     var showTemplate by remember { mutableStateOf(false) }  // Wave U — cross-module templates
@@ -652,38 +653,8 @@ fun NoteEditorScreen(
         expandedBody = if (showReading && com.todocompanion.app.util.NoteTransclusion.hasTokens(d.body))
             vm.expandNoteTransclusion(d.body) else null
     }
-    // Reading view is a full-screen surface reached from the properties sheet. Rendered in the normal
-    // window (NOT a Dialog) so scrollable content gets bounded constraints — a scrollable inside a
-    // Compose Dialog is measured with infinite height and crashes. Pure-Compose renderer, no WebView.
-    if (showReading) {
-        BackHandler { showReading = false }
-        val shownBody = remember(expandedBody, d.body) {
-            com.todocompanion.app.domain.NoteProperties.strip(expandedBody ?: d.body)
-        }
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    expandedHeight = 52.dp,
-                    navigationIcon = { IconButton(onClick = { showReading = false }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back to editor") } },
-                    title = { Text(d.title.ifBlank { "Reading view" }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                )
-            },
-        ) { pad ->
-            if (shownBody.isBlank()) {
-                Box(Modifier.padding(pad).fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Nothing to preview yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            } else {
-                androidx.compose.foundation.text.selection.SelectionContainer(
-                    Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 10.dp),
-                ) {
-                    MarkdownText(shownBody, Modifier.fillMaxWidth())
-                }
-            }
-        }
-        return
-    }
-    BackHandler { draft?.let { vm.closeNoteEditor(it) }; onBack() }
+    // Back closes the reading view first (if open), else leaves the editor.
+    BackHandler { if (showReading) showReading = false else { draft?.let { vm.closeNoteEditor(it) }; onBack() } }
 
     val myTagIds = noteTagRefs.filter { it.noteId == noteId }.map { it.tagId }.toSet()
     val containerName = if (useNotebooks) notebooks.firstOrNull { it.id == d.notebookId }?.name
@@ -691,7 +662,15 @@ fun NoteEditorScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            if (showReading) {
+                // Reading view — same single Scaffold, top bar + content swap on `showReading`. No Dialog
+                // and no early-return that would force-remove the open properties sheet (which crashed).
+                TopAppBar(
+                    expandedHeight = 52.dp,
+                    navigationIcon = { IconButton(onClick = { showReading = false }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back to editor") } },
+                    title = { Text(d.title.ifBlank { "Reading view" }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                )
+            } else TopAppBar(
                 expandedHeight = 52.dp,   // match every other screen's top bar height
                 navigationIcon = { IconButton(onClick = { draft?.let { vm.closeNoteEditor(it) }; onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 title = { Text(containerName ?: "Note", maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -716,6 +695,22 @@ fun NoteEditorScreen(
             )
         },
     ) { padding ->
+        if (showReading) {
+            val shownBody = remember(expandedBody, d.body) { com.todocompanion.app.domain.NoteProperties.strip(expandedBody ?: d.body) }
+            if (shownBody.isBlank()) {
+                Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Nothing to preview yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
+                androidx.compose.foundation.lazy.LazyColumn(
+                    Modifier.padding(padding).fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
+                ) {
+                    item { MarkdownText(shownBody, Modifier.fillMaxWidth()) }
+                }
+            }
+            return@Scaffold
+        }
         Column(Modifier.padding(padding).fillMaxSize()) {
           // Header content (meta, title, tags, context) is inset 16dp; the body + bottom bar go
           // edge-to-edge so the formatting bar fills the screen width like NotesNook.
@@ -727,7 +722,8 @@ fun NoteEditorScreen(
                     com.todocompanion.app.domain.NoteProperties.strip(d.body).trim()
                         .split(Regex("\\s+")).count { it.isNotBlank() }
                 }
-                Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                // A compact row (not a 48dp Button) so word-count → title sits tight (no min-height padding).
+                Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         "$wordCount ${if (wordCount == 1) "word" else "words"}",
                         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -738,7 +734,10 @@ fun NoteEditorScreen(
                             modifier = Modifier.clickable { persist(d.copy(readonly = false)) })
                     }
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick = { showTags = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                    Row(
+                        Modifier.clip(RoundedCornerShape(8.dp)).clickable { showTags = true }.padding(horizontal = 6.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Icon(Icons.Filled.Add, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(2.dp))
                         Text("Add tag", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
@@ -765,7 +764,7 @@ fun NoteEditorScreen(
                     singleLine = true,
                     textStyle = MaterialTheme.typography.headlineSmall.copy(color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold),
                     cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
-                    modifier = Modifier.weight(1f).padding(vertical = 4.dp),
+                    modifier = Modifier.weight(1f).padding(top = 2.dp, bottom = 1.dp),
                     decorationBox = { inner ->
                         if (d.title.isEmpty()) Text("Note title", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         inner()
@@ -824,6 +823,7 @@ fun NoteEditorScreen(
                     noteTitles = notes.filter { it.id != noteId && !it.trashed && it.title.isNotBlank() }.map { it.title },
                     tagNames = tags.map { it.name },
                     liveStyle = settings.notesLiveStyle, type = noteType,
+                    onFontScaleChange = { vm.setNotesFontScale(it) },
                 )
             }
             // Phase 3 — [[wiki-links]] out (tap to open, or create if new) and backlinks in ("Linked from").
@@ -938,17 +938,16 @@ fun NoteEditorScreen(
             add(PTile(Icons.Filled.Delete, "Move to trash", danger = true) { menu = false; vm.trashNote(noteId); onBack() })
             add(PTile(Icons.Filled.DeleteForever, "Delete", danger = true) { menu = false; showDelete = true })
         }
-        ModalBottomSheet(onDismissRequest = { menu = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        ModalBottomSheet(onDismissRequest = { menu = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), dragHandle = null) {
             Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
                 Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(d.title.ifBlank { "Untitled note" }, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     IconButton(onClick = { menu = false; showReading = true }) { Icon(Icons.Filled.OpenInFull, "Open reading view", modifier = Modifier.size(20.dp)) }
                 }
                 HorizontalDivider()
-                Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
-                    Row { Text("Created", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f)); Text(df.format(java.util.Date(d.createdAt)), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface) }
-                    Spacer(Modifier.height(2.dp))
-                    Row { Text("Last edited", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f)); Text(df.format(java.util.Date(d.updatedAt)), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface) }
+                Column(Modifier.padding(start = 20.dp, end = 12.dp, top = 6.dp, bottom = 6.dp)) {
+                    DateEditRow("Created", df.format(java.util.Date(d.createdAt))) { editDate = "created" }
+                    DateEditRow("Last edited", df.format(java.util.Date(d.updatedAt))) { editDate = "updated" }
                 }
                 HorizontalDivider()
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -988,6 +987,19 @@ fun NoteEditorScreen(
         }
     }
 
+    // NotesNook-style editable timestamps: tap the pencil on Created / Last edited to set the date & time.
+    if (editDate != null) {
+        val field = editDate!!
+        com.todocompanion.app.ui.components.DateTimePickerDialog(
+            initial = if (field == "created") d.createdAt else d.updatedAt,
+            onDismiss = { editDate = null },
+            onConfirm = { millis ->
+                persist(if (field == "created") d.copy(createdAt = millis) else d.copy(updatedAt = millis))
+                editDate = null
+            },
+        )
+    }
+
     if (showEmoji) {
         AlertDialog(
             onDismissRequest = { showEmoji = false },
@@ -1017,7 +1029,7 @@ fun NoteEditorScreen(
                         )
                         TextButton(
                             enabled = newTag.isNotBlank(),
-                            onClick = { val name = newTag.trim(); newTag = ""; if (name.isNotBlank()) vm.createTag(name) },
+                            onClick = { val name = newTag.trim(); newTag = ""; if (name.isNotBlank()) vm.createAndAssignNoteTag(noteId, name, myTagIds.toList()) },
                         ) { Text("Add") }
                     }
                     Spacer(Modifier.height(6.dp))
@@ -1175,6 +1187,20 @@ fun NoteEditorScreen(
             title = { Text("Delete note?") },
             text = { Text("This permanently removes the note and its attachments. This can't be undone.") },
         )
+    }
+}
+
+/** A "Created / Last edited" row in the properties sheet with a pencil to edit the timestamp (NotesNook parity). */
+@Composable
+private fun DateEditRow(label: String, value: String, onEdit: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(onClick = onEdit).padding(vertical = 6.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+        Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+        Spacer(Modifier.width(6.dp))
+        Icon(Icons.Filled.Edit, "Edit $label", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
     }
 }
 

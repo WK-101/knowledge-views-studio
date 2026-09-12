@@ -46,6 +46,30 @@ object NoteEditing {
         return Edit(nt, caret + prefix.length, caret + prefix.length)
     }
 
+    /** Set the caret line's heading level: [hashes] 0 = paragraph (strip #), 1..6 = that many #. Replaces
+     *  any existing leading #-run so it toggles cleanly rather than stacking. */
+    fun setLineHeading(text: String, selStart: Int, hashes: Int): Edit {
+        val caret = selStart.coerceIn(0, text.length)
+        val lineStart = lineStartOf(text, caret)
+        val lineEnd = text.indexOf('\n', lineStart).let { if (it == -1) text.length else it }
+        val line = text.substring(lineStart, lineEnd)
+        val body = line.replaceFirst(Regex("^#{1,6}\\s*"), "")
+        val newLine = if (hashes in 1..6) "#".repeat(hashes) + " " + body else body
+        val nt = text.substring(0, lineStart) + newLine + text.substring(lineEnd)
+        val newCaret = (lineStart + newLine.length).coerceIn(0, nt.length)
+        return Edit(nt, newCaret, newCaret)
+    }
+
+    /** The heading level of the caret line: 0 = paragraph, 1..6 = a leading #-run of that length.
+     *  Powers the editor's ¶/H1–H6 dropdown so it shows the current line's level. */
+    fun headingLevelOf(text: String, selStart: Int): Int {
+        val caret = selStart.coerceIn(0, text.length)
+        val lineStart = lineStartOf(text, caret)
+        val lineEnd = text.indexOf('\n', lineStart).let { if (it == -1) text.length else it }
+        val line = text.substring(lineStart, lineEnd)
+        return Regex("^(#{1,6})\\s").find(line)?.groupValues?.get(1)?.length ?: 0
+    }
+
     /**
      * Called after a single character was inserted. If that character was a newline that ended a list
      * item, either continue the list (insert the next marker, auto-incrementing ordered lists) or —

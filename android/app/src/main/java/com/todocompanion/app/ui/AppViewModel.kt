@@ -182,9 +182,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // Notes module (v66) — workspace-scoped, non-trashed notes + the optional dedicated notebook tree.
     val notes = combine(repo.observeNotes(), activeWs) { n, ws -> n.filter { it.workspaceId == ws && !it.trashed } }.state(emptyList())
     val notebooks = repo.observeNotebooks().scopedBy { it.workspaceId }
-    // Note ↔ tag cross-refs (for chips on cards / editor). Refreshed on the notes flow so edits reflect.
+    // Note ↔ tag cross-refs (for chips on cards / editor). Observe the note_tags table directly so a tag
+    // toggle reflects immediately — writing note_tags doesn't touch the notes table, so deriving this from
+    // the notes flow left the editor's chips stale (tags looked un-addable/un-selectable).
     val noteTagRefs: StateFlow<List<com.todocompanion.app.data.entity.NoteTagCrossRef>> =
-        notes.map { repo.getNoteTagCrossRefs() }.state(emptyList())
+        repo.observeNoteTagCrossRefs().state(emptyList())
     val smartViews = repo.observeSmartViews().scopedBy { it.workspaceId }
     // R34 — life-systems layer flows.
     val coreValues = repo.allCoreValues.scopedBy { it.workspaceId }
@@ -4917,6 +4919,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setTags(taskId: String, tagIds: List<String>) = viewModelScope.launch { repo.setTaskTags(taskId, tagIds) }
     fun setContexts(taskId: String, ids: List<String>) = viewModelScope.launch { repo.setTaskContexts(taskId, ids) }
     fun createTag(name: String, parentId: String? = null) = viewModelScope.launch { repo.upsertTag(TagEntity(UUID.randomUUID().toString(), name.trim(), parentId = parentId, workspaceId = settings.value.activeWorkspaceId)) }
+    /** Create a tag (or reuse one with the same name) and assign it to a note in one step (NotesNook-style). */
+    fun createAndAssignNoteTag(noteId: String, name: String, currentTagIds: List<String>) = viewModelScope.launch {
+        val clean = name.trim()
+        if (clean.isBlank()) return@launch
+        val ws = settings.value.activeWorkspaceId
+        val existing = tags.value.firstOrNull { it.name.equals(clean, ignoreCase = true) }
+        val id = existing?.id ?: UUID.randomUUID().toString()
+        if (existing == null) repo.upsertTag(TagEntity(id, clean, workspaceId = ws))
+        repo.setNoteTags(noteId, (currentTagIds + id).distinct())
+    }
     fun renameTag(tag: TagEntity, name: String) = viewModelScope.launch { repo.upsertTag(tag.copy(name = name.trim())) }
     fun setTagColor(tag: TagEntity, argb: Long?) = viewModelScope.launch { repo.upsertTag(tag.copy(colorArgb = argb)) }
     fun deleteTag(tag: TagEntity) = viewModelScope.launch {

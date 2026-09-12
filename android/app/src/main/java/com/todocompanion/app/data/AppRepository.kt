@@ -748,6 +748,8 @@ class AppRepository(private val db: AppDatabase) {
         notes.linkContexts(contextIds.map { com.todocompanion.app.data.entity.NoteContextCrossRef(noteId, it) })
     }
     suspend fun getNoteTagCrossRefs(): List<com.todocompanion.app.data.entity.NoteTagCrossRef> = notes.getTagCrossRefs()
+    /** Live note↔tag links — so the editor reflects a tag toggle immediately (writing note_tags doesn't touch the notes table). */
+    fun observeNoteTagCrossRefs(): kotlinx.coroutines.flow.Flow<List<com.todocompanion.app.data.entity.NoteTagCrossRef>> = notes.observeTagCrossRefs()
     // Wave L — a note's attachment rows (for the rich renderer's inline-image resolution).
     suspend fun noteAttachments(noteId: String): List<com.todocompanion.app.data.entity.AttachmentEntity> = notes.attachmentsForNote(noteId)
     suspend fun getNoteContextCrossRefs(): List<com.todocompanion.app.data.entity.NoteContextCrossRef> = notes.getContextCrossRefs()
