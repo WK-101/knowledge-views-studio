@@ -16,6 +16,10 @@ sealed interface NotePredicate {
 
     @Serializable @SerialName("cond")
     data class Cond(val field: String, val value: String = "") : NotePredicate
+
+    /** L1 — negation. Inverts its child, so "NOT (linked task overdue)" and "NOT pinned" are expressible. */
+    @Serializable @SerialName("not")
+    data class Not(val child: NotePredicate) : NotePredicate
 }
 
 /** Pure evaluator + JSON for Smart Views — no Android, no DB, so it unit-tests cleanly. */
@@ -39,10 +43,17 @@ object NoteSmartViews {
         val linkedEventId: String? = null,
         val openTaskIds: Set<String> = emptySet(),
         val overdueTaskIds: Set<String> = emptySet(),
+        // L1 — structure & date context, so views can filter on where a note lives and when it was made.
+        val notebookId: String? = null,
+        val folderId: String? = null,
+        val colorArgb: Long? = null,
+        val contextIds: Set<String> = emptySet(),
+        val createdAt: Long = 0L,
     )
 
     fun matches(p: NotePredicate, c: Ctx): Boolean = when (p) {
         is NotePredicate.Group -> if (p.any) p.children.any { matches(it, c) } else p.children.all { matches(it, c) }
+        is NotePredicate.Not -> !matches(p.child, c)
         is NotePredicate.Cond -> evalCond(p.field, p.value, c)
     }
 
@@ -65,6 +76,19 @@ object NoteSmartViews {
         "linkedEvent" -> c.linkedEventId != null
         "linkedTaskOpen" -> c.linkedTaskId != null && c.linkedTaskId in c.openTaskIds
         "linkedTaskOverdue" -> c.linkedTaskId != null && c.linkedTaskId in c.overdueTaskIds
+        // L1 — structure & date conditions. "none" is the deliberate sentinel for "no container / no colour".
+        "notebook" -> if (value == "none") c.notebookId == null else c.notebookId == value
+        "folder" -> if (value == "none") c.folderId == null else c.folderId == value
+        "hasContext" -> value in c.contextIds
+        "noContext" -> c.contextIds.isEmpty()
+        "color" -> when (value) {
+            "", "any" -> c.colorArgb != null
+            "none" -> c.colorArgb == null
+            else -> c.colorArgb == value.toLongOrNull()
+        }
+        "createdOlderThanDays" -> (value.toLongOrNull() ?: 0L).let { d -> d > 0 && c.createdAt > 0 && (c.now - c.createdAt) > d * 86_400_000L }
+        "createdWithinDays" -> (value.toLongOrNull() ?: 0L).let { d -> d > 0 && c.createdAt > 0 && (c.now - c.createdAt) <= d * 86_400_000L }
+        "updatedWithinDays" -> (value.toLongOrNull() ?: 0L).let { d -> d > 0 && (c.now - c.updatedAt) <= d * 86_400_000L }
         else -> false
     }
 

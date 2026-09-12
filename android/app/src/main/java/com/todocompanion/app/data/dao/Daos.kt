@@ -808,6 +808,11 @@ interface NoteDao {
     @Query("SELECT fileName FROM attachments WHERE noteId = :noteId")
     suspend fun attachmentNamesForNote(noteId: String): List<String>
 
+    // L2 — context names for a note, mirrored into the FTS index so a picker-assigned @context is
+    // searchable too (an inline @context is already searchable because it lives in the body text).
+    @Query("SELECT c.name FROM contexts c INNER JOIN note_contexts nc ON nc.contextId = c.id WHERE nc.noteId = :noteId")
+    suspend fun contextNamesForNote(noteId: String): List<String>
+
     // Wave L — full attachment rows for a note, so the rich renderer can resolve inline images to files.
     @Query("SELECT * FROM attachments WHERE noteId = :noteId")
     suspend fun attachmentsForNote(noteId: String): List<com.todocompanion.app.data.entity.AttachmentEntity>

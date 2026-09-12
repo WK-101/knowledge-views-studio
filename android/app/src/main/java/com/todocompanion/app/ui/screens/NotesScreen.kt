@@ -130,6 +130,9 @@ fun NotesScreen(
     val folders by vm.folders.collectAsState()
     val smartViews by vm.smartViews.collectAsState()
     val noteTagRefs by vm.noteTagRefs.collectAsState()
+    val noteContextRefs by vm.noteContextRefs.collectAsState()
+    val allTags by vm.tags.collectAsState()
+    val allContexts by vm.contexts.collectAsState()
     val trashed by vm.trashedNotes.collectAsState()
 
     val useNotebooks = settings.notesNotebookMode == "notebooks"
@@ -168,9 +171,11 @@ fun NotesScreen(
     // Tag ids grouped per note, computed once per tag-ref change — the predicate below needs a note's tag
     // set, and doing `noteTagRefs.filter { it.noteId == n.id }` inside the loop was O(N·refs) every pass.
     val refsByNote = remember(noteTagRefs) { noteTagRefs.groupBy { it.noteId }.mapValues { e -> e.value.mapTo(HashSet()) { it.tagId } } }
+    // L1 — context ids grouped per note, so Smart Views can filter on @context the same cheap way as tags.
+    val ctxByNote = remember(noteContextRefs) { noteContextRefs.groupBy { it.noteId }.mapValues { e -> e.value.mapTo(HashSet()) { it.contextId } } }
     // The whole browse list — predicate match + search + sort — is memoized on its real inputs so it is not
     // rebuilt (and re-scanned per note) on every recomposition / search keystroke.
-    val filtered = remember(notes, activePredicate, archiveView, container, useNotebooks, query, settings.notesSort, refsByNote, openTaskIds, overdueTaskIds) {
+    val filtered = remember(notes, activePredicate, archiveView, container, useNotebooks, query, settings.notesSort, refsByNote, ctxByNote, openTaskIds, overdueTaskIds) {
         val now = System.currentTimeMillis()
         notes
         .asSequence()
@@ -193,6 +198,9 @@ fun NotesScreen(
                     hasOpenItems = n.hasOpen,   // P7 — materialized column, no per-note regex in the filter loop
                     linkedTaskId = n.linkedTaskId, linkedEventId = n.linkedEventId,
                     openTaskIds = openTaskIds, overdueTaskIds = overdueTaskIds,
+                    // L1 — structure & date context for the new predicates.
+                    notebookId = n.notebookId, folderId = n.folderId, colorArgb = n.colorArgb,
+                    contextIds = ctxByNote[n.id] ?: emptySet(), createdAt = n.createdAt,
                 ),
             )
             else container == null || (if (useNotebooks) n.notebookId == container else n.folderId == container)
@@ -390,6 +398,10 @@ fun NotesScreen(
             if (showBuilder) SmartViewBuilderDialog(
                 onSave = { t, pred -> vm.saveSmartView(null, t, null, pred); showBuilder = false },
                 onDismiss = { showBuilder = false },
+                useNotebooks = useNotebooks,
+                containers = containers,
+                tags = allTags.map { it.id to it.name },
+                contexts = allContexts.map { it.id to it.name },
             )
             deleteView?.let { v ->
                 ConfirmDialog(

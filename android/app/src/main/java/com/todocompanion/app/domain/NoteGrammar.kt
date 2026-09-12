@@ -14,6 +14,10 @@ object NoteGrammar {
     /** An inline hashtag: `#tag`, `#nested/tag`, not `#123` and not part of a word or a `##` run. Group 1 = the tag text (no `#`). */
     val TAG = Regex("(?<![\\w#/])#([A-Za-z][\\w/-]*)")
 
+    /** L2 — an inline `@context`: `@home`, `@deep-work`, not part of a word and not an email's `@` (which is
+     *  preceded by a word char, so excluded by the lookbehind). Group 1 = the context text (no `@`). */
+    val CONTEXT = Regex("(?<![\\w@/])@([A-Za-z][\\w/-]*)")
+
     /** A `[[wiki-link]]` (single line). */
     val WIKI_LINK = Regex("\\[\\[[^\\]\\n]+]]")
 

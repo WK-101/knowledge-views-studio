@@ -147,19 +147,82 @@ class AppRepository(private val db: AppDatabase) {
             val srcCount = runCatching { sdb.query("SELECT count(*) FROM $source $sourceWhere".trim()).use { if (it.moveToFirst()) it.getLong(0) else -2L } }.getOrDefault(-2L)
             if (ftsCount != srcCount) rebuild(sdb)
         }
-        /** Ids whose content matches [query] (prefix, all-terms). Empty on any failure → caller falls back. */
+        /**
+         * L3 — ranked, typo-tolerant search. Ids whose content matches [query] (prefix, all-terms),
+         * returned best-first: exact-title and title-prefix hits float above body-only hits. If the FTS
+         * MATCH finds nothing, a one-edit fuzzy fallback scans the source so a small typo still lands.
+         * Empty on any failure → the caller degrades to its in-memory path.
+         */
         suspend fun search(query: String): List<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             runCatching {
-                val match = query.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
-                    .joinToString(" ") { it.replace(Regex("[\"*^:()]"), "") + "*" }
-                if (match.isBlank()) return@runCatching emptyList<String>()
+                val terms = query.trim().split(Regex("\\s+")).map { it.replace(Regex("[\"*^:()]"), "") }.filter { it.isNotBlank() }
+                if (terms.isEmpty()) return@runCatching emptyList<String>()
+                val match = terms.joinToString(" ") { "$it*" }
                 val sdb = ftsDb(); ensureFresh(sdb)
-                val ids = ArrayList<String>()
-                sdb.query("SELECT $idCol FROM $table WHERE $table MATCH ?", arrayOf<Any?>(match)).use { c ->
-                    while (c.moveToNext()) ids += c.getString(0)
+                val scored = ArrayList<Pair<String, Int>>()
+                sdb.query("SELECT $allCols FROM $table WHERE $table MATCH ?", arrayOf<Any?>(match)).use { c ->
+                    while (c.moveToNext()) {
+                        val id = c.getString(0) ?: continue
+                        val title = if (contentCols.isNotEmpty()) (c.getString(1) ?: "") else ""
+                        val rest = buildString { for (i in 2..contentCols.size) append((c.getString(i) ?: "") + " ") }
+                        scored += id to scoreRow(terms, title, rest)
+                    }
                 }
-                ids
+                if (scored.isEmpty()) fuzzyFallback(sdb, terms)
+                else scored.sortedByDescending { it.second }.map { it.first }
             }.getOrDefault(emptyList())
+        }
+
+        /** Relevance score: exact/prefix title hits dominate; body hits count a little; shorter titles edge ahead. */
+        private fun scoreRow(terms: List<String>, title: String, body: String): Int {
+            val t = title.lowercase(); val b = body.lowercase(); val full = terms.joinToString(" ").lowercase()
+            var s = 0
+            if (t == full) s += 1000 else if (t.contains(full)) s += 200
+            for (term in terms) {
+                val tm = term.lowercase()
+                s += when { t == tm -> 300; t.startsWith(tm) -> 120; t.contains(tm) -> 60; else -> 0 }
+                if (b.contains(tm)) s += 10
+            }
+            return s - (t.length / 40)
+        }
+
+        /** One-edit fuzzy scan of the source, only on a total FTS miss (rare) — capped so it stays bounded. */
+        private fun fuzzyFallback(sdb: androidx.sqlite.db.SupportSQLiteDatabase, terms: List<String>): List<String> {
+            val out = ArrayList<Pair<String, Int>>()
+            runCatching {
+                sdb.query("SELECT $srcSelect FROM $source $sourceWhere".trim()).use { c ->
+                    while (c.moveToNext()) {
+                        val id = c.getString(0) ?: continue
+                        val title = if (contentCols.isNotEmpty()) (c.getString(1) ?: "") else ""
+                        val rest = buildString { for (i in 2..contentCols.size) append((c.getString(i) ?: "") + " ") }
+                        val tokens = (title + " " + rest).lowercase().split(Regex("[^\\p{L}\\p{Nd}]+")).filter { it.isNotBlank() }
+                        var s = 0
+                        for (term in terms) {
+                            val tm = term.lowercase()
+                            if (tm.length < 4) { if (tokens.any { it.startsWith(tm) }) s += 30 }
+                            else if (tokens.any { editWithin1(it, tm) }) s += 40
+                        }
+                        if (s > 0) out += id to (s + scoreRow(terms, title, rest))
+                    }
+                }
+            }
+            return out.sortedByDescending { it.second }.take(50).map { it.first }
+        }
+
+        /** True when [a] is within one insertion/deletion/substitution of [b]. Cheap, no full DP matrix. */
+        private fun editWithin1(a: String, b: String): Boolean {
+            if (a == b) return true
+            val la = a.length; val lb = b.length
+            if (kotlin.math.abs(la - lb) > 1) return false
+            var i = 0; var j = 0; var edits = 0
+            while (i < la && j < lb) {
+                if (a[i] == b[j]) { i++; j++ } else {
+                    if (++edits > 1) return false
+                    when { la > lb -> i++; la < lb -> j++; else -> { i++; j++ } }
+                }
+            }
+            if (i < la || j < lb) edits++
+            return edits <= 1
         }
     }
 
@@ -696,7 +759,8 @@ class AppRepository(private val db: AppDatabase) {
             hasOpen = com.todocompanion.app.domain.NoteDerived.hasOpenItems(n.body),
         )
         notes.upsert(stamped)
-        materializeNoteTags(id)   // inline body #tags → structured note_tags (before FTS so tag names index)
+        materializeNoteTags(id)      // inline body #tags → structured note_tags (before FTS so tag names index)
+        materializeNoteContexts(id)  // L2 — inline body @contexts → structured note_contexts (first-class, like tags)
         materializeNoteLinks(id)
         reindexNoteFts(stamped)
         return id
@@ -726,15 +790,38 @@ class AppRepository(private val db: AppDatabase) {
         notes.linkTags(refs)
     }
 
-    /** Wave I — (re)index a note into note_fts, mirroring its tag + attachment names into the body text
-     *  so search finds the note by those too (child-row denormalization). Metadata-only; safe to call often. */
+    /** Wave I / L2 — (re)index a note into note_fts, mirroring its tag + context + attachment names into the
+     *  body text so search finds the note by those too (child-row denormalization). Safe to call often. */
     suspend fun reindexNoteFts(note: com.todocompanion.app.data.entity.NoteEntity) {
         val extra = buildList {
             runCatching { addAll(notes.tagNamesForNote(note.id)) }
+            runCatching { addAll(notes.contextNamesForNote(note.id)) }
             runCatching { addAll(notes.attachmentNamesForNote(note.id)) }
         }.joinToString(" ")
         val body = if (extra.isBlank()) note.body else note.body + "\n" + extra
         syncNoteFts(note.id, note.title, body)
+    }
+
+    /**
+     * L2 — one context set. Materialize inline `@contexts` in a note's body into structured [note_contexts]
+     * rows (creating a workspace context once per name), the exact mirror of [materializeNoteTags]: additive
+     * + idempotent, body is the source, a picker-only context is never removed here. This makes `@context`
+     * a first-class inline citizen alongside `#tags`, so chips, Smart-View predicates and search all agree.
+     */
+    suspend fun materializeNoteContexts(noteId: String) {
+        val n = notes.getById(noteId) ?: return
+        val names = com.todocompanion.app.domain.NoteGrammar.CONTEXT.findAll(n.body)
+            .map { it.groupValues[1] }.filter { it.isNotBlank() }.distinctBy { it.lowercase() }.toList()
+        if (names.isEmpty()) return
+        val ws = n.workspaceId
+        val byName = contexts.getAll().filter { it.workspaceId == ws }.associateBy { it.name.lowercase() }
+        val refs = names.map { name ->
+            val id = byName[name.lowercase()]?.id ?: uid().also {
+                contexts.upsert(com.todocompanion.app.data.entity.ContextEntity(id = it, name = name, workspaceId = ws))
+            }
+            com.todocompanion.app.data.entity.NoteContextCrossRef(noteId, id)
+        }
+        notes.linkContexts(refs)
     }
 
     /** Soft-delete → Trash (kept for a possible restore, like tasks). FTS row dropped so it stops matching.
@@ -775,6 +862,7 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun setNoteContexts(noteId: String, contextIds: List<String>) {
         notes.unlinkAllContextsForNote(noteId)
         notes.linkContexts(contextIds.map { com.todocompanion.app.data.entity.NoteContextCrossRef(noteId, it) })
+        notes.getById(noteId)?.let { reindexNoteFts(it) }   // L2 — keep context names in the FTS index fresh
     }
     suspend fun getNoteTagCrossRefs(): List<com.todocompanion.app.data.entity.NoteTagCrossRef> = notes.getTagCrossRefs()
     /** Live note↔tag links — so the editor reflects a tag toggle immediately (writing note_tags doesn't touch the notes table). */
