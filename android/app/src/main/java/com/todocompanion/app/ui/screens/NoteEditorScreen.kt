@@ -186,6 +186,8 @@ fun NoteEditorScreen(
     var showReading by remember(noteId) { mutableStateOf(false) }
     // L12 — split preview: keep editing on top while a live rich render (math/diagrams/tables) tracks below.
     var showSplit by remember(noteId) { mutableStateOf(false) }
+    // L14 — handwriting/ink pad, opened from the editor's insert-block sheet.
+    var showInk by remember(noteId) { mutableStateOf(false) }
     // One modal dialog open at a time — a single nullable [NoteSheet] replaces the old fan of 15
     // per-dialog booleans, so two dialogs can never show at once and `sheet = null` dismisses any.
     var sheet by remember(noteId) { mutableStateOf<NoteSheet?>(null) }
@@ -441,6 +443,7 @@ fun NoteEditorScreen(
                             tagNames = tagNames,
                             liveStyle = settings.notesLiveStyle, type = noteType,
                             onFontScaleChange = { vm.setNotesFontScale(it) },
+                            onInk = { showInk = true },
                         )
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -472,6 +475,7 @@ fun NoteEditorScreen(
                     tagNames = tagNames,
                     liveStyle = settings.notesLiveStyle, type = noteType,
                     onFontScaleChange = { vm.setNotesFontScale(it) },
+                    onInk = { showInk = true },
                 )
             }
             // Phase 3 — [[wiki-links]] out (tap to open, or create if new) and backlinks in ("Linked from").
@@ -928,6 +932,11 @@ fun NoteEditorScreen(
         )
     }
     if (sheet == NoteSheet.About) NoteAboutDialog(d, onDismiss = { sheet = null })
+    // L14 — handwriting: rasterise the drawing to a note image attachment and append its Markdown ref.
+    if (showInk) InkPadDialog(
+        onSave = { png -> vm.addInkToNote(noteId, png) { ref -> if (ref != null) persist(d.copy(body = if (d.body.isBlank()) ref else d.body.trimEnd() + "\n\n" + ref)) }; showInk = false },
+        onDismiss = { showInk = false },
+    )
     if (sheet == NoteSheet.Outline) NoteOutlineDialog(d.body, onDismiss = { sheet = null })
     if (sheet == NoteSheet.Reorder) SectionReorderDialog(d.body, onApply = { persist(d.copy(body = it)); sheet = null }, onDismiss = { sheet = null })
     if (sheet == NoteSheet.Props) NotePropertiesDialog(d.body, onApply = { persist(d.copy(body = it)); sheet = null }, onDismiss = { sheet = null })

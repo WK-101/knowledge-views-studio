@@ -37,7 +37,9 @@ import androidx.compose.material.icons.filled.FormatStrikethrough
 import androidx.compose.material.icons.filled.Functions
 import androidx.compose.material.icons.filled.HorizontalRule
 import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Redo
 import androidx.compose.material.icons.filled.Remove
@@ -107,6 +109,7 @@ fun NoteBodyEditor(
     liveStyle: Boolean = false,
     type: com.todocompanion.app.domain.NoteAppearance.NoteType = com.todocompanion.app.domain.NoteAppearance.NoteType(),
     onFontScaleChange: (Int) -> Unit = {},
+    onInk: (() -> Unit)? = null,
 ) {
     var tfv by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
     // Resync only when the body changes from OUTSIDE (a toolbar-inserted link elsewhere, a fresh note);
@@ -150,6 +153,25 @@ fun NoteBodyEditor(
         val insert = lead + block + "\n" + trail
         val caret = (pre + insert).length
         emit(TextFieldValue(pre + insert + post, TextRange(caret)), true)
+    }
+    // L14 — dictate straight into the note with the platform speech recognizer. No RECORD_AUDIO
+    // permission: the system recognizer app owns the mic; we only receive the transcribed text, inserted
+    // at the caret as its own block.
+    val voiceLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+    ) { res ->
+        val spoken = res.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        if (!spoken.isNullOrBlank()) insertBlock(spoken)
+    }
+    fun startVoice() {
+        runCatching {
+            voiceLauncher.launch(
+                android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Dictate your note")
+                },
+            )
+        }
     }
     var showTable by remember { mutableStateOf(false) }
     var showBlocks by remember { mutableStateOf(false) }   // "+" → block-insert sheet
@@ -281,16 +303,18 @@ fun NoteBodyEditor(
             Spacer(Modifier.height(8.dp))
             Text("Choose a block to insert", style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 6.dp))
-            val blocks = listOf<Triple<androidx.compose.ui.graphics.vector.ImageVector, String, () -> Unit>>(
-                Triple(Icons.Filled.CheckBox, "Task list") { onLinePrefix("- [ ] ") },
-                Triple(Icons.Filled.FormatListBulleted, "Bulleted list") { onLinePrefix("- ") },
-                Triple(Icons.Filled.FormatListNumbered, "Numbered list") { onLinePrefix("1. ") },
-                Triple(Icons.Filled.FormatQuote, "Quote") { onLinePrefix("> ") },
-                Triple(Icons.Filled.Code, "Code block") { insertBlock("```\n\n```") },
-                Triple(Icons.Filled.Functions, "Math & formulas") { insertBlock("$$\n\n$$") },
-                Triple(Icons.Filled.TableChart, "Table") { showTable = true },
-                Triple(Icons.Filled.HorizontalRule, "Horizontal rule") { insertBlock("---") },
-            )
+            val blocks = buildList<Triple<androidx.compose.ui.graphics.vector.ImageVector, String, () -> Unit>> {
+                add(Triple(Icons.Filled.Mic, "Dictate (voice)") { startVoice() })
+                if (onInk != null) add(Triple(Icons.Filled.Draw, "Handwrite") { onInk() })
+                add(Triple(Icons.Filled.CheckBox, "Task list") { onLinePrefix("- [ ] ") })
+                add(Triple(Icons.Filled.FormatListBulleted, "Bulleted list") { onLinePrefix("- ") })
+                add(Triple(Icons.Filled.FormatListNumbered, "Numbered list") { onLinePrefix("1. ") })
+                add(Triple(Icons.Filled.FormatQuote, "Quote") { onLinePrefix("> ") })
+                add(Triple(Icons.Filled.Code, "Code block") { insertBlock("```\n\n```") })
+                add(Triple(Icons.Filled.Functions, "Math & formulas") { insertBlock("$$\n\n$$") })
+                add(Triple(Icons.Filled.TableChart, "Table") { showTable = true })
+                add(Triple(Icons.Filled.HorizontalRule, "Horizontal rule") { insertBlock("---") })
+            }
             blocks.forEach { (icon, label, action) ->
                 Row(
                     Modifier.fillMaxWidth().clickable { action(); showBlocks = false }.padding(horizontal = 20.dp, vertical = 14.dp),

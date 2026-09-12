@@ -1588,6 +1588,20 @@ class AppRepository(private val db: AppDatabase) {
         attachments.filePathOf(id)?.let { runCatching { java.io.File(it).delete() } }
         attachments.deleteById(id)
     }
+    /** L14 — store bytes (e.g. a handwriting/ink PNG) as a NOTE image attachment; returns its id. Base64
+     *  in the DB so it round-trips losslessly through backup and the `.md` mirror like any note attachment. */
+    suspend fun addNoteAttachment(noteId: String, fileName: String, mime: String, bytes: ByteArray): String? {
+        if (bytes.size > maxAttachmentBytes) return null
+        val id = uid()
+        attachments.upsert(
+            AttachmentEntity(
+                id = id, taskId = "", noteId = noteId, fileName = fileName, mime = mime,
+                sizeBytes = bytes.size.toLong(), isImage = mime.startsWith("image/"),
+                addedAt = now(), contentBase64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP),
+            ),
+        )
+        return id
+    }
 
     /** Attachments with bytes materialised inline (reads file-backed ones from disk) — for a
      *  lossless JSON export. filePath is dropped so the backup is portable. */

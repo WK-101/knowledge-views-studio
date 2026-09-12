@@ -2005,6 +2005,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         onDone(ok)
     }
     fun removeAttachment(id: String) = viewModelScope.launch { repo.deleteAttachment(id) }
+    /** L14 — save a handwriting/ink drawing as a note image attachment and hand back a Markdown reference
+     *  (`![ink](attachment:<id>)`) the editor appends. Fully on-device; the PNG lives in the note like any
+     *  image and renders via [noteImageMap]. [onDone] receives the reference, or null on failure. */
+    fun addInkToNote(noteId: String, png: ByteArray, onDone: (String?) -> Unit = {}) = viewModelScope.launch {
+        val id = withContext(Dispatchers.IO) {
+            runCatching { repo.addNoteAttachment(noteId, "ink-${System.currentTimeMillis()}.png", "image/png", png) }.getOrNull()
+        }
+        if (id == null) { toast("Couldn't save the drawing"); onDone(null) }
+        else onDone("![ink](attachment:$id)")
+    }
     /** R40 — attach several files at once from the system picker (SAF, multi-select). Each URI's bytes are
      *  copied into app-private storage; no storage permission is involved. [onDone] reports how many landed,
      *  so the editor can acknowledge the save (R46). */
