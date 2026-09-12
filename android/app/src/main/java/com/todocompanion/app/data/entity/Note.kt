@@ -21,7 +21,9 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Entity(
     tableName = "notes",
-    indices = [Index("notebookId"), Index("folderId"), Index("workspaceId"), Index("linkedTaskId")],
+    indices = [Index("notebookId"), Index("folderId"), Index("workspaceId"), Index("linkedTaskId"),
+        // Ordering columns — notes are sorted by these; index them so an ORDER BY doesn't table-scan.
+        Index("sortOrder"), Index("updatedAt")],
 )
 @androidx.compose.runtime.Immutable
 data class NoteEntity(
@@ -160,20 +162,4 @@ data class NoteTagCrossRef(
 data class NoteContextCrossRef(
     val noteId: String,
     val contextId: String,
-)
-
-/** Lightweight projection (no body) for grid/list rendering — keeps the observed flow cheap. */
-data class NoteMeta(
-    val id: String,
-    val title: String,
-    val notebookId: String?,
-    val folderId: String?,
-    val colorArgb: Long?,
-    val pinned: Boolean,
-    val coverEmoji: String?,
-    val kind: String,
-    val archived: Boolean,
-    val trashed: Boolean,
-    val updatedAt: Long,
-    val workspaceId: String,
 )

@@ -90,7 +90,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.NoteLinkEntity::class,
         com.todocompanion.app.data.entity.SmartViewEntity::class,
     ],
-    version = 72,
+    version = 73,
     // R73 — export the schema JSON (to app/schemas/) on every build. With 54 hand-written migrations
     // this is the safety net: it lets an instrumented MigrationTest replay the whole chain in CI and
     // fail the build the moment a migration drifts from the entity definitions. Turned on from v59;
@@ -890,6 +890,14 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE `notes` ADD COLUMN `sealedUntil` INTEGER")
             }
         }
+        private val MIGRATION_72_73 = object : Migration(72, 73) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Index the columns notes are ordered by (sortOrder, updatedAt). Names must match Room's
+                // generated `index_<table>_<column>` or the schema-validation check fails on next open.
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_sortOrder` ON `notes` (`sortOrder`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_updatedAt` ON `notes` (`updatedAt`)")
+            }
+        }
 
         /**
          * The complete, ordered v5→v63 migration chain. Exposed (and used by the builder below) so an
@@ -908,7 +916,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_53_54, MIGRATION_54_55, MIGRATION_55_56, MIGRATION_56_57, MIGRATION_57_58, MIGRATION_58_59,
             MIGRATION_59_60, MIGRATION_60_61, MIGRATION_61_62, MIGRATION_62_63, MIGRATION_63_64,
             MIGRATION_64_65, MIGRATION_65_66, MIGRATION_66_67, MIGRATION_67_68, MIGRATION_68_69, MIGRATION_69_70,
-            MIGRATION_70_71, MIGRATION_71_72,
+            MIGRATION_70_71, MIGRATION_71_72, MIGRATION_72_73,
         )
 
         fun get(context: Context): AppDatabase =

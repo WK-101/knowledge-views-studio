@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
@@ -104,7 +105,6 @@ import com.todocompanion.app.ui.components.AppTextField
 import com.todocompanion.app.ui.components.ConfirmDialog
 import com.todocompanion.app.ui.components.EmojiGridPicker
 import com.todocompanion.app.ui.components.EmptyState
-import com.todocompanion.app.ui.components.MarkdownText
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -172,14 +172,21 @@ fun NotesScreen(
         val now = System.currentTimeMillis()
         tasks.asSequence().filter { !it.completed && !it.trashed && !it.abandoned && (it.dueDate ?: Long.MAX_VALUE) < now }.map { it.id }.toSet()
     }
-    val filtered = notes
+    // Tag ids grouped per note, computed once per tag-ref change — the predicate below needs a note's tag
+    // set, and doing `noteTagRefs.filter { it.noteId == n.id }` inside the loop was O(N·refs) every pass.
+    val refsByNote = remember(noteTagRefs) { noteTagRefs.groupBy { it.noteId }.mapValues { e -> e.value.mapTo(HashSet()) { it.tagId } } }
+    // The whole browse list — predicate match + search + sort — is memoized on its real inputs so it is not
+    // rebuilt (and re-scanned per note) on every recomposition / search keystroke.
+    val filtered = remember(notes, activePredicate, archiveView, container, useNotebooks, query, settings.notesSort, refsByNote, openTaskIds, overdueTaskIds) {
+        val now = System.currentTimeMillis()
+        notes
         .asSequence()
         .filter { n ->
             val p = activePredicate
             if (p != null) com.todocompanion.app.domain.NoteSmartViews.matches(
                 p, com.todocompanion.app.domain.NoteSmartViews.Ctx(
                     n.pinned, n.favorite, n.archived, n.trashed, n.title, n.body, n.kind, n.updatedAt,
-                    noteTagRefs.filter { it.noteId == n.id }.map { it.tagId }.toSet(), System.currentTimeMillis(),
+                    refsByNote[n.id] ?: emptySet(), now,
                     hasReminder = n.reminderAt != null || n.reminderExtra.isNotBlank(),
                     hasOpenItems = com.todocompanion.app.domain.NoteLinks.uncheckedCheckboxes(n.body).isNotEmpty(),
                     linkedTaskId = n.linkedTaskId, linkedEventId = n.linkedEventId,
@@ -190,7 +197,7 @@ fun NotesScreen(
                 (container == null || (if (useNotebooks) n.notebookId == container else n.folderId == container)) &&
                 // Wave J (M8) — a note sealed to the future is hidden from browsing until its reveal date
                 // (it's still findable via search, so it can be unsealed early).
-                (n.sealedUntil == null || n.sealedUntil!! <= System.currentTimeMillis())
+                (n.sealedUntil == null || n.sealedUntil!! <= now)
         }
         .filter { n ->
             query.isBlank() || n.title.contains(query, true) || n.body.contains(query, true)
@@ -207,6 +214,7 @@ fun NotesScreen(
             )
         )
         .toList()
+    }
 
     // Wave E — the Life Graph opens as a full-screen overlay (early return keeps it simple, no nav change).
     if (showGraph) {
@@ -788,12 +796,19 @@ fun NoteEditorScreen(
                     Text("Nothing to preview yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
-                androidx.compose.foundation.lazy.LazyColumn(
-                    Modifier.padding(padding).fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
-                ) {
-                    item { MarkdownText(shownBody, Modifier.fillMaxWidth()) }
+                // Full fidelity: the offline rich WebView renders math (KaTeX), diagrams (Mermaid),
+                // syntax-highlighted code (Prism), callouts and local image attachments — all from bundled
+                // assets, no network. (The inline editor keeps the Compose-native live-styling.)
+                val imageMap by androidx.compose.runtime.produceState(emptyMap<String, String>(), noteId, shownBody) {
+                    value = runCatching { vm.noteImageMap(noteId) }.getOrDefault(emptyMap())
                 }
+                com.todocompanion.app.ui.components.RichNoteView(
+                    markdown = shownBody,
+                    images = imageMap,
+                    readingThemeId = settings.notesReadingTheme,
+                    type = noteType,
+                    modifier = Modifier.padding(padding).fillMaxSize(),
+                )
             }
             return@Scaffold
         }
@@ -903,22 +918,31 @@ fun NoteEditorScreen(
             // bold/italic/headings/code as you type; the fully-rendered view (math/diagrams/tables) is
             // the "Reading view" from the properties sheet. The body text pads itself 16dp; the bottom
             // formatting bar fills the full width.
+            // Autocomplete corpora depend only on the note set — not on what you're typing — so memoize them
+            // instead of re-scanning every note on every keystroke.
+            val noteTitles = remember(notes, noteId) { notes.filter { it.id != noteId && !it.trashed && it.title.isNotBlank() }.map { it.title } }
+            val tagNames = remember(tags) { tags.map { it.name } }
             Box(Modifier.fillMaxWidth().weight(1f)) {
                 NoteBodyEditor(
                     value = d.body, onValueChange = { draft = d.copy(body = it) },
                     modifier = Modifier.fillMaxSize(),
                     readOnly = d.readonly,
-                    noteTitles = notes.filter { it.id != noteId && !it.trashed && it.title.isNotBlank() }.map { it.title },
-                    tagNames = tags.map { it.name },
+                    noteTitles = noteTitles,
+                    tagNames = tagNames,
                     liveStyle = settings.notesLiveStyle, type = noteType,
                     onFontScaleChange = { vm.setNotesFontScale(it) },
                 )
             }
             // Phase 3 — [[wiki-links]] out (tap to open, or create if new) and backlinks in ("Linked from").
-            // Title-based like Obsidian; backlinks computed on the fly from other notes' bodies.
-            val outTitles = com.todocompanion.app.domain.NoteLinks.outgoingTitles(d.body)
+            // Title-based like Obsidian; backlinks computed on the fly from other notes' bodies. Both are
+            // memoized: out-links re-parse only when THIS body changes; backlinks re-scan the corpus only when
+            // the note set or this note's title changes — never on every body keystroke (was an O(N·len) scan).
+            val outTitles = remember(d.body) { com.todocompanion.app.domain.NoteLinks.outgoingTitles(d.body) }
             val existingTitles = remember(notes) { notes.filter { !it.trashed }.map { it.title.trim().lowercase() }.toHashSet() }
-            val backlinks = notes.filter { it.id != noteId && !it.trashed && d.title.isNotBlank() && com.todocompanion.app.domain.NoteLinks.links(it.body, d.title) }
+            val backlinks = remember(notes, noteId, d.title) {
+                if (d.title.isBlank()) emptyList()
+                else notes.filter { it.id != noteId && !it.trashed && com.todocompanion.app.domain.NoteLinks.links(it.body, d.title) }
+            }
             if (outTitles.isNotEmpty()) {
                 // Cross-module (Wave C): each [[link]] is resolved (materialized on save) to a note / task /
                 // habit / event; the chip shows a type glyph and a task chip opens the task.
@@ -1007,6 +1031,7 @@ fun NoteEditorScreen(
             add(PTile(Icons.Filled.History, "History") { menu = false; showHistory = true })
             add(PTile(Icons.Filled.Link, "Related") { menu = false; showRelated = true })
             add(PTile(Icons.Filled.FormatListBulleted, "Outline") { menu = false; showOutline = true })
+            add(PTile(Icons.Filled.Info, "Note info") { menu = false; showAbout = true })
             add(PTile(Icons.Filled.SwapVert, "Reorder") { menu = false; showReorder = true })
             add(PTile(Icons.Filled.Tune, "Properties") { menu = false; showProps = true })
             add(PTile(Icons.Filled.Dashboard, "Template") { menu = false; showTemplate = true })
