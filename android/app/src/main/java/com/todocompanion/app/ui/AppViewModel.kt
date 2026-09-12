@@ -883,6 +883,58 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** L6 — start a time-tracking session against this note (Work-on-this-note), on the "Notes" activity. */
     fun startTimeTrackingForNote(noteId: String) = viewModelScope.launch { repo.startTimeTrackingForNote(noteId) }
 
+    // ── Wave 2 — cross-module note extensions ────────────────────────────────────────────────────────
+    /** Evergreen Resurfacing — notes due for a spaced review right now, most-overdue first. */
+    val notesDueForReview: StateFlow<List<com.todocompanion.app.data.entity.NoteEntity>> = notes.map { list ->
+        val t = System.currentTimeMillis()
+        list.filter {
+            !it.trashed && !it.archived && !it.vault && it.reviewEvery > 0 &&
+                com.todocompanion.app.domain.NoteReview.isDue(it.reviewEvery, it.lastReviewedAt, it.updatedAt, t)
+        }.sortedBy { com.todocompanion.app.domain.NoteReview.nextDue(it.reviewEvery, it.lastReviewedAt, it.updatedAt) ?: Long.MAX_VALUE }
+    }.state(emptyList())
+
+    fun setNoteReview(noteId: String, days: Int) = viewModelScope.launch {
+        repo.getNote(noteId)?.let {
+            repo.upsertNote(it.copy(reviewEvery = days,
+                lastReviewedAt = if (days > 0 && it.lastReviewedAt == 0L) System.currentTimeMillis() else it.lastReviewedAt))
+        }
+    }
+    fun markNoteReviewed(noteId: String) = viewModelScope.launch {
+        repo.getNote(noteId)?.let { repo.upsertNote(it.copy(lastReviewedAt = System.currentTimeMillis())) }
+    }
+
+    /** Habit Practice Journal — open (creating if needed) the reflective note bound to a habit. */
+    fun openHabitJournal(habitId: String, habitName: String, onOpen: (String) -> Unit) = viewModelScope.launch {
+        val ws = activeWorkspace()
+        val existing = repo.habitJournalNote(habitId)
+        onOpen(existing?.id ?: repo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(
+            id = "", linkedHabitId = habitId, kind = "note", workspaceId = ws,
+            title = "$habitName — journal",
+            body = "_Practice journal for **$habitName**. A dated line is appended on each check-in._\n\n**Streak:** {{habits:due}}\n",
+        )))
+    }
+
+    /** Meeting Mode — an agenda block assembled from the linked calendar event. */
+    suspend fun eventAgendaMarkdown(eventId: String): String = withContext(Dispatchers.IO) {
+        val e = repo.eventById(eventId) ?: return@withContext ""
+        val z = java.time.ZoneId.systemDefault()
+        val start = java.time.Instant.ofEpochMilli(e.startMillis).atZone(z)
+        val fmt = java.time.format.DateTimeFormatter.ofPattern("EEE d MMM · h:mm a")
+        buildString {
+            append("## ").append(e.title.ifBlank { "Meeting" }).append("\n")
+            append("*").append(start.format(fmt))
+            if (e.location.isNotBlank()) append(" · ").append(e.location)
+            append("*\n\n")
+            if (e.notes.isNotBlank()) append(e.notes.trim()).append("\n\n")
+            append("### Agenda\n- \n\n### Action items\n- [ ] \n")
+        }
+    }
+
+    /** Writing Sprints — log a finished sprint as tracked time on the note. */
+    fun logNoteSprint(noteId: String, startMillis: Long, endMillis: Long) = viewModelScope.launch {
+        repo.logNoteTime(noteId, startMillis, endMillis, "Writing sprint")
+    }
+
     // ── L11 — Vault: real, portable, passphrase-based encryption for a note's body at rest ────────────
     // The passphrase lives only in memory for the session; it is never persisted. A note stays vaulted
     // (ciphertext) until unlocked; the editor decrypts for editing and re-encrypts on save.
@@ -3516,6 +3568,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             // the month calendar) recomputes streaks/aggregates but must not pop the shine or grant a point.
             val isToday = epochDay == java.time.LocalDate.now(zone).toEpochDay()
             if (isToday) repo.awardPoints(1)
+            // Wave 2 · Habit Practice Journal — if this habit has a bound journal note, append today's line.
+            if (isToday) repo.appendHabitJournalEntry(h.id, epochDay)
             // R35 · reward taper — a graduated habit has eased off celebration; it runs on its own now.
             if (!h.graduated && isToday) {
                 // Fogg's Tiny Habits: the celebration right after the behaviour is what wires it in —

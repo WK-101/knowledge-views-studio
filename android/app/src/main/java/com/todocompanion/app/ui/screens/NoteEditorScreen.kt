@@ -57,6 +57,9 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.VerticalSplit
+import androidx.compose.material.icons.filled.Loop
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -188,6 +191,15 @@ fun NoteEditorScreen(
     var showSplit by remember(noteId) { mutableStateOf(false) }
     // L14 — handwriting/ink pad, opened from the editor's insert-block sheet.
     var showInk by remember(noteId) { mutableStateOf(false) }
+    // Wave 2 — Evergreen review cadence + Writing sprint state.
+    var showReview by remember(noteId) { mutableStateOf(false) }
+    var showSprintStart by remember(noteId) { mutableStateOf(false) }
+    var sprintStart by remember(noteId) { mutableStateOf<Long?>(null) }   // sprint begin millis; null = idle
+    var sprintStartWords by remember(noteId) { androidx.compose.runtime.mutableIntStateOf(0) }
+    var sprintNow by remember(noteId) { androidx.compose.runtime.mutableLongStateOf(0L) }
+    androidx.compose.runtime.LaunchedEffect(sprintStart) {
+        while (sprintStart != null) { sprintNow = System.currentTimeMillis(); delay(1000) }
+    }
     // One modal dialog open at a time — a single nullable [NoteSheet] replaces the old fan of 15
     // per-dialog booleans, so two dialogs can never show at once and `sheet = null` dismisses any.
     var sheet by remember(noteId) { mutableStateOf<NoteSheet?>(null) }
@@ -331,6 +343,8 @@ fun NoteEditorScreen(
                     if (reminderLabel != null) MetaPill("⏰ $reminderLabel" + if (d.reminderRrule != null) " ↻" else "") { sheet = NoteSheet.Reminder }
                     if (sealedLabel != null) MetaPill("🔒 Reveals $sealedLabel")
                     if (d.vault) MetaPill("🔐 Vault")
+                    if (d.reviewEvery > 0) MetaPill("♻️ ${com.todocompanion.app.domain.NoteReview.label(d.reviewEvery)}") { showReview = true }
+                    if (d.linkedHabitId != null) MetaPill("🔁 Habit journal")
                     tags.filter { it.id in myTagIds }.forEach { t ->
                         Surface(shape = NotesTokens.Pill, color = MaterialTheme.colorScheme.secondaryContainer,
                             modifier = Modifier.align(Alignment.CenterVertically)) {
@@ -430,6 +444,22 @@ fun NoteEditorScreen(
             // instead of re-scanning every note on every keystroke.
             val noteTitles = remember(notes, noteId) { notes.filter { it.id != noteId && !it.trashed && it.title.isNotBlank() }.map { it.title } }
             val tagNames = remember(tags) { tags.map { it.name } }
+            // Wave 2 · Writing Sprints — the live sprint bar (words written vs goal + elapsed), when running.
+            if (sprintStart != null) {
+                val bodyWords = remember(d.body) {
+                    com.todocompanion.app.domain.NoteProperties.strip(d.body).trim().split(Regex("\\s+")).count { it.isNotBlank() }
+                }
+                val written = (bodyWords - sprintStartWords).coerceAtLeast(0)
+                SprintBar(
+                    elapsedSec = ((sprintNow - sprintStart!!).coerceAtLeast(0)) / 1000,
+                    words = written, goal = d.wordGoal,
+                    onStop = {
+                        val start = sprintStart!!; sprintStart = null
+                        vm.logNoteSprint(noteId, start, System.currentTimeMillis())
+                        if (d.wordGoal in 1..written) android.widget.Toast.makeText(ctx, "🎉 Sprint done — $written words!", android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                )
+            }
             // L12 — split preview: the editor keeps the top half, a live rich render tracks below (debounced
             // via [splitBody]), so tables/math/diagrams are visible while you type — no full-screen swap.
             if (showSplit) {
@@ -589,6 +619,15 @@ fun NoteEditorScreen(
             if (d.kind == "journal" && d.dayEpoch != null) add(PTile(Icons.Filled.Autorenew, "Insert digest") {
                 menu = false; scope.launch { val md = vm.dayDigestMarkdown(d.dayEpoch!!); persist(d.copy(body = md + "\n" + d.body)) }
             })
+            // Wave 2 · Meeting Mode — a meeting note pulls its event's agenda block; timer via the reading
+            // bar; action items via "Extract tasks" above.
+            if (d.kind == "meeting" && d.linkedEventId != null) add(PTile(Icons.Filled.Groups, "Insert meeting agenda") {
+                menu = false; scope.launch { val md = vm.eventAgendaMarkdown(d.linkedEventId!!); if (md.isNotBlank()) persist(d.copy(body = if (d.body.isBlank()) md else md + "\n" + d.body)) }
+            })
+            // Wave 2 · Evergreen Resurfacing — a spaced-review cadence that brings this note back deliberately.
+            add(PTile(Icons.Filled.Loop, if (d.reviewEvery > 0) "Review · ${com.todocompanion.app.domain.NoteReview.label(d.reviewEvery)}" else "Resurface", d.reviewEvery > 0) { menu = false; showReview = true })
+            // Wave 2 · Writing Sprints — a timed word-goal sprint, logged as tracked time on this note.
+            if (sprintStart == null) add(PTile(Icons.Filled.Timer, "Writing sprint") { menu = false; showSprintStart = true })
             add(PTile(if (sealed) Icons.Filled.LockOpen else Icons.Filled.Lock, if (sealed) "Unschedule reveal" else "Schedule reveal") {
                 if (sealed) { vm.unsealNote(noteId); draft = d.copy(sealedUntil = null, reminderAt = null) } else { menu = false; sheet = NoteSheet.Seal }
             })
@@ -936,6 +975,17 @@ fun NoteEditorScreen(
     if (showInk) InkPadDialog(
         onSave = { png -> vm.addInkToNote(noteId, png) { ref -> if (ref != null) persist(d.copy(body = if (d.body.isBlank()) ref else d.body.trimEnd() + "\n\n" + ref)) }; showInk = false },
         onDismiss = { showInk = false },
+    )
+    // Wave 2 — Evergreen review cadence + Writing sprint start.
+    if (showReview) ReviewCadenceDialog(current = d.reviewEvery, onPick = { days -> vm.setNoteReview(noteId, days); draft = d.copy(reviewEvery = days, lastReviewedAt = if (days > 0 && d.lastReviewedAt == 0L) System.currentTimeMillis() else d.lastReviewedAt); showReview = false }, onDismiss = { showReview = false })
+    if (showSprintStart) SprintStartDialog(
+        currentGoal = d.wordGoal,
+        onStart = { goal ->
+            persist(d.copy(wordGoal = goal))
+            sprintStartWords = com.todocompanion.app.domain.NoteProperties.strip(d.body).trim().split(Regex("\\s+")).count { it.isNotBlank() }
+            sprintNow = System.currentTimeMillis(); sprintStart = System.currentTimeMillis(); showSprintStart = false
+        },
+        onDismiss = { showSprintStart = false },
     )
     if (sheet == NoteSheet.Outline) NoteOutlineDialog(d.body, onDismiss = { sheet = null })
     if (sheet == NoteSheet.Reorder) SectionReorderDialog(d.body, onApply = { persist(d.copy(body = it)); sheet = null }, onDismiss = { sheet = null })

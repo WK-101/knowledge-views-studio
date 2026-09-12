@@ -635,6 +635,31 @@ class AppRepository(private val db: AppDatabase) {
         return timeTrack.getEntries().filter { it.noteId == noteId || (linkedTask != null && it.taskId == linkedTask) }
             .sumOf { it.minutes(now()) }
     }
+    /** Wave 2 · Writing Sprints — log a completed writing sprint as tracked time on a note (Notes activity). */
+    suspend fun logNoteTime(noteId: String, startMillis: Long, endMillis: Long, note: String = "") {
+        if (endMillis <= startMillis) return
+        timeTrack.upsertEntry(com.todocompanion.app.data.entity.TimeEntryEntity(
+            uid(), ensureNotesActivity(), startMillis, endMillis, note, null, null, now(),
+            workspaceId = activeWs(), noteId = noteId,
+        ))
+    }
+
+    /** Wave 2 · Habit Practice Journal — the note bound to a habit as its reflective log, or null. */
+    suspend fun habitJournalNote(habitId: String): com.todocompanion.app.data.entity.NoteEntity? =
+        notes.getAll().firstOrNull { !it.trashed && it.linkedHabitId == habitId }
+
+    /** Append one dated check-in line to a habit's journal note, once per day (idempotent; skips a locked
+     *  vault note so it never touches ciphertext). */
+    suspend fun appendHabitJournalEntry(habitId: String, epochDay: Long) {
+        val note = habitJournalNote(habitId) ?: return
+        if (note.vault && com.todocompanion.app.domain.NoteVault.isLocked(note.body)) return
+        val date = java.time.LocalDate.ofEpochDay(epochDay).toString()
+        val marker = "- **$date**"
+        if (note.body.contains(marker)) return
+        val line = "$marker — ✅ done"
+        upsertNote(note.copy(body = if (note.body.isBlank()) line else note.body.trimEnd() + "\n" + line, updatedAt = now()))
+    }
+
     /** All currently-running entries (multi-timer aware). */
     suspend fun runningTimeEntries(): List<com.todocompanion.app.data.entity.TimeEntryEntity> = timeTrack.getEntries().filter { it.running }
     /** Every recorded time entry (R41 planner: planned-vs-actual, estimate calibration, weekly audit). */

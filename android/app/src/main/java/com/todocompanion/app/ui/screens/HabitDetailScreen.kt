@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
@@ -107,6 +108,7 @@ fun HabitDetailScreen(
     habitId: String,
     onBack: () -> Unit,
     onEdit: (com.todocompanion.app.data.entity.HabitEntity) -> Unit,
+    onOpenNote: (String) -> Unit = {},
 ) {
     androidx.activity.compose.BackHandler { onBack() }
     val habits by vm.habits.collectAsState()
@@ -213,6 +215,11 @@ fun HabitDetailScreen(
                 val muted = h.id in vm.settings.collectAsState().value.mutedHabits
                 IconButton(onClick = { vm.toggleMutedHabit(h.id) }) {
                     Icon(if (muted) Icons.Filled.NotificationsOff else Icons.Filled.Notifications, if (muted) "Unmute reminders" else "Mute reminders")
+                }
+                // Wave 2 · Habit Practice Journal — open (creating if needed) the reflective note bound to
+                // this habit; check-ins append a dated line automatically.
+                IconButton(onClick = { vm.openHabitJournal(h.id, h.name) { nid -> onOpenNote(nid) } }) {
+                    Icon(Icons.AutoMirrored.Filled.MenuBook, "Practice journal")
                 }
                 IconButton(onClick = { onEdit(h) }) { Icon(Icons.Filled.Edit, "Edit") }
             },

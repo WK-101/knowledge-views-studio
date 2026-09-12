@@ -1065,7 +1065,8 @@ fun AppRoot(
         habitDetail?.let { hid ->
             com.todocompanion.app.ui.screens.HabitDetailScreen(vm, hid,
                 onBack = { vm.habitDetailId.value = null },
-                onEdit = { h -> vm.habitEditor.value = HabitEditRequest(h); vm.habitDetailId.value = null })
+                onEdit = { h -> vm.habitEditor.value = HabitEditRequest(h); vm.habitDetailId.value = null },
+                onOpenNote = { nid -> vm.habitDetailId.value = null; editingNote = nid })
         }
         val habitEdit by vm.habitEditor.collectAsState()
         habitEdit?.let { req ->
