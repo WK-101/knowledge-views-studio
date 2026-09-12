@@ -30,6 +30,20 @@ object NoteMarkdownFile {
         val createdAt: Long?,
         val updatedAt: Long?,
         val dayEpoch: Long?,
+        // Fully-lossless round-trip: the remaining app-specific fields ride the header as scalars so an
+        // export → edit-elsewhere → import cycle preserves them. Foreign editors ignore unknown keys.
+        val readonly: Boolean = false,
+        val archived: Boolean = false,
+        val sortOrder: Double? = null,
+        val notebookId: String? = null,
+        val folderId: String? = null,
+        val linkedTaskId: String? = null,
+        val linkedEventId: String? = null,
+        val reminderAt: Long? = null,
+        val reminderRrule: String? = null,
+        val reminderExtra: String = "",
+        val reminderKeep: Boolean = false,
+        val sealedUntil: Long? = null,
     )
 
     private const val FENCE = "---"
@@ -50,6 +64,19 @@ object NoteMarkdownFile {
         if (note.createdAt > 0L) line("created", note.createdAt.toString())
         if (note.updatedAt > 0L) line("updated", note.updatedAt.toString())
         note.dayEpoch?.let { line("day", it.toString()) }
+        // Lossless extras — emitted only when non-default so a plain note stays clean.
+        if (note.readonly) line("readonly", "true")
+        if (note.archived) line("archived", "true")
+        note.sortOrder.takeIf { it != 0.0 }?.let { line("sortOrder", it.toString()) }
+        note.notebookId?.takeIf { it.isNotBlank() }?.let { line("notebookId", q(it)) }
+        note.folderId?.takeIf { it.isNotBlank() }?.let { line("folderId", q(it)) }
+        note.linkedTaskId?.takeIf { it.isNotBlank() }?.let { line("linkedTaskId", q(it)) }
+        note.linkedEventId?.takeIf { it.isNotBlank() }?.let { line("linkedEventId", q(it)) }
+        note.reminderAt?.let { line("reminderAt", it.toString()) }
+        note.reminderRrule?.takeIf { it.isNotBlank() }?.let { line("reminderRrule", q(it)) }
+        note.reminderExtra.takeIf { it.isNotBlank() }?.let { line("reminderExtra", q(it)) }
+        if (note.reminderKeep) line("reminderKeep", "true")
+        note.sealedUntil?.let { line("sealedUntil", it.toString()) }
         append(FENCE).append('\n')
         append('\n')
         append(note.body)
@@ -79,19 +106,37 @@ object NoteMarkdownFile {
         val body = if (bodyStart >= normalized.length) "" else normalized.substring(bodyStart)
 
         val map = HashMap<String, String>()
-        for (raw in header.split('\n')) {
-            val t = raw.trim()
+        val blockLists = HashMap<String, MutableList<String>>()   // key: \n  - a \n  - b  (Obsidian style)
+        val lines = header.split('\n')
+        var li = 0
+        while (li < lines.size) {
+            val t = lines[li].trim()
+            li++
             if (t.isEmpty()) continue
             val sep = t.indexOf(':')
             if (sep <= 0) continue
-            map[t.substring(0, sep).trim()] = t.substring(sep + 1).trim()
+            val key = t.substring(0, sep).trim()
+            val value = t.substring(sep + 1).trim()
+            if (value.isEmpty()) {
+                // A key with no inline value may head a block sequence: subsequent `- item` lines.
+                val items = ArrayList<String>()
+                while (li < lines.size) {
+                    val item = lines[li].trim()
+                    if (item.startsWith("- ")) { items.add(unq(item.removePrefix("- ").trim())); li++ }
+                    else break
+                }
+                if (items.isNotEmpty()) blockLists[key] = items else map[key] = value
+            } else {
+                map[key] = value
+            }
         }
         val title = map["title"]?.let(::unq).orEmpty()
+        val tags = map["tags"]?.let(::parseFlowList) ?: blockLists["tags"]?.toList() ?: emptyList()
         return Parsed(
             id = map["id"]?.let(::unq)?.takeIf { it.isNotBlank() },
             title = title.ifBlank { titleFromBody(body) ?: nameToTitle(fileName) },
             body = body,
-            tags = map["tags"]?.let(::parseFlowList).orEmpty(),
+            tags = tags,
             kind = map["kind"]?.let(::unq)?.takeIf { it.isNotBlank() } ?: "note",
             pinned = map["pinned"].toBoolean(),
             favorite = map["favorite"].toBoolean(),
@@ -100,6 +145,18 @@ object NoteMarkdownFile {
             createdAt = map["created"]?.trim()?.toLongOrNull(),
             updatedAt = map["updated"]?.trim()?.toLongOrNull(),
             dayEpoch = map["day"]?.trim()?.toLongOrNull(),
+            readonly = map["readonly"].toBoolean(),
+            archived = map["archived"].toBoolean(),
+            sortOrder = map["sortOrder"]?.trim()?.toDoubleOrNull(),
+            notebookId = map["notebookId"]?.let(::unq)?.takeIf { it.isNotBlank() },
+            folderId = map["folderId"]?.let(::unq)?.takeIf { it.isNotBlank() },
+            linkedTaskId = map["linkedTaskId"]?.let(::unq)?.takeIf { it.isNotBlank() },
+            linkedEventId = map["linkedEventId"]?.let(::unq)?.takeIf { it.isNotBlank() },
+            reminderAt = map["reminderAt"]?.trim()?.toLongOrNull(),
+            reminderRrule = map["reminderRrule"]?.let(::unq)?.takeIf { it.isNotBlank() },
+            reminderExtra = map["reminderExtra"]?.let(::unq).orEmpty(),
+            reminderKeep = map["reminderKeep"].toBoolean(),
+            sealedUntil = map["sealedUntil"]?.trim()?.toLongOrNull(),
         )
     }
 

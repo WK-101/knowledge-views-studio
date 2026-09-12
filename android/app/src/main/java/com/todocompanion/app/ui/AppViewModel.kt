@@ -457,7 +457,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val newId = repo.upsertNote(base.copy(
             title = p.title, body = p.body, kind = p.kind, pinned = p.pinned, favorite = p.favorite,
             colorArgb = p.colorArgb, coverEmoji = p.coverEmoji, dayEpoch = p.dayEpoch,
-            createdAt = p.createdAt ?: base.createdAt, workspaceId = base.workspaceId.ifBlank { ws },
+            createdAt = p.createdAt ?: base.createdAt, updatedAt = p.updatedAt ?: base.updatedAt,
+            workspaceId = base.workspaceId.ifBlank { ws },
+            // Lossless extras recovered from the .md header (fall back to whatever the row already had).
+            readonly = p.readonly, archived = p.archived,
+            sortOrder = p.sortOrder ?: base.sortOrder,
+            notebookId = p.notebookId ?: base.notebookId, folderId = p.folderId ?: base.folderId,
+            linkedTaskId = p.linkedTaskId ?: base.linkedTaskId, linkedEventId = p.linkedEventId ?: base.linkedEventId,
+            reminderAt = p.reminderAt ?: base.reminderAt, reminderRrule = p.reminderRrule ?: base.reminderRrule,
+            reminderExtra = p.reminderExtra.ifBlank { base.reminderExtra }, reminderKeep = p.reminderKeep,
+            sealedUntil = p.sealedUntil ?: base.sealedUntil,
         ))
         if (p.tags.isNotEmpty()) {
             val tagIds = p.tags.map { name ->

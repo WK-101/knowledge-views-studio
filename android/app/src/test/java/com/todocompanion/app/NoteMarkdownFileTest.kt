@@ -98,4 +98,40 @@ class NoteMarkdownFileTest {
         val name = NoteMarkdownFile.fileName(n, taken)
         assertFalse(name.contains('/')); assertFalse(name.contains(':')); assertTrue(name.endsWith(".md"))
     }
+
+    // ── P3c — the extra app-specific fields must round-trip (were silently dropped before). ──
+    @Test fun losslessExtrasRoundTrip() {
+        val n = NoteEntity(
+            id = "x", title = "T", body = "B",
+            readonly = true, archived = true, sortOrder = 12.5,
+            notebookId = "nb1", folderId = "fd1", linkedTaskId = "tk1", linkedEventId = "ev1",
+            reminderAt = 999L, reminderRrule = "FREQ=DAILY", reminderExtra = "1;2;3", reminderKeep = true,
+            sealedUntil = 4242L,
+        )
+        val p = NoteMarkdownFile.parse("x.md", NoteMarkdownFile.serialize(n))
+        assertTrue(p.readonly); assertTrue(p.archived)
+        assertEquals(12.5, p.sortOrder!!, 0.0001)
+        assertEquals("nb1", p.notebookId); assertEquals("fd1", p.folderId)
+        assertEquals("tk1", p.linkedTaskId); assertEquals("ev1", p.linkedEventId)
+        assertEquals(999L, p.reminderAt); assertEquals("FREQ=DAILY", p.reminderRrule)
+        assertEquals("1;2;3", p.reminderExtra); assertTrue(p.reminderKeep)
+        assertEquals(4242L, p.sealedUntil)
+    }
+
+    @Test fun plainNoteEmitsNoExtraKeys() {
+        // A note with all-default extras must not clutter the header with them.
+        val text = NoteMarkdownFile.serialize(note().first)
+        assertFalse(text.contains("readonly")); assertFalse(text.contains("archived"))
+        assertFalse(text.contains("sortOrder")); assertFalse(text.contains("reminder"))
+        assertFalse(text.contains("sealedUntil"))
+    }
+
+    @Test fun readsBlockStyleYamlTags() {
+        // Obsidian writes tags as a block sequence; we must read it, not just the flow form.
+        val md = "---\nid: \"z\"\ntitle: \"Note\"\ntags:\n  - work\n  - deep-focus\n---\n\nbody here"
+        val p = NoteMarkdownFile.parse("z.md", md)
+        assertEquals("z", p.id)
+        assertEquals(listOf("work", "deep-focus"), p.tags)
+        assertEquals("body here", p.body)
+    }
 }

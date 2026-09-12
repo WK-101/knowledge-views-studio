@@ -465,7 +465,7 @@ fun NoteEditorScreen(
             add(PTile(if (d.favorite) Icons.Filled.Star else Icons.Outlined.StarOutline, "Favorite", d.favorite) { persist(d.copy(favorite = !d.favorite)) })
             add(PTile(Icons.Filled.MenuBook, "Reading view") { menu = false; showReading = true })
             add(PTile(if (d.readonly) Icons.Filled.Edit else Icons.Filled.EditOff, if (d.readonly) "Allow editing" else "Read only", d.readonly) { persist(d.copy(readonly = !d.readonly)) })
-            add(PTile(Icons.Filled.Fullscreen, "Focus mode", focus) { menu = false; focus = !focus })
+            add(PTile(Icons.Filled.Fullscreen, "Focus mode", focus) { menu = false; focus = !focus; vm.setNotesFocusMode(focus) })
             add(PTile(Icons.Filled.Book, if (useNotebooks) "Notebook" else "Folder") { menu = false; showContainer = true })
             add(PTile(Icons.Filled.EmojiEmotions, if (d.coverEmoji.isNullOrBlank()) "Cover emoji" else "Change emoji") { menu = false; showEmoji = true })
             add(PTile(Icons.Filled.Alarm, "Remind me", d.reminderAt != null) { menu = false; showReminder = true })
