@@ -126,6 +126,35 @@ class RepositoryTest {
         assertTrue("body tag still present", alphaId in linked)
     }
 
+    // ── FTS search correctness — the manual index stays in step with edits, trash/restore, and tags. ──
+
+    @Test fun search_findsByTitleAndBody_andHonorsTrashRestore() = runBlocking {
+        val a = repo.upsertNote(NoteEntity(id = "", title = "Alpha meeting", body = "discuss the roadmap"))
+        val b = repo.upsertNote(NoteEntity(id = "", title = "Beta", body = "grocery list"))
+        assertTrue("title match", a in repo.searchNoteIds("meeting"))
+        assertTrue("body match", a in repo.searchNoteIds("roadmap"))
+        assertTrue(b in repo.searchNoteIds("grocery"))
+        assertTrue("no cross match", b !in repo.searchNoteIds("roadmap"))
+        repo.trashNote(a, true)
+        assertTrue("trashed note drops out of search", a !in repo.searchNoteIds("roadmap"))
+        repo.trashNote(a, false)
+        assertTrue("restored note is searchable again", a in repo.searchNoteIds("roadmap"))
+    }
+
+    @Test fun search_findsByMaterializedInlineTag() = runBlocking {
+        val id = repo.upsertNote(NoteEntity(id = "", title = "Note", body = "planning #quarterly review"))
+        // #quarterly becomes a structured tag AND is mirrored into the note's FTS text (reindex).
+        assertTrue("found by its inline tag name", id in repo.searchNoteIds("quarterly"))
+    }
+
+    @Test fun search_reflectsEdits() = runBlocking {
+        val id = repo.upsertNote(NoteEntity(id = "", title = "Draft", body = "old content"))
+        assertTrue(id in repo.searchNoteIds("old"))
+        repo.upsertNote(repo.getNote(id)!!.copy(body = "new content"))
+        assertTrue("stale term no longer matches", id !in repo.searchNoteIds("old"))
+        assertTrue("new term matches", id in repo.searchNoteIds("new"))
+    }
+
     @Test fun deleteNotebook_reparentsNotesInsteadOfDeleting() = runBlocking {
         val nbId = repo.upsertNotebook(NotebookEntity(id = "", name = "Work"))
         val noteId = repo.upsertNote(NoteEntity(id = "", title = "In notebook", notebookId = nbId))
