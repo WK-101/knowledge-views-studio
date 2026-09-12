@@ -609,12 +609,31 @@ class AppRepository(private val db: AppDatabase) {
      * entry is stopped first. Pass false (U15 multi-timer) to let activities overlap. Passing [startMillis]
      * (U5 timeline-fill) back-dates the start so the new block closes a gap since the last one ended.
      */
-    suspend fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null, stopFirst: Boolean = true, startMillis: Long? = null, kind: String = "manual"): String {
+    suspend fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null, stopFirst: Boolean = true, startMillis: Long? = null, kind: String = "manual", noteId: String? = null): String {
         if (stopFirst) stopTimeTracking()
         val id = uid()
         val start = startMillis ?: now()
-        timeTrack.upsertEntry(com.todocompanion.app.data.entity.TimeEntryEntity(id, activityId, start, null, "", taskId, habitId, now(), kind = kind, workspaceId = activeWs()))
+        timeTrack.upsertEntry(com.todocompanion.app.data.entity.TimeEntryEntity(id, activityId, start, null, "", taskId, habitId, now(), kind = kind, workspaceId = activeWs(), noteId = noteId))
         return id
+    }
+
+    /** L6 — a stable "Notes" activity bucket, mirroring [ensureTaskActivity]: the generic activity for time
+     *  tracked while working inside a note. */
+    suspend fun ensureNotesActivity(): String {
+        timeTrack.getActivities().firstOrNull { it.name == "Notes" && !it.archived }?.let { return it.id }
+        return createTimeActivity("Notes", "📝", 0xFF7A5CD8L)
+    }
+
+    /** L6 — start tracking time against a note (Work-on-this-note), on the stable "Notes" activity. */
+    suspend fun startTimeTrackingForNote(noteId: String): String =
+        startTimeTracking(ensureNotesActivity(), noteId = noteId, stopFirst = true)
+
+    /** L6 — total minutes ever tracked against a note (via its own entries + any on its linked task). */
+    suspend fun trackedMinutesForNote(noteId: String): Int {
+        val note = notes.getById(noteId)
+        val linkedTask = note?.linkedTaskId
+        return timeTrack.getEntries().filter { it.noteId == noteId || (linkedTask != null && it.taskId == linkedTask) }
+            .sumOf { it.minutes(now()) }
     }
     /** All currently-running entries (multi-timer aware). */
     suspend fun runningTimeEntries(): List<com.todocompanion.app.data.entity.TimeEntryEntity> = timeTrack.getEntries().filter { it.running }

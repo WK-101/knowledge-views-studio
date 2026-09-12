@@ -577,8 +577,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Expand `{{today:agenda}}` / `{{tasks:overdue|today}}` / `{{note:Title}}` tokens against live data,
      *  recomputed on open. Read-only projection — a briefing the note writes from your tasks and notes
      *  (this is also M3's daily cockpit). Unknown/failed tokens are left verbatim. */
-    suspend fun expandNoteTransclusion(body: String): String {
+    suspend fun expandNoteTransclusion(body: String, noteId: String? = null): String {
         if (!com.todocompanion.app.util.NoteTransclusion.hasTokens(body)) return body
+        // L6 — time tracked against this note (its own entries + its linked task's), for {{time:this-note}}.
+        val thisNoteMinutes = noteId?.let { runCatching { repo.trackedMinutesForNote(it) }.getOrDefault(0) } ?: 0
         val zone = java.time.ZoneId.systemDefault()
         val todayStart = java.time.LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
         val todayEnd = todayStart + 86_400_000L
@@ -652,7 +654,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     val hit = sel.sortedByDescending { it.updatedAt }.let { if (flags.isEmpty() && kv.isEmpty()) it.take(10) else it.take(40) }.toList()
                     if (hit.isEmpty()) "_No notes_" else hit.joinToString("\n") { "- [[${it.title.ifBlank { "Untitled" }}]]" }
                 }
-                "time" -> {
+                "time" -> if (arg.trim() == "this-note") {
+                    if (thisNoteMinutes <= 0) "_No time tracked on this note yet_"
+                    else "⏱ **${thisNoteMinutes / 60}h ${thisNoteMinutes % 60}m** tracked on this note"
+                } else {
                     val (flags, kv, _) = parseQ(arg)
                     val nowMs = System.currentTimeMillis()
                     val days = when { "month" in flags -> 30L; "week" in flags -> 7L; else -> 1L }
@@ -808,18 +813,40 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 if (t.isNotBlank() && !t.contains("[[")) bindText[i] = t   // skip lines already bound
             }
         }
-        bindText.values.forEach { repo.createTask(com.todocompanion.app.data.entity.ListEntity.INBOX_ID, it, dueDate = due) }
-        if (bindText.isNotEmpty()) {
+        // L8 — Capture-to-anything: a recurring intention ("meditate every morning") becomes a habit; every
+        // other line becomes a bound task. Only lines routed to tasks get rewritten to "- [ ] [[Task]]".
+        val ws = activeWorkspace()
+        val existingHabitNames = habits.value.map { it.name.trim().lowercase() }.toHashSet()
+        val taskLines = HashMap<Int, String>()   // line index → task title to create + bind
+        var habitsMade = 0
+        bindText.forEach { (i, text) ->
+            when (val item = com.todocompanion.app.domain.NoteCapture.classify(text)) {
+                is com.todocompanion.app.domain.NoteCapture.Item.Habit -> {
+                    if (item.name.trim().lowercase() !in existingHabitNames) {
+                        repo.createHabit(name = item.name, emoji = null, colorArgb = null, target = 1, workspaceId = ws)
+                        existingHabitNames.add(item.name.trim().lowercase()); habitsMade++
+                    }
+                }
+                is com.todocompanion.app.domain.NoteCapture.Item.Task -> {
+                    repo.createTask(com.todocompanion.app.data.entity.ListEntity.INBOX_ID, item.title, dueDate = due)
+                    taskLines[i] = item.title
+                }
+            }
+        }
+        if (taskLines.isNotEmpty()) {
             val newBody = lines.mapIndexed { i, line ->
-                bindText[i]?.let { t -> boxRe.matchEntire(line)!!.groupValues[1] + "[[$t]]" } ?: line
+                taskLines[i]?.let { t -> boxRe.matchEntire(line)!!.groupValues[1] + "[[$t]]" } ?: line
             }.joinToString("\n")
             repo.upsertNote(n.copy(body = newBody))
         }
-        onDone(bindText.size)
+        onDone(taskLines.size + habitsMade)
     }
 
     /** L5 — pull a note's bound checkbox lines into line with their tasks' live state (called on open). */
     fun reconcileNoteCheckboxes(noteId: String) = viewModelScope.launch { repo.reconcileNoteCheckboxesFromTasks(noteId) }
+
+    /** L6 — start a time-tracking session against this note (Work-on-this-note), on the "Notes" activity. */
+    fun startTimeTrackingForNote(noteId: String) = viewModelScope.launch { repo.startTimeTrackingForNote(noteId) }
 
     /**
      * R43 — save a full life-event / occasion (birthday, anniversary, memorial, name day, holiday or a
@@ -3657,6 +3684,40 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             highlight = highlight.trim(), gratitude = gratitude.trim(), lesson = lesson.trim(),
             updatedAt = System.currentTimeMillis(),
         ))
+        // L7 — the Living Daily Note: when you close the day, fold the recap into that day's journal note
+        // (only if one already exists, so it's never intrusive). Capture in the morning, auto-filled by night.
+        writeDayRecapToNote(day, createIfMissing = false)
+    }
+
+    /**
+     * L7 — write (or refresh) the day's recap inside its journal note, between stable markers so re-running
+     * updates in place instead of duplicating. The recap is the same self-writing digest {{today}} uses —
+     * tasks done, time tracked, habits kept, felt rating — so the daily note becomes a permanent record of
+     * the day: captured in the morning, completed by evening. No other note app closes this loop.
+     */
+    suspend fun writeDayRecapToNote(epochDay: Long, createIfMissing: Boolean) {
+        val ws = activeWorkspace()
+        val existing = repo.getNotesOnce().firstOrNull { !it.trashed && it.workspaceId == ws && it.kind == "journal" && it.dayEpoch == epochDay }
+        if (existing == null && !createIfMissing) return
+        val digest = repo.dayDigestMarkdown(epochDay).trim()
+        if (digest.isBlank()) return
+        val block = "<!-- kairo:recap -->\n$digest\n<!-- /kairo:recap -->"
+        val base = existing?.body ?: ""
+        val re = Regex("(?s)<!-- kairo:recap -->.*?<!-- /kairo:recap -->")
+        val newBody = when {
+            re.containsMatchIn(base) -> re.replace(base) { block }
+            base.isBlank() -> block
+            else -> base.trimEnd() + "\n\n" + block
+        }
+        val note = existing ?: com.todocompanion.app.data.entity.NoteEntity(
+            id = "", kind = "journal", dayEpoch = epochDay, title = dayNoteTitle(epochDay), workspaceId = ws,
+        )
+        repo.upsertNote(note.copy(body = newBody))
+    }
+
+    /** L7 — manual "save today's recap to the daily note" (creates the note if needed). */
+    fun saveDayRecapToNote(epochDay: Long, onDone: () -> Unit = {}) = viewModelScope.launch {
+        writeDayRecapToNote(epochDay, createIfMissing = true); onDone()
     }
     // R106 — the one thing that matters tomorrow (set from the Day Review "Ready" panel).
     fun saveTomorrowFocus(day: Long, text: String) = viewModelScope.launch {

@@ -61,6 +61,9 @@ data class TimeEntryEntity(
     val tags: String = "",
     // R62 — the workspace this interval belongs to (mirrors its activity's workspace).
     val workspaceId: String = "default",
+    // L6 — track time directly against a note (Work-on-this-note). Appended last so existing positional
+    // constructions stay valid; round-trips through the lossless JSON backup via its default.
+    val noteId: String? = null,
 ) {
     val running: Boolean get() = endMillis == null
     /** Elapsed minutes, clamped to a floor of 0. For a running entry, pass [nowMillis]. */

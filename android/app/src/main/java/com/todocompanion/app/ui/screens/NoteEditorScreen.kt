@@ -189,7 +189,7 @@ fun NoteEditorScreen(
     var expandedBody by remember(noteId) { mutableStateOf<String?>(null) }
     androidx.compose.runtime.LaunchedEffect(noteId, d.body, showReading) {
         expandedBody = if (showReading && com.todocompanion.app.util.NoteTransclusion.hasTokens(d.body))
-            vm.expandNoteTransclusion(d.body) else null
+            vm.expandNoteTransclusion(d.body, noteId) else null
     }
     // Back closes the reading view first (if open), else leaves the editor.
     BackHandler { if (showReading) showReading = false else { draft?.let { vm.closeNoteEditor(it) }; onBack() } }
