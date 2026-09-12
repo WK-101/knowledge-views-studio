@@ -5,6 +5,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -655,7 +657,7 @@ fun NoteEditorScreen(
                     }
                     Box {
                         IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "More") }
-                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, modifier = Modifier.heightIn(max = 460.dp)) {
                             val boxCount = com.todocompanion.app.domain.NoteLinks.uncheckedCheckboxes(d.body).size
                             if (boxCount > 0) {
                                 DropdownMenuItem(
@@ -704,7 +706,7 @@ fun NoteEditorScreen(
     ) { padding ->
         Column(
             Modifier.padding(padding).fillMaxSize().padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             // Meta strip (NotesNook-style): live word count on the left, a single "＋ Add tag" in the
             // corner on the right — not a whole tag list.
@@ -744,13 +746,18 @@ fun NoteEditorScreen(
                     }
                     Spacer(Modifier.width(8.dp))
                 }
-                androidx.compose.material3.TextField(
+                // Borderless, tight title (BasicTextField — no Material internal padding, so title and
+                // body sit close together like NotesNook).
+                androidx.compose.foundation.text.BasicTextField(
                     value = d.title, onValueChange = { draft = d.copy(title = it) },
-                    placeholder = { Text("Title", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     singleLine = true,
-                    textStyle = MaterialTheme.typography.titleLarge,
-                    colors = com.todocompanion.app.ui.components.clearFieldColors(),
-                    modifier = Modifier.weight(1f),
+                    textStyle = MaterialTheme.typography.headlineSmall.copy(color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.weight(1f).padding(vertical = 4.dp),
+                    decorationBox = { inner ->
+                        if (d.title.isEmpty()) Text("Note title", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        inner()
+                    },
                 )
             }
             // Selected tags — compact chips right under the title (only when the note has tags). Tap ✕ removes.
@@ -929,10 +936,8 @@ fun NoteEditorScreen(
     if (showReading) {
         val rawShown = expandedBody ?: d.body
         val shownBody = remember(rawShown) { com.todocompanion.app.domain.NoteProperties.strip(rawShown) }
-        var richImgs by remember(noteId) { mutableStateOf<Map<String, String>>(emptyMap()) }
-        androidx.compose.runtime.LaunchedEffect(noteId, shownBody) {
-            richImgs = if (shownBody.contains("![")) vm.noteImageMap(noteId) else emptyMap()
-        }
+        // Pure-Compose rendering (no WebView) — safe, and renders tables/headings/lists/quotes/code
+        // properly rather than as raw Markdown.
         androidx.compose.ui.window.Dialog(
             onDismissRequest = { showReading = false },
             properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
@@ -948,10 +953,11 @@ fun NoteEditorScreen(
                             Text("Nothing to preview yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     } else {
-                        com.todocompanion.app.ui.components.RichNoteView(
-                            shownBody, richImgs, Modifier.fillMaxSize(),
-                            readingThemeId = settings.notesReadingTheme, type = noteType,
-                        )
+                        androidx.compose.foundation.text.selection.SelectionContainer(
+                            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
+                        ) {
+                            MarkdownText(shownBody, Modifier.fillMaxWidth())
+                        }
                     }
                 }
             }

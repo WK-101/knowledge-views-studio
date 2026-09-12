@@ -14,13 +14,41 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.FormatBold
+import androidx.compose.material.icons.filled.FormatItalic
+import androidx.compose.material.icons.filled.FormatListBulleted
+import androidx.compose.material.icons.filled.FormatListNumbered
+import androidx.compose.material.icons.filled.FormatQuote
+import androidx.compose.material.icons.filled.FormatStrikethrough
+import androidx.compose.material.icons.filled.Functions
+import androidx.compose.material.icons.filled.HorizontalRule
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Redo
+import androidx.compose.material.icons.filled.TableChart
+import androidx.compose.material.icons.filled.Title
+import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -117,6 +145,13 @@ fun NoteBodyEditor(
         emit(TextFieldValue(pre + insert + post, TextRange(caret)), true)
     }
     var showTable by remember { mutableStateOf(false) }
+    var showBlocks by remember { mutableStateOf(false) }   // "+" → block-insert sheet
+    var moreFormat by remember { mutableStateOf(false) }    // "⋮" → secondary formatting row
+
+    val onWrap: (String) -> Unit = { m -> apply(NoteEditing.wrapInline(tfv.text, tfv.selection.start, tfv.selection.end, m)) }
+    val onLinePrefix: (String) -> Unit = { p -> apply(NoteEditing.insertLinePrefix(tfv.text, tfv.selection.start, p)) }
+    val doUndo = { if (undo.isNotEmpty()) { val prev = undo.removeAt(undo.lastIndex); redo.add(tfv); tfv = prev; onValueChange(prev.text) } }
+    val doRedo = { if (redo.isNotEmpty()) { val nx = redo.removeAt(redo.lastIndex); undo.add(tfv); tfv = nx; onValueChange(nx.text) } }
 
     Column(modifier.fillMaxSize()) {
         val cs = MaterialTheme.colorScheme
@@ -128,7 +163,7 @@ fun NoteBodyEditor(
         }
         val baseSize = 16.sp * type.scale()
         val bodyStyle = MaterialTheme.typography.bodyLarge.copy(
-            fontFamily = family, fontSize = baseSize, lineHeight = baseSize * type.lineFactor(),
+            fontFamily = family, fontSize = baseSize, lineHeight = baseSize * type.lineFactor(), color = cs.onSurface,
         )
         // Wave Q — inline Markdown live-styling: style syntax in place (identity offsets), so editing feel
         // matches the read view. Dimmed markers, styled bold/italic/code/links — Bear's Panda, on Android.
@@ -137,17 +172,20 @@ fun NoteBodyEditor(
                 base = cs.onSurface, muted = cs.onSurfaceVariant, accent = cs.primary, code = cs.tertiary, quote = cs.outline,
             ) else androidx.compose.ui.text.input.VisualTransformation.None
         }
-        // The body fills the surface; the formatting toolbar sits at the BOTTOM, above the keyboard
-        // (NotesNook-style). Borderless container so title + body read as one continuous page.
-        TextField(
+        // The body fills the surface as a tight, borderless field (BasicTextField — no Material padding),
+        // so title and body read as one continuous page. The formatting bar is anchored at the bottom.
+        BasicTextField(
             value = tfv,
             onValueChange = ::onFieldChange,
             readOnly = readOnly,
-            placeholder = { Text("Write in Markdown…") },
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            colors = com.todocompanion.app.ui.components.clearFieldColors(),
+            modifier = Modifier.fillMaxWidth().weight(1f).padding(top = 2.dp),
             textStyle = bodyStyle,
+            cursorBrush = SolidColor(cs.primary),
             visualTransformation = transform,
+            decorationBox = { inner ->
+                if (tfv.text.isEmpty()) Text("Start writing your note…", style = bodyStyle, color = cs.onSurfaceVariant)
+                inner()
+            },
         )
         if (!readOnly) {
             Column(Modifier.imePadding()) {
@@ -177,18 +215,94 @@ fun NoteBodyEditor(
                         .sortedByDescending { it.lowercase().startsWith(q) }.take(8).toList()
                     if (matches.isNotEmpty()) TokenBar(matches.map { "#$it" }, matches) { t -> apply(NoteEditing.applyTag(tfv.text, tfv.selection.start, t)) }
                 }
-                FormattingToolbar(
-                    onWrap = { m -> apply(NoteEditing.wrapInline(tfv.text, tfv.selection.start, tfv.selection.end, m)) },
-                    onLinePrefix = { p -> apply(NoteEditing.insertLinePrefix(tfv.text, tfv.selection.start, p)) },
-                    onTable = { showTable = true },
-                    canUndo = undo.isNotEmpty(), canRedo = redo.isNotEmpty(),
-                    onUndo = { if (undo.isNotEmpty()) { val prev = undo.removeAt(undo.lastIndex); redo.add(tfv); tfv = prev; onValueChange(prev.text) } },
-                    onRedo = { if (redo.isNotEmpty()) { val nx = redo.removeAt(redo.lastIndex); undo.add(tfv); tfv = nx; onValueChange(nx.text) } },
-                )
+                // A proper anchored bottom bar (full width, solid surface, top divider) — not floating chips.
+                Surface(color = cs.surface, tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
+                    Column {
+                        HorizontalDivider(color = cs.outlineVariant.copy(alpha = .6f))
+                        if (moreFormat) {
+                            Row(
+                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                BarIcon(Icons.Filled.Title, "Heading") { onLinePrefix("# ") }
+                                BarIcon(Icons.Filled.FormatQuote, "Quote") { onLinePrefix("> ") }
+                                BarIcon(Icons.Filled.FormatListBulleted, "Bulleted list") { onLinePrefix("- ") }
+                                BarIcon(Icons.Filled.FormatListNumbered, "Numbered list") { onLinePrefix("1. ") }
+                                BarIcon(Icons.Filled.CheckBox, "Checklist") { onLinePrefix("- [ ] ") }
+                                BarIcon(Icons.Filled.TableChart, "Table") { showTable = true }
+                                BarIcon(Icons.Filled.Functions, "Math") { insertBlock("$$\n\n$$") }
+                                BarIcon(Icons.Filled.HorizontalRule, "Divider") { insertBlock("---") }
+                            }
+                            HorizontalDivider(color = cs.outlineVariant.copy(alpha = .35f))
+                        }
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            BarIcon(Icons.Filled.Add, "Insert block") { showBlocks = true }
+                            BarIcon(Icons.Filled.FormatBold, "Bold") { onWrap("**") }
+                            BarIcon(Icons.Filled.FormatItalic, "Italic") { onWrap("*") }
+                            BarIcon(Icons.Filled.FormatStrikethrough, "Strikethrough") { onWrap("~~") }
+                            BarIcon(Icons.Filled.Code, "Inline code") { onWrap("`") }
+                            BarIcon(Icons.Filled.MoreVert, if (moreFormat) "Fewer options" else "More options", active = moreFormat) { moreFormat = !moreFormat }
+                            Spacer(Modifier.weight(1f))
+                            BarIcon(Icons.Filled.Undo, "Undo", enabled = undo.isNotEmpty()) { doUndo() }
+                            BarIcon(Icons.Filled.Redo, "Redo", enabled = redo.isNotEmpty()) { doRedo() }
+                        }
+                    }
+                }
             }
         }
     }
     if (showTable) TableEditorDialog(onInsert = { insertBlock(it); showTable = false }, onDismiss = { showTable = false })
+    if (showBlocks) {
+        ModalBottomSheet(onDismissRequest = { showBlocks = false }, sheetState = rememberModalBottomSheetState()) {
+            Text("Choose a block to insert", style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 6.dp))
+            val blocks = listOf<Triple<androidx.compose.ui.graphics.vector.ImageVector, String, () -> Unit>>(
+                Triple(Icons.Filled.CheckBox, "Task list") { onLinePrefix("- [ ] ") },
+                Triple(Icons.Filled.FormatListBulleted, "Bulleted list") { onLinePrefix("- ") },
+                Triple(Icons.Filled.FormatListNumbered, "Numbered list") { onLinePrefix("1. ") },
+                Triple(Icons.Filled.FormatQuote, "Quote") { onLinePrefix("> ") },
+                Triple(Icons.Filled.Code, "Code block") { insertBlock("```\n\n```") },
+                Triple(Icons.Filled.Functions, "Math & formulas") { insertBlock("$$\n\n$$") },
+                Triple(Icons.Filled.TableChart, "Table") { showTable = true },
+                Triple(Icons.Filled.HorizontalRule, "Horizontal rule") { insertBlock("---") },
+            )
+            blocks.forEach { (icon, label, action) ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { action(); showBlocks = false }.padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(16.dp))
+                    Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+    }
+}
+
+/** A flat, borderless icon button for the bottom formatting bar (NotesNook-style continuous bar). */
+@Composable
+private fun BarIcon(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    enabled: Boolean = true,
+    active: Boolean = false,
+    onClick: () -> Unit,
+) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(40.dp)) {
+        Icon(
+            icon, contentDescription, modifier = Modifier.size(20.dp),
+            tint = when {
+                !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .35f)
+                active -> MaterialTheme.colorScheme.primary
+                else -> MaterialTheme.colorScheme.onSurface
+            },
+        )
+    }
 }
 
 /** Wave G — the slash-command chip row shown while typing a `/query` at line start. */
@@ -244,34 +358,6 @@ private fun dynamicSnippet(id: String): String = when (id) {
     else -> ""
 }
 
-@Composable
-private fun FormattingToolbar(
-    onWrap: (String) -> Unit,
-    onLinePrefix: (String) -> Unit,
-    onTable: () -> Unit,
-    canUndo: Boolean,
-    canRedo: Boolean,
-    onUndo: () -> Unit,
-    onRedo: () -> Unit,
-) {
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Tb("B", bold = true) { onWrap("**") }
-        Tb("I", italic = true) { onWrap("*") }
-        Tb("S̶") { onWrap("~~") }
-        Tb("</>") { onWrap("`") }
-        Tb("H") { onLinePrefix("# ") }
-        Tb("❝") { onLinePrefix("> ") }
-        Tb("•") { onLinePrefix("- ") }
-        Tb("☑") { onLinePrefix("- [ ] ") }
-        Tb("1.") { onLinePrefix("1. ") }
-        Tb("▦", onClick = onTable)   // Wave R — visual table editor
-        Tb("↶", enabled = canUndo, onClick = onUndo)
-        Tb("↷", enabled = canRedo, onClick = onRedo)
-    }
-}
 
 /**
  * Wave R — a visual GFM table editor. Build/resize a grid of cells and insert it as Markdown; the pure
@@ -384,27 +470,6 @@ fun SectionReorderDialog(body: String, onApply: (String) -> Unit, onDismiss: () 
             }
         },
     )
-}
-
-@Composable
-private fun Tb(label: String, bold: Boolean = false, italic: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        enabled = enabled,
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.5f else 0.2f),
-        modifier = Modifier.height(34.dp),
-    ) {
-        Box(Modifier.defaultMinSize(minWidth = 40.dp).padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
-            Text(
-                label,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium,
-                fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
-                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
 }
 
 /** Wave V — Notes Wrapped: a locally-generated yearly recap. Pure stats in NoteWrapped. */
