@@ -480,7 +480,9 @@ fun CalendarScreen(
     val next = { onAnchor(calStep(mode, anchor, 1)) }
     // Hoisted above AnimatedContent so collapsing the month to a week survives month navigation (R23):
     // otherwise a cross-month week-swipe re-created MonthView and reset it back to the full grid.
-    var monthCollapsed by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    // Seed from the remembered fold state (only when "remember my last view" is on) so Month reopens
+    // exactly as you left it — folded to a week or the full grid — instead of always full.
+    var monthCollapsed by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(s.calendarRememberLast && s.calendarMonthCollapsed) }
 
     // The combined header lives in the app-bar slot (see AppRoot), so switching tabs never shifts
     // the content and the buttons line up with every other screen.
@@ -564,7 +566,7 @@ fun CalendarScreen(
         val secZone = s.secondaryZoneId.takeIf { it.isNotBlank() }?.let { runCatching { java.time.ZoneId.of(it) }.getOrNull() }
         when (mode) {
             "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { onSelected(it) }, onPrev = prev, onNext = next, onOpenTask = onOpenTask, swipe = swipe, onCloseDay = onCloseDay,
-                collapsed = monthCollapsed, onCollapsedChange = { monthCollapsed = it },
+                collapsed = monthCollapsed, onCollapsedChange = { monthCollapsed = it; if (s.calendarMonthCollapsed != it) vm.saveSettings(s.copy(calendarMonthCollapsed = it)) },
                 habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, countdownsFor = countdownsFor, trackedDayInfo = trackedDayInfo,
                 eventOccForDay = eventOccForDay, onOpenEvent = openEvent, onOpenOccasion = onOpenOccasion, onOccasionDetails = { detailsOccasion = it }, lunar = s.lunarOverlay,
                 eventColorOf = { colorOf(it.event, eventCalById) },
@@ -741,6 +743,24 @@ fun CalendarScreen(
                     }
                     val unschedCount = remember(tasks) { tasks.count { !it.completed && !it.trashed && !it.abandoned && !it.someday && it.dueDate == null && it.parentId == null && !it.isNote } }
                     val showAutoFill = unschedCount > 0 && !anchor.isBefore(today0)
+                    // Auto-fill rewrites the day's free time, so it asks once before applying; undo is offered
+                    // afterwards through the app-wide snackbar (deletes exactly the blocks it placed).
+                    var showAutoFillConfirm by remember { mutableStateOf(false) }
+                    if (showAutoFillConfirm) {
+                        androidx.compose.material3.AlertDialog(
+                            onDismissRequest = { showAutoFillConfirm = false },
+                            icon = { Icon(Icons.Filled.AutoAwesome, null) },
+                            title = { Text("Auto-fill your day?") },
+                            text = { Text("This drops your $unschedCount unscheduled task${if (unschedCount == 1) "" else "s"} into ${anchor.dayOfMonth.let { if (anchor == today0) "today" else "this day" }}'s free time slots, flowing around events, habits and protected windows. You can undo it right after.") },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    showAutoFillConfirm = false
+                                    vm.autoScheduleDay(anchor.toEpochDay()) { n -> if (n == 0) vm.toastMsg("No free slots to fill") }
+                                }) { Text("Auto-fill") }
+                            },
+                            dismissButton = { TextButton(onClick = { showAutoFillConfirm = false }) { Text("Cancel") } },
+                        )
+                    }
                     // "Close the day" moved to the committed/lived bar above; this row is now just
                     // what-fits-now (B3) and auto-fill (D1).
                     if (fits != null || showAutoFill) {
@@ -761,7 +781,7 @@ fun CalendarScreen(
                                 }
                             }
                             if (showAutoFill) {
-                                TextButton(onClick = { vm.autoScheduleDay(anchor.toEpochDay()) { n -> vm.toastMsg(if (n == 0) "No free slots to fill" else if (n == 1) "Placed 1 task" else "Placed $n tasks") } },
+                                TextButton(onClick = { showAutoFillConfirm = true },
                                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
                                     Icon(Icons.Filled.AutoAwesome, null, Modifier.size(15.dp)); Spacer(Modifier.size(4.dp)); Text("Auto-fill", style = MaterialTheme.typography.labelMedium)
                                 }
@@ -779,21 +799,36 @@ fun CalendarScreen(
                         }
                         if (gaps.isNotEmpty()) {
                             val taskTitleById = remember(tasks) { tasks.associate { it.id to it.title } }
+                            // Tapping a lived stretch no longer silently mints a generic "Tracked time" event —
+                            // it opens a small sheet asking what it was (event / task time / just tracked activity).
+                            var classifyGap by remember { mutableStateOf<com.todocompanion.app.domain.calendar.ThirdHorizon.Gap?>(null) }
                             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text("Lived, not on your calendar", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 2.dp))
                                 gaps.forEach { g ->
                                     val stMin = Instant.ofEpochMilli(g.startMillis).atZone(zone).let { it.hour * 60 + it.minute }
                                     val enMin = Instant.ofEpochMilli(g.endMillis).atZone(zone).let { it.hour * 60 + it.minute }
-                                    val title = g.taskId?.let { taskTitleById[it] }?.takeIf { it.isNotBlank() } ?: "Tracked time"
                                     Surface(color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .5f), shape = RoundedCornerShape(16.dp)) {
-                                        Row(Modifier.clickable { vm.addQuickEvent(title, g.startMillis, g.endMillis) }.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Row(Modifier.clickable { classifyGap = g }.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                                             Text("${minLabel(stMin)}–${minLabel(enMin)}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
                                             Spacer(Modifier.size(5.dp))
                                             Icon(Icons.Filled.Add, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
                                         }
                                     }
                                 }
+                            }
+                            classifyGap?.let { g ->
+                                LivedTimeClassifyDialog(
+                                    gap = g, zone = zone,
+                                    suggestedTitle = g.taskId?.let { taskTitleById[it] }?.takeIf { it.isNotBlank() } ?: "",
+                                    hasTask = g.taskId != null,
+                                    taskLabel = g.taskId?.let { taskTitleById[it] }?.takeIf { it.isNotBlank() },
+                                    onDismiss = { classifyGap = null },
+                                    onConfirm = { kind, title ->
+                                        vm.backfillLivedTime(kind, title, g.startMillis, g.endMillis, g.taskId)
+                                        classifyGap = null
+                                    },
+                                )
                             }
                         }
                     }
@@ -1086,6 +1121,55 @@ private fun YearGridPicker(currentYear: Int, onDismiss: () -> Unit, onPick: (Int
             }
         },
     )
+}
+
+/** A2 (classified) — asks what a lived, tracked-but-uncalendared stretch actually was before recording it,
+ *  so tracked time is never silently minted into a generic "Tracked time" event. */
+@Composable
+private fun LivedTimeClassifyDialog(
+    gap: com.todocompanion.app.domain.calendar.ThirdHorizon.Gap,
+    zone: ZoneId,
+    suggestedTitle: String,
+    hasTask: Boolean,
+    taskLabel: String?,
+    onDismiss: () -> Unit,
+    onConfirm: (kind: String, title: String) -> Unit,
+) {
+    var title by remember { mutableStateOf(suggestedTitle) }
+    val stMin = Instant.ofEpochMilli(gap.startMillis).atZone(zone).let { it.hour * 60 + it.minute }
+    val enMin = Instant.ofEpochMilli(gap.endMillis).atZone(zone).let { it.hour * 60 + it.minute }
+    val dur = if (gap.minutes >= 60) ("${gap.minutes / 60}h ${gap.minutes % 60}m").removeSuffix(" 0m") else "${gap.minutes}m"
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        icon = { Icon(Icons.Filled.Schedule, null) },
+        title = { Text("What was this time?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("${minLabel(stMin)}–${minLabel(enMin)} · $dur", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                androidx.compose.material3.OutlinedTextField(
+                    value = title, onValueChange = { title = it }, singleLine = true,
+                    label = { Text("Name it (optional)") }, modifier = Modifier.fillMaxWidth())
+                ClassifyOptionRow(Icons.Filled.Event, "Calendar event", "A meeting, appointment or something scheduled") { onConfirm("event", title) }
+                if (hasTask) ClassifyOptionRow(Icons.Filled.CheckCircle, "Time on ${taskLabel ?: "a task"}", "Log it against that task") { onConfirm("task", title.ifBlank { taskLabel ?: "" }) }
+                ClassifyOptionRow(Icons.Filled.Bolt, "Just tracked activity", "Keep it as tracked time, off the calendar") { onConfirm("activity", "") }
+            }
+        },
+    )
+}
+
+@Composable
+private fun ClassifyOptionRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.size(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
 }
 
 /** A compact month calendar for choosing a specific day (used by the day/week header picker). */
@@ -1522,6 +1606,11 @@ private fun TimelineView(
     // Track the viewport height so a pinch zooms *around the middle of what you're looking at* rather than
     // pivoting at midnight (the top) — the polish that makes the zoom feel anchored and smooth (R17).
     var viewportPx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    // How many fingers are currently down on the grid. A pinch-to-zoom puts two down; long-press event
+    // creation must never fire while more than one is pressed, so multi-touch (a pinch) can't be misread
+    // as a request to draw a new event. Counted at the parent so a two-finger touch spanning two day
+    // columns (week view) is still seen as multi-touch by every column.
+    val activePointers = androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val zoomState = androidx.compose.foundation.gestures.rememberTransformableState { zoomChange, _, _ ->
         val old = hourZoom
         val next = (old * zoomChange).coerceIn(0.5f, 3.0f)
@@ -1618,6 +1707,17 @@ private fun TimelineView(
         // Scrollable hour grid — pinch anywhere on it to zoom the hour height.
         Row(Modifier.fillMaxWidth().weight(1f)
             .onSizeChanged { viewportPx = it.height }
+            // Count fingers on the whole grid in the Initial pass (before children react), without ever
+            // consuming — so pinch-zoom and one-finger scroll below keep working. A DayColumn reads this
+            // to refuse drawing an event whenever a second finger is down (a pinch).
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val ev = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                        activePointers.intValue = ev.changes.count { it.pressed }
+                    }
+                }
+            }
             .verticalScroll(scroll)
             .transformable(state = zoomState, canPan = { false })) {
             // Hour gutter — R59 (Wave 4) optional dual-timezone ruler: the secondary zone's hour sits left
@@ -1643,6 +1743,7 @@ private fun TimelineView(
                         habitBlocks = habitBlocksFor(d).filter { !it.untimed }, onOpenHabit = onOpenHabit, trackedBlocks = trackedBlocksFor(d), revealUntracked = revealUntracked, onOpenTracked = onOpenTracked,
                         eventBlocks = eventBlocksFor(d), onOpenEvent = onOpenEvent, onDrawRange = onDrawRange,
                         energyByHour = energyByHour, daylightMin = daylightFor(d), protectedBands = protectedFor(d),
+                        multiTouch = { activePointers.intValue > 1 },
                         modifier = if (manyCols) Modifier.width(colW) else Modifier.weight(1f))
                 }
             }
@@ -1657,6 +1758,9 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
     // Moat overlays, all optional and calm: B2 focus-weather (a per-hour energy 0..100 profile from your
     // own tracked history), D3 daylight (sunrise/sunset minute-of-day), C2 protected "shield" windows.
     energyByHour: IntArray? = null, daylightMin: Pair<Int, Int>? = null, protectedBands: List<Pair<Int, Int>> = emptyList(),
+    // True while a pinch (two+ fingers) is in progress anywhere on the grid — long-press event creation
+    // stands down so a zoom is never mistaken for a request to draw an event.
+    multiTouch: () -> Boolean = { false },
     modifier: Modifier) {
     val placed = remember(timed, zone) { layoutEvents(timed, zone) }
     val dens = LocalDensity.current
@@ -1666,6 +1770,9 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
     // release it opens a new event pre-filled to that start→end. A plain tap still creates at the slot.
     var drawStart by remember(day) { mutableStateOf<Int?>(null) }
     var drawCur by remember(day) { mutableIntStateOf(0) }
+    // Set when a long-press begins while a pinch is underway: the whole draw gesture is then ignored so a
+    // two-finger zoom never leaves a stray event behind.
+    var drawSuppressed by remember(day) { mutableStateOf(false) }
     androidx.compose.foundation.layout.BoxWithConstraints(
         modifier.height((hourDp * 24).dp)
             .pointerInput(day) {
@@ -1679,17 +1786,29 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
                 // Long-press then drag on the empty grid to draw a span → a new event of that length.
                 fun minAt(y: Float) = ((y / size.height.toFloat()) * 1440f).toInt().coerceIn(0, 1440)
                 detectDragGesturesAfterLongPress(
-                    onDragStart = { off -> val m = (minAt(off.y) / 15) * 15; drawStart = m; drawCur = (m + 30).coerceAtMost(1440) },
-                    onDrag = { change, _ -> change.consume(); drawCur = (minAt(change.position.y) / 15) * 15 },
+                    onDragStart = { off ->
+                        // A pinch is in progress (2+ fingers) — stand down; don't begin drawing an event.
+                        if (multiTouch()) {
+                            drawSuppressed = true; drawStart = null
+                        } else {
+                            drawSuppressed = false
+                            val m = (minAt(off.y) / 15) * 15; drawStart = m; drawCur = (m + 30).coerceAtMost(1440)
+                        }
+                    },
+                    onDrag = { change, _ ->
+                        if (!drawSuppressed && drawStart != null) {
+                            change.consume(); drawCur = (minAt(change.position.y) / 15) * 15
+                        }
+                    },
                     onDragEnd = {
                         val st = drawStart
-                        if (st != null) {
+                        if (!drawSuppressed && st != null) {
                             val a = minOf(st, drawCur); val b = maxOf(st, drawCur)
                             onDrawRange(day, a, (if (b - a < 15) a + 30 else b).coerceAtMost(1440))
                         }
-                        drawStart = null
+                        drawStart = null; drawSuppressed = false
                     },
-                    onDragCancel = { drawStart = null },
+                    onDragCancel = { drawStart = null; drawSuppressed = false },
                 )
             },
     ) {

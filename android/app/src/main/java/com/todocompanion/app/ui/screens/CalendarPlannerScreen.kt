@@ -283,8 +283,11 @@ private fun PlanTodayTab(vm: AppViewModel, zone: ZoneId, day: Long) {
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             // Streak-aware: a habit checked in yesterday has a live streak — flag those first (moat).
             val checkins by vm.habitCheckins.collectAsState()
-            val streakAlive = remember(checkins, today) {
-                checkins.filter { it.epochDay == today - 1 && it.count >= 1 }.map { it.habitId }.toSet()
+            val habitsForStreak by vm.habits.collectAsState()
+            // A "live streak" means yesterday was a genuine success — a quit habit's slip (count≥1) isn't one.
+            val streakAlive = remember(checkins, habitsForStreak, today) {
+                val byId = habitsForStreak.associateBy { it.id }
+                checkins.filter { c -> c.epochDay == today - 1 && byId[c.habitId]?.let { com.todocompanion.app.domain.habit.HabitStats.isSuccessDay(it, c) } == true }.map { it.habitId }.toSet()
             }
             risksAll.groupBy { it.habit.id }.entries.sortedByDescending { it.key in streakAlive }.take(5).forEach { (hid, list) ->
                 val h = list.first().habit

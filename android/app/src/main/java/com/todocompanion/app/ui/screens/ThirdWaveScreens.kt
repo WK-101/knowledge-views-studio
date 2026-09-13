@@ -312,7 +312,12 @@ private fun LifeHeatmapScreen(vm: AppViewModel, onBack: () -> Unit) {
     val checkins by vm.habitCheckins.collectAsState()
     val today = vm.today()
     val grid = remember(habits, checkins, today) { ThirdWave.compositeHeatmap(habits, checkins, today, 182) }
-    val memory = remember(checkins, today) { ThirdWave.onThisDay(checkins, today) }
+    // Count only genuine successes for the "on this day" nostalgia — a quit habit's slip isn't a completion.
+    val memory = remember(habits, checkins, today) {
+        val byId = habits.associateBy { it.id }
+        val ok = checkins.filter { c -> byId[c.habitId]?.let { com.todocompanion.app.domain.habit.HabitStats.isSuccessDay(it, c) } == true }
+        ThirdWave.onThisDay(ok, today)
+    }
     val base = MaterialTheme.colorScheme.primary
     val empty = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .35f)
     TWScaffold("Life heatmap", onBack) { pad ->

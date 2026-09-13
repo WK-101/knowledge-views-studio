@@ -114,6 +114,7 @@ data class AppSettings(
     val calendarRememberLast: Boolean = true,
     // Honest-calendar display layers (all on-device; drawn only when there's data to show).
     val calendarCaptureCollapsed: Boolean = false,   // N1 — fold the type-to-create bar
+    val calendarMonthCollapsed: Boolean = false,     // remember whether Month opened folded to one week or full
     val calendarQuickAdd: Boolean = true,            // show the type-to-create bar at all (off = more grid space)
     val calendarRealityShadow: Boolean = true,       // A1 — tracked actuals behind the plan + planned/lived footer
     val calendarFocusWeather: Boolean = false,       // B2 — chronotype energy gradient behind the day
@@ -541,6 +542,7 @@ data class AppSettings(
         Keys.CAL_MODE to calendarDefaultMode,
         Keys.CAL_REMEMBER to calendarRememberLast.toString(),
         Keys.CAL_CAPTURE_COLLAPSED to calendarCaptureCollapsed.toString(),
+        Keys.CAL_MONTH_COLLAPSED to calendarMonthCollapsed.toString(),
         Keys.CAL_QUICKADD to calendarQuickAdd.toString(),
         Keys.CAL_REALITY to calendarRealityShadow.toString(),
         Keys.CAL_FOCUS_WX to calendarFocusWeather.toString(),
@@ -753,6 +755,7 @@ data class AppSettings(
         const val CAL_MODE = "cal_mode"
         const val CAL_REMEMBER = "cal_remember"
         const val CAL_CAPTURE_COLLAPSED = "cal_capture_collapsed"
+        const val CAL_MONTH_COLLAPSED = "cal_month_collapsed"
         const val CAL_QUICKADD = "cal_quickadd"
         const val CAL_REALITY = "cal_reality_shadow"
         const val CAL_FOCUS_WX = "cal_focus_weather"
@@ -984,6 +987,7 @@ data class AppSettings(
             calendarDefaultMode = m[Keys.CAL_MODE] ?: "month",
             calendarRememberLast = m[Keys.CAL_REMEMBER]?.toBooleanStrictOrNull() ?: true,
             calendarCaptureCollapsed = m[Keys.CAL_CAPTURE_COLLAPSED]?.toBooleanStrictOrNull() ?: false,
+            calendarMonthCollapsed = m[Keys.CAL_MONTH_COLLAPSED]?.toBooleanStrictOrNull() ?: false,
             calendarQuickAdd = m[Keys.CAL_QUICKADD]?.toBooleanStrictOrNull() ?: true,
             calendarRealityShadow = m[Keys.CAL_REALITY]?.toBooleanStrictOrNull() ?: true,
             calendarFocusWeather = m[Keys.CAL_FOCUS_WX]?.toBooleanStrictOrNull() ?: false,

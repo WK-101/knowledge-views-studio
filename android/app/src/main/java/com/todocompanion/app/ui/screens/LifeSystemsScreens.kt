@@ -715,7 +715,13 @@ private fun CausalGraphScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit:
 private fun ReceptivityScreen(vm: AppViewModel, onBack: () -> Unit) {
     val checkins by vm.habitCheckins.collectAsState()
     val tasks by vm.tasks.collectAsState()   // R64 — this workspace's task rhythm only
-    val rec = remember(checkins, tasks) { FourthWave.receptivity(checkins, tasks, vm.zoneId) }
+    val habits by vm.habits.collectAsState()
+    // Receptivity learns *when you succeed* — a quit habit's slip must not count as a positive check-in.
+    val rec = remember(checkins, tasks, habits) {
+        val byId = habits.associateBy { it.id }
+        val ok = checkins.filter { c -> byId[c.habitId]?.let { com.todocompanion.app.domain.habit.HabitStats.isSuccessDay(it, c) } == true }
+        FourthWave.receptivity(ok, tasks, vm.zoneId)
+    }
     LSScaffold("Receptivity model", onBack) { pad ->
         if (rec == null) {
             Column(Modifier.padding(pad).fillMaxSize()) {

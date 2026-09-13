@@ -84,7 +84,7 @@ data class QuickAddOptions(
     val splitSubtasks: Boolean = false,
 )
 
-enum class UndoKind { COMPLETED, ABANDONED, TRASHED, CREATED_MANY, NOTE_TRASHED, NOTE_ARCHIVED, HABIT_TRASHED, HABIT_ARCHIVED }
+enum class UndoKind { COMPLETED, ABANDONED, TRASHED, CREATED_MANY, NOTE_TRASHED, NOTE_ARCHIVED, HABIT_TRASHED, HABIT_ARCHIVED, EVENTS_CREATED }
 
 /** What the full-screen habit editor is editing. A null [habit] means "create a new habit". */
 data class HabitEditRequest(val habit: com.todocompanion.app.data.entity.HabitEntity? = null)
@@ -100,6 +100,8 @@ data class UndoEvent(
     val noteRestore: com.todocompanion.app.data.entity.NoteEntity? = null,
     /** The exact pre-action habit snapshot to write back on Undo (habit trash / archive). */
     val habitRestore: com.todocompanion.app.data.entity.HabitEntity? = null,
+    /** Calendar event ids created by this action, deleted on Undo (auto-fill / auto-schedule). */
+    val eventIds: List<String> = emptyList(),
 )
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
@@ -1396,7 +1398,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // R64 — reads the active workspace's habits & tasks (habitCheckins/tasks are scoped), not every space's.
     val receptiveHour: StateFlow<Int?> = combine(habitCheckins, tasks, settings) { c, t, s ->
         if (!s.receptivityTiming) null
-        else com.todocompanion.app.domain.habit.FourthWave.receptivity(c, t, zone)?.let { (it.bestBucket * 3 + 1).coerceIn(0, 23) }
+        else {
+            // A quit habit's slip must not count as a positive check-in when learning the receptive hour.
+            val byId = habits.value.associateBy { it.id }
+            val ok = c.filter { ck -> byId[ck.habitId]?.let { com.todocompanion.app.domain.habit.HabitStats.isSuccessDay(it, ck) } == true }
+            com.todocompanion.app.domain.habit.FourthWave.receptivity(ok, t, zone)?.let { (it.bestBucket * 3 + 1).coerceIn(0, 23) }
+        }
     }.state(null)
     // Tier S: time tracking.
     val timeActivities = repo.allTimeActivities.scopedBy { it.workspaceId }
@@ -2162,6 +2169,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             UndoKind.TRASHED -> repo.setTrashed(e.taskId, false)
             // N2 — undo a bulk-paste / inline-subtree add by trashing everything it created (recoverable).
             UndoKind.CREATED_MANY -> e.taskIds.forEach { repo.setTrashed(it, true, settings.value.activeWorkspaceId) }
+            // Undo auto-fill / auto-schedule by deleting exactly the events it created (nothing else touched).
+            UndoKind.EVENTS_CREATED -> e.eventIds.forEach { repo.deleteEvent(it) }
             // Note & habit trash/archive are restored via [noteRestore]/[habitRestore] above (short-circuited).
             UndoKind.NOTE_TRASHED, UndoKind.NOTE_ARCHIVED, UndoKind.HABIT_TRASHED, UndoKind.HABIT_ARCHIVED -> Unit
         }
@@ -3307,6 +3316,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun rhythmSuggestion(habitId: String, windowDays: Int = 120): RhythmSuggestion? {
         val h = habits.value.firstOrNull { it.id == habitId } ?: return null
+        if (h.habitType == "break") return null   // a quit habit has no positive daily action to schedule
         if (!(h.freqType == "weekly" && h.scheduleDays.isBlank())) return null   // only for "every day" weekly habits
         val hs = com.todocompanion.app.domain.habit.HabitStats
         val today = java.time.LocalDate.now(zone).toEpochDay()
@@ -4510,6 +4520,32 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         toastMsg("Added to the calendar")
     }
 
+    /** A2 (classified) — record a lived, tracked-but-uncalendared stretch as what it actually was, instead
+     *  of always minting a generic "Tracked time" event. [kind]:
+     *   • "event"    → a plain calendar event (a meeting, appointment, something that happened),
+     *   • "task"     → an event linked to [taskId] so it reads as time spent on that task,
+     *   • "activity" → leave it exactly as tracked activity time (no calendar entry is created). */
+    fun backfillLivedTime(kind: String, title: String, startMillis: Long, endMillis: Long, taskId: String?) = viewModelScope.launch {
+        if (endMillis <= startMillis) return@launch
+        when (kind) {
+            "activity" -> toastMsg("Kept as tracked time")
+            "task" -> {
+                val calId = ensureDefaultCalendar()
+                val now = System.currentTimeMillis()
+                repo.upsertEvent(com.todocompanion.app.data.entity.EventEntity(
+                    id = java.util.UUID.randomUUID().toString(), calendarId = calId,
+                    title = title.trim().ifBlank { "Task time" }, startMillis = startMillis, endMillis = endMillis,
+                    linkedTaskId = taskId, createdAt = now, updatedAt = now))
+                toastMsg("Logged against the task")
+            }
+            else -> {
+                val calId = ensureDefaultCalendar()
+                saveEvent(null, calId, title.trim().ifBlank { "Logged" }, "", "", "", startMillis, endMillis, false, "", "", null)
+                toastMsg("Added to the calendar")
+            }
+        }
+    }
+
     /** Phase 2 P2 — a natural-language line typed on the calendar becomes an event (or a task, if it reads
      *  like one) entirely on-device via [EventParser]. [anchorMillis] is the moment relative words like
      *  "3pm"/"tomorrow" resolve against — the day the user is viewing — so the bar is contextual. */
@@ -4899,7 +4935,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 linkedTaskId = p.task.id, createdAt = now, updatedAt = now)
         }
         repo.upsertEvents(newEvents)
-        toast("Scheduled ${newEvents.size} block${if (newEvents.size == 1) "" else "s"} into today's gaps."); onDone(newEvents.size)
+        // Offer a one-tap undo (deletes exactly these blocks) via the app-wide snackbar instead of a plain toast.
+        undoEvents.tryEmit(UndoEvent(UndoKind.EVENTS_CREATED, "",
+            "Placed ${newEvents.size} block${if (newEvents.size == 1) "" else "s"} into today's gaps",
+            eventIds = newEvents.map { it.id }))
+        onDone(newEvents.size)
     }
 
     /** Self-healing habit block: drop a busy block for [habit] near its preferred time, sliding it to the
