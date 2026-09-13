@@ -1516,6 +1516,19 @@ class AppRepository(private val db: AppDatabase) {
         folders.deleteById(id)
     }
 
+    /** Permanently erase a folder and everything beneath it — sub-folders, their lists (and every task
+     *  in them, via [deleteList]) and any tasks captured directly into the folders. Used by "Delete
+     *  forever" from the container Trash; a normal delete goes to Trash and stays recoverable. */
+    suspend fun purgeFolder(id: String) {
+        val descFolderIds = mutableSetOf(id)
+        var changed = true
+        while (changed) { changed = false; folders.getAll().forEach { if (it.parentId in descFolderIds && it.id !in descFolderIds) { descFolderIds.add(it.id); changed = true } } }
+        lists.getAll().filter { it.folderId in descFolderIds }.forEach { deleteList(it.id) }
+        tasks.getAll().filter { it.folderId in descFolderIds && it.parentId == null }.forEach { deleteSubtree(it.id) }
+        tasks.getAll().filter { it.folderId in descFolderIds }.forEach { tasks.deleteById(it.id) }
+        descFolderIds.forEach { folders.deleteById(it) }
+    }
+
     // ============ lists ============
     suspend fun ensureInbox() {
         if (lists.getById(ListEntity.INBOX_ID) == null) {

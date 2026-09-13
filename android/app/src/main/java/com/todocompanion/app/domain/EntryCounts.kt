@@ -50,7 +50,13 @@ object EntryCounts {
         zone: ZoneId,
         now: Long,
     ): Result {
-        val active = all.filter { !it.trashed && !it.completed && !it.abandoned && !it.someday }
+        // Tasks in an archived/trashed list or folder are excluded from every drawer count (list, folder,
+        // tag, context, filter), exactly as they're hidden from the rendered smart lists — so a badge
+        // never disagrees with what the view shows.
+        val (hiddenListIds, hiddenFolderIds) = com.todocompanion.app.domain.view.ListPipeline.hiddenContainers(lists, folders)
+        val anyHidden = hiddenListIds.isNotEmpty() || hiddenFolderIds.isNotEmpty()
+        fun notHidden(t: TaskEntity) = !anyHidden || !com.todocompanion.app.domain.view.ListPipeline.isHiddenContainerTask(t, hiddenListIds, hiddenFolderIds)
+        val active = all.filter { !it.trashed && !it.completed && !it.abandoned && !it.someday && notHidden(it) }
         val activeIds = active.mapTo(HashSet()) { it.id }
         val listCounts = active.groupingBy { it.listId }.eachCount()
         val folderCounts = folders.associate { fo ->
@@ -75,7 +81,7 @@ object EntryCounts {
         fun folderOf(t: TaskEntity) = t.folderId ?: listFolderById[t.listId]
         val filterCounts = filters.associate { fl ->
             val q = Filters.parse(fl.queryJson)
-            fl.id to all.count { !it.trashed && Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone, folderOf(it)) }
+            fl.id to all.count { !it.trashed && notHidden(it) && Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone, folderOf(it)) }
         }
         return Result(listCounts, folderCounts, tagCounts, ctxCounts, filterCounts)
     }

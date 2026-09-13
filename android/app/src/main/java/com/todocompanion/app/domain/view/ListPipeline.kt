@@ -49,6 +49,27 @@ object ListPipeline {
         return out
     }
 
+    /**
+     * List-ids and folder-ids whose tasks must drop out of active/smart views AND their counts: any
+     * archived OR trashed list/folder, cascaded down the folder tree (a list in a hidden folder, and a
+     * sub-folder of a hidden folder, are hidden too). Shared by [compute] and by SmartCounts/EntryCounts
+     * so a sidebar badge never disagrees with the list it heads. Returns (hiddenListIds, hiddenFolderIds).
+     */
+    fun hiddenContainers(lists: List<ListEntity>, folders: List<FolderEntity>): Pair<Set<String>, Set<String>> {
+        val folderIds = folders.filter { it.archived || it.trashed }.mapTo(HashSet()) { it.id }
+        var changed = true
+        while (changed) {
+            changed = false
+            folders.forEach { f -> if (f.parentId != null && f.parentId in folderIds && f.id !in folderIds) { folderIds.add(f.id); changed = true } }
+        }
+        val listIds = lists.filter { it.archived || it.trashed || (it.folderId != null && it.folderId in folderIds) }.mapTo(HashSet()) { it.id }
+        return listIds to folderIds
+    }
+
+    /** True when [t] lives in an archived/trashed list or folder (incl. folder-direct tasks). */
+    fun isHiddenContainerTask(t: TaskEntity, hiddenLists: Set<String>, hiddenFolders: Set<String>): Boolean =
+        t.listId in hiddenLists || (t.folderId != null && t.folderId in hiddenFolders)
+
     /** [ids] plus every descendant task id (follows parentId). Cycle-safe. */
     fun expandWithDescendants(ids: Set<String>, all: List<TaskEntity>): Set<String> {
         val byParent = all.groupBy { it.parentId }
@@ -120,19 +141,16 @@ object ListPipeline {
                 all.filter { it.id in ids && !it.trashed && !it.completed && !it.abandoned && !it.someday }
             }
         }
-        // Tasks in an archived list or folder drop out of every active view (Todoist-style), but stay
-        // visible in Trash / Completed / Won't-Do so nothing is silently lost.
-        val archivedFolderIds = run {
-            val ids = vc.folders.filter { it.archived }.map { it.id }.toMutableSet()
-            var changed = true
-            while (changed) { changed = false; vc.folders.forEach { if (it.parentId in ids && it.id !in ids) { ids.add(it.id); changed = true } } }
-            ids
-        }
-        val archivedListIds = vc.lists.filter { it.archived || it.folderId in archivedFolderIds }.map { it.id }.toSet()
+        // Tasks in an archived OR trashed list/folder drop out of every active/smart view (Todoist-style),
+        // including tasks captured directly into a folder (folderId match, not just listId). They stay
+        // visible in Trash/Completed/Won't-Do so nothing is silently lost, and — crucially — when you
+        // OPEN that specific list/folder (ListView/FolderView) so you can still browse its contents.
+        val (hiddenListIds, hiddenFolderIds) = hiddenContainers(vc.lists, vc.folders)
         val kindNow = (cfg.view as? ViewRef.Smart)?.kind
-        val keepArchived = kindNow == SmartKind.TRASH || kindNow == SmartKind.COMPLETED || kindNow == SmartKind.WONT_DO
-        val filtered = if (keepArchived || archivedListIds.isEmpty()) filteredRaw
-            else filteredRaw.filter { it.listId !in archivedListIds }
+        val keepHidden = kindNow == SmartKind.TRASH || kindNow == SmartKind.COMPLETED || kindNow == SmartKind.WONT_DO ||
+            cfg.view is ViewRef.ListView || cfg.view is ViewRef.FolderView
+        val filtered = if (keepHidden || (hiddenListIds.isEmpty() && hiddenFolderIds.isEmpty())) filteredRaw
+            else filteredRaw.filter { !isHiddenContainerTask(it, hiddenListIds, hiddenFolderIds) }
         val flagRank = cfg.flags.sortedBy { it.sortOrder }.mapIndexed { i, f -> f.id to i }.toMap()
         val sorted = when {
             (cfg.view as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT -> filtered

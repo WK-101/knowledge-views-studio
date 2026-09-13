@@ -378,6 +378,12 @@ fun AppRoot(
         var newReq by remember { mutableStateOf<NewReq?>(null) }
         var manageList by remember { mutableStateOf<ListEntity?>(null) }
         var manageFolder by remember { mutableStateOf<FolderEntity?>(null) }
+        // Delete-to-Trash choice dialogs (ask where to move tasks, or trash the container with its tasks).
+        var deletingList by remember { mutableStateOf<ListEntity?>(null) }
+        var deletingFolder by remember { mutableStateOf<FolderEntity?>(null) }
+        // Archive confirmation when the container still holds unfinished tasks.
+        var archivingList by remember { mutableStateOf<ListEntity?>(null) }
+        var archivingFolder by remember { mutableStateOf<FolderEntity?>(null) }
         var moveList by remember { mutableStateOf<ListEntity?>(null) }
         var moveFolder by remember { mutableStateOf<FolderEntity?>(null) }
         var newTag by remember { mutableStateOf<NewTagReq?>(null) }
@@ -1281,10 +1287,14 @@ fun AppRoot(
             ManageListDialog(l, onDismiss = { manageList = null },
                 onSave = { n, d -> vm.saveList((lists.firstOrNull { it.id == l.id } ?: l).copy(name = n, description = d)); manageList = null },
                 onColor = { vm.saveList((lists.firstOrNull { it.id == l.id } ?: l).copy(colorArgb = it)) },
-                onDelete = { vm.deleteList(l.id); if (currentView == ViewRef.ListView(l.id)) vm.select(ViewRef.Smart(SmartKind.TODAY)); manageList = null },
+                onDelete = { manageList = null; deletingList = lists.firstOrNull { it.id == l.id } ?: l },
                 onPickBackground = { vm.setListBackgroundFromUri(l.id, it) },
                 onClearBackground = { vm.clearListBackground(l.id) },
-                onArchive = { a -> vm.setListArchived(lists.firstOrNull { it.id == l.id } ?: l, a); if (a && currentView == ViewRef.ListView(l.id)) vm.select(ViewRef.Smart(SmartKind.TODAY)); manageList = null },
+                onArchive = { a ->
+                    val cur = lists.firstOrNull { it.id == l.id } ?: l
+                    if (a && vm.activeTaskCountInList(cur.id) > 0) { manageList = null; archivingList = cur }
+                    else { vm.setListArchived(cur, a); if (a && currentView == ViewRef.ListView(l.id)) vm.select(ViewRef.Smart(SmartKind.TODAY)); manageList = null }
+                },
                 onEmoji = { vm.saveList((lists.firstOrNull { it.id == l.id } ?: l).copy(emoji = it)) })
         }
         manageFolder?.let { stale ->
@@ -1293,8 +1303,50 @@ fun AppRoot(
                 onSave = { n, d -> vm.saveFolder((folders.firstOrNull { it.id == f.id } ?: f).copy(name = n.trim(), description = d)); manageFolder = null },
                 onIcon = { vm.setFolderIcon(f, it) },
                 onColor = { vm.saveFolder((folders.firstOrNull { it.id == f.id } ?: f).copy(colorArgb = it)) },
-                onArchive = { a -> vm.setFolderArchived(folders.firstOrNull { it.id == f.id } ?: f, a); if (a && currentView == ViewRef.FolderView(f.id)) vm.select(ViewRef.Smart(SmartKind.TODAY)); manageFolder = null },
-                onDelete = { vm.deleteFolder(f.id); manageFolder = null })
+                onArchive = { a ->
+                    val cur = folders.firstOrNull { it.id == f.id } ?: f
+                    if (a && vm.activeTaskCountInFolder(cur) > 0) { manageFolder = null; archivingFolder = cur }
+                    else { vm.setFolderArchived(cur, a); if (a && currentView == ViewRef.FolderView(f.id)) vm.select(ViewRef.Smart(SmartKind.TODAY)); manageFolder = null }
+                },
+                onDelete = { manageFolder = null; deletingFolder = folders.firstOrNull { it.id == f.id } ?: f })
+        }
+        // Delete-to-Trash choice: move the container's tasks out, or trash it with its tasks (all undoable).
+        deletingList?.let { l ->
+            val n = vm.activeTaskCountInList(l.id)
+            val moveSuggestions = remember(l.id) { vm.suggestMoveTargets(emptyList()) }
+            DeleteContainerDialog(
+                name = l.name, isFolder = false, activeCount = n,
+                folders = folders.filter { !it.archived && !it.trashed }, lists = lists.filter { !it.archived && !it.trashed && it.id != l.id },
+                pinnedRefs = settings.pinnedRefs, suggestedRefs = moveSuggestions, onPinToggle = { vm.togglePinnedRef(it) },
+                onConfirm = { moveRef -> vm.trashList(l, moveRef); if (currentView == ViewRef.ListView(l.id)) vm.select(ViewRef.Smart(SmartKind.TODAY)); deletingList = null },
+                onDismiss = { deletingList = null })
+        }
+        deletingFolder?.let { f ->
+            val n = vm.activeTaskCountInFolder(f)
+            val moveSuggestions = remember(f.id) { vm.suggestMoveTargets(emptyList()) }
+            DeleteContainerDialog(
+                name = f.name, isFolder = true, activeCount = n,
+                folders = folders.filter { !it.archived && !it.trashed && it.id != f.id }, lists = lists.filter { !it.archived && !it.trashed },
+                pinnedRefs = settings.pinnedRefs, suggestedRefs = moveSuggestions, onPinToggle = { vm.togglePinnedRef(it) },
+                onConfirm = { moveRef -> vm.trashFolder(f, moveRef); if (currentView == ViewRef.FolderView(f.id)) vm.select(ViewRef.Smart(SmartKind.TODAY)); deletingFolder = null },
+                onDismiss = { deletingFolder = null })
+        }
+        // Archiving a container that still holds unfinished tasks asks first (its tasks vanish from lists).
+        archivingList?.let { l ->
+            ConfirmDialog(
+                title = "Archive this list?",
+                body = "“${l.name}” has ${vm.activeTaskCountInList(l.id)} unfinished task${if (vm.activeTaskCountInList(l.id) == 1) "" else "s"}. Archiving hides the list and all its tasks from your smart lists and counts. You can restore it any time from Archived.",
+                confirmLabel = "Archive",
+                onConfirm = { vm.setListArchived(l, true); if (currentView == ViewRef.ListView(l.id)) vm.select(ViewRef.Smart(SmartKind.TODAY)); archivingList = null },
+                onDismiss = { archivingList = null })
+        }
+        archivingFolder?.let { f ->
+            ConfirmDialog(
+                title = "Archive this folder?",
+                body = "“${f.name}” has ${vm.activeTaskCountInFolder(f)} unfinished task${if (vm.activeTaskCountInFolder(f) == 1) "" else "s"} in its lists. Archiving hides the folder and everything in it from your smart lists and counts. You can restore it any time from Archived.",
+                confirmLabel = "Archive",
+                onConfirm = { vm.setFolderArchived(f, true); if (currentView == ViewRef.FolderView(f.id)) vm.select(ViewRef.Smart(SmartKind.TODAY)); archivingFolder = null },
+                onDismiss = { archivingFolder = null })
         }
         moveList?.let { l ->
             FolderPickerDialog("Move list to", folders, exclude = emptySet(), onDismiss = { moveList = null }) { target ->
@@ -1778,15 +1830,13 @@ private fun ManageListDialog(
 ) {
     var name by remember { mutableStateOf(list.name) }
     var description by remember { mutableStateOf(list.description) }
-    var confirmDelete by remember { mutableStateOf(false) }
     // R45 — image pick via SystemPicker (classic Activity startActivityForResult, gallery ACTION_PICK).
     val bgCtxTop = androidx.compose.ui.platform.LocalContext.current
-    if (confirmDelete) ConfirmDeleteDialog("list", list.name, onCancel = { confirmDelete = false }, onConfirm = { confirmDelete = false; onDelete() })
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onSave(name.trim(), description.trim()) }) { Text("Save") } },
         dismissButton = {
-            if (list.id != ListEntity.INBOX_ID) TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            if (list.id != ListEntity.INBOX_ID) TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             else TextButton(onClick = onDismiss) { Text("Close") }
         },
         title = { Text("Edit list") },
@@ -1829,15 +1879,56 @@ private fun EmojiPicker(current: String?, onPick: (String?) -> Unit) {
     com.todocompanion.app.ui.components.EmojiGridPicker(current = current, onPick = onPick)
 }
 
-/** A destructive-action confirmation. Deleting a list/folder is not undoable, so always ask first. */
+/** Delete a list/folder to Trash — recoverable, with Undo. When it still holds tasks, first ask what
+ *  becomes of them: move them to another list/folder, or send them to Trash together with the container.
+ *  onConfirm(null) = trash the container with its tasks; onConfirm("list:<id>"/"folder:<id>") = move the
+ *  tasks there first, then trash the emptied container. */
 @Composable
-private fun ConfirmDeleteDialog(kind: String, name: String, onCancel: () -> Unit, onConfirm: () -> Unit) {
-    ConfirmDialog(
-        title = "Delete $kind?",
-        body = "“$name” and its contents will be removed. This can't be undone.",
-        confirmLabel = "Delete",
-        onConfirm = onConfirm,
-        onDismiss = onCancel,
+private fun DeleteContainerDialog(
+    name: String, isFolder: Boolean, activeCount: Int,
+    folders: List<FolderEntity>, lists: List<ListEntity>, pinnedRefs: List<String>, suggestedRefs: List<String>,
+    onPinToggle: (String) -> Unit, onConfirm: (String?) -> Unit, onDismiss: () -> Unit,
+) {
+    val kind = if (isFolder) "folder" else "list"
+    var showMovePicker by remember { mutableStateOf(false) }
+    if (showMovePicker) {
+        com.todocompanion.app.ui.screens.MoveTargetDialog(
+            folders = folders, lists = lists, pinnedRefs = pinnedRefs, onPinToggle = onPinToggle,
+            onPickList = { onConfirm("list:$it") }, onPickFolder = { onConfirm("folder:$it") },
+            onDismiss = { showMovePicker = false }, suggestedRefs = suggestedRefs)
+        return
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete $kind?") },
+        text = {
+            Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                Text(
+                    if (activeCount > 0)
+                        "“$name” has $activeCount unfinished task${if (activeCount == 1) "" else "s"}. It goes to Trash (recoverable, with Undo). What should happen to its tasks?"
+                    else "“$name” goes to Trash. You can restore it any time, and there's an Undo.",
+                    style = MaterialTheme.typography.bodyMedium)
+                if (activeCount > 0) {
+                    Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f), shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.clickable { showMovePicker = true }.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                            Text("Move the tasks somewhere else", fontWeight = FontWeight.Medium)
+                            Text("Pick a list or folder to keep them", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = .4f), shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.clickable { onConfirm(null) }.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                            Text("Delete the $kind and its tasks", fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.error)
+                            Text("Everything goes to Trash together", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (activeCount == 0) TextButton(onClick = { onConfirm(null) }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            else TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        dismissButton = { if (activeCount == 0) TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
@@ -1846,12 +1937,10 @@ private fun ConfirmDeleteDialog(kind: String, name: String, onCancel: () -> Unit
 private fun ManageFolderDialog(folder: FolderEntity, onDismiss: () -> Unit, onSave: (String, String) -> Unit, onIcon: (String?) -> Unit, onColor: (Long?) -> Unit, onDelete: () -> Unit, onArchive: (Boolean) -> Unit = {}) {
     var name by remember { mutableStateOf(folder.name) }
     var description by remember { mutableStateOf(folder.description) }
-    var confirmDelete by remember { mutableStateOf(false) }
-    if (confirmDelete) ConfirmDeleteDialog("folder", folder.name, onCancel = { confirmDelete = false }, onConfirm = { confirmDelete = false; onDelete() })
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onSave(name.trim(), description.trim()) }) { Text("Save") } },
-        dismissButton = { TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
         title = { Text("Edit folder") },
         text = {
             Column {

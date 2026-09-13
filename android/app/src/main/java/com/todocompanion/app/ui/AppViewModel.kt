@@ -84,7 +84,7 @@ data class QuickAddOptions(
     val splitSubtasks: Boolean = false,
 )
 
-enum class UndoKind { COMPLETED, ABANDONED, TRASHED, CREATED_MANY, NOTE_TRASHED, NOTE_ARCHIVED, HABIT_TRASHED, HABIT_ARCHIVED, EVENTS_CREATED }
+enum class UndoKind { COMPLETED, ABANDONED, TRASHED, CREATED_MANY, NOTE_TRASHED, NOTE_ARCHIVED, HABIT_TRASHED, HABIT_ARCHIVED, EVENTS_CREATED, CONTAINER_TRASHED }
 
 /** What the full-screen habit editor is editing. A null [habit] means "create a new habit". */
 data class HabitEditRequest(val habit: com.todocompanion.app.data.entity.HabitEntity? = null)
@@ -102,6 +102,11 @@ data class UndoEvent(
     val habitRestore: com.todocompanion.app.data.entity.HabitEntity? = null,
     /** Calendar event ids created by this action, deleted on Undo (auto-fill / auto-schedule). */
     val eventIds: List<String> = emptyList(),
+    /** Pre-action snapshots to write back wholesale on Undo when a list/folder is deleted to Trash —
+     *  restores the container(s) AND every task the delete moved or trashed, to exactly how they were. */
+    val listSnapshots: List<com.todocompanion.app.data.entity.ListEntity> = emptyList(),
+    val folderSnapshots: List<com.todocompanion.app.data.entity.FolderEntity> = emptyList(),
+    val taskSnapshots: List<TaskEntity> = emptyList(),
 )
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
@@ -1445,11 +1450,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         combine(
             combine(wsTasks, inboxTasksAll) { ws, inbox -> ws to inbox }, repo.allDependencies, settings,
             combine(repo.taskContextRefs, repo.allContexts) { r, c -> r to c },
-        ) { tPair, deps, set, rc ->
+            combine(repo.allLists, repo.allFolders) { l, f -> l to f },
+        ) { tPair, deps, set, rc, lf ->
+            // Archived/trashed-container tasks are hidden from the badges, matching the rendered lists.
+            val (hiddenListIds, hiddenFolderIds) = com.todocompanion.app.domain.view.ListPipeline.hiddenContainers(lf.first, lf.second)
             com.todocompanion.app.domain.SmartCounts.compute(
                 wsTasks = tPair.first, inbox = tPair.second, deps = deps, prioCfg = set.priorityConfig(),
                 tcRefs = rc.first, ctxs = rc.second, activeWorkspaceId = set.activeWorkspaceId,
                 zone = zone, dayStartMin = dayStartMin, now = System.currentTimeMillis(),
+                hiddenListIds = hiddenListIds, hiddenFolderIds = hiddenFolderIds,
             )
         }.state(emptyMap())
 
@@ -2171,6 +2180,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (e.noteRestore != null) { repo.upsertNote(e.noteRestore); return@launch }
         // Habit trash / archive carry the exact pre-action habit snapshot — restore it and refresh widgets.
         if (e.habitRestore != null) { repo.upsertHabit(e.habitRestore); refreshHabitWidgets(); return@launch }
+        // List/folder delete-to-Trash: write every pre-action snapshot back wholesale — the container(s)
+        // return un-trashed and each task returns to its original list/folder and trashed state.
+        if (e.kind == UndoKind.CONTAINER_TRASHED) {
+            e.folderSnapshots.forEach { repo.saveFolder(it) }
+            e.listSnapshots.forEach { repo.saveList(it) }
+            e.taskSnapshots.forEach { repo.saveTask(it) }
+            return@launch
+        }
         when (e.kind) {
             UndoKind.COMPLETED -> repo.getTask(e.taskId)?.let { repo.setCompleted(it, false) }
             UndoKind.ABANDONED -> repo.getTask(e.taskId)?.let { repo.setAbandoned(it, false) }
@@ -2179,8 +2196,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             UndoKind.CREATED_MANY -> e.taskIds.forEach { repo.setTrashed(it, true, settings.value.activeWorkspaceId) }
             // Undo auto-fill / auto-schedule by deleting exactly the events it created (nothing else touched).
             UndoKind.EVENTS_CREATED -> e.eventIds.forEach { repo.deleteEvent(it) }
-            // Note & habit trash/archive are restored via [noteRestore]/[habitRestore] above (short-circuited).
-            UndoKind.NOTE_TRASHED, UndoKind.NOTE_ARCHIVED, UndoKind.HABIT_TRASHED, UndoKind.HABIT_ARCHIVED -> Unit
+            // Note & habit trash/archive and container delete are restored via the snapshot short-circuits above.
+            UndoKind.NOTE_TRASHED, UndoKind.NOTE_ARCHIVED, UndoKind.HABIT_TRASHED, UndoKind.HABIT_ARCHIVED, UndoKind.CONTAINER_TRASHED -> Unit
         }
     }
     fun restore(t: TaskEntity) = viewModelScope.launch { repo.setTrashed(t.id, false) }
@@ -2482,6 +2499,48 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteFolder(id: String) = viewModelScope.launch { repo.deleteFolder(id) }
     // R52 — archive/restore a folder (and, by extension, its lists' tasks drop out of active views).
     fun setFolderArchived(f: FolderEntity, archived: Boolean) = viewModelScope.launch { repo.saveFolder(f.copy(archived = archived)) }
+
+    /** Count of active (open, incomplete) tasks inside [folder] and its sub-folders/lists — drives the
+     *  "this has N unfinished tasks" confirmation before archiving or deleting. */
+    fun activeTaskCountInFolder(folder: FolderEntity): Int {
+        val descFolderIds = descendantFolderIds(folder.id)
+        val descListIds = lists.value.filter { it.folderId in descFolderIds }.map { it.id }.toSet()
+        return tasks.value.count { !it.trashed && !it.completed && !it.abandoned && (it.listId in descListIds || it.folderId in descFolderIds) }
+    }
+    fun activeTaskCountInList(listId: String): Int =
+        tasks.value.count { !it.trashed && !it.completed && !it.abandoned && it.listId == listId }
+
+    private fun descendantFolderIds(rootId: String): Set<String> {
+        val all = folders.value
+        val ids = mutableSetOf(rootId); var changed = true
+        while (changed) { changed = false; all.forEach { if (it.parentId in ids && it.id !in ids) { ids.add(it.id); changed = true } } }
+        return ids
+    }
+
+    /** Delete a folder to Trash (recoverable). Trashing just the folder hides its whole subtree (sub-folders,
+     *  lists and their tasks) via the shared container-visibility cascade. [moveTasksToRef]
+     *  ("list:<id>"/"folder:<id>") first moves the folder's tasks there; null keeps everything with the
+     *  folder in Trash. One Undo restores the folder and every moved task. */
+    fun trashFolder(folder: FolderEntity, moveTasksToRef: String? = null) = viewModelScope.launch {
+        val now = System.currentTimeMillis()
+        val descFolderIds = descendantFolderIds(folder.id)
+        val descListIds = lists.value.filter { it.folderId in descFolderIds }.map { it.id }.toSet()
+        val folderTasks = repo.allTasksOnce().filter { it.listId in descListIds || (it.folderId != null && it.folderId in descFolderIds) }
+        if (moveTasksToRef != null) moveTasksTo(folderTasks.filter { it.parentId == null }, moveTasksToRef)
+        repo.saveFolder(folder.copy(trashed = true, trashedAt = now))
+        undoEvents.tryEmit(UndoEvent(UndoKind.CONTAINER_TRASHED, folder.id,
+            if (moveTasksToRef != null) "Deleted “${folder.name}”, kept its tasks" else "Deleted “${folder.name}” to Trash",
+            folderSnapshots = listOf(folder), taskSnapshots = folderTasks))
+    }
+    fun restoreTrashedFolder(f: FolderEntity) = viewModelScope.launch { repo.saveFolder(f.copy(trashed = false, trashedAt = null)) }
+    fun deleteFolderForever(id: String) = viewModelScope.launch { repo.purgeFolder(id) }
+
+    /** Move the given root tasks to a "list:<id>" / "folder:<id>" ref (subtrees follow). */
+    private suspend fun moveTasksTo(roots: List<TaskEntity>, ref: String) {
+        val kind = ref.substringBefore(':'); val id = ref.substringAfter(':', "")
+        if (id.isBlank()) return
+        roots.forEach { if (kind == "folder") repo.moveToFolder(it.id, id) else repo.moveToList(it.id, id) }
+    }
     fun createList(name: String, folderId: String?, colorArgb: Long?) = viewModelScope.launch { repo.createList(name, folderId, colorArgb, workspaceId = settings.value.activeWorkspaceId) }
     /** Create a nested list under [parent]. */
     fun createSubList(parent: ListEntity, name: String = "New list") = viewModelScope.launch {
@@ -5409,6 +5468,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteList(id: String) = viewModelScope.launch { repo.deleteList(id) }
     // R52 — archive/restore a list; its tasks drop out of active views but are kept and restorable.
     fun setListArchived(l: ListEntity, archived: Boolean) = viewModelScope.launch { repo.saveList(l.copy(archived = archived)) }
+
+    /** Delete a list to Trash (recoverable) instead of erasing its tasks. [moveTasksToRef]
+     *  ("list:<id>"/"folder:<id>") first moves the list's tasks there, then trashes the emptied list;
+     *  null keeps the tasks with the list in Trash (hidden via the container-visibility cascade). One
+     *  Undo restores the list and every moved task exactly. */
+    fun trashList(list: ListEntity, moveTasksToRef: String? = null) = viewModelScope.launch {
+        if (list.id == ListEntity.INBOX_ID) return@launch
+        val now = System.currentTimeMillis()
+        val listTasks = repo.allTasksOnce().filter { it.listId == list.id }
+        if (moveTasksToRef != null) moveTasksTo(listTasks.filter { it.parentId == null }, moveTasksToRef)
+        repo.saveList(list.copy(trashed = true, trashedAt = now))
+        undoEvents.tryEmit(UndoEvent(UndoKind.CONTAINER_TRASHED, list.id,
+            if (moveTasksToRef != null) "Deleted “${list.name}”, moved its tasks" else "Deleted “${list.name}” to Trash",
+            listSnapshots = listOf(list), taskSnapshots = listTasks))
+    }
+    fun restoreTrashedList(l: ListEntity) = viewModelScope.launch { repo.saveList(l.copy(trashed = false, trashedAt = null)) }
+    fun deleteListForever(id: String) = viewModelScope.launch { repo.deleteList(id) }
 
     /** Convert a list into a folder, preserving its tasks in a same-named list inside it. */
     fun convertListToFolder(list: ListEntity) = viewModelScope.launch {

@@ -33,6 +33,10 @@ data class FolderEntity(
     val workspaceId: String = WorkspaceEntity.DEFAULT_ID,
     val description: String = "",   // optional free-text note, shown atop the folder's tasks
     val archived: Boolean = false,  // R52 — stow an inactive folder (and its lists) without deleting
+    // Soft-delete: a deleted folder goes to Trash (recoverable) instead of being erased. Its tasks drop
+    // out of every active/smart view exactly like an archived folder's do.
+    val trashed: Boolean = false,
+    val trashedAt: Long? = null,
 )
 
 /** A list / project: the primary container that holds a task outline.
@@ -53,6 +57,10 @@ data class ListEntity(
     val workspaceId: String = WorkspaceEntity.DEFAULT_ID,
     val backgroundBase64: String? = null,   // optional embedded background image (JPEG), shown faintly behind the list
     val description: String = "",   // optional free-text note, shown atop the list's tasks
+    // Soft-delete: a deleted list goes to Trash (recoverable) instead of erasing its tasks. Its tasks drop
+    // out of every active/smart view like an archived list's do.
+    val trashed: Boolean = false,
+    val trashedAt: Long? = null,
 ) {
     companion object {
         /** Well-known id of the default Inbox list. */

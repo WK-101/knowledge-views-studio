@@ -22,8 +22,13 @@ object SmartCounts {
         wsTasks: List<TaskEntity>, inbox: List<TaskEntity>, deps: List<DependencyEntity>,
         prioCfg: PriorityEngine.Config, tcRefs: List<TaskContextCrossRef>, ctxs: List<ContextEntity>,
         activeWorkspaceId: String, zone: ZoneId, dayStartMin: Int, now: Long,
-    ): Map<SmartKind, Int> =
-        SmartKind.entries.associateWith { k ->
+        // Tasks in an archived/trashed list or folder are hidden from active badges, exactly like the
+        // rendered list hides them — so a count never disagrees with the list it heads.
+        hiddenListIds: Set<String> = emptySet(), hiddenFolderIds: Set<String> = emptySet(),
+    ): Map<SmartKind, Int> {
+        val active = if (hiddenListIds.isEmpty() && hiddenFolderIds.isEmpty()) wsTasks
+            else wsTasks.filterNot { com.todocompanion.app.domain.view.ListPipeline.isHiddenContainerTask(it, hiddenListIds, hiddenFolderIds) }
+        return SmartKind.entries.associateWith { k ->
             when (k) {
                 // The shared Inbox badge counts every workspace's Inbox tasks (matches the shared view).
                 SmartKind.INBOX -> TaskViews.filterSmart(inbox, SmartKind.INBOX, now, zone, dayStartMin).size
@@ -31,14 +36,19 @@ object SmartCounts {
                 SmartKind.WAITING -> {
                     val byId = wsTasks.associateBy { it.id }
                     val blocked = PriorityEngine.computeBlocked(deps, byId, now)
-                    wsTasks.count { !it.trashed && !it.completed && !it.abandoned && !it.someday && it.id in blocked }
+                    active.count { !it.trashed && !it.completed && !it.abandoned && !it.someday && it.id in blocked }
                 }
                 // Do-Next uses the SAME focus filter as the rendered list, so the badge matches the list.
-                SmartKind.DO_NEXT -> DoNext.focused(wsTasks, now, prioCfg, deps, tcRefs, ctxs, null, null, zone, dayStartMin).size
+                SmartKind.DO_NEXT -> DoNext.focused(wsTasks, now, prioCfg, deps, tcRefs, ctxs, null, null, zone, dayStartMin)
+                    .count { !com.todocompanion.app.domain.view.ListPipeline.isHiddenContainerTask(it, hiddenListIds, hiddenFolderIds) }
                 // Trash is per-workspace (matches the rendered list); the shared Inbox otherwise leaked
                 // trashed tasks into every workspace's count.
                 SmartKind.TRASH -> wsTasks.count { it.trashed && it.workspaceId == activeWorkspaceId }
-                else -> TaskViews.filterSmart(wsTasks, k, now, zone, dayStartMin).size
+                // Completed / Won't-Do keep archived-container tasks visible (like the rendered list), so
+                // count them over the unfiltered set.
+                SmartKind.COMPLETED, SmartKind.WONT_DO -> TaskViews.filterSmart(wsTasks, k, now, zone, dayStartMin).size
+                else -> TaskViews.filterSmart(active, k, now, zone, dayStartMin).size
             }
         }
+    }
 }

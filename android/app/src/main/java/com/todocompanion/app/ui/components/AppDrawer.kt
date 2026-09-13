@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.ViewTimeline
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Unarchive
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.DriveFileMove
@@ -277,33 +278,75 @@ fun AppDrawer(
             if ("lists" !in hidden) {
             SectionHeader("Folders & lists", open = open("lists"), onToggle = { toggle("lists") }, onAdd = { onNewList(null) })
             if (open("lists")) {
-                folders.filter { it.parentId == null && !it.archived }.sortedBy { it.sortOrder }.forEach { f ->
+                folders.filter { it.parentId == null && !it.archived && !it.trashed }.sortedBy { it.sortOrder }.forEach { f ->
                     FolderNode(f, 0, folders, lists, listExpand, current, vm, onSelect, onNewList, onNewFolder, onNewTaskInFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
                 }
-                ReorderableListGroup(lists.filter { it.folderId == null && it.parentListId == null && it.id != ListEntity.INBOX_ID && !it.archived }.sortedBy { it.sortOrder },
+                ReorderableListGroup(lists.filter { it.folderId == null && it.parentListId == null && it.id != ListEntity.INBOX_ID && !it.archived && !it.trashed }.sortedBy { it.sortOrder },
                     lists, listExpand, 0, current, vm, onSelect, onManageList, onMoveList)
             }
             }
 
-            // R52 — Archived: stowed folders & lists, restorable in one tap. Hidden when nothing is archived.
-            val archivedFolders = folders.filter { it.archived }
-            val archivedLists = lists.filter { it.archived }
+            // R52 — Archived: stowed folders & lists. Tap to open and browse their (hidden) contents; the
+            // ⤺ button restores. Hidden when nothing is archived. (Trashed containers appear under Trash.)
+            val archivedFolders = folders.filter { it.archived && !it.trashed }
+            val archivedLists = lists.filter { it.archived && !it.trashed }
             if (archivedFolders.isNotEmpty() || archivedLists.isNotEmpty()) {
                 SectionHeader("Archived", open = open("archived"), onToggle = { toggle("archived") })
                 if (open("archived")) {
                     archivedFolders.sortedBy { it.name }.forEach { f ->
-                        Row(Modifier.fillMaxWidth().clickable { onManageFolder(f) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().clickable { onSelect(ViewRef.FolderView(f.id)) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text((f.icon ?: "📁") + "  " + f.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             IconButton(onClick = { vm.setFolderArchived(f, false) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Unarchive, "Restore", modifier = Modifier.size(18.dp)) }
                         }
                     }
                     archivedLists.sortedBy { it.name }.forEach { l ->
-                        Row(Modifier.fillMaxWidth().clickable { onManageList(l) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().clickable { onSelect(ViewRef.ListView(l.id)) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text((l.emoji ?: "🗒️") + "  " + l.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             IconButton(onClick = { vm.setListArchived(l, false) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Unarchive, "Restore", modifier = Modifier.size(18.dp)) }
                         }
                     }
                 }
+            }
+
+            // Trashed lists & folders: deleted containers (recoverable). Tap to browse, ⤺ restores, 🗑 erases.
+            val trashedFolders = folders.filter { it.trashed }
+            val trashedLists = lists.filter { it.trashed }
+            var purgeFolder by remember { mutableStateOf<FolderEntity?>(null) }
+            var purgeList by remember { mutableStateOf<ListEntity?>(null) }
+            if (trashedFolders.isNotEmpty() || trashedLists.isNotEmpty()) {
+                SectionHeader("Trash — lists & folders", open = open("trashedContainers"), onToggle = { toggle("trashedContainers") })
+                if (open("trashedContainers")) {
+                    trashedFolders.sortedBy { it.name }.forEach { f ->
+                        Row(Modifier.fillMaxWidth().clickable { onSelect(ViewRef.FolderView(f.id)) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text((f.icon ?: "📁") + "  " + f.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            IconButton(onClick = { vm.restoreTrashedFolder(f) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Unarchive, "Restore", modifier = Modifier.size(18.dp)) }
+                            IconButton(onClick = { purgeFolder = f }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.DeleteForever, "Delete forever", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error) }
+                        }
+                    }
+                    trashedLists.sortedBy { it.name }.forEach { l ->
+                        Row(Modifier.fillMaxWidth().clickable { onSelect(ViewRef.ListView(l.id)) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text((l.emoji ?: "🗒️") + "  " + l.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            IconButton(onClick = { vm.restoreTrashedList(l) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Unarchive, "Restore", modifier = Modifier.size(18.dp)) }
+                            IconButton(onClick = { purgeList = l }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.DeleteForever, "Delete forever", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error) }
+                        }
+                    }
+                }
+            }
+            purgeFolder?.let { f ->
+                com.todocompanion.app.ui.components.ConfirmDialog(
+                    title = "Delete “${f.name}” forever?",
+                    body = "This permanently erases the folder and every list and task inside it. This can't be undone.",
+                    confirmLabel = "Delete forever",
+                    onConfirm = { vm.deleteFolderForever(f.id); purgeFolder = null },
+                    onDismiss = { purgeFolder = null })
+            }
+            purgeList?.let { l ->
+                com.todocompanion.app.ui.components.ConfirmDialog(
+                    title = "Delete “${l.name}” forever?",
+                    body = "This permanently erases the list and every task inside it. This can't be undone.",
+                    confirmLabel = "Delete forever",
+                    onConfirm = { vm.deleteListForever(l.id); purgeList = null },
+                    onDismiss = { purgeList = null })
             }
 
             if ("tags" !in hidden) {
@@ -517,10 +560,10 @@ private fun FolderNode(
         }
     }
     if (!folder.collapsed) {
-        folders.filter { it.parentId == folder.id && !it.archived }.sortedBy { it.sortOrder }.forEach { child ->
+        folders.filter { it.parentId == folder.id && !it.archived && !it.trashed }.sortedBy { it.sortOrder }.forEach { child ->
             FolderNode(child, depth + 1, folders, lists, listExpand, current, vm, onSelect, onNewList, onNewFolder, onNewTaskInFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
         }
-        ReorderableListGroup(lists.filter { it.folderId == folder.id && it.parentListId == null && !it.archived }.sortedBy { it.sortOrder },
+        ReorderableListGroup(lists.filter { it.folderId == folder.id && it.parentListId == null && !it.archived && !it.trashed }.sortedBy { it.sortOrder },
             lists, listExpand, depth + 1, current, vm, onSelect, onManageList, onMoveList)
     }
 }
@@ -540,7 +583,7 @@ private fun ReorderableListGroup(
     Column {
         items.forEach { l ->
             key(l.id) {
-                val children = allLists.filter { it.parentListId == l.id && !it.archived }.sortedBy { it.sortOrder }
+                val children = allLists.filter { it.parentListId == l.id && !it.archived && !it.trashed }.sortedBy { it.sortOrder }
                 val expanded = expand[l.id] != false
                 val dragging = l.id == dragId
                 Column {
