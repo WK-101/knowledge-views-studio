@@ -497,6 +497,7 @@ fun NoteEditorScreen(
                         liveStyle = settings.notesLiveStyle, type = noteType,
                         onFontScaleChange = { vm.setNotesFontScale(it) },
                         onInk = { showInk = true },
+                        resetKey = noteId,
                     )
                 }
                 if (showSplit && !WindowInsets.isImeVisible) {

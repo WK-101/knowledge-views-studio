@@ -110,8 +110,13 @@ fun NoteBodyEditor(
     type: com.todocompanion.app.domain.NoteAppearance.NoteType = com.todocompanion.app.domain.NoteAppearance.NoteType(),
     onFontScaleChange: (Int) -> Unit = {},
     onInk: (() -> Unit)? = null,
+    resetKey: Any? = null,
 ) {
-    var tfv by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
+    // Seed the field synchronously and keyed to the note (resetKey) so opening or switching a note shows its
+    // body on the SAME frame — no post-composition round-trip that would flash a blank pane. The caret starts
+    // at the TOP of the note (TextRange.Zero), so a freshly opened note shows its beginning instead of
+    // auto-scrolling a short (e.g. split-pane) editor to the trailing whitespace, which read as "empty".
+    var tfv by remember(resetKey) { mutableStateOf(TextFieldValue(value, TextRange(0))) }
     // Resync only when the body changes from OUTSIDE (a toolbar-inserted link elsewhere, a fresh note);
     // our own edits set tfv first so value==tfv.text here and this is a no-op.
     LaunchedEffect(value) { if (value != tfv.text) tfv = TextFieldValue(value, TextRange(value.length)) }

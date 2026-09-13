@@ -2,6 +2,7 @@ package com.todocompanion.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FilterList
@@ -43,7 +45,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.data.entity.FolderEntity
@@ -63,6 +64,16 @@ private enum class SortBy(val label: String) { RELEVANCE("Relevance"), TITLE("Ti
 
 /** How the task results are grouped. */
 private enum class GroupBy(val label: String) { TYPE("By type"), LIST("By list"), PRIORITY("By priority"), NONE("No groups") }
+
+/** Which kind of result to show. ALL = everything; the others narrow to one type and reveal that type's
+ *  own sub-filter, so occasions, notes, habits and events are each filterable in their own right. */
+private enum class Scope(val label: String) { ALL("Everything"), TASKS("Tasks"), NOTES("Notes"), OCCASIONS("Occasions"), HABITS("Habits"), EVENTS("Events") }
+
+/** Per-type sub-filters (shown only when that type is the active scope). */
+private enum class NoteF(val label: String) { ALL("All notes"), PINNED("Pinned"), ARCHIVED("Archived"), JOURNAL("Journal"), MEETING("Meeting") }
+private enum class OccF(val label: String) { ALL("All"), BIRTHDAYS("Birthdays"), UPCOMING("Upcoming"), YEARLY("Recurring"), ARCHIVED("Archived") }
+private enum class HabitF(val label: String) { ALL("All"), ACTIVE("Active"), PAUSED("Paused"), BUILD("Build"), QUIT("Quit") }
+private enum class EventF(val label: String) { ALL("All"), UPCOMING("Upcoming"), PAST("Past"), RECURRING("Recurring"), ALLDAY("All-day") }
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -97,9 +108,14 @@ fun SearchScreen(
     val attachHits = remember(query) { vm.searchAttachmentNames(query).associate { it.taskId to it.fileName } }
     val lists by vm.lists.collectAsState()
     val folders by vm.folders.collectAsState()
+    var scope by remember { mutableStateOf(Scope.ALL) }
     var filter by remember { mutableStateOf(SF.ALL) }
     var sortBy by remember { mutableStateOf(SortBy.RELEVANCE) }
     var groupBy by remember { mutableStateOf(GroupBy.TYPE) }
+    var noteF by remember { mutableStateOf(NoteF.ALL) }
+    var occF by remember { mutableStateOf(OccF.ALL) }
+    var habitF by remember { mutableStateOf(HabitF.ALL) }
+    var eventF by remember { mutableStateOf(EventF.ALL) }
     val zone = java.time.ZoneId.systemDefault()
     // Apply the task-scope filter, then the chosen sort. Grouping happens at render time.
     val shown = remember(results, filter, sortBy) {
@@ -125,37 +141,99 @@ fun SearchScreen(
             SortBy.UPDATED -> filtered.sortedByDescending { it.updatedAt }
         }
     }
+    // Each non-task type gets its own sub-filter, applied to its already-matched results. Kept out of the
+    // task pipeline above so "search everything" stays honest while each type is independently filterable.
+    val shownNotes = remember(noteResults, noteF) {
+        noteResults.filter { n ->
+            when (noteF) {
+                NoteF.ALL -> true
+                NoteF.PINNED -> n.pinned
+                NoteF.ARCHIVED -> n.archived
+                NoteF.JOURNAL -> n.kind == "journal"
+                NoteF.MEETING -> n.kind == "meeting"
+            }
+        }
+    }
+    val shownOccasions = remember(occasionResults, occF) {
+        occasionResults.filter { o ->
+            when (occF) {
+                OccF.ALL -> true
+                OccF.BIRTHDAYS -> com.todocompanion.app.domain.LifeEvent.type(o) == com.todocompanion.app.domain.LifeEvent.EventType.BIRTHDAY
+                OccF.UPCOMING -> !o.archived && com.todocompanion.app.domain.LifeEvent.daysUntil(o) >= 0
+                OccF.YEARLY -> o.yearly
+                OccF.ARCHIVED -> o.archived
+            }
+        }
+    }
+    val shownHabits = remember(habitResults, habitF) {
+        habitResults.filter { h ->
+            when (habitF) {
+                HabitF.ALL -> true
+                HabitF.ACTIVE -> !h.paused
+                HabitF.PAUSED -> h.paused
+                HabitF.BUILD -> h.habitType == "build"
+                HabitF.QUIT -> h.habitType == "break"
+            }
+        }
+    }
+    val nowMsE = System.currentTimeMillis()
+    val shownEvents = remember(eventResults, eventF) {
+        eventResults.filter { e ->
+            when (eventF) {
+                EventF.ALL -> true
+                EventF.UPCOMING -> e.endMillis >= nowMsE
+                EventF.PAST -> e.endMillis < nowMsE
+                EventF.RECURRING -> e.rrule.isNotBlank()
+                EventF.ALLDAY -> e.allDay
+            }
+        }
+    }
 
     Column(modifier.fillMaxSize()) {
-        // The search field lives in the app top bar; this control row (Filter · Sort · Group) sits at the top
-        // of the results — one tidy nav row of dropdowns instead of a sprawling chip wrap.
+        // The search field lives in the app top bar; this control row sits at the top of the results. The
+        // Scope control decides which kind of result is shown; each non-task scope reveals ITS OWN sub-filter,
+        // so occasions, notes, habits and events are each filterable — not just tasks. The row scrolls
+        // sideways so it never overflows at phone width, no matter how many controls the scope reveals.
+        val tasksShown = scope == Scope.ALL || scope == Scope.TASKS
         if (query.isNotBlank()) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp),
+                Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 6.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                DropControl(Icons.Filled.FilterList, filter, SF.entries, { it.label }) { filter = it }
-                DropControl(Icons.Filled.Sort, sortBy, SortBy.entries, { it.label }) { sortBy = it }
-                DropControl(Icons.Filled.Segment, groupBy, GroupBy.entries, { it.label }) { groupBy = it }
+                DropControl(Icons.Filled.Category, scope, Scope.entries, { it.label }) { scope = it }
+                when (scope) {
+                    Scope.ALL, Scope.TASKS -> {
+                        DropControl(Icons.Filled.FilterList, filter, SF.entries, { it.label }) { filter = it }
+                        DropControl(Icons.Filled.Sort, sortBy, SortBy.entries, { it.label }) { sortBy = it }
+                        DropControl(Icons.Filled.Segment, groupBy, GroupBy.entries, { it.label }) { groupBy = it }
+                    }
+                    Scope.NOTES -> DropControl(Icons.Filled.FilterList, noteF, NoteF.entries, { it.label }) { noteF = it }
+                    Scope.OCCASIONS -> DropControl(Icons.Filled.FilterList, occF, OccF.entries, { it.label }) { occF = it }
+                    Scope.HABITS -> DropControl(Icons.Filled.FilterList, habitF, HabitF.entries, { it.label }) { habitF = it }
+                    Scope.EVENTS -> DropControl(Icons.Filled.FilterList, eventF, EventF.entries, { it.label }) { eventF = it }
+                }
             }
         }
-        val showHabits = filter == SF.ALL && habitResults.isNotEmpty()
-        val showEvents = filter == SF.ALL && eventResults.isNotEmpty()
-        val showOccasions = filter == SF.ALL && occasionResults.isNotEmpty()
-        val showNotes = filter == SF.ALL && noteResults.isNotEmpty()
+        // Task filter of ALL keeps non-task types visible under the Everything scope; under a specific scope only
+        // that type shows. Each list is already narrowed by its own sub-filter above.
+        val showHabits = (scope == Scope.ALL || scope == Scope.HABITS) && shownHabits.isNotEmpty()
+        val showEvents = (scope == Scope.ALL || scope == Scope.EVENTS) && shownEvents.isNotEmpty()
+        val showOccasions = (scope == Scope.ALL || scope == Scope.OCCASIONS) && shownOccasions.isNotEmpty()
+        val showNotes = (scope == Scope.ALL || scope == Scope.NOTES) && shownNotes.isNotEmpty()
+        val showTasks = tasksShown && shown.isNotEmpty()
         when {
             query.isBlank() -> SearchHint("Search everything", "Find any task, habit, event, occasion, note (title & content), #tag, @context or 📎 attachment name — completed, someday and archived included; tap Trashed to search the bin")
-            shown.isEmpty() && !showHabits && !showEvents && !showOccasions && !showNotes -> SearchHint("No matches", "Nothing found for “$query”", off = true)
+            !showTasks && !showHabits && !showEvents && !showOccasions && !showNotes -> SearchHint("No matches", "Nothing found for “$query”", off = true)
             else -> {
-                val totalN = shown.size + (if (showHabits) habitResults.size else 0) + (if (showEvents) eventResults.size else 0) + (if (showOccasions) occasionResults.size else 0) + (if (showNotes) noteResults.size else 0)
+                val totalN = (if (showTasks) shown.size else 0) + (if (showHabits) shownHabits.size else 0) + (if (showEvents) shownEvents.size else 0) + (if (showOccasions) shownOccasions.size else 0) + (if (showNotes) shownNotes.size else 0)
                 Text("$totalN result${if (totalN == 1) "" else "s"}",
                     Modifier.padding(start = 18.dp, top = 2.dp, bottom = 4.dp),
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
                     if (showHabits) {
                         item(key = "habits-header") { SectionHeader("HABITS") }
-                        items(habitResults, key = { "h:" + it.id }) { h ->
+                        items(shownHabits, key = { "h:" + it.id }) { h ->
                             Surface(
                                 Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
                                 shape = RoundedCornerShape(12.dp), color = appCardColor(),
@@ -180,12 +258,12 @@ fun SearchScreen(
                     }
                     // TASKS — grouped per the Group control. A single row composable (TaskResultRow) is reused
                     // for every layout so completed styling stays identical everywhere.
-                    if (shown.isNotEmpty()) {
+                    if (showTasks) {
                         when (groupBy) {
                             GroupBy.TYPE, GroupBy.NONE -> {
                                 // "By type" keeps a TASKS header when other types are also on screen; "No groups"
                                 // never prints a header (flat stream of results).
-                                if (groupBy == GroupBy.TYPE && showHabits) item(key = "tasks-header") { SectionHeader("TASKS", top = 10.dp) }
+                                if (groupBy == GroupBy.TYPE && (showHabits || showEvents || showOccasions || showNotes)) item(key = "tasks-header") { SectionHeader("TASKS", top = 10.dp) }
                                 items(shown, key = { it.id }) { task ->
                                     TaskResultRow(task, lists, folders, attachHits[task.id], zone) { onOpenTask(task.id) }
                                 }
@@ -219,7 +297,7 @@ fun SearchScreen(
                     // R57 — EVENTS section (calendar), tap opens the event editor.
                     if (showEvents) {
                         item(key = "events-header") { SectionHeader("EVENTS", top = 10.dp) }
-                        items(eventResults, key = { "e:" + it.id }) { e ->
+                        items(shownEvents, key = { "e:" + it.id }) { e ->
                             val df = java.time.format.DateTimeFormatter.ofPattern("EEE d MMM yyyy")
                             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp), shape = RoundedCornerShape(12.dp), color = appCardColor()) {
                                 Row(Modifier.fillMaxWidth().clickable { onOpenEvent(e.id) }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -238,7 +316,7 @@ fun SearchScreen(
                     // R57 — OCCASIONS section (birthdays / countdowns), tap opens the occasion.
                     if (showOccasions) {
                         item(key = "occasions-header") { SectionHeader("OCCASIONS", top = 10.dp) }
-                        items(occasionResults, key = { "o:" + it.id }) { o ->
+                        items(shownOccasions, key = { "o:" + it.id }) { o ->
                             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp), shape = RoundedCornerShape(12.dp), color = appCardColor()) {
                                 Row(Modifier.fillMaxWidth().clickable { onOpenOccasion(o.id) }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(o.emoji?.ifBlank { null } ?: "🎉", style = MaterialTheme.typography.bodyMedium)
@@ -258,7 +336,7 @@ fun SearchScreen(
                     // NOTES section — matched on title or body (note_fts), tap opens the note editor.
                     if (showNotes) {
                         item(key = "notes-header") { SectionHeader("NOTES", top = 10.dp) }
-                        items(noteResults, key = { "n:" + it.id }) { n ->
+                        items(shownNotes, key = { "n:" + it.id }) { n ->
                             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp), shape = RoundedCornerShape(12.dp), color = appCardColor()) {
                                 Row(Modifier.fillMaxWidth().clickable { onOpenNote(n.id) }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Box(Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background((n.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary).copy(alpha = .16f)), contentAlignment = Alignment.Center) {
@@ -297,17 +375,21 @@ private fun TaskResultRow(
     val level = PriorityLevel.from(task.importance, task.urgency)
     val kairo = LocalKairoColors.current
     val done = task.completed && !task.trashed
+    // Completed rows read as done at a glance WITHOUT a crude strikethrough: a faint success wash on the whole
+    // card, a filled green check where the priority dot would be, the title kept full-strength (a finished task
+    // is an achievement, not struck-out noise), and the completion date as a soft green pill on the right —
+    // clearly different from the red overdue chip an open task shows.
     Surface(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
         shape = RoundedCornerShape(12.dp),
-        color = appCardColor(),
+        color = if (done) androidx.compose.ui.graphics.lerp(appCardColor(), kairo.good, 0.07f) else appCardColor(),
     ) {
         Row(
             Modifier.fillMaxWidth().clickable { onOpen() }.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (done) {
-                Icon(Icons.Filled.CheckCircle, null, Modifier.size(16.dp), tint = kairo.good)
+                Icon(Icons.Filled.CheckCircle, null, Modifier.size(18.dp), tint = kairo.good)
                 Spacer(Modifier.width(8.dp))
             } else {
                 com.todocompanion.app.ui.components.Dot(
@@ -319,8 +401,7 @@ private fun TaskResultRow(
             Column(Modifier.weight(1f)) {
                 Text(
                     task.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
-                    textDecoration = if (done) TextDecoration.LineThrough else null,
-                    color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 if (task.note.isNotBlank()) Text(task.note.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 // R56 — when the match came from an attachment name, show which file, so an expert instantly
@@ -333,18 +414,25 @@ private fun TaskResultRow(
                 val loc = lists.firstOrNull { it.id == task.listId }?.name
                     ?: task.folderId?.let { fid -> folders.firstOrNull { it.id == fid }?.let { "📁 " + it.name } }
                     ?: "Inbox"
-                when {
-                    task.trashed -> Text("$loc · 🗑 Trash", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    done -> {
-                        val whenDone = task.completedAt?.let { " · ✓ Completed " + java.time.Instant.ofEpochMilli(it).atZone(zone).format(java.time.format.DateTimeFormatter.ofPattern("d MMM")) } ?: " · ✓ Completed"
-                        Text(loc + whenDone, style = MaterialTheme.typography.labelSmall, color = kairo.good, fontWeight = FontWeight.Medium)
-                    }
-                    task.someday -> Text("$loc · someday", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    else -> Text(loc, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val locSuffix = when {
+                    task.trashed -> " · 🗑 Trash"
+                    task.someday -> " · someday"
+                    else -> ""
                 }
+                Text(loc + locSuffix, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            // Only open/overdue tasks carry the (possibly red) due chip — completed ones never look overdue.
-            if (!done) task.dueDate?.let { Spacer(Modifier.width(6.dp)); DueChip(it) }
+            when {
+                // Completed → a soft green "Done · date" pill (never the red overdue chip).
+                done -> {
+                    Spacer(Modifier.width(6.dp))
+                    val label = task.completedAt?.let { "Done " + java.time.Instant.ofEpochMilli(it).atZone(zone).format(java.time.format.DateTimeFormatter.ofPattern("d MMM")) } ?: "Done"
+                    Surface(shape = RoundedCornerShape(8.dp), color = kairo.good.copy(alpha = 0.16f)) {
+                        Text(label, Modifier.padding(horizontal = 8.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium, color = kairo.good, maxLines = 1)
+                    }
+                }
+                // Open/overdue tasks carry the (possibly red) due chip.
+                else -> task.dueDate?.let { Spacer(Modifier.width(6.dp)); DueChip(it) }
+            }
         }
     }
 }

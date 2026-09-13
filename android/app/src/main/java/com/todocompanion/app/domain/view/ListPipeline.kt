@@ -85,6 +85,11 @@ object ListPipeline {
     fun compute(
         wsTasks: List<TaskEntity>, inbox: List<TaskEntity>, cfg: Cfg, ttRefs: List<TaskTagCrossRef>,
         vc: ViewCtx, deps: List<DependencyEntity>, zone: ZoneId, dayStartMin: Int, now: Long,
+        // [allTasks] is the FULL task universe used only to resolve a dependency's prerequisite — a blocker
+        // may live in another list (or even workspace) than the workspace-scoped [wsTasks] the list renders,
+        // and if it isn't found it silently counts as "not blocking", which is exactly the bug where a task
+        // with a real blocked-by never shows in Waiting On. Empty = fall back to the local set.
+        allTasks: List<TaskEntity> = emptyList(),
     ): List<TaskGroup> {
         val tcRefs = vc.tcRefs; val ctxEntities = vc.contexts; val filterList = vc.filters
         // The base task set is the workspace-clean [wsTasks]; ONLY when viewing the Inbox do we swap in
@@ -99,9 +104,11 @@ object ListPipeline {
             is ViewRef.Smart -> {
                 when (v.kind) {
                     SmartKind.DO_NEXT -> DoNext.focused(all, now, cfg.prio, deps, tcRefs, ctxEntities, cfg.timeAvail, cfg.energyAvail, zone, dayStartMin)
-                    // Waiting-on: open tasks currently blocked by an incomplete prerequisite.
+                    // Waiting-on: open tasks currently blocked by an incomplete prerequisite. Resolve blockers
+                    // against the FULL task universe (falls back to the local set) so a prerequisite in another
+                    // list/workspace is still recognized as blocking.
                     SmartKind.WAITING -> {
-                        val byId = all.associateBy { it.id }
+                        val byId = (if (allTasks.isNotEmpty()) allTasks else all).associateBy { it.id }
                         val blocked = PriorityEngine.computeBlocked(deps, byId, now)
                         all.filter { !it.trashed && !it.completed && !it.abandoned && !it.someday && it.id in blocked }
                     }

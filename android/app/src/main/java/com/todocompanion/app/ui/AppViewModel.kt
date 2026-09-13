@@ -1448,17 +1448,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      *  VM keeps the reactive combine (and computes the settings-derived priority config to pass in). */
     val smartCounts: StateFlow<Map<SmartKind, Int>> =
         combine(
-            combine(wsTasks, inboxTasksAll) { ws, inbox -> ws to inbox }, repo.allDependencies, settings,
+            combine(wsTasks, inboxTasksAll, repo.allTasks) { ws, inbox, allT -> Triple(ws, inbox, allT) }, repo.allDependencies, settings,
             combine(repo.taskContextRefs, repo.allContexts) { r, c -> r to c },
             combine(repo.allLists, repo.allFolders) { l, f -> l to f },
-        ) { tPair, deps, set, rc, lf ->
+        ) { tTriple, deps, set, rc, lf ->
             // Archived/trashed-container tasks are hidden from the badges, matching the rendered lists.
             val (hiddenListIds, hiddenFolderIds) = com.todocompanion.app.domain.view.ListPipeline.hiddenContainers(lf.first, lf.second)
             com.todocompanion.app.domain.SmartCounts.compute(
-                wsTasks = tPair.first, inbox = tPair.second, deps = deps, prioCfg = set.priorityConfig(),
+                wsTasks = tTriple.first, inbox = tTriple.second, deps = deps, prioCfg = set.priorityConfig(),
                 tcRefs = rc.first, ctxs = rc.second, activeWorkspaceId = set.activeWorkspaceId,
                 zone = zone, dayStartMin = dayStartMin, now = System.currentTimeMillis(),
-                hiddenListIds = hiddenListIds, hiddenFolderIds = hiddenFolderIds,
+                hiddenListIds = hiddenListIds, hiddenFolderIds = hiddenFolderIds, allTasks = tTriple.third,
             )
         }.state(emptyMap())
 
@@ -1520,13 +1520,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     val groups: StateFlow<List<TaskGroup>> =
         combine(
-            combine(wsTasks, inboxTasksAll) { ws, inbox -> ws to inbox },
+            // wsTasks + shared Inbox + the FULL task set (used only to resolve dependency prerequisites that
+            // may live outside the workspace-scoped render set — see ListPipeline.compute's allTasks param).
+            combine(wsTasks, inboxTasksAll, repo.allTasks) { ws, inbox, allT -> Triple(ws, inbox, allT) },
             combine(currentView, groupMode, sortMode, settings, combine(repo.allFlags, timeAvailableMin, energyAvailable) { fl, ta, ea -> Triple(fl, ta, ea) }) { v, g, s, set, fte -> ListPipeline.Cfg(v, g, s, set.priorityConfig(), fte.first, fte.second, fte.third, set.activeWorkspaceId) },
             repo.taskTagRefs,
             combine(repo.taskContextRefs, repo.allContexts, repo.allFilters, repo.allLists, combine(repo.allFolders, repo.allTags) { fo, tg -> fo to tg }) { r, c, f, l, foTg -> ListPipeline.ViewCtx(r, c, f, l, foTg.first, foTg.second) },
             repo.allDependencies,
-        ) { wsPair, cfg, ttRefs, vc, deps ->
-            ListPipeline.compute(wsPair.first, wsPair.second, cfg, ttRefs, vc, deps, zone, dayStartMin, System.currentTimeMillis())
+        ) { wsTriple, cfg, ttRefs, vc, deps ->
+            ListPipeline.compute(wsTriple.first, wsTriple.second, cfg, ttRefs, vc, deps, zone, dayStartMin, System.currentTimeMillis(), wsTriple.third)
         }.state(emptyList())
 
     /** When set, the outline is zoomed into this task's subtree (MLO-style focus). */

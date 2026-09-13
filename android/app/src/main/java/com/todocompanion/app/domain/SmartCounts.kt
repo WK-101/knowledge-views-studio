@@ -25,6 +25,10 @@ object SmartCounts {
         // Tasks in an archived/trashed list or folder are hidden from active badges, exactly like the
         // rendered list hides them — so a count never disagrees with the list it heads.
         hiddenListIds: Set<String> = emptySet(), hiddenFolderIds: Set<String> = emptySet(),
+        // Full task universe for resolving dependency prerequisites (see ListPipeline.compute) — a blocker
+        // may live outside [wsTasks]; empty falls back to [wsTasks]. Keeps the Waiting-On badge in step
+        // with its list.
+        allTasks: List<TaskEntity> = emptyList(),
     ): Map<SmartKind, Int> {
         val active = if (hiddenListIds.isEmpty() && hiddenFolderIds.isEmpty()) wsTasks
             else wsTasks.filterNot { com.todocompanion.app.domain.view.ListPipeline.isHiddenContainerTask(it, hiddenListIds, hiddenFolderIds) }
@@ -34,7 +38,7 @@ object SmartCounts {
                 SmartKind.INBOX -> TaskViews.filterSmart(inbox, SmartKind.INBOX, now, zone, dayStartMin).size
                 // Dependency-aware, so it can't go through the pure filterSmart path.
                 SmartKind.WAITING -> {
-                    val byId = wsTasks.associateBy { it.id }
+                    val byId = (if (allTasks.isNotEmpty()) allTasks else wsTasks).associateBy { it.id }
                     val blocked = PriorityEngine.computeBlocked(deps, byId, now)
                     active.count { !it.trashed && !it.completed && !it.abandoned && !it.someday && it.id in blocked }
                 }
