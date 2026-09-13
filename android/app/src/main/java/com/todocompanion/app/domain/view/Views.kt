@@ -101,7 +101,13 @@ object TaskViews {
         val today = localDate(now, zone, dayStartMin)
         return when (kind) {
             SmartKind.INBOX -> all.filter { isOpen(it) && it.listId == "inbox" }
-            SmartKind.TODAY -> all.filter { isOpen(it) && it.dueDate != null && !localDate(it.dueDate!!, zone, dayStartMin).isAfter(today) }
+            // Today = due today or overdue, PLUS anything planned to start today (Things-style "start
+            // date"). Without the start clause a "starts today, no due date" task landed in no date list
+            // at all on its day. A future start date is still excluded (a deadline due today always wins,
+            // but a task deferred to next week doesn't clutter Today).
+            SmartKind.TODAY -> all.filter { isOpen(it) &&
+                ((it.dueDate != null && !localDate(it.dueDate!!, zone, dayStartMin).isAfter(today)) ||
+                 (it.startDate != null && localDate(it.startDate!!, zone, dayStartMin) == today)) }
             SmartKind.TOMORROW -> all.filter { isOpen(it) && it.dueDate != null && localDate(it.dueDate!!, zone, dayStartMin) == today.plusDays(1) }
             SmartKind.NEXT7 -> all.filter { isOpen(it) && it.dueDate != null && !localDate(it.dueDate!!, zone, dayStartMin).isAfter(today.plusDays(7)) }
             SmartKind.SCHEDULED -> all.filter { isOpen(it) && it.dueDate != null }

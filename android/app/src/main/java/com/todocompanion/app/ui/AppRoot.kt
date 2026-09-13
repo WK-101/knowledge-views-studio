@@ -466,6 +466,18 @@ fun AppRoot(
         // transient toggle. The current list id, when the active view is a plain list.
         val currentListId = (currentView as? ViewRef.ListView)?.listId
         val boardMode = if (currentListId != null) currentListId in settings.boardLists else boardModeTransient
+        // R-archive — an archived list/folder (or a list inside an archived folder) is read-only
+        // reference: no new tasks may be captured into it. Reuse ListPipeline.hiddenContainers so this
+        // exactly mirrors what's already hidden from the active views (archived OR trashed, cascaded
+        // down the folder tree). The add-task affordance is gated on it below.
+        val currentContainerArchived = remember(currentView, lists, folders) {
+            val (hiddenLists, hiddenFolders) = com.todocompanion.app.domain.view.ListPipeline.hiddenContainers(lists, folders)
+            when (val v = currentView) {
+                is ViewRef.ListView -> v.listId in hiddenLists
+                is ViewRef.FolderView -> v.folderId in hiddenFolders
+                else -> false
+            }
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // R81 — never ask for notifications at first launch. A brand-new user who wants no reminders is
@@ -956,24 +968,39 @@ fun AppRoot(
                 floatingActionButton = {
                     val selecting by vm.selectionActive.collectAsState()
                     if ((tab == Tab.TASKS || tab == Tab.CALENDAR || tab == Tab.MATRIX) && !(tab == Tab.TASKS && selecting)) {
-                        var fabMenu by remember { mutableStateOf(false) }
-                        // On the calendar, a quick-add inherits the day you have selected (so a task added
-                        // while looking at, say, the 14th is due the 14th, not undated).
-                        val fabDue = { if (tab == Tab.CALENDAR) calSelected.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli() else null }
-                        Box {
-                            // Tap adds; long-press opens quick actions (C1). DualFab so the long-press fires.
-                            DualFab(
-                                icon = Icons.Filled.Add,
-                                contentDescription = "Add task",
-                                onClick = { openQuickAdd(fabDue()) },
-                                onLongClick = { fabMenu = true },
-                            )
-                            DropdownMenu(expanded = fabMenu, onDismissRequest = { fabMenu = false }) {
-                                DropdownMenuItem(text = { Text("New task") }, leadingIcon = { Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; openQuickAdd(null) })
-                                DropdownMenuItem(text = { Text("Plan my day") }, leadingIcon = { Icon(Icons.Filled.Bolt, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; showPlan = true })
-                                DropdownMenuItem(text = { Text("Focus") }, leadingIcon = { Icon(Icons.Filled.Timer, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; tab = Tab.FOCUS })
-                                DropdownMenuItem(text = { Text("Weekly review") }, leadingIcon = { Icon(Icons.Filled.EventRepeat, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; dayReviewStartClose = false; dayReviewStartWeekly = true; showDayReview = java.time.LocalDate.now().toEpochDay() })
-                                DropdownMenuItem(text = { Text("Day review") }, leadingIcon = { Icon(Icons.Filled.WbSunny, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay() })
+                        if (tab == Tab.TASKS && currentContainerArchived) {
+                            // R-archive — an archived list/folder is read-only reference: capturing a new task
+                            // into it is the anti-pattern top apps avoid. Keep the FAB present (so its absence
+                            // isn't mistaken for a bug) but muted and disabled-looking, and on tap explain why
+                            // rather than silently opening quick-add into the archived container.
+                            val archNoun = if (currentView is ViewRef.FolderView) "folder" else "list"
+                            FloatingActionButton(
+                                onClick = { scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar("This $archNoun is archived — unarchive to add tasks") } },
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                            ) {
+                                Icon(Icons.Filled.Add, "Archived — unarchive to add tasks")
+                            }
+                        } else {
+                            var fabMenu by remember { mutableStateOf(false) }
+                            // On the calendar, a quick-add inherits the day you have selected (so a task added
+                            // while looking at, say, the 14th is due the 14th, not undated).
+                            val fabDue = { if (tab == Tab.CALENDAR) calSelected.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli() else null }
+                            Box {
+                                // Tap adds; long-press opens quick actions (C1). DualFab so the long-press fires.
+                                DualFab(
+                                    icon = Icons.Filled.Add,
+                                    contentDescription = "Add task",
+                                    onClick = { openQuickAdd(fabDue()) },
+                                    onLongClick = { fabMenu = true },
+                                )
+                                DropdownMenu(expanded = fabMenu, onDismissRequest = { fabMenu = false }) {
+                                    DropdownMenuItem(text = { Text("New task") }, leadingIcon = { Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; openQuickAdd(null) })
+                                    DropdownMenuItem(text = { Text("Plan my day") }, leadingIcon = { Icon(Icons.Filled.Bolt, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; showPlan = true })
+                                    DropdownMenuItem(text = { Text("Focus") }, leadingIcon = { Icon(Icons.Filled.Timer, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; tab = Tab.FOCUS })
+                                    DropdownMenuItem(text = { Text("Weekly review") }, leadingIcon = { Icon(Icons.Filled.EventRepeat, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; dayReviewStartClose = false; dayReviewStartWeekly = true; showDayReview = java.time.LocalDate.now().toEpochDay() })
+                                    DropdownMenuItem(text = { Text("Day review") }, leadingIcon = { Icon(Icons.Filled.WbSunny, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay() })
+                                }
                             }
                         }
                     } else if (tab == Tab.HABITS) {

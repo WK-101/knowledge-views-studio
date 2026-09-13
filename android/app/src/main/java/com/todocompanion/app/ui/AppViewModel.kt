@@ -1843,10 +1843,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // Resolve where a new task lands from the current view, as (listId, folderId). A folder view
     // captures the task *directly into the folder* (empty listId + folderId set) — no phantom list —
     // so it shows in the folder alongside its lists' tasks.
-    private fun resolveAddTarget(): Pair<String, String?> = when (val v = currentView.value) {
-        is ViewRef.ListView -> v.listId to null
-        is ViewRef.FolderView -> "" to v.folderId
-        else -> ListEntity.INBOX_ID to null
+    private fun resolveAddTarget(): Pair<String, String?> {
+        // R-archive — an archived (or trashed) list/folder is read-only reference. Even if a capture funnel
+        // somehow resolves to one (e.g. the command palette's "new task" while such a view is open), never
+        // bury the task there: fall back to the Inbox. The UI already hides the add affordance on these
+        // views; this is the data-layer backstop that guarantees the invariant.
+        val (hiddenLists, hiddenFolders) = com.todocompanion.app.domain.view.ListPipeline.hiddenContainers(lists.value, folders.value)
+        return when (val v = currentView.value) {
+            is ViewRef.ListView -> if (v.listId in hiddenLists) ListEntity.INBOX_ID to null else v.listId to null
+            is ViewRef.FolderView -> if (v.folderId in hiddenFolders) ListEntity.INBOX_ID to null else "" to v.folderId
+            else -> ListEntity.INBOX_ID to null
+        }
     }
 
     // A new task captured from a date-scoped smart list inherits that date (TickTick behaviour): adding

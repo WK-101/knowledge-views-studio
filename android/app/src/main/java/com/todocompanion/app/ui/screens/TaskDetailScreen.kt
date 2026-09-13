@@ -852,10 +852,15 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                         MenuRow("Energy", when (task.energy) { 1 -> "Low"; 2 -> "Medium"; 3 -> "High"; else -> "Any" },
                             listOf<Pair<Int?, String>>(null to "Any", 1 to "Low", 2 to "Medium", 3 to "High")) { e -> update { it.copy(energy = e) } }
 
-                    com.todocompanion.app.domain.EditorField.BLOCKED ->
-                     DetailSection("Blocked by", myDeps.size.takeIf { it > 0 }?.toString(), !fldFolded) {
+                    com.todocompanion.app.domain.EditorField.BLOCKED -> {
+                     // Parties you're waiting on are stored newline-separated in waitingForWho (multiple allowed).
+                     val waitingParties = task.waitingForWho.split("\n").map { it.trim() }.filter { it.isNotBlank() }
+                     // The collapsed section header shows the combined count, so a task reads as blocked/waiting
+                     // WITHOUT having to open the section.
+                     val blockCount = myDeps.size + waitingParties.size
+                     DetailSection("Blocked & waiting", blockCount.takeIf { it > 0 }?.toString(), !fldFolded) {
                 val byId = allTasks.associateBy { it.id }
-                if (myDeps.isEmpty()) Text("Not blocked — this task can be done now.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (myDeps.isEmpty() && waitingParties.isEmpty()) Text("Not blocked — this task can be done now.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 myDeps.forEach { dep ->
                     val pred = byId[dep.dependsOnTaskId]
                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -883,26 +888,44 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 TextButton(onClick = { showBlockPicker = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("＋ Add a blocker") }
                 // GTD "Waiting For": delegated to / awaiting someone ELSE — the ball is in their court, so this
                 // isn't a next action of yours (it drops out of Do-Next and lands in Waiting On, under "Waiting
-                // on others"). Distinct from a blocker above, which is your own prior task.
+                // on others"). Distinct from a blocker above, which is your own prior task. Multiple parties are
+                // allowed (one per person/thing you're waiting on).
                 androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                Text("Waiting on someone else", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(4.dp))
-                com.todocompanion.app.ui.components.AppTextField(
-                    task.waitingForWho,
-                    { who -> update { t -> t.copy(
-                        waitingForWho = who,
-                        // Stamp the delegation date the first time you set a party (so the list can age it),
-                        // clear it when you clear the party, otherwise keep the original date.
-                        delegatedOn = when {
-                            who.isBlank() -> null
-                            t.waitingForWho.isBlank() -> System.currentTimeMillis()
-                            else -> t.delegatedOn
+                Text("Waiting on others", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // Persist the party list (newline-joined); stamp delegatedOn when the first is added, clear it
+                // when the last is removed, so the "waiting N days" age is meaningful.
+                fun writeParties(list: List<String>) = update { t ->
+                    t.copy(
+                        waitingForWho = list.joinToString("\n"),
+                        delegatedOn = if (list.isEmpty()) null else (t.delegatedOn ?: System.currentTimeMillis()),
+                    )
+                }
+                waitingParties.forEach { party ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("👤", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.width(8.dp))
+                        Text(party, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        IconButton(onClick = { writeParties(waitingParties.filterNot { it == party }) }) {
+                            Icon(Icons.Filled.Close, "Remove", modifier = Modifier.size(18.dp))
+                        }
+                    }
+                }
+                var waitingInput by remember(task.id) { mutableStateOf("") }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    com.todocompanion.app.ui.components.AppTextField(
+                        waitingInput, { waitingInput = it }, singleLine = true, modifier = Modifier.weight(1f),
+                        placeholder = { Text("Add someone / something — e.g. Bob, Amazon") },
+                    )
+                    TextButton(
+                        onClick = {
+                            val n = waitingInput.trim()
+                            if (n.isNotBlank() && waitingParties.none { it.equals(n, true) }) writeParties(waitingParties + n)
+                            waitingInput = ""
                         },
-                    ) } },
-                    singleLine = true, modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Who / what you're waiting on — e.g. Bob, Amazon") },
-                )
-                if (task.waitingForWho.isNotBlank()) {
+                        enabled = waitingInput.isNotBlank(),
+                    ) { Text("Add") }
+                }
+                if (waitingParties.isNotEmpty()) {
                     val days = task.delegatedOn?.let {
                         java.time.temporal.ChronoUnit.DAYS.between(
                             java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate(),
@@ -916,7 +939,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                         color = if (days >= 14L) LocalKairoColors.current.bad else LocalKairoColors.current.warn,
                     )
                 }
-            }
+            } }
 
                     com.todocompanion.app.domain.EditorField.ADVANCED ->
                      DetailSection("Estimate, goals & review", null, !fldFolded) {
