@@ -327,12 +327,15 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
             )
         }
         pendingMove?.let { ids ->
+            // Rank destinations by how the selected tasks resemble earlier ones (else by most-used).
+            val moveSuggestions = remember(ids) { vm.suggestMoveTargets(vm.tasks.value.filter { it.id in ids }.map { it.title }, ids) }
             MoveTargetDialog(
                 folders = allFolders, lists = allLists.filter { !it.archived }, pinnedRefs = settings.pinnedRefs,
                 onPinToggle = { ref -> vm.togglePinnedRef(ref) },
                 onPickList = { listId -> vm.moveMany(ids, listId); pendingMove = null; selected = emptySet() },
                 onPickFolder = { folderId -> vm.moveManyToFolder(ids, folderId); pendingMove = null; selected = emptySet() },
                 onDismiss = { pendingMove = null },
+                suggestedRefs = moveSuggestions,
             )
         }
         pendingSubtaskOf?.let { ids ->
@@ -442,6 +445,10 @@ internal fun MoveTargetDialog(
     onPickList: (String) -> Unit,
     onPickFolder: (String) -> Unit,
     onDismiss: () -> Unit,
+    // Smart ranking (best first) of "folder:<id>"/"list:<id>" refs — shown as a "Suggested" section at
+    // the top when not searching. Computed by every caller via vm.suggestMoveTargets(...), so the surface
+    // behaves the same everywhere it's used.
+    suggestedRefs: List<String> = emptyList(),
 ) {
     data class Target(val ref: String, val name: String, val sub: String?, val isFolder: Boolean, val id: String)
     val folderById = remember(folders) { folders.associateBy { it.id } }
@@ -452,8 +459,11 @@ internal fun MoveTargetDialog(
     var query by remember { mutableStateOf("") }
     val filtered = all.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
     val pinnedSet = pinnedRefs.toSet()
-    val pinned = filtered.filter { it.ref in pinnedSet }
-    val rest = filtered.filter { it.ref !in pinnedSet }
+    // Suggestions surface only in the default (unsearched) view; once you type, plain filtered results win.
+    val suggested = if (query.isBlank()) suggestedRefs.mapNotNull { ref -> all.firstOrNull { it.ref == ref } } else emptyList()
+    val suggestedSet = suggested.map { it.ref }.toSet()
+    val pinned = filtered.filter { it.ref in pinnedSet && it.ref !in suggestedSet }
+    val rest = filtered.filter { it.ref !in pinnedSet && it.ref !in suggestedSet }
 
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 4.dp) {
@@ -467,6 +477,14 @@ internal fun MoveTargetDialog(
                 )
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
+                    if (suggested.isNotEmpty()) {
+                        item { MoveSectionLabel("Suggested") }
+                        items(suggested, key = { it.ref }) { t ->
+                            MoveTargetRow(t.name, t.sub, t.isFolder, pinned = t.ref in pinnedSet,
+                                onClick = { if (t.isFolder) onPickFolder(t.id) else onPickList(t.id) },
+                                onPin = { onPinToggle(t.ref) })
+                        }
+                    }
                     if (pinned.isNotEmpty()) {
                         item { MoveSectionLabel("Pinned") }
                         items(pinned, key = { it.ref }) { t ->
@@ -476,9 +494,9 @@ internal fun MoveTargetDialog(
                         }
                     }
                     if (rest.isNotEmpty()) {
-                        if (pinned.isNotEmpty()) item { MoveSectionLabel("All") }
+                        if (suggested.isNotEmpty() || pinned.isNotEmpty()) item { MoveSectionLabel("All") }
                         items(rest, key = { it.ref }) { t ->
-                            MoveTargetRow(t.name, t.sub, t.isFolder, pinned = false,
+                            MoveTargetRow(t.name, t.sub, t.isFolder, pinned = t.ref in pinnedSet,
                                 onClick = { if (t.isFolder) onPickFolder(t.id) else onPickList(t.id) },
                                 onPin = { onPinToggle(t.ref) })
                         }

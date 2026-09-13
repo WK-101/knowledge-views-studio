@@ -671,7 +671,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             // Folder-direct tasks (empty listId) show the folder they live in until moved to a list.
                             val where = task.folderId?.let { fid -> folders.firstOrNull { it.id == fid }?.name?.let { "📁 $it" } }
                                 ?: lists.firstOrNull { it.id == task.listId }?.name ?: "Inbox"
-                            PropRow(Icons.AutoMirrored.Filled.FormatListBulleted, "List", where) { listMenu = true }
+                            PropRow(Icons.AutoMirrored.Filled.FormatListBulleted, "List or folder", where) { listMenu = true }
                         }
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
                     }
@@ -1097,13 +1097,19 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
         onSetDials = { imp, urg -> update { it.copy(importance = imp, urgency = urg) } },
         dialsInitiallyOpen = settings.advancedPriority,
     )
-    if (listMenu && task != null) MoveTargetDialog(
-        folders = folders, lists = lists.filter { !it.archived },
-        pinnedRefs = settings.pinnedRefs, onPinToggle = { vm.togglePinnedRef(it) },
-        onPickList = { lid -> update { it.copy(listId = lid, folderId = null) }; listMenu = false },
-        onPickFolder = { fid -> update { it.copy(listId = "", folderId = fid) }; listMenu = false },
-        onDismiss = { listMenu = false },
-    )
+    if (listMenu && task != null) {
+        // Smart "Suggested" section: where do tasks that look like this one usually live? (falls back to
+        // most-used list/folder). Excludes this task so it doesn't learn from itself.
+        val moveSuggestions = remember(task.id, task.title) { vm.suggestMoveTargets(listOf(task.title), setOf(task.id)) }
+        MoveTargetDialog(
+            folders = folders, lists = lists.filter { !it.archived },
+            pinnedRefs = settings.pinnedRefs, onPinToggle = { vm.togglePinnedRef(it) },
+            onPickList = { lid -> update { it.copy(listId = lid, folderId = null) }; listMenu = false },
+            onPickFolder = { fid -> update { it.copy(listId = "", folderId = fid) }; listMenu = false },
+            onDismiss = { listMenu = false },
+            suggestedRefs = moveSuggestions,
+        )
+    }
     editActivity?.let { act ->
         ActivityEditDialog(act, onDismiss = { editActivity = null },
             onSave = { updated -> vm.updateTimeActivity(updated); editActivity = null },

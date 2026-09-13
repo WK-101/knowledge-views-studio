@@ -501,13 +501,19 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
         onPick = { priority = it; showPrio = false },
         onDismiss = { showPrio = false },
     )
-    if (listPicker) MoveTargetDialog(
-        folders = folders, lists = lists.filter { !it.archived },
-        pinnedRefs = settings.pinnedRefs, onPinToggle = { vm.togglePinnedRef(it) },
-        onPickList = { lid -> listId = lid; folderId = null; listPicker = false },
-        onPickFolder = { fid -> folderId = fid; listId = null; listPicker = false },
-        onDismiss = { listPicker = false },
-    )
+    if (listPicker) {
+        // Suggest a destination from what you're typing — a "Buy…" line surfaces the list your earlier
+        // shopping tasks went to (falls back to your most-used list/folder when nothing looks similar).
+        val moveSuggestions = remember(listPicker, text) { vm.suggestMoveTargets(listOf(text)) }
+        MoveTargetDialog(
+            folders = folders, lists = lists.filter { !it.archived },
+            pinnedRefs = settings.pinnedRefs, onPinToggle = { vm.togglePinnedRef(it) },
+            onPickList = { lid -> listId = lid; folderId = null; listPicker = false },
+            onPickFolder = { fid -> folderId = fid; listId = null; listPicker = false },
+            onDismiss = { listPicker = false },
+            suggestedRefs = moveSuggestions,
+        )
+    }
     // N2 — bulk-paste review: tick which pasted lines become tasks before creating them (with one Undo).
     if (bulkConfirm) {
         val bulkLines = remember(text) { text.split('\n').map { it.trim() }.filter { it.isNotBlank() } }

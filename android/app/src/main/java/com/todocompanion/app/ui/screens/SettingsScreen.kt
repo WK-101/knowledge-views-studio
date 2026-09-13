@@ -954,7 +954,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         }
 
         SettingsSectionHeader("Editor & notifications",
-            "Task editor fields tier always more hidden reorder reflection estimate energy flag attachments",
+            "Task editor fields tier always more hidden reorder reflection estimate energy flag attachments keep parsed words title search open keyboard auto focus",
             "Sounds sound tone chime beep alarm focus timer stopwatch reminder ringtone audio start completion cue",
             "Reminders notification daily summary evening review morning brief exact alarm battery optimization intensity gentle persistent insistent snooze duration escalate",
         )
@@ -1030,6 +1030,11 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             // P3 · honest capture — the quick-add box recognises dates, #tags, priorities, etc. as you type.
             Toggle("Keep the words I type in the task title", s.keepParsedText) { vm.saveSettings(s.copy(keepParsedText = it)) }
             Text("Off strips the recognised words for a clean title (the date/priority still apply). On keeps them in the title. Either way, a chip row lets you review and undo each one as you type.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+            androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            // Whole-app Search: raise the keyboard on open so you can type immediately (on by default).
+            Toggle("Open the keyboard when Search opens", s.searchAutoKeyboard) { vm.saveSettings(s.copy(searchAutoKeyboard = it)) }
+            Text("On focuses the whole-app search box and raises the keyboard the moment you open Search. Off opens Search so you can browse the filters and results first, then tap to type.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
         }
 

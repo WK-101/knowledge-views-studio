@@ -51,11 +51,13 @@ private enum class SF(val label: String) { ALL("All"), TODAY("Today"), OVERDUE("
 fun SearchScreen(
     vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, modifier: Modifier = Modifier,
     onOpenHabit: (String) -> Unit = {}, onOpenEvent: (String) -> Unit = {}, onOpenOccasion: (String) -> Unit = {},
+    onOpenNote: (String) -> Unit = {},
 ) {
     val tasks by vm.tasks.collectAsState()
     val habits by vm.habits.collectAsState()
     val eventsState by vm.events.collectAsState()
     val occasionsState by vm.countdowns.collectAsState()
+    val notesState by vm.notes.collectAsState()
     // R54 — FTS-accelerated for large histories, instant in-memory for small sets (see vm.searchAsync).
     val results by androidx.compose.runtime.produceState(initialValue = emptyList<com.todocompanion.app.data.entity.TaskEntity>(), query, tasks) {
         value = vm.searchAsync(query)
@@ -65,6 +67,14 @@ fun SearchScreen(
     // R57 — events & occasions are searchable too, so "Search everything" truly covers the calendar.
     val eventResults = remember(query, eventsState) { vm.searchEvents(query) }
     val occasionResults = remember(query, occasionsState) { vm.searchOccasions(query) }
+    // NOTES — the whole-app search now reaches note titles AND bodies via the on-device note_fts index,
+    // so "Search everything" is honest about notes. Driven by vm.searchNotes (async FTS) → noteSearchIds.
+    androidx.compose.runtime.LaunchedEffect(query) { vm.searchNotes(query) }
+    val noteIds by vm.noteSearchIds.collectAsState()
+    val noteResults = remember(noteIds, notesState) {
+        val byId = notesState.associateBy { it.id }   // active-workspace, non-trashed notes only
+        noteIds.mapNotNull { byId[it] }
+    }
     // R56 — attachment names are searchable; map taskId → the matched file name for the "📎 …" hint.
     val attachHits = remember(query) { vm.searchAttachmentNames(query).associate { it.taskId to it.fileName } }
     val lists by vm.lists.collectAsState()
@@ -103,11 +113,12 @@ fun SearchScreen(
         val showHabits = filter == SF.ALL && habitResults.isNotEmpty()
         val showEvents = filter == SF.ALL && eventResults.isNotEmpty()
         val showOccasions = filter == SF.ALL && occasionResults.isNotEmpty()
+        val showNotes = filter == SF.ALL && noteResults.isNotEmpty()
         when {
-            query.isBlank() -> SearchHint("Search everything", "Find any task, habit, event, occasion, note, #tag, @context or 📎 attachment name — completed, someday and archived included; tap Trashed to search the bin")
-            shown.isEmpty() && !showHabits && !showEvents && !showOccasions -> SearchHint("No matches", "Nothing found for “$query”", off = true)
+            query.isBlank() -> SearchHint("Search everything", "Find any task, habit, event, occasion, note (title & content), #tag, @context or 📎 attachment name — completed, someday and archived included; tap Trashed to search the bin")
+            shown.isEmpty() && !showHabits && !showEvents && !showOccasions && !showNotes -> SearchHint("No matches", "Nothing found for “$query”", off = true)
             else -> {
-                val totalN = shown.size + (if (showHabits) habitResults.size else 0) + (if (showEvents) eventResults.size else 0) + (if (showOccasions) occasionResults.size else 0)
+                val totalN = shown.size + (if (showHabits) habitResults.size else 0) + (if (showEvents) eventResults.size else 0) + (if (showOccasions) occasionResults.size else 0) + (if (showNotes) noteResults.size else 0)
                 Text("$totalN result${if (totalN == 1) "" else "s"}",
                     Modifier.padding(start = 18.dp, top = 2.dp, bottom = 4.dp),
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -225,6 +236,30 @@ fun SearchScreen(
                                         val typeLabel = if (o.personName.isNotBlank() && o.title.isNotBlank() && !o.title.equals(o.personName, true)) o.title
                                             else o.notes.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty().ifBlank { "Occasion" }
                                         Text(typeLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // NOTES section — matched on title or body (note_fts), tap opens the note editor.
+                    if (showNotes) {
+                        item(key = "notes-header") {
+                            Text("NOTES", Modifier.padding(start = 18.dp, top = 10.dp, bottom = 2.dp),
+                                style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                        }
+                        items(noteResults, key = { "n:" + it.id }) { n ->
+                            Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp), shape = RoundedCornerShape(12.dp), color = appCardColor()) {
+                                Row(Modifier.fillMaxWidth().clickable { onOpenNote(n.id) }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Box(Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background((n.colorArgb?.let { androidx.compose.ui.graphics.Color(it) } ?: MaterialTheme.colorScheme.primary).copy(alpha = .16f)), contentAlignment = Alignment.Center) {
+                                        Text(n.coverEmoji?.ifBlank { null } ?: "📝", style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(n.title.ifBlank { "(untitled note)" }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
+                                        // A short body excerpt so a body-only match shows why the note surfaced.
+                                        val snippet = n.body.lineSequence().map { it.trim() }.firstOrNull { it.isNotBlank() }.orEmpty()
+                                        if (snippet.isNotBlank()) Text(snippet, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Note" + (if (n.pinned) " · pinned" else "") + (if (n.archived) " · archived" else ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }

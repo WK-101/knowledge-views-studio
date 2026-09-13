@@ -10,6 +10,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -190,6 +192,10 @@ fun NoteEditorScreen(
     var showReading by remember(noteId) { mutableStateOf(false) }
     // L12 — split preview: keep editing on top while a live rich render (math/diagrams/tables) tracks below.
     var showSplit by remember(noteId) { mutableStateOf(false) }
+    // While the soft keyboard is up we collapse the split to a single full-height editor — otherwise the
+    // top edit pane shrinks to a sliver and the bottom preview hides behind the keyboard. Editing then
+    // looks exactly like the normal single view; the split returns the instant the keyboard closes. The
+    // toggle (showSplit) itself is preserved, so it's remembered while you type.
     // L14 — handwriting/ink pad, opened from the editor's insert-block sheet.
     var showInk by remember(noteId) { mutableStateOf(false) }
     // Wave 2 — Evergreen review cadence + Writing sprint state.
@@ -477,7 +483,8 @@ fun NoteEditorScreen(
             }
             // L12 — split preview: the editor keeps the top half, a live rich render tracks below (debounced
             // via [splitBody]), so tables/math/diagrams are visible while you type — no full-screen swap.
-            if (showSplit) {
+            // Collapse to a single full-height editor whenever the keyboard is up (see note above).
+            if (showSplit && !WindowInsets.isImeVisible) {
                 Column(Modifier.fillMaxWidth().weight(1f)) {
                     Box(Modifier.fillMaxWidth().weight(1f)) {
                         NoteBodyEditor(

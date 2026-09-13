@@ -2150,6 +2150,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun moveMany(ids: Set<String>, listId: String) = viewModelScope.launch { ids.forEach { repo.moveToList(it, listId) } }
     fun moveManyToFolder(ids: Set<String>, folderId: String) = viewModelScope.launch { ids.forEach { repo.moveToFolder(it, folderId) } }
+    /** Smart "Move to" suggestions: rank list/folder targets by how the item(s) being filed resemble
+     *  earlier tasks (by title), falling back to how heavily each destination is used. Shared by every
+     *  place the move picker is opened (task editor, bulk move, quick-add) so ranking is uniform. */
+    fun suggestMoveTargets(titles: List<String>, excludeTaskIds: Set<String> = emptySet(), max: Int = 3): List<String> =
+        com.todocompanion.app.domain.MoveSuggester.rank(
+            queryTitles = titles.filter { it.isNotBlank() },
+            tasks = tasks.value, folders = folders.value, lists = lists.value,
+            excludeTaskIds = excludeTaskIds, max = max)
     fun moveTaskToFolder(t: TaskEntity, folderId: String) = viewModelScope.launch { repo.moveToFolder(t.id, folderId) }
     fun trash(t: TaskEntity) = viewModelScope.launch {
         repo.setTrashed(t.id, true, settings.value.activeWorkspaceId)

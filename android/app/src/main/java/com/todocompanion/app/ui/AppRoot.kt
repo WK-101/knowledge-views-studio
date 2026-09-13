@@ -111,6 +111,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -749,16 +751,22 @@ fun AppRoot(
                         expandedHeight = 52.dp,   // denser than the 64dp default, TickTick-like
                         title = {
                             if (tab == Tab.SEARCH) {
+                                // Optionally focus the field + raise the keyboard the moment Search opens, so
+                                // you can type straight away (Settings ▸ "Open keyboard when Search opens").
+                                val searchFocus = remember { FocusRequester() }
+                                if (settings.searchAutoKeyboard) {
+                                    androidx.compose.runtime.LaunchedEffect(Unit) { runCatching { searchFocus.requestFocus() } }
+                                }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Filled.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                                     Spacer(Modifier.width(10.dp))
                                     Box(Modifier.weight(1f)) {
-                                        if (searchQuery.isEmpty()) Text("Search tasks, habits, #tags, @contexts…", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+                                        if (searchQuery.isEmpty()) Text("Search tasks, notes, habits, #tags, @contexts…", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
                                         androidx.compose.foundation.text.BasicTextField(
                                             value = searchQuery, onValueChange = { searchQuery = it }, singleLine = true,
                                             textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                                             cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
-                                            modifier = Modifier.fillMaxWidth(),
+                                            modifier = Modifier.fillMaxWidth().focusRequester(searchFocus),
                                         )
                                     }
                                 }
@@ -1007,7 +1015,8 @@ fun AppRoot(
                             Tab.SEARCH -> SearchScreen(vm, ::openTask, searchQuery,
                                 onOpenHabit = { hid -> vm.habitDetailId.value = hid; tab = Tab.HABITS },
                                 onOpenEvent = { eid -> calEventAction = "open:$eid"; tab = Tab.CALENDAR },
-                                onOpenOccasion = openOccasion)
+                                onOpenOccasion = openOccasion,
+                                onOpenNote = ::openNote)
                             Tab.SETTINGS -> SettingsScreen(vm)
           Tab.NOTES -> com.todocompanion.app.ui.screens.NotesScreen(vm, onOpenNote = ::openNote, query = notesQuery, onQueryChange = { notesQuery = it }, searchOpen = notesSearchOpen, onOpenGraph = { showNotesGraph = true }, onOpenGarden = { showNotesGarden = true }, onOpenRecall = { showRecall = true })
                             Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it; if (settings.calendarRememberLast) vm.saveSettings(settings.copy(calendarDefaultMode = it)) },
