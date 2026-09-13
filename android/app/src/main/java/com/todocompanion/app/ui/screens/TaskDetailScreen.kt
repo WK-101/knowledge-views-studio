@@ -252,8 +252,13 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     // bytes are already committed, Back needs no discard prompt for an attachment-only change.
     var attachBump by remember(taskId) { mutableIntStateOf(0) }
     var pendingDeleteAtt by remember(taskId) { mutableStateOf<com.todocompanion.app.data.entity.AttachmentMeta?>(null) }
+    // Dependencies ("Blocked by") also write to the DB the instant a blocker is picked (like attachments,
+    // not staged in the draft), so adding one never moved the draft and the Save check stayed grey — the
+    // change reads as "not saved." depsBump lights the Save button so adding/removing a blocker (or changing
+    // its mode/delay) is acknowledged; the row is already committed so Back needs no discard prompt.
+    var depsBump by remember(taskId) { mutableIntStateOf(0) }
     val contentDirty = (draft != null && savedSnapshot != null && draft != savedSnapshot) || tagsDirty || ctxDirty
-    val dirty = contentDirty || attachBump > 0
+    val dirty = contentDirty || attachBump > 0 || depsBump > 0
 
     fun update(block: (TaskEntity) -> TaskEntity) {
         val d = draft ?: return; draft = block(d)
@@ -262,7 +267,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
         draft?.let { vm.save(it) }
         if (draftTags != null) vm.setTags(taskId, (draftTags ?: emptySet()).toList())
         if (draftCtx != null) vm.setContexts(taskId, (draftCtx ?: emptySet()).toList())
-        savedSnapshot = draft; draftTags = null; draftCtx = null; attachBump = 0; onBack()
+        savedSnapshot = draft; draftTags = null; draftCtx = null; attachBump = 0; depsBump = 0; onBack()
     }
     // Only real, still-unsaved content edits warrant a discard prompt; attachments are already on disk.
     fun attemptBack() { if (contentDirty) confirmDiscard = true else onBack() }
@@ -858,12 +863,12 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             tint = if (pred?.completed == true) LocalKairoColors.current.good else MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(pred?.title ?: "(deleted task)", Modifier.weight(1f), maxLines = 1)
-                        IconButton(onClick = { vm.removeDependency(dep) }) { Icon(Icons.Filled.Close, "Remove", modifier = Modifier.size(18.dp)) }
+                        IconButton(onClick = { vm.removeDependency(dep); depsBump++ }) { Icon(Icons.Filled.Close, "Remove", modifier = Modifier.size(18.dp)) }
                     }
                 }
                 if (myDeps.size >= 2) {
                     val mode = myDeps.first().mode
-                    OptionChips(listOf("AND", "OR"), mode, { vm.setDependencyMode(task.id, it) }, modifier = Modifier.padding(top = 2.dp), spacing = 6) {
+                    OptionChips(listOf("AND", "OR"), mode, { vm.setDependencyMode(task.id, it); depsBump++ }, modifier = Modifier.padding(top = 2.dp), spacing = 6) {
                         if (it == "AND") "All must finish" else "Any one unblocks"
                     }
                 }
@@ -871,7 +876,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     val delay = myDeps.first().delayDays
                     Spacer(Modifier.height(4.dp))
                     Text("Start after", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OptionChips(listOf(0, 1, 3, 7), delay, { vm.setDependencyDelay(task.id, it) }, spacing = 6) {
+                    OptionChips(listOf(0, 1, 3, 7), delay, { vm.setDependencyDelay(task.id, it); depsBump++ }, spacing = 6) {
                         when (it) { 0 -> "No delay"; 1 -> "1 day"; 3 -> "3 days"; else -> "1 week" }
                     }
                 }
@@ -1121,7 +1126,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
         val existing = allDeps.filter { it.taskId == task.id }.map { it.dependsOnTaskId }.toSet()
         val candidates = allTasks.filter { it.id != task.id && it.id !in existing && !it.trashed && it.parentId != task.id }
         BlockerPickerDialog(candidates, onDismiss = { showBlockPicker = false }) { picked ->
-            picked.forEach { vm.addDependency(task.id, it) }; showBlockPicker = false
+            picked.forEach { vm.addDependency(task.id, it) }; depsBump++; showBlockPicker = false
         }
     }
     if (saveTemplate && task != null) {

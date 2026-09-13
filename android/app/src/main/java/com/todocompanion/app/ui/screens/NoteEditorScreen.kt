@@ -481,23 +481,25 @@ fun NoteEditorScreen(
                         onOpenThread = { draft?.let { n -> vm.closeNoteEditor(n) }; onOpenNote(pos.threadId) })
                 }
             }
-            // L12 — split preview: the editor keeps the top half, a live rich render tracks below (debounced
-            // via [splitBody]), so tables/math/diagrams are visible while you type — no full-screen swap.
-            // Collapse to a single full-height editor whenever the keyboard is up (see note above).
-            if (showSplit && !WindowInsets.isImeVisible) {
-                Column(Modifier.fillMaxWidth().weight(1f)) {
-                    Box(Modifier.fillMaxWidth().weight(1f)) {
-                        NoteBodyEditor(
-                            value = d.body, onValueChange = { draft = d.copy(body = it) },
-                            modifier = Modifier.fillMaxSize(),
-                            readOnly = d.readonly,
-                            noteTitles = noteTitles,
-                            tagNames = tagNames,
-                            liveStyle = settings.notesLiveStyle, type = noteType,
-                            onFontScaleChange = { vm.setNotesFontScale(it) },
-                            onInk = { showInk = true },
-                        )
-                    }
+            // L12 — split preview. ONE stable editor pane (never destroyed/recreated), with the live rich
+            // render appended BELOW it only while split is on and the keyboard is down. Keeping the editor a
+            // single call site is what fixes the earlier bugs — swapping between a "split" and a "single"
+            // editor dropped the editor's focus and text and made tapping it flash the keyboard in a loop.
+            // When the keyboard comes up the preview simply disappears and the editor grows to full height.
+            Column(Modifier.fillMaxWidth().weight(1f)) {
+                Box(Modifier.fillMaxWidth().weight(1f)) {
+                    NoteBodyEditor(
+                        value = d.body, onValueChange = { draft = d.copy(body = it) },
+                        modifier = Modifier.fillMaxSize(),
+                        readOnly = d.readonly,
+                        noteTitles = noteTitles,
+                        tagNames = tagNames,
+                        liveStyle = settings.notesLiveStyle, type = noteType,
+                        onFontScaleChange = { vm.setNotesFontScale(it) },
+                        onInk = { showInk = true },
+                    )
+                }
+                if (showSplit && !WindowInsets.isImeVisible) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     val splitImages by androidx.compose.runtime.produceState(emptyMap<String, String>(), noteId, splitBody) {
                         value = runCatching { vm.noteImageMap(noteId) }.getOrDefault(emptyMap())
@@ -518,17 +520,6 @@ fun NoteEditorScreen(
                         }
                     }
                 }
-            } else Box(Modifier.fillMaxWidth().weight(1f)) {
-                NoteBodyEditor(
-                    value = d.body, onValueChange = { draft = d.copy(body = it) },
-                    modifier = Modifier.fillMaxSize(),
-                    readOnly = d.readonly,
-                    noteTitles = noteTitles,
-                    tagNames = tagNames,
-                    liveStyle = settings.notesLiveStyle, type = noteType,
-                    onFontScaleChange = { vm.setNotesFontScale(it) },
-                    onInk = { showInk = true },
-                )
             }
             // Phase 3 — [[wiki-links]] out (tap to open, or create if new) and backlinks in ("Linked from").
             // Title-based like Obsidian; backlinks computed on the fly from other notes' bodies. Both are

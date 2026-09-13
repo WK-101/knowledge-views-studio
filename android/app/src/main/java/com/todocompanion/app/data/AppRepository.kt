@@ -78,6 +78,7 @@ class AppRepository(private val db: AppDatabase) {
         runCatching {
             val sdb = db.openHelper.writableDatabase
             runCatching { rebuildTaskFtsBlocking(sdb) }   // R54 — recover a stale/missing search index too
+            runCatching { rebuildNoteFtsBlocking(sdb) }   // …including the note body index, so notes search stays fast
             runCatching { sdb.execSQL("PRAGMA wal_checkpoint(TRUNCATE)") }
             runCatching { sdb.execSQL("VACUUM") }
             runCatching { sdb.execSQL("PRAGMA optimize") }

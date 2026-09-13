@@ -1141,6 +1141,9 @@ fun AppRoot(
                     OmegaCommand.Action.RECAP_WEEK -> { val ws = com.todocompanion.app.domain.weekStartOf(now, settings.weekStart); recapRange = Triple(ws.toEpochDay(), td, "This week") }
                     OmegaCommand.Action.RECAP_LAST_WEEK -> { val ws = com.todocompanion.app.domain.weekStartOf(now, settings.weekStart); recapRange = Triple(ws.minusWeeks(1).toEpochDay(), ws.minusDays(1).toEpochDay(), "Last week") }
                     OmegaCommand.Action.RECAP_MONTH -> recapRange = Triple(now.withDayOfMonth(1).toEpochDay(), td, "This month")
+                    OmegaCommand.Action.NEW_NOTE -> vm.createNote { id -> editingNote = id }
+                    OmegaCommand.Action.NEW_TASK -> showQuickAdd = true
+                    OmegaCommand.Action.STOP_TIMER -> { vm.stopTimeTracking(); android.widget.Toast.makeText(context, "Timer stopped", android.widget.Toast.LENGTH_SHORT).show() }
                 }
                 is OmegaCommand.Command.Goto -> {
                     val t = cmd.target.trim()
@@ -1154,20 +1157,34 @@ fun AppRoot(
                     val tabByName = mapOf(
                         "tasks" to Tab.TASKS, "today" to Tab.TASKS, "calendar" to Tab.CALENDAR, "matrix" to Tab.MATRIX,
                         "timeline" to Tab.TIMELINE, "habits" to Tab.HABITS, "time" to Tab.TIME, "focus" to Tab.FOCUS,
-                        "search" to Tab.SEARCH, "settings" to Tab.SETTINGS,
+                        "notes" to Tab.NOTES, "search" to Tab.SEARCH, "settings" to Tab.SETTINGS,
                     )
                     val smartByName = mapOf(
                         "do next" to SmartKind.DO_NEXT, "donext" to SmartKind.DO_NEXT, "next 7" to SmartKind.NEXT7,
                         "next7" to SmartKind.NEXT7, "next 7 days" to SmartKind.NEXT7, "today list" to SmartKind.TODAY,
-                        "inbox" to SmartKind.INBOX, "scheduled" to SmartKind.SCHEDULED, "flagged" to SmartKind.FLAGGED,
-                        "completed" to SmartKind.COMPLETED, "done list" to SmartKind.COMPLETED, "trash" to SmartKind.TRASH,
-                        "goals" to SmartKind.GOALS, "waiting" to SmartKind.WAITING,
+                        "tomorrow" to SmartKind.TOMORROW, "inbox" to SmartKind.INBOX, "scheduled" to SmartKind.SCHEDULED,
+                        "flagged" to SmartKind.FLAGGED, "completed" to SmartKind.COMPLETED, "done list" to SmartKind.COMPLETED,
+                        "trash" to SmartKind.TRASH, "goals" to SmartKind.GOALS, "waiting" to SmartKind.WAITING,
+                        "waiting on" to SmartKind.WAITING, "needs attention" to SmartKind.NEEDS_ATTENTION,
+                        "attention" to SmartKind.NEEDS_ATTENTION, "someday" to SmartKind.SOMEDAY,
+                        "all" to SmartKind.ALL, "all tasks" to SmartKind.ALL, "won't do" to SmartKind.WONT_DO,
+                        "wont do" to SmartKind.WONT_DO,
                     )
                     // R28 #5 — every hub/overlay screen is reachable from the palette, not just the bottom tabs.
                     val overlayByName: Map<String, () -> Unit> = mapOf(
                         "the record" to { showDone = true }, "record" to { showDone = true }, "done" to { showDone = true },
                         "countdowns" to { showCountdowns = true }, "countdown" to { showCountdowns = true },
+                        "occasions" to { showCountdowns = true }, "occasion" to { showCountdowns = true }, "birthdays" to { showCountdowns = true },
                         "attachments" to { showAttachments = true }, "files" to { showAttachments = true },
+                        // Hubs added since the palette last learned them, so every major surface is reachable by name.
+                        "routines" to { showRoutines = true }, "routine" to { showRoutines = true },
+                        "goals hub" to { showGoals = true }, "my goals" to { showGoals = true }, "goal" to { showGoals = true },
+                        "life systems" to { vm.lifeSystemsRoute.value = "hub" }, "systems" to { vm.lifeSystemsRoute.value = "hub" }, "life" to { vm.lifeSystemsRoute.value = "hub" },
+                        "notes graph" to { showNotesGraph = true }, "graph" to { showNotesGraph = true },
+                        "notes garden" to { showNotesGarden = true }, "garden" to { showNotesGarden = true }, "review notes" to { showNotesGarden = true },
+                        "recall" to { showRecall = true }, "active recall" to { showRecall = true },
+                        "new note" to { vm.createNote { id -> editingNote = id } }, "add note" to { vm.createNote { id -> editingNote = id } },
+                        "new task" to { showQuickAdd = true }, "quick add" to { showQuickAdd = true }, "add task" to { showQuickAdd = true },
                         "momentum" to { showMomentum = true }, "statistics" to { showStats = true }, "stats" to { showStats = true },
                         "weekly review" to { dayReviewStartClose = false; dayReviewStartWeekly = true; showDayReview = java.time.LocalDate.now().toEpochDay() },
                         "weekly cleanup" to { showReview = true }, "cleanup" to { showReview = true }, "review" to { showReview = true },

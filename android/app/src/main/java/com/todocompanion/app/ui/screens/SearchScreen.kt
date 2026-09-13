@@ -16,13 +16,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Segment
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.outlined.SearchOff
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -35,16 +40,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.todocompanion.app.data.entity.FolderEntity
+import com.todocompanion.app.data.entity.ListEntity
+import com.todocompanion.app.data.entity.TaskEntity
+import com.todocompanion.app.domain.priority.PriorityLevel
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.DueChip
 import com.todocompanion.app.ui.components.appCardColor
+import com.todocompanion.app.ui.theme.LocalKairoColors
 
-/** Search result filters. */
+/** Search result filters (task-scope; non-task results appear only under All). */
 private enum class SF(val label: String) { ALL("All"), TODAY("Today"), OVERDUE("Overdue"), FLAGGED("Flagged"), HIGH("High priority"), DONE("Completed"), TRASH("Trashed") }
+
+/** Sort order for the task results. */
+private enum class SortBy(val label: String) { RELEVANCE("Relevance"), TITLE("Title A–Z"), DUE("Due date"), PRIORITY("Priority"), UPDATED("Recently updated") }
+
+/** How the task results are grouped. */
+private enum class GroupBy(val label: String) { TYPE("By type"), LIST("By list"), PRIORITY("By priority"), NONE("No groups") }
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -59,7 +77,7 @@ fun SearchScreen(
     val occasionsState by vm.countdowns.collectAsState()
     val notesState by vm.notes.collectAsState()
     // R54 — FTS-accelerated for large histories, instant in-memory for small sets (see vm.searchAsync).
-    val results by androidx.compose.runtime.produceState(initialValue = emptyList<com.todocompanion.app.data.entity.TaskEntity>(), query, tasks) {
+    val results by androidx.compose.runtime.produceState(initialValue = emptyList<TaskEntity>(), query, tasks) {
         value = vm.searchAsync(query)
     }
     // E1: habits are searchable too — shown only under the "All" filter (task filters don't apply).
@@ -80,10 +98,13 @@ fun SearchScreen(
     val lists by vm.lists.collectAsState()
     val folders by vm.folders.collectAsState()
     var filter by remember { mutableStateOf(SF.ALL) }
+    var sortBy by remember { mutableStateOf(SortBy.RELEVANCE) }
+    var groupBy by remember { mutableStateOf(GroupBy.TYPE) }
     val zone = java.time.ZoneId.systemDefault()
-    val shown = remember(results, filter) {
+    // Apply the task-scope filter, then the chosen sort. Grouping happens at render time.
+    val shown = remember(results, filter, sortBy) {
         val today = java.time.LocalDate.now(); val nowMs = System.currentTimeMillis()
-        results.filter { t ->
+        val filtered = results.filter { t ->
             // Trashed tasks appear ONLY under the Trashed filter — every other filter hides them so the
             // default results stay clean, while nothing is unfindable (R56).
             when (filter) {
@@ -92,22 +113,31 @@ fun SearchScreen(
                 SF.TODAY -> !t.trashed && t.dueDate?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate() == today } == true
                 SF.OVERDUE -> !t.trashed && t.dueDate?.let { it < nowMs && !t.completed } == true
                 SF.FLAGGED -> !t.trashed && t.flagId != null
-                SF.HIGH -> !t.trashed && com.todocompanion.app.domain.priority.PriorityLevel.from(t.importance, t.urgency) == com.todocompanion.app.domain.priority.PriorityLevel.HIGH
+                SF.HIGH -> !t.trashed && PriorityLevel.from(t.importance, t.urgency) == PriorityLevel.HIGH
                 SF.DONE -> !t.trashed && t.completed
             }
+        }
+        when (sortBy) {
+            SortBy.RELEVANCE -> filtered
+            SortBy.TITLE -> filtered.sortedBy { it.title.trim().lowercase() }
+            SortBy.DUE -> filtered.sortedWith(compareBy(nullsLast()) { it.dueDate })
+            SortBy.PRIORITY -> filtered.sortedByDescending { PriorityLevel.from(it.importance, it.urgency).ordinal }
+            SortBy.UPDATED -> filtered.sortedByDescending { it.updatedAt }
         }
     }
 
     Column(modifier.fillMaxSize()) {
-        // The search field lives in the app top bar; this screen renders filters + results.
+        // The search field lives in the app top bar; this control row (Filter · Sort · Group) sits at the top
+        // of the results — one tidy nav row of dropdowns instead of a sprawling chip wrap.
         if (query.isNotBlank()) {
-            androidx.compose.foundation.layout.FlowRow(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                SF.entries.forEach { f ->
-                    androidx.compose.material3.FilterChip(selected = filter == f, onClick = { filter = f }, label = { Text(f.label) })
-                }
+                DropControl(Icons.Filled.FilterList, filter, SF.entries, { it.label }) { filter = it }
+                DropControl(Icons.Filled.Sort, sortBy, SortBy.entries, { it.label }) { sortBy = it }
+                DropControl(Icons.Filled.Segment, groupBy, GroupBy.entries, { it.label }) { groupBy = it }
             }
         }
         val showHabits = filter == SF.ALL && habitResults.isNotEmpty()
@@ -124,10 +154,7 @@ fun SearchScreen(
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
                     if (showHabits) {
-                        item(key = "habits-header") {
-                            Text("HABITS", Modifier.padding(start = 18.dp, top = 4.dp, bottom = 2.dp),
-                                style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                        }
+                        item(key = "habits-header") { SectionHeader("HABITS") }
                         items(habitResults, key = { "h:" + it.id }) { h ->
                             Surface(
                                 Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
@@ -137,7 +164,7 @@ fun SearchScreen(
                                     Modifier.fillMaxWidth().clickable { onOpenHabit(h.id) }.padding(horizontal = 12.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Box(Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background((h.colorArgb?.let { androidx.compose.ui.graphics.Color(it) } ?: MaterialTheme.colorScheme.primary).copy(alpha = .16f)), contentAlignment = Alignment.Center) {
+                                    Box(Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background((h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary).copy(alpha = .16f)), contentAlignment = Alignment.Center) {
                                         Text(h.emoji ?: "🔁", style = MaterialTheme.typography.bodyMedium)
                                     }
                                     Spacer(Modifier.width(10.dp))
@@ -150,58 +177,48 @@ fun SearchScreen(
                                 }
                             }
                         }
-                        if (shown.isNotEmpty()) item(key = "tasks-header") {
-                            Text("TASKS", Modifier.padding(start = 18.dp, top = 10.dp, bottom = 2.dp),
-                                style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                        }
                     }
-                    items(shown, key = { it.id }) { task ->
-                        val level = com.todocompanion.app.domain.priority.PriorityLevel.from(task.importance, task.urgency)
-                        Surface(
-                            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            color = appCardColor(),
-                        ) {
-                            Row(
-                                Modifier.fillMaxWidth().clickable { onOpenTask(task.id) }.padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                com.todocompanion.app.ui.components.Dot(
-                                    if (level == com.todocompanion.app.domain.priority.PriorityLevel.NONE) MaterialTheme.colorScheme.outlineVariant
-                                    else com.todocompanion.app.ui.components.priorityColor(level), 8,
-                                )
-                                Spacer(Modifier.width(10.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(task.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
-                                    if (task.note.isNotBlank()) Text(task.note.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    // R56 — when the match came from an attachment name, show which file, so an
-                                    // expert instantly sees why a task surfaced.
-                                    attachHits[task.id]?.let { fn ->
-                                        Text("📎 $fn", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                                    }
-                                    // Location: the task's list, or — for a task captured straight into a
-                                    // folder (empty listId) — the folder name, rather than a wrong "Inbox".
-                                    val loc = lists.firstOrNull { it.id == task.listId }?.name
-                                        ?: task.folderId?.let { fid -> folders.firstOrNull { it.id == fid }?.let { "📁 " + it.name } }
-                                        ?: "Inbox"
-                                    val state = when {
-                                        task.trashed -> " · 🗑 Trash"
-                                        task.completed -> " · done"
-                                        task.someday -> " · someday"
-                                        else -> ""
-                                    }
-                                    Text(loc + state, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // TASKS — grouped per the Group control. A single row composable (TaskResultRow) is reused
+                    // for every layout so completed styling stays identical everywhere.
+                    if (shown.isNotEmpty()) {
+                        when (groupBy) {
+                            GroupBy.TYPE, GroupBy.NONE -> {
+                                // "By type" keeps a TASKS header when other types are also on screen; "No groups"
+                                // never prints a header (flat stream of results).
+                                if (groupBy == GroupBy.TYPE && showHabits) item(key = "tasks-header") { SectionHeader("TASKS", top = 10.dp) }
+                                items(shown, key = { it.id }) { task ->
+                                    TaskResultRow(task, lists, folders, attachHits[task.id], zone) { onOpenTask(task.id) }
                                 }
-                                task.dueDate?.let { Spacer(Modifier.width(6.dp)); DueChip(it) }
+                            }
+                            GroupBy.LIST -> {
+                                val groups = shown.groupBy { t ->
+                                    lists.firstOrNull { it.id == t.listId }?.name
+                                        ?: t.folderId?.let { fid -> folders.firstOrNull { it.id == fid }?.let { "📁 " + it.name } }
+                                        ?: "Inbox"
+                                }.toSortedMap()
+                                groups.forEach { (name, tasksInGroup) ->
+                                    item(key = "lg:$name") { SectionHeader(name.uppercase(), top = 10.dp) }
+                                    items(tasksInGroup, key = { it.id }) { task ->
+                                        TaskResultRow(task, lists, folders, attachHits[task.id], zone) { onOpenTask(task.id) }
+                                    }
+                                }
+                            }
+                            GroupBy.PRIORITY -> {
+                                // HIGH → NONE so the most urgent group leads.
+                                val groups = shown.groupBy { PriorityLevel.from(it.importance, it.urgency) }
+                                    .toSortedMap(compareByDescending { it.ordinal })
+                                groups.forEach { (level, tasksInGroup) ->
+                                    item(key = "pg:${level.name}") { SectionHeader(level.label.uppercase() + " PRIORITY", top = 10.dp) }
+                                    items(tasksInGroup, key = { it.id }) { task ->
+                                        TaskResultRow(task, lists, folders, attachHits[task.id], zone) { onOpenTask(task.id) }
+                                    }
+                                }
                             }
                         }
                     }
                     // R57 — EVENTS section (calendar), tap opens the event editor.
                     if (showEvents) {
-                        item(key = "events-header") {
-                            Text("EVENTS", Modifier.padding(start = 18.dp, top = 10.dp, bottom = 2.dp),
-                                style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                        }
+                        item(key = "events-header") { SectionHeader("EVENTS", top = 10.dp) }
                         items(eventResults, key = { "e:" + it.id }) { e ->
                             val df = java.time.format.DateTimeFormatter.ofPattern("EEE d MMM yyyy")
                             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp), shape = RoundedCornerShape(12.dp), color = appCardColor()) {
@@ -220,10 +237,7 @@ fun SearchScreen(
                     }
                     // R57 — OCCASIONS section (birthdays / countdowns), tap opens the occasion.
                     if (showOccasions) {
-                        item(key = "occasions-header") {
-                            Text("OCCASIONS", Modifier.padding(start = 18.dp, top = 10.dp, bottom = 2.dp),
-                                style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                        }
+                        item(key = "occasions-header") { SectionHeader("OCCASIONS", top = 10.dp) }
                         items(occasionResults, key = { "o:" + it.id }) { o ->
                             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp), shape = RoundedCornerShape(12.dp), color = appCardColor()) {
                                 Row(Modifier.fillMaxWidth().clickable { onOpenOccasion(o.id) }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -243,14 +257,11 @@ fun SearchScreen(
                     }
                     // NOTES section — matched on title or body (note_fts), tap opens the note editor.
                     if (showNotes) {
-                        item(key = "notes-header") {
-                            Text("NOTES", Modifier.padding(start = 18.dp, top = 10.dp, bottom = 2.dp),
-                                style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                        }
+                        item(key = "notes-header") { SectionHeader("NOTES", top = 10.dp) }
                         items(noteResults, key = { "n:" + it.id }) { n ->
                             Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp), shape = RoundedCornerShape(12.dp), color = appCardColor()) {
                                 Row(Modifier.fillMaxWidth().clickable { onOpenNote(n.id) }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Box(Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background((n.colorArgb?.let { androidx.compose.ui.graphics.Color(it) } ?: MaterialTheme.colorScheme.primary).copy(alpha = .16f)), contentAlignment = Alignment.Center) {
+                                    Box(Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background((n.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary).copy(alpha = .16f)), contentAlignment = Alignment.Center) {
                                         Text(n.coverEmoji?.ifBlank { null } ?: "📝", style = MaterialTheme.typography.bodyMedium)
                                     }
                                     Spacer(Modifier.width(10.dp))
@@ -269,6 +280,105 @@ fun SearchScreen(
             }
         }
     }
+}
+
+/** One task result row. Completed tasks are styled distinctly from overdue/open ones: a green filled check,
+ *  a struck-through muted title, a positive-tinted "Completed <date>" line, and NO overdue-coloured due chip —
+ *  so a done item can never be mistaken for an overdue one. */
+@Composable
+private fun TaskResultRow(
+    task: TaskEntity,
+    lists: List<ListEntity>,
+    folders: List<FolderEntity>,
+    attachFile: String?,
+    zone: java.time.ZoneId,
+    onOpen: () -> Unit,
+) {
+    val level = PriorityLevel.from(task.importance, task.urgency)
+    val kairo = LocalKairoColors.current
+    val done = task.completed && !task.trashed
+    Surface(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = appCardColor(),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().clickable { onOpen() }.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (done) {
+                Icon(Icons.Filled.CheckCircle, null, Modifier.size(16.dp), tint = kairo.good)
+                Spacer(Modifier.width(8.dp))
+            } else {
+                com.todocompanion.app.ui.components.Dot(
+                    if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.outlineVariant
+                    else com.todocompanion.app.ui.components.priorityColor(level), 8,
+                )
+                Spacer(Modifier.width(10.dp))
+            }
+            Column(Modifier.weight(1f)) {
+                Text(
+                    task.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge,
+                    textDecoration = if (done) TextDecoration.LineThrough else null,
+                    color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                )
+                if (task.note.isNotBlank()) Text(task.note.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // R56 — when the match came from an attachment name, show which file, so an expert instantly
+                // sees why a task surfaced.
+                attachFile?.let { fn ->
+                    Text("📎 $fn", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                }
+                // Location: the task's list, or — for a task captured straight into a folder (empty listId) —
+                // the folder name, rather than a wrong "Inbox".
+                val loc = lists.firstOrNull { it.id == task.listId }?.name
+                    ?: task.folderId?.let { fid -> folders.firstOrNull { it.id == fid }?.let { "📁 " + it.name } }
+                    ?: "Inbox"
+                when {
+                    task.trashed -> Text("$loc · 🗑 Trash", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    done -> {
+                        val whenDone = task.completedAt?.let { " · ✓ Completed " + java.time.Instant.ofEpochMilli(it).atZone(zone).format(java.time.format.DateTimeFormatter.ofPattern("d MMM")) } ?: " · ✓ Completed"
+                        Text(loc + whenDone, style = MaterialTheme.typography.labelSmall, color = kairo.good, fontWeight = FontWeight.Medium)
+                    }
+                    task.someday -> Text("$loc · someday", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    else -> Text(loc, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            // Only open/overdue tasks carry the (possibly red) due chip — completed ones never look overdue.
+            if (!done) task.dueDate?.let { Spacer(Modifier.width(6.dp)); DueChip(it) }
+        }
+    }
+}
+
+/** A compact top-bar dropdown control: leading icon + current selection + chevron, opening a checked menu. */
+@Composable
+private fun <T> DropControl(icon: ImageVector, selected: T, entries: List<T>, labelOf: (T) -> String, onSelect: (T) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            Modifier.clip(RoundedCornerShape(8.dp)).clickable { open = true }.padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(icon, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.width(4.dp))
+            Text(labelOf(selected), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+            Icon(Icons.Filled.ArrowDropDown, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            entries.forEach { e ->
+                DropdownMenuItem(
+                    text = { Text(labelOf(e)) },
+                    onClick = { onSelect(e); open = false },
+                    trailingIcon = { if (e == selected) Icon(Icons.Filled.Check, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(text: String, top: androidx.compose.ui.unit.Dp = 4.dp) {
+    Text(text, Modifier.padding(start = 18.dp, top = top, bottom = 2.dp),
+        style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
 }
 
 @Composable

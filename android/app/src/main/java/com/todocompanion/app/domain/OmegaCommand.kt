@@ -20,7 +20,7 @@ object OmegaCommand {
         data class Capture(val text: String) : Command
     }
 
-    enum class Action { PLAN, WEEKLY_REVIEW, MOMENTUM, STATS, ANNUAL_REPORT, RECAP_WEEK, RECAP_LAST_WEEK, RECAP_MONTH }
+    enum class Action { PLAN, WEEKLY_REVIEW, MOMENTUM, STATS, ANNUAL_REPORT, RECAP_WEEK, RECAP_LAST_WEEK, RECAP_MONTH, NEW_NOTE, NEW_TASK, STOP_TIMER }
 
     private val TRACK = Regex("^(?:track|start|timer|time)\\s+(.+)$", RegexOption.IGNORE_CASE)
     // "setting dark mode" / "settings backup" / "preferences" → jump to Settings, pre-filtered (R28 #5).
@@ -32,6 +32,12 @@ object OmegaCommand {
 
     // Fixed action phrases → an Act. Checked as whole-line (case-insensitive, trimmed).
     private val ACTIONS: List<Pair<Regex, Action>> = listOf(
+        // Create surfaces the palette can open directly (checked before the generic verbs so "new note"
+        // opens a blank note rather than capturing a task literally named "new note").
+        Regex("^(?:new|add|create)\\s+note$", RegexOption.IGNORE_CASE) to Action.NEW_NOTE,
+        Regex("^(?:new|add|create)\\s+(?:task|item)$|^quick\\s*add$", RegexOption.IGNORE_CASE) to Action.NEW_TASK,
+        // Stop whatever timer is running (mirror of "track …").
+        Regex("^stop(?:\\s+(?:timer|tracking|time|the\\s+timer))?$", RegexOption.IGNORE_CASE) to Action.STOP_TIMER,
         Regex("^(?:plan(?:\\s+my)?\\s+day|plan)$", RegexOption.IGNORE_CASE) to Action.PLAN,
         Regex("^(?:review\\s+(?:last|past)\\s+week|recap\\s+last\\s+week|last\\s+week)$", RegexOption.IGNORE_CASE) to Action.RECAP_LAST_WEEK,
         Regex("^(?:review\\s+(?:this\\s+)?week|recap\\s+(?:this\\s+)?week|week\\s+in\\s+review|recap)$", RegexOption.IGNORE_CASE) to Action.RECAP_WEEK,

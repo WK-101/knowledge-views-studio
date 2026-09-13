@@ -3770,6 +3770,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      *  label → count, sourced from the same in-memory stores. */
     fun deviceInventory(): List<Pair<String, Int>> = listOf(
         "Tasks" to tasks.value.size,
+        "Notes" to notes.value.size,
+        "Notebooks" to notebooks.value.size,
         "Events" to events.value.size,
         "Occasions" to countdowns.value.size,
         "Habits" to habits.value.size,

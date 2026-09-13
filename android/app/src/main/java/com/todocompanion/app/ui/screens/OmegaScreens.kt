@@ -71,14 +71,26 @@ private val COMMAND_CATALOG: List<Pair<String, List<Pair<String, String>>>> = li
         "Add a task or habit" to "buy milk tomorrow 5pm !!",
         "Make a habit" to "read every night",
     ),
+    "Create" to listOf(
+        "New blank note" to "new note",
+        "New task (quick add)" to "new task",
+    ),
     "Track time" to listOf(
         "Start a timer" to "track deep work",
+        "Stop the running timer" to "stop timer",
     ),
     "Navigate" to listOf(
         "Go to a tab, list or tag" to "go to habits",
+        "Open Notes" to "go to notes",
         "Open Today" to "go to today",
         "Open a smart list (Inbox, Scheduled, Trash…)" to "go to completed",
+        "Waiting On / Needs Attention / Someday" to "go to needs attention",
         "Open a hub (The Record, Countdowns, Attachments…)" to "open the record",
+        "Open Routines" to "open routines",
+        "Open Goals" to "open goals hub",
+        "Open Life Systems" to "open life systems",
+        "Open Occasions" to "open occasions",
+        "Notes graph, garden or recall" to "open notes graph",
     ),
     "Settings" to listOf(
         "Jump to a setting" to "setting dark mode",
