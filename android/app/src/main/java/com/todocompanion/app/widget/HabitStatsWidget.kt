@@ -35,7 +35,9 @@ class HabitStatsWidget : AppWidgetProvider() {
                     val skipDays = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
                     val relapse = hc.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
                     val todayCount = hc.firstOrNull { it.epochDay == today }?.count ?: 0
-                    val scheduled = HabitStats.isExpectedDay(h, today) || h.freqType == HabitStats.FREQ_TIMES_WEEK || h.freqType == HabitStats.FREQ_TIMES_MONTH
+                    // Break/quit habits are never "due" (success is passive), so excluding them from the
+                    // due/done tally stops them being counted as always-done; their clean streak still counts.
+                    val scheduled = h.habitType != "break" && (HabitStats.isExpectedDay(h, today) || h.freqType == HabitStats.FREQ_TIMES_WEEK || h.freqType == HabitStats.FREQ_TIMES_MONTH)
                     if (scheduled) { due++; if (!HabitStats.dueToday(h, today, doneDays, todayCount)) done++ }
                     bestStreak = maxOf(bestStreak, HabitStats.currentStreak(h, doneDays, skipDays, relapse, today))
                 }

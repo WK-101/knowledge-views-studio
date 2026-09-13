@@ -86,7 +86,7 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
     fun doneIn(s: Long, e: Long) = completed.count { dayOf(it.completedAt!!) in s..e }
     fun focusMinIn(s: Long, e: Long) = focus.filter { it.epochDay in s..e }.sumOf { it.minutes }
     fun habitDaysIn(s: Long, e: Long) = checkins.count { c ->
-        c.epochDay in s..e && c.status == "done" && habitById[c.habitId]?.let { HabitStats.meetsGoal(it, c.count) } == true
+        c.epochDay in s..e && habitById[c.habitId]?.let { HabitStats.isSuccessDay(it, c) } == true
     }
     fun reviewedIn(s: Long, e: Long) = dayLogs.count { it.epochDay in s..e && ReviewRollup.isReviewed(it) }
 
@@ -125,9 +125,15 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
 
     val focusMin = focusMinIn(curStart, todayEpoch)
     val focusSessions = focus.filter { it.epochDay in curStart..todayEpoch }.size
-    val avgHabit = if (habits.isEmpty()) 0f else habits.map { h ->
-        val done = checkins.filter { it.habitId == h.id && it.count >= h.targetPerDay }.map { it.epochDay }.toSet()
-        HabitStats.rate(done, todayEpoch)
+    // Average completion rate over build habits only (a quit habit's "rate" is meaningless), counting a day
+    // via isSuccessDay (not a raw count≥target, which would count skips and quit-habit slips) and using the
+    // frequency-/skip-aware rate so off days never dilute the score.
+    val activeForAvg = habits.filter { it.habitType != "break" && !it.paused }
+    val avgHabit = if (activeForAvg.isEmpty()) 0f else activeForAvg.map { h ->
+        val hc = checkins.filter { it.habitId == h.id }
+        val done = hc.filter { HabitStats.isSuccessDay(h, it) }.map { it.epochDay }.toSet()
+        val skip = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
+        HabitStats.rate(h, done, skip, todayEpoch)
     }.average().toFloat()
 
     // ---- Gamification (all on-device) ----

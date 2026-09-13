@@ -117,16 +117,16 @@ private val HABIT_COLORS = listOf(
 )
 private val MILESTONES = setOf(7, 14, 30, 50, 100, 200, 365, 500, 1000)
 
-private val HABIT_SECTIONS = listOf("Morning", "Afternoon", "Evening", "Anytime")
+internal val HABIT_SECTIONS = listOf("Morning", "Afternoon", "Evening", "Anytime")
 /** Which time-of-day section a habit belongs to, from its earliest reminder (0=Morning … 3=Anytime). */
-private fun habitSectionOf(h: HabitEntity): Int {
+internal fun habitSectionOf(h: HabitEntity): Int {
     val first = h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.minOrNull() ?: return 3
     return when { first < 12 * 60 -> 0; first < 17 * 60 -> 1; else -> 2 }
 }
 
 /** Derived per-habit day sets used across the stats calls. */
-private data class HabitDays(val done: Set<Long>, val skip: Set<Long>, val relapse: Set<Long>, val counts: Map<Long, Int>)
-private fun daysFor(h: HabitEntity, checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>): HabitDays {
+internal data class HabitDays(val done: Set<Long>, val skip: Set<Long>, val relapse: Set<Long>, val counts: Map<Long, Int>)
+internal fun daysFor(h: HabitEntity, checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>): HabitDays {
     val hc = checkins.filter { it.habitId == h.id }
     return HabitDays(
         done = hc.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet(),
@@ -309,17 +309,13 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
         } else if (matrixMode) {
             HabitMatrix(vm, density, onOpenHabit = { vm.habitDetailId.value = it.id }, modifier = Modifier.weight(1f))
         } else {
-            // M6: when the user has given habits a category, section by that (their explicit grouping);
-            // otherwise fall back to the time-of-day sections derived from reminder times.
-            val sections = remember(habits) {
-                val useCategory = habits.any { it.category.isNotBlank() }
-                if (useCategory) habits.groupBy { it.category.trim().ifBlank { "Other" } }
-                    .entries.sortedWith(compareBy({ it.key == "Other" }, { it.key.lowercase() })).map { it.key to it.value }
-                else (0..3).mapNotNull { sec -> habits.filter { habitSectionOf(it) == sec }.takeIf { it.isNotEmpty() }?.let { HABIT_SECTIONS[sec] to it } }
-            }
-            // Show the group header whenever the user set explicit groups — even a single named group
-            // like "Morning habits" gets its title (F2), not just when there are 2+ sections.
-            val showHeaders = sections.size > 1 || habits.any { it.category.isNotBlank() }
+            // Apply the chosen sort, then (when grouping is on) section by category, else time-of-day —
+            // the SAME helpers the matrix uses, so both habit views agree. Grouping can be toggled off.
+            val sorted = remember(habits, checkins, appSettings.habitSort, today) { matrixSorted(habits, checkins, today, appSettings.habitSort) }
+            val sections = remember(sorted, appSettings.habitGroupByCategory) { matrixSections(sorted, appSettings.habitGroupByCategory) }
+            // A section header shows for any named group (even a single one, F2); a flat ungrouped list
+            // (title == null) shows no headers.
+            val showHeaders = sections.size > 1 || sections.any { it.first != null }
             // Drag-to-reorder persists a global habit order; a drag rearranges within its section, then the
             // whole order is saved (so categories/stacks stay grouped — "Morning habits" together, etc.).
             fun persistSection(sectionHabits: List<HabitEntity>, newIds: List<String>) {
@@ -341,9 +337,11 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                         }
                     }
                 }
-                if (insights.isNotEmpty()) item(key = "insights") { InsightsCard(insights, vm) }
+                if (insights.isNotEmpty()) item(key = "insights") {
+                    InsightsCard(insights, vm, expanded = appSettings.habitInsightsExpanded, onToggle = { vm.setHabitInsightsExpanded(!appSettings.habitInsightsExpanded) })
+                }
                 sections.forEach { (title, secHabits) ->
-                    if (showHeaders) item(key = "sec-$title") {
+                    if (showHeaders && title != null) item(key = "sec-$title") {
                         Text(title.uppercase(), Modifier.padding(start = 18.dp, top = 12.dp, bottom = 2.dp),
                             style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -368,6 +366,8 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                                     val cur = daysFor(h, checkins).counts[today] ?: 0
                                     vm.setHabitValue(h, today, (cur + delta).coerceAtLeast(0))
                                 },
+                                onArchive = { vm.setHabitArchived(h, true) },
+                                onTrash = { vm.trashHabit(h) },
                             )
                         }
                     }
@@ -447,6 +447,7 @@ fun HabitsHeader(vm: AppViewModel, onOpenDrawer: () -> Unit) {
     val matrixMode by vm.habitMatrixMode.collectAsState()
     val density by vm.habitDensity.collectAsState()
     val habits by vm.habits.collectAsState()
+    val appSettings by vm.settings.collectAsState()
     TopAppBar(
         windowInsets = TopAppBarDefaults.windowInsets,
         expandedHeight = 52.dp,
@@ -477,14 +478,36 @@ fun HabitsHeader(vm: AppViewModel, onOpenDrawer: () -> Unit) {
                 IconButton(onClick = { vm.habitPresetOpen.value = true }) { Icon(Icons.Filled.AutoAwesome, "Starter habits") }
                 // New-habit add moved to the shared quick-add FAB (matches tasks/time), so it's dropped here.
                 var menu by remember { mutableStateOf(false) }
+                var sortMenu by remember { mutableStateOf(false) }
+                val sortLabels = listOf("manual" to "Manual order", "name" to "Name", "streak" to "Streak", "strength" to "Strength", "created" to "Recently added")
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "More") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        // View options — apply to both the list and the compact/medium/large matrix.
+                        DropdownMenuItem(
+                            text = { Text("Group by category") },
+                            leadingIcon = { if (appSettings.habitGroupByCategory) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
+                            onClick = { vm.setHabitGroupByCategory(!appSettings.habitGroupByCategory); menu = false },
+                        )
+                        DropdownMenuItem(text = { Text("Sort: ${sortLabels.firstOrNull { it.first == appSettings.habitSort }?.second ?: "Manual order"}") },
+                            onClick = { menu = false; sortMenu = true })
+                        androidx.compose.material3.HorizontalDivider()
                         DropdownMenuItem(text = { Text("🧭 Life systems") }, onClick = { menu = false; vm.lifeSystemsRoute.value = "hub" })
                         DropdownMenuItem(text = { Text("Trends & correlations") }, onClick = { menu = false; vm.habitTrendsOpen.value = true })
                         DropdownMenuItem(text = { Text("Batch check-in") }, onClick = { menu = false; vm.habitBatchOpen.value = true })
                         val anyActive = habits.any { !it.paused }
                         DropdownMenuItem(text = { Text(if (anyActive) "Pause all habits" else "Resume all habits") }, onClick = { vm.pauseAllHabits(anyActive); menu = false })
+                        androidx.compose.material3.HorizontalDivider()
+                        DropdownMenuItem(text = { Text("🗄 Archived & Trash") }, onClick = { menu = false; vm.habitArchiveOpen.value = true })
+                    }
+                    DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                        sortLabels.forEach { (key, label) ->
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                leadingIcon = { if (appSettings.habitSort == key) Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
+                                onClick = { vm.setHabitSort(key); sortMenu = false },
+                            )
+                        }
                     }
                 }
             } else {
@@ -497,19 +520,30 @@ fun HabitsHeader(vm: AppViewModel, onOpenDrawer: () -> Unit) {
 /** K1/L1: the on-device coach card — plain-language patterns from the shared habit/task store, each
  *  with a one-tap action (open the habit, or stack two habits). */
 @Composable
-private fun InsightsCard(insights: List<com.todocompanion.app.domain.habit.Insight>, vm: AppViewModel) {
+private fun InsightsCard(insights: List<com.todocompanion.app.domain.habit.Insight>, vm: AppViewModel, expanded: Boolean, onToggle: () -> Unit) {
     Surface(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .55f),
     ) {
         Column(Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // Foldable header — folded by default so the coach card never crowds the habit list.
+            Row(
+                Modifier.fillMaxWidth().clickable(onClick = onToggle)
+                    .semantics { contentDescription = if (expanded) "Collapse insights" else "Expand insights, ${insights.size} available" },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text("✨", style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.width(6.dp))
                 Text("Insights", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                if (!expanded) {
+                    Spacer(Modifier.width(6.dp))
+                    Text("${insights.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = .7f))
+                }
+                Spacer(Modifier.weight(1f))
+                Icon(if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
             }
-            insights.forEach { ins ->
+            if (expanded) insights.forEach { ins ->
                 val action = ins.action
                 val openId = (action as? com.todocompanion.app.domain.habit.InsightAction.Open)?.habitId
                     ?: (action as? com.todocompanion.app.domain.habit.InsightAction.Stack)?.childId
@@ -585,7 +619,7 @@ private fun HabitRow(
     allHabits: List<HabitEntity> = emptyList(), forgiving: Boolean = false, graded: Boolean = false, calm: Boolean = false, strengthMeter: Boolean = false,
     onCycle: () -> Unit, onOpen: () -> Unit, onSkip: () -> Unit, onClear: () -> Unit,
     onSetValue: () -> Unit, onPause: () -> Unit, onEdit: () -> Unit, onFocus: () -> Unit,
-    onAddValue: (Int) -> Unit = {},
+    onAddValue: (Int) -> Unit = {}, onArchive: () -> Unit = {}, onTrash: () -> Unit = {},
 ) {
     val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
     val emptyCell = MaterialTheme.colorScheme.surfaceVariant
@@ -693,6 +727,9 @@ private fun HabitRow(
                     DropdownMenuItem(text = { Text("Clear today") }, onClick = { rowMenu = false; onClear() })
                     DropdownMenuItem(text = { Text(if (h.paused) "Resume" else "Pause") }, onClick = { rowMenu = false; onPause() })
                     DropdownMenuItem(text = { Text("Edit") }, onClick = { rowMenu = false; onEdit() })
+                    androidx.compose.material3.HorizontalDivider()
+                    DropdownMenuItem(text = { Text("Archive") }, onClick = { rowMenu = false; onArchive() })
+                    DropdownMenuItem(text = { Text("Move to Trash", color = MaterialTheme.colorScheme.error) }, onClick = { rowMenu = false; onTrash() })
                 }
             }
         }
@@ -778,7 +815,7 @@ private fun ConfettiOverlay(onDone: () -> Unit) {
 }
 
 @Composable
-private fun NumericEntryDialog(h: HabitEntity, current: Int, onDismiss: () -> Unit, onSave: (Int) -> Unit) {
+internal fun NumericEntryDialog(h: HabitEntity, current: Int, onDismiss: () -> Unit, onSave: (Int) -> Unit) {
     var text by remember { mutableStateOf(if (current > 0) current.toString() else "") }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1343,9 +1380,9 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     if (confirmDelete && existing != null) AlertDialog(
         onDismissRequest = { confirmDelete = false },
         icon = { Icon(Icons.Filled.Delete, null, tint = MaterialTheme.colorScheme.error) },
-        title = { Text("Delete habit?") },
-        text = { Text("“${existing.name}” and all its check-in history will be permanently deleted. This can't be undone.") },
-        confirmButton = { TextButton(onClick = { confirmDelete = false; vm.deleteHabit(existing.id); onClose() }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+        title = { Text("Move to Trash?") },
+        text = { Text("“${existing.name}” will move to the habits Trash. Its check-in history is kept and you can restore it any time — or delete it forever from the Trash.") },
+        confirmButton = { TextButton(onClick = { confirmDelete = false; vm.trashHabit(existing); onClose() }) { Text("Move to Trash", color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
     )
     if (showStartPicker) {

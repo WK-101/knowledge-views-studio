@@ -248,7 +248,10 @@ private fun HabitsReviewCard(vm: AppViewModel) {
     val active = habits.filter { !it.paused && it.habitType != "break" }
     val dueOrDone = active.filter { stats.isExpectedDay(it, today) || it.freqType == stats.FREQ_TIMES_WEEK || it.freqType == stats.FREQ_TIMES_MONTH }
     val doneToday = dueOrDone.count { today in done(it) }
-    val weekChecks = checkins.count { it.status == "done" && it.epochDay > today - 7 }
+    // Count only genuine successes over the last 7 days — a quit habit stores a slip as status="done" over
+    // its limit, so a raw status=="done" count would read a relapse as a positive check-in.
+    val habitById = habits.associateBy { it.id }
+    val weekChecks = checkins.count { c -> c.epochDay > today - 7 && habitById[c.habitId]?.let { h -> stats.isSuccessDay(h, c) } == true }
     val slipping = active.mapNotNull { h ->
         val r = stats.rate(h, done(h), skip(h), today, 14)
         if (r < 0.5f) h to r else null

@@ -248,7 +248,9 @@ private fun ValuesScreen(vm: AppViewModel, onBack: () -> Unit) {
                 val v = values[i]
                 val color = v.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
                 val attached = habits.filter { it.valueId == v.id && !it.archived }
-                val habitActions = checkins.count { c -> c.status == "done" && c.epochDay in weekStart..today && attached.any { it.id == c.habitId } }
+                val attachedById = attached.associateBy { it.id }
+                // A quit habit's slip (status="done" over its limit) is not a "vote" for the value — count only genuine successes.
+                val habitActions = checkins.count { c -> c.epochDay in weekStart..today && attachedById[c.habitId]?.let { com.todocompanion.app.domain.habit.HabitStats.isSuccessDay(it, c) } == true }
                 val taskActions = tasks.count { t -> t.valueId == v.id && t.completed && t.completedAt?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() in weekStart..today } == true }
                 val weekActions = habitActions + taskActions
                 AppCard(onClick = { editing = v }, padding = 16.dp) {

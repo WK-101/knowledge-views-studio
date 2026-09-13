@@ -71,6 +71,9 @@ data class AppSettings(
     val density: Density = Density.DEFAULT,
     val habitDensity: Int = 1,                // habits matrix cell size: 0 compact · 1 medium · 2 large (persisted)
     val habitMatrixMode: Boolean = false,     // habits tab: list (false) vs all-habits matrix (true), persisted
+    val habitGroupByCategory: Boolean = true, // habits: section the list AND matrix by category (persisted)
+    val habitSort: String = "manual",         // habits order: manual | name | streak | strength | created
+    val habitInsightsExpanded: Boolean = false, // habits: insight card expanded? folded by default (persisted)
     val timeGridColumns: Int = 2,             // activity tiles per row in the Time view (2–5)
     val timeActivityParents: Map<String, String> = emptyMap(),  // childId → parentId, for nested activities (KV, no migration)
     // Per-habit time-planning config (habitId → "class|mode|manualMin|block"), read by HabitTime. KV, no migration.
@@ -489,6 +492,9 @@ data class AppSettings(
         Keys.DENSITY to density.name,
         Keys.HABIT_DENSITY to habitDensity.toString(),
         Keys.HABIT_MATRIX_MODE to habitMatrixMode.toString(),
+        Keys.HABIT_GROUP_BY_CATEGORY to habitGroupByCategory.toString(),
+        Keys.HABIT_SORT to habitSort,
+        Keys.HABIT_INSIGHTS_EXPANDED to habitInsightsExpanded.toString(),
         Keys.TIME_GRID_COLUMNS to timeGridColumns.toString(),
         Keys.TIME_ACTIVITY_PARENTS to timeActivityParents.entries.joinToString(";") { "${it.key}=${it.value}" },
         Keys.HABIT_TIME_CFG to habitTimeCfg.entries.joinToString(";") { "${it.key}=${it.value}" },
@@ -691,6 +697,9 @@ data class AppSettings(
         const val DENSITY = "density"
         const val HABIT_DENSITY = "habit_density"
         const val HABIT_MATRIX_MODE = "habit_matrix_mode"
+        const val HABIT_GROUP_BY_CATEGORY = "habit_group_by_category"
+        const val HABIT_SORT = "habit_sort"
+        const val HABIT_INSIGHTS_EXPANDED = "habit_insights_expanded"
         const val TIME_GRID_COLUMNS = "time_grid_columns"
         const val TIME_ACTIVITY_PARENTS = "time_activity_parents"
         const val HABIT_TIME_CFG = "habit_time_cfg"
@@ -915,6 +924,9 @@ data class AppSettings(
             density = parse(m[Keys.DENSITY], Density.DEFAULT),
             habitDensity = m[Keys.HABIT_DENSITY]?.toIntOrNull()?.coerceIn(0, 2) ?: 1,
             habitMatrixMode = m[Keys.HABIT_MATRIX_MODE]?.toBooleanStrictOrNull() ?: false,
+            habitGroupByCategory = m[Keys.HABIT_GROUP_BY_CATEGORY]?.toBooleanStrictOrNull() ?: true,
+            habitSort = m[Keys.HABIT_SORT] ?: "manual",
+            habitInsightsExpanded = m[Keys.HABIT_INSIGHTS_EXPANDED]?.toBooleanStrictOrNull() ?: false,
             timeGridColumns = m[Keys.TIME_GRID_COLUMNS]?.toIntOrNull()?.coerceIn(2, 5) ?: 2,
             timeActivityParents = (m[Keys.TIME_ACTIVITY_PARENTS] ?: "").split(";").mapNotNull { p ->
                 val kv = p.split("="); if (kv.size == 2 && kv[0].isNotBlank() && kv[1].isNotBlank()) kv[0] to kv[1] else null

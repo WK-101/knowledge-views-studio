@@ -84,7 +84,7 @@ data class QuickAddOptions(
     val splitSubtasks: Boolean = false,
 )
 
-enum class UndoKind { COMPLETED, ABANDONED, TRASHED, CREATED_MANY, NOTE_TRASHED, NOTE_ARCHIVED }
+enum class UndoKind { COMPLETED, ABANDONED, TRASHED, CREATED_MANY, NOTE_TRASHED, NOTE_ARCHIVED, HABIT_TRASHED, HABIT_ARCHIVED }
 
 /** What the full-screen habit editor is editing. A null [habit] means "create a new habit". */
 data class HabitEditRequest(val habit: com.todocompanion.app.data.entity.HabitEntity? = null)
@@ -98,6 +98,8 @@ data class UndoEvent(
     val taskIds: List<String> = emptyList(),
     /** The exact pre-action note snapshot to write back on Undo (note trash / archive). */
     val noteRestore: com.todocompanion.app.data.entity.NoteEntity? = null,
+    /** The exact pre-action habit snapshot to write back on Undo (habit trash / archive). */
+    val habitRestore: com.todocompanion.app.data.entity.HabitEntity? = null,
 )
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
@@ -1110,9 +1112,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     com.todocompanion.app.domain.NoteOutcome.Target("event", it.id, it.title, past = it.startMillis < nowMs)
                 }
                 "habit" -> habitById[l.targetId]?.let { h ->
-                    val doneDays = checkins.filter { it.habitId == h.id && it.count > 0 }.map { it.epochDay }.toSet()
+                    // Break-aware streak: days since relapse for a quit habit, frequency-aware for a build one.
+                    // isSuccessDay excludes slips; count>0 alone would count a partial/slip as done.
+                    val hs = com.todocompanion.app.domain.habit.HabitStats
+                    val hc = checkins.filter { it.habitId == h.id }
+                    val done = hc.filter { hs.isSuccessDay(h, it) }.map { it.epochDay }.toSet()
+                    val skip = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
+                    val rel = hc.filter { hs.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
                     com.todocompanion.app.domain.NoteOutcome.Target("habit", h.id, h.name,
-                        streak = com.todocompanion.app.domain.habit.HabitStats.streak(doneDays, today))
+                        streak = hs.currentStreak(h, done, skip, rel, today))
                 }
                 "note" -> com.todocompanion.app.domain.NoteOutcome.Target("note", l.targetId, l.targetTitle)
                 else -> null
@@ -1375,10 +1383,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun onThisDay(today: java.time.LocalDate = java.time.LocalDate.now(zone)): List<Pair<Int, TaskEntity>> =
         com.todocompanion.app.domain.LifeReadModels.onThisDay(allTasksLive.value, today, zone)
     val filters = combine(repo.allFilters, activeWs) { f, ws -> f.filter { it.workspaceId == ws } }.state(emptyList())
-    val habits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.archived } }.state(emptyList())
-    /** Active-workspace habits INCLUDING archived — for surfaces that must tell "archived" apart from
-     *  "deleted" (e.g. a goal's lead-measure hint). The default [habits] flow strips archived habits. */
-    val habitsWithArchived = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws } }.state(emptyList())
+    val habits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.archived && !it.trashed } }.state(emptyList())
+    /** Active-workspace habits INCLUDING archived (but never trashed) — for surfaces that must tell
+     *  "archived" apart from "deleted" (e.g. a goal's lead-measure hint) and for the Archived view. */
+    val habitsWithArchived = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.trashed } }.state(emptyList())
+    /** Trashed habits in the active workspace, newest-deleted first — the source for the habits Trash. */
+    val trashedHabits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && it.trashed }.sortedByDescending { it.trashedAt ?: 0L } }.state(emptyList())
     val habitCheckins = repo.allCheckins.state(emptyList())
     val focusSessions = repo.allFocusSessions.scopedBy { it.workspaceId }
     // R37 · Port 5 — the receptive hour (0..23) learned from when you actually finish habits & tasks, or
@@ -2144,14 +2154,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (e.restore != null) { repo.saveTask(e.restore); return@launch }
         // Note trash / archive carry the exact pre-action note snapshot — write it back wholesale.
         if (e.noteRestore != null) { repo.upsertNote(e.noteRestore); return@launch }
+        // Habit trash / archive carry the exact pre-action habit snapshot — restore it and refresh widgets.
+        if (e.habitRestore != null) { repo.upsertHabit(e.habitRestore); refreshHabitWidgets(); return@launch }
         when (e.kind) {
             UndoKind.COMPLETED -> repo.getTask(e.taskId)?.let { repo.setCompleted(it, false) }
             UndoKind.ABANDONED -> repo.getTask(e.taskId)?.let { repo.setAbandoned(it, false) }
             UndoKind.TRASHED -> repo.setTrashed(e.taskId, false)
             // N2 — undo a bulk-paste / inline-subtree add by trashing everything it created (recoverable).
             UndoKind.CREATED_MANY -> e.taskIds.forEach { repo.setTrashed(it, true, settings.value.activeWorkspaceId) }
-            // Note trash/archive are restored via [noteRestore] above (short-circuited before this when).
-            UndoKind.NOTE_TRASHED, UndoKind.NOTE_ARCHIVED -> Unit
+            // Note & habit trash/archive are restored via [noteRestore]/[habitRestore] above (short-circuited).
+            UndoKind.NOTE_TRASHED, UndoKind.NOTE_ARCHIVED, UndoKind.HABIT_TRASHED, UndoKind.HABIT_ARCHIVED -> Unit
         }
     }
     fun restore(t: TaskEntity) = viewModelScope.launch { repo.setTrashed(t.id, false) }
@@ -2245,6 +2257,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val habitDensity: StateFlow<Int> = settings.map { it.habitDensity }.stateIn(viewModelScope, SharingStarted.Eagerly, 1)
     fun setHabitMatrixMode(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(habitMatrixMode = on)) }
     fun setHabitDensity(level: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(habitDensity = level.coerceIn(0, 2))) }
+    fun setHabitGroupByCategory(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(habitGroupByCategory = on)) }
+    fun setHabitSort(mode: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(habitSort = mode)) }
+    fun setHabitInsightsExpanded(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(habitInsightsExpanded = on)) }
     /** Persist a habit's time-planning config (HabitTime) into settings-JSON, keyed by habit id. */
     fun setHabitTimeCfg(habitId: String, cfg: com.todocompanion.app.domain.habit.HabitTime.Cfg) = viewModelScope.launch {
         if (habitId.isBlank()) return@launch
@@ -2260,6 +2275,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val habitEditor = MutableStateFlow<HabitEditRequest?>(null)   // non-null → the full-screen editor is open
     val habitQuickAddOpen = MutableStateFlow(false)               // L6: natural-language "type a habit" dialog
     val habitTrendsOpen = MutableStateFlow(false)                 // M5: full trends & correlations dashboard
+    val habitArchiveOpen = MutableStateFlow(false)                // Archived habits + Trash management overlay
     fun toggleChecklist(item: ChecklistItemEntity) = viewModelScope.launch { repo.saveChecklistItem(item.copy(checked = !item.checked)) }
     fun deleteChecklistItem(id: String) = viewModelScope.launch { repo.deleteChecklistItem(id) }
 
@@ -2526,7 +2542,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val weekDays = (0 until 7).map { today - it }.toSet()
         val cks = habitCheckins.value
         val habitsList = habits.value.filter { !it.archived }
-        val checkinsThisWeek = cks.count { it.epochDay in weekDays && it.status == "done" }
+        val habitById = habitsList.associateBy { it.id }
+        // Count genuine successes only — a quit habit's slip is stored as status="done" over its limit.
+        val checkinsThisWeek = cks.count { c -> c.epochDay in weekDays && habitById[c.habitId]?.let { hs.isSuccessDay(it, c) } == true }
         val bestStreak = habitsList.maxOfOrNull { h ->
             val d = cks.filter { it.habitId == h.id && it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
             val s = cks.filter { it.habitId == h.id && it.status == "skip" }.map { it.epochDay }.toSet()
@@ -2954,7 +2972,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val startDay = today.minusDays(6).toEpochDay(); val endDay = today.toEpochDay()
         val tracked = com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries.value, weekStart, now + 1, now)
         val tasksDone = tasks.value.count { t -> t.completedAt?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() in startDay..endDay } == true }
-        val habitDays = habitCheckins.value.count { it.status == "done" && it.epochDay in startDay..endDay }
+        val habitByIdWk = habits.value.associateBy { it.id }
+        val habitDays = habitCheckins.value.count { c -> c.epochDay in startDay..endDay && habitByIdWk[c.habitId]?.let { com.todocompanion.app.domain.habit.HabitStats.isSuccessDay(it, c) } == true }
         val digest = weeklyDigest()
         val pa = planVsActualWeek()
         val leftover = tasks.value.count { t -> !t.completed && !t.trashed && !t.abandoned && t.dueDate?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() <= endDay } == true }
@@ -3790,8 +3809,30 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
         refreshHabitWidgets()
     }
+    /** Soft-delete a habit to Trash (recoverable), with an Undo. History is preserved; restore is lossless. */
+    fun trashHabit(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
+        repo.setHabitTrashed(h.id, true); refreshHabitWidgets()
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
+        undoEvents.tryEmit(UndoEvent(UndoKind.HABIT_TRASHED, h.id, "Habit moved to Trash", habitRestore = h))
+    }
+    /** Restore a trashed habit back to the active list. */
+    fun restoreHabit(id: String) = viewModelScope.launch {
+        repo.setHabitTrashed(id, false); refreshHabitWidgets()
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
+    }
+    /** Archive / unarchive a habit (kept out of the active list & analysis, never deleted), with an Undo. */
+    fun setHabitArchived(h: com.todocompanion.app.data.entity.HabitEntity, archived: Boolean) = viewModelScope.launch {
+        repo.setHabitArchived(h.id, archived); refreshHabitWidgets()
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
+        if (archived) undoEvents.tryEmit(UndoEvent(UndoKind.HABIT_ARCHIVED, h.id, "Habit archived", habitRestore = h))
+    }
+    /** Permanently erase a single trashed habit (Trash → Delete forever). */
     fun deleteHabit(id: String) = viewModelScope.launch {
         repo.deleteHabit(id); refreshHabitWidgets()
+    }
+    /** Permanently erase every trashed habit in the active workspace (Trash → Empty). */
+    fun emptyHabitTrash() = viewModelScope.launch {
+        repo.emptyHabitTrash(settings.value.activeWorkspaceId); refreshHabitWidgets()
     }
     // N2: reward-unlock celebration — surfaced to the Habits screen (confetti + toast) and a notification.
     val rewardCelebration = MutableStateFlow<String?>(null)
@@ -4952,11 +4993,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val tasks = repo.allTasksOnce()
         // Habit adherence over the week: checked habit-days meeting target ÷ (habits × 7).
         val ws = settings.value.activeWorkspaceId
-        val habits = repo.getHabitsOnce().filter { it.workspaceId == ws && !it.archived }
-        val targetById = habits.associate { it.id to it.targetPerDay.coerceAtLeast(1) }
+        // Build habits only — a quit habit has no positive daily target, so it neither pads the (habits × 7)
+        // denominator nor contributes a "kept" day; paused habits are on vacation.
+        val habits = repo.getHabitsOnce().filter { it.workspaceId == ws && !it.archived && !it.paused && it.habitType != "break" }
+        val habitById = habits.associateBy { it.id }
         val adherence = if (habits.isEmpty()) null else {
             val checks = repo.getHabitCheckinsOnce().count { c ->
-                c.epochDay in weekStartDay until weekStartDay + 7 && targetById.containsKey(c.habitId) && c.count >= (targetById[c.habitId] ?: 1)
+                c.epochDay in weekStartDay until weekStartDay + 7 && habitById[c.habitId]?.let { com.todocompanion.app.domain.habit.HabitStats.isSuccessDay(it, c) } == true
             }
             ((checks * 100f) / (habits.size * 7)).toInt().coerceIn(0, 100)
         }
@@ -4969,7 +5012,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val quietDays = (weekStartDay until weekStartDay + 7).filter { it !in busyDays }.toSet()
         val extra = ArrayList(audit.advice)
         if (habits.isNotEmpty() && busyDays.size >= 2 && quietDays.size >= 2) {
-            fun rate(days: Set<Long>) = if (days.isEmpty()) 0f else checkins.count { it.epochDay in days && it.count >= 1 }.toFloat() / (habits.size * days.size)
+            fun rate(days: Set<Long>) = if (days.isEmpty()) 0f else checkins.count { c -> c.epochDay in days && habitById[c.habitId]?.let { com.todocompanion.app.domain.habit.HabitStats.isSuccessDay(it, c) } == true }.toFloat() / (habits.size * days.size)
             val busyRate = rate(busyDays); val quietRate = rate(quietDays)
             if (quietRate > 0 && busyRate < quietRate * 0.7f)
                 extra.add(0, "Your habits slip on busy days — ${(busyRate * 100).toInt()}% done on heavy days vs ${(quietRate * 100).toInt()}% on lighter ones. Defend those windows next week.")

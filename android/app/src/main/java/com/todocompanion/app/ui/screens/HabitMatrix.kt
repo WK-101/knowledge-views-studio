@@ -39,6 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -76,13 +77,41 @@ private val DENSITIES = listOf(
 private val DENSITY_LABELS = listOf("Compact", "Medium", "Large")
 
 private val HEADER_HEIGHT = 26.dp
+private val SECTION_HEIGHT = 26.dp
+
+/** Sort habits for either habit view, mirroring the sort options offered in the habits header/menu. */
+internal fun matrixSorted(habits: List<HabitEntity>, checkins: List<HabitCheckinEntity>, today: Long, sort: String): List<HabitEntity> = when (sort) {
+    "name" -> habits.sortedBy { it.name.lowercase() }
+    "created" -> habits.sortedByDescending { it.startDate ?: it.createdAt }
+    "streak" -> habits.sortedByDescending { val d = daysFor(it, checkins); HabitStats.currentStreak(it, d.done, d.skip, d.relapse, today) }
+    "strength" -> habits.sortedByDescending { val d = daysFor(it, checkins); HabitStats.strength(it, d.done, d.skip, d.relapse, today) }
+    else -> habits.sortedBy { it.sortOrder }
+}
+
+/** Group habits into sections (category, else time-of-day) when [groupByCategory]; else one flat section
+ *  (title null). Mirrors the list view so both habit views section identically. */
+internal fun matrixSections(habits: List<HabitEntity>, groupByCategory: Boolean): List<Pair<String?, List<HabitEntity>>> {
+    if (!groupByCategory) return listOf(null to habits)
+    val useCategory = habits.any { it.category.isNotBlank() }
+    return if (useCategory)
+        habits.groupBy { it.category.trim().ifBlank { "Other" } }
+            .entries.sortedWith(compareBy({ it.key == "Other" }, { it.key.lowercase() })).map { it.key to it.value }
+    else (0..3).mapNotNull { sec -> habits.filter { habitSectionOf(it) == sec }.takeIf { it.isNotEmpty() }?.let { HABIT_SECTIONS[sec] to it } }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HabitMatrix(vm: AppViewModel, density: Int, onOpenHabit: (HabitEntity) -> Unit, modifier: Modifier = Modifier) {
-    val habits by vm.habits.collectAsState()
+    val allHabits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
+    val settings by vm.settings.collectAsState()
     val today = vm.today()
+    // A numeric habit's cell opens a value-entry dialog (consistent with the list view) instead of a +1 tap.
+    var valueFor by remember { mutableStateOf<Pair<HabitEntity, Long>?>(null) }
+    // Sort + (optional) group exactly like the list view, so both habit views agree.
+    val habits = remember(allHabits, checkins, settings.habitSort, today) { matrixSorted(allHabits, checkins, today, settings.habitSort) }
+    val sections = remember(habits, settings.habitGroupByCategory) { matrixSections(habits, settings.habitGroupByCategory) }
+    val showHeaders = sections.size > 1 || sections.any { it.first != null }
 
     if (habits.isEmpty()) {
         Box(modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
@@ -118,8 +147,14 @@ fun HabitMatrix(vm: AppViewModel, density: Int, onOpenHabit: (HabitEntity) -> Un
                 // the day cells (which was the mismatch users noticed).
                 Column(Modifier.width(labelWidth)) {
                     Box(Modifier.height(HEADER_HEIGHT))
-                    habits.forEach { h ->
-                        HabitLabel(h, rowHeight, labelWidth, preset.fontSp, onOpenHabit)
+                    sections.forEach { (title, secHabits) ->
+                        if (showHeaders && title != null) Box(Modifier.width(labelWidth).height(SECTION_HEIGHT).padding(start = 8.dp, top = 8.dp)) {
+                            Text(title.uppercase(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        secHabits.forEach { h ->
+                            HabitLabel(h, rowHeight, labelWidth, preset.fontSp, onOpenHabit)
+                        }
                     }
                 }
                 // Horizontally-scrollable day grid: header row of day numbers + a row per habit.
@@ -133,23 +168,30 @@ fun HabitMatrix(vm: AppViewModel, density: Int, onOpenHabit: (HabitEntity) -> Un
                 }
                 Column(Modifier.horizontalScroll(hScroll)) {
                     DayHeader(days, cell, preset.fontSp, today)
-                    habits.forEach { h ->
-                        val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
-                        Row(
-                            // R64 — trailing gutter so today's raised border ring isn't shaved by the
-                            // horizontal-scroll clip edge (scrollTo(maxValue) pins today flush right).
-                            Modifier.height(rowHeight).padding(end = 6.dp),
-                            horizontalArrangement = Arrangement.spacedBy(2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            days.forEach { day ->
-                                val c = byKey[h.id to day]
-                                DayCell(h, c, day, today, color, cell) {
-                                    val cur = c?.count ?: 0
-                                    // Break habits log a relapse (tap toggles it); build habits cycle toward target.
-                                    if (h.habitType == "break") {
-                                        if (HabitStats.isRelapse(h, cur)) vm.clearHabitDay(h, day) else vm.setHabitValue(h, day, h.targetPerDay + 1)
-                                    } else vm.cycleHabit(h, day, cur)
+                    sections.forEach { (title, secHabits) ->
+                        if (showHeaders && title != null) Box(Modifier.height(SECTION_HEIGHT))   // aligns with the label header
+                        secHabits.forEach { h ->
+                            val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+                            // A numeric build habit opens the value dialog on tap (like the list view); a yes/no
+                            // habit cycles; a break habit toggles a relapse.
+                            val numeric = h.habitType != "break" && (h.targetPerDay > 1 || h.unit != null || h.clickIncrement > 1)
+                            Row(
+                                // R64 — trailing gutter so today's raised border ring isn't shaved by the
+                                // horizontal-scroll clip edge (scrollTo(maxValue) pins today flush right).
+                                Modifier.height(rowHeight).padding(end = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                days.forEach { day ->
+                                    val c = byKey[h.id to day]
+                                    DayCell(h, c, day, today, color, cell) {
+                                        val cur = c?.count ?: 0
+                                        when {
+                                            h.habitType == "break" -> if (HabitStats.isRelapse(h, cur)) vm.clearHabitDay(h, day) else vm.setHabitValue(h, day, h.targetPerDay + 1)
+                                            numeric -> valueFor = h to day
+                                            else -> vm.cycleHabit(h, day, cur)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -159,6 +201,11 @@ fun HabitMatrix(vm: AppViewModel, density: Int, onOpenHabit: (HabitEntity) -> Un
             Spacer(Modifier.height(24.dp))
         }
     }
+    }
+    valueFor?.let { (h, day) ->
+        NumericEntryDialog(h, byKey[h.id to day]?.count ?: 0, onDismiss = { valueFor = null }) { v ->
+            vm.setHabitValue(h, day, v); valueFor = null
+        }
     }
 }
 
@@ -245,34 +292,42 @@ private fun DayCell(
     // Days before the habit began / in the future are not loggable, but they still draw a FAINT box so
     // the grid always reads as a grid (blank-transparent cells made a fresh habit's whole row vanish).
     val preStart = day < h.startEpochDay()
+    val error = MaterialTheme.colorScheme.error
     val cnt = checkin?.count ?: 0
     val skip = checkin?.status == "skip"
-    val done = checkin?.status == "done" && HabitStats.meetsGoal(h, cnt)
+    // Break/quit habits invert the semantics: success is *passive* (staying under the limit), a slip is a
+    // relapse. A clean break day has no check-in, so it must NOT read as "expected-but-missed" gray.
+    val isBreak = h.habitType == "break"
+    val relapse = isBreak && HabitStats.isRelapse(h, cnt)
+    val done = !isBreak && checkin?.status == "done" && HabitStats.meetsGoal(h, cnt)
     val bg = when {
         future || preStart -> surfaceVariant.copy(alpha = .12f)
         skip -> Color.Transparent
+        relapse -> error                       // a slip on a quit habit
+        isBreak -> color.copy(alpha = .18f)    // clean day = passive success, faint tint (never "missed")
         done -> color
         cnt > 0 -> color.copy(alpha = .4f)
         HabitStats.isExpectedDay(h, day) -> surfaceVariant
         else -> surfaceVariant.copy(alpha = .25f)
     }
     var m = Modifier.size(cell).clip(RoundedCornerShape(if (isToday) 7.dp else 4.dp)).background(bg)
-    // R34: today's cell is the live "checkbox" — give it a bold ring (habit colour) so it reads as the
-    // tappable target, not just another history square. Skip keeps its own hollow outline.
+    // R34: today's cell is the live "checkbox" — give it a bold ring (habit colour, or error on a slip) so it
+    // reads as the tappable target, not just another history square. Skip keeps its own hollow outline.
     if (skip) m = m.border(1.5.dp, outline, RoundedCornerShape(4.dp))
-    else if (isToday && !preStart) m = m.border(2.dp, color, RoundedCornerShape(7.dp))
+    else if (isToday && !preStart) m = m.border(2.dp, if (relapse) error else color, RoundedCornerShape(7.dp))
     if (!future && !preStart) {
         // Accessibility: the whole day cell is the tap target, so announce the habit, the date, the current
         // state, and a clear action label. The visible check/ring inside is decorative (Icon stays null).
-        val stateLabel = when { skip -> "skipped"; done -> "done"; cnt > 0 -> "logged"; else -> "not done" }
+        val stateLabel = when { relapse -> "slipped"; isBreak -> "clean"; skip -> "skipped"; done -> "done"; cnt > 0 -> "logged"; else -> "not done" }
         val cellDesc = "${h.name}, ${java.time.LocalDate.ofEpochDay(day)}, $stateLabel"
+        val actionLabel = when { isBreak -> if (relapse) "Clear slip" else "Record a slip"; done -> "Mark not done"; else -> "Mark done" }
         m = m.semantics { contentDescription = cellDesc; role = Role.Button }
-            .clickable(onClickLabel = if (done) "Mark not done" else "Mark done") { onToggle() }
+            .clickable(onClickLabel = actionLabel) { onToggle() }
     }
     Box(m, contentAlignment = Alignment.Center) {
-        // A visible check the moment today is done; an empty ring while it's still open — so the grid
-        // reads like a row of checkboxes for the current day.
-        if (isToday && !preStart) {
+        // A relapse always shows a small ✗; otherwise today's cell reads like a live checkbox.
+        if (relapse) Text("✗", color = Color.White, fontSize = (cell.value * 0.42f).sp, fontWeight = FontWeight.Bold)
+        else if (isToday && !preStart) {
             if (done) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(cell * 0.5f))
             else if (!skip) Box(Modifier.size((cell.value * 0.22f).dp).clip(CircleShape).background(primary.copy(alpha = .35f)))
         }

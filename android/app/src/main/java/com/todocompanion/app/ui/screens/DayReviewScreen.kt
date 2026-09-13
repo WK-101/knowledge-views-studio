@@ -213,10 +213,12 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     val wins = feed.filter { it.isWin && it.isTaskLike }
     val focusMin = feed.filter { it.kind == DoneKind.FOCUS }.sumOf { it.durationMin }
 
-    val expected = habits.filter { !it.archived && HabitStats.isExpectedDay(it, day) }
+    // Break/quit habits have no positive daily action (success is passively staying under the limit), so
+    // they're never "expected" or "missed" here; paused habits are on vacation. isSuccessDay excludes slips.
+    val expected = habits.filter { !it.archived && !it.paused && it.habitType != "break" && HabitStats.isExpectedDay(it, day) }
     val habitsKept = expected.mapNotNull { h ->
-        val c = checkins.firstOrNull { it.habitId == h.id && it.epochDay == day }?.count ?: 0
-        if (HabitStats.meetsGoal(h, c)) h to c else null
+        val c = checkins.firstOrNull { it.habitId == h.id && it.epochDay == day }
+        if (c != null && HabitStats.isSuccessDay(h, c)) h to c.count else null
     }
     val habitsExpected = expected.size
     val missedHabits = expected.filter { h -> habitsKept.none { it.first.id == h.id } }
@@ -982,11 +984,12 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
                 taskTitles = tasksDone.map { it.title },
                 taskCount = tasksDone.size,
                 habits = expected.map { h ->
-                    val cnt = checkins.firstOrNull { it.habitId == h.id && it.epochDay == day }?.count ?: 0
+                    val c = checkins.firstOrNull { it.habitId == h.id && it.epochDay == day }
+                    val cnt = c?.count ?: 0
                     val target = h.targetPerDay.coerceAtLeast(1)
                     DayCard.HabitLine(
                         name = h.name,
-                        kept = HabitStats.meetsGoal(h, cnt),
+                        kept = c != null && HabitStats.isSuccessDay(h, c),
                         detail = if (target > 1) "$cnt/$target${h.unit?.let { " $it" } ?: ""}" else "",
                     )
                 },

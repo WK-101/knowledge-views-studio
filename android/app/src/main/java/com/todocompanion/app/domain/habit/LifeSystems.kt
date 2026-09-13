@@ -166,10 +166,11 @@ object LifeSystems {
     fun identityLedger(habits: List<HabitEntity>, checkins: List<HabitCheckinEntity>): List<IdentityTally> {
         val withIdentity = habits.filter { it.identity.isNotBlank() }
         return withIdentity.groupBy { it.identity.trim() }.map { (ident, hs) ->
-            val ids = hs.map { it.id }.toSet()
-            val votes = checkins.filter { it.habitId in ids && it.status == "done" }
+            val hById = hs.associateBy { it.id }
+            // A "vote" is a genuine success — for a quit habit a slip (status="done" over its limit) is not one.
+            val votes = checkins.filter { c -> hById[c.habitId]?.let { HabitStats.isSuccessDay(it, c) } == true }
             val since = votes.minOfOrNull { it.epochDay }
-            IdentityTally(ident, votes.count { c -> hs.first { it.id == c.habitId }.let { HabitStats.meetsGoal(it, c.count) } }, since, hs.map { it.name })
+            IdentityTally(ident, votes.size, since, hs.map { it.name })
         }.sortedByDescending { it.votes }
     }
 
@@ -224,9 +225,11 @@ object LifeSystems {
         dayLogs: List<com.todocompanion.app.data.entity.DayLogEntity> = emptyList(),
     ): Review {
         val inRange = { d: Long -> d in startDay..endDay }
-        val doneInRange = checkins.filter { it.status == "done" && inRange(it.epochDay) }
-        val completions = doneInRange.count { c -> habits.firstOrNull { it.id == c.habitId }?.let { HabitStats.meetsGoal(it, c.count) } ?: false }
-        val active = doneInRange.map { it.habitId }.distinct().size
+        // Count genuine successes only — a quit habit's slip must not read as a completion or an "active" habit.
+        val habitByIdR = habits.associateBy { it.id }
+        val successInRange = checkins.filter { c -> inRange(c.epochDay) && habitByIdR[c.habitId]?.let { HabitStats.isSuccessDay(it, c) } == true }
+        val completions = successInRange.size
+        val active = successInRange.map { it.habitId }.distinct().size
         // Best streak among active habits over the whole history (a review celebrates the peak).
         var bestName: String? = null; var best = 0
         habits.forEach { h ->
@@ -241,10 +244,10 @@ object LifeSystems {
         val keystone = keystone(corr)?.name
         val valueLines = values.map { v ->
             val ids = habits.filter { it.valueId == v.id }.map { it.id }.toSet()
-            ReviewValueLine(v.name, v.emoji, doneInRange.count { it.habitId in ids })
+            ReviewValueLine(v.name, v.emoji, successInRange.count { it.habitId in ids })
         }.sortedByDescending { it.actions }
-        // Automaticity gain: habit that added the most reps in-range (proxy: done-in-range count).
-        val gains = habits.map { h -> h to doneInRange.count { it.habitId == h.id } }.maxByOrNull { it.second }
+        // Automaticity gain: habit that added the most reps in-range (proxy: successful-day count).
+        val gains = habits.map { h -> h to successInRange.count { it.habitId == h.id } }.maxByOrNull { it.second }
         return Review(kind, label, startDay, endDay, completions, active, bestName, best, keystone, valueLines, gains?.first?.name, gains?.second ?: 0)
     }
 

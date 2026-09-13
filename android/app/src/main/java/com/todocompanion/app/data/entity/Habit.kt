@@ -25,6 +25,11 @@ data class HabitEntity(
     val reminderTimes: String = "",      // minutes-from-midnight, comma-separated (e.g. "540,1080" = 9:00, 18:00)
     val sortOrder: Double = 0.0,
     val archived: Boolean = false,
+    // Soft-delete: a trashed habit is hidden everywhere (list, matrix, analysis, widgets) but kept in the
+    // DB so it can be restored from the habits Trash; [trashedAt] drives the newest-first Trash order and a
+    // future auto-empty sweep. Permanent removal (deleteHabit) is only reachable from the Trash.
+    val trashed: Boolean = false,
+    val trashedAt: Long? = null,
     val workspaceId: String = WorkspaceEntity.DEFAULT_ID,
     val createdAt: Long,
     // --- Tier I ---

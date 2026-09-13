@@ -262,7 +262,9 @@ fun PlanYourDayScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
                     val doneDays = hc.filter { it.status == "done" && com.todocompanion.app.domain.habit.HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
                     return com.todocompanion.app.domain.habit.HabitStats.dueToday(h, day, doneDays, hc.firstOrNull { it.epochDay == day }?.count ?: 0)
                 }
-                val active = allHabits.filter { !it.paused }
+                // Break/quit habits have no positive daily action to plan, so they're excluded from the
+                // "N/M done today" tally (dueToday is always false for them → they'd read as always-done).
+                val active = allHabits.filter { !it.paused && it.habitType != "break" }
                 val scheduledToday = active.filter { com.todocompanion.app.domain.habit.HabitStats.isExpectedDay(it, todayEpoch) || it.freqType == com.todocompanion.app.domain.habit.HabitStats.FREQ_TIMES_WEEK || it.freqType == com.todocompanion.app.domain.habit.HabitStats.FREQ_TIMES_MONTH }
                 val stillDue = scheduledToday.filter { dueOn(it, todayEpoch) }
                 val tomorrowCount = active.count { com.todocompanion.app.domain.habit.HabitStats.isExpectedDay(it, tomorrowEpoch) || it.freqType == com.todocompanion.app.domain.habit.HabitStats.FREQ_TIMES_WEEK || it.freqType == com.todocompanion.app.domain.habit.HabitStats.FREQ_TIMES_MONTH }

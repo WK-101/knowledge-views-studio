@@ -204,7 +204,9 @@ object ReviewRollup {
         val moreReflections = (allReflections.size - reflections.size).coerceAtLeast(0)
 
         // ── 4. Habit consistency: kept scheduled days / expected scheduled days over the period.
-        val habitConsistency = habits.map { h ->
+        // Break/quit habits have no positive daily target (success is passive), and paused habits are on
+        // vacation — neither belongs in a "kept vs expected" consistency tally, so both are excluded.
+        val habitConsistency = habits.filter { it.habitType != "break" && !it.paused }.map { h ->
             var expected = 0
             var kept = 0
             for (d in startDay..endDay) {

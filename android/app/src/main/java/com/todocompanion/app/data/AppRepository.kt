@@ -466,7 +466,9 @@ class AppRepository(private val db: AppDatabase) {
         habits.upsert(h.copy(id = id, sortOrder = if (h.sortOrder == 0.0) now().toDouble() else h.sortOrder, createdAt = if (h.createdAt == 0L) now() else h.createdAt))
         return id
     }
-    suspend fun getHabitsOnce(): List<HabitEntity> = habits.getAll()
+    // Excludes trashed habits, so every analysis / reminder / widget path that reads a one-shot habit list
+    // ignores soft-deleted habits. Backup/export gathers `habits.getAll()` directly to stay lossless.
+    suspend fun getHabitsOnce(): List<HabitEntity> = habits.getAll().filter { !it.trashed }
     suspend fun getHabitCheckinsOnce(): List<HabitCheckinEntity> = habits.getCheckins()
     suspend fun upsertHabit(h: HabitEntity) = habits.upsert(h)
     /** Persist a manual habit order by rewriting sortOrder to the given list index. */
@@ -474,7 +476,22 @@ class AppRepository(private val db: AppDatabase) {
         val byId = habits.getAll().associateBy { it.id }
         orderedIds.forEachIndexed { i, id -> byId[id]?.let { habits.upsert(it.copy(sortOrder = i.toDouble())) } }
     }
+    /** Permanent removal (check-ins + habit row). Only reachable from the habits Trash. */
     suspend fun deleteHabit(id: String) { habits.clearHabit(id); habits.deleteById(id) }
+    /** Soft-delete: move a habit to Trash (recoverable) or restore it. Check-ins are preserved either way. */
+    suspend fun setHabitTrashed(id: String, trashed: Boolean) {
+        habits.getAll().firstOrNull { it.id == id }?.let {
+            habits.upsert(it.copy(trashed = trashed, trashedAt = if (trashed) now() else null))
+        }
+    }
+    /** Archive / unarchive a whole habit — kept out of the active list & analysis but never deleted. */
+    suspend fun setHabitArchived(id: String, archived: Boolean) {
+        habits.getAll().firstOrNull { it.id == id }?.let { habits.upsert(it.copy(archived = archived)) }
+    }
+    /** Permanently erase every trashed habit in a workspace (the Trash "empty" action). */
+    suspend fun emptyHabitTrash(workspaceId: String) {
+        habits.getAll().filter { it.workspaceId == workspaceId && it.trashed }.forEach { deleteHabit(it.id) }
+    }
     /**
      * Cycle today's progress by [increment] up to the ceiling (extra goal if set, else target),
      * then back to 0 (removes the check-in). Marks the day "done".
@@ -1272,7 +1289,7 @@ class AppRepository(private val db: AppDatabase) {
         val actId = task.defaultActivityId
         if (actId != null) {
             val day = java.time.Instant.ofEpochMilli(now()).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay()
-            habits.getAll().filter { it.timeActivityId == actId && !it.archived && !it.paused && it.linkMode != "off" && it.habitType != "break" }.forEach { h ->
+            habits.getAll().filter { it.timeActivityId == actId && !it.archived && !it.paused && !it.trashed && it.linkMode != "off" && it.habitType != "break" }.forEach { h ->
                 val cur = habits.getCheckins().firstOrNull { it.habitId == h.id && it.epochDay == day }?.count ?: 0
                 setCheckinValue(h.id, day, cur + h.clickIncrement.coerceAtLeast(1))
             }
@@ -1860,7 +1877,7 @@ class AppRepository(private val db: AppDatabase) {
     }
     suspend fun wsCountdownsOnce(): List<com.todocompanion.app.data.entity.CountdownEntity> =
         countdowns.getAll().filter { it.workspaceId == activeWs() }
-    suspend fun wsHabitsOnce(): List<HabitEntity> = habits.getAll().filter { it.workspaceId == activeWs() }
+    suspend fun wsHabitsOnce(): List<HabitEntity> = habits.getAll().filter { it.workspaceId == activeWs() && !it.trashed }
     suspend fun wsTimeActivitiesOnce(): List<com.todocompanion.app.data.entity.TimeActivityEntity> =
         timeTrack.getActivities().filter { it.workspaceId == activeWs() }
     suspend fun wsFocusSessionsOnce(): List<com.todocompanion.app.data.entity.FocusSessionEntity> =
