@@ -104,13 +104,17 @@ object ListPipeline {
             is ViewRef.Smart -> {
                 when (v.kind) {
                     SmartKind.DO_NEXT -> DoNext.focused(all, now, cfg.prio, deps, tcRefs, ctxEntities, cfg.timeAvail, cfg.energyAvail, zone, dayStartMin)
-                    // Waiting-on: open tasks currently blocked by an incomplete prerequisite. Resolve blockers
-                    // against the FULL task universe (falls back to the local set) so a prerequisite in another
-                    // list/workspace is still recognized as blocking.
+                    // Waiting-on (GTD): the two ways a task's next action isn't yours to take right now —
+                    //  • delegated to / awaiting an EXTERNAL party (waitingForWho set) — the ball is in their
+                    //    court; the canonical GTD "Waiting For".
+                    //  • blocked by your own incomplete prerequisite task (the dependency engine).
+                    // We union both here; the grouping step splits them into two labelled sections. Blockers
+                    // resolve against the FULL task universe (falls back to the local set) so a prerequisite in
+                    // another list/workspace is still recognized.
                     SmartKind.WAITING -> {
                         val byId = (if (allTasks.isNotEmpty()) allTasks else all).associateBy { it.id }
                         val blocked = PriorityEngine.computeBlocked(deps, byId, now)
-                        all.filter { !it.trashed && !it.completed && !it.abandoned && !it.someday && it.id in blocked }
+                        all.filter { !it.trashed && !it.completed && !it.abandoned && !it.someday && (it.id in blocked || it.waitingForWho.isNotBlank()) }
                     }
                     // Trash is per-workspace — the shared Inbox otherwise leaked trashed tasks into every
                     // workspace. A trashed task is stamped with the workspace it was deleted in.
@@ -172,6 +176,16 @@ object ListPipeline {
                 TaskViews.sort(filtered, cfg.sort, flagRank, scoreRank)
             }
             else -> TaskViews.sort(filtered, cfg.sort, flagRank)
+        }
+        // Waiting-on renders as two GTD sections regardless of the group setting: "Waiting on others"
+        // (delegated/external — the ball's in their court) first, then "Blocked by your task" (your own
+        // prerequisite). A task that is both delegated and blocked reads as delegated (the salient point).
+        if (kindNow == SmartKind.WAITING) {
+            val (delegated, blockedOnly) = sorted.partition { it.waitingForWho.isNotBlank() }
+            return listOfNotNull(
+                delegated.takeIf { it.isNotEmpty() }?.let { TaskGroup("waiting:others", "Waiting on others", it) },
+                blockedOnly.takeIf { it.isNotEmpty() }?.let { TaskGroup("waiting:blocked", "Blocked by your task", it) },
+            )
         }
         // Manual sort flattens the view into ONE ungrouped list so long-press drag (reorder + nest)
         // works everywhere — folders, lists and smart lists alike — not only when grouping is off.

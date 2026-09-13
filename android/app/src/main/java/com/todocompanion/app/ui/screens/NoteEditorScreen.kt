@@ -500,18 +500,34 @@ fun NoteEditorScreen(
                         resetKey = noteId,
                     )
                 }
-                if (showSplit && !WindowInsets.isImeVisible) {
+                val previewVisible = showSplit && !WindowInsets.isImeVisible
+                // The rich preview is a WebView, and instantiating one blocks the UI thread (Chromium init).
+                // Mounting it in the SAME frame the split opens starved the editor's re-layout, leaving the top
+                // pane blank for a beat. So the bottom Box takes its half of the height IMMEDIATELY (the editor
+                // lays out and draws at half-height right away), and the heavy WebView is mounted one short tick
+                // later — the editor is already painted, so the WebView's init can't blank it.
+                var previewReady by remember(noteId) { mutableStateOf(false) }
+                androidx.compose.runtime.LaunchedEffect(previewVisible) {
+                    previewReady = false
+                    if (previewVisible) { delay(48); previewReady = true }
+                }
+                if (previewVisible) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     val splitImages by androidx.compose.runtime.produceState(emptyMap<String, String>(), noteId, splitBody) {
                         value = runCatching { vm.noteImageMap(noteId) }.getOrDefault(emptyMap())
                     }
                     Box(Modifier.fillMaxWidth().weight(1f)) {
-                        if (splitBody.isBlank()) {
-                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        when {
+                            splitBody.isBlank() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text("Preview", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                        } else {
-                            com.todocompanion.app.ui.components.RichNoteView(
+                            // Until the WebView is mounted, show the body as instant plain text so the pane is
+                            // never empty; it upgrades to the full rich render a tick later.
+                            !previewReady -> Text(
+                                splitBody, Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
+                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            else -> com.todocompanion.app.ui.components.RichNoteView(
                                 markdown = splitBody,
                                 images = splitImages,
                                 readingThemeId = settings.notesReadingTheme,

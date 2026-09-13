@@ -91,7 +91,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.SmartViewEntity::class,
         com.todocompanion.app.data.entity.NoteCardEntity::class,
     ],
-    version = 80,
+    version = 81,
     // R73 — export the schema JSON (to app/schemas/) on every build. With 54 hand-written migrations
     // this is the safety net: it lets an instrumented MigrationTest replay the whole chain in CI and
     // fail the build the moment a migration drifts from the entity definitions. Turned on from v59;
@@ -979,6 +979,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // GTD "Waiting For": a task can now be delegated to / awaiting an external party. waitingForWho names
+        // them, delegatedOn ages it. Additive columns; existing rows default to "not delegated".
+        private val MIGRATION_80_81 = object : Migration(80, 81) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `waitingForWho` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `delegatedOn` INTEGER")
+            }
+        }
+
         /**
          * The complete, ordered v5→v63 migration chain. Exposed (and used by the builder below) so an
          * instrumented [androidTest] MigrationTest can replay it against a real SQLite DB and assert the
@@ -997,7 +1006,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_59_60, MIGRATION_60_61, MIGRATION_61_62, MIGRATION_62_63, MIGRATION_63_64,
             MIGRATION_64_65, MIGRATION_65_66, MIGRATION_66_67, MIGRATION_67_68, MIGRATION_68_69, MIGRATION_69_70,
             MIGRATION_70_71, MIGRATION_71_72, MIGRATION_72_73, MIGRATION_73_74, MIGRATION_74_75, MIGRATION_75_76,
-            MIGRATION_76_77, MIGRATION_77_78, MIGRATION_78_79, MIGRATION_79_80,
+            MIGRATION_76_77, MIGRATION_77_78, MIGRATION_78_79, MIGRATION_79_80, MIGRATION_80_81,
         )
 
         fun get(context: Context): AppDatabase =

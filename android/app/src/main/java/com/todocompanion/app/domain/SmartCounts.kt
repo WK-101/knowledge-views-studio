@@ -40,7 +40,8 @@ object SmartCounts {
                 SmartKind.WAITING -> {
                     val byId = (if (allTasks.isNotEmpty()) allTasks else wsTasks).associateBy { it.id }
                     val blocked = PriorityEngine.computeBlocked(deps, byId, now)
-                    active.count { !it.trashed && !it.completed && !it.abandoned && !it.someday && it.id in blocked }
+                    // Delegated (waiting on others) + blocked-by-your-task — matches the rendered list.
+                    active.count { !it.trashed && !it.completed && !it.abandoned && !it.someday && (it.id in blocked || it.waitingForWho.isNotBlank()) }
                 }
                 // Do-Next uses the SAME focus filter as the rendered list, so the badge matches the list.
                 SmartKind.DO_NEXT -> DoNext.focused(wsTasks, now, prioCfg, deps, tcRefs, ctxs, null, null, zone, dayStartMin)

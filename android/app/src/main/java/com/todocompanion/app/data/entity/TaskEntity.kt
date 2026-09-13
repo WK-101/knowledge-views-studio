@@ -113,6 +113,14 @@ data class TaskEntity(
     val deferCount: Int = 0,
     val lastDeferDay: Long = 0,
 
+    // GTD "Waiting For": this task is delegated to / awaiting an EXTERNAL party — the ball is in someone
+    // else's court, so it's not a next action of yours. [waitingForWho] names them (free text, e.g. "Bob",
+    // "Acme Support", "Amazon"); [delegatedOn] stamps when you started waiting so the list can age it
+    // ("waiting N days"). This is distinct from a task-to-task "blocked by" dependency (your own prior work);
+    // both surface in the Waiting On list, in separate sections. Delegated tasks drop out of Do-Next.
+    val waitingForWho: String = "",
+    val delegatedOn: Long? = null,
+
     // R28 #3 — the workspace that owns this task's trash. Workspaces share only the Inbox; everything else
     // (including the Trash) is independent, so a trashed task is scoped to the workspace it was deleted in
     // rather than leaking across all of them via the shared Inbox. Backfilled from the task's list/folder.

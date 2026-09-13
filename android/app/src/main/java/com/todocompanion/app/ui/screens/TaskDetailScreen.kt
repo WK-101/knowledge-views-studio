@@ -881,6 +881,41 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     }
                 }
                 TextButton(onClick = { showBlockPicker = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text("＋ Add a blocker") }
+                // GTD "Waiting For": delegated to / awaiting someone ELSE — the ball is in their court, so this
+                // isn't a next action of yours (it drops out of Do-Next and lands in Waiting On, under "Waiting
+                // on others"). Distinct from a blocker above, which is your own prior task.
+                androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                Text("Waiting on someone else", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(4.dp))
+                com.todocompanion.app.ui.components.AppTextField(
+                    task.waitingForWho,
+                    { who -> update { t -> t.copy(
+                        waitingForWho = who,
+                        // Stamp the delegation date the first time you set a party (so the list can age it),
+                        // clear it when you clear the party, otherwise keep the original date.
+                        delegatedOn = when {
+                            who.isBlank() -> null
+                            t.waitingForWho.isBlank() -> System.currentTimeMillis()
+                            else -> t.delegatedOn
+                        },
+                    ) } },
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Who / what you're waiting on — e.g. Bob, Amazon") },
+                )
+                if (task.waitingForWho.isNotBlank()) {
+                    val days = task.delegatedOn?.let {
+                        java.time.temporal.ChronoUnit.DAYS.between(
+                            java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate(),
+                            java.time.LocalDate.now(),
+                        )
+                    } ?: 0L
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "In Waiting On · " + if (days <= 0L) "since today" else "waiting $days day" + (if (days == 1L) "" else "s"),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (days >= 14L) LocalKairoColors.current.bad else LocalKairoColors.current.warn,
+                    )
+                }
             }
 
                     com.todocompanion.app.domain.EditorField.ADVANCED ->
@@ -1124,7 +1159,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     if (showReminder) DateTimePickerDialog(task?.dueDate ?: System.currentTimeMillis(), { showReminder = false }) { m -> task?.let { vm.addAbsoluteReminder(it, m) }; showReminder = false }
     if (showBlockPicker && task != null) {
         val existing = allDeps.filter { it.taskId == task.id }.map { it.dependsOnTaskId }.toSet()
-        val candidates = allTasks.filter { it.id != task.id && it.id !in existing && !it.trashed && it.parentId != task.id }
+        // A prerequisite must be something still OUTSTANDING — a completed or abandoned task can't block
+        // anything, so offering it only invites confusion (and would never surface the task in Waiting On).
+        val candidates = allTasks.filter { it.id != task.id && it.id !in existing && !it.trashed && !it.completed && !it.abandoned && it.parentId != task.id }
         BlockerPickerDialog(candidates, onDismiss = { showBlockPicker = false }) { picked ->
             picked.forEach { vm.addDependency(task.id, it) }; depsBump++; showBlockPicker = false
         }

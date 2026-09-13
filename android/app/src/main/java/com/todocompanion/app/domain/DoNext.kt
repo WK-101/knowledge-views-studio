@@ -77,6 +77,9 @@ object DoNext {
         fun dueDay(t: TaskEntity) = t.dueDate?.let { Instant.ofEpochMilli(it - dayStartMin * 60_000L).atZone(zone).toLocalDate() }
         val actionable = ranked.filter { t ->
             if (t.id in blocked) return@filter false
+            // GTD: a task delegated to / awaiting an external party isn't a next action of yours — it lives
+            // in Waiting On, not Do-Next.
+            if (t.waitingForWho.isNotBlank()) return@filter false
             if (t.startDate != null && t.startDate!! > now) return@filter false
             val d = dueDay(t)
             if (d != null) !d.isAfter(today) else (t.star || t.flagId != null)
