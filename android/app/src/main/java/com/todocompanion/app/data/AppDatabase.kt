@@ -89,8 +89,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.NoteRevisionEntity::class,
         com.todocompanion.app.data.entity.NoteLinkEntity::class,
         com.todocompanion.app.data.entity.SmartViewEntity::class,
+        com.todocompanion.app.data.entity.NoteCardEntity::class,
     ],
-    version = 77,
+    version = 78,
     // R73 — export the schema JSON (to app/schemas/) on every build. With 54 hand-written migrations
     // this is the safety net: it lets an instrumented MigrationTest replay the whole chain in CI and
     // fail the build the moment a migration drifts from the entity definitions. Turned on from v59;
@@ -137,6 +138,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun noteRevisionDao(): com.todocompanion.app.data.dao.NoteRevisionDao
     abstract fun noteLinkDao(): com.todocompanion.app.data.dao.NoteLinkDao
     abstract fun smartViewDao(): com.todocompanion.app.data.dao.SmartViewDao
+    abstract fun noteCardDao(): com.todocompanion.app.data.dao.NoteCardDao
 
     companion object {
         @Volatile
@@ -939,6 +941,24 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Wave 3 — Notes ⇄ Goals evidence link + the Active-Recall card store. `notes.linkedGoalId` mirrors
+        // linkedHabitId; `note_cards` persists SM-2 schedules across body re-parses (content is re-derived
+        // from the note, the schedule is not).
+        private val MIGRATION_77_78 = object : Migration(77, 78) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `linkedGoalId` TEXT")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `note_cards` (`id` TEXT NOT NULL, `noteId` TEXT NOT NULL, " +
+                        "`front` TEXT NOT NULL, `back` TEXT NOT NULL, `cardKind` TEXT NOT NULL, " +
+                        "`easiness` REAL NOT NULL, `intervalDays` INTEGER NOT NULL, `reps` INTEGER NOT NULL, " +
+                        "`lapses` INTEGER NOT NULL, `dueAt` INTEGER NOT NULL, `lastGradedAt` INTEGER NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_note_cards_noteId` ON `note_cards` (`noteId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_note_cards_dueAt` ON `note_cards` (`dueAt`)")
+            }
+        }
+
         /**
          * The complete, ordered v5→v63 migration chain. Exposed (and used by the builder below) so an
          * instrumented [androidTest] MigrationTest can replay it against a real SQLite DB and assert the
@@ -957,7 +977,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_59_60, MIGRATION_60_61, MIGRATION_61_62, MIGRATION_62_63, MIGRATION_63_64,
             MIGRATION_64_65, MIGRATION_65_66, MIGRATION_66_67, MIGRATION_67_68, MIGRATION_68_69, MIGRATION_69_70,
             MIGRATION_70_71, MIGRATION_71_72, MIGRATION_72_73, MIGRATION_73_74, MIGRATION_74_75, MIGRATION_75_76,
-            MIGRATION_76_77,
+            MIGRATION_76_77, MIGRATION_77_78,
         )
 
         fun get(context: Context): AppDatabase =

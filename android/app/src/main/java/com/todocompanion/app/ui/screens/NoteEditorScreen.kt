@@ -197,6 +197,7 @@ fun NoteEditorScreen(
     var showPrivacy by remember(noteId) { mutableStateOf(false) }   // Privacy Governance Dial
     var showSprintStart by remember(noteId) { mutableStateOf(false) }
     var showAddThread by remember(noteId) { mutableStateOf(false) }  // Threads — Maps of Content
+    var showCourier by remember(noteId) { mutableStateOf(false) }    // Wave 3 · Encrypted Note Courier
     var sprintStart by remember(noteId) { mutableStateOf<Long?>(null) }   // sprint begin millis; null = idle
     var sprintStartWords by remember(noteId) { androidx.compose.runtime.mutableIntStateOf(0) }
     var sprintNow by remember(noteId) { androidx.compose.runtime.mutableLongStateOf(0L) }
@@ -348,6 +349,7 @@ fun NoteEditorScreen(
                     if (d.vault) MetaPill("🔐 Vault")
                     if (d.reviewEvery > 0) MetaPill("♻️ ${com.todocompanion.app.domain.NoteReview.label(d.reviewEvery)}") { showReview = true }
                     if (d.linkedHabitId != null) MetaPill("🔁 Habit journal")
+                    if (d.linkedGoalId != null) MetaPill("🎯 Goal journal")
                     tags.filter { it.id in myTagIds }.forEach { t ->
                         Surface(shape = NotesTokens.Pill, color = MaterialTheme.colorScheme.secondaryContainer,
                             modifier = Modifier.align(Alignment.CenterVertically)) {
@@ -531,6 +533,14 @@ fun NoteEditorScreen(
                 if (d.title.isBlank()) emptyList()
                 else notes.filter { it.id != noteId && !it.trashed && com.todocompanion.app.domain.NoteLinks.links(it.body, d.title) }
             }
+            // Wave 3 · Outcome Ledger — what this note's links actually moved (tasks done, streaks, time).
+            if (outTitles.isNotEmpty()) {
+                val outcome by androidx.compose.runtime.produceState(
+                    com.todocompanion.app.domain.NoteOutcome.Rollup(), noteId, links) {
+                    value = runCatching { vm.noteOutcome(noteId) }.getOrDefault(com.todocompanion.app.domain.NoteOutcome.Rollup())
+                }
+                OutcomeLedgerCard(outcome)
+            }
             if (outTitles.isNotEmpty()) {
                 // Cross-module (Wave C): each [[link]] is resolved (materialized on save) to a note / task /
                 // habit / event; the chip shows a type glyph and a task chip opens the task.
@@ -643,6 +653,8 @@ fun NoteEditorScreen(
             if (sprintStart == null) add(PTile(Icons.Filled.Timer, "Writing sprint") { menu = false; showSprintStart = true })
             // Wave 2 · Threads (Maps of Content) — add this note into an ordered reading thread.
             if (d.kind != com.todocompanion.app.domain.NoteThreads.KIND) add(PTile(Icons.AutoMirrored.Filled.List, "Add to thread") { menu = false; showAddThread = true })
+            // Wave 3 · Encrypted Note Courier — hand this note to someone end-to-end, no server.
+            add(PTile(Icons.Filled.Lock, "Send encrypted") { menu = false; showCourier = true })
             // Wave 2 · Privacy Governance Dial — per-note exclude-from-backup/export/index + notebook auto-vault.
             add(PTile(Icons.Filled.Lock, "Privacy", d.noBackup || d.noExport || d.noIndex) { menu = false; showPrivacy = true })
             add(PTile(if (sealed) Icons.Filled.LockOpen else Icons.Filled.Lock, if (sealed) "Unschedule reveal" else "Schedule reveal") {
@@ -1014,6 +1026,15 @@ fun NoteEditorScreen(
             onCreate = { title -> persist(d); showAddThread = false
                 draft?.let { n -> vm.closeNoteEditor(n) }; vm.createThread(title, memberTitle) { id -> onOpenNote(id) } },
             onDismiss = { showAddThread = false },
+        )
+    }
+    // Wave 3 · Encrypted Note Courier — passphrase prompt, then share the encrypted file.
+    if (showCourier) {
+        CourierPassphraseDialog(
+            title = "Send this note encrypted", confirmLabel = "Encrypt & share",
+            message = "The note is wrapped in a passphrase-encrypted file (AES-GCM). Share it over any channel; the recipient opens it with the same passphrase. Nothing is uploaded.",
+            onConfirm = { pass -> vm.sendNoteEncrypted(noteId, pass); showCourier = false },
+            onDismiss = { showCourier = false },
         )
     }
     if (showPrivacy) {

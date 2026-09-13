@@ -80,6 +80,9 @@ data class BackupFile(
     val noteLinks: List<com.todocompanion.app.data.entity.NoteLinkEntity> = emptyList(),
     // Wave D (v69) — saved Smart Views (predicate filters). Additive; old backups carry an empty list.
     val smartViews: List<com.todocompanion.app.data.entity.SmartViewEntity> = emptyList(),
+    // Wave 3 (v78) — Active-Recall flashcards. The card *content* is derivable from note bodies, but the
+    // SM-2 review schedule is not, so it rides the backup to keep a restore truly lossless. Additive.
+    val noteCards: List<com.todocompanion.app.data.entity.NoteCardEntity> = emptyList(),
 ) {
     companion object {
         const val FORMAT = "todo-companion"

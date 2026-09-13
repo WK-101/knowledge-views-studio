@@ -363,6 +363,7 @@ fun AppRoot(
         var editingNote by remember { mutableStateOf<String?>(null) }
         var showNotesGraph by remember { mutableStateOf(false) }   // Life Graph — a top-level overlay (single header)
         var showNotesGarden by remember { mutableStateOf(false) }  // Note-Garden review — a top-level overlay
+        var showRecall by remember { mutableStateOf(false) }       // Wave 3 · Active Recall — a top-level overlay
         var notesSearchOpen by remember { mutableStateOf(false) }
         var notesQuery by remember { mutableStateOf("") }
         var showQuickAdd by remember { mutableStateOf(false) }
@@ -1008,7 +1009,7 @@ fun AppRoot(
                                 onOpenEvent = { eid -> calEventAction = "open:$eid"; tab = Tab.CALENDAR },
                                 onOpenOccasion = openOccasion)
                             Tab.SETTINGS -> SettingsScreen(vm)
-          Tab.NOTES -> com.todocompanion.app.ui.screens.NotesScreen(vm, onOpenNote = ::openNote, query = notesQuery, onQueryChange = { notesQuery = it }, searchOpen = notesSearchOpen, onOpenGraph = { showNotesGraph = true }, onOpenGarden = { showNotesGarden = true })
+          Tab.NOTES -> com.todocompanion.app.ui.screens.NotesScreen(vm, onOpenNote = ::openNote, query = notesQuery, onQueryChange = { notesQuery = it }, searchOpen = notesSearchOpen, onOpenGraph = { showNotesGraph = true }, onOpenGarden = { showNotesGarden = true }, onOpenRecall = { showRecall = true })
                             Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it; if (settings.calendarRememberLast) vm.saveSettings(settings.copy(calendarDefaultMode = it)) },
                                 calAnchor, calSelected, { calAnchor = it }, { calSelected = it },
                                 onAddOnDate = { d ->
@@ -1064,6 +1065,9 @@ fun AppRoot(
         if (showNotesGarden) com.todocompanion.app.ui.screens.NoteGardenScreen(vm,
             onOpenNote = { showNotesGarden = false; openNote(it) }, onClose = { showNotesGarden = false })
 
+        // Wave 3 · Active Recall — full-screen review overlay.
+        if (showRecall) com.todocompanion.app.ui.screens.RecallScreen(vm, onClose = { showRecall = false })
+
         // Habit analytics + editor: full-screen overlays (like the task editor) so each shows a single
         // top bar and Back returns to the Habits list, never the inbox.
         val habitDetail by vm.habitDetailId.collectAsState()
@@ -1095,7 +1099,8 @@ fun AppRoot(
         showDayReview?.let { d -> com.todocompanion.app.ui.screens.DayReviewScreen(vm, d, startInClose = dayReviewStartClose, startInWeekly = dayReviewStartWeekly, onOpenTask = { showDayReview = null; dayReviewStartClose = false; dayReviewStartWeekly = false; openTask(it) }, onOpenNote = { editingNote = it }, onBack = { showDayReview = null; dayReviewStartClose = false; dayReviewStartWeekly = false }) }
         if (showMomentum) com.todocompanion.app.ui.screens.MomentumScreen(vm, onBack = { showMomentum = false }, onOpenGoals = { showGoals = true })
         if (showRoutines) com.todocompanion.app.ui.screens.RoutinesScreen(vm, onBack = { showRoutines = false })
-        if (showGoals) com.todocompanion.app.ui.screens.GoalsScreen(vm, onBack = { showGoals = false })
+        if (showGoals) com.todocompanion.app.ui.screens.GoalsScreen(vm, onBack = { showGoals = false },
+            onOpenNote = { nid -> showGoals = false; editingNote = nid })
         if (showTimeTracking) com.todocompanion.app.ui.screens.TimeTrackingScreen(vm, onBack = { showTimeTracking = false })
         if (showTimeStats) com.todocompanion.app.ui.screens.TimeStatsScreen(vm, onBack = { showTimeStats = false })
 

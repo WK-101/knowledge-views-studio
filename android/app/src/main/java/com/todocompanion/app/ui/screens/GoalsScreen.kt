@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
@@ -123,7 +124,7 @@ private fun Sparkline(values: List<Int>, modifier: Modifier = Modifier) {
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GoalsScreen(vm: AppViewModel, onBack: () -> Unit) {
+fun GoalsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenNote: (String) -> Unit = {}) {
     BackHandler(onBack = onBack)
     val settings by vm.settings.collectAsState()
     val goals = remember(settings.goalsJson) { vm.goals().filter { !it.archived } }
@@ -199,7 +200,7 @@ fun GoalsScreen(vm: AppViewModel, onBack: () -> Unit) {
     detailFor?.let { id ->
         val g = vm.goals().firstOrNull { it.id == id }
         if (g == null) detailFor = null
-        else GoalDetailScreen(vm, g, onBack = { detailFor = null }, onEdit = { detailFor = null; editing = g }, onReview = { reviewScope = g.id })
+        else GoalDetailScreen(vm, g, onBack = { detailFor = null }, onEdit = { detailFor = null; editing = g }, onReview = { reviewScope = g.id }, onOpenNote = onOpenNote)
     }
     reviewScope?.let { scope ->
         WeeklyReviewDialog(vm, scope, goals, onDismiss = { reviewScope = null })
@@ -331,7 +332,7 @@ private fun GoalRow(vm: AppViewModel, g: Goal, reviews: List<com.todocompanion.a
 // ── The detail screen — the deep read + live edits (milestones, key results, review) ─────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEdit: () -> Unit, onReview: () -> Unit) {
+private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEdit: () -> Unit, onReview: () -> Unit, onOpenNote: (String) -> Unit = {}) {
     BackHandler(onBack = onBack)
     val today = goalToday()
     val settings by vm.settings.collectAsState()
@@ -355,6 +356,10 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 title = { Text("${g.emoji} ${g.name}", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 actions = {
+                    // Wave 3 · Notes ⇄ Goals — open (creating if needed) the reflective evidence journal.
+                    IconButton(onClick = { vm.openGoalJournal(g.id, g.name) { onOpenNote(it) } }) {
+                        Icon(Icons.AutoMirrored.Filled.MenuBook, "Journal & evidence")
+                    }
                     IconButton(onClick = { vm.shareGoalSnapshot(g) }) { Icon(Icons.Filled.Share, "Share progress") }
                     IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, "Edit goal") }
                 })

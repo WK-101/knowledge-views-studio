@@ -685,6 +685,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     else -> null
                 }
                 "habits" -> if (arg.isEmpty() || arg == "due" || arg == "today") habitList() else null
+                "goal" -> {
+                    // Wave 3 · Notes ⇄ Goals — live goal progress inside a note. arg = goal id or name.
+                    val g = goals().firstOrNull { it.id == arg } ?: goals().firstOrNull { it.name.equals(arg, true) }
+                    if (g == null) "_Goal not found_" else buildString {
+                        val today = java.time.LocalDate.now().toEpochDay()
+                        append("${g.emoji} **${g.name}**")
+                        com.todocompanion.app.domain.GoalScore.cycle(g, today)?.let {
+                            append(" · week ${it.weekIndex}/${it.totalWeeks} · ${it.daysLeft}d left")
+                        }
+                        append("\n")
+                        g.keyResultFraction?.let { append("- Key results: ${(it * 100).toInt()}%\n") }
+                        if (g.milestones.isNotEmpty()) append("- Milestones: ${g.milestonesDone}/${g.milestones.size}\n")
+                        val chain = com.todocompanion.app.domain.GoalScore.integrityChain(goalReviews(), g.reviewCadenceDays, today, g.id)
+                        if (chain > 0) append("- Integrity chain: $chain ${if (chain == 1) "review" else "reviews"}\n")
+                    }
+                }
                 "note" -> {
                     // Wave T — block-level transclusion: {{note:Title#Heading}} pulls just that section.
                     val title = arg.substringBefore("#").trim()
@@ -1056,6 +1072,148 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun openNoteByTitle(title: String, onOpen: (String) -> Unit) {
         val key = title.trim().lowercase()
         notes.value.firstOrNull { it.title.trim().lowercase() == key && !it.trashed }?.let { onOpen(it.id) }
+    }
+
+    // ── Wave 3 — Active Recall · Outcome Ledger · Notes⇄Goals · Courier · Read-Anywhere ───────────────
+
+    /** Active Recall — the current review session's due cards, and the live due count for the badge. */
+    val recallDue = MutableStateFlow<List<com.todocompanion.app.data.entity.NoteCardEntity>>(emptyList())
+    val recallDueCount = MutableStateFlow(0)
+    fun refreshRecall() = viewModelScope.launch {
+        val due = repo.dueNoteCards()
+        recallDue.value = due
+        recallDueCount.value = due.size
+    }
+    /** Grade the current card (SM-2) and advance; AGAIN re-queues it to the end of this session. */
+    fun gradeCard(id: String, grade: com.todocompanion.app.domain.NoteCards.Grade) = viewModelScope.launch {
+        repo.gradeNoteCard(id, grade)
+        val current = recallDue.value.firstOrNull { it.id == id }
+        val rest = recallDue.value.filter { it.id != id }
+        recallDue.value = if (grade == com.todocompanion.app.domain.NoteCards.Grade.AGAIN && current != null) rest + current else rest
+        recallDueCount.value = repo.dueNoteCardCount()
+    }
+    suspend fun cardCountForNote(noteId: String): Int = repo.noteCardsForNote(noteId).size
+
+    /** Outcome Ledger — roll up the live state of everything this note's [[links]] spawned. */
+    suspend fun noteOutcome(noteId: String): com.todocompanion.app.domain.NoteOutcome.Rollup = withContext(Dispatchers.IO) {
+        val links = runCatching { repo.getNoteLinksOnce() }.getOrDefault(emptyList())
+            .filter { it.noteId == noteId && it.targetId.isNotBlank() }
+        val taskById = tasks.value.associateBy { it.id }
+        val habitById = habits.value.associateBy { it.id }
+        val checkins = runCatching { repo.getHabitCheckinsOnce() }.getOrDefault(emptyList())
+        val today = java.time.LocalDate.now().toEpochDay()
+        val nowMs = System.currentTimeMillis()
+        val targets = links.mapNotNull { l ->
+            when (l.targetType) {
+                "task" -> taskById[l.targetId]?.let { com.todocompanion.app.domain.NoteOutcome.Target("task", it.id, it.title, done = it.completed) }
+                "event" -> runCatching { repo.eventById(l.targetId) }.getOrNull()?.let {
+                    com.todocompanion.app.domain.NoteOutcome.Target("event", it.id, it.title, past = it.startMillis < nowMs)
+                }
+                "habit" -> habitById[l.targetId]?.let { h ->
+                    val doneDays = checkins.filter { it.habitId == h.id && it.count > 0 }.map { it.epochDay }.toSet()
+                    com.todocompanion.app.domain.NoteOutcome.Target("habit", h.id, h.name,
+                        streak = com.todocompanion.app.domain.habit.HabitStats.streak(doneDays, today))
+                }
+                "note" -> com.todocompanion.app.domain.NoteOutcome.Target("note", l.targetId, l.targetTitle)
+                else -> null
+            }
+        }
+        val minutes = runCatching { repo.trackedMinutesForNote(noteId) }.getOrDefault(0)
+        com.todocompanion.app.domain.NoteOutcome.rollup(targets, minutes)
+    }
+
+    /** Notes ⇄ Goals — open (creating if needed) the reflective evidence note bound to a goal. */
+    fun openGoalJournal(goalId: String, goalName: String, onOpen: (String) -> Unit) = viewModelScope.launch {
+        val existing = repo.goalJournalNote(goalId)
+        onOpen(existing?.id ?: repo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(
+            id = "", linkedGoalId = goalId, kind = "note", workspaceId = activeWorkspace(),
+            title = "$goalName — journal",
+            body = "_Reflective journal & evidence for the goal **$goalName**._\n\n**Progress:** {{goal:$goalId}}\n\n## Reflections\n",
+        )))
+    }
+
+    /** Encrypted Note Courier — export a note as a passphrase-encrypted file, shared via the system sheet. */
+    fun sendNoteEncrypted(noteId: String, passphrase: String) = viewModelScope.launch {
+        if (passphrase.isBlank()) { toast("Enter a passphrase"); return@launch }
+        val note = repo.getNote(noteId) ?: return@launch
+        if (note.vault && com.todocompanion.app.domain.NoteVault.isLocked(note.body)) { toast("Unlock the note first"); return@launch }
+        if (note.sealedUntil != null && note.sealedUntil!! > System.currentTimeMillis()) { toast("This note is sealed — unseal it first"); return@launch }
+        val byId = repo.getTagsOnce().associate { it.id to it.name }
+        val tagNames = repo.getNoteTagCrossRefs().filter { it.noteId == noteId }.mapNotNull { byId[it.tagId] }
+        val payload = com.todocompanion.app.util.NoteCourier.Payload(
+            title = note.title, body = note.body, kind = note.kind, emoji = note.coverEmoji,
+            colorArgb = note.colorArgb, tags = tagNames)
+        val blob = com.todocompanion.app.util.NoteCourier.seal(payload, passphrase.toCharArray())
+        val uri = withContext(Dispatchers.IO) {
+            runCatching {
+                val dir = java.io.File(appCtx.cacheDir, "shared").apply { mkdirs() }
+                val base = note.title.ifBlank { "note" }.replace(Regex("[^A-Za-z0-9._-]"), "_").take(40).ifBlank { "note" }
+                val f = java.io.File(dir, "$base.${com.todocompanion.app.util.NoteCourier.FILE_EXT}").apply { writeText(blob) }
+                androidx.core.content.FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", f)
+            }.getOrNull()
+        } ?: return@launch
+        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "application/octet-stream"
+            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            putExtra(android.content.Intent.EXTRA_TITLE, "Encrypted note")
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        runCatching {
+            appCtx.startActivity(android.content.Intent.createChooser(send, "Send encrypted note").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        }.onFailure { toast("No app to share to") }
+    }
+
+    /** Encrypted Note Courier — read a picked courier file, then decrypt + create the note. */
+    fun receiveEncryptedNote(uriString: String, passphrase: String, onOpen: (String) -> Unit) = viewModelScope.launch {
+        val blob = withContext(Dispatchers.IO) {
+            runCatching {
+                appCtx.contentResolver.openInputStream(android.net.Uri.parse(uriString))?.bufferedReader()?.use { it.readText() }
+            }.getOrNull()
+        }
+        if (blob.isNullOrBlank()) { toast("Couldn't read that file"); return@launch }
+        if (!com.todocompanion.app.util.NoteCourier.looksEncrypted(blob)) { toast("Not a Kairo encrypted-note file"); return@launch }
+        importEncryptedNote(blob, passphrase, onOpen)
+    }
+
+    /** Encrypted Note Courier — decrypt a received courier envelope with [passphrase] and create the note. */
+    fun importEncryptedNote(blob: String, passphrase: String, onOpen: (String) -> Unit) = viewModelScope.launch {
+        val payload = com.todocompanion.app.util.NoteCourier.open(blob, passphrase.toCharArray())
+        if (payload == null) { toast("Wrong passphrase, or not a Kairo note file"); return@launch }
+        val ws = activeWorkspace()
+        val id = repo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(
+            id = "", workspaceId = ws, title = payload.title, body = payload.body, kind = payload.kind,
+            coverEmoji = payload.emoji, colorArgb = payload.colorArgb))
+        if (payload.tags.isNotEmpty()) {
+            val existing = repo.getTagsOnce().filter { it.workspaceId == ws }.associateBy { it.name.lowercase() }.toMutableMap()
+            val ids = payload.tags.map { name ->
+                val key = name.lowercase()
+                existing[key]?.id ?: UUID.randomUUID().toString().also { tid ->
+                    repo.upsertTag(TagEntity(tid, name, workspaceId = ws)); existing[key] = TagEntity(tid, name, workspaceId = ws)
+                }
+            }
+            repo.setNoteTags(id, ids.distinct())
+        }
+        toast("Note received"); onOpen(id)
+    }
+
+    /** Read-Anywhere — publish the workspace's notes as a self-contained offline website into a SAF folder. */
+    fun publishSite(folderUri: String) = viewModelScope.launch {
+        val ws = activeWorkspace()
+        val now0 = System.currentTimeMillis()
+        val list = repo.getNotesOnce().filter {
+            !it.trashed && !it.archived && !it.vault && !it.noExport && it.workspaceId == ws &&
+                (it.sealedUntil == null || it.sealedUntil!! <= now0)
+        }
+        if (list.isEmpty()) { toast("No notes to publish"); return@launch }
+        val tagName = repo.getTagsOnce().associate { it.id to it.name }
+        val refs = repo.getNoteTagCrossRefs().groupBy { it.noteId }
+        val siteNotes = list.sortedByDescending { it.updatedAt }.map { n ->
+            com.todocompanion.app.util.NoteSite.Note(n.id, n.title.ifBlank { "Untitled" }, n.body, n.updatedAt,
+                refs[n.id].orEmpty().mapNotNull { tagName[it.tagId] })
+        }
+        val files = com.todocompanion.app.util.NoteSite.build(siteNotes, "My Kairo notes")
+        val count = withContext(Dispatchers.IO) { com.todocompanion.app.util.NoteSite.writeToTree(appCtx, folderUri, files) }
+        toast(if (count > 0) "Published ${files.size} pages — open index.html in any browser" else "Couldn't write to that folder")
     }
 
     // ── L11 — Vault: real, portable, passphrase-based encryption for a note's body at rest ────────────

@@ -776,6 +776,7 @@ class AppRepository(private val db: AppDatabase) {
     private val noteRevisions = db.noteRevisionDao()
     private val noteLinks = db.noteLinkDao()
     private val smartViews = db.smartViewDao()
+    private val noteCards = db.noteCardDao()
     fun observeNotes(): Flow<List<com.todocompanion.app.data.entity.NoteEntity>> = notes.observeAll()
     fun observeNotebooks(): Flow<List<com.todocompanion.app.data.entity.NotebookEntity>> = notebooks.observeAll()
     suspend fun getNotesOnce(): List<com.todocompanion.app.data.entity.NoteEntity> = notes.getAll()
@@ -810,17 +811,64 @@ class AppRepository(private val db: AppDatabase) {
             // Purge any structured trace from a prior plaintext save, and keep the note out of search.
             notes.unlinkAllTagsForNote(id); notes.unlinkAllContextsForNote(id); noteLinks.clearForNote(id)
             runCatching { deleteNoteFts(ftsDb(), id) }
+            noteCards.deleteForNote(id)   // Wave 3 — no flashcards from ciphertext
         } else {
             materializeNoteTags(id)      // inline body #tags → structured note_tags (before FTS so tag names index)
             materializeNoteContexts(id)  // L2 — inline body @contexts → structured note_contexts (first-class, like tags)
             materializeNoteLinks(id)
             syncBoundCheckboxTasks(id)   // L5 — a ticked "- [ ] [[Task]]" line completes the task it's bound to
+            materializeNoteCards(stamped)  // Wave 3 — derive Active-Recall cards, preserving each card's schedule
             // Wave 2 · Privacy Governance Dial — a note flagged noIndex keeps its structural links/tags but
             // is dropped from FTS so it never surfaces in search / Ask / related.
             if (n.noIndex) runCatching { deleteNoteFts(ftsDb(), id) } else reindexNoteFts(stamped)
         }
         return id
     }
+
+    // ── Wave 3 · Active Recall — materialize/query/grade flashcards derived from note bodies ──────────
+    /** Re-derive [note]'s cards from its body, preserving the SM-2 schedule of cards that still exist. */
+    private suspend fun materializeNoteCards(note: com.todocompanion.app.data.entity.NoteEntity) {
+        val parsed = com.todocompanion.app.domain.NoteCards.parse(note.id, note.body)
+        if (parsed.isEmpty()) { noteCards.deleteForNote(note.id); return }
+        val nowMs = now()
+        val keep = ArrayList<String>(parsed.size)
+        for (c in parsed) {
+            keep.add(c.id)
+            val existing = noteCards.byId(c.id)
+            if (existing == null) {
+                val s = com.todocompanion.app.domain.NoteCards.fresh(nowMs)
+                noteCards.upsert(com.todocompanion.app.data.entity.NoteCardEntity(
+                    id = c.id, noteId = note.id, front = c.front, back = c.back, cardKind = c.kind,
+                    easiness = s.easiness, intervalDays = s.intervalDays, reps = s.reps, lapses = s.lapses,
+                    dueAt = s.dueAt, lastGradedAt = 0L, createdAt = nowMs))
+            } else if (existing.front != c.front || existing.back != c.back || existing.cardKind != c.kind) {
+                noteCards.updateContent(c.id, c.front, c.back, c.kind)
+            }
+        }
+        noteCards.deleteForNoteExcept(note.id, keep)
+    }
+
+    suspend fun dueNoteCards(nowMs: Long = now()): List<com.todocompanion.app.data.entity.NoteCardEntity> = noteCards.due(nowMs)
+    suspend fun dueNoteCardCount(nowMs: Long = now()): Int = noteCards.dueCount(nowMs)
+    suspend fun noteCardsForNote(noteId: String): List<com.todocompanion.app.data.entity.NoteCardEntity> = noteCards.forNote(noteId)
+    suspend fun allNoteCards(): List<com.todocompanion.app.data.entity.NoteCardEntity> = noteCards.getAll()
+
+    /** Apply a grade to a card (SM-2), persist the new schedule, and return the updated row. */
+    suspend fun gradeNoteCard(id: String, grade: com.todocompanion.app.domain.NoteCards.Grade): com.todocompanion.app.data.entity.NoteCardEntity? {
+        val card = noteCards.byId(id) ?: return null
+        val nowMs = now()
+        val s = com.todocompanion.app.domain.NoteCards.schedule(
+            com.todocompanion.app.domain.NoteCards.Sched(card.easiness, card.intervalDays, card.reps, card.lapses, card.dueAt),
+            grade, nowMs)
+        val updated = card.copy(easiness = s.easiness, intervalDays = s.intervalDays, reps = s.reps,
+            lapses = s.lapses, dueAt = s.dueAt, lastGradedAt = nowMs)
+        noteCards.upsert(updated)
+        return updated
+    }
+
+    /** Wave 3 · Notes ⇄ Goals — the note bound to a goal as its reflective evidence/journal, or null. */
+    suspend fun goalJournalNote(goalId: String): com.todocompanion.app.data.entity.NoteEntity? =
+        notes.getAll().firstOrNull { !it.trashed && it.linkedGoalId == goalId }
 
     /**
      * L5 — push direction of Shared Checkboxes: for each checkbox line bound to a task by a `[[Title]]`
@@ -937,6 +985,7 @@ class AppRepository(private val db: AppDatabase) {
         attachments.deleteForNote(id)
         noteRevisions.clearForNote(id)
         noteLinks.clearForNote(id)
+        noteCards.deleteForNote(id)      // Wave 3 — cascade Active-Recall cards with the note
         notes.deleteById(id)
         runCatching { deleteNoteFts(ftsDb(), id) }
     }
@@ -1880,6 +1929,10 @@ class AppRepository(private val db: AppDatabase) {
             noteRevisions = noteRevisions.getAll(),
             noteLinks = noteLinks.getAll(),
             smartViews = smartViews.getAll(),
+            // Wave 3 — Active-Recall schedules ride the backup; exclude cards of no-backup notes.
+            noteCards = notes.getAll().filter { it.noBackup }.map { it.id }.toHashSet().let { skip ->
+                noteCards.getAll().filter { it.noteId !in skip }
+            },
         )
     )
 
@@ -1976,6 +2029,7 @@ class AppRepository(private val db: AppDatabase) {
         noteRevisions.insertAll(b.noteRevisions)
         noteLinks.insertAll(b.noteLinks)
         smartViews.upsertAll(b.smartViews)
+        if (b.noteCards.isNotEmpty()) noteCards.insertAll(b.noteCards)   // Wave 3 — restore review schedules
         // Reset the FTS indices to match the freshly-replaced rows. The count-freshness heuristic can't
         // catch a same-cardinality replacement (restoring N notes over a different N), so rebuild eagerly
         // or search would return stale, pre-restore ids.
@@ -2032,6 +2086,7 @@ class AppRepository(private val db: AppDatabase) {
         noteRevisions.insertAll(missing(noteRevisions.getAll(), b.noteRevisions) { it.id })
         noteLinks.insertAll(missing(noteLinks.getAll(), b.noteLinks) { it.noteId to it.targetTitle })
         smartViews.upsertAll(missing(smartViews.getAll(), b.smartViews) { it.id })
+        noteCards.insertAll(missing(noteCards.getAll(), b.noteCards) { it.id })   // Wave 3 — union card schedules
     }
 
     /** Full snapshot of the current data as a BackupFile (for sync merges). */

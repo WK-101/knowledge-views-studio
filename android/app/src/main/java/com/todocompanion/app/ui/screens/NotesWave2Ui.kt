@@ -227,6 +227,70 @@ fun AddToThreadDialog(
     )
 }
 
+/**
+ * Wave 3 · Encrypted Note Courier — one passphrase prompt, reused for both sending and receiving a note.
+ * The passphrase never leaves the device; it derives the AES-GCM key for the portable envelope.
+ */
+@Composable
+fun CourierPassphraseDialog(
+    title: String, message: String, confirmLabel: String,
+    onConfirm: (String) -> Unit, onDismiss: () -> Unit,
+) {
+    var pass by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(enabled = pass.isNotBlank(), onClick = { onConfirm(pass) }) { Text(confirmLabel) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text(title) },
+        text = {
+            Column {
+                Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(10.dp))
+                AppTextField(
+                    value = pass, onValueChange = { pass = it }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Password),
+                    placeholder = { Text("Shared passphrase") },
+                )
+            }
+        },
+    )
+}
+
+/**
+ * Wave 3 · Outcome Ledger — "what actually moved because of this note." A read-only rollup of the live
+ * state of everything the note's `[[links]]` spawned: tasks done/open, events, habit streaks, tracked time.
+ */
+@Composable
+fun OutcomeLedgerCard(r: com.todocompanion.app.domain.NoteOutcome.Rollup) {
+    if (!r.hasAny) return
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Text("WHAT THIS NOTE MOVED", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                if (r.tasksTotal > 0) LedgerStat("${r.tasksDone}/${r.tasksTotal}", "tasks done")
+                if (r.eventsTotal > 0) LedgerStat("${r.eventsTotal}", if (r.eventsTotal == 1) "event" else "events")
+                if (r.habitsTotal > 0) LedgerStat(if (r.habitBestStreak > 0) "${r.habitBestStreak}🔥" else "${r.habitsTotal}", if (r.habitBestStreak > 0) "streak" else "habits")
+                if (r.trackedMinutes > 0) LedgerStat("%.1fh".format(r.trackedMinutes / 60.0), "tracked")
+            }
+        }
+    }
+}
+
+@Composable
+private fun LedgerStat(value: String, label: String) {
+    Column {
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
 /** Wave 2 · the live sprint bar shown atop the editor while a sprint runs. */
 @Composable
 fun SprintBar(elapsedSec: Long, words: Int, goal: Int, onStop: () -> Unit) {

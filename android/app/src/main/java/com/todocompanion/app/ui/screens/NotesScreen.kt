@@ -86,6 +86,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -124,6 +125,7 @@ fun NotesScreen(
     searchOpen: Boolean = false,
     onOpenGraph: () -> Unit = {},
     onOpenGarden: () -> Unit = {},
+    onOpenRecall: () -> Unit = {},
 ) {
     val settings by vm.settings.collectAsState()
     val notes by vm.notes.collectAsState()
@@ -153,6 +155,7 @@ fun NotesScreen(
     var showWrapped by remember { mutableStateOf(false) }   // Wave V — Notes Wrapped recap
     var showAsk by remember { mutableStateOf(false) }       // L9 — Ask your notes (offline retrieval)
     var showNow by remember { mutableStateOf(false) }       // L10 — Right note, right now (context)
+    var courierUri by remember { mutableStateOf<String?>(null) }   // Wave 3 — a picked encrypted-note file awaiting its passphrase
     // Multi-select (NotesNook-style) + sort.
     var selection by remember { mutableStateOf<Set<String>>(emptySet()) }
     var sortMenu by remember { mutableStateOf(false) }
@@ -382,9 +385,21 @@ fun NotesScreen(
                         DropdownMenuItem(text = { Text("＋ Smart View") }, onClick = { filterMenu = false; showBuilder = true })
                         DropdownMenuItem(text = { Text("◉ Life graph") }, onClick = { filterMenu = false; onOpenGraph() })
                         DropdownMenuItem(text = { Text("🌱 Note garden") }, onClick = { filterMenu = false; onOpenGarden() })
+                        val dueCards by vm.recallDueCount.collectAsState()
+                        LaunchedEffect(Unit) { vm.refreshRecall() }
+                        DropdownMenuItem(text = { Text("🎴 Recall" + if (dueCards > 0) "  ·  $dueCards due" else "") }, onClick = { filterMenu = false; onOpenRecall() })
                         DropdownMenuItem(text = { Text("✨ Wrapped") }, onClick = { filterMenu = false; showWrapped = true })
                         DropdownMenuItem(text = { Text("🔎 Ask your notes") }, onClick = { filterMenu = false; showAsk = true })
                         DropdownMenuItem(text = { Text("📍 Relevant now") }, onClick = { filterMenu = false; showNow = true })
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text("🌐 Publish site (offline)") }, onClick = {
+                            filterMenu = false
+                            com.todocompanion.app.util.SystemPicker.openTree { uri -> vm.publishSite(uri.toString()) }
+                        })
+                        DropdownMenuItem(text = { Text("🔐 Receive encrypted note") }, onClick = {
+                            filterMenu = false
+                            com.todocompanion.app.util.SystemPicker.openFile(com.todocompanion.app.util.PickTypes.ANY) { uri -> courierUri = uri.toString() }
+                        })
                     }
                 }
                 Box {
@@ -433,6 +448,15 @@ fun NotesScreen(
             }
             if (showNow) {
                 RightNowDialog(vm = vm, onOpen = onOpenNote, onDismiss = { showNow = false })
+            }
+            // Wave 3 · Encrypted Note Courier — the passphrase prompt for a picked encrypted-note file.
+            courierUri?.let { uri ->
+                CourierPassphraseDialog(
+                    title = "Open encrypted note", confirmLabel = "Decrypt",
+                    message = "Enter the passphrase the sender shared with you. It's used only on this device to decrypt the note.",
+                    onConfirm = { pass -> vm.receiveEncryptedNote(uri, pass) { onOpenNote(it) }; courierUri = null },
+                    onDismiss = { courierUri = null },
+                )
             }
             // A trashed note tapped → restore it or delete it forever.
             trashAction?.let { n ->

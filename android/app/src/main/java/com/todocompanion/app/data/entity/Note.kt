@@ -100,6 +100,34 @@ data class NoteEntity(
     val noBackup: Boolean = false,
     val noExport: Boolean = false,
     val noIndex: Boolean = false,
+    // Wave 3 (v78): the goal this note is the reflective evidence/journal for (Notes ⇄ Goals). A goal is a
+    // settings-JSON object, so this is a plain id reference, mirroring [linkedHabitId].
+    val linkedGoalId: String? = null,
+)
+
+/**
+ * Wave 3 — Active Recall: a spaced-repetition flashcard materialized from a note's body. The card grammar
+ * lives in the note text (`Q:: A`, `term :: definition`, or a `==cloze==` highlight), so cards are
+ * derived on save like tags and links — but the SM-2 *schedule* must survive re-parsing, so it persists
+ * here keyed by a stable [id] (a hash of noteId + normalized front). Fully on-device; the alarm engine
+ * that already resurfaces whole notes also brings due cards back. See [com.todocompanion.app.domain.NoteCards].
+ */
+@Serializable
+@Entity(tableName = "note_cards", indices = [Index("noteId"), Index("dueAt")])
+@androidx.compose.runtime.Immutable
+data class NoteCardEntity(
+    @PrimaryKey val id: String,
+    val noteId: String,
+    val front: String,
+    val back: String,
+    val cardKind: String = "qa",       // qa | def | cloze
+    val easiness: Double = 2.5,        // SM-2 ease factor (min 1.3)
+    val intervalDays: Int = 0,         // current interval; 0 = new / learning
+    val reps: Int = 0,                 // successful reviews in a row
+    val lapses: Int = 0,               // times forgotten
+    val dueAt: Long = 0L,              // epoch-millis this card is next due
+    val lastGradedAt: Long = 0L,
+    val createdAt: Long = 0L,
 )
 
 /** Wave O — a note sealed until a future date is hidden from the list AND kept out of every plaintext
