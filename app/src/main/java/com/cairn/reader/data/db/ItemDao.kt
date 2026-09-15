@@ -173,6 +173,19 @@ interface ItemDao {
     )
     fun observeUnreadCount(): Flow<Int>
 
+    /** Total articles in the global "All Articles" river — non-trashed, non-archived, and excluding
+     *  muted feeds — i.e. the count of what [observeAll]`(null, null)` lists. Shown on the drawer's
+     *  All Articles row so the whole collection size is visible at a glance. */
+    @Query(
+        """
+        SELECT COUNT(*) FROM items i
+        LEFT JOIN item_states s ON s.itemId = i.id
+        LEFT JOIN sources src ON src.id = i.sourceId
+        WHERE i.trashedAt IS NULL AND COALESCE(s.isArchived, 0) = 0 AND COALESCE(src.muted, 0) = 0
+        """
+    )
+    fun observeAllCount(): Flow<Int>
+
     @Query(
         """
         SELECT src.id AS sourceId, src.title AS title, src.folder AS folder,

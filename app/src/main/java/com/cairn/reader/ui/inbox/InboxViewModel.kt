@@ -182,6 +182,10 @@ class InboxViewModel @Inject constructor(
     val feeds: StateFlow<List<FeedUnread>> =
         itemRepository.feedUnread().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Total articles in the All river — shown as the count on the drawer's All Articles row. */
+    val allCount: StateFlow<Int> =
+        itemRepository.allCount().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
     /** sourceId → open mode (READER / BROWSER / EXTERNAL), so a tap can route per the feed's choice. */
     val openModes: StateFlow<Map<String, String>> =
         sourceRepository.sources().map { list -> list.associate { it.id to it.openIn } }

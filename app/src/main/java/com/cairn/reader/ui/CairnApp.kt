@@ -209,6 +209,7 @@ fun CairnApp(
     val inboxViewMode by inboxViewModel.viewMode.collectAsStateWithLifecycle()
     val inboxState by inboxViewModel.state.collectAsStateWithLifecycle()
     val feeds by inboxViewModel.feeds.collectAsStateWithLifecycle()
+    val allArticleCount by inboxViewModel.allCount.collectAsStateWithLifecycle()
     val selection by inboxViewModel.selection.collectAsStateWithLifecycle()
     val trashCount by inboxViewModel.trashCount.collectAsStateWithLifecycle()
     val ttsState by inboxViewModel.tts.collectAsStateWithLifecycle()
@@ -274,7 +275,7 @@ fun CairnApp(
         drawerContent = {
             ModalDrawerSheet {
                 FeedDrawerContent(
-                    totalUnread = inboxState.unread,
+                    totalArticles = allArticleCount,
                     feeds = feeds,
                     selection = selection,
                     filter = inboxState.filter,

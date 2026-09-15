@@ -1,0 +1,5 @@
+<resources>
+    <!-- Dark post-splash window background — matches CairnDarkColors.background (InkNight), so a
+         cold start in dark mode shows the app's dark ground, not a white flash. -->
+    <color name="window_background">#0D1414</color>
+</resources>

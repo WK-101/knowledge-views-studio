@@ -3,6 +3,9 @@
     <style name="Theme.Cairn" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <!-- Dark-aware window background (values-night overrides the color) so the post-splash
+             window matches the Compose scheme instead of flashing framework near-white. -->
+        <item name="android:windowBackground">@color/window_background</item>
     </style>
 
     <!-- Launch screen -->

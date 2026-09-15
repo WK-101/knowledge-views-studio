@@ -14,8 +14,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.lifecycleScope
+import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.ui.CairnRoot
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -28,10 +34,21 @@ class MainActivity : ComponentActivity() {
     private val requestNotifications =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* no-op */ }
 
+    @Inject lateinit var preferencesRepository: PreferencesRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        val splash = installSplashScreen()
+        // Keep the splash up until persisted preferences have loaded, so the first composed frame is
+        // already themed correctly and lands on the right start screen — no white flash and no
+        // momentary onboarding screen for returning users. Bounded so a slow/failed read can't hang.
+        var contentReady = false
+        splash.setKeepOnScreenCondition { !contentReady }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        lifecycleScope.launch {
+            withTimeoutOrNull(2_000) { preferencesRepository.preferences.first() }
+            contentReady = true
+        }
         pendingItem.value = intent?.getStringExtra(EXTRA_OPEN_ITEM)
         pendingBrief.value = intent?.getBooleanExtra(EXTRA_OPEN_BRIEF, false) == true
         maybeRequestNotifications()

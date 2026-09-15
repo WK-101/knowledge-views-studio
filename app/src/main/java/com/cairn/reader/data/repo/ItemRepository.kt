@@ -134,6 +134,8 @@ class ItemRepository @Inject constructor(
         return itemDao.observeByTagPath(p, "$esc/%")
     }
     fun unreadCount(): Flow<Int> = itemDao.observeUnreadCount()
+    /** Total articles in the global All river (for the drawer's All Articles count). */
+    fun allCount(): Flow<Int> = itemDao.observeAllCount()
     fun feedUnread(): Flow<List<com.cairn.reader.data.db.FeedUnread>> = itemDao.observeFeedUnread()
 
     suspend fun search(query: String): List<ItemListRow> {

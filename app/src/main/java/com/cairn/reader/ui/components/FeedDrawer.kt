@@ -76,7 +76,7 @@ import com.cairn.reader.ui.inbox.InboxFilter
  */
 @Composable
 fun FeedDrawerContent(
-    totalUnread: Int,
+    totalArticles: Int,
     feeds: List<FeedUnread>,
     selection: DrawerSelection,
     filter: InboxFilter,
@@ -147,7 +147,7 @@ fun FeedDrawerContent(
             label = { Text(stringResource(R.string.all_articles)) },
             selected = allSelected,
             icon = { Icon(Icons.AutoMirrored.Outlined.Article, contentDescription = null) },
-            badge = { if (totalUnread > 0) Text("$totalUnread") },
+            badge = { if (totalArticles > 0) Text("$totalArticles") },
             onClick = onAllArticles,
             modifier = Modifier.padding(itemPad),
         )

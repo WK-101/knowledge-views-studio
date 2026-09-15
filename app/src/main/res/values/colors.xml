@@ -1,4 +1,8 @@
 <resources>
     <color name="ic_launcher_background">#0E5B59</color>
     <color name="splash_background">#0E5B59</color>
+    <!-- Post-splash window background. Matches CairnLightColors.background (Paper) so there's no
+         white flash between the splash dismissing and the first Compose frame. The values-night
+         variant matches CairnDarkColors.background (InkNight). -->
+    <color name="window_background">#F7F9F8</color>
 </resources>
