@@ -22,7 +22,7 @@ object NoteTemplates {
     )
 
     // ── Custom (user-created) templates: stored as a JSON array in settings.notesTemplatesJson ──
-    private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = com.todocompanion.app.util.AppJson
 
     /** Decode the user's saved templates (always flagged custom = true). Empty/garbage → no templates. */
     fun parseCustom(s: String): List<Template> =

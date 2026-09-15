@@ -2,7 +2,7 @@ package com.todocompanion.app.domain
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 
 /**
  * Phase E — the day's *alignment*: how the closed day connected to what the user is working toward.
@@ -26,7 +26,7 @@ data class DayAlignment(
 }
 
 object DayAlignments {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     /** Parse a day's alignment from its DayLog JSON ("" / malformed = an empty record). */
     fun parse(s: String): DayAlignment =

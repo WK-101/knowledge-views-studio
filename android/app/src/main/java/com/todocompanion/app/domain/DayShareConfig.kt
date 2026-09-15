@@ -2,7 +2,7 @@ package com.todocompanion.app.domain
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 
 /**
  * The redesigned daily-review SHARE feature's configuration: WHAT the shared "My day" card includes,
@@ -85,7 +85,7 @@ data class DayShareConfig(
 )
 
 object DayShareConfigs {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     /** Parse the config from its settings JSON ("" / malformed = the defaults, so old installs round-trip). */
     fun parse(s: String): DayShareConfig =

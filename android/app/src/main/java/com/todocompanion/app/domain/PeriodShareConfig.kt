@@ -2,7 +2,7 @@ package com.todocompanion.app.domain
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 
 /**
  * The period-spanning SHARE feature's configuration: WHAT a shared WEEK / MONTH / YEAR roll-up card
@@ -49,7 +49,7 @@ data class PeriodShareConfig(
 )
 
 object PeriodShareConfigs {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     /** Parse the config from its settings JSON ("" / malformed = the defaults, so old installs round-trip). */
     fun parse(s: String): PeriodShareConfig =

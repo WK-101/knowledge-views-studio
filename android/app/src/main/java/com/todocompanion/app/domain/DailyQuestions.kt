@@ -2,7 +2,7 @@ package com.todocompanion.app.domain
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 
 /**
  * Phase C — self-scored Daily Questions (Marshall Goldsmith's "active questions"). Each evening you
@@ -19,7 +19,7 @@ import kotlinx.serialization.json.Json
 data class DailyQuestion(val id: String, val text: String)
 
 object DailyQuestions {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     /** The user keeps at most a handful of active questions — a small set is the point. */
     const val MAX = 5

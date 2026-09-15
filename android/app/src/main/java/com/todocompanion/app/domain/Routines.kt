@@ -2,7 +2,7 @@ package com.todocompanion.app.domain
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 
 /**
  * A Routine — a named, ordered, press-play ritual (morning primer, evening shutdown, deep-work start…).
@@ -79,7 +79,7 @@ data class RoutineRun(
 )
 
 object Routines {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     fun parse(s: String): List<Routine> =
         if (s.isBlank()) emptyList() else runCatching { json.decodeFromString<List<Routine>>(s) }.getOrDefault(emptyList())
@@ -100,7 +100,7 @@ object Routines {
 
 object RoutineRuns {
     private const val CAP = 400
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     fun parse(s: String): List<RoutineRun> =
         if (s.isBlank()) emptyList() else runCatching { json.decodeFromString<List<RoutineRun>>(s) }.getOrDefault(emptyList())
@@ -131,7 +131,7 @@ data class ActiveRoutineRun(
 )
 
 object ActiveRoutineRuns {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
     fun parse(s: String): ActiveRoutineRun? =
         if (s.isBlank()) null else runCatching { json.decodeFromString<ActiveRoutineRun>(s) }.getOrNull()
     fun encode(run: ActiveRoutineRun?): String = if (run == null) "" else runCatching { json.encodeToString(run) }.getOrDefault("")

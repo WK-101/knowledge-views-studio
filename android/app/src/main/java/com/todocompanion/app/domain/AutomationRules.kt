@@ -2,7 +2,7 @@ package com.todocompanion.app.domain
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 
 /**
  * Tier U12 — a lightweight, fully on-device automation layer. A rule fires when you *start* tracking a
@@ -51,7 +51,7 @@ data class AutomationRule(
 }
 
 object AutomationRules {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     fun parse(s: String): List<AutomationRule> =
         if (s.isBlank()) emptyList() else runCatching { json.decodeFromString<List<AutomationRule>>(s) }.getOrDefault(emptyList())

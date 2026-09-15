@@ -2,7 +2,7 @@ package com.todocompanion.app.domain
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 
 /**
  * R67 — small paired-plan records that power two evidence-based behaviour tools, stored together in one
@@ -30,7 +30,7 @@ data class MicroPlan(
 object MicroPlans {
     const val BUNDLE = "bundle"
     const val IF_THEN = "ifthen"
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     fun parse(s: String): List<MicroPlan> =
         if (s.isBlank()) emptyList() else runCatching { json.decodeFromString<List<MicroPlan>>(s) }.getOrDefault(emptyList())

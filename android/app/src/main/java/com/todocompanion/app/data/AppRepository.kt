@@ -295,7 +295,7 @@ class AppRepository(private val db: AppDatabase) {
     private val events = db.eventDao()
     private val notes = db.noteDao()
     private val notebooks = db.notebookDao()
-    private val templateJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val templateJson = com.todocompanion.app.util.AppJson
 
     // ----- task time-travel: sparse revision history (H5) -----
     private val lastRevSig = HashMap<String, Int>()
@@ -1715,7 +1715,9 @@ class AppRepository(private val db: AppDatabase) {
     private suspend fun hydratedAttachments(): List<AttachmentEntity> = attachments.getAll().map { a ->
         if (a.contentBase64.isBlank() && !a.filePath.isNullOrBlank()) {
             val f = java.io.File(a.filePath!!)
-            if (f.exists()) a.copy(contentBase64 = android.util.Base64.encodeToString(f.readBytes(), android.util.Base64.NO_WRAP), filePath = null) else a
+            // SEC-1: the file is encrypted at rest; decrypt (tolerant of legacy plaintext) so the backup
+            // carries the raw bytes as Base64 and stays portable + lossless.
+            if (f.exists()) a.copy(contentBase64 = android.util.Base64.encodeToString(com.todocompanion.app.data.security.FileVault.readDecrypted(f), android.util.Base64.NO_WRAP), filePath = null) else a
         } else a
     }
 

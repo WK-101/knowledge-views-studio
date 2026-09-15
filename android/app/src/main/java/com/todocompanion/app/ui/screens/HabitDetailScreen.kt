@@ -588,7 +588,15 @@ private fun DayEditorDialog(
     val date = LocalDate.ofEpochDay(epochDay)
     val step = habit.clickIncrement.coerceAtLeast(1)
     val unit = habit.unit?.takeIf { it.isNotBlank() }
-    val photoBitmap = remember(photoPath) { photoPath?.let { runCatching { android.graphics.BitmapFactory.decodeFile(it)?.asImageBitmap() }.getOrNull() } }
+    // SEC-1: habit photos are encrypted at rest — decrypt the bytes (tolerant of legacy plaintext) then decode.
+    val photoBitmap = remember(photoPath) {
+        photoPath?.let {
+            runCatching {
+                val bytes = com.todocompanion.app.data.security.FileVault.readDecrypted(java.io.File(it))
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+            }.getOrNull()
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(date.format(DateTimeFormatter.ofPattern("EEE, MMM d"))) },

@@ -2,7 +2,7 @@ package com.todocompanion.app.domain.calendar
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 
 /**
  * R42 — planner configuration objects stored as JSON in settings (no DB migration; round-trip in the
@@ -29,7 +29,7 @@ data class ProtectedWindow(val id: String, val name: String, val startMin: Int, 
 data class CalContext(val id: String, val name: String, val emoji: String = "🗂", val calendarIds: List<String> = emptyList())
 
 object DayRoutines {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
     fun parse(s: String): List<DayRoutine> = if (s.isBlank()) emptyList() else runCatching { json.decodeFromString<List<DayRoutine>>(s) }.getOrDefault(emptyList())
     fun encode(l: List<DayRoutine>): String = runCatching { json.encodeToString(l) }.getOrDefault("")
     fun upsert(l: List<DayRoutine>, r: DayRoutine) = if (l.any { it.id == r.id }) l.map { if (it.id == r.id) r else it } else l + r
@@ -37,7 +37,7 @@ object DayRoutines {
 }
 
 object ProtectedWindows {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
     fun parse(s: String): List<ProtectedWindow> = if (s.isBlank()) emptyList() else runCatching { json.decodeFromString<List<ProtectedWindow>>(s) }.getOrDefault(emptyList())
     fun encode(l: List<ProtectedWindow>): String = runCatching { json.encodeToString(l) }.getOrDefault("")
     fun upsert(l: List<ProtectedWindow>, w: ProtectedWindow) = if (l.any { it.id == w.id }) l.map { if (it.id == w.id) w else it } else l + w
@@ -45,7 +45,7 @@ object ProtectedWindows {
 }
 
 object CalContexts {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
     fun parse(s: String): List<CalContext> = if (s.isBlank()) emptyList() else runCatching { json.decodeFromString<List<CalContext>>(s) }.getOrDefault(emptyList())
     fun encode(l: List<CalContext>): String = runCatching { json.encodeToString(l) }.getOrDefault("")
     fun upsert(l: List<CalContext>, c: CalContext) = if (l.any { it.id == c.id }) l.map { if (it.id == c.id) c else it } else l + c

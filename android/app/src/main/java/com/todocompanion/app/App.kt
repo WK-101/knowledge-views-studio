@@ -66,6 +66,19 @@ class App : Application() {
             // R105 — arm the daily midnight widget refresh so date-sensitive widgets roll over on time.
             runCatching { com.todocompanion.app.widget.Widgets.scheduleMidnight(this@App) }
         }
+        // SEC-1 — one-shot, idempotent upgrade of any pre-existing plaintext attachment / habit-photo
+        // files to encrypted-at-rest. Cheap on steady state (a 4-byte header check per file skips the
+        // already-encrypted ones); the tolerant reader means nothing breaks whatever state a file is in.
+        appScope.launch {
+            runCatching {
+                com.todocompanion.app.data.security.FileVault.migrateLegacyPlaintext(
+                    listOf(
+                        java.io.File(filesDir, "attachments"),
+                        java.io.File(filesDir, "habit_photos"),
+                    )
+                )
+            }
+        }
         // Keep any placed home-screen widget in sync with task changes. Delayed so this full
         // table read doesn't compete with the DB queries the first UI frame needs.
         appScope.launch {

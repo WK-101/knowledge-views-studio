@@ -2,7 +2,7 @@ package com.todocompanion.app.domain
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 import java.time.LocalDate
 import kotlin.math.roundToInt
 
@@ -33,7 +33,7 @@ data class Prediction(
 )
 
 object Predictions {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     /** Matched-marker values, kept explicit so the UI and tests agree. */
     const val MATCH_UNSET = 0

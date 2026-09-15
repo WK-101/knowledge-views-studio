@@ -91,12 +91,16 @@ data class BackupFile(
 }
 
 object Backup {
-    private val json = Json {
-        prettyPrint = true
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-    }
+    // R108 audit B5 — the WRITER is compact: no pretty-print whitespace and defaults omitted
+    // (encodeDefaults = false). The round-trip stays EXACT because encodeDefaults only drops a field
+    // when its value already equals its declared default, and every such field deserializes straight
+    // back to that same default — a field without a default is always written. On a real store this
+    // typically shrinks the JSON by well over half (whitespace + the many at-default columns).
+    private val encoder = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+    // The READER stays tolerant of BOTH shapes — older pretty backups with every field present, and new
+    // compact ones with defaults omitted — and ignoreUnknownKeys covers any field dropped in a future schema.
+    private val decoder = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
-    fun encode(data: BackupFile): String = json.encodeToString(BackupFile.serializer(), data)
-    fun decode(text: String): BackupFile = json.decodeFromString(BackupFile.serializer(), text)
+    fun encode(data: BackupFile): String = encoder.encodeToString(BackupFile.serializer(), data)
+    fun decode(text: String): BackupFile = decoder.decodeFromString(BackupFile.serializer(), text)
 }

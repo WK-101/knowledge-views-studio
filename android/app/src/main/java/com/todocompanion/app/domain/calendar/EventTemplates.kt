@@ -2,7 +2,7 @@ package com.todocompanion.app.domain.calendar
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 
 /**
  * R41 — a reusable event blueprint. "Stand-up · 15m · Work · alert 5m", "Gym · 60m · Fitness". One tap
@@ -23,7 +23,7 @@ data class EventTemplate(
 )
 
 object EventTemplates {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     fun parse(s: String): List<EventTemplate> =
         if (s.isBlank()) emptyList() else runCatching { json.decodeFromString<List<EventTemplate>>(s) }.getOrDefault(emptyList())
@@ -42,7 +42,7 @@ object EventTemplates {
  * next event at the same spot pre-fills it. No Maps, no network — just your own memory of the trip.
  */
 object TravelTimes {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
     fun parse(s: String): Map<String, Int> =
         if (s.isBlank()) emptyMap() else runCatching { json.decodeFromString<Map<String, Int>>(s) }.getOrDefault(emptyMap())
     fun encode(map: Map<String, Int>): String = runCatching { json.encodeToString(map) }.getOrDefault("")

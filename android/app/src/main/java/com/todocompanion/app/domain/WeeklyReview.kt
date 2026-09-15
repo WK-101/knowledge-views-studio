@@ -2,7 +2,7 @@ package com.todocompanion.app.domain
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 import java.time.LocalDate
 import java.time.temporal.IsoFields
 
@@ -36,7 +36,7 @@ data class WeeklyReview(
 }
 
 object WeeklyReviews {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     /** The life areas offered in the "sharpen the saw" step — a small, fixed, always-available set
      *  (Covey's roles / the four dimensions of renewal), so the step works with no other setup. */

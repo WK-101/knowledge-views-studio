@@ -2,7 +2,7 @@ package com.todocompanion.app.domain
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 
 /**
  * Tier Z2 — the user's control over the assistant's nudges. Each insight, coach line and radar warning
@@ -22,7 +22,7 @@ data class InsightPrefs(
 }
 
 object InsightPrefsCodec {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
     fun parse(s: String): InsightPrefs =
         if (s.isBlank()) InsightPrefs() else runCatching { json.decodeFromString<InsightPrefs>(s) }.getOrDefault(InsightPrefs())
     fun encode(p: InsightPrefs): String = runCatching { json.encodeToString(p) }.getOrDefault("")

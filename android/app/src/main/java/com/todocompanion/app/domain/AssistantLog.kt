@@ -2,7 +2,7 @@ package com.todocompanion.app.domain
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 
 /**
  * Tier Z6 — a plain record of what the assistant did on your behalf (schedule, backfill, reshape), each
@@ -27,7 +27,7 @@ data class AssistantAction(
 }
 
 object AssistantLog {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
     fun parse(s: String): List<AssistantAction> =
         if (s.isBlank()) emptyList() else runCatching { json.decodeFromString<List<AssistantAction>>(s) }.getOrDefault(emptyList())
     fun encode(list: List<AssistantAction>): String = runCatching { json.encodeToString(list) }.getOrDefault("")

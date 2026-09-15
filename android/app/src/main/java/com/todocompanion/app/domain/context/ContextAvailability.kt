@@ -2,7 +2,7 @@ package com.todocompanion.app.domain.context
 
 import com.todocompanion.app.data.entity.ContextEntity
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 
 /**
  * GTD-style context availability. A context can be restricted to certain weekdays and a daily
@@ -20,7 +20,7 @@ data class OpenHours(
 )
 
 object ContextAvailability {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     fun encode(oh: OpenHours): String = json.encodeToString(OpenHours.serializer(), oh)
     fun parse(s: String?): OpenHours? =

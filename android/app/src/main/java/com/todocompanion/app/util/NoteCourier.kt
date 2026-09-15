@@ -1,7 +1,6 @@
 package com.todocompanion.app.util
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 /**
  * Wave 3 · Encrypted Note Courier — hand one note to a person end-to-end, with no server. The note is
@@ -25,7 +24,7 @@ object NoteCourier {
         val tags: List<String> = emptyList(),
     )
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     /** Encrypt a note payload under [pass]; returns the portable envelope string to write to a file. */
     fun seal(payload: Payload, pass: CharArray): String =

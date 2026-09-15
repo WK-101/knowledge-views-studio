@@ -3,7 +3,7 @@ package com.todocompanion.app.domain.view
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.domain.priority.PriorityLevel
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 import java.time.Instant
 import java.time.ZoneId
 
@@ -37,7 +37,7 @@ data class FilterQuery(
 }
 
 object Filters {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
     fun encode(q: FilterQuery): String = json.encodeToString(FilterQuery.serializer(), q)
     fun parse(s: String?): FilterQuery = if (s.isNullOrBlank()) FilterQuery() else runCatching { json.decodeFromString(FilterQuery.serializer(), s) }.getOrDefault(FilterQuery())
 

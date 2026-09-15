@@ -2,7 +2,7 @@ package com.todocompanion.app.domain
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 
 /**
  * Tier V12 — a self-defined rewards store. You earn momentum points by keeping habits and finishing
@@ -20,7 +20,7 @@ data class Reward(
 )
 
 object Rewards {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     fun parse(s: String): List<Reward> =
         if (s.isBlank()) emptyList() else runCatching { json.decodeFromString<List<Reward>>(s) }.getOrDefault(emptyList())

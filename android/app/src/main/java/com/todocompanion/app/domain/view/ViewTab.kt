@@ -1,7 +1,7 @@
 package com.todocompanion.app.domain.view
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 
 /**
  * A saved working state (MLO-style tab): a view plus its grouping, sort, outline/hierarchy toggles
@@ -21,7 +21,7 @@ data class ViewTab(
 )
 
 object ViewTabs {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
     fun encode(tabs: List<ViewTab>): String = json.encodeToString(kotlinx.serialization.builtins.ListSerializer(ViewTab.serializer()), tabs)
     fun decode(s: String?): List<ViewTab> =
         if (s.isNullOrBlank()) emptyList() else runCatching { json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(ViewTab.serializer()), s) }.getOrDefault(emptyList())

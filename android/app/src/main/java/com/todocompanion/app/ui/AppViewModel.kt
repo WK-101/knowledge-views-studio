@@ -436,7 +436,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val dir = java.io.File(appCtx.cacheDir, "richimg").apply { mkdirs() }
         repo.noteAttachments(noteId).filter { it.isImage }.forEach { a ->
             val path = when {
-                !a.filePath.isNullOrBlank() && java.io.File(a.filePath!!).exists() -> a.filePath
+                !a.filePath.isNullOrBlank() && java.io.File(a.filePath!!).exists() -> runCatching {
+                    // SEC-1: the stored file is encrypted at rest; the WebView can't read it, so materialize
+                    // a decrypted copy into the app-private cache (same tradeoff as the inline branch). The
+                    // copy is keyed by the immutable attachment id, so it's written once.
+                    val safe = a.fileName.replace(Regex("[^A-Za-z0-9._-]"), "_").ifBlank { "img" }
+                    val f = java.io.File(dir, "${a.id}_$safe")
+                    if (!f.exists()) f.writeBytes(com.todocompanion.app.data.security.FileVault.readDecrypted(java.io.File(a.filePath!!)))
+                    f.absolutePath
+                }.getOrNull()
                 a.contentBase64.isNotBlank() -> runCatching {
                     val safe = a.fileName.replace(Regex("[^A-Za-z0-9._-]"), "_").ifBlank { "img" }
                     val f = java.io.File(dir, "${a.id}_$safe")
@@ -1595,16 +1603,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             buildFilteredOutline(all.filter { !it.trashed }, matched)
         }.state(emptyList())
 
-    /** The focused Do-Next list — engine ranking + the "right now" filter (not blocked, not future-start,
-     *  due-today/overdue or starred/flagged, within the time/energy planner). Shared by the rendered list
-     *  and the sidebar count so the two always agree. */
-    private fun doNextFocused(
-        all: List<TaskEntity>, now: Long, prioCfg: PriorityEngine.Config,
-        deps: List<DependencyEntity>, tcRefs: List<com.todocompanion.app.data.entity.TaskContextCrossRef>,
-        ctxs: List<ContextEntity>, timeAvail: Int?, energyAvail: Int?,
-    ): List<TaskEntity> = com.todocompanion.app.domain.DoNext.focused(
-        all, now, prioCfg, deps, tcRefs, ctxs, timeAvail, energyAvail, zone, dayStartMin)
-
     private fun rankDoNext(
         base: List<TaskEntity>, all: List<TaskEntity>, now: Long, cfg: PriorityEngine.Config,
         deps: List<DependencyEntity>, tcRefs: List<com.todocompanion.app.data.entity.TaskContextCrossRef>, ctxs: List<ContextEntity>,
@@ -2336,7 +2334,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun attachmentContent(id: String): String? = withContext(Dispatchers.IO) {
         repo.attachmentFilePath(id)?.let { path ->
             val f = java.io.File(path)
-            if (f.exists()) return@withContext android.util.Base64.encodeToString(f.readBytes(), android.util.Base64.NO_WRAP)
+            // SEC-1: file-backed attachments are encrypted at rest; decrypt here (tolerant of legacy plaintext).
+            if (f.exists()) return@withContext android.util.Base64.encodeToString(
+                com.todocompanion.app.data.security.FileVault.readDecrypted(f), android.util.Base64.NO_WRAP)
         }
         repo.attachmentContent(id)
     }
@@ -2394,7 +2394,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             runCatching {
                 val dir = java.io.File(appCtx.filesDir, "attachments").apply { mkdirs() }
                 val f = java.io.File(dir, UUID.randomUUID().toString())
-                f.writeBytes(bytes)
+                com.todocompanion.app.data.security.FileVault.writeEncrypted(f, bytes)   // SEC-1: at-rest encrypted
                 repo.addAttachmentFile(taskId, name, mime, bytes.size.toLong(), f.absolutePath)
                 true
             }.getOrDefault(false)
@@ -5380,7 +5380,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 78, out)
                 val dir = java.io.File(appCtx.filesDir, "habit_photos").apply { mkdirs() }
                 val f = java.io.File(dir, UUID.randomUUID().toString() + ".jpg")
-                f.writeBytes(out.toByteArray())
+                com.todocompanion.app.data.security.FileVault.writeEncrypted(f, out.toByteArray())   // SEC-1: at-rest encrypted
                 f.absolutePath
             }.getOrNull()
         }

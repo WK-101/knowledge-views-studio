@@ -2,7 +2,7 @@ package com.todocompanion.app.domain
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 
 /**
  * Tier Z5 — one month's frozen snapshot of the cross-type meta-metrics the app now computes, so their
@@ -20,7 +20,7 @@ data class MetricSnapshot(
 )
 
 object MetricSnapshots {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
     fun parse(s: String): List<MetricSnapshot> =
         if (s.isBlank()) emptyList() else runCatching { json.decodeFromString<List<MetricSnapshot>>(s) }.getOrDefault(emptyList())
     fun encode(list: List<MetricSnapshot>): String = runCatching { json.encodeToString(list) }.getOrDefault("")

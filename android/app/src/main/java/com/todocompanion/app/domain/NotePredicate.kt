@@ -2,7 +2,7 @@ package com.todocompanion.app.domain
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 
 /**
  * Wave D — Smart Views. A saved, dynamic filter over notes, expressed as a tiny predicate tree
@@ -24,7 +24,7 @@ sealed interface NotePredicate {
 
 /** Pure evaluator + JSON for Smart Views — no Android, no DB, so it unit-tests cleanly. */
 object NoteSmartViews {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     fun encode(p: NotePredicate): String = json.encodeToString(NotePredicate.serializer(), p)
     fun decode(s: String): NotePredicate? =

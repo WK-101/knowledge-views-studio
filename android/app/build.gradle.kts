@@ -39,6 +39,9 @@ android {
         targetSdk = 35
         versionCode = runNumber?.toIntOrNull() ?: 1
         versionName = "0.1.${runNumber ?: "0"}"
+        // R108 audit A4 — the app is English-only; pin the resource config so AndroidX libraries don't
+        // drag in dozens of translated string folders. No app feature is localized, so nothing is lost.
+        resourceConfigurations += listOf("en")
         vectorDrawables { useSupportLibrary = true }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

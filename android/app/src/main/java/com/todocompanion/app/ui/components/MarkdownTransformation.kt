@@ -10,9 +10,7 @@ import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
-import androidx.compose.ui.unit.sp
 import com.todocompanion.app.domain.MarkdownStyle
 
 /**
@@ -58,10 +56,5 @@ class MarkdownVisualTransformation(
         MarkdownStyle.Kind.LINK, MarkdownStyle.Kind.WIKILINK -> SpanStyle(color = accent, textDecoration = TextDecoration.Underline)
         MarkdownStyle.Kind.TAG -> SpanStyle(color = accent)
         MarkdownStyle.Kind.SYNTAX -> SpanStyle(color = muted.copy(alpha = 0.55f))
-    }
-
-    companion object {
-        /** Convenience: a no-op-sized [TextUnit] guard kept for callers computing derived sizes. */
-        val ZERO: TextUnit = 0.sp
     }
 }

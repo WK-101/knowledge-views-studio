@@ -3,7 +3,7 @@ package com.todocompanion.app.domain
 import com.todocompanion.app.data.entity.CountdownEntity
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 import java.time.LocalDate
 import java.time.chrono.HijrahDate
 import java.time.temporal.ChronoField
@@ -24,7 +24,7 @@ import java.time.temporal.ChronoUnit
 data class Moment(val d: Long, val n: String)
 
 object Moments {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     fun parse(c: CountdownEntity): List<Moment> {
         val raw = c.momentsJson

@@ -2,7 +2,7 @@ package com.todocompanion.app.domain
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import com.todocompanion.app.util.AppJson
 
 /**
  * Tier X1 / Phase B — a Unified Goal: one objective that spans all three modules at once, expressed
@@ -101,7 +101,7 @@ data class GoalTemplate(
 )
 
 object Goals {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     fun parse(s: String): List<Goal> =
         if (s.isBlank()) emptyList() else runCatching { json.decodeFromString<List<Goal>>(s) }.getOrDefault(emptyList())
@@ -176,7 +176,7 @@ data class GoalReview(
 
 object GoalReviews {
     private const val CAP = 500
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = AppJson
 
     fun parse(s: String): List<GoalReview> =
         if (s.isBlank()) emptyList() else runCatching { json.decodeFromString<List<GoalReview>>(s) }.getOrDefault(emptyList())
