@@ -32,12 +32,16 @@ object HabitTime {
     enum class TimeClass { OFF, AMBIENT, DEDICATED }
     enum class CostMode { DERIVED, MANUAL }
 
-    /** Per-habit planning config. [timeClass] null = auto-classify. [manualMin] applies only in MANUAL mode. */
+    /** Per-habit planning config. [timeClass] null = auto-classify. [manualMin] applies only in MANUAL mode.
+     *  [blockMin] is the minute-of-day the user has DRAGGED this habit's calendar block to (0..1439); null =
+     *  not placed, so the block falls back to the habit's cue time or the start of the working day. This is a
+     *  display placement only — it does NOT add a reminder or a hard scheduled time. */
     data class Cfg(
         val timeClass: TimeClass? = null,
         val costMode: CostMode = CostMode.DERIVED,
         val manualMin: Int = 0,
         val showAsBlock: Boolean = false,
+        val blockMin: Int? = null,
     )
 
     private val MIN_UNITS = setOf("min", "mins", "minute", "minutes")
@@ -57,7 +61,8 @@ object HabitTime {
         val mode = if (f.getOrNull(1) == "manual") CostMode.MANUAL else CostMode.DERIVED
         val manual = f.getOrNull(2)?.toIntOrNull()?.coerceIn(0, 1440) ?: 0
         val block = f.getOrNull(3) == "1"
-        return Cfg(cls, mode, manual, block)
+        val blockMin = f.getOrNull(4)?.toIntOrNull()?.takeIf { it in 0..1439 }
+        return Cfg(cls, mode, manual, block, blockMin)
     }
 
     fun encodeCfg(c: Cfg): String {
@@ -68,14 +73,14 @@ object HabitTime {
             null -> "auto"
         }
         val mode = if (c.costMode == CostMode.MANUAL) "manual" else "derived"
-        return "$cls|$mode|${c.manualMin}|${if (c.showAsBlock) "1" else "0"}"
+        return "$cls|$mode|${c.manualMin}|${if (c.showAsBlock) "1" else "0"}|${c.blockMin ?: ""}"
     }
 
     fun cfgFor(settings: AppSettings, habitId: String): Cfg = parseCfg(settings.habitTimeCfg[habitId])
 
     /** True when nothing has been chosen — so a default cfg can be dropped from the map to keep it small. */
     fun isDefault(c: Cfg): Boolean =
-        c.timeClass == null && c.costMode == CostMode.DERIVED && c.manualMin == 0 && !c.showAsBlock
+        c.timeClass == null && c.costMode == CostMode.DERIVED && c.manualMin == 0 && !c.showAsBlock && c.blockMin == null
 
     // ── cost derivation ladder ────────────────────────────────────────────────────────────────────────
     private fun isMinUnit(h: HabitEntity): Boolean = h.unit?.trim()?.lowercase() in MIN_UNITS
@@ -171,8 +176,9 @@ object HabitTime {
             }
             // A dedicated block sits at its cue time; an opted-in block with no time defaults to the start
             // of the working day so it is still placed (and counted at a specific slot) rather than vanishing.
+            // A blockMin the user DRAGGED the calendar block to wins over both — it's their chosen placement.
             val cue = if (cls == TimeClass.DEDICATED && !amortized)
-                (cueMinute(h) ?: if (optedBlock) settings.workStartHour.coerceIn(0, 23) * 60 else null)
+                (cfg.blockMin ?: cueMinute(h) ?: if (optedBlock) settings.workStartHour.coerceIn(0, 23) * 60 else null)
             else null
             out.add(
                 DayHabit(

@@ -73,7 +73,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.data.entity.CoreValueEntity
+import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.data.entity.TaskEntity
+import com.todocompanion.app.ui.theme.LocalKairoColors
 import com.todocompanion.app.domain.AdaptivePrompts
 import com.todocompanion.app.domain.DailyQuestion
 import com.todocompanion.app.domain.DailyQuestions
@@ -144,6 +146,9 @@ import kotlin.math.roundToInt
  * tomorrow (preview + set the one thing that matters). Shareable as an image or text. Step with ‹ ›,
  * jump to any date, or tap Today. Entirely on-device and workspace-scoped.
  */
+/** One quit/bad habit's standing for the reviewed day: clean (no relapse) and the current days-free streak. */
+private data class QuitDay(val habit: HabitEntity, val clean: Boolean, val streak: Int)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = false, startInWeekly: Boolean = false, onOpenTask: (String) -> Unit, onOpenNote: (String) -> Unit = {}, onBack: () -> Unit) {
@@ -222,6 +227,21 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     }
     val habitsExpected = expected.size
     val missedHabits = expected.filter { h -> habitsKept.none { it.first.id == h.id } }
+
+    // Quit/bad habits ARE habits and belong in the review — their win is passive (a clean day, no relapse),
+    // so they can't ride the "kept vs expected" tally above (which is for positive daily actions). Surface
+    // them on their own so "stayed clean today" is celebrated and a slip is visible, with the current
+    // clean-streak for encouragement. (R108 — they were previously dropped entirely and never shown.)
+    val quitToday = habits.filter { !it.archived && !it.paused && it.habitType == "break" && day >= it.startEpochDay() }
+        .map { h ->
+            val mine = checkins.filter { it.habitId == h.id }
+            val c = mine.firstOrNull { it.epochDay == day }
+            val clean = HabitStats.isWinDay(h, day, c)
+            val relapseDays = mine.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+            val streak = HabitStats.currentStreak(h, emptySet(), emptySet(), relapseDays, day)
+            QuitDay(h, clean, streak)
+        }
+    val quitClean = quitToday.count { it.clean }
 
     val occ = remember(events, day) { CalendarEngine.expand(events, dayStart, dayEnd, zone).sortedBy { it.startMillis } }
 
@@ -578,6 +598,30 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
                         // Long habit names get the full row width (1 column) so they wrap cleanly instead of
                         // truncating in a cramped 2-up grid — the same adaptive rule as the Time-tracked card.
                         MetricTileGrid(habitMetrics, columns = metricColumnsFor(habitMetrics))
+                    }
+                }
+                // Quit/bad habits — their own card so a clean day is a visible win and a slip is honest.
+                if (quitToday.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    AppCard {
+                        SectionTitle("Quit habits · $quitClean/${quitToday.size} clean")
+                        val good = LocalKairoColors.current.good
+                        val bad = LocalKairoColors.current.bad
+                        quitToday.forEach { q ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(if (q.clean) "🛡" else "⚠️", style = MaterialTheme.typography.bodyMedium)
+                                Spacer(Modifier.width(8.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text((q.habit.emoji?.plus(" ") ?: "") + q.habit.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(
+                                        if (q.clean) (if (q.streak > 0) "Stayed clean · ${q.streak} day${if (q.streak == 1) "" else "s"} free" else "Stayed clean")
+                                        else "Relapse logged today",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (q.clean) good else bad,
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
                 if (occ.isNotEmpty()) {

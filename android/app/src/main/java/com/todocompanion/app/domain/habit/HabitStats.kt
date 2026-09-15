@@ -77,6 +77,37 @@ object HabitStats {
     fun isSuccessDay(habit: HabitEntity, checkin: com.todocompanion.app.data.entity.HabitCheckinEntity): Boolean =
         checkin.status == "done" && meetsGoal(habit, checkin.count) && !isRelapse(habit, checkin.count)
 
+    /**
+     * A *break* habit's win is DAY-shaped, not row-shaped: staying clean means the day has NO relapse, and a
+     * clean day usually has no check-in row at all (only slips are recorded). So the row-based
+     * [isSuccessDay] can essentially never be true for a quit habit — the ideal `count==0` day fails
+     * `meetsGoal`. This predicate is the correct "the user succeeded on this day" test for a break habit:
+     * the day is on/after its start, not skipped, and not a relapse. [checkin] may be null (no row = clean).
+     * Build habits fall through to [isSuccessDay] (a non-null success row).
+     */
+    fun isWinDay(habit: HabitEntity, epochDay: Long, checkin: com.todocompanion.app.data.entity.HabitCheckinEntity?): Boolean =
+        if (habit.habitType == "break") {
+            epochDay >= habit.startEpochDay() &&
+                (checkin == null || (checkin.status != "skip" && !isRelapse(habit, checkin.count)))
+        } else {
+            checkin != null && isSuccessDay(habit, checkin)
+        }
+
+    /** Days clean (no relapse) for a break habit across the inclusive day range [from]..[to]. Counts a day
+     *  as clean when it has no relapse row; days before the habit's start don't count. */
+    fun cleanDaysInRange(
+        habit: HabitEntity,
+        checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>,
+        from: Long, to: Long,
+    ): Int {
+        if (habit.habitType != "break") return 0
+        val relapseDays = checkins.asSequence()
+            .filter { it.habitId == habit.id && isRelapse(habit, it.count) }
+            .map { it.epochDay }.toHashSet()
+        val start = habit.startEpochDay()
+        return (maxOf(from, start)..to).count { it !in relapseDays }
+    }
+
     /** Whether [epochDay] is an "expected" day for weekday/interval frequencies (times_* = any day). */
     fun isExpectedDay(habit: HabitEntity, epochDay: Long): Boolean {
         if (epochDay < habit.startEpochDay()) return false

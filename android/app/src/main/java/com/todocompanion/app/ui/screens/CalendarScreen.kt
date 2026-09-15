@@ -361,11 +361,13 @@ fun CalendarScreen(
                 val dur = cost.coerceIn(10, 180)
                 val col = h.colorArgb?.let { androidx.compose.ui.graphics.Color(it) }
                 if (rawTimes.isEmpty() && cfg.showAsBlock) {
-                    // An opted-in block with no reminder is still placed — at its cue time, else the start of
-                    // the working day — so it never silently vanishes. Drawn dashed = a flexible reservation.
-                    val m = ht.cueMinute(h) ?: (s.workStartHour.coerceIn(0, 23) * 60)
+                    // An opted-in block with no reminder is still placed — at the minute the user DRAGGED it
+                    // to (cfg.blockMin), else its cue time, else the start of the working day — so it never
+                    // silently vanishes. Drawn dashed = a flexible reservation, and it's MOVABLE: long-press
+                    // and slide to place it near when you actually do it (a display placement, not a reminder).
+                    val m = cfg.blockMin ?: ht.cueMinute(h) ?: (s.workStartHour.coerceIn(0, 23) * 60)
                     listOf(HabitBlock(h.id, (h.emoji?.plus(" ") ?: "") + h.name, col, m, dur, done, progressed && !done,
-                        untimed = false, reserved = !done))
+                        untimed = false, reserved = !done, movable = true))
                 } else {
                     // A habit only carries a real time if it has a reminder; otherwise it's untimed and shows
                     // as a header chip, NOT pinned to a fake 09:00 on the grid (R23 — that overlapped them).
@@ -577,10 +579,10 @@ fun CalendarScreen(
                 })
             "week" -> {
                 val start = startOfWeek(anchor, firstDow)
-                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone, onDrawRange = openRange, energyByHour = energyByHour, daylightFor = daylightFor, protectedFor = protectedFor, ghostFor = ghostFor)
+                TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, onMoveHabitAt = { hid, min -> vm.setHabitBlockMinute(hid, min) }, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone, onDrawRange = openRange, energyByHour = energyByHour, daylightFor = daylightFor, protectedFor = protectedFor, ghostFor = ghostFor)
             }
             "weekly" -> WeeklyView(startOfWeek(anchor, firstDow), dueByDate, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate)
-            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone, onDrawRange = openRange, energyByHour = energyByHour, daylightFor = daylightFor, protectedFor = protectedFor, ghostFor = ghostFor)
+            "3day" -> TimelineView((0..2).map { anchor.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, onMoveHabitAt = { hid, min -> vm.setHabitBlockMinute(hid, min) }, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone, onDrawRange = openRange, energyByHour = energyByHour, daylightFor = daylightFor, protectedFor = protectedFor, ghostFor = ghostFor)
             "day" -> Column(Modifier.fillMaxSize()) {
                 // Phase 2 P1 — the DayTicker rides above the single-day timeline; tap a date to hop days.
                 DayTicker(anchor, dueByDate, eventOccForDay, habitBlocksFor, { colorOf(it.event, eventCalById) }) { d -> onAnchor(d); onSelected(d) }
@@ -871,7 +873,7 @@ fun CalendarScreen(
                         }
                     }
                 }
-                TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone, onDrawRange = openRange, energyByHour = energyByHour, daylightFor = daylightFor, protectedFor = protectedFor, ghostFor = ghostFor, showUntimedHabits = false)
+                TimelineView(listOf(anchor), dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, onMoveHabitAt = { hid, min -> vm.setHabitBlockMinute(hid, min) }, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone, onDrawRange = openRange, energyByHour = energyByHour, daylightFor = daylightFor, protectedFor = protectedFor, ghostFor = ghostFor, showUntimedHabits = false)
             }
             "year" -> YearView(anchor, dueByDate, onPrev = prev, onNext = next, onMonth = { m -> onAnchor(m.atDay(1)); onModeChange("month") }, onDay = { d -> onAnchor(d); onModeChange("day") })
             else -> AgendaView(dueByDate, onOpenTask, swipe)
@@ -1582,6 +1584,7 @@ private fun TimelineView(
     onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, onAddOnDate: (LocalDate) -> Unit,
     onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, onMoveAt: (LocalDate, String, Int) -> Unit,
     habitBlocksFor: (LocalDate) -> List<HabitBlock> = { emptyList() }, onOpenHabit: (String) -> Unit = {},
+    onMoveHabitAt: (String, Int) -> Unit = { _, _ -> },
     trackedBlocksFor: (LocalDate) -> List<TrackedBlock> = { emptyList() },
     revealUntracked: Boolean = false, onOpenTracked: (String) -> Unit = {},
     eventBlocksFor: (LocalDate) -> List<EventBlock> = { emptyList() }, onOpenEvent: (String) -> Unit = {},
@@ -1740,7 +1743,7 @@ private fun TimelineView(
                     val timed = dueByDate[d].orEmpty().filter { !it.isAllDay && hasTime(it.dueDate!!, zone) }
                     DayColumn(d, timed, zone, hourDp, onOpenTask, onAddAt, onResize, onMoveAt = { id, min -> onMoveAt(d, id, min) },
                         // Untimed habits render in the band above the grid (R27 #3); the grid gets only timed ones.
-                        habitBlocks = habitBlocksFor(d).filter { !it.untimed }, onOpenHabit = onOpenHabit, trackedBlocks = trackedBlocksFor(d), revealUntracked = revealUntracked, onOpenTracked = onOpenTracked,
+                        habitBlocks = habitBlocksFor(d).filter { !it.untimed }, onOpenHabit = onOpenHabit, onMoveHabitAt = onMoveHabitAt, trackedBlocks = trackedBlocksFor(d), revealUntracked = revealUntracked, onOpenTracked = onOpenTracked,
                         eventBlocks = eventBlocksFor(d), onOpenEvent = onOpenEvent, onDrawRange = onDrawRange,
                         energyByHour = energyByHour, daylightMin = daylightFor(d), protectedBands = protectedFor(d),
                         multiTouch = { activePointers.intValue > 1 },
@@ -1753,7 +1756,7 @@ private fun TimelineView(
 
 @Composable
 private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hourDp: Float, onOpenTask: (String) -> Unit, onAddAt: (LocalDate, Int) -> Unit, onResize: (String, Int) -> Unit, onMoveAt: (String, Int) -> Unit,
-    habitBlocks: List<HabitBlock> = emptyList(), onOpenHabit: (String) -> Unit = {}, trackedBlocks: List<TrackedBlock> = emptyList(), revealUntracked: Boolean = false, onOpenTracked: (String) -> Unit = {},
+    habitBlocks: List<HabitBlock> = emptyList(), onOpenHabit: (String) -> Unit = {}, onMoveHabitAt: (String, Int) -> Unit = { _, _ -> }, trackedBlocks: List<TrackedBlock> = emptyList(), revealUntracked: Boolean = false, onOpenTracked: (String) -> Unit = {},
     eventBlocks: List<EventBlock> = emptyList(), onOpenEvent: (String) -> Unit = {}, onDrawRange: (LocalDate, Int, Int) -> Unit = { _, _, _ -> },
     // Moat overlays, all optional and calm: B2 focus-weather (a per-hour energy 0..100 profile from your
     // own tracked history), D3 daylight (sunrise/sunset minute-of-day), C2 protected "shield" windows.
@@ -1947,11 +1950,6 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
             val habitAreaW = auxSliceW - 2.dp
             // Untimed habits are drawn in the band above the grid now (R27 #3); the grid carries only timed ones.
             val timedH = habitBlocks.filter { !it.untimed }.sortedBy { it.startMin }
-            @Composable
-            fun habitChip(hb: HabitBlock, mod: Modifier) {
-                // Same HabitPill as month view, dense to fit the timed lane (R56) — filled = done, no checkmark.
-                HabitPill(hb, onOpenHabit, modifier = mod, dense = true)
-            }
             // Timed habits sit at their reminder time; lane-split so simultaneous ones never overlap.
             if (timedH.isNotEmpty()) {
                 val laneEnd = ArrayList<Int>()
@@ -1964,10 +1962,31 @@ private fun DayColumn(day: LocalDate, timed: List<TaskEntity>, zone: ZoneId, hou
                 }
                 val lanes = maxOf(1, laneEnd.size)
                 val laneW = (habitAreaW - 1.dp) / lanes
+                val hourPxH = with(dens) { hourDp.dp.toPx() }
                 timedH.forEachIndexed { i, hb ->
-                    val top = (hourDp * hb.startMin / 60f).dp
+                    // A movable "show as block" reservation follows the finger on long-press + slide, snapping
+                    // to 15 min, and persists its new minute-of-day on release (a display placement, NOT a
+                    // reminder). Reminder-timed habits stay put (their time is the reminder). R108.
+                    var liveStart by remember(hb.id, hb.startMin) { mutableIntStateOf(hb.startMin) }
+                    var dragging by remember(hb.id) { mutableStateOf(false) }
+                    val top = (hourDp * liveStart / 60f).dp
                     val hh = ((hourDp * hb.durMin / 60f).dp).coerceAtLeast(22.dp)
-                    habitChip(hb, Modifier.offset(x = habitAreaX + laneW * laneOf[i], y = top).width(laneW - 1.dp).height(hh - 2.dp))
+                    val base = Modifier.offset(x = habitAreaX + laneW * laneOf[i], y = top).width(laneW - 1.dp).height(hh - 2.dp)
+                    val mod = if (!hb.movable) base else base.pointerInput(hb.id, hourDp) {
+                        var startLive = liveStart
+                        var rawMin = liveStart.toFloat()
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = { dragging = true; startLive = liveStart; rawMin = liveStart.toFloat() },
+                            onDrag = { change, off ->
+                                change.consume()
+                                rawMin = (rawMin + off.y / hourPxH * 60f).coerceIn(0f, (1440 - hb.durMin).toFloat())
+                                liveStart = ((rawMin / 15f).roundToInt() * 15).coerceIn(0, 1440 - hb.durMin)
+                            },
+                            onDragEnd = { dragging = false; if (liveStart != startLive) onMoveHabitAt(hb.id, liveStart) else onOpenHabit(hb.id) },
+                            onDragCancel = { dragging = false; liveStart = startLive },
+                        )
+                    }
+                    HabitPill(hb, onOpenHabit, modifier = mod, dense = true)
                 }
             }
         }
@@ -2102,6 +2121,9 @@ private data class HabitBlock(
     // A pending timed habit reservation — drawn with a dashed outline so it reads as flexible "held" time,
     // clearly distinct from a solid task block sitting beside it on the grid.
     val reserved: Boolean = false,
+    // R108 — a flexible "show as block" reservation (no fixed reminder) can be DRAGGED to a preferred
+    // minute of the day; long-press + slide updates its display placement (not a reminder).
+    val movable: Boolean = false,
 )
 
 /**

@@ -2311,6 +2311,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         else m[habitId] = com.todocompanion.app.domain.habit.HabitTime.encodeCfg(cfg)
         repo.saveSettings(settings.value.copy(habitTimeCfg = m))
     }
+    /** R108 — persist the minute-of-day a habit's flexible calendar block was dragged to (display placement
+     *  only; not a reminder). Merges into the existing HabitTime cfg keyed by habit id. */
+    fun setHabitBlockMinute(habitId: String, minute: Int) = viewModelScope.launch {
+        if (habitId.isBlank()) return@launch
+        val cur = com.todocompanion.app.domain.habit.HabitTime.cfgFor(settings.value, habitId)
+        setHabitTimeCfg(habitId, cur.copy(blockMin = minute.coerceIn(0, 1439)))
+    }
     fun setTimeGridColumns(cols: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(timeGridColumns = cols.coerceIn(2, 5))) }
     val habitDetailId = MutableStateFlow<String?>(null)    // non-null → the analytics screen overlays the tab
     val habitBatchOpen = MutableStateFlow(false)

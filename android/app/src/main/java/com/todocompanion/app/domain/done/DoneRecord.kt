@@ -99,6 +99,44 @@ object DoneRecord {
                 )
             }
 
+        // Quit/bad habits: a clean day leaves NO check-in row (only slips are recorded), so the row scan
+        // above can never credit them. Their achievement is DAYS FREE — so emit a milestone accomplishment
+        // each time a quit habit's clean streak reaches a meaningful mark (1, 3, 7, 14, 30, 60, 90, 180,
+        // 270, 365 days, then every year). This surfaces quit-habit wins in the Record/brag-doc/on-this-day
+        // without flooding the feed with one row per clean day. (R108 — quit habits were entirely absent.)
+        val todayEd = LocalDate.now(zone).toEpochDay()
+        val milestones = intArrayOf(1, 3, 7, 14, 30, 60, 90, 180, 270, 365)
+        habits.asSequence().filter { it.habitType == "break" && !it.trashed }.forEach { h ->
+            val relapseDays = checkins.asSequence()
+                .filter { it.habitId == h.id && HabitStats.isRelapse(h, it.count) }
+                .map { it.epochDay }.toHashSet()
+            val start = h.startEpochDay()
+            if (start > todayEd) return@forEach
+            var streak = 0
+            var day = start
+            var guard = 0
+            while (day <= todayEd && guard++ < 20000) {
+                if (day in relapseDays) streak = 0 else {
+                    streak++
+                    val hit = streak in milestones || (streak > 365 && streak % 365 == 0)
+                    if (hit) {
+                        val label = when (streak) {
+                            1 -> "1 day free"
+                            else -> if (streak % 365 == 0 && streak >= 365) "${streak / 365} year${if (streak / 365 == 1) "" else "s"} free" else "$streak days free"
+                        }
+                        val whenMs = LocalDate.ofEpochDay(day).atStartOfDay(zone).toInstant().toEpochMilli() + 12 * 60 * 60_000L
+                        out += Accomplishment(
+                            kind = DoneKind.HABIT, refId = h.id,
+                            title = (h.emoji?.plus(" ") ?: "🛡 ") + h.name + " · " + label,
+                            emoji = h.emoji ?: "🛡", colorArgb = h.colorArgb,
+                            whenMillis = whenMs, epochDay = day, minuteOfDay = 12 * 60, isWin = true,
+                        )
+                    }
+                }
+                day++
+            }
+        }
+
         // Finished focus sessions off the one timeline (kind == "focus", with an end).
         timeEntries.asSequence()
             .filter { it.kind == "focus" && it.endMillis != null && it.endMillis!! > it.startMillis }

@@ -115,14 +115,26 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit, onOpenGoals: () -> Unit
             },
         )
     }) { padding ->
-        // Habit strength (avg over active build habits). I5: gated to null when the Habits module is off,
-        // so a disabled module never feeds the blend or shows a tile.
+        // Habit strength (avg over active habits — BUILD and QUIT alike; a quit habit's strength is its
+        // clean-streak resilience, which is real momentum). Paused habits are on vacation, so they don't
+        // drag the average. I5: gated to null when the Habits module is off.
         val activeHabits = habits.filter { !it.archived }
         val habitStrengthRaw = remember(habits, checkins, today, settings) {
-            val vals = activeHabits.map { h -> vm.strengthOf(h) }   // Z8: honours the graded-strength opt-in
+            val vals = activeHabits.filter { !it.paused }.map { h -> vm.strengthOf(h) }   // Z8: honours the graded-strength opt-in
             if (vals.isEmpty()) null else vals.average().toInt()
         }
         val habitStrength = if (habitsOn) habitStrengthRaw else null
+        // Quit/bad habits are habits too — surface them explicitly so they're never invisible here. The tile
+        // shows how many are clean today and the best current days-free streak across them.
+        val quitHabits = activeHabits.filter { !it.paused && it.habitType == "break" }
+        val quitCleanToday = quitHabits.count { h ->
+            val c = checkins.firstOrNull { it.habitId == h.id && it.epochDay == today }
+            com.todocompanion.app.domain.habit.HabitStats.isWinDay(h, today, c)
+        }
+        val quitBestStreak = quitHabits.maxOfOrNull { h ->
+            val relapseDays = checkins.filter { it.habitId == h.id && com.todocompanion.app.domain.habit.HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+            com.todocompanion.app.domain.habit.HabitStats.currentStreak(h, emptySet(), emptySet(), relapseDays, today)
+        } ?: 0
         // Task reliability (avg over recurring tasks that have a score).
         val taskRel = if (tasksOn) reliability.values.map { it.score }.let { if (it.isEmpty()) null else it.average().toInt() } else null
         // Focus minutes this week.
@@ -299,6 +311,13 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit, onOpenGoals: () -> Unit
                 StatTile(value = "${activeHabits.size}", label = "Habits", modifier = Modifier.weight(1f))
                 StatTile(value = "${reliability.size}", label = "Tracked tasks", modifier = Modifier.weight(1f))
                 StatTile(value = "$tasksDoneWeek", label = "Done (7d)", modifier = Modifier.weight(1f))
+            }
+            // Quit/bad habits get their own tiles so they're visibly tracked, not folded silently into the
+            // strength average: how many stayed clean today, and the best current days-free run.
+            if (habitsOn && quitHabits.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatTile(value = "$quitCleanToday/${quitHabits.size}", label = "Quit clean today", modifier = Modifier.weight(1f))
+                StatTile(value = "$quitBestStreak", label = "Best days free", modifier = Modifier.weight(1f))
+                Spacer(Modifier.weight(1f))
             }
 
             // ── Tier X · the reasoning layer ─────────────────────────────────────────────────────────

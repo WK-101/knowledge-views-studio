@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -600,6 +601,35 @@ private fun FoldableCard(vm: AppViewModel, cardKey: String, title: String, conte
 
 /** The top strips (list description + smart-view helpers) shared by both list layouts. */
 private fun androidx.compose.foundation.lazy.LazyListScope.taskListHeaders(vm: AppViewModel, view: ViewRef, viewDescription: String?, onOpenOccasion: (String?) -> Unit = {}, onOpenRoutineRun: (String) -> Unit = {}) {
+    // R108 — an archived list/folder is read-only reference. Surface a clear banner with a one-tap
+    // Unarchive right where the user is looking (Notion's pattern), reinforcing the disabled add FAB.
+    if (view is ViewRef.ListView || view is ViewRef.FolderView) item(key = "archivedbanner") {
+        val lists by vm.lists.collectAsState()
+        val folders by vm.folders.collectAsState()
+        val archivedList = (view as? ViewRef.ListView)?.let { v -> lists.firstOrNull { it.id == v.listId }?.takeIf { it.archived } }
+        val archivedFolder = (view as? ViewRef.FolderView)?.let { v -> folders.firstOrNull { it.id == v.folderId }?.takeIf { it.archived } }
+        // Also treat a (non-archived) list living inside an archived folder as archived-for-viewing.
+        val inArchivedFolder = (view as? ViewRef.ListView)?.let { v ->
+            val (hl, _) = com.todocompanion.app.domain.view.ListPipeline.hiddenContainers(lists, folders)
+            v.listId in hl && archivedList == null && lists.any { it.id == v.listId && !it.trashed }
+        } ?: false
+        if (archivedList != null || archivedFolder != null || inArchivedFolder) {
+            val noun = if (view is ViewRef.FolderView) "folder" else "list"
+            Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .5f)) {
+                Row(Modifier.padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Archive, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                    Spacer(Modifier.width(10.dp))
+                    Text("Archived $noun · read-only", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                    when {
+                        archivedList != null -> TextButton(onClick = { vm.setListArchived(archivedList, false) }) { Text("Unarchive") }
+                        archivedFolder != null -> TextButton(onClick = { vm.setFolderArchived(archivedFolder, false) }) { Text("Unarchive") }
+                        else -> {}
+                    }
+                }
+            }
+        }
+    }
     viewDescription?.let { desc -> item(key = "viewdesc") {
         Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(12.dp),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)) {

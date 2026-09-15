@@ -486,8 +486,10 @@ fun NoteEditorScreen(
             // single call site is what fixes the earlier bugs — swapping between a "split" and a "single"
             // editor dropped the editor's focus and text and made tapping it flash the keyboard in a loop.
             // When the keyboard comes up the preview simply disappears and the editor grows to full height.
-            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().weight(1f).background(MaterialTheme.colorScheme.surface)) {
                 val previewVisible = showSplit && !WindowInsets.isImeVisible
+                // R108-diag — temporary trace so a lingering black-flash can be pinpointed from logcat.
+                androidx.compose.runtime.LaunchedEffect(previewVisible) { android.util.Log.d("KairoSplitDiag", "previewVisible=$previewVisible imeVisible=${!previewVisible && showSplit}") }
                 // DECOUPLED HEIGHTS — the crux of the split fix. The preview is a WebView, and instantiating one
                 // blocks the UI thread (Chromium init). Earlier the editor shared the height via weight(), so
                 // mounting the WebView forced the editor to be re-measured in the SAME (blocked) frame → the top
@@ -503,7 +505,9 @@ fun NoteEditorScreen(
                     if (previewVisible) { delay(48); previewReady = true }
                 }
                 Column(Modifier.fillMaxSize()) {
-                    Box(Modifier.fillMaxWidth().height(editorH)) {
+                    // Opaque editor surface: even if the window briefly re-composites when the preview
+                    // WebView attaches, the editor paints its own background so it can never show black.
+                    Box(Modifier.fillMaxWidth().height(editorH).background(MaterialTheme.colorScheme.surface)) {
                         NoteBodyEditor(
                             value = d.body, onValueChange = { draft = d.copy(body = it) },
                             modifier = Modifier.fillMaxSize(),
@@ -537,6 +541,9 @@ fun NoteEditorScreen(
                                     readingThemeId = settings.notesReadingTheme,
                                     type = noteType,
                                     modifier = Modifier.fillMaxSize(),
+                                    // R108 — software-composited so mounting it next to the live editor can't
+                                    // trigger a window surface transition that blacks the editor out.
+                                    softwareLayer = true,
                                 )
                             }
                         }

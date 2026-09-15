@@ -46,6 +46,13 @@ fun RichNoteView(
     type: com.todocompanion.app.domain.NoteAppearance.NoteType = com.todocompanion.app.domain.NoteAppearance.NoteType(),
     autoHeight: Boolean = false,
     maxAutoHeight: Dp = 5000.dp,
+    // R108 — render into a SOFTWARE layer instead of the WebView's own hardware surface. The split-view
+    // preview lives BESIDE a live Compose editor; a hardware WebView surface makes the window re-composite
+    // when it first attaches, which flashed the editor black for a beat. A software layer draws the WebView
+    // into the app's own surface (no separate GPU surface, no window transition), so the neighbour never
+    // blacks out. Notes render fine in software (no WebGL/video); we only pay a little raster cost, which is
+    // trivial for a small preview. The full-screen reader keeps hardware (default false).
+    softwareLayer: Boolean = false,
 ) {
     val cs = MaterialTheme.colorScheme
     val dark = cs.surface.luminance() < 0.5f
@@ -85,7 +92,12 @@ fun RichNoteView(
     AndroidView(
         modifier = sizedModifier,
         factory = { ctx ->
+            if (softwareLayer) android.util.Log.d("KairoSplitDiag", "RichNoteView WebView factory (creating; software layer)")
             WebView(ctx).apply {
+                // R108 — a software layer keeps the WebView inside the app's own surface, so attaching it
+                // next to the live editor doesn't make the window re-composite (which flashed the editor
+                // black). Set before anything else so the very first frame is software-composited.
+                if (softwareLayer) setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
                 @Suppress("SetJavaScriptEnabled")
                 settings.javaScriptEnabled = true
                 settings.allowFileAccess = true
@@ -124,6 +136,7 @@ fun RichNoteView(
                     }
                     override fun shouldOverrideUrlLoading(view: WebView, req: WebResourceRequest): Boolean = true
                     override fun onPageFinished(view: WebView, url: String?) {
+                        if (softwareLayer) android.util.Log.d("KairoSplitDiag", "RichNoteView onPageFinished (software=$softwareLayer)")
                         if (autoHeight) view.evaluateJavascript(HEIGHT_OBSERVER_JS, null)
                     }
                 }
