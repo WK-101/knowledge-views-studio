@@ -2,7 +2,6 @@
 
 package com.cairn.reader.ui.components
 
-import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
@@ -254,10 +253,7 @@ fun ItemActionSheet(
         if (onMarkBelow != null) add(SheetAction(Icons.Outlined.KeyboardArrowDown, "Read down") { onMarkBelow(); onDismiss() })
         add(SheetAction(Icons.AutoMirrored.Outlined.OpenInNew, "Original") { onOpenOriginal(); onDismiss() })
         add(SheetAction(Icons.Outlined.Share, "Share") {
-            val share = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"; putExtra(Intent.EXTRA_TEXT, row.url); putExtra(Intent.EXTRA_SUBJECT, row.title)
-            }
-            runCatching { context.startActivity(Intent.createChooser(share, null)) }
+            com.cairn.reader.util.shareText(context, row.url, subject = row.title, chooser = null)
             onDismiss()
         })
         if (onDelete != null) add(SheetAction(Icons.Outlined.DeleteOutline, "Trash", destructive = true) { onDelete(); onDismiss() })

@@ -19,9 +19,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.cairn.reader.ui.theme.Dimens
 
 /**
@@ -89,10 +92,55 @@ fun EntryDivider(modifier: Modifier = Modifier) {
     )
 }
 
+/** The three section-label looks that used to be six private copies (see [SectionLabel]). */
+enum class SectionLabelVariant { Group, Menu, Sheet }
+
 /**
- * One row in a long-press action sheet: an icon + label, tappable across the full width. The four
- * list screens each hand-rolled a private `ActionRow`/`OfflineAction`/`NotebookActionRow` that was
- * byte-for-byte this; they now share it. Pass [tint] for a destructive (error-colored) action.
+ * A small section heading, in one of three [variant]s. Before this, six screens each carried a
+ * private label composable ([SectionLabelVariant.Group]: drawer/library/insights groupings, primary
+ * + SemiBold; [SectionLabelVariant.Menu]: the inbox overflow menu, inset + onSurfaceVariant;
+ * [SectionLabelVariant.Sheet]: reader/discover sheets, letter-spaced). All render as `labelMedium`
+ * and expose a heading to accessibility. Callers pass any extra padding via [modifier].
+ */
+@Composable
+internal fun SectionLabel(
+    text: String,
+    variant: SectionLabelVariant = SectionLabelVariant.Group,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    when (variant) {
+        SectionLabelVariant.Group -> Text(
+            text,
+            style = MaterialTheme.typography.labelMedium,
+            color = scheme.primary,
+            fontWeight = FontWeight.SemiBold,
+            modifier = modifier.semantics { heading() },
+        )
+        SectionLabelVariant.Menu -> Text(
+            text,
+            style = MaterialTheme.typography.labelMedium,
+            color = scheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium,
+            modifier = modifier
+                .padding(start = 16.dp, top = 8.dp, bottom = 2.dp)
+                .semantics { heading() },
+        )
+        SectionLabelVariant.Sheet -> Text(
+            text,
+            style = MaterialTheme.typography.labelMedium,
+            color = scheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 1.2.sp,
+            modifier = modifier.semantics { heading() },
+        )
+    }
+}
+
+/**
+ * One row in a long-press action sheet: an icon + label, tappable across the full width. The list
+ * screens each hand-rolled a private `ActionRow`/`OfflineAction` that was byte-for-byte this; they
+ * now share it. Pass [destructive] for an error-colored (delete/remove) action.
  */
 @Composable
 fun SheetActionRow(
@@ -100,18 +148,20 @@ fun SheetActionRow(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    tint: Color = MaterialTheme.colorScheme.onSurface,
+    destructive: Boolean = false,
 ) {
+    val textColor = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+    val iconTint = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = Dimens.xl, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(Dimens.xl),
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(Dimens.iconInline))
-        Text(label, style = MaterialTheme.typography.bodyLarge, color = tint)
+        Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(Dimens.iconInline))
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = textColor)
     }
 }
 

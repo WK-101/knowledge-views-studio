@@ -4,6 +4,8 @@ package com.cairn.reader.ui.discover
 
 import androidx.compose.ui.res.stringResource
 import com.cairn.reader.R
+import com.cairn.reader.ui.components.SectionLabel
+import com.cairn.reader.ui.components.SectionLabelVariant
 
 import android.widget.Toast
 import androidx.compose.foundation.clickable
@@ -68,11 +70,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 
 /** Standalone Discover (its own top bar + back), for the drawer route / deep link. */
 @Composable
@@ -193,7 +192,7 @@ private fun DiscoverBody(padding: PaddingValues, viewModel: DiscoverViewModel) {
         }
         if (query.isBlank()) item {
             Column(Modifier.padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 8.dp)) {
-                SectionLabel("ADD FROM A SITE")
+                SectionLabel("ADD FROM A SITE", SectionLabelVariant.Sheet)
                 Spacer(Modifier.height(10.dp))
                 // Compact single row of platform icons (Reddit, YouTube, Substack, …) — tap one to
                 // follow. Scrolls horizontally so it stays one tidy row rather than a wrapped grid.
@@ -225,7 +224,7 @@ private fun DiscoverBody(padding: PaddingValues, viewModel: DiscoverViewModel) {
                         .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    SectionLabel(category.name.uppercase(), Modifier.weight(1f))
+                    SectionLabel(category.name.uppercase(), SectionLabelVariant.Sheet, Modifier.weight(1f))
                     Text(
                         "${category.feeds.size}",
                         style = MaterialTheme.typography.labelMedium,
@@ -311,14 +310,3 @@ private fun platformIcon(p: PlatformFeed): androidx.compose.ui.graphics.vector.I
     PlatformFeed.WEBSITE -> Icons.Outlined.Language
 }
 
-@Composable
-private fun SectionLabel(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        letterSpacing = 1.4.sp,
-        fontWeight = FontWeight.Medium,
-        modifier = modifier.semantics { heading() },
-    )
-}

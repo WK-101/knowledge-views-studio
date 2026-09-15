@@ -118,15 +118,16 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.data.prefs.ListViewMode
+import com.cairn.reader.ui.components.EmptyState
 import com.cairn.reader.ui.components.FeedDrawerContent
 import com.cairn.reader.ui.components.ItemActionSheet
+import com.cairn.reader.ui.components.SectionLabel
+import com.cairn.reader.ui.components.SectionLabelVariant
 import com.cairn.reader.ui.components.SwipeableItemRow
 import com.cairn.reader.ui.inbox.InboxFilter
 import com.cairn.reader.ui.inbox.InboxViewModel
 import com.cairn.reader.ui.library.LibraryScreen
 import com.cairn.reader.ui.settings.SettingsScreen
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 
 /**
  * A top-level destination. Every destination is now a pane rendered in place inside the one shared
@@ -391,7 +392,7 @@ fun CairnApp(
                                 Icon(Icons.Outlined.FilterList, contentDescription = "Filter: ${inboxState.filter.label}")
                             }
                             DropdownMenu(expanded = showFilterMenu, onDismissRequest = { showFilterMenu = false }) {
-                                MenuSectionLabel("SHOW")
+                                SectionLabel("SHOW", SectionLabelVariant.Menu)
                                 InboxFilter.entries.forEach { f ->
                                     ViewModeItem(
                                         label = if (f == InboxFilter.UNREAD && inboxState.unread > 0) "Unread · ${inboxState.unread}" else f.label,
@@ -406,7 +407,7 @@ fun CairnApp(
                                 Icon(Icons.Outlined.ViewAgenda, contentDescription = stringResource(R.string.view_and_sort))
                             }
                             DropdownMenu(expanded = showViewMenu, onDismissRequest = { showViewMenu = false }) {
-                                MenuSectionLabel("VIEW")
+                                SectionLabel("VIEW", SectionLabelVariant.Menu)
                                 ViewModeItem("List", Icons.AutoMirrored.Outlined.ViewList, inboxViewMode == ListViewMode.LIST) {
                                     inboxViewModel.setViewMode(ListViewMode.LIST); showViewMenu = false
                                 }
@@ -417,7 +418,7 @@ fun CairnApp(
                                     inboxViewModel.setViewMode(ListViewMode.MAGAZINE); showViewMenu = false
                                 }
                                 androidx.compose.material3.HorizontalDivider()
-                                MenuSectionLabel("SORT")
+                                SectionLabel("SORT", SectionLabelVariant.Menu)
                                 com.cairn.reader.ui.inbox.InboxSort.entries.forEach { s ->
                                     ViewModeItem(s.label, Icons.Outlined.SwapVert, inboxState.sort == s) {
                                         inboxViewModel.setSort(s); showViewMenu = false
@@ -663,14 +664,8 @@ private fun InboxScreen(
     fun onSwipe(row: ItemListRow, action: com.cairn.reader.data.prefs.SwipeAction) {
         when (action) {
             com.cairn.reader.data.prefs.SwipeAction.OPEN_ORIGINAL -> onOpenWeb(row.url)
-            com.cairn.reader.data.prefs.SwipeAction.SHARE -> {
-                val share = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(android.content.Intent.EXTRA_TEXT, row.url)
-                    putExtra(android.content.Intent.EXTRA_SUBJECT, row.title)
-                }
-                runCatching { context.startActivity(android.content.Intent.createChooser(share, null)) }
-            }
+            com.cairn.reader.data.prefs.SwipeAction.SHARE ->
+                com.cairn.reader.util.shareText(context, row.url, subject = row.title, chooser = null)
             else -> viewModel.swipe(row, action)
         }
     }
@@ -747,7 +742,7 @@ private fun InboxScreen(
             modifier = Modifier.fillMaxSize(),
         ) {
             if (!state.loading && state.items.isEmpty()) {
-                EmptyState(state.filter)
+                InboxEmptyState(state.filter)
             } else {
                 val inboxRow: @Composable (ItemListRow) -> Unit = { row ->
                     SwipeableItemRow(
@@ -893,16 +888,6 @@ private fun filterIcon(filter: InboxFilter): ImageVector = when (filter) {
 }
 
 @Composable
-private fun MenuSectionLabel(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp).semantics { heading() },
-    )
-}
-
-@Composable
 private fun ViewModeItem(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, selected: Boolean, onClick: () -> Unit) {
     androidx.compose.material3.DropdownMenuItem(
         text = { Text(label, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal) },
@@ -912,7 +897,7 @@ private fun ViewModeItem(label: String, icon: androidx.compose.ui.graphics.vecto
 }
 
 @Composable
-private fun EmptyState(filter: InboxFilter) {
+private fun InboxEmptyState(filter: InboxFilter) {
     val (icon, title, body) = when (filter) {
         InboxFilter.UNREAD -> Triple(
             Icons.Outlined.Inbox,
@@ -935,15 +920,5 @@ private fun EmptyState(filter: InboxFilter) {
             "Add a feed or share a link to Cairn, and everything you collect will appear in this list.",
         )
     }
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
-        Spacer(Modifier.height(14.dp))
-        Text(title, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+    EmptyState(title = title, body = body, icon = icon)
 }

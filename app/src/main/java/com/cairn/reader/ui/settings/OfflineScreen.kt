@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.data.db.CacheStatus
+import com.cairn.reader.ui.components.SheetActionRow
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 
@@ -283,13 +284,13 @@ fun OfflineScreen(
                 Spacer(Modifier.height(8.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(6.dp))
-                OfflineAction(Icons.AutoMirrored.Outlined.Article, "Open") { onOpenItem(row.id); actionRow = null }
-                OfflineAction(Icons.Outlined.Checklist, "Select") { viewModel.togglePick(row.id); actionRow = null }
+                SheetActionRow(Icons.AutoMirrored.Outlined.Article, "Open", onClick = { onOpenItem(row.id); actionRow = null })
+                SheetActionRow(Icons.Outlined.Checklist, "Select", onClick = { viewModel.togglePick(row.id); actionRow = null })
                 if (!permanent) {
-                    OfflineAction(Icons.Outlined.OfflinePin, "Save offline (permanent)") { viewModel.makePermanent(row.id); actionRow = null }
+                    SheetActionRow(Icons.Outlined.OfflinePin, "Save offline (permanent)", onClick = { viewModel.makePermanent(row.id); actionRow = null })
                 }
-                OfflineAction(Icons.Outlined.CloudOff, "Remove download (keep entry)") { viewModel.removeCache(row.id); actionRow = null }
-                OfflineAction(Icons.Outlined.DeleteOutline, "Delete entry", destructive = true) { confirmDelete = row; actionRow = null }
+                SheetActionRow(Icons.Outlined.CloudOff, "Remove download (keep entry)", onClick = { viewModel.removeCache(row.id); actionRow = null })
+                SheetActionRow(Icons.Outlined.DeleteOutline, "Delete entry", onClick = { confirmDelete = row; actionRow = null }, destructive = true)
             }
         }
     }
@@ -307,25 +308,6 @@ fun OfflineScreen(
 
     if (showSettings) {
         StorageSettingsSheet(padding = padding, onDismiss = { showSettings = false })
-    }
-}
-
-@Composable
-private fun OfflineAction(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    destructive: Boolean = false,
-    onClick: () -> Unit,
-) {
-    val color = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-    val tint = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp), tint = tint)
-        Text(label, style = MaterialTheme.typography.bodyLarge, color = color)
     }
 }
 

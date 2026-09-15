@@ -148,6 +148,8 @@ import com.cairn.reader.data.db.HighlightEntity
 import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
 import com.cairn.reader.ui.components.CollectionMembershipSheet
+import com.cairn.reader.ui.components.SectionLabel
+import com.cairn.reader.ui.components.SectionLabelVariant
 import com.cairn.reader.ui.components.TagEditorSheet
 import com.cairn.reader.ui.theme.InterFamily
 import com.cairn.reader.ui.theme.ReadingSerif
@@ -157,8 +159,6 @@ import com.cairn.reader.ui.util.nextSpeed
 import com.cairn.reader.ui.util.speedLabel
 import com.cairn.reader.data.db.CacheStatus
 import com.cairn.reader.data.db.ExtractStatus
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 
 @Composable
 internal fun LookupSheet(
@@ -426,7 +426,7 @@ internal fun TypographySheet(
             // ---- Text size: preset chips — the same control (and preset scale) as Settings ›
             // Appearance, so the one setting looks identical wherever it's edited. Pinch anywhere in
             // the article for finer, off-preset sizing.
-            SheetSectionLabel("TEXT SIZE")
+            SectionLabel("TEXT SIZE", SectionLabelVariant.Sheet)
             Spacer(Modifier.height(6.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -448,7 +448,7 @@ internal fun TypographySheet(
 
             Spacer(Modifier.height(16.dp))
             // ---- Typeface -------------------------------------------------------------------
-            SheetSectionLabel("TYPEFACE")
+            SectionLabel("TYPEFACE", SectionLabelVariant.Sheet)
             Spacer(Modifier.height(6.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -465,7 +465,7 @@ internal fun TypographySheet(
 
             Spacer(Modifier.height(16.dp))
             // ---- Background: live swatches that preview the actual reader palette ------------
-            SheetSectionLabel("BACKGROUND")
+            SectionLabel("BACKGROUND", SectionLabelVariant.Sheet)
             Spacer(Modifier.height(8.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -478,7 +478,7 @@ internal fun TypographySheet(
 
             Spacer(Modifier.height(16.dp))
             // ---- Fine typography: line height, letter spacing, paragraph gap, measure --------
-            SheetSectionLabel("SPACING & WIDTH")
+            SectionLabel("SPACING & WIDTH", SectionLabelVariant.Sheet)
             Spacer(Modifier.height(4.dp))
             SliderRow("Line height", "${(lineHeight * 100).toInt()}%", lineHeight, 0.9f..2.2f) { onLineHeight((it * 20).toInt() / 20f) }
             SliderRow("Letter spacing", "${(letterSpacing * 100).toInt() / 100f}em", letterSpacing, -0.05f..0.3f) { onLetterSpacing((it * 100).toInt() / 100f) }
@@ -507,18 +507,6 @@ private fun SliderRow(label: String, value: String, current: Float, range: Close
         }
         androidx.compose.material3.Slider(value = current.coerceIn(range.start, range.endInclusive), onValueChange = onChange, valueRange = range)
     }
-}
-
-@Composable
-private fun SheetSectionLabel(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        letterSpacing = 1.2.sp,
-        fontWeight = FontWeight.Medium,
-        modifier = Modifier.semantics { heading() },
-    )
 }
 
 @Composable

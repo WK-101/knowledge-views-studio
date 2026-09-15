@@ -567,7 +567,4 @@ private fun AddFeedSheet(
     }
 }
 
-private val TINTS = listOf(
-    Color(0xFF3F5E7A), Color(0xFF3E8E5A), Color(0xFFB98A2E),
-    Color(0xFFB0553F), Color(0xFF6A5A8E), Color(0xFF2E8B94),
-)
+private val TINTS = com.cairn.reader.ui.components.MonogramPalette.take(6)

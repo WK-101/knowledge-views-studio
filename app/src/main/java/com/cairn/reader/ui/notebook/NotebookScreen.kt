@@ -5,7 +5,6 @@ package com.cairn.reader.ui.notebook
 import androidx.compose.ui.res.stringResource
 import com.cairn.reader.R
 
-import android.content.Intent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -83,12 +82,7 @@ fun NotebookScreen(
     var confirmDelete by remember { mutableStateOf<NotebookGroup?>(null) }
 
     fun send(text: String, subject: String) {
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, text)
-            putExtra(Intent.EXTRA_SUBJECT, subject)
-        }
-        runCatching { context.startActivity(Intent.createChooser(intent, null)) }
+        com.cairn.reader.util.shareText(context, text, subject = subject, chooser = null)
     }
 
     fun shareAll() = viewModel.exportAll { md -> send(md, "My highlights") }
@@ -396,7 +390,4 @@ private fun AnnotationCard(group: NotebookGroup, onClick: () -> Unit, onLongClic
     }
 }
 
-private val COVER_TINTS = listOf(
-    Color(0xFF3F5E7A), Color(0xFF3E8E5A), Color(0xFFB98A2E),
-    Color(0xFFB0553F), Color(0xFF6A5A8E), Color(0xFF2E8B94),
-)
+private val COVER_TINTS = com.cairn.reader.ui.components.MonogramPalette.take(6)

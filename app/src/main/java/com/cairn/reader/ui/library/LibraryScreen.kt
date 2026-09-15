@@ -102,9 +102,8 @@ import com.cairn.reader.ui.components.CollectionPickerSheet
 import com.cairn.reader.ui.components.EmptyState
 import com.cairn.reader.ui.components.EntryDivider
 import com.cairn.reader.ui.components.ItemRow
+import com.cairn.reader.ui.components.SectionLabel
 import com.cairn.reader.ui.components.SelectionActionBar
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 
 @Composable
 fun LibraryScreen(
@@ -667,7 +666,7 @@ private fun LibraryHome(
 
         // Cleanup buckets — only present when there's something to fix.
         if (smartBuckets.isNotEmpty()) {
-            item { HomeSectionLabel("CLEANUP", Modifier.padding(top = 10.dp)) }
+            item { SectionLabel("CLEANUP", modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)) }
             items(smartBuckets.chunked(2)) { pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     pair.forEach { b -> HomeTile(b.icon, b.label, b.count, Modifier.weight(1f), b.onClick) }
@@ -805,17 +804,6 @@ private fun TagTreeItem(
         Text(label, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         if (count > 0) Text("$count", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
     }
-}
-
-@Composable
-private fun HomeSectionLabel(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelMedium,
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = modifier.padding(bottom = 2.dp).semantics { heading() },
-    )
 }
 
 @Composable

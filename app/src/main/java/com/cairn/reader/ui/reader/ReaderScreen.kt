@@ -292,55 +292,23 @@ fun ReaderScreen(
     }
 
     fun shareText(text: String, subject: String?) {
-        val send = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, text)
-            if (subject != null) putExtra(Intent.EXTRA_SUBJECT, subject)
-        }
-        runCatching { context.startActivity(Intent.createChooser(send, null)) }
+        com.cairn.reader.util.shareText(context, text, subject = subject, chooser = null)
     }
 
     // Share a downloaded image/media file out via the FileProvider (also the pre-Android-10 save path).
     fun shareMediaUri(uri: android.net.Uri, mime: String) {
-        val send = Intent(Intent.ACTION_SEND).apply {
-            type = mime
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        runCatching { context.startActivity(Intent.createChooser(send, null)) }
+        com.cairn.reader.util.shareStream(context, uri, mime, chooser = null)
     }
 
     // Share an exported file (EPUB / HTML snapshot) out via the FileProvider.
     fun shareFile(file: java.io.File, mime: String) {
-        runCatching {
-            val uri = androidx.core.content.FileProvider.getUriForFile(
-                context, context.packageName + ".fileprovider", file,
-            )
-            val send = Intent(Intent.ACTION_SEND).apply {
-                type = mime
-                putExtra(Intent.EXTRA_STREAM, uri)
-                data?.title?.let { putExtra(Intent.EXTRA_SUBJECT, it) }
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            context.startActivity(Intent.createChooser(send, null))
-        }
+        com.cairn.reader.util.shareFile(context, file, mime, subject = data?.title, chooser = null)
     }
 
     // Share an imported PDF's actual file out to other apps via the FileProvider.
     fun sharePdf() {
         val path = data?.pdfPath ?: return
-        runCatching {
-            val uri = androidx.core.content.FileProvider.getUriForFile(
-                context, context.packageName + ".fileprovider", java.io.File(path),
-            )
-            val send = Intent(Intent.ACTION_SEND).apply {
-                type = "application/pdf"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                data?.title?.let { putExtra(Intent.EXTRA_SUBJECT, it) }
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            context.startActivity(Intent.createChooser(send, null))
-        }
+        com.cairn.reader.util.shareFile(context, java.io.File(path), "application/pdf", subject = data?.title, chooser = null)
     }
 
     // Search / Define stay inside Cairn's own WebView (a normal fetch of a public

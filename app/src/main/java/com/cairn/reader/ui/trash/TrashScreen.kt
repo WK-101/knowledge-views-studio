@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.ui.components.SheetActionRow
 
 @Composable
 fun TrashScreen(
@@ -298,9 +299,9 @@ fun TrashScreen(
                 Text(row.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(6.dp))
-                ActionRow(Icons.Outlined.Checklist, "Select") { viewModel.togglePick(row.id); actionRow = null }
-                ActionRow(Icons.Outlined.RestoreFromTrash, "Restore") { viewModel.restore(row.id); actionRow = null }
-                ActionRow(Icons.Outlined.DeleteForever, "Delete forever", destructive = true) { confirmForever = row; actionRow = null }
+                SheetActionRow(Icons.Outlined.Checklist, "Select", onClick = { viewModel.togglePick(row.id); actionRow = null })
+                SheetActionRow(Icons.Outlined.RestoreFromTrash, "Restore", onClick = { viewModel.restore(row.id); actionRow = null })
+                SheetActionRow(Icons.Outlined.DeleteForever, "Delete forever", onClick = { confirmForever = row; actionRow = null }, destructive = true)
             }
         }
     }
@@ -376,24 +377,5 @@ fun TrashScreen(
             },
             confirmButton = { TextButton(onClick = { showGrace = false }) { Text(stringResource(R.string.done)) } },
         )
-    }
-}
-
-@Composable
-private fun ActionRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    destructive: Boolean = false,
-    onClick: () -> Unit,
-) {
-    val color = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-    val tint = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp), tint = tint)
-        Text(label, style = MaterialTheme.typography.bodyLarge, color = color)
     }
 }

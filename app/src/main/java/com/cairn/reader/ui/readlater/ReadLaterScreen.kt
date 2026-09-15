@@ -73,6 +73,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.ui.components.CollectionPickerSheet
 import com.cairn.reader.ui.components.ItemRow
+import com.cairn.reader.ui.components.SheetActionRow
 
 @Composable
 fun ReadLaterScreen(
@@ -269,10 +270,10 @@ fun ReadLaterScreen(
                 Text(row.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(6.dp))
-                ActionRow(Icons.Outlined.Checklist, "Select") { viewModel.togglePick(row.id); actionRow = null }
-                ActionRow(Icons.AutoMirrored.Outlined.LibraryBooks, "Save to Library…") { moveRow = row; actionRow = null }
-                ActionRow(Icons.Outlined.Archive, "Archive") { viewModel.archive(row.id); actionRow = null }
-                ActionRow(Icons.Outlined.BookmarkRemove, "Remove from Read Later") { viewModel.remove(row.id); actionRow = null }
+                SheetActionRow(Icons.Outlined.Checklist, "Select", onClick = { viewModel.togglePick(row.id); actionRow = null })
+                SheetActionRow(Icons.AutoMirrored.Outlined.LibraryBooks, "Save to Library…", onClick = { moveRow = row; actionRow = null })
+                SheetActionRow(Icons.Outlined.Archive, "Archive", onClick = { viewModel.archive(row.id); actionRow = null })
+                SheetActionRow(Icons.Outlined.BookmarkRemove, "Remove from Read Later", onClick = { viewModel.remove(row.id); actionRow = null })
             }
         }
     }
@@ -375,14 +376,3 @@ private fun HelpItem(icon: androidx.compose.ui.graphics.vector.ImageVector, titl
     }
 }
 
-@Composable
-private fun ActionRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-    }
-}

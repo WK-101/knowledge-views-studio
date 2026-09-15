@@ -18,7 +18,7 @@ fun shareText(
     subject: String? = null,
     mime: String = "text/plain",
     title: String? = null,
-    chooser: String = "Share",
+    chooser: String? = "Share",
 ) {
     val send = Intent(Intent.ACTION_SEND).apply {
         type = mime
@@ -35,7 +35,7 @@ fun shareStream(
     uri: Uri,
     mime: String,
     subject: String? = null,
-    chooser: String = "Share",
+    chooser: String? = "Share",
 ) {
     val send = Intent(Intent.ACTION_SEND).apply {
         type = mime
@@ -52,7 +52,7 @@ fun shareFile(
     file: File,
     mime: String,
     subject: String? = null,
-    chooser: String = "Share",
+    chooser: String? = "Share",
 ) {
     val uri = runCatching {
         FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)

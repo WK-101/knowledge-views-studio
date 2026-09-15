@@ -59,8 +59,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -142,7 +140,10 @@ fun FeedDrawerContent(
         }
 
         // ---- Reading hubs -----------------------------------------------------
-        DrawerSectionLabel(stringResource(R.string.reading))
+        SectionLabel(
+            stringResource(R.string.reading).uppercase(),
+            modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 10.dp, bottom = 2.dp),
+        )
         NavigationDrawerItem(
             label = { Text(stringResource(R.string.all_articles)) },
             selected = allSelected,
@@ -241,7 +242,10 @@ fun FeedDrawerContent(
         Spacer(Modifier.height(8.dp))
 
         // ---- Tools ------------------------------------------------------------
-        DrawerSectionLabel(stringResource(R.string.tools))
+        SectionLabel(
+            stringResource(R.string.tools).uppercase(),
+            modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 10.dp, bottom = 2.dp),
+        )
         NavigationDrawerItem(
             label = { Text(stringResource(R.string.daily_brief)) },
             selected = false,
@@ -266,7 +270,10 @@ fun FeedDrawerContent(
         )
 
         // ---- Explore & manage -------------------------------------------------
-        DrawerSectionLabel(stringResource(R.string.explore_manage))
+        SectionLabel(
+            stringResource(R.string.explore_manage).uppercase(),
+            modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 10.dp, bottom = 2.dp),
+        )
         NavigationDrawerItem(
             label = { Text(stringResource(R.string.search)) },
             selected = false,
@@ -309,20 +316,6 @@ fun FeedDrawerContent(
         )
         Spacer(Modifier.height(8.dp))
     }
-}
-
-/** A small uppercase section label that groups the drawer's navigation items. */
-@Composable
-private fun DrawerSectionLabel(text: String) {
-    Text(
-        text.uppercase(),
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.primary,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier
-            .padding(start = 28.dp, end = 28.dp, top = 10.dp, bottom = 2.dp)
-            .semantics { heading() },
-    )
 }
 
 /** A folder header: tap to view the whole folder, tap the chevron to expand/collapse,
@@ -488,7 +481,7 @@ private fun FeedActionMenu(
 @Composable
 private fun FeedMonogram(title: String, dim: Boolean) {
     val letter = title.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "•"
-    val hue = MONOGRAM_COLORS[(title.hashCode() and 0x7fffffff) % MONOGRAM_COLORS.size]
+    val hue = monogramColor(title)
     Box(
         Modifier
             .size(24.dp)
@@ -519,9 +512,6 @@ private fun CairnMark(size: androidx.compose.ui.unit.Dp) {
         Box(Modifier.size(width = size * 0.78f, height = size * 0.2f).clip(CircleShape).background(tint.copy(alpha = 0.9f)))
     }
 }
-
-// The shared monogram palette (same list, one source of truth in CommonComponents).
-private val MONOGRAM_COLORS = MonogramPalette
 
 /** A foldable section header (e.g. FEEDS): label + rolled-up count + a chevron; tap to fold. */
 @Composable
