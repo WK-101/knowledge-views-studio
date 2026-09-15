@@ -607,7 +607,7 @@ internal fun AboutSection() {
     val scheme = MaterialTheme.colorScheme
     SettingsGroup("About") {
         Column(Modifier.padding(16.dp)) {
-            Text(stringResource(R.string.cairn_3_43_0), style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
+            Text("Cairn ${com.cairn.reader.BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
             Text(stringResource(R.string.one_reader_for_everything_you_read), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
         }
     }
@@ -670,11 +670,11 @@ internal fun SyncSettingsGroup(prefs: AppPreferences, viewModel: SettingsViewMod
         )
         SettingDivider()
         ChipsBlock(
-            label = "Sync every",
+            label = stringResource(R.string.sync_every),
             options = SyncIntervalOptions.map { it to syncIntervalLabel(it) },
             selected = prefs.syncIntervalMinutes,
             onSelect = viewModel::setSyncIntervalMinutes,
-            caption = "How often Cairn refreshes in the background.",
+            caption = stringResource(R.string.how_often_cairn_refreshes_in_the),
         )
     }
 }
@@ -683,21 +683,20 @@ internal fun SyncSettingsGroup(prefs: AppPreferences, viewModel: SettingsViewMod
 @Composable
 internal fun RetentionSettingsGroup(prefs: AppPreferences, viewModel: SettingsViewModel) {
     SettingsGroup("Retention") {
-        SettingCaption("How many articles to keep, applied to every feed. Set a feed's own limit from its settings.")
         ChipsBlock(
-            label = "Keep per feed",
+            label = stringResource(R.string.keep_per_feed),
             options = KeepOptions.map { it to if (it == 0) "All" else it.toString() },
             selected = prefs.maxItemsPerFeed,
             onSelect = viewModel::setMaxItemsPerFeed,
-            caption = "“All” (the default) keeps every item. A limit trims the oldest beyond it.",
+            caption = stringResource(R.string.all_the_default_keeps_every_item),
         )
         SettingDivider()
         ChipsBlock(
-            label = "Delete older than",
+            label = stringResource(R.string.delete_older_than),
             options = AgeOptions.map { it to ageLabel(it) },
             selected = prefs.maxAgeDays,
             onSelect = viewModel::setMaxAgeDays,
-            caption = "Also drop un-engaged items past this age.",
+            caption = stringResource(R.string.also_drop_un_engaged_items_past),
         )
         SettingDivider()
         SettingSwitchRow(

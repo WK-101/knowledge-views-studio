@@ -7,6 +7,8 @@ import com.cairn.reader.data.db.ItemEntity
 import com.cairn.reader.domain.export.EpubExporter
 import com.cairn.reader.domain.export.HtmlSnapshotExporter
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,31 +27,31 @@ class EbookExportManager @Inject constructor(
 ) {
     private val exportsDir: File by lazy { File(context.cacheDir, "exports").apply { mkdirs() } }
 
-    /** EPUB for a single article, or null if the item is gone. */
-    suspend fun epubForItem(itemId: String): File? {
-        val e = itemDao.getItem(itemId) ?: return null
-        if (e.type == "PDF") return null
+    /** EPUB for a single article, or null if the item is gone. Heavy IO/assembly runs off the main thread. */
+    suspend fun epubForItem(itemId: String): File? = withContext(Dispatchers.IO) {
+        val e = itemDao.getItem(itemId) ?: return@withContext null
+        if (e.type == "PDF") return@withContext null
         val chapter = chapterFor(e)
         val file = File(exportsDir, safeName(e.title) + ".epub")
         file.outputStream().buffered().use { EpubExporter.write(it, e.title.ifBlank { "Article" }, listOf(chapter), e.author) }
-        return file
+        file
     }
 
     /** One EPUB containing the whole curated library, newest first. Null if the library is empty. */
-    suspend fun epubForLibrary(): File? {
+    suspend fun epubForLibrary(): File? = withContext(Dispatchers.IO) {
         val items = itemDao.libraryItemsForExport().filter { it.type != "PDF" }
-        if (items.isEmpty()) return null
+        if (items.isEmpty()) return@withContext null
         val chapters = items.map { chapterFor(it) }
         val stamp = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
         val file = File(exportsDir, "Cairn Library $stamp.epub")
         file.outputStream().buffered().use { EpubExporter.write(it, "Cairn Library", chapters) }
-        return file
+        file
     }
 
     /** A self-contained HTML snapshot of a single article, or null if the item is gone. */
-    suspend fun htmlSnapshotForItem(itemId: String): File? {
-        val e = itemDao.getItem(itemId) ?: return null
-        if (e.type == "PDF") return null
+    suspend fun htmlSnapshotForItem(itemId: String): File? = withContext(Dispatchers.IO) {
+        val e = itemDao.getItem(itemId) ?: return@withContext null
+        if (e.type == "PDF") return@withContext null
         val html = blobStore.readArticle(e.blobPath)
         val doc = HtmlSnapshotExporter.snapshot(
             HtmlSnapshotExporter.Meta(
@@ -60,7 +62,7 @@ class EbookExportManager @Inject constructor(
         )
         val file = File(exportsDir, safeName(e.title) + ".html")
         file.writeText(doc, Charsets.UTF_8)
-        return file
+        file
     }
 
     private suspend fun chapterFor(e: ItemEntity): EpubExporter.Chapter =

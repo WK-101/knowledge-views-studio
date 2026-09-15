@@ -16,8 +16,8 @@ android {
         applicationId = "com.cairn.reader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 122
-        versionName = "3.96.1"
+        versionCode = 123
+        versionName = "3.96.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -65,7 +65,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     lint {
         // A missing/legacy-issue baseline keeps CI honest without blocking on pre-existing findings;
         // new issues fail `lint`. The release assembly isn't slowed by lint (it runs as its own gate).

@@ -14,6 +14,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.notifications.Notifier
+import com.cairn.reader.util.coRunCatching
 import com.cairn.reader.widget.CairnWidgetProvider
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -31,18 +32,18 @@ class SyncWorker @AssistedInject constructor(
     private val preferencesRepository: com.cairn.reader.data.prefs.PreferencesRepository,
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result =
-        runCatching { feedRepository.syncAll() }
+        coRunCatching { feedRepository.syncAll() }
             .fold(
                 onSuccess = { newItems ->
-                    runCatching { notifier.notifyNewArticles(newItems) }
-                    val prefs = runCatching { preferencesRepository.preferences.first() }.getOrNull()
+                    coRunCatching { notifier.notifyNewArticles(newItems) }
+                    val prefs = coRunCatching { preferencesRepository.preferences.first() }.getOrNull()
                     // Broken-link watchdog reaches publishers' servers, so it only runs when the user
                     // has explicitly opted in — keeping the default posture fully offline.
-                    if (prefs?.linkCheckEnabled == true) runCatching { feedRepository.checkLinks(15) }
+                    if (prefs?.linkCheckEnabled == true) coRunCatching { feedRepository.checkLinks(15) }
                     // Context automation: if Commute Mode is on, pull the next batch fully offline.
                     // This sync already ran under the user's Wi-Fi/charging constraints, so the
                     // device context is right; image caching still honours the offline-image policy.
-                    if (prefs?.autoOfflinePack == true) runCatching { feedRepository.prepareOfflinePack(20) }
+                    if (prefs?.autoOfflinePack == true) coRunCatching { feedRepository.prepareOfflinePack(20) }
                     CairnWidgetProvider.refresh(context)
                     Result.success()
                 },
@@ -69,7 +70,7 @@ class BackupWorker @AssistedInject constructor(
         var anyFailed = false
         // 1) Local SAF folder (if configured).
         if (hasFolder) {
-            val ok = runCatching { backupToSaf(prefs.backupFolderUri!!, prefs.backupIncludeOffline) }.getOrDefault(false)
+            val ok = coRunCatching { backupToSaf(prefs.backupFolderUri!!, prefs.backupIncludeOffline) }.getOrDefault(false)
             if (!ok) anyFailed = true
         }
         // 2) Self-hosted WebDAV / Nextcloud mirror (if configured).
@@ -115,8 +116,8 @@ class BriefWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         if (!preferencesRepository.preferences.first().dailyBriefNotify) return Result.success()
-        val picks = runCatching { insightsRepository.topPicks(8) }.getOrDefault(emptyList())
-        runCatching { notifier.notifyBrief(picks.size, picks.firstOrNull()?.title) }
+        val picks = coRunCatching { insightsRepository.topPicks(8) }.getOrDefault(emptyList())
+        coRunCatching { notifier.notifyBrief(picks.size, picks.firstOrNull()?.title) }
         return Result.success()
     }
 }

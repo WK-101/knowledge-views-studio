@@ -9,6 +9,7 @@ import com.cairn.reader.data.db.SourceDao
 import com.cairn.reader.data.db.SourceEntity
 import com.cairn.reader.data.db.SyncDao
 import com.cairn.reader.data.db.SyncOpEntity
+import com.cairn.reader.util.coRunCatching
 import kotlinx.coroutines.flow.Flow
 import org.jsoup.Jsoup
 import java.util.UUID
@@ -143,7 +144,7 @@ class ItemRepository @Inject constructor(
         if (sanitized.isBlank()) return emptyList()
         // Prefix match on each term for a forgiving search-as-you-type feel.
         val match = sanitized.split(Regex("\\s+")).joinToString(" ") { "$it*" }
-        return runCatching { itemDao.search(match) }.getOrDefault(emptyList())
+        return coRunCatching { itemDao.search(match) }.getOrDefault(emptyList())
     }
 
     suspend fun setRead(id: String, read: Boolean) {

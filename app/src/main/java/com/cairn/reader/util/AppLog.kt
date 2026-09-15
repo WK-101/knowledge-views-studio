@@ -25,10 +25,8 @@ object AppLog {
         dir = File(context.filesDir, "logs").apply { runCatching { mkdirs() } }
     }
 
-    fun d(msg: String) { Log.d(TAG, msg) }
-
     /**
-     * TEMPORARY on-device validation logging (v3.96 batch). Unlike [d], this also writes to the
+     * TEMPORARY on-device validation logging (v3.96 batch). This also writes to the
      * shared on-disk diagnostics file, so a device run produces a trace of the things that can only
      * be confirmed on real hardware — Coil 3 image loads, the audio foreground service + focus, and
      * Paging 3 load states. Marked with a "V" level and a "[validate]" prefix so it's easy to find

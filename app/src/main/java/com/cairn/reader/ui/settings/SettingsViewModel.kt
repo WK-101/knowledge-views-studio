@@ -96,11 +96,6 @@ class SettingsViewModel @Inject constructor(
         onDone(runCatching { feedRepository.backfillThumbnails() }.getOrDefault(0))
     }
 
-    fun importBackup(text: String, onResult: (String) -> Unit) = viewModelScope.launch {
-        val summary = runCatching { backupManager.import(text) }.getOrElse { "Couldn't read that backup file" }
-        onResult(summary)
-    }
-
     /** Write a full `.zip` archive (data + offline copies) to a document the user picked. */
     fun exportArchive(uri: android.net.Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch {
         val ok = runCatching {

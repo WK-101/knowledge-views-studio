@@ -300,18 +300,6 @@ internal fun StorageSection(viewModel: SettingsViewModel) {
     )
 }
 
-@Composable
-internal fun SettingsSectionLabel(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        letterSpacing = 1.5.sp,
-        fontWeight = FontWeight.Medium,
-        modifier = Modifier.semantics { heading() },
-    )
-}
-
 /** Best-effort human-readable name for a picked document (falls back to the last path segment). */
 internal fun displayNameFor(context: android.content.Context, uri: android.net.Uri): String? = runCatching {
     context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->

@@ -16,7 +16,9 @@ import com.cairn.reader.data.db.TagEntity
 import com.cairn.reader.data.blob.BlobStore
 import com.cairn.reader.data.net.WebDavClient
 import com.cairn.reader.data.prefs.PreferencesRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
@@ -58,7 +60,7 @@ class BackupManager @Inject constructor(
      * tags and any comments link. Portable to Pocket/Instapaper-style tools and plain spreadsheets;
      * complements the full JSON/zip backup (which alone can restore the app).
      */
-    suspend fun exportCsv(): String {
+    suspend fun exportCsv(): String = withContext(Dispatchers.IO) {
         val sourceTitles = sourceDao.getAll().associate { it.id to it.title }
         val states = itemDao.allStates().associateBy { it.itemId }
         val tagNames = tagDao.allTags().associate { it.id to it.name }
@@ -79,7 +81,7 @@ class BackupManager @Inject constructor(
             )
             sb.append(row.joinToString(",") { csvCell(it) }).append('\n')
         }
-        return sb.toString()
+        sb.toString()
     }
 
     private fun yesNo(b: Boolean?): String = if (b == true) "yes" else "no"
@@ -90,7 +92,7 @@ class BackupManager @Inject constructor(
         return if (v.any { it == ',' || it == '"' }) "\"" + v.replace("\"", "\"\"") + "\"" else v
     }
 
-    suspend fun export(): String {
+    suspend fun export(): String = withContext(Dispatchers.IO) {
         val root = JSONObject()
         root.put("version", 3)
         root.put("exportedAt", System.currentTimeMillis())
@@ -106,7 +108,7 @@ class BackupManager @Inject constructor(
         })
         root.put("highlights", JSONArray().apply { highlightDao.all().forEach { put(it.toJson()) } })
         root.put("settings", preferencesRepository.exportSettings())
-        return root.toString(2)
+        root.toString(2)
     }
 
     /**
@@ -118,7 +120,7 @@ class BackupManager @Inject constructor(
      * id differs across devices. A matched item's read/star/save state is merged last-write-wins by
      * timestamp, and any tags/highlights the backup attaches are re-pointed at the copy already here.
      */
-    suspend fun import(json: String): String {
+    suspend fun import(json: String): String = withContext(Dispatchers.IO) {
         val root = JSONObject(json)
         var restored = 0
         var merged = 0
@@ -206,7 +208,7 @@ class BackupManager @Inject constructor(
         root.optJSONObject("settings")?.let { runCatching { preferencesRepository.importSettings(it) } }
 
         val dupNote = if (merged > 0) " Merged $merged duplicates already on this device." else ""
-        return "Restored $restored feeds & items, plus tags, collections, highlights and settings.$dupNote"
+        "Restored $restored feeds & items, plus tags, collections, highlights and settings.$dupNote"
     }
 
     /** A stable identity key for an item URL: lower-cased, fragment and trailing slash stripped.
@@ -221,7 +223,7 @@ class BackupManager @Inject constructor(
 
     /** Write a complete `.zip` archive: the data JSON plus every cached article body, image and
      *  imported PDF, so the whole library — offline copies included — travels in one file. */
-    suspend fun exportArchive(out: OutputStream) {
+    suspend fun exportArchive(out: OutputStream) = withContext(Dispatchers.IO) {
         ZipOutputStream(out.buffered()).use { zip ->
             zip.putNextEntry(ZipEntry("backup.json"))
             zip.write(export().toByteArray(Charsets.UTF_8))
@@ -238,7 +240,7 @@ class BackupManager @Inject constructor(
 
     /** Restore a full `.zip` archive: unpack every offline copy back to disk, restore the data,
      *  and rewire on-disk paths to this install so cached articles and images resolve. */
-    suspend fun importArchive(input: InputStream): String {
+    suspend fun importArchive(input: InputStream): String = withContext(Dispatchers.IO) {
         var backupJson: String? = null
         ZipInputStream(input.buffered()).use { zip ->
             var entry = zip.nextEntry
@@ -258,14 +260,14 @@ class BackupManager @Inject constructor(
                 entry = zip.nextEntry
             }
         }
-        val json = backupJson ?: return "That archive is missing its backup data."
+        val json = backupJson ?: return@withContext "That archive is missing its backup data."
         val summary = import(json)
         // Rewire absolute paths from the source device to this install.
         val oldBase = runCatching { JSONObject(json).optString("filesRoot", "") }.getOrDefault("")
         val newBase = blobStore.filesRoot().absolutePath
         blobStore.rewriteArticleBase(oldBase, newBase)
         relinkBlobs(oldBase, newBase)
-        return "$summary Offline copies restored."
+        "$summary Offline copies restored."
     }
 
     /** After an archive unpack, point each item at its restored blob and fix image URIs. */

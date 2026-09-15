@@ -10,6 +10,8 @@ import com.cairn.reader.data.db.ItemEntity
 import com.cairn.reader.data.db.TagDao
 import com.cairn.reader.domain.export.MarkdownExporter
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -32,14 +34,14 @@ class MarkdownExportManager @Inject constructor(
     data class Result(val written: Int, val failed: Int)
 
     /** Markdown for one article, ready to share — or null if the item is gone. */
-    suspend fun documentFor(itemId: String): MarkdownExporter.Doc? {
-        val e = itemDao.getItem(itemId) ?: return null
-        return build(e)
+    suspend fun documentFor(itemId: String): MarkdownExporter.Doc? = withContext(Dispatchers.IO) {
+        val e = itemDao.getItem(itemId) ?: return@withContext null
+        build(e)
     }
 
     /** Export the whole curated library to a SAF folder tree as one `.md` file per article. */
-    suspend fun exportVault(treeUri: Uri): Result {
-        val tree = DocumentFile.fromTreeUri(context, treeUri) ?: return Result(0, 0)
+    suspend fun exportVault(treeUri: Uri): Result = withContext(Dispatchers.IO) {
+        val tree = DocumentFile.fromTreeUri(context, treeUri) ?: return@withContext Result(0, 0)
         // A dated subfolder keeps re-exports from colliding and the vault tidy.
         val stamp = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
         val folderName = "Cairn $stamp"
@@ -63,7 +65,7 @@ class MarkdownExportManager @Inject constructor(
             }.getOrDefault(false)
             if (wrote) ok++ else fail++
         }
-        return Result(ok, fail)
+        Result(ok, fail)
     }
 
     private suspend fun build(e: ItemEntity): MarkdownExporter.Doc {
