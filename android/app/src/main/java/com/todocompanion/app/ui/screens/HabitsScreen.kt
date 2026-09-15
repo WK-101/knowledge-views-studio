@@ -124,17 +124,11 @@ internal fun habitSectionOf(h: HabitEntity): Int {
     return when { first < 12 * 60 -> 0; first < 17 * 60 -> 1; else -> 2 }
 }
 
-/** Derived per-habit day sets used across the stats calls. */
-internal data class HabitDays(val done: Set<Long>, val skip: Set<Long>, val relapse: Set<Long>, val counts: Map<Long, Int>)
-internal fun daysFor(h: HabitEntity, checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>): HabitDays {
-    val hc = checkins.filter { it.habitId == h.id }
-    return HabitDays(
-        done = hc.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet(),
-        skip = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet(),
-        relapse = hc.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet(),
-        counts = hc.associate { it.epochDay to it.count },
-    )
-}
+/** Derived per-habit day sets used across the stats calls. R108 audit C2 — the derivation now lives once
+ *  in [HabitStats.daySets]; these keep the local names so the ui.screens call sites stay unchanged. */
+internal typealias HabitDays = HabitStats.DaySets
+internal fun daysFor(h: HabitEntity, checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>): HabitDays =
+    HabitStats.daySets(h, checkins)
 
 private class HabitPreset(val emoji: String, val name: String, val unit: String?, val target: Int, val color: Long)
 

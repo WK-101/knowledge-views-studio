@@ -108,6 +108,39 @@ object HabitStats {
         return (maxOf(from, start)..to).count { it !in relapseDays }
     }
 
+    /**
+     * The per-habit day-sets every streak / strength / rate call consumes, derived ONCE from a list of
+     * check-ins with the one canonical rule so the ~dozen call sites can't drift apart:
+     *  - [done]: a `status="done"` row that meets the goal ([meetsGoal]);
+     *  - [skip]: a `status="skip"` row;
+     *  - [relapse]: an over-limit break-habit row ([isRelapse]), independent of status;
+     *  - [counts]: each day's recorded count (for graded-credit callers).
+     * [checkins] may be the whole table — rows for other habits are ignored — or a list already scoped
+     * to this habit. (One site in the app deliberately derives `done` via [isSuccessDay] instead, which
+     * also excludes relapse days; that one keeps its own derivation and does NOT use this helper.)
+     */
+    data class DaySets(
+        val done: Set<Long>,
+        val skip: Set<Long>,
+        val relapse: Set<Long>,
+        val counts: Map<Long, Int>,
+    )
+
+    fun daySets(habit: HabitEntity, checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>): DaySets {
+        val done = HashSet<Long>(); val skip = HashSet<Long>(); val relapse = HashSet<Long>()
+        val counts = HashMap<Long, Int>()
+        for (c in checkins) {
+            if (c.habitId != habit.id) continue
+            counts[c.epochDay] = c.count
+            when (c.status) {
+                "skip" -> skip += c.epochDay
+                "done" -> if (meetsGoal(habit, c.count)) done += c.epochDay
+            }
+            if (isRelapse(habit, c.count)) relapse += c.epochDay
+        }
+        return DaySets(done, skip, relapse, counts)
+    }
+
     /** Whether [epochDay] is an "expected" day for weekday/interval frequencies (times_* = any day). */
     fun isExpectedDay(habit: HabitEntity, epochDay: Long): Boolean {
         if (epochDay < habit.startEpochDay()) return false

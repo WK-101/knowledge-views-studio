@@ -77,10 +77,7 @@ internal fun fmtHm(min: Int): String = when {
 internal fun habitStrengths(habits: List<HabitEntity>, checkins: List<HabitCheckinEntity>, today: Long): List<Pair<HabitEntity, Int>> {
     val active = habits.filter { !it.archived && !it.paused && it.habitType != "break" }
     return active.map { h ->
-        val hc = checkins.filter { it.habitId == h.id }
-        val done = hc.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-        val skip = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
-        val rel = hc.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+        val (done, skip, rel) = HabitStats.daySets(h, checkins)   // R108 audit C2
         h to HabitStats.strength(h, done, skip, rel, today)
     }
 }

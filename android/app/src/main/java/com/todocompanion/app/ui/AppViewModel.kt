@@ -2611,9 +2611,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun shareHabitProgress(h: com.todocompanion.app.data.entity.HabitEntity, onDone: (String?) -> Unit) = viewModelScope.launch {
         val hs = com.todocompanion.app.domain.habit.HabitStats
         val cks = habitCheckins.value.filter { it.habitId == h.id }
-        val done = cks.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-        val skip = cks.filter { it.status == "skip" }.map { it.epochDay }.toSet()
-        val relapse = cks.filter { hs.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+        val (done, skip, relapse) = hs.daySets(h, cks)   // R108 audit C2 — one canonical derivation
         val today = today()
         val strength = hs.strength(h, done, skip, relapse, today)
         val cur = hs.currentStreak(h, done, skip, relapse, today)
@@ -3235,10 +3233,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // check-ins simply stop growing), not drop to 0 — otherwise the goal reads as failing the moment the
         // supporting practice is retired. habits.value strips archived, so use the archived-inclusive flow.
         if (g.hasHabit) habitsWithArchived.value.firstOrNull { it.id == g.habitId }?.let { h ->
-            val hc = habitCheckins.value.filter { it.habitId == h.id }
-            val done = hc.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-            val skip = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
-            val relapse = hc.filter { hs.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+            val (done, skip, relapse) = hs.daySets(h, habitCheckins.value)   // R108 audit C2
             val today = java.time.LocalDate.now(zone).toEpochDay()
             streak = hs.displayStreak(h, done, skip, relapse, today, settings.value.forgivingStreaks)
             strength = strengthOf(h)   // Z8: honours the graded-strength opt-in
@@ -3820,9 +3815,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun strengthOf(h: com.todocompanion.app.data.entity.HabitEntity): Int {
         val hs = com.todocompanion.app.domain.habit.HabitStats
         val hc = habitCheckins.value.filter { it.habitId == h.id }
-        val done = hc.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-        val skip = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
-        val relapse = hc.filter { hs.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+        val (done, skip, relapse) = hs.daySets(h, hc)   // R108 audit C2
         val today = java.time.LocalDate.now(zone).toEpochDay()
         val graded = if (settings.value.gradedStrength) gradedCreditFor(h, hc) else emptyMap()
         return hs.strength(h, done, skip, relapse, today, gradedCredit = graded)
@@ -3836,9 +3829,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val binary = ArrayList<Int>(); val graded = ArrayList<Int>()
         active.forEach { h ->
             val hc = habitCheckins.value.filter { it.habitId == h.id }
-            val done = hc.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-            val skip = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
-            val relapse = hc.filter { hs.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+            val (done, skip, relapse) = hs.daySets(h, hc)   // R108 audit C2
             binary += hs.strength(h, done, skip, relapse, today)
             graded += hs.strength(h, done, skip, relapse, today, gradedCredit = gradedCreditFor(h, hc))
         }
@@ -3940,10 +3931,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val hs = com.todocompanion.app.domain.habit.HabitStats
             val forgiving = settings.value.forgivingStreaks
-            val cks = repo.getHabitCheckinsOnce().filter { it.habitId == h.id }
-            val done = cks.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-            val skip = cks.filter { it.status == "skip" }.map { it.epochDay }.toSet()
-            val rel = cks.filter { hs.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+            val (done, skip, rel) = hs.daySets(h, repo.getHabitCheckinsOnce())   // R108 audit C2
             // Use the SAME streak the detail-screen reward badge shows (forgiving-aware) so "· earned!" and
             // the celebration can't disagree; fire once, on the day the streak first crosses the target.
             val streakToday = hs.displayStreak(h, done, skip, rel, t, forgiving)

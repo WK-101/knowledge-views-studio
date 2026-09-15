@@ -233,10 +233,7 @@ object LifeSystems {
         // Best streak among active habits over the whole history (a review celebrates the peak).
         var bestName: String? = null; var best = 0
         habits.forEach { h ->
-            val d = checkins.filter { it.habitId == h.id }
-            val done = d.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-            val skip = d.filter { it.status == "skip" }.map { it.epochDay }.toSet()
-            val relapse = d.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+            val (done, skip, relapse) = HabitStats.daySets(h, checkins)   // R108 audit C2
             val bs = HabitStats.bestStreak(h, done, skip, relapse, endDay)
             if (bs > best) { best = bs; bestName = h.name }
         }
@@ -264,10 +261,7 @@ object LifeSystems {
      *  streaks a buddy would cheer. */
     fun buildDigest(name: String, habits: List<HabitEntity>, checkins: List<HabitCheckinEntity>, today: Long, forgiving: Boolean): BuddyDigest {
         val hs = habits.filter { !it.archived && !it.paused }.map { h ->
-            val d = checkins.filter { it.habitId == h.id }
-            val done = d.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-            val skip = d.filter { it.status == "skip" }.map { it.epochDay }.toSet()
-            val relapse = d.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+            val (done, skip, relapse) = HabitStats.daySets(h, checkins)   // R108 audit C2
             BuddyHabit(
                 h.name, h.emoji,
                 HabitStats.displayStreak(h, done, skip, relapse, today, forgiving),

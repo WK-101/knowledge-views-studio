@@ -171,10 +171,7 @@ object ThirdWave {
         val active = habits.filter { !it.archived && !it.paused && it.habitType != "break" }
         if (active.isEmpty()) return Companion(0, "🌱", "Plant a habit to grow your garden", 0)
         val avg = active.map { h ->
-            val d = checkins.filter { it.habitId == h.id }
-            val done = d.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-            val skip = d.filter { it.status == "skip" }.map { it.epochDay }.toSet()
-            val rel = d.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+            val (done, skip, rel) = HabitStats.daySets(h, checkins)   // R108 audit C2
             HabitStats.strength(h, done, skip, rel, today)
         }.average().roundToInt()
         val (stage, emoji, label) = when {

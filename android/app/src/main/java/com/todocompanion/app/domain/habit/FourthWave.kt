@@ -214,10 +214,7 @@ object FourthWave {
         }
         val habit = habits.firstOrNull { it.id == escrow.habitId }
         val current = if (habit == null) 0 else {
-            val mine = checkins.filter { it.habitId == habit.id }
-            val done = mine.filter { it.status == "done" && HabitStats.meetsGoal(habit, it.count) }.map { it.epochDay }.toSet()
-            val skip = mine.filter { it.status == "skip" }.map { it.epochDay }.toSet()
-            val rel = mine.filter { HabitStats.isRelapse(habit, it.count) }.map { it.epochDay }.toSet()
+            val (done, skip, rel) = HabitStats.daySets(habit, checkins)   // R108 audit C2
             when (escrow.milestoneKind) {
                 "streak" -> HabitStats.currentStreak(habit, done, skip, rel, today)
                 "cleandays" -> redChain(habit, checkins, today)?.cleanDays ?: 0

@@ -83,10 +83,7 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
         // Per-habit day sets + strength.
         val perHabit = remember(habits, checkins, today) {
             active.map { h ->
-                val hc = checkins.filter { it.habitId == h.id }
-                val done = hc.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-                val skip = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
-                val rel = hc.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+                val (done, skip, rel) = HabitStats.daySets(h, checkins)   // R108 audit C2
                 HabitTrend(h, done, skip, rel,
                     strength = HabitStats.strength(h, done, skip, rel, today),
                     streak = HabitStats.currentStreak(h, done, skip, rel, today))
