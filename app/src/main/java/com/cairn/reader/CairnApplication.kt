@@ -102,6 +102,9 @@ class CairnApplication : Application(), Configuration.Provider, SingletonImageLo
                 intervalMinutes = prefs?.syncIntervalMinutes ?: 0,
             )
             CairnWork.scheduleBackup(this@CairnApplication, prefs?.backupFrequencyHours ?: 0)
+            // Local upkeep (retention pruning + trash auto-purge) runs on its own daily schedule,
+            // independent of feed sync, so it still happens for users with no feeds or sync off.
+            CairnWork.scheduleMaintenance(this@CairnApplication)
         }
     }
 }

@@ -65,7 +65,7 @@ class StorageManager @Inject constructor(
         val dbBytes = listOf("cairn.db", "cairn.db-wal", "cairn.db-shm")
             .sumOf { runCatching { context.getDatabasePath(it).length() }.getOrDefault(0L) }
 
-        val valid = itemDao.allItems().mapTo(HashSet()) { it.id }
+        val valid = itemDao.allItemIds().toHashSet()
         var orphanBytes = 0L; var orphanCount = 0
         listOf(articlesDir, mediaDir, pdfsDir).forEach { d ->
             if (!d.exists()) return@forEach
@@ -79,7 +79,7 @@ class StorageManager @Inject constructor(
     /** Delete orphaned blobs, compact the database (VACUUM), and clear the image cache. */
     suspend fun optimize(): OptimizeResult = withContext(Dispatchers.IO) {
         var files = 0; var freed = 0L
-        val valid = itemDao.allItems().mapTo(HashSet()) { it.id }
+        val valid = itemDao.allItemIds().toHashSet()
         listOf(articlesDir, mediaDir, pdfsDir).forEach { d ->
             if (!d.exists()) return@forEach
             d.listFiles()?.filter { it.isFile }?.forEach { f ->

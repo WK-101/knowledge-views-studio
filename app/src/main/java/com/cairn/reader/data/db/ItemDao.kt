@@ -251,6 +251,11 @@ interface ItemDao {
     @Query("SELECT * FROM items")
     suspend fun allItems(): List<ItemEntity>
 
+    /** Just the item ids — for orphan detection, which only needs to know which ids are live
+     *  (loading the whole items table just to build an id set is far more memory than that needs). */
+    @Query("SELECT id FROM items")
+    suspend fun allItemIds(): List<String>
+
     /** Curated library items (starred / archived / read-later / filed in a collection), newest first,
      *  PDFs excluded — the set worth exporting to a Markdown / Obsidian vault. */
     @Query(

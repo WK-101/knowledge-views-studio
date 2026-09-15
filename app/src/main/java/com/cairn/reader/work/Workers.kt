@@ -160,12 +160,27 @@ class SaveTextWorker @AssistedInject constructor(
     }
 }
 
+/** Runs local library upkeep — retention pruning + trash auto-purge — independently of feed sync,
+ *  so a user with no feeds (or with sync turned off) still gets age pruning and trash auto-purge.
+ *  Purely local DB/file work: no network. */
+@HiltWorker
+class MaintenanceWorker @AssistedInject constructor(
+    @Assisted context: Context,
+    @Assisted params: WorkerParameters,
+    private val feedRepository: FeedRepository,
+) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result =
+        coRunCatching { feedRepository.runMaintenance() }
+            .fold(onSuccess = { Result.success() }, onFailure = { Result.retry() })
+}
+
 /** Entry points for scheduling background work. */
 object CairnWork {
     private const val UNIQUE_PERIODIC = "cairn-periodic-sync"
     private const val UNIQUE_SYNC_NOW = "cairn-sync-now"
     private const val UNIQUE_BACKUP = "cairn-periodic-backup"
     private const val UNIQUE_BRIEF = "cairn-daily-brief"
+    private const val UNIQUE_MAINTENANCE = "cairn-periodic-maintenance"
 
     /** (Re)schedule the once-daily brief notification, or cancel it when [enabled] is false. */
     fun scheduleDailyBrief(context: Context, enabled: Boolean) {
@@ -188,6 +203,17 @@ object CairnWork {
             .setBackoffCriteria(androidx.work.BackoffPolicy.EXPONENTIAL, 60, TimeUnit.SECONDS)
             .build()
         wm.enqueueUniquePeriodicWork(UNIQUE_BACKUP, ExistingPeriodicWorkPolicy.UPDATE, request)
+    }
+
+    /** Schedule the once-daily local maintenance pass (retention pruning + trash auto-purge). Fully
+     *  offline — no network constraint — so it runs even for users who never sync any feeds. */
+    fun scheduleMaintenance(context: Context) {
+        val request = PeriodicWorkRequestBuilder<MaintenanceWorker>(24, TimeUnit.HOURS)
+            .setInitialDelay(3, TimeUnit.HOURS)
+            .setBackoffCriteria(androidx.work.BackoffPolicy.EXPONENTIAL, 60, TimeUnit.SECONDS)
+            .build()
+        WorkManager.getInstance(context)
+            .enqueueUniquePeriodicWork(UNIQUE_MAINTENANCE, ExistingPeriodicWorkPolicy.UPDATE, request)
     }
 
     /** Run a backup immediately (e.g. right after the user picks a folder). */

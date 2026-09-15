@@ -40,6 +40,15 @@ import com.cairn.reader.data.db.ExtractStatus
 import com.cairn.reader.data.db.ItemType
 
 /**
+ * How many characters of an item's plain-text body are stored in the standalone FTS4 [item_fts]
+ * index. The body index is the dominant DB-size driver, so this is deliberately modest: title +
+ * excerpt + roughly the first ~600 words of body is plenty for full-text search to find an article,
+ * while keeping each indexed row ~5× smaller than the old 20k cap. Forward-only — existing rows
+ * shrink as they're re-synced, re-indexed, or pruned; no FTS rebuild or schema change.
+ */
+private const val FTS_BODY_CHARS = 4_000
+
+/**
  * Owns capture and sync: discovering feeds from a URL, pulling new items with
  * conditional GET, saving arbitrary URLs (with on-device extraction), and running
  * Readability on demand. All content bodies are gzipped to the [BlobStore].
@@ -292,10 +301,6 @@ class FeedRepository @Inject constructor(
     // launched from viewModelScope (Main); this keeps their heavy parsing off the UI thread too.
     suspend fun syncAll(): List<com.cairn.reader.notifications.NewArticle> = withContext(Dispatchers.Default) {
         val now = System.currentTimeMillis()
-        val prefs = coRunCatching { preferencesRepository.preferences.first() }.getOrNull()
-        val limit = prefs?.maxItemsPerFeed ?: 0
-        val maxAgeDays = prefs?.maxAgeDays ?: 0
-        val keepUnread = if (prefs?.keepUnread == true) 1 else 0
         val fresh = mutableListOf<com.cairn.reader.notifications.NewArticle>()
         // WebSub-aware ordering: feeds that declare a real-time hub sync first, so "live" sources
         // are the freshest even though a serverless client can't hold a push callback.
@@ -303,6 +308,31 @@ class FeedRepository @Inject constructor(
             coroutineContext.ensureActive()  // honor cancellation between feeds
             coRunCatching { syncSource(source, now, if (source.notify) fresh else null) }
                 .onFailure { AppLog.w("sync failed for ${source.feedUrl}", it) }
+        }
+        // Retention + trash auto-purge, unchanged from when it lived inline here. Pruning each feed
+        // only reads/deletes its own items, so running it after all feeds have synced yields the
+        // same final state as the old interleaved pass.
+        runMaintenance()
+        fresh
+    }
+
+    /**
+     * Local upkeep that must happen whether or not feeds sync: enforce each feed's retention cap
+     * ([pruneSource]), age-prune un-engaged items across all feeds ([pruneOlderThan], honoring
+     * maxAgeDays / keepUnread), and empty the Trash of anything past its grace period
+     * ([purgeExpiredTrash]). Extracted from [syncAll] (which still calls it) so a periodic
+     * maintenance worker can run it for users who have no feeds or have sync turned off — otherwise
+     * those users would never get age pruning or trash auto-purge. Fully local (DB + on-disk blobs);
+     * no network.
+     */
+    suspend fun runMaintenance() = withContext(Dispatchers.Default) {
+        val prefs = coRunCatching { preferencesRepository.preferences.first() }.getOrNull()
+        val limit = prefs?.maxItemsPerFeed ?: 0
+        val maxAgeDays = prefs?.maxAgeDays ?: 0
+        val keepUnread = if (prefs?.keepUnread == true) 1 else 0
+        val now = System.currentTimeMillis()
+        sourceDao.getAll().forEach { source ->
+            coroutineContext.ensureActive()  // honor cancellation between feeds
             // Per-feed override wins: null → global cap, 0 → keep everything, N → keep newest N.
             val effLimit = source.maxItems ?: limit
             if (effLimit > 0) coRunCatching { pruneSource(source.id, effLimit, keepUnread) }
@@ -310,7 +340,6 @@ class FeedRepository @Inject constructor(
         if (maxAgeDays > 0) coRunCatching { pruneOlderThan(now - maxAgeDays * 86_400_000L, keepUnread) }
         // Empty out anything that has sat in the Trash past the grace period.
         coRunCatching { purgeExpiredTrash() }
-        fresh
     }
 
     /** Enforce the per-feed retention cap: drop the oldest items the user never engaged with,
@@ -565,7 +594,7 @@ class FeedRepository @Inject constructor(
         // On-device automation: run the user's rules against each genuinely-new item.
         if (isNew) coRunCatching { ruleEngine.apply(entity, source, plain) }
         itemDao.indexItem(
-            ItemFtsEntity(itemId = itemId, title = p.title ?: "", author = p.author, body = plain.take(20_000)),
+            ItemFtsEntity(itemId = itemId, title = p.title ?: "", author = p.author, body = plain.take(FTS_BODY_CHARS)),
         )
         // Per-feed "full text on sync": fetch the whole article for new items so they're
         // complete and offline before they're ever opened. Opt-in, so most feeds stay cheap.
@@ -662,7 +691,7 @@ class FeedRepository @Inject constructor(
             now,
         )
         itemDao.setReadLater(itemId, true, now)
-        itemDao.indexItem(ItemFtsEntity(itemId = itemId, title = title, author = null, body = clean.take(20_000)))
+        itemDao.indexItem(ItemFtsEntity(itemId = itemId, title = title, author = null, body = clean.take(FTS_BODY_CHARS)))
         return Result.success(itemId)
     }
 
@@ -739,7 +768,7 @@ class FeedRepository @Inject constructor(
             contentSource = ContentSource.READABLE.raw,
         )
         itemDao.indexItem(
-            ItemFtsEntity(itemId, extracted.title ?: "", extracted.byline, extracted.plainText.take(20_000)),
+            ItemFtsEntity(itemId, extracted.title ?: "", extracted.byline, extracted.plainText.take(FTS_BODY_CHARS)),
         )
         if (extracted.wordCount >= 200 && itemDao.getItem(itemId)?.type == ItemType.LINK.name) {
             itemDao.setType(itemId, ItemType.ARTICLE.name)
@@ -769,7 +798,7 @@ class FeedRepository @Inject constructor(
             contentSource = ContentSource.READABLE.raw,
         )
         itemDao.indexItem(
-            ItemFtsEntity(itemId, extracted.title ?: "", extracted.byline, extracted.plainText.take(20_000)),
+            ItemFtsEntity(itemId, extracted.title ?: "", extracted.byline, extracted.plainText.take(FTS_BODY_CHARS)),
         )
         // A saved bare link that turned out to have a real article body is promoted to ARTICLE,
         // so it filters and reads like one. Video/image classifications are left untouched.
