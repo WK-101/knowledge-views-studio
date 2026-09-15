@@ -195,7 +195,7 @@ fun OfflineScreen(
             Text(
                 text = when {
                     storage < 0 -> "Measuring storage…"
-                    else -> "${items.size} article${if (items.size == 1) "" else "s"} readable offline · ${formatBytes(storage)} on this device"
+                    else -> "${items.size} article${if (items.size == 1) "" else "s"} readable offline · ${com.cairn.reader.util.formatBytes(ctx, storage)} on this device"
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = scheme.onSurfaceVariant,
@@ -357,9 +357,3 @@ private fun StorageSettingsSheet(
     }
 }
 
-private fun formatBytes(bytes: Long): String = when {
-    bytes < 1024 -> "$bytes B"
-    bytes < 1024 * 1024 -> "%.0f KB".format(bytes / 1024.0)
-    bytes < 1024L * 1024 * 1024 -> "%.1f MB".format(bytes / (1024.0 * 1024))
-    else -> "%.2f GB".format(bytes / (1024.0 * 1024 * 1024))
-}

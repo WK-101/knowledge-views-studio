@@ -126,7 +126,7 @@ class SettingsViewModel @Inject constructor(
     /** Restore from a file the user picked — auto-detecting a `.zip` archive vs a `.json` data backup. */
     fun importFrom(uri: android.net.Uri, onResult: (String) -> Unit) = viewModelScope.launch {
         val summary = runCatching {
-            val name = queryDisplayName(uri).orEmpty().lowercase()
+            val name = com.cairn.reader.util.displayName(context, uri).orEmpty().lowercase()
             val isZip = name.endsWith(".zip") || firstBytesAreZip(uri)
             if (isZip) {
                 context.contentResolver.openInputStream(uri)?.use { backupManager.importArchive(it) } ?: error("no stream")

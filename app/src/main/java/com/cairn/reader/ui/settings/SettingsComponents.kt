@@ -241,7 +241,7 @@ internal fun StorageSection(viewModel: SettingsViewModel) {
     var busy by remember { mutableStateOf(false) }
     LaunchedEffect(refresh) { data = runCatching { viewModel.storageBreakdown() }.getOrNull() }
 
-    fun fmt(bytes: Long): String = android.text.format.Formatter.formatShortFileSize(context, bytes)
+    fun fmt(bytes: Long): String = com.cairn.reader.util.formatBytes(context, bytes)
 
     val d = data
     if (d == null) {
@@ -299,10 +299,3 @@ internal fun StorageSection(viewModel: SettingsViewModel) {
         style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
     )
 }
-
-/** Best-effort human-readable name for a picked document (falls back to the last path segment). */
-internal fun displayNameFor(context: android.content.Context, uri: android.net.Uri): String? = runCatching {
-    context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
-        if (c.moveToFirst()) c.getString(0)?.takeIf { it.isNotBlank() } else null
-    } ?: uri.lastPathSegment
-}.getOrNull()

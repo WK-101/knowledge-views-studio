@@ -475,17 +475,13 @@ internal fun ImportExportSection(prefs: AppPreferences, viewModel: SettingsViewM
     val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val bytes = runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
-            val name = displayNameFor(context, uri) ?: "Imported PDF"
+            val name = com.cairn.reader.util.displayName(context, uri) ?: "Imported PDF"
             if (bytes != null && bytes.isNotEmpty()) viewModel.importPdf(name, bytes) { ok -> Toast.makeText(context, if (ok) "PDF added to your library" else "Couldn't import that PDF", Toast.LENGTH_SHORT).show() }
             else Toast.makeText(context, "Couldn't read that file", Toast.LENGTH_SHORT).show()
         }
     }
-    fun shareText(mime: String, title: String, subject: String, body: String, chooser: String) {
-        val send = Intent(Intent.ACTION_SEND).apply {
-            type = mime; putExtra(Intent.EXTRA_TITLE, title); putExtra(Intent.EXTRA_SUBJECT, subject); putExtra(Intent.EXTRA_TEXT, body)
-        }
-        runCatching { context.startActivity(Intent.createChooser(send, chooser)) }
-    }
+    fun shareText(mime: String, title: String, subject: String, body: String, chooser: String) =
+        com.cairn.reader.util.shareText(context, body, subject = subject, mime = mime, title = title, chooser = chooser)
 
     // BACKUP & RESTORE
     SettingsGroup("Backup & restore") {
@@ -524,10 +520,7 @@ internal fun ImportExportSection(prefs: AppPreferences, viewModel: SettingsViewM
             Toast.makeText(context, "Preparing transfer…", Toast.LENGTH_SHORT).show()
             viewModel.transferToDevice { uri ->
                 if (uri == null) { Toast.makeText(context, "Couldn't prepare the transfer", Toast.LENGTH_LONG).show(); return@transferToDevice }
-                val send = Intent(Intent.ACTION_SEND).apply {
-                    type = "application/zip"; putExtra(Intent.EXTRA_STREAM, uri); putExtra(Intent.EXTRA_SUBJECT, "Cairn library transfer"); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-                runCatching { context.startActivity(Intent.createChooser(send, "Send to another device")) }
+                com.cairn.reader.util.shareStream(context, uri, "application/zip", subject = "Cairn library transfer", chooser = "Send to another device")
             }
         })
         SettingDivider()
@@ -562,11 +555,7 @@ internal fun ImportExportSection(prefs: AppPreferences, viewModel: SettingsViewM
             Toast.makeText(context, "Building EPUB…", Toast.LENGTH_SHORT).show()
             viewModel.exportLibraryEpub { file ->
                 if (file == null) Toast.makeText(context, "Nothing to export — save some articles first.", Toast.LENGTH_LONG).show()
-                else runCatching {
-                    val uri = androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
-                    val send = Intent(Intent.ACTION_SEND).apply { type = "application/epub+zip"; putExtra(Intent.EXTRA_STREAM, uri); putExtra(Intent.EXTRA_SUBJECT, "Cairn Library"); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-                    context.startActivity(Intent.createChooser(send, "Send library to Kindle"))
-                }
+                else com.cairn.reader.util.shareFile(context, file, "application/epub+zip", subject = "Cairn Library", chooser = "Send library to Kindle")
             }
         })
         SettingDivider()
@@ -579,8 +568,7 @@ internal fun ImportExportSection(prefs: AppPreferences, viewModel: SettingsViewM
     SettingsGroup("Diagnostics") {
         SettingActionRow(stringResource(R.string.share_diagnostics_log), stringResource(R.string.a_local_on_device_log_of), Icons.Outlined.Description, {
             viewModel.diagnostics { log ->
-                val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_SUBJECT, "Cairn diagnostics log"); putExtra(Intent.EXTRA_TEXT, log) }
-                runCatching { context.startActivity(Intent.createChooser(send, "Share diagnostics log")) }
+                com.cairn.reader.util.shareText(context, log, subject = "Cairn diagnostics log", chooser = "Share diagnostics log")
             }
         })
     }
