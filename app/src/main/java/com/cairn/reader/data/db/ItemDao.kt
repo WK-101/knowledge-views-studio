@@ -186,6 +186,14 @@ interface ItemDao {
     )
     fun observeAllCount(): Flow<Int>
 
+    /** Store the canonical dedup key (see UrlCanonicalizer) for one item. */
+    @Query("UPDATE items SET canonicalUrl = :canonical WHERE id = :id")
+    suspend fun setCanonicalUrl(id: String, canonical: String)
+
+    /** A bounded batch of items still missing a canonicalUrl, for the one-time backfill. */
+    @Query("SELECT id, url FROM items WHERE canonicalUrl IS NULL LIMIT :limit")
+    suspend fun itemsMissingCanonical(limit: Int): List<ItemIdUrl>
+
     @Query(
         """
         SELECT src.id AS sourceId, src.title AS title, src.folder AS folder,

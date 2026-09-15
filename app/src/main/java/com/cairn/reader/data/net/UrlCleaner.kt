@@ -29,6 +29,12 @@ object UrlCleaner {
     /** Parameter prefixes to drop (case-insensitive) — catches families like utm_*, pk_*, ga_*. */
     private val DROP_PREFIX = listOf("utm_", "pk_", "piwik_", "ga_", "hsa_", "mtm_", "matomo_", "_bta_", "vero_")
 
+    /** True if [name] is a tracking/analytics query parameter. Shared with URL canonicalization. */
+    fun isTracking(name: String): Boolean {
+        val lower = name.lowercase()
+        return lower in DROP || DROP_PREFIX.any { lower.startsWith(it) }
+    }
+
     /**
      * Returns [raw] with tracking parameters removed. Preserves order and all functional
      * parameters. Non-http(s) or unparseable input is returned unchanged.
@@ -39,9 +45,7 @@ object UrlCleaner {
         val kept = ArrayList<Pair<String, String?>>(url.querySize)
         for (i in 0 until url.querySize) {
             val name = url.queryParameterName(i)
-            val lower = name.lowercase()
-            val drop = lower in DROP || DROP_PREFIX.any { lower.startsWith(it) }
-            if (!drop) kept += name to url.queryParameterValue(i)
+            if (!isTracking(name)) kept += name to url.queryParameterValue(i)
         }
         if (kept.size == url.querySize) return raw // nothing removed — keep the original string intact
         val b = url.newBuilder().query(null)

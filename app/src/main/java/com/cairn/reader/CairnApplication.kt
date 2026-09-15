@@ -5,6 +5,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.cairn.reader.data.db.CairnDatabase
 import com.cairn.reader.data.prefs.PreferencesRepository
+import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.util.AppLog
 import com.cairn.reader.util.orLog
 import com.cairn.reader.work.CairnWork
@@ -45,6 +46,10 @@ class CairnApplication : Application(), Configuration.Provider, SingletonImageLo
     @Inject
     lateinit var database: dagger.Lazy<CairnDatabase>
 
+    /** Lazy so the one-time canonicalUrl backfill runs off the injection path, on a background scope. */
+    @Inject
+    lateinit var feedRepository: dagger.Lazy<FeedRepository>
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -81,6 +86,9 @@ class CairnApplication : Application(), Configuration.Provider, SingletonImageLo
         // anyway; this also moves the heavier build/migration step off it.
         appScope.launch(Dispatchers.IO) {
             runCatching { database.get().openHelper.writableDatabase }.orLog("database warm-up")
+            // One-time: canonicalize URLs of items captured before dedup canonicalization existed, so
+            // the Duplicates view keys uniformly. No-ops once every item has a canonicalUrl.
+            runCatching { feedRepository.get().backfillCanonicalUrls() }.orLog("canonicalUrl backfill")
         }
         // Read the sync/backup preferences off the main thread, then schedule work. Scheduling is
         // idempotent (KEEP/REPLACE policies), so doing it a beat after launch is fine and keeps cold

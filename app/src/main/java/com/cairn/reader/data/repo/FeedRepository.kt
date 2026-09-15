@@ -514,6 +514,7 @@ class FeedRepository @Inject constructor(
         val entity = ItemEntity(
             id = itemId,
             url = displayUrl,
+            canonicalUrl = com.cairn.reader.data.net.UrlCanonicalizer.canonicalize(displayUrl),
             title = p.title?.takeIf { it.isNotBlank() } ?: "(untitled)",
             author = p.author,
             siteName = source.title,
@@ -564,6 +565,19 @@ class FeedRepository @Inject constructor(
         coRunCatching { preferencesRepository.preferences.first().sanitizeArticles }.getOrDefault(true)
 
     /** Save an arbitrary URL to the library and extract a clean, offline copy. */
+    /** One-time backfill of [ItemEntity.canonicalUrl] for items captured before canonicalization
+     *  existed, so the Duplicates view keys uniformly (canonical for all rows, not a mix of
+     *  canonical + raw url). Bounded batches; no-ops once every item is populated. Cancellation-safe. */
+    suspend fun backfillCanonicalUrls() {
+        while (true) {
+            val batch = itemDao.itemsMissingCanonical(500)
+            if (batch.isEmpty()) break
+            batch.forEach { itemDao.setCanonicalUrl(it.id, com.cairn.reader.data.net.UrlCanonicalizer.canonicalize(it.url)) }
+            if (batch.size < 500) break
+            coroutineContext.ensureActive()
+        }
+    }
+
     suspend fun saveUrl(rawUrl: String): Result<String> {
         val normalized = normalize(rawUrl) ?: return Result.failure(IllegalArgumentException("Invalid URL"))
         val url = if (stripTrackingEnabled()) com.cairn.reader.data.net.UrlCleaner.strip(normalized) else normalized
@@ -573,6 +587,7 @@ class FeedRepository @Inject constructor(
             ItemEntity(
                 id = itemId,
                 url = url,
+                canonicalUrl = com.cairn.reader.data.net.UrlCanonicalizer.canonicalize(url),
                 title = hostOf(url),
                 savedAt = now,
                 type = detectType(url, hasBody = false),

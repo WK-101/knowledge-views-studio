@@ -421,10 +421,7 @@ class InboxViewModel @Inject constructor(
                 blocked.none { it.isNotBlank() && hay.contains(it) }
             }
         }
-        if (dedup) {
-            val seen = HashSet<String>()
-            out = out.filter { seen.add(it.title.trim().lowercase()) }
-        }
+        if (dedup) out = com.cairn.reader.domain.dedupe.ContentDeduper.dedupe(out)
         return out
     }
 
