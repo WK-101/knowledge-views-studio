@@ -108,8 +108,6 @@ interface ItemDao {
         insertStateIfAbsent(ItemStateEntity(itemId = item.id, updatedAt = now))
     }
 
-    @Query("SELECT COUNT(*) FROM items WHERE guid = :guid AND sourceId = :sourceId")
-    suspend fun countByGuid(guid: String, sourceId: String): Int
 
     // -- Streams ---------------------------------------------------------------
 

@@ -772,30 +772,6 @@ class FeedRepository @Inject constructor(
         return broken
     }
 
-    /**
-     * Back-fill missing thumbnails: for items that arrived without a lead image, fetch the page and
-     * pull its og:image / twitter:image (falling back to the first content image), then store it as
-     * the lead image so list/card/magazine rows show a picture. Lightweight — it only reads the
-     * image URL, it does not re-extract or cache the article. Returns how many were filled.
-     */
-    suspend fun backfillThumbnails(limit: Int = 120): Int {
-        var filled = 0
-        itemDao.itemsMissingThumbnail(limit).forEach { item ->
-            val res = coRunCatching { fetcher.fetch(item.url) }.getOrNull() ?: return@forEach
-            val html = res.body ?: return@forEach
-            val image = coRunCatching {
-                val doc = Jsoup.parse(html, res.finalUrl)
-                val meta = doc.selectFirst("meta[property=og:image], meta[name=og:image], meta[property=og:image:url], meta[name=twitter:image], meta[name=twitter:image:src]")
-                    ?.absUrl("content")?.takeIf { it.isNotBlank() }
-                meta ?: doc.selectFirst("article img, main img, img")?.absUrl("src")?.takeIf { it.isNotBlank() }
-            }.getOrNull()
-            if (!image.isNullOrBlank()) {
-                itemDao.setLeadImage(item.id, if (stripTrackingEnabled()) com.cairn.reader.data.net.UrlCleaner.strip(image) else image)
-                filled++
-            }
-        }
-        return filled
-    }
 
     /**
      * Make a permanent, self-contained offline copy of an item: ensure the full article is

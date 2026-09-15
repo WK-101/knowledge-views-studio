@@ -91,10 +91,6 @@ class SettingsViewModel @Inject constructor(
     /** Build a spreadsheet-friendly CSV of every item and hand it back to be written to a file. */
     fun exportCsv(onReady: (String) -> Unit) = viewModelScope.launch { onReady(backupManager.exportCsv()) }
 
-    /** Fetch og:image thumbnails for items that arrived without one. Reports how many were filled. */
-    fun backfillThumbnails(onDone: (Int) -> Unit) = viewModelScope.launch {
-        onDone(runCatching { feedRepository.backfillThumbnails() }.getOrDefault(0))
-    }
 
     /** Write a full `.zip` archive (data + offline copies) to a document the user picked. */
     fun exportArchive(uri: android.net.Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch {
@@ -192,8 +188,6 @@ class SettingsViewModel @Inject constructor(
     fun setTrueBlack(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setTrueBlack(enabled) }
     fun setReaderFont(font: ReaderFont) = viewModelScope.launch { preferencesRepository.setReaderFont(font) }
     fun setReaderTheme(theme: ReaderTheme) = viewModelScope.launch { preferencesRepository.setReaderTheme(theme) }
-    fun setSwipeRight(action: SwipeAction) = viewModelScope.launch { preferencesRepository.setSwipeRight(action) }
-    fun setSwipeLeft(action: SwipeAction) = viewModelScope.launch { preferencesRepository.setSwipeLeft(action) }
     fun setSwipeRightHalf(action: SwipeAction) = viewModelScope.launch { preferencesRepository.setSwipeRightHalf(action) }
     fun setSwipeRightFull(action: SwipeAction) = viewModelScope.launch { preferencesRepository.setSwipeRightFull(action) }
     fun setSwipeLeftHalf(action: SwipeAction) = viewModelScope.launch { preferencesRepository.setSwipeLeftHalf(action) }

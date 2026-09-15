@@ -56,7 +56,6 @@
     <string name="backup_frequency">Frequency</string>
     <string name="back">Back</string>
     <string name="back_15_seconds">Back 15 seconds</string>
-    <string name="back_fill_missing_thumbnails">Back-fill missing thumbnails</string>
     <string name="back_up_data">Back up data</string>
     <string name="back_up_now">Back up now</string>
     <string name="bring_subscriptions_in_from_inoreader_feedly">Bring subscriptions in from Inoreader/Feedly, or take yours out.</string>
@@ -120,7 +119,6 @@
     <string name="extracted_on_device_from_the_article">Extracted on-device from the article — a starting point, not a substitute for reading.</string>
     <string name="feed_link">Feed link</string>
     <string name="feed_settings_folder">Feed settings &amp; folder…</string>
-    <string name="fetch_cover_images_for_older_items">Fetch cover images for older items that arrived without one (uses the network).</string>
     <string name="fetch_the_whole_article_when_new">Fetch the whole article when new items arrive</string>
     <string name="filter">Filter</string>
     <string name="filter_collections">Filter &amp; collections</string>

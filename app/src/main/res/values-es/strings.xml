@@ -58,7 +58,6 @@
     <string name="backup_frequency">Frecuencia</string>
     <string name="back">Atrás</string>
     <string name="back_15_seconds">Retroceder 15 segundos</string>
-    <string name="back_fill_missing_thumbnails">Completar miniaturas faltantes</string>
     <string name="back_up_data">Hacer copia de seguridad de los datos</string>
     <string name="back_up_now">Hacer copia ahora</string>
     <string name="bring_subscriptions_in_from_inoreader_feedly">Importa suscripciones desde Inoreader/Feedly, o exporta las tuyas.</string>
@@ -122,7 +121,6 @@
     <string name="extracted_on_device_from_the_article">Extraído en el dispositivo a partir del artículo: un punto de partida, no un sustituto de la lectura.</string>
     <string name="feed_link">Enlace de la fuente</string>
     <string name="feed_settings_folder">Ajustes de la fuente y carpeta…</string>
-    <string name="fetch_cover_images_for_older_items">Obtener imágenes de portada para elementos antiguos que llegaron sin una (usa la red).</string>
     <string name="fetch_the_whole_article_when_new">Descargar el artículo completo cuando lleguen elementos nuevos</string>
     <string name="filter">Filtrar</string>
     <string name="filter_collections">Filtros y colecciones</string>

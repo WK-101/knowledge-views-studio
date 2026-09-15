@@ -81,8 +81,6 @@ data class AppPreferences(
     /** Tag paths whose children are collapsed in the Library tree. */
     val libraryCollapsedTags: Set<String> = emptySet(),
     val seenOnboarding: Boolean = false,
-    val swipeRight: SwipeAction = SwipeAction.SAVE,
-    val swipeLeft: SwipeAction = SwipeAction.MARK_READ,
     // Two-stage swipe: a short (half) swipe and a long (full) swipe per direction, for finer control.
     val swipeRightHalf: SwipeAction = SwipeAction.STAR,
     val swipeRightFull: SwipeAction = SwipeAction.SAVE,
@@ -310,8 +308,6 @@ class PreferencesRepository @Inject constructor(
             libraryCollapsedCollections = p[Keys.LIB_COLLAPSED_COLLECTIONS] ?: emptySet(),
             libraryCollapsedTags = p[Keys.LIB_COLLAPSED_TAGS] ?: emptySet(),
             seenOnboarding = p[Keys.SEEN_ONBOARDING] ?: false,
-            swipeRight = p[Keys.SWIPE_RIGHT]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() } ?: SwipeAction.SAVE,
-            swipeLeft = p[Keys.SWIPE_LEFT]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() } ?: SwipeAction.MARK_READ,
             // Full defaults to the old single-swipe choice so existing users keep their behavior.
             swipeRightHalf = p[Keys.SWIPE_RIGHT_HALF]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() } ?: SwipeAction.STAR,
             swipeRightFull = p[Keys.SWIPE_RIGHT_FULL]?.let { runCatching { SwipeAction.valueOf(it) }.getOrNull() }
@@ -368,8 +364,6 @@ class PreferencesRepository @Inject constructor(
     }
 
     suspend fun setSeenOnboarding(seen: Boolean) = context.dataStore.edit { it[Keys.SEEN_ONBOARDING] = seen }
-    suspend fun setSwipeRight(action: SwipeAction) = context.dataStore.edit { it[Keys.SWIPE_RIGHT] = action.name }
-    suspend fun setSwipeLeft(action: SwipeAction) = context.dataStore.edit { it[Keys.SWIPE_LEFT] = action.name }
     suspend fun setSwipeRightHalf(action: SwipeAction) = context.dataStore.edit { it[Keys.SWIPE_RIGHT_HALF] = action.name }
     suspend fun setSwipeRightFull(action: SwipeAction) = context.dataStore.edit { it[Keys.SWIPE_RIGHT_FULL] = action.name }
     suspend fun setSwipeLeftHalf(action: SwipeAction) = context.dataStore.edit { it[Keys.SWIPE_LEFT_HALF] = action.name }
