@@ -91,7 +91,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.SmartViewEntity::class,
         com.todocompanion.app.data.entity.NoteCardEntity::class,
     ],
-    version = 81,
+    version = 82,
     // R73 — export the schema JSON (to app/schemas/) on every build. With 54 hand-written migrations
     // this is the safety net: it lets an instrumented MigrationTest replay the whole chain in CI and
     // fail the build the moment a migration drifts from the entity definitions. Turned on from v59;
@@ -987,6 +987,26 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE `tasks` ADD COLUMN `delegatedOn` INTEGER")
             }
         }
+        // R108 audit B8 — index cleanup. Drop the indices no query ever used (the DAO loads whole tables
+        // and filters in memory) to shrink the DB and speed up writes, and add the missing `sortOrder`
+        // index the main task list orders by. Index names MUST equal Room's generated
+        // `index_<table>_<cols>` so the schema-validation check on next open passes. These names were
+        // copied verbatim from the v81 exported schema (dropped) / match the entity annotations (added).
+        private val MIGRATION_81_82 = object : Migration(81, 82) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP INDEX IF EXISTS `index_tasks_folderId`")
+                db.execSQL("DROP INDEX IF EXISTS `index_tasks_workspaceId`")
+                db.execSQL("DROP INDEX IF EXISTS `index_tasks_completed`")
+                db.execSQL("DROP INDEX IF EXISTS `index_tasks_someday`")
+                db.execSQL("DROP INDEX IF EXISTS `index_tasks_dueDate`")
+                db.execSQL("DROP INDEX IF EXISTS `index_tasks_workspaceId_trashed`")
+                db.execSQL("DROP INDEX IF EXISTS `index_events_calendarId`")
+                db.execSQL("DROP INDEX IF EXISTS `index_events_calendarId_startMillis`")
+                db.execSQL("DROP INDEX IF EXISTS `index_time_entries_taskId`")
+                db.execSQL("DROP INDEX IF EXISTS `index_notes_updatedAt`")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_sortOrder` ON `tasks` (`sortOrder`)")
+            }
+        }
 
         /**
          * The complete, ordered v5→v63 migration chain. Exposed (and used by the builder below) so an
@@ -1007,6 +1027,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_64_65, MIGRATION_65_66, MIGRATION_66_67, MIGRATION_67_68, MIGRATION_68_69, MIGRATION_69_70,
             MIGRATION_70_71, MIGRATION_71_72, MIGRATION_72_73, MIGRATION_73_74, MIGRATION_74_75, MIGRATION_75_76,
             MIGRATION_76_77, MIGRATION_77_78, MIGRATION_78_79, MIGRATION_79_80, MIGRATION_80_81,
+            MIGRATION_81_82,
         )
 
         fun get(context: Context): AppDatabase =

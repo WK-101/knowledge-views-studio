@@ -38,9 +38,9 @@ data class TimeActivityEntity(
 @Serializable
 @Entity(
     tableName = "time_entries",
-    // Hot-path indices for the day/week/month window scans and per-activity history — these matter
-    // more once the DB is encrypted, where a full scan pays page-level AES on every row (C / Plan A).
-    indices = [Index("startMillis"), Index("activityId"), Index("taskId")],
+    // Hot-path indices for the day/week/month window scans (startMillis) and per-activity delete
+    // (activityId). R108 audit B8 — dropped the taskId index: no query filters time entries by task.
+    indices = [Index("startMillis"), Index("activityId")],
 )
 @androidx.compose.runtime.Immutable
 data class TimeEntryEntity(

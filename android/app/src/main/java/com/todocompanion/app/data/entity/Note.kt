@@ -32,9 +32,11 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Entity(
     tableName = "notes",
+    // R108 audit B8 — dropped the updatedAt index: notes are read via observeAll ORDER BY sortOrder and
+    // filtered/grouped in memory, so no query ever ordered or filtered by updatedAt. sortOrder stays (the
+    // list sort); the notebook/folder/workspace/linkedTask indices are kept as cheap FK-lookup insurance.
     indices = [Index("notebookId"), Index("folderId"), Index("workspaceId"), Index("linkedTaskId"),
-        // Ordering columns — notes are sorted by these; index them so an ORDER BY doesn't table-scan.
-        Index("sortOrder"), Index("updatedAt")],
+        Index("sortOrder")],
 )
 @androidx.compose.runtime.Immutable
 data class NoteEntity(

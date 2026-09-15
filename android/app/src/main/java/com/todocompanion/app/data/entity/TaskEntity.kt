@@ -16,12 +16,15 @@ import kotlinx.serialization.Serializable
     tableName = "tasks",
     // R52 — indices on the columns the app filters/sorts by most, so queries stay fast as the table grows
     // into the tens of thousands over years of use (see the scale plan). All additive.
+    // R108 audit B8 — indices trimmed to the ones queries actually use. The DAO loads tasks with
+    // observeAll/getAll and filters in memory, so folderId/workspaceId/someday/dueDate and the single
+    // `completed`/`(workspaceId,trashed)` indices were never chosen by any query — dropped to shrink the
+    // DB and speed up writes. `sortOrder` is added because the main list orders by it; `trashed` and
+    // `(completed,trashed)` are kept because the database-health row counts filter on them.
     indices = [
-        Index("parentId"), Index("listId"), Index("folderId"), Index("workspaceId"),
-        Index("completed"), Index("trashed"), Index("someday"), Index("dueDate"),
-        // R57 (Wave B / index audit) — composites for the hottest WHERE combinations (workspace scoping,
-        // completed/trash counts). Additive; SQLite picks them for the DB-side aggregates.
-        Index("workspaceId", "trashed"), Index("completed", "trashed"),
+        Index("parentId"), Index("listId"), Index("trashed"),
+        Index("sortOrder"),
+        Index("completed", "trashed"),
     ],
 )
 @androidx.compose.runtime.Immutable

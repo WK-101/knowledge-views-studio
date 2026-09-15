@@ -57,15 +57,33 @@ class MigrationTest {
         for (i in 0 until steps.size - 1) {
             assertEquals("gap between ${steps[i]} and ${steps[i + 1]}", steps[i].second, steps[i + 1].first)
         }
-        // The chain ends on the DB's declared version (65). Bumping the version without adding a
+        // The chain ends on the DB's declared version. Bumping the version without adding a
         // migration — or vice-versa — trips this.
-        assertEquals("chain must end at the current schema version", 65, steps.last().second)
+        assertEquals("chain must end at the current schema version", 82, steps.last().second)
     }
 
     /** The exported latest schema JSON must describe a database SQLite can actually create. */
     @Test
     fun exportedLatestSchemaIsBuildable() {
-        helper.createDatabase(TEST_DB, 65).close()
+        helper.createDatabase(TEST_DB, 82).close()
+    }
+
+    /**
+     * R108 audit B8 — 81→82 is an index-only cleanup (drop the indices no query uses, add tasks.sortOrder).
+     * Migrating an empty v81 DB to v82 and letting Room validate is the core check: runMigrationsAndValidate
+     * throws if the migration's resulting index set drifts from the entities. Then assert the new sortOrder
+     * index exists and a dropped one is gone.
+     */
+    @Test
+    fun migrate81To82IndexCleanup() {
+        helper.createDatabase(TEST_DB, 81).close()
+        val db = helper.runMigrationsAndValidate(TEST_DB, 82, true, *AppDatabase.ALL_MIGRATIONS)
+        val indices = mutableSetOf<String>()
+        db.query("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='tasks'").use { c ->
+            while (c.moveToNext()) c.getString(0)?.let { indices.add(it) }
+        }
+        assertTrue("sortOrder index was added", indices.contains("index_tasks_sortOrder"))
+        assertTrue("unused dueDate index was dropped", !indices.contains("index_tasks_dueDate"))
     }
 
     /**

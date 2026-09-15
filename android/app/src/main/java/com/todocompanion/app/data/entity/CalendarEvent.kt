@@ -33,7 +33,10 @@ data class EventCalendarEntity(
  * instances (comma of epoch-days) and a per-instance edit is a separate event carrying [recurrenceParentId].
  */
 @Serializable
-@Entity(tableName = "events", indices = [Index("calendarId"), Index("startMillis"), Index("recurrenceParentId"), Index("calendarId", "startMillis")])
+// R108 audit B8 — events are read via observeAll (ORDER BY startMillis) and filtered in memory, so the
+// calendarId single + (calendarId, startMillis) composite indices went unused; kept startMillis (the sort)
+// and recurrenceParentId (the deleteOverridesOf filter).
+@Entity(tableName = "events", indices = [Index("startMillis"), Index("recurrenceParentId")])
 data class EventEntity(
     @PrimaryKey val id: String,
     val calendarId: String,
