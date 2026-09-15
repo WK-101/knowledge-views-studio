@@ -146,7 +146,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.compose:compose-bom than 2024.12.01 is available: 2026.08.00"
+        message="A newer version of androidx.compose:compose-bom than 2024.12.01 is available: 2026.09.00"
         errorLine1="composeBom = &quot;2024.12.01&quot;"
         errorLine2="             ~~~~~~~~~~~~">
         <location
@@ -157,7 +157,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.navigation:navigation-compose than 2.8.5 is available: 2.10.0"
+        message="A newer version of androidx.navigation:navigation-compose than 2.8.5 is available: 2.10.1"
         errorLine1="navigation = &quot;2.8.5&quot;"
         errorLine2="             ~~~~~~~">
         <location
@@ -168,8 +168,8 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.room:room-compiler than 2.6.1 is available: 2.8.4"
-        errorLine1="room = &quot;2.6.1&quot;"
+        message="A newer version of androidx.room:room-compiler than 2.7.1 is available: 2.8.5"
+        errorLine1="room = &quot;2.7.1&quot;"
         errorLine2="       ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
@@ -179,8 +179,8 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.room:room-ktx than 2.6.1 is available: 2.8.4"
-        errorLine1="room = &quot;2.6.1&quot;"
+        message="A newer version of androidx.room:room-ktx than 2.7.1 is available: 2.8.5"
+        errorLine1="room = &quot;2.7.1&quot;"
         errorLine2="       ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
@@ -190,8 +190,8 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.room:room-runtime than 2.6.1 is available: 2.8.4"
-        errorLine1="room = &quot;2.6.1&quot;"
+        message="A newer version of androidx.room:room-runtime than 2.7.1 is available: 2.8.5"
+        errorLine1="room = &quot;2.7.1&quot;"
         errorLine2="       ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
@@ -201,8 +201,8 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.room:room-testing than 2.6.1 is available: 2.8.4"
-        errorLine1="room = &quot;2.6.1&quot;"
+        message="A newer version of androidx.room:room-testing than 2.7.1 is available: 2.8.5"
+        errorLine1="room = &quot;2.7.1&quot;"
         errorLine2="       ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
@@ -283,8 +283,19 @@
         errorLine2="               ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="21"
+            line="24"
             column="16"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.sqlite:sqlite than 2.5.1 is available: 2.7.1"
+        errorLine1="sqlite = &quot;2.5.1&quot;"
+        errorLine2="         ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="26"
+            column="10"/>
     </issue>
 
     <issue
@@ -294,7 +305,7 @@
         errorLine2="               ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="22"
+            line="27"
             column="16"/>
     </issue>
 
@@ -305,7 +316,7 @@
         errorLine2="                  ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="26"
+            line="32"
             column="19"/>
     </issue>
 
@@ -316,13 +327,24 @@
         errorLine2="                   ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="27"
+            line="33"
             column="20"/>
     </issue>
 
     <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0"
+        errorLine1="androidxTestRunner = &quot;1.6.2&quot;"
+        errorLine2="                     ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="34"
+            column="22"/>
+    </issue>
+
+    <issue
         id="NewerVersionAvailable"
-        message="A newer version of org.jetbrains.kotlin.android than 2.0.21 is available: 2.4.10"
+        message="A newer version of org.jetbrains.kotlin.android than 2.0.21 is available: 2.4.20"
         errorLine1="kotlin = &quot;2.0.21&quot;"
         errorLine2="         ~~~~~~~~">
         <location
@@ -333,7 +355,7 @@
 
     <issue
         id="NewerVersionAvailable"
-        message="A newer version of org.jetbrains.kotlin.plugin.compose than 2.0.21 is available: 2.4.10"
+        message="A newer version of org.jetbrains.kotlin.plugin.compose than 2.0.21 is available: 2.4.20"
         errorLine1="kotlin = &quot;2.0.21&quot;"
         errorLine2="         ~~~~~~~~">
         <location
@@ -377,12 +399,34 @@
 
     <issue
         id="NewerVersionAvailable"
+        message="A newer version of io.coil-kt.coil3:coil-compose than 3.0.4 is available: 3.6.2"
+        errorLine1="coil = &quot;3.0.4&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="15"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of io.coil-kt.coil3:coil-network-okhttp than 3.0.4 is available: 3.6.2"
+        errorLine1="coil = &quot;3.0.4&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="15"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
         message="A newer version of com.squareup.okhttp3:okhttp than 4.12.0 is available: 5.5.0"
         errorLine1="okhttp = &quot;4.12.0&quot;"
         errorLine2="         ~~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="17"
+            line="20"
             column="10"/>
     </issue>
 
@@ -393,7 +437,7 @@
         errorLine2="             ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="18"
+            line="21"
             column="14"/>
     </issue>
 
@@ -404,7 +448,7 @@
         errorLine2="             ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="18"
+            line="21"
             column="14"/>
     </issue>
 
@@ -415,8 +459,19 @@
         errorLine2="        ~~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="20"
+            line="23"
             column="9"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of net.zetetic:sqlcipher-android than 4.6.1 is available: 4.19.0"
+        errorLine1="sqlcipher = &quot;4.6.1&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="25"
+            column="13"/>
     </issue>
 
     <issue
@@ -426,7 +481,7 @@
         errorLine2="          ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="24"
+            line="30"
             column="11"/>
     </issue>
 
@@ -437,19 +492,30 @@
         errorLine2="        ~~~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="25"
+            line="31"
             column="9"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
-        message="A newer version of org.robolectric:robolectric than 4.13 is available: 4.16.1"
+        message="A newer version of org.robolectric:robolectric than 4.13 is available: 4.17"
         errorLine1="robolectric = &quot;4.13&quot;"
         errorLine2="              ~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="28"
+            line="35"
             column="15"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier,"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="src/main/java/com/cairn/reader/ui/components/CommonComponents.kt"
+            line="109"
+            column="5"/>
     </issue>
 
     <issue
@@ -464,13 +530,145 @@
     </issue>
 
     <issue
+        id="MissingQuantity"
+        message="For locale &quot;es&quot; (Spanish) the following quantity should also be defined: `many`"
+        errorLine1="    &lt;plurals name=&quot;item_count&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-es/strings.xml"
+            line="487"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="MissingQuantity"
+        message="For locale &quot;es&quot; (Spanish) the following quantity should also be defined: `many`"
+        errorLine1="    &lt;plurals name=&quot;article_count&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-es/strings.xml"
+            line="491"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="MissingQuantity"
+        message="For locale &quot;es&quot; (Spanish) the following quantity should also be defined: `many`"
+        errorLine1="    &lt;plurals name=&quot;highlight_count&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-es/strings.xml"
+            line="495"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="MissingQuantity"
+        message="For locale &quot;es&quot; (Spanish) the following quantity should also be defined: `many`"
+        errorLine1="    &lt;plurals name=&quot;annotation_count&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-es/strings.xml"
+            line="499"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="MissingQuantity"
+        message="For locale &quot;es&quot; (Spanish) the following quantity should also be defined: `many`"
+        errorLine1="    &lt;plurals name=&quot;share_all_annotations_count&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-es/strings.xml"
+            line="503"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="MissingQuantity"
+        message="For locale &quot;es&quot; (Spanish) the following quantity should also be defined: `many`"
+        errorLine1="    &lt;plurals name=&quot;saved_articles_offline&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-es/strings.xml"
+            line="507"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="MissingQuantity"
+        message="For locale &quot;es&quot; (Spanish) the following quantity should also be defined: `many`"
+        errorLine1="    &lt;plurals name=&quot;offline_readable_count&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-es/strings.xml"
+            line="511"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="MissingQuantity"
+        message="For locale &quot;es&quot; (Spanish) the following quantity should also be defined: `many`"
+        errorLine1="    &lt;plurals name=&quot;trash_delete_forever_count&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-es/strings.xml"
+            line="515"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="MissingQuantity"
+        message="For locale &quot;es&quot; (Spanish) the following quantity should also be defined: `many`"
+        errorLine1="    &lt;plurals name=&quot;trash_empty_count&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-es/strings.xml"
+            line="519"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="MissingQuantity"
+        message="For locale &quot;es&quot; (Spanish) the following quantity should also be defined: `many`"
+        errorLine1="    &lt;plurals name=&quot;notebook_delete_count&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-es/strings.xml"
+            line="523"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="MissingQuantity"
+        message="For locale &quot;es&quot; (Spanish) the following quantity should also be defined: `many`"
+        errorLine1="    &lt;plurals name=&quot;review_complete_count&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-es/strings.xml"
+            line="527"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;selected&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;n_selected&quot;>%1$d selected&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="428"
+            column="5"/>
+    </issue>
+
+    <issue
         id="SetJavaScriptEnabled"
         message="Using `setJavaScriptEnabled` can introduce XSS vulnerabilities into your application, review carefully"
         errorLine1="                        javaScriptEnabled = true"
         errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/cairn/reader/ui/picker/SelectorPickerScreen.kt"
-            line="141"
+            line="144"
             column="25"/>
     </issue>
 
@@ -481,7 +679,7 @@
         errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/cairn/reader/ui/web/WebScreen.kt"
-            line="104"
+            line="107"
             column="25"/>
     </issue>
 
@@ -532,30 +730,8 @@
         errorLine2="                                  ~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/cairn/reader/ui/reader/ReaderScreen.kt"
-            line="1230"
+            line="1211"
             column="35"/>
-    </issue>
-
-    <issue
-        id="AutoboxingStateCreation"
-        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
-        errorLine1="        var scale by remember { mutableStateOf(1f) }"
-        errorLine2="                                ~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/cairn/reader/ui/reader/ReaderScreen.kt"
-            line="1452"
-            column="33"/>
-    </issue>
-
-    <issue
-        id="AutoboxingStateCreation"
-        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
-        errorLine1="    var refresh by remember { mutableStateOf(0) }"
-        errorLine2="                              ~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/cairn/reader/ui/settings/SettingsScreen.kt"
-            line="1185"
-            column="31"/>
     </issue>
 
     <issue
@@ -686,7 +862,7 @@
         errorLine2="                                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/cairn/reader/ui/CairnApp.kt"
-            line="595"
+            line="633"
             column="98"/>
     </issue>
 
@@ -719,7 +895,7 @@
         errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/cairn/reader/data/repo/FeedRepository.kt"
-            line="873"
+            line="959"
             column="31"/>
     </issue>
 
@@ -730,7 +906,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/cairn/reader/ui/reader/PdfView.kt"
-            line="142"
+            line="145"
             column="35"/>
     </issue>
 
@@ -741,7 +917,7 @@
         errorLine2="                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/cairn/reader/ui/reader/ReaderScreen.kt"
-            line="283"
+            line="292"
             column="72"/>
     </issue>
 
@@ -752,7 +928,7 @@
         errorLine2="                                                                       ~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/cairn/reader/ui/web/WebScreen.kt"
-            line="77"
+            line="80"
             column="72"/>
     </issue>
 
@@ -763,7 +939,7 @@
         errorLine2="                                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/cairn/reader/work/Workers.kt"
-            line="80"
+            line="84"
             column="85"/>
     </issue>
 

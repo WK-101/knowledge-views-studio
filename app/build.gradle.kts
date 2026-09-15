@@ -66,6 +66,11 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }
+    androidResources {
+        // The app ships only values/ (en) and values-es/; restrict packaged locales so transitive
+        // AndroidX/Compose locale resources don't bloat the APK. (AGP 8.5+ localeFilters DSL.)
+        localeFilters += listOf("en", "es")
+    }
     lint {
         // A missing/legacy-issue baseline keeps CI honest without blocking on pre-existing findings;
         // new issues fail `lint`. The release assembly isn't slowed by lint (it runs as its own gate).

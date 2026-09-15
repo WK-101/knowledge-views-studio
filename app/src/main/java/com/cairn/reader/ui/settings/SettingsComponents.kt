@@ -66,6 +66,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -237,7 +238,7 @@ internal fun StorageSection(viewModel: SettingsViewModel) {
     val scheme = MaterialTheme.colorScheme
     val context = LocalContext.current
     var data by remember { mutableStateOf<com.cairn.reader.data.blob.StorageManager.Breakdown?>(null) }
-    var refresh by remember { mutableStateOf(0) }
+    var refresh by remember { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
     LaunchedEffect(refresh) { data = runCatching { viewModel.storageBreakdown() }.getOrNull() }
 

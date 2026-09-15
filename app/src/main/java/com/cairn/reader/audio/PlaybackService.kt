@@ -220,11 +220,8 @@ class PlaybackService : Service() {
     }
 
     private fun stopForegroundAndSelf() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-        } else {
-            @Suppress("DEPRECATION") stopForeground(true)
-        }
+        // minSdk is 26, so the API 24+ stopForeground(int) overload is always available.
+        stopForeground(STOP_FOREGROUND_REMOVE)
         startedForeground = false
         stopSelf()
     }
