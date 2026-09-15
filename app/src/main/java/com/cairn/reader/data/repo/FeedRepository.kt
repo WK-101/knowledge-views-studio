@@ -568,15 +568,18 @@ class FeedRepository @Inject constructor(
         val rawUrl = p.link ?: source.siteUrl ?: source.feedUrl
         val displayUrl = if (stripTrackingEnabled()) com.cairn.reader.data.net.UrlCleaner.strip(rawUrl) else rawUrl
 
+        val canonical = com.cairn.reader.data.net.UrlCanonicalizer.canonicalize(displayUrl)
         val entity = ItemEntity(
             id = itemId,
             url = displayUrl,
-            canonicalUrl = com.cairn.reader.data.net.UrlCanonicalizer.canonicalize(displayUrl),
+            canonicalUrl = canonical,
             title = p.title?.takeIf { it.isNotBlank() } ?: "(untitled)",
             author = p.author,
             siteName = source.title,
             publishedAt = p.publishedAt,
             savedAt = now,
+            effectiveDate = p.publishedAt ?: now,
+            dedupeKey = (canonical.takeIf { it.isNotBlank() } ?: displayUrl).lowercase(),
             sourceId = source.id,
             type = if (!p.audioUrl.isNullOrBlank() || source.isPodcast) ItemType.AUDIO.name else detectType(p.link, hasBody = !content.isNullOrBlank()),
             excerpt = excerpt,
@@ -640,13 +643,16 @@ class FeedRepository @Inject constructor(
         val url = if (stripTrackingEnabled()) com.cairn.reader.data.net.UrlCleaner.strip(normalized) else normalized
         val now = System.currentTimeMillis()
         val itemId = deterministicId("save|$url")
+        val canonical = com.cairn.reader.data.net.UrlCanonicalizer.canonicalize(url)
         itemDao.insertItemWithState(
             ItemEntity(
                 id = itemId,
                 url = url,
-                canonicalUrl = com.cairn.reader.data.net.UrlCanonicalizer.canonicalize(url),
+                canonicalUrl = canonical,
                 title = hostOf(url),
                 savedAt = now,
+                effectiveDate = now,
+                dedupeKey = (canonical.takeIf { it.isNotBlank() } ?: url).lowercase(),
                 type = detectType(url, hasBody = false),
                 extractStatus = ExtractStatus.PENDING.raw,
                 contentSource = ContentSource.READABLE.raw,
@@ -680,6 +686,8 @@ class FeedRepository @Inject constructor(
                 title = title,
                 siteName = "Saved",
                 savedAt = now,
+                effectiveDate = now,
+                dedupeKey = "cairn://saved/$itemId".lowercase(),
                 type = ItemType.ARTICLE.name,
                 excerpt = clean.take(300),
                 wordCount = words,
@@ -713,6 +721,8 @@ class FeedRepository @Inject constructor(
                 title = title,
                 siteName = "PDF",
                 savedAt = now,
+                effectiveDate = now,
+                dedupeKey = "file://$path".lowercase(),
                 type = ItemType.PDF.name,
                 excerpt = "Imported PDF",
                 leadImage = thumb,

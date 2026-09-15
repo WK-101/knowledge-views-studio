@@ -23,7 +23,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SyncOpEntity::class,
         RuleEntity::class,
     ],
-    version = 15,
+    version = 16,
     exportSchema = true,
     autoMigrations = [
         // v14 → v15: drop the legacy items.collectionId column. The item_collections join table is
@@ -167,5 +167,38 @@ val MIGRATION_13_14 = object : Migration(13, 14) {
         db.execSQL("ALTER TABLE highlights ADD COLUMN srReps INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE highlights ADD COLUMN srLapses INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE highlights ADD COLUMN srLastReviewedAt INTEGER")
+    }
+}
+
+/**
+ * v16: storage + query-efficiency pass on items / item_states.
+ *
+ * Adds two precomputed, indexed helper columns on `items` so the hot list queries stop sorting and
+ * grouping on non-sargable expressions:
+ *  - `effectiveDate` = COALESCE(publishedAt, savedAt), the list sort key. The river/search/widget
+ *    queries now `ORDER BY effectiveDate DESC`, served straight from `index_items_effectiveDate`
+ *    instead of re-evaluating COALESCE(publishedAt, savedAt) for every row.
+ *  - `dedupeKey` = LOWER(COALESCE(canonicalUrl, url)), the duplicate-grouping key. The Duplicates
+ *    view groups on it via `index_items_dedupeKey` instead of the non-sargable LOWER(COALESCE(...)).
+ *
+ * Both are backfilled for existing rows here. It also drops the four non-selective boolean indices on
+ * `item_states` (isRead/isStarred/isArchived/isReadLater) — each only splits the table two ways, so
+ * they never helped a query yet cost space and write time — plus the now-unused standalone
+ * `index_items_publishedAt` (no query orders or filters by publishedAt alone). The created index names
+ * match Room's `index_<table>_<col>` convention so they satisfy the entity's @Index declarations.
+ */
+val MIGRATION_15_16 = object : Migration(15, 16) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE items ADD COLUMN effectiveDate INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE items ADD COLUMN dedupeKey TEXT NOT NULL DEFAULT ''")
+        db.execSQL("UPDATE items SET effectiveDate = COALESCE(publishedAt, savedAt)")
+        db.execSQL("UPDATE items SET dedupeKey = LOWER(COALESCE(canonicalUrl, url))")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_items_effectiveDate ON items(effectiveDate)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_items_dedupeKey ON items(dedupeKey)")
+        db.execSQL("DROP INDEX IF EXISTS index_item_states_isRead")
+        db.execSQL("DROP INDEX IF EXISTS index_item_states_isStarred")
+        db.execSQL("DROP INDEX IF EXISTS index_item_states_isArchived")
+        db.execSQL("DROP INDEX IF EXISTS index_item_states_isReadLater")
+        db.execSQL("DROP INDEX IF EXISTS index_items_publishedAt")
     }
 }

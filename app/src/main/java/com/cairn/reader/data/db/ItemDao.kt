@@ -120,7 +120,7 @@ interface ItemDao {
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
           AND (:folder IS NULL OR src.folder = :folder)
           AND (:sourceId IS NOT NULL OR COALESCE(src.muted, 0) = 0)
-        ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
+        ORDER BY i.effectiveDate DESC
         """
     )
     fun observeInbox(sourceId: String?, folder: String?): Flow<List<ItemListRow>>
@@ -138,7 +138,7 @@ interface ItemDao {
         WHERE i.trashedAt IS NULL AND COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isReadLater, 0) = 1
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
           AND (:folder IS NULL OR src.folder = :folder)
-        ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
+        ORDER BY i.effectiveDate DESC
         """
     )
     fun observeSaved(sourceId: String?, folder: String?): Flow<List<ItemListRow>>
@@ -149,7 +149,7 @@ interface ItemDao {
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
           AND (:folder IS NULL OR src.folder = :folder)
           AND (:sourceId IS NOT NULL OR COALESCE(src.muted, 0) = 0)
-        ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
+        ORDER BY i.effectiveDate DESC
         """
     )
     fun observeAll(sourceId: String?, folder: String?): Flow<List<ItemListRow>>
@@ -159,7 +159,7 @@ interface ItemDao {
         WHERE i.trashedAt IS NULL AND COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isStarred, 0) = 1
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
           AND (:folder IS NULL OR src.folder = :folder)
-        ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
+        ORDER BY i.effectiveDate DESC
         """
     )
     fun observeStarred(sourceId: String?, folder: String?): Flow<List<ItemListRow>>
@@ -187,8 +187,9 @@ interface ItemDao {
     )
     fun observeAllCount(): Flow<Int>
 
-    /** Store the canonical dedup key (see UrlCanonicalizer) for one item. */
-    @Query("UPDATE items SET canonicalUrl = :canonical WHERE id = :id")
+    /** Store the canonical dedup key (see UrlCanonicalizer) for one item, keeping the indexed
+     *  [ItemEntity.dedupeKey] in sync (lower-cased) so backfilled rows group in the Duplicates view. */
+    @Query("UPDATE items SET canonicalUrl = :canonical, dedupeKey = LOWER(:canonical) WHERE id = :id")
     suspend fun setCanonicalUrl(id: String, canonical: String)
 
     /** A bounded batch of items still missing a canonicalUrl, for the one-time backfill. */
@@ -228,7 +229,7 @@ interface ItemDao {
         LEFT JOIN sources src ON src.id = i.sourceId
         WHERE i.trashedAt IS NULL AND COALESCE(s.isRead, 0) = 0 AND COALESCE(s.isArchived, 0) = 0
           AND (i.sourceId IS NULL OR i.sourceId NOT IN (SELECT id FROM sources WHERE muted = 1))
-        ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
+        ORDER BY i.effectiveDate DESC
         LIMIT :limit
         """,
     )
@@ -315,7 +316,7 @@ interface ItemDao {
           AND itemId IN (
             SELECT i.id FROM items i LEFT JOIN sources src ON src.id = i.sourceId
             WHERE (:sourceId IS NULL OR i.sourceId = :sourceId) AND (:folder IS NULL OR src.folder = :folder)
-              AND COALESCE(i.publishedAt, i.savedAt) > :cutoff
+              AND i.effectiveDate > :cutoff
           )
         """
     )
@@ -329,7 +330,7 @@ interface ItemDao {
           AND itemId IN (
             SELECT i.id FROM items i LEFT JOIN sources src ON src.id = i.sourceId
             WHERE (:sourceId IS NULL OR i.sourceId = :sourceId) AND (:folder IS NULL OR src.folder = :folder)
-              AND COALESCE(i.publishedAt, i.savedAt) < :cutoff
+              AND i.effectiveDate < :cutoff
           )
         """
     )
@@ -510,7 +511,7 @@ interface ItemDao {
         LEFT JOIN item_states s ON s.itemId = i.id
         LEFT JOIN sources src ON src.id = i.sourceId
         WHERE i.trashedAt IS NULL AND item_fts MATCH :query
-        ORDER BY COALESCE(i.publishedAt, i.savedAt) DESC
+        ORDER BY i.effectiveDate DESC
         """
     )
     suspend fun search(query: String): List<ItemListRow>
@@ -660,12 +661,12 @@ interface ItemDao {
     /** Duplicate items: those whose canonical/plain URL is shared by more than one non-trashed item. */
     @Query(
         ITEM_LIST_SELECT + """
-        WHERE i.trashedAt IS NULL AND LOWER(COALESCE(i.canonicalUrl, i.url)) IN (
-            SELECT LOWER(COALESCE(canonicalUrl, url)) AS k FROM items
-            WHERE trashedAt IS NULL AND COALESCE(canonicalUrl, url) <> ''
+        WHERE i.trashedAt IS NULL AND i.dedupeKey IN (
+            SELECT dedupeKey AS k FROM items
+            WHERE trashedAt IS NULL AND dedupeKey <> ''
             GROUP BY k HAVING COUNT(*) > 1
         )
-        ORDER BY LOWER(COALESCE(i.canonicalUrl, i.url)), i.savedAt DESC
+        ORDER BY i.dedupeKey, i.savedAt DESC
         """
     )
     fun observeDuplicates(): Flow<List<ItemListRow>>
@@ -690,9 +691,9 @@ interface ItemDao {
 
     @Query(
         """
-        SELECT COUNT(*) FROM items i WHERE i.trashedAt IS NULL AND LOWER(COALESCE(i.canonicalUrl, i.url)) IN (
-            SELECT LOWER(COALESCE(canonicalUrl, url)) AS k FROM items
-            WHERE trashedAt IS NULL AND COALESCE(canonicalUrl, url) <> ''
+        SELECT COUNT(*) FROM items i WHERE i.trashedAt IS NULL AND i.dedupeKey IN (
+            SELECT dedupeKey AS k FROM items
+            WHERE trashedAt IS NULL AND dedupeKey <> ''
             GROUP BY k HAVING COUNT(*) > 1
         )
         """

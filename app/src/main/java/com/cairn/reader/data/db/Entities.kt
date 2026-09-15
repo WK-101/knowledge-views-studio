@@ -60,7 +60,7 @@ data class SourceEntity(
             onDelete = ForeignKey.SET_NULL,
         ),
     ],
-    indices = [Index("sourceId"), Index("savedAt"), Index("publishedAt"), Index("guid")],
+    indices = [Index("sourceId"), Index("savedAt"), Index("guid"), Index("effectiveDate"), Index("dedupeKey")],
 )
 data class ItemEntity(
     @PrimaryKey val id: String,
@@ -99,6 +99,14 @@ data class ItemEntity(
     // is when it was last verified. Migration 10→11 adds both. Powers the "Broken" smart view.
     val linkStatus: String? = null,
     val linkCheckedAt: Long? = null,
+    // v16: precomputed, indexed sort key = publishedAt ?: savedAt. The hot list queries order by this
+    // directly instead of the non-sargable COALESCE(publishedAt, savedAt), so the sort uses an index.
+    // Migration 15→16 adds the column, backfills it, and creates index_items_effectiveDate.
+    val effectiveDate: Long = 0L,
+    // v16: precomputed, indexed duplicate-grouping key = lower(canonicalUrl ?: url). The Duplicates
+    // view groups on this instead of the non-sargable LOWER(COALESCE(canonicalUrl, url)). Kept in sync
+    // on write and by the canonicalUrl backfill. Migration 15→16 adds it and index_items_dedupeKey.
+    val dedupeKey: String = "",
 )
 
 @Entity(
@@ -111,7 +119,9 @@ data class ItemEntity(
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("isRead"), Index("isStarred"), Index("isArchived"), Index("isReadLater")],
+    // v16: the four boolean flags (isRead/isStarred/isArchived/isReadLater) are non-selective — each
+    // splits the table only two ways — so their single-column indices never paid off and are dropped.
+    // The list queries filter these with COALESCE(...) over a LEFT JOIN anyway, which can't use them.
 )
 data class ItemStateEntity(
     @PrimaryKey val itemId: String,
