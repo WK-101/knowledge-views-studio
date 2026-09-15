@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.data.db.ItemType
 import com.cairn.reader.ui.util.formatAgo
 import com.cairn.reader.data.db.CacheStatus
 
@@ -58,7 +59,7 @@ val LocalListRowOptions = staticCompositionLocalOf { ListRowOptions() }
 
 /** True when the row carries any status worth a glyph (saved / PDF / offline copy). */
 internal fun ItemListRow.hasStatusGlyph(): Boolean =
-    isReadLater || type == "PDF" || cacheStatus == "PERMANENT"
+    isReadLater || type == ItemType.PDF.name || cacheStatus == CacheStatus.PERMANENT.raw
 
 /**
  * Compact status glyphs shared by every list cell: a Saved bookmark, a PDF marker, and a
@@ -70,12 +71,12 @@ internal fun StatusGlyphs(row: ItemListRow, size: Dp = 14.dp) {
     if (row.isReadLater) {
         Icon(Icons.Filled.Bookmark, contentDescription = stringResource(R.string.saved), tint = scheme.tertiary, modifier = Modifier.size(size))
     }
-    if (row.type == "PDF") {
+    if (row.type == ItemType.PDF.name) {
         if (row.isReadLater) Spacer(Modifier.width(6.dp))
         Icon(Icons.Outlined.PictureAsPdf, contentDescription = stringResource(R.string.pdf), tint = scheme.onSurfaceVariant, modifier = Modifier.size(size))
     }
     if (CacheStatus.isPermanent(row.cacheStatus)) {
-        if (row.isReadLater || row.type == "PDF") Spacer(Modifier.width(6.dp))
+        if (row.isReadLater || row.type == ItemType.PDF.name) Spacer(Modifier.width(6.dp))
         Icon(Icons.Outlined.OfflinePin, contentDescription = stringResource(R.string.saved_offline), tint = scheme.primary, modifier = Modifier.size(size))
     }
 }

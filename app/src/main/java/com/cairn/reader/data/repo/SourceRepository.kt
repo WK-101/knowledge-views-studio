@@ -4,6 +4,7 @@ import com.cairn.reader.data.blob.BlobStore
 import com.cairn.reader.data.db.ItemDao
 import com.cairn.reader.data.db.SourceDao
 import com.cairn.reader.data.db.SourceEntity
+import com.cairn.reader.util.coRunCatching
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -44,7 +45,7 @@ class SourceRepository @Inject constructor(
     suspend fun delete(id: String) {
         itemDao.unkeptIdsBySource(id).forEach { itemId ->
             val e = itemDao.getItem(itemId)
-            runCatching { blobStore.deleteAllFor(itemId, e?.blobPath) }
+            coRunCatching { blobStore.deleteAllFor(itemId, e?.blobPath) }
             itemDao.deleteFts(itemId)
             itemDao.deleteItem(itemId)
         }

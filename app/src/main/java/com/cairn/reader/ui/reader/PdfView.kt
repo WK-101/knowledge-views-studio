@@ -151,6 +151,8 @@ private class PdfDoc private constructor(
                     width = (width * 2 / 3).coerceAtLeast(320)
                     config = Bitmap.Config.RGB_565
                     @Suppress("ExplicitGarbageCollectionCall") System.gc()
+                } catch (c: kotlin.coroutines.cancellation.CancellationException) {
+                    throw c
                 } catch (e: Exception) {
                     return@withContext null
                 }

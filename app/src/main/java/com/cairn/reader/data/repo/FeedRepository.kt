@@ -34,8 +34,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.ceil
 import kotlin.math.max
+import com.cairn.reader.data.db.CacheStatus
 import com.cairn.reader.data.db.ContentSource
 import com.cairn.reader.data.db.ExtractStatus
+import com.cairn.reader.data.db.ItemType
 
 /**
  * Owns capture and sync: discovering feeds from a URL, pulling new items with
@@ -316,12 +318,12 @@ class FeedRepository @Inject constructor(
     private suspend fun pruneSource(sourceId: String, limit: Int, keepUnread: Int) {
         val over = itemDao.countBySource(sourceId) - limit
         if (over <= 0) return
-        itemDao.prunableOldestFirst(sourceId, keepUnread).take(over).forEach { deleteItemFully(it) }
+        deleteItemsFully(itemDao.prunableOldestFirst(sourceId, keepUnread).take(over))
     }
 
     /** Age-based retention: drop un-engaged items older than [cutoff] across all feeds. */
     private suspend fun pruneOlderThan(cutoff: Long, keepUnread: Int) {
-        itemDao.prunableOlderThan(cutoff, keepUnread).forEach { deleteItemFully(it) }
+        deleteItemsFully(itemDao.prunableOlderThan(cutoff, keepUnread))
     }
 
     private suspend fun deleteItemFully(id: String) {
@@ -330,6 +332,32 @@ class FeedRepository @Inject constructor(
         itemDao.deleteFts(id)
         itemDao.deleteItem(id)
         syncDao.tombstone(TombstoneEntity(itemId = id, deletedAt = System.currentTimeMillis()))
+    }
+
+    /** Chunk size for bulk deletes. Kept small enough that the batched tombstone insert — which binds
+     *  two variables per row — stays well under SQLite's bound-variable limit. */
+    private val deleteChunk = 450
+
+    /**
+     * Bulk equivalent of [deleteItemFully] for a whole id set. Reproduces the identical single-item
+     * semantics (free on-disk blobs + drop the FTS row + delete the item, whose FK cascades clear
+     * states / tags / collections / highlights + tombstone the id) without N×(getItem + 3 writes):
+     *   1. read every item's blobPath up front, before any row is deleted;
+     *   2. per chunk, delete the item + FTS rows and tombstone the ids in one transaction;
+     *   3. free the on-disk blobs in a single pass afterwards (blobs live on disk, not in the DB).
+     * Every input id gets a blob cleanup pass (a missing row → null path), mirroring the single path
+     * which still clears an item's media images even when its row is already gone.
+     */
+    private suspend fun deleteItemsFully(ids: Collection<String>) {
+        if (ids.isEmpty()) return
+        val idList = ids.toList()
+        val blobPaths = HashMap<String, String?>(idList.size)
+        idList.chunked(deleteChunk).forEach { chunk ->
+            itemDao.blobPathsFor(chunk).forEach { blobPaths[it.id] = it.blobPath }
+        }
+        val now = System.currentTimeMillis()
+        idList.chunked(deleteChunk).forEach { chunk -> itemDao.deleteItemsWithFtsAndTombstones(chunk, now) }
+        idList.forEach { id -> blobStore.deleteAllFor(id, blobPaths[id]) }
     }
 
     /**
@@ -348,7 +376,7 @@ class FeedRepository @Inject constructor(
     }
 
     /** Delete several items at once (bulk multi-select). */
-    suspend fun deleteItems(ids: Collection<String>) = ids.forEach { deleteItemFully(it) }
+    suspend fun deleteItems(ids: Collection<String>) = deleteItemsFully(ids)
 
     /** Undo a [deleteItem]: lift the tombstone and re-insert the item (content re-extracts on open). */
     suspend fun restoreItem(snapshot: ItemEntity) {
@@ -393,10 +421,10 @@ class FeedRepository @Inject constructor(
     suspend fun deleteForever(id: String) = deleteItemFully(id)
 
     /** Permanently erase several items from the Trash. */
-    suspend fun deleteForever(ids: Collection<String>) = ids.forEach { deleteItemFully(it) }
+    suspend fun deleteForever(ids: Collection<String>) = deleteItemsFully(ids)
 
     /** Empty the Trash: permanently erase everything currently in it. */
-    suspend fun emptyTrash() = itemDao.allTrashedIds().forEach { deleteItemFully(it) }
+    suspend fun emptyTrash() = deleteItemsFully(itemDao.allTrashedIds())
 
     /** Auto-purge: permanently erase items that have been in the Trash past the grace period.
      *  The window is user-configurable; 0 means "never auto-purge — keep until emptied by hand". */
@@ -404,7 +432,7 @@ class FeedRepository @Inject constructor(
         val days = coRunCatching { preferencesRepository.preferences.first().trashRetentionDays }.getOrDefault(trashRetentionDays)
         if (days <= 0) return
         val cutoff = System.currentTimeMillis() - days * 86_400_000L
-        itemDao.trashedOlderThan(cutoff).forEach { deleteItemFully(it) }
+        deleteItemsFully(itemDao.trashedOlderThan(cutoff))
     }
 
     fun observeTrash() = itemDao.observeTrash()
@@ -521,7 +549,7 @@ class FeedRepository @Inject constructor(
             publishedAt = p.publishedAt,
             savedAt = now,
             sourceId = source.id,
-            type = if (!p.audioUrl.isNullOrBlank() || source.isPodcast) "AUDIO" else detectType(p.link, hasBody = !content.isNullOrBlank()),
+            type = if (!p.audioUrl.isNullOrBlank() || source.isPodcast) ItemType.AUDIO.name else detectType(p.link, hasBody = !content.isNullOrBlank()),
             excerpt = excerpt,
             leadImage = lead,
             wordCount = words,
@@ -623,7 +651,7 @@ class FeedRepository @Inject constructor(
                 title = title,
                 siteName = "Saved",
                 savedAt = now,
-                type = "ARTICLE",
+                type = ItemType.ARTICLE.name,
                 excerpt = clean.take(300),
                 wordCount = words,
                 readingMinutes = max(1, ceil(words / 220.0).toInt()),
@@ -656,13 +684,13 @@ class FeedRepository @Inject constructor(
                 title = title,
                 siteName = "PDF",
                 savedAt = now,
-                type = "PDF",
+                type = ItemType.PDF.name,
                 excerpt = "Imported PDF",
                 leadImage = thumb,
                 blobPath = path,
                 extractStatus = ExtractStatus.OK.raw,
                 contentSource = ContentSource.PDF.raw,
-                cacheStatus = "PERMANENT",
+                cacheStatus = CacheStatus.PERMANENT.raw,
             ),
             now,
         )
@@ -713,8 +741,8 @@ class FeedRepository @Inject constructor(
         itemDao.indexItem(
             ItemFtsEntity(itemId, extracted.title ?: "", extracted.byline, extracted.plainText.take(20_000)),
         )
-        if (extracted.wordCount >= 200 && itemDao.getItem(itemId)?.type == "LINK") {
-            itemDao.setType(itemId, "ARTICLE")
+        if (extracted.wordCount >= 200 && itemDao.getItem(itemId)?.type == ItemType.LINK.name) {
+            itemDao.setType(itemId, ItemType.ARTICLE.name)
         }
         return true
     }
@@ -745,8 +773,8 @@ class FeedRepository @Inject constructor(
         )
         // A saved bare link that turned out to have a real article body is promoted to ARTICLE,
         // so it filters and reads like one. Video/image classifications are left untouched.
-        if (extracted.wordCount >= 200 && itemDao.getItem(itemId)?.type == "LINK") {
-            itemDao.setType(itemId, "ARTICLE")
+        if (extracted.wordCount >= 200 && itemDao.getItem(itemId)?.type == ItemType.LINK.name) {
+            itemDao.setType(itemId, ItemType.ARTICLE.name)
         }
     }
 
@@ -829,7 +857,7 @@ class FeedRepository @Inject constructor(
         fresh.leadImage?.let { lead ->
             if (!lead.startsWith("file:")) localize(lead)?.let { itemDao.setLeadImage(itemId, it) }
         }
-        itemDao.setCacheStatus(itemId, "PERMANENT")
+        itemDao.setCacheStatus(itemId, CacheStatus.PERMANENT.raw)
         return Result.success(cached)
     }
 
@@ -923,10 +951,10 @@ class FeedRepository @Inject constructor(
         val videoExt = listOf(".mp4", ".webm", ".mov", ".m4v", ".mkv")
         val imageExt = listOf(".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp")
         return when {
-            videoHosts.any { host == it || host.endsWith(".$it") } || videoExt.any { u.endsWith(it) } -> "VIDEO"
-            imageExt.any { u.endsWith(it) } -> "IMAGE"
-            hasBody -> "ARTICLE"
-            else -> "LINK"
+            videoHosts.any { host == it || host.endsWith(".$it") } || videoExt.any { u.endsWith(it) } -> ItemType.VIDEO.name
+            imageExt.any { u.endsWith(it) } -> ItemType.IMAGE.name
+            hasBody -> ItemType.ARTICLE.name
+            else -> ItemType.LINK.name
         }
     }
 

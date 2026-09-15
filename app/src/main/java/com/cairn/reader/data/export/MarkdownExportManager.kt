@@ -7,6 +7,7 @@ import com.cairn.reader.data.blob.BlobStore
 import com.cairn.reader.data.db.HighlightDao
 import com.cairn.reader.data.db.ItemDao
 import com.cairn.reader.data.db.ItemEntity
+import com.cairn.reader.data.db.ItemType
 import com.cairn.reader.data.db.TagDao
 import com.cairn.reader.domain.export.MarkdownExporter
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -70,7 +71,7 @@ class MarkdownExportManager @Inject constructor(
 
     private suspend fun build(e: ItemEntity): MarkdownExporter.Doc {
         val tags = runCatching { tagDao.tagsForItem(e.id).map { it.name } }.getOrDefault(emptyList())
-        val html = if (e.type == "PDF") null else blobStore.readArticle(e.blobPath)
+        val html = if (e.type == ItemType.PDF.name) null else blobStore.readArticle(e.blobPath)
         val highlights = runCatching { highlightDao.forItemWithArticle(e.id) }.getOrDefault(emptyList())
             .map { MarkdownExporter.Highlight(it.quote, it.note, it.createdAt) }
         val meta = MarkdownExporter.Meta(

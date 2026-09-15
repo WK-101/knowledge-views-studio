@@ -39,6 +39,7 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import com.cairn.reader.data.db.CacheStatus
 import com.cairn.reader.data.db.ExtractStatus
+import com.cairn.reader.data.db.ItemType
 
 data class ReaderUiState(
     val loading: Boolean = true,
@@ -153,7 +154,7 @@ class ReaderViewModel @Inject constructor(
                 // background; saveOffline honours the image Wi-Fi-only policy (text always cached),
                 // and marking the copy permanent keeps retention from pruning it away.
                 val fresh = itemRepository.reader(itemId)
-                if (fresh != null && fresh.type != "PDF" && !CacheStatus.isPermanent(fresh.cacheStatus) &&
+                if (fresh != null && fresh.type != ItemType.PDF.name && !CacheStatus.isPermanent(fresh.cacheStatus) &&
                     preferencesRepository.preferences.first().cacheOnOpen
                 ) {
                     launch { runCatching { feedRepository.saveOffline(itemId) } }

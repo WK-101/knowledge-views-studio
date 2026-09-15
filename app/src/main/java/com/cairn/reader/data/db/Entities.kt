@@ -72,7 +72,7 @@ data class ItemEntity(
     val publishedAt: Long? = null,
     val savedAt: Long,
     val sourceId: String? = null,
-    val type: String = "ARTICLE",
+    val type: String = ItemType.ARTICLE.name,
     val excerpt: String? = null,
     val leadImage: String? = null,
     val wordCount: Int = 0,

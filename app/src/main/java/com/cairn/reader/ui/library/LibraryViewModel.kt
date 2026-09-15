@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cairn.reader.data.db.CollectionWithCount
 import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.data.db.ItemType
 import com.cairn.reader.data.db.TagWithCount
 import com.cairn.reader.data.prefs.LibraryViewMode
 import com.cairn.reader.data.prefs.PreferencesRepository
@@ -194,7 +195,14 @@ class LibraryViewModel @Inject constructor(
     fun unarchive(id: String) = viewModelScope.launch { itemRepository.setArchived(id, false) }
 
     companion object {
-        val TYPE_ORDER = listOf("ARTICLE", "LINK", "VIDEO", "AUDIO", "IMAGE", "PDF")
+        val TYPE_ORDER = listOf(
+            ItemType.ARTICLE.name,
+            ItemType.LINK.name,
+            ItemType.VIDEO.name,
+            ItemType.AUDIO.name,
+            ItemType.IMAGE.name,
+            ItemType.PDF.name,
+        )
     }
 
     fun setQuery(value: String) {

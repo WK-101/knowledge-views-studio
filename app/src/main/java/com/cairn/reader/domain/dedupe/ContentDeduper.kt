@@ -1,5 +1,6 @@
 package com.cairn.reader.domain.dedupe
 
+import com.cairn.reader.data.db.CacheStatus
 import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.data.net.UrlCanonicalizer
 
@@ -62,7 +63,7 @@ object ContentDeduper {
     private fun score(r: ItemListRow): Long {
         var s = 0L
         if (r.isStarred) s += 1L shl 40
-        if (r.cacheStatus == "PERMANENT" || r.extractStatus == "OK") s += 1L shl 39
+        if (r.cacheStatus == CacheStatus.PERMANENT.raw || r.extractStatus == "OK") s += 1L shl 39
         if (r.isReadLater) s += 1L shl 38
         if (!r.isRead) s += 1L shl 37
         s += ((r.publishedAt ?: r.savedAt) / 1000L).coerceIn(0L, (1L shl 36) - 1)

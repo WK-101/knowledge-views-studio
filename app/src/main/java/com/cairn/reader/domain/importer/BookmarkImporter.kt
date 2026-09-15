@@ -13,6 +13,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import com.cairn.reader.data.db.ContentSource
 import com.cairn.reader.data.db.ExtractStatus
+import com.cairn.reader.data.db.ItemType
 
 /**
  * Imports a reading list exported from Pocket, Instapaper, Raindrop or any Netscape-bookmark HTML —
@@ -72,7 +73,7 @@ class BookmarkImporter @Inject constructor(
                     url = url,
                     title = e.title?.takeIf { it.isNotBlank() } ?: hostOf(url),
                     savedAt = now,
-                    type = "LINK",
+                    type = ItemType.LINK.name,
                     extractStatus = ExtractStatus.PENDING.raw,
                     contentSource = ContentSource.READABLE.raw,
                 ),

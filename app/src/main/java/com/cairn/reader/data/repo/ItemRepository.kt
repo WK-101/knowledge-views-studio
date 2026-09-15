@@ -5,6 +5,7 @@ import com.cairn.reader.data.db.ItemDao
 import com.cairn.reader.data.db.ItemEntity
 import com.cairn.reader.data.db.ItemFtsEntity
 import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.data.db.ItemType
 import com.cairn.reader.data.db.SourceDao
 import com.cairn.reader.data.db.SourceEntity
 import com.cairn.reader.data.db.SyncDao
@@ -86,9 +87,9 @@ class ItemRepository @Inject constructor(
             isArchived = state?.isArchived == true,
             cacheStatus = e.cacheStatus,
             type = e.type,
-            pdfPath = if (e.type == "PDF") e.blobPath else null,
+            pdfPath = if (e.type == ItemType.PDF.name) e.blobPath else null,
             // A PDF's blob is the raw file, not gzipped HTML, so don't try to read it as an article.
-            html = if (e.type == "PDF") null else blobStore.readArticle(e.blobPath),
+            html = if (e.type == ItemType.PDF.name) null else blobStore.readArticle(e.blobPath),
             commentsUrl = e.commentsUrl,
             readProgress = state?.readProgress ?: 0f,
         )
@@ -264,7 +265,7 @@ class ItemRepository @Inject constructor(
                     publishedAt = now - s.agoMin * 60_000,
                     savedAt = now - s.agoMin * 60_000,
                     sourceId = s.src,
-                    type = "ARTICLE",
+                    type = ItemType.ARTICLE.name,
                     excerpt = s.excerpt,
                     readingMinutes = s.minutes,
                     extractStatus = ExtractStatus.NONE.raw,

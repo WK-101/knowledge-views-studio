@@ -158,6 +158,7 @@ import com.cairn.reader.ui.util.nextSpeed
 import com.cairn.reader.ui.util.speedLabel
 import com.cairn.reader.data.db.CacheStatus
 import com.cairn.reader.data.db.ExtractStatus
+import com.cairn.reader.data.db.ItemType
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 
@@ -336,7 +337,7 @@ fun ReaderScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), tint = palette.text) }
                 },
                 actions = {
-                    if (data?.type != "PDF") {
+                    if (data?.type != ItemType.PDF.name) {
                         IconButton(onClick = { showTypography = true }) {
                             Icon(Icons.Outlined.FormatSize, contentDescription = stringResource(R.string.text_options), tint = palette.text)
                         }
@@ -361,7 +362,7 @@ fun ReaderScreen(
                             Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.more), tint = palette.text)
                         }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                            if (data?.type != "PDF") {
+                            if (data?.type != ItemType.PDF.name) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.display_text)) },
                                     leadingIcon = { Icon(Icons.Outlined.FormatSize, contentDescription = null) },
@@ -378,7 +379,7 @@ fun ReaderScreen(
                                 leadingIcon = { Icon(Icons.Outlined.Label, contentDescription = null) },
                                 onClick = { showMenu = false; showTags = true },
                             )
-                            if (data?.type != "PDF") {
+                            if (data?.type != ItemType.PDF.name) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.listen)) },
                                     leadingIcon = { Icon(Icons.Outlined.Headphones, contentDescription = null) },
@@ -430,7 +431,7 @@ fun ReaderScreen(
                                 },
                                 onClick = { showMenu = false; viewModel.toggleArchive() },
                             )
-                            if (data?.type != "PDF") {
+                            if (data?.type != ItemType.PDF.name) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.export_as_pdf)) },
                                     leadingIcon = { Icon(Icons.Outlined.PictureAsPdf, contentDescription = null) },
@@ -471,7 +472,7 @@ fun ReaderScreen(
                                     onClick = { showMenu = false; onOpenWeb(commentsUrl) },
                                 )
                             }
-                            if (data?.type != "PDF") {
+                            if (data?.type != ItemType.PDF.name) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.open_original)) },
                                     leadingIcon = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null) },
@@ -491,7 +492,7 @@ fun ReaderScreen(
                                 onClick = {
                                     showMenu = false
                                     when {
-                                        data?.type == "PDF" -> sharePdf()
+                                        data?.type == ItemType.PDF.name -> sharePdf()
                                         highlights.isEmpty() -> shareText(data?.url.orEmpty(), data?.title)
                                         else -> viewModel.exportHighlights { md -> shareText(md, data?.title?.let { "Highlights — $it" }) }
                                     }
@@ -538,7 +539,7 @@ fun ReaderScreen(
                 if (data != null) {
                     ReaderActionBar(
                         isStarred = data.isStarred,
-                        onShare = { if (data.type == "PDF") sharePdf() else shareText(data.url, data.title) },
+                        onShare = { if (data.type == ItemType.PDF.name) sharePdf() else shareText(data.url, data.title) },
                         onUnread = { viewModel.markUnread(); onBack() },
                         onStar = viewModel::toggleStar,
                         onTag = { showTags = true },
@@ -552,7 +553,7 @@ fun ReaderScreen(
         when {
             state.loading -> Centered(padding) { CircularProgressIndicator() }
             data == null -> Centered(padding) { Text(stringResource(R.string.this_article_couldn_t_be_loaded), color = palette.secondary) }
-            data.type == "PDF" -> PdfView(padding = padding, path = data.pdfPath, background = palette.background)
+            data.type == ItemType.PDF.name -> PdfView(padding = padding, path = data.pdfPath, background = palette.background)
             else -> ArticleBody(
                 padding = padding,
                 state = state,
@@ -984,7 +985,7 @@ private fun ArticleBody(
                         }
                         Spacer(Modifier.height(12.dp))
                     }
-                    if (data.type == "VIDEO") {
+                    if (data.type == ItemType.VIDEO.name) {
                         OutlinedButton(onClick = onWatch) {
                             Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))

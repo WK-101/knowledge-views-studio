@@ -42,6 +42,9 @@ data class WidgetRow(
 /** Minimal (id, url) projection for background jobs like the broken-link watchdog. */
 data class ItemIdUrl(val id: String, val url: String)
 
+/** (id, blobPath) projection so a bulk delete can free each item's on-disk blob in one pass. */
+data class ItemBlobPath(val id: String, val blobPath: String?)
+
 data class ItemListRow(
     val id: String,
     val url: String,
@@ -404,6 +407,44 @@ interface ItemDao {
 
     @Query("DELETE FROM items WHERE id = :id")
     suspend fun deleteItem(id: String)
+
+    // -- Bulk delete (batched retention / trash / multi-select) ----------------
+    // The batch equivalents of the single-item delete path (deleteFts + deleteItem + tombstone),
+    // so a large prune/empty-trash runs a handful of statements instead of N×3 round-trips. FK
+    // cascades still clear item_states / item_tags / item_collections / highlights on the item
+    // delete, exactly as the single-row deleteItem relied on. Callers chunk the id list to stay
+    // under SQLite's bound-variable limit.
+
+    /** blobPaths for a set of items, fetched before deletion so their on-disk blobs can be freed. */
+    @Query("SELECT id, blobPath FROM items WHERE id IN (:ids)")
+    suspend fun blobPathsFor(ids: List<String>): List<ItemBlobPath>
+
+    /** Bulk row delete — FK cascades clear item_states / item_tags / item_collections / highlights. */
+    @Query("DELETE FROM items WHERE id IN (:ids)")
+    suspend fun deleteItemsMany(ids: List<String>)
+
+    /** Bulk FTS delete mirroring [deleteFts]; item_fts is a standalone FTS4 table with no FK, so its
+     *  rows must be removed explicitly. */
+    @Query("DELETE FROM item_fts WHERE itemId IN (:ids)")
+    suspend fun deleteFtsMany(ids: List<String>)
+
+    /** Tombstone many ids at once, mirroring [SyncDao.tombstone]; @Upsert keeps a re-tombstone idempotent. */
+    @Upsert
+    suspend fun tombstoneMany(tombstones: List<TombstoneEntity>)
+
+    /**
+     * Batch equivalent of the single-item delete's DB work: remove the FTS index rows and the item
+     * rows (FK cascades clear states / tags / collections / highlights) and tombstone every id so a
+     * re-sync can't resurrect them — all in one transaction. On-disk blobs are freed separately by the
+     * caller. [ids] must already be chunked under SQLite's bound-variable limit.
+     */
+    @Transaction
+    suspend fun deleteItemsWithFtsAndTombstones(ids: List<String>, deletedAt: Long) {
+        if (ids.isEmpty()) return
+        deleteFtsMany(ids)
+        deleteItemsMany(ids)
+        tombstoneMany(ids.map { TombstoneEntity(itemId = it, deletedAt = deletedAt) })
+    }
 
     /** Items of a feed that the user hasn't explicitly kept (not starred / saved / archived /
      *  filed in a collection / highlighted / permanent) — deleted when the feed is unsubscribed,

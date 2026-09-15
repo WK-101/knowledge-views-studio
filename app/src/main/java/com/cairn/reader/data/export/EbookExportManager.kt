@@ -4,6 +4,7 @@ import android.content.Context
 import com.cairn.reader.data.blob.BlobStore
 import com.cairn.reader.data.db.ItemDao
 import com.cairn.reader.data.db.ItemEntity
+import com.cairn.reader.data.db.ItemType
 import com.cairn.reader.domain.export.EpubExporter
 import com.cairn.reader.domain.export.HtmlSnapshotExporter
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -30,7 +31,7 @@ class EbookExportManager @Inject constructor(
     /** EPUB for a single article, or null if the item is gone. Heavy IO/assembly runs off the main thread. */
     suspend fun epubForItem(itemId: String): File? = withContext(Dispatchers.IO) {
         val e = itemDao.getItem(itemId) ?: return@withContext null
-        if (e.type == "PDF") return@withContext null
+        if (e.type == ItemType.PDF.name) return@withContext null
         val chapter = chapterFor(e)
         val file = File(exportsDir, safeName(e.title) + ".epub")
         file.outputStream().buffered().use { EpubExporter.write(it, e.title.ifBlank { "Article" }, listOf(chapter), e.author) }
@@ -39,7 +40,7 @@ class EbookExportManager @Inject constructor(
 
     /** One EPUB containing the whole curated library, newest first. Null if the library is empty. */
     suspend fun epubForLibrary(): File? = withContext(Dispatchers.IO) {
-        val items = itemDao.libraryItemsForExport().filter { it.type != "PDF" }
+        val items = itemDao.libraryItemsForExport().filter { it.type != ItemType.PDF.name }
         if (items.isEmpty()) return@withContext null
         val chapters = items.map { chapterFor(it) }
         val stamp = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
@@ -51,7 +52,7 @@ class EbookExportManager @Inject constructor(
     /** A self-contained HTML snapshot of a single article, or null if the item is gone. */
     suspend fun htmlSnapshotForItem(itemId: String): File? = withContext(Dispatchers.IO) {
         val e = itemDao.getItem(itemId) ?: return@withContext null
-        if (e.type == "PDF") return@withContext null
+        if (e.type == ItemType.PDF.name) return@withContext null
         val html = blobStore.readArticle(e.blobPath)
         val doc = HtmlSnapshotExporter.snapshot(
             HtmlSnapshotExporter.Meta(
@@ -69,7 +70,7 @@ class EbookExportManager @Inject constructor(
         EpubExporter.Chapter(
             title = e.title,
             author = e.author,
-            html = if (e.type == "PDF") null else blobStore.readArticle(e.blobPath),
+            html = if (e.type == ItemType.PDF.name) null else blobStore.readArticle(e.blobPath),
             url = e.url,
         )
 

@@ -15,6 +15,7 @@ import com.cairn.reader.data.blob.BlobStore
 import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.data.repo.HighlightRepository
 import com.cairn.reader.data.repo.SourceRepository
+import com.cairn.reader.util.coRunCatching
 import com.cairn.reader.work.CairnWork
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -66,7 +67,7 @@ class SettingsViewModel @Inject constructor(
         sourceRepository.folders().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun removeSource(id: String) = viewModelScope.launch { sourceRepository.delete(id) }
-    fun syncNow() = viewModelScope.launch { runCatching { feedRepository.syncAll() } }
+    fun syncNow() = viewModelScope.launch { coRunCatching { feedRepository.syncAll() } }
 
     fun setFolder(id: String, folder: String?) = viewModelScope.launch { sourceRepository.setFolder(id, folder) }
     fun setFullText(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setFullText(id, enabled) }
@@ -74,15 +75,15 @@ class SettingsViewModel @Inject constructor(
     fun setMuted(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setMuted(id, enabled) }
 
     fun importOpml(text: String, onResult: (Int) -> Unit) = viewModelScope.launch {
-        val added = runCatching { feedRepository.importOpml(text) }.getOrDefault(0)
+        val added = coRunCatching { feedRepository.importOpml(text) }.getOrDefault(0)
         onResult(added)
-        if (added > 0) runCatching { feedRepository.syncAll() }
+        if (added > 0) coRunCatching { feedRepository.syncAll() }
     }
 
     fun exportOpml(onReady: (String) -> Unit) = viewModelScope.launch { onReady(feedRepository.exportOpml()) }
 
     fun importPdf(name: String, bytes: ByteArray, onResult: (Boolean) -> Unit) = viewModelScope.launch {
-        val ok = runCatching { feedRepository.importPdf(name, bytes) }.getOrNull()?.isSuccess == true
+        val ok = coRunCatching { feedRepository.importPdf(name, bytes) }.getOrNull()?.isSuccess == true
         onResult(ok)
     }
 
@@ -94,7 +95,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Write a full `.zip` archive (data + offline copies) to a document the user picked. */
     fun exportArchive(uri: android.net.Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch {
-        val ok = runCatching {
+        val ok = coRunCatching {
             context.contentResolver.openOutputStream(uri)?.use { backupManager.exportArchive(it) } ?: error("no output stream")
         }.isSuccess
         onDone(ok)
@@ -103,7 +104,7 @@ class SettingsViewModel @Inject constructor(
     /** Export the whole curated library as Markdown files into a folder the user picked (an
      *  Obsidian/Logseq vault). Reports how many files were written. */
     fun exportMarkdownVault(treeUri: android.net.Uri, onDone: (String) -> Unit) = viewModelScope.launch {
-        val summary = runCatching {
+        val summary = coRunCatching {
             val r = markdownExportManager.exportVault(treeUri)
             when {
                 r.written == 0 && r.failed == 0 -> "Nothing to export — save some articles to your library first."
@@ -116,12 +117,12 @@ class SettingsViewModel @Inject constructor(
 
     /** Build one EPUB of the whole curated library and hand back the file to share (Send to Kindle). */
     fun exportLibraryEpub(onReady: (java.io.File?) -> Unit) = viewModelScope.launch {
-        onReady(runCatching { ebookExportManager.epubForLibrary() }.getOrNull())
+        onReady(coRunCatching { ebookExportManager.epubForLibrary() }.getOrNull())
     }
 
     /** Restore from a file the user picked — auto-detecting a `.zip` archive vs a `.json` data backup. */
     fun importFrom(uri: android.net.Uri, onResult: (String) -> Unit) = viewModelScope.launch {
-        val summary = runCatching {
+        val summary = coRunCatching {
             val name = com.cairn.reader.util.displayName(context, uri).orEmpty().lowercase()
             val isZip = name.endsWith(".zip") || firstBytesAreZip(uri)
             if (isZip) {
@@ -141,7 +142,7 @@ class SettingsViewModel @Inject constructor(
      * with the ordinary Restore flow. Nothing goes through a server.
      */
     fun transferToDevice(onReady: (android.net.Uri?) -> Unit) = viewModelScope.launch {
-        val uri = runCatching {
+        val uri = coRunCatching {
             val dir = java.io.File(context.cacheDir, "media").apply { mkdirs() }
             val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(java.util.Date())
             val file = java.io.File(dir, "cairn-transfer-$stamp.zip")
@@ -153,7 +154,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Import a Pocket / Instapaper / Raindrop export (HTML or CSV) as Read Later items. */
     fun importBookmarks(uri: android.net.Uri, onResult: (String) -> Unit) = viewModelScope.launch {
-        val report = runCatching {
+        val report = coRunCatching {
             val name = queryDisplayName(uri)
             val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: error("no stream")
             bookmarkImporter.import(name, text)

@@ -9,6 +9,7 @@ import com.cairn.reader.data.db.ItemCollectionCrossRef
 import com.cairn.reader.data.db.ItemEntity
 import com.cairn.reader.data.db.ItemStateEntity
 import com.cairn.reader.data.db.ItemTagCrossRef
+import com.cairn.reader.data.db.ItemType
 import com.cairn.reader.data.db.SourceDao
 import com.cairn.reader.data.db.SourceEntity
 import com.cairn.reader.data.db.TagDao
@@ -386,7 +387,7 @@ class BackupManager @Inject constructor(
         id = getString("id"), url = optString("url", ""), canonicalUrl = optStringOrNull("canonicalUrl"),
         title = optString("title", "(untitled)"), author = optStringOrNull("author"), siteName = optStringOrNull("siteName"),
         publishedAt = optLongOrNull("publishedAt"), savedAt = optLong("savedAt"), sourceId = optStringOrNull("sourceId"),
-        type = optString("type", "ARTICLE"), excerpt = optStringOrNull("excerpt"), leadImage = optStringOrNull("leadImage"),
+        type = optString("type", ItemType.ARTICLE.name), excerpt = optStringOrNull("excerpt"), leadImage = optStringOrNull("leadImage"),
         wordCount = optInt("wordCount"), readingMinutes = optInt("readingMinutes"), lang = optStringOrNull("lang"),
         blobPath = null, extractStatus = optString("extractStatus", "NONE"), contentSource = optString("contentSource", "FEED"),
         guid = optStringOrNull("guid"), domain = optStringOrNull("domain"),

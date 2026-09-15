@@ -1,5 +1,6 @@
 package com.cairn.reader.data.net
 
+import com.cairn.reader.util.coRunCatching
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -68,7 +69,7 @@ class HttpFetcher @Inject constructor(
         url: String,
         maxBytes: Long = 5L * 1024 * 1024,
     ): Pair<ByteArray, String?>? = withContext(Dispatchers.IO) {
-        runCatching {
+        coRunCatching {
             client.newCall(Request.Builder().url(url).get().build()).execute().use { response ->
                 if (!response.isSuccessful) return@use null
                 val contentType = response.header("Content-Type")

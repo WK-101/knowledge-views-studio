@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.data.db.ItemType
 import com.cairn.reader.data.prefs.ListViewMode
 import com.cairn.reader.data.prefs.SwipeAction
 import kotlinx.coroutines.launch
@@ -242,7 +243,7 @@ fun ItemActionSheet(
             if (row.isReadLater) "Unsave" else "Save",
         ) { onToggleSave(!row.isReadLater); onDismiss() })
         add(SheetAction(Icons.Filled.Archive, "Archive") { onArchive(); onDismiss() })
-        if (onSaveOffline != null && row.type != "PDF") {
+        if (onSaveOffline != null && row.type != ItemType.PDF.name) {
             val permanent = CacheStatus.isPermanent(row.cacheStatus)
             add(SheetAction(
                 if (permanent) Icons.Outlined.OfflinePin else Icons.Outlined.DownloadForOffline,
