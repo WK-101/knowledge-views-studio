@@ -329,7 +329,11 @@ private fun OfflineAction(
     }
 }
 
-/** The storage & sync policy, now a bottom sheet reachable from the Offline surface's top bar. */
+/**
+ * The storage & sync policy, reachable as a bottom sheet from the Offline surface's top bar. It
+ * renders the same shared groups that Settings → "Feeds & articles" and "Storage" use, so there is
+ * a single source of truth for sync, retention and offline-copy controls.
+ */
 @Composable
 private fun StorageSettingsSheet(
     padding: PaddingValues,
@@ -337,119 +341,20 @@ private fun StorageSettingsSheet(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
-    val scheme = MaterialTheme.colorScheme
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
             Modifier
                 .fillMaxWidth()
-                .heightIn(max = 620.dp)
+                .heightIn(max = 680.dp)
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 28.dp),
         ) {
-            Text(stringResource(R.string.storage_sync), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 20.dp, top = 4.dp, bottom = 4.dp))
-            SectionHeader("SYNCING")
-            ToggleRow(
-                title = "Sync on Wi-Fi only",
-                subtitle = "Automatic background refresh waits for an un-metered network. Pull-to-refresh always works.",
-                checked = prefs.syncWifiOnly,
-                onCheckedChange = viewModel::setSyncWifiOnly,
-            )
-            ToggleRow(
-                title = "Sync only while charging",
-                subtitle = "Background refresh waits until the device is plugged in — easiest on the battery.",
-                checked = prefs.syncChargingOnly,
-                onCheckedChange = viewModel::setSyncChargingOnly,
-            )
-            Column(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
-                Text(stringResource(R.string.sync_every), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                Spacer(Modifier.height(2.dp))
-                Text(stringResource(R.string.how_often_cairn_refreshes_in_the), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    SyncIntervalOptions.forEach { m ->
-                        FilterChip(selected = prefs.syncIntervalMinutes == m, onClick = { viewModel.setSyncIntervalMinutes(m) }, label = { Text(syncIntervalLabel(m)) })
-                    }
-                }
-            }
-            SectionHeader("OFFLINE COPIES")
-            ToggleRow(
-                title = "Keep what you read",
-                subtitle = "Every article you open is cached so it stays readable offline later — text always, images per the settings below.",
-                checked = prefs.cacheOnOpen,
-                onCheckedChange = viewModel::setCacheOnOpen,
-            )
-            ToggleRow(
-                title = "Download images",
-                subtitle = "“Save offline” fetches every image so the article is a true self-contained copy. Off = text only.",
-                checked = prefs.cacheImagesOffline,
-                onCheckedChange = viewModel::setCacheImagesOffline,
-            )
-            ToggleRow(
-                title = "Images on Wi-Fi only",
-                subtitle = "On a metered network, saving offline keeps the text and skips images until you're on Wi-Fi.",
-                checked = prefs.imagesWifiOnly,
-                enabled = prefs.cacheImagesOffline,
-                onCheckedChange = viewModel::setImagesWifiOnly,
-            )
-            SectionHeader("RETENTION")
-            Column(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
-                Text(stringResource(R.string.keep_per_feed), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                Spacer(Modifier.height(2.dp))
-                Text(stringResource(R.string.all_the_default_keeps_every_item),
-                    style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    KeepOptions.forEach { n ->
-                        FilterChip(selected = prefs.maxItemsPerFeed == n, onClick = { viewModel.setMaxItemsPerFeed(n) }, label = { Text(if (n == 0) "All" else n.toString()) })
-                    }
-                }
-                Spacer(Modifier.height(14.dp))
-                Text(stringResource(R.string.delete_older_than), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
-                Spacer(Modifier.height(2.dp))
-                Text(stringResource(R.string.also_drop_un_engaged_items_past), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    AgeOptions.forEach { d ->
-                        FilterChip(selected = prefs.maxAgeDays == d, onClick = { viewModel.setMaxAgeDays(d) }, label = { Text(ageLabel(d)) })
-                    }
-                }
-            }
-            ToggleRow(
-                title = "Never delete unread",
-                subtitle = "Retention only removes articles you've already read. Unread ones stay until you read them.",
-                checked = prefs.keepUnread,
-                onCheckedChange = viewModel::setKeepUnread,
-            )
+            Text(stringResource(R.string.storage_sync), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 22.dp, top = 4.dp, bottom = 4.dp))
+            SyncSettingsGroup(prefs, viewModel)
+            OfflineCopiesGroup(prefs, viewModel)
+            RetentionSettingsGroup(prefs, viewModel)
         }
     }
-}
-
-private val KeepOptions = listOf(0, 25, 50, 100, 200, 500, 1000)
-private val AgeOptions = listOf(0, 3, 7, 14, 30, 90, 180, 365)
-private val SyncIntervalOptions = listOf(0, 15, 30, 60, 180, 360, 720, 1440)
-
-private fun syncIntervalLabel(m: Int): String = when (m) {
-    0 -> "Default"
-    15 -> "15 min"
-    30 -> "30 min"
-    60 -> "1 hour"
-    180 -> "3 hours"
-    360 -> "6 hours"
-    720 -> "12 hours"
-    1440 -> "Daily"
-    else -> "$m min"
-}
-
-private fun ageLabel(d: Int): String = when (d) {
-    0 -> "Forever"
-    7 -> "1 week"
-    14 -> "2 weeks"
-    30 -> "1 month"
-    90 -> "3 months"
-    180 -> "6 months"
-    365 -> "1 year"
-    else -> "$d days"
 }
 
 private fun formatBytes(bytes: Long): String = when {
@@ -457,45 +362,4 @@ private fun formatBytes(bytes: Long): String = when {
     bytes < 1024 * 1024 -> "%.0f KB".format(bytes / 1024.0)
     bytes < 1024L * 1024 * 1024 -> "%.1f MB".format(bytes / (1024.0 * 1024))
     else -> "%.2f GB".format(bytes / (1024.0 * 1024 * 1024))
-}
-
-@Composable
-private fun SectionHeader(text: String) {
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelMedium,
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 20.dp, top = 18.dp, bottom = 4.dp).semantics { heading() },
-    )
-}
-
-@Composable
-private fun ToggleRow(
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true,
-) {
-    val scheme = MaterialTheme.colorScheme
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(
-                title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (enabled) scheme.onSurface else scheme.onSurface.copy(alpha = 0.4f),
-            )
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (enabled) scheme.onSurfaceVariant else scheme.onSurfaceVariant.copy(alpha = 0.4f),
-            )
-        }
-        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
-    }
 }

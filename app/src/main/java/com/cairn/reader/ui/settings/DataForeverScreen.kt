@@ -5,10 +5,6 @@ package com.cairn.reader.ui.settings
 import androidx.compose.ui.res.stringResource
 import com.cairn.reader.R
 
-import android.content.Intent
-import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,13 +21,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.outlined.Backup
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.CloudSync
-import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Menu
-import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -45,19 +38,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.ui.theme.ReadingSerif
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 
 /**
- * The "Your data, forever" panel — Cairn's headline promise made tangible. Everything Cairn holds is
- * yours, on your device, in open formats, and every door out is one tap away: a full backup, a
- * Markdown vault, an EPUB, an auto-backup folder. If Cairn ever disappeared, your library wouldn't.
+ * The "Your data, forever" panel — Cairn's headline promise made tangible. This screen makes the
+ * *case* (no account, no lock-in, open formats, everything on your device); the actual backup,
+ * export and transfer tools live in one place, Settings → Backup & restore, which the single
+ * button here opens. Keeping the promise and the tooling separate is deliberate: this is the "why",
+ * Backup & restore is the "how".
  */
 @Composable
 fun DataForeverScreen(
@@ -66,37 +58,9 @@ fun DataForeverScreen(
     onOpenBackupSettings: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
     val scheme = MaterialTheme.colorScheme
     val highlights by viewModel.highlightCount.collectAsStateWithLifecycle()
     val saved by viewModel.savedCount.collectAsStateWithLifecycle()
-
-    val archiveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
-        if (uri != null) {
-            Toast.makeText(context, "Writing archive…", Toast.LENGTH_SHORT).show()
-            viewModel.exportArchive(uri) { ok ->
-                Toast.makeText(context, if (ok) "Full archive saved" else "Couldn't write the archive", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-    val markdownLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) {
-            Toast.makeText(context, "Exporting Markdown…", Toast.LENGTH_SHORT).show()
-            viewModel.exportMarkdownVault(uri) { s -> Toast.makeText(context, s, Toast.LENGTH_LONG).show() }
-        }
-    }
-    val backupFolderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) {
-            runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-                )
-            }
-            viewModel.setBackupFolder(uri.toString())
-            Toast.makeText(context, "Auto-backup on — a copy was saved", Toast.LENGTH_SHORT).show()
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -136,45 +100,30 @@ fun DataForeverScreen(
             }
 
             item {
-                SectionLabel("TAKE IT WITH YOU")
-                DataAction(
-                    Icons.Outlined.Backup, "Full backup (.zip)",
-                    "Everything — articles, offline copies, highlights, settings — in one file you can restore on any device.",
-                ) { archiveLauncher.launch("cairn-backup-${today()}.zip") }
-                DataAction(
-                    Icons.Outlined.Description, "Markdown / Obsidian vault",
-                    "Your whole library as plain .md files with frontmatter, tags and highlights — for Obsidian, Logseq, or anywhere.",
-                ) { markdownLauncher.launch(null) }
-                DataAction(
-                    Icons.Outlined.MenuBook, "EPUB — send to Kindle",
-                    "Bundle your library into one e-book for your Kindle, Kobo, or any reader.",
+                // The single door out. Every backup, export and transfer tool lives behind it, so this
+                // screen never duplicates them — it just points here.
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(scheme.secondaryContainer)
+                        .clickable(onClick = onOpenBackupSettings)
+                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Toast.makeText(context, "Building EPUB…", Toast.LENGTH_SHORT).show()
-                    viewModel.exportLibraryEpub { file ->
-                        if (file == null) Toast.makeText(context, "Nothing to export yet.", Toast.LENGTH_LONG).show()
-                        else runCatching {
-                            val uri = androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
-                            val send = Intent(Intent.ACTION_SEND).apply {
-                                type = "application/epub+zip"; putExtra(Intent.EXTRA_STREAM, uri)
-                                putExtra(Intent.EXTRA_SUBJECT, "Cairn Library"); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(Intent.createChooser(send, "Send library to Kindle"))
-                        }
+                    Icon(Icons.Outlined.CloudSync, contentDescription = null, tint = scheme.onSecondaryContainer, modifier = Modifier.size(26.dp))
+                    Spacer(Modifier.size(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Back up & restore", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = scheme.onSecondaryContainer)
+                        Text(
+                            "Full backups, Markdown & EPUB export, automatic and WebDAV backups, and device-to-device transfer — all in one place.",
+                            style = MaterialTheme.typography.bodySmall, color = scheme.onSecondaryContainer.copy(alpha = 0.85f),
+                        )
                     }
+                    Spacer(Modifier.size(8.dp))
+                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = scheme.onSecondaryContainer)
                 }
-            }
-
-            item {
-                Spacer(Modifier.height(8.dp))
-                SectionLabel("KEEP IT SAFE AUTOMATICALLY")
-                DataAction(
-                    Icons.Outlined.CloudSync, "Automatic backup folder",
-                    "Pick a folder (local, Drive, Dropbox…) and Cairn writes a dated backup there on a schedule.",
-                ) { backupFolderLauncher.launch(null) }
-                DataAction(
-                    Icons.AutoMirrored.Outlined.OpenInNew, "WebDAV sync & device-to-device transfer",
-                    "Back up to your own Nextcloud/WebDAV server, or move everything to a new phone with no account.",
-                ) { onOpenBackupSettings() }
             }
 
             item {
@@ -194,39 +143,3 @@ fun DataForeverScreen(
         }
     }
 }
-
-@Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.primary,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 8.dp).semantics { heading() },
-    )
-}
-
-@Composable
-private fun DataAction(icon: ImageVector, title: String, body: String, onClick: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Box(Modifier.size(40.dp).clip(RoundedCornerShape(11.dp)).background(scheme.secondaryContainer), contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, tint = scheme.onSecondaryContainer, modifier = Modifier.size(20.dp))
-        }
-        Spacer(Modifier.size(14.dp))
-        Column(Modifier.fillMaxWidth().padding(top = 1.dp)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = scheme.onSurface)
-            Spacer(Modifier.height(2.dp))
-            Text(body, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
-        }
-    }
-}
-
-private fun today(): String =
-    java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())

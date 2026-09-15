@@ -218,6 +218,8 @@ fun CairnApp(
     var showFilterMenu by remember { mutableStateOf(false) }
     var showMarkMenu by remember { mutableStateOf(false) }
     var inboxSearchOpen by remember { mutableStateOf(false) }
+    // A one-shot deep-link into a Settings category (e.g. "Your data, forever" → Backup & restore).
+    var pendingSettingsCategory by remember { mutableStateOf<String?>(null) }
     val inboxQuery by inboxViewModel.query.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -511,8 +513,8 @@ fun CairnApp(
                 Destination.Brief -> com.cairn.reader.ui.brief.BriefScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
                 Destination.Triage -> com.cairn.reader.ui.triage.TriageScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
                 Destination.Review -> com.cairn.reader.ui.review.ReviewScreen(padding, onOpenDrawer = openDrawer)
-                Destination.DataForever -> com.cairn.reader.ui.settings.DataForeverScreen(padding, onOpenDrawer = openDrawer, onOpenBackupSettings = { goTo(Destination.Settings) })
-                Destination.Settings -> SettingsScreen(padding, onOpenNotebook = { goTo(Destination.Highlights) }, onOpenOffline = { goTo(Destination.Offline) }, onOpenRules = { goTo(Destination.Rules) }, onOpenInsights = { goTo(Destination.Insights) }, onOpenDataForever = { goTo(Destination.DataForever) })
+                Destination.DataForever -> com.cairn.reader.ui.settings.DataForeverScreen(padding, onOpenDrawer = openDrawer, onOpenBackupSettings = { pendingSettingsCategory = com.cairn.reader.ui.settings.SettingsCategory.BACKUP.name; goTo(Destination.Settings) })
+                Destination.Settings -> SettingsScreen(padding, onOpenNotebook = { goTo(Destination.Highlights) }, onOpenOffline = { goTo(Destination.Offline) }, onOpenRules = { goTo(Destination.Rules) }, onOpenInsights = { goTo(Destination.Insights) }, onOpenDataForever = { goTo(Destination.DataForever) }, initialCategory = pendingSettingsCategory, onCategoryConsumed = { pendingSettingsCategory = null })
                 // Inbox and any non-pane fallthrough render the Inbox.
                 else -> InboxScreen(padding, inboxViewModel, open, onOpenWeb, inboxViewMode, inboxListState)
             }

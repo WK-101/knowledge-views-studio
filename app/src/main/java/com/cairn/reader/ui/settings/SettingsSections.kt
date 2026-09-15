@@ -72,31 +72,18 @@ import com.cairn.reader.data.prefs.ThemeMode
 // ─── Quick access ────────────────────────────────────────────────────────────
 @Composable
 internal fun ExtrasSection(
-    prefs: AppPreferences,
     onOpenNotebook: () -> Unit,
-    onOpenOffline: () -> Unit,
     onOpenRules: () -> Unit,
     onOpenInsights: () -> Unit,
     highlightCount: Int,
     ruleCount: Int,
 ) {
-    SettingsGroup("Quick access") {
+    SettingsGroup("Tools") {
         SettingActionRow(
             title = stringResource(R.string.highlights_notes),
             subtitle = if (highlightCount == 0) "Long-press a sentence while reading to save it" else "$highlightCount saved",
             icon = Icons.Outlined.FormatQuote,
             onClick = onOpenNotebook,
-        )
-        SettingDivider()
-        SettingActionRow(
-            title = stringResource(R.string.offline_storage),
-            subtitle = buildString {
-                append(if (prefs.syncWifiOnly) "Sync on Wi-Fi only" else "Sync on any network")
-                append(" · ")
-                append(if (prefs.maxItemsPerFeed == 0) "keep all" else "keep ${prefs.maxItemsPerFeed}/feed")
-            },
-            icon = Icons.Outlined.CloudDownload,
-            onClick = onOpenOffline,
         )
         SettingDivider()
         SettingActionRow(
@@ -267,7 +254,13 @@ internal fun AppearanceSection(prefs: AppPreferences, viewModel: SettingsViewMod
             checked = prefs.trueBlack,
             onCheckedChange = viewModel::setTrueBlack,
         )
-        SettingDivider()
+    }
+}
+
+// ─── Reader typography (font / theme / size) ──────────────────────────────────
+@Composable
+internal fun ReaderTypographySection(prefs: AppPreferences, viewModel: SettingsViewModel) {
+    SettingsGroup("Reader text") {
         ChipsBlock(
             label = "Reading font",
             options = ReaderFont.entries.map { it to it.label },
@@ -593,10 +586,9 @@ internal fun ImportExportSection(prefs: AppPreferences, viewModel: SettingsViewM
     }
 }
 
-// ─── Privacy & about ─────────────────────────────────────────────────────────
+// ─── Privacy ─────────────────────────────────────────────────────────────────
 @Composable
-internal fun PrivacyAboutSection(prefs: AppPreferences, viewModel: SettingsViewModel) {
-    val scheme = MaterialTheme.colorScheme
+internal fun PrivacySection(prefs: AppPreferences, viewModel: SettingsViewModel) {
     SettingsGroup("Privacy") {
         SettingSwitchRow(stringResource(R.string.strip_tracking_from_links), stringResource(R.string.remove_utm_fbclid_gclid_and_similar), prefs.stripTrackingParams, viewModel::setStripTrackingParams)
         SettingDivider()
@@ -607,6 +599,12 @@ internal fun PrivacyAboutSection(prefs: AppPreferences, viewModel: SettingsViewM
         SettingSwitchRow(stringResource(R.string.online_dictionary_lookups), stringResource(R.string.online_dictionary_lookups_desc), prefs.dictionaryOnline, viewModel::setDictionaryOnline)
         SettingCaption(stringResource(R.string.no_account_no_trackers_no_ads))
     }
+}
+
+// ─── About ───────────────────────────────────────────────────────────────────
+@Composable
+internal fun AboutSection() {
+    val scheme = MaterialTheme.colorScheme
     SettingsGroup("About") {
         Column(Modifier.padding(16.dp)) {
             Text(stringResource(R.string.cairn_3_43_0), style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
@@ -630,5 +628,111 @@ private fun <T> ChipsBlock(
             Spacer(Modifier.height(6.dp))
             Text(caption, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
+
+// ─── Shared sync / retention / offline-copy groups ────────────────────────────
+// One source of truth for the global feed-management controls, rendered both in the
+// Settings → "Feeds & articles" / "Storage" categories and in the Offline surface's sheet.
+
+private val KeepOptions = listOf(0, 25, 50, 100, 200, 500, 1000)
+private val AgeOptions = listOf(0, 3, 7, 14, 30, 90, 180, 365)
+private val SyncIntervalOptions = listOf(0, 15, 30, 60, 180, 360, 720, 1440)
+
+private fun syncIntervalLabel(m: Int): String = when (m) {
+    0 -> "Default"; 15 -> "15 min"; 30 -> "30 min"; 60 -> "1 hour"
+    180 -> "3 hours"; 360 -> "6 hours"; 720 -> "12 hours"; 1440 -> "Daily"
+    else -> "$m min"
+}
+
+private fun ageLabel(d: Int): String = when (d) {
+    0 -> "Forever"; 7 -> "1 week"; 14 -> "2 weeks"; 30 -> "1 month"
+    90 -> "3 months"; 180 -> "6 months"; 365 -> "1 year"
+    else -> "$d days"
+}
+
+/** How and when Cairn refreshes feeds in the background. */
+@Composable
+internal fun SyncSettingsGroup(prefs: AppPreferences, viewModel: SettingsViewModel) {
+    SettingsGroup("Sync") {
+        SettingSwitchRow(
+            title = "Sync on Wi-Fi only",
+            subtitle = "Automatic background refresh waits for an un-metered network. Pull-to-refresh always works.",
+            checked = prefs.syncWifiOnly,
+            onCheckedChange = viewModel::setSyncWifiOnly,
+        )
+        SettingDivider()
+        SettingSwitchRow(
+            title = "Sync only while charging",
+            subtitle = "Background refresh waits until the device is plugged in — easiest on the battery.",
+            checked = prefs.syncChargingOnly,
+            onCheckedChange = viewModel::setSyncChargingOnly,
+        )
+        SettingDivider()
+        ChipsBlock(
+            label = "Sync every",
+            options = SyncIntervalOptions.map { it to syncIntervalLabel(it) },
+            selected = prefs.syncIntervalMinutes,
+            onSelect = viewModel::setSyncIntervalMinutes,
+            caption = "How often Cairn refreshes in the background.",
+        )
+    }
+}
+
+/** How many articles Cairn keeps per feed, and when it drops old ones. */
+@Composable
+internal fun RetentionSettingsGroup(prefs: AppPreferences, viewModel: SettingsViewModel) {
+    SettingsGroup("Retention") {
+        SettingCaption("How many articles to keep, applied to every feed. Set a feed's own limit from its settings.")
+        ChipsBlock(
+            label = "Keep per feed",
+            options = KeepOptions.map { it to if (it == 0) "All" else it.toString() },
+            selected = prefs.maxItemsPerFeed,
+            onSelect = viewModel::setMaxItemsPerFeed,
+            caption = "“All” (the default) keeps every item. A limit trims the oldest beyond it.",
+        )
+        SettingDivider()
+        ChipsBlock(
+            label = "Delete older than",
+            options = AgeOptions.map { it to ageLabel(it) },
+            selected = prefs.maxAgeDays,
+            onSelect = viewModel::setMaxAgeDays,
+            caption = "Also drop un-engaged items past this age.",
+        )
+        SettingDivider()
+        SettingSwitchRow(
+            title = "Never delete unread",
+            subtitle = "Retention only removes articles you've already read. Unread ones stay until you read them.",
+            checked = prefs.keepUnread,
+            onCheckedChange = viewModel::setKeepUnread,
+        )
+    }
+}
+
+/** What Cairn saves for offline reading, and whether it fetches images. */
+@Composable
+internal fun OfflineCopiesGroup(prefs: AppPreferences, viewModel: SettingsViewModel) {
+    SettingsGroup("Offline copies") {
+        SettingSwitchRow(
+            title = "Keep what you read",
+            subtitle = "Every article you open is cached so it stays readable offline later — text always, images per the settings below.",
+            checked = prefs.cacheOnOpen,
+            onCheckedChange = viewModel::setCacheOnOpen,
+        )
+        SettingDivider()
+        SettingSwitchRow(
+            title = "Download images",
+            subtitle = "“Save offline” fetches every image so the article is a true self-contained copy. Off = text only.",
+            checked = prefs.cacheImagesOffline,
+            onCheckedChange = viewModel::setCacheImagesOffline,
+        )
+        SettingDivider()
+        SettingSwitchRow(
+            title = "Images on Wi-Fi only",
+            subtitle = "On a metered network, saving offline keeps the text and skips images until you're on Wi-Fi.",
+            checked = prefs.imagesWifiOnly,
+            enabled = prefs.cacheImagesOffline,
+            onCheckedChange = viewModel::setImagesWifiOnly,
+        )
     }
 }
