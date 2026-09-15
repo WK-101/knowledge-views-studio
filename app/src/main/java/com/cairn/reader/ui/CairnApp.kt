@@ -389,13 +389,13 @@ fun CairnApp(
                         }
                         Box {
                             IconButton(onClick = { showFilterMenu = true }) {
-                                Icon(Icons.Outlined.FilterList, contentDescription = "Filter: ${inboxState.filter.label}")
+                                Icon(Icons.Outlined.FilterList, contentDescription = stringResource(R.string.filter_label, inboxState.filter.label))
                             }
                             DropdownMenu(expanded = showFilterMenu, onDismissRequest = { showFilterMenu = false }) {
-                                SectionLabel("SHOW", SectionLabelVariant.Menu)
+                                SectionLabel(stringResource(R.string.show), SectionLabelVariant.Menu)
                                 InboxFilter.entries.forEach { f ->
                                     ViewModeItem(
-                                        label = if (f == InboxFilter.UNREAD && inboxState.unread > 0) "Unread · ${inboxState.unread}" else f.label,
+                                        label = if (f == InboxFilter.UNREAD && inboxState.unread > 0) stringResource(R.string.unread_count, inboxState.unread) else f.label,
                                         icon = filterIcon(f),
                                         selected = inboxState.filter == f,
                                     ) { inboxViewModel.setFilter(f); showFilterMenu = false }
@@ -407,18 +407,18 @@ fun CairnApp(
                                 Icon(Icons.Outlined.ViewAgenda, contentDescription = stringResource(R.string.view_and_sort))
                             }
                             DropdownMenu(expanded = showViewMenu, onDismissRequest = { showViewMenu = false }) {
-                                SectionLabel("VIEW", SectionLabelVariant.Menu)
-                                ViewModeItem("List", Icons.AutoMirrored.Outlined.ViewList, inboxViewMode == ListViewMode.LIST) {
+                                SectionLabel(stringResource(R.string.view), SectionLabelVariant.Menu)
+                                ViewModeItem(stringResource(R.string.view_mode_list), Icons.AutoMirrored.Outlined.ViewList, inboxViewMode == ListViewMode.LIST) {
                                     inboxViewModel.setViewMode(ListViewMode.LIST); showViewMenu = false
                                 }
-                                ViewModeItem("Cards", Icons.Outlined.ViewAgenda, inboxViewMode == ListViewMode.CARD) {
+                                ViewModeItem(stringResource(R.string.view_mode_cards), Icons.Outlined.ViewAgenda, inboxViewMode == ListViewMode.CARD) {
                                     inboxViewModel.setViewMode(ListViewMode.CARD); showViewMenu = false
                                 }
-                                ViewModeItem("Magazine", Icons.Outlined.ViewCarousel, inboxViewMode == ListViewMode.MAGAZINE) {
+                                ViewModeItem(stringResource(R.string.view_mode_magazine), Icons.Outlined.ViewCarousel, inboxViewMode == ListViewMode.MAGAZINE) {
                                     inboxViewModel.setViewMode(ListViewMode.MAGAZINE); showViewMenu = false
                                 }
                                 androidx.compose.material3.HorizontalDivider()
-                                SectionLabel("SORT", SectionLabelVariant.Menu)
+                                SectionLabel(stringResource(R.string.sort), SectionLabelVariant.Menu)
                                 com.cairn.reader.ui.inbox.InboxSort.entries.forEach { s ->
                                     ViewModeItem(s.label, Icons.Outlined.SwapVert, inboxState.sort == s) {
                                         inboxViewModel.setSort(s); showViewMenu = false

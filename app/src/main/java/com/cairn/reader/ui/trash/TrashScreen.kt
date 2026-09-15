@@ -3,6 +3,7 @@
 package com.cairn.reader.ui.trash
 
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import com.cairn.reader.R
 
 import androidx.compose.foundation.clickable
@@ -299,9 +300,9 @@ fun TrashScreen(
                 Text(row.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(6.dp))
-                SheetActionRow(Icons.Outlined.Checklist, "Select", onClick = { viewModel.togglePick(row.id); actionRow = null })
-                SheetActionRow(Icons.Outlined.RestoreFromTrash, "Restore", onClick = { viewModel.restore(row.id); actionRow = null })
-                SheetActionRow(Icons.Outlined.DeleteForever, "Delete forever", onClick = { confirmForever = row; actionRow = null }, destructive = true)
+                SheetActionRow(Icons.Outlined.Checklist, stringResource(R.string.select), onClick = { viewModel.togglePick(row.id); actionRow = null })
+                SheetActionRow(Icons.Outlined.RestoreFromTrash, stringResource(R.string.restore), onClick = { viewModel.restore(row.id); actionRow = null })
+                SheetActionRow(Icons.Outlined.DeleteForever, stringResource(R.string.delete_forever_2), onClick = { confirmForever = row; actionRow = null }, destructive = true)
             }
         }
     }
@@ -312,7 +313,7 @@ fun TrashScreen(
             onDismissRequest = { confirmForeverBulk = false },
             icon = { Icon(Icons.Outlined.DeleteForever, contentDescription = null, tint = scheme.error) },
             title = { Text(stringResource(R.string.delete_forever)) },
-            text = { Text("$n item${if (n == 1) "" else "s"} will be erased permanently, along with their offline copies. This can't be undone.") },
+            text = { Text(pluralStringResource(R.plurals.trash_delete_forever_count, n, n)) },
             confirmButton = {
                 TextButton(onClick = { confirmForeverBulk = false; viewModel.deletePickedForever() }) {
                     Text(stringResource(R.string.delete_forever_2), color = scheme.error)
@@ -327,7 +328,7 @@ fun TrashScreen(
             onDismissRequest = { confirmEmpty = false },
             icon = { Icon(Icons.Outlined.DeleteForever, contentDescription = null, tint = scheme.error) },
             title = { Text(stringResource(R.string.empty_trash_2)) },
-            text = { Text("This permanently erases all $totalCount item${if (totalCount == 1) "" else "s"} in the Trash, along with their offline copies. This can't be undone.") },
+            text = { Text(pluralStringResource(R.plurals.trash_empty_count, totalCount, totalCount)) },
             confirmButton = {
                 TextButton(onClick = { confirmEmpty = false; viewModel.emptyTrash() }) {
                     Text(stringResource(R.string.empty_trash), color = scheme.error)

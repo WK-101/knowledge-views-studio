@@ -3,6 +3,7 @@
 package com.cairn.reader.ui.notebook
 
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import com.cairn.reader.R
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -192,7 +193,7 @@ fun NotebookScreen(
             onDismissRequest = { confirmDelete = null },
             title = { Text(stringResource(R.string.delete_annotations)) },
             text = {
-                Text("Remove all $n highlight${if (n == 1) "" else "s"} and note${if (n == 1) "" else "s"} from “${group.title}”. This can't be undone.")
+                Text(pluralStringResource(R.plurals.notebook_delete_count, n, n, group.title))
             },
             confirmButton = {
                 TextButton(onClick = { viewModel.removeGroup(group); confirmDelete = null }) {
@@ -223,7 +224,7 @@ private fun NotebookEntrySheet(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp),
             )
             Text(
-                "${group.highlights.size} annotation${if (group.highlights.size == 1) "" else "s"}" +
+                pluralStringResource(R.plurals.annotation_count, group.highlights.size, group.highlights.size) +
                     (group.site?.let { " · $it" } ?: ""),
                 style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -294,7 +295,7 @@ private fun AnnotationShareSheet(
             ) {
                 Icon(Icons.Outlined.IosShare, contentDescription = null, tint = scheme.primary)
                 Text(
-                    "Share all ${group.highlights.size} annotation${if (group.highlights.size == 1) "" else "s"}",
+                    pluralStringResource(R.plurals.share_all_annotations_count, group.highlights.size, group.highlights.size),
                     style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface,
                 )
             }

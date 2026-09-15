@@ -408,4 +408,124 @@
     <string name="write_your_whole_library_as_plain">Escribe toda tu biblioteca como archivos Markdown sencillos (uno por artículo, con encabezado YAML, etiquetas y tus subrayados) en una carpeta que elijas. Colócala directamente en un almacén de Obsidian o Logseq. Tus notas sobreviven a cualquier aplicación.</string>
     <string name="you_can_also_pinch_to_size">También puedes pellizcar para ajustar el tamaño del texto mientras lees.</string>
     <string name="your_data_forever">Tus datos, para siempre</string>
+
+    <!-- i18n sweep: Offline surface -->
+    <string name="search_offline">Buscar sin conexión</string>
+    <string name="offline_count">Sin conexión · %1$d</string>
+    <string name="preparing_offline_pack">Preparando paquete sin conexión…</string>
+    <string name="everything_already_offline">Todo ya está sin conexión</string>
+    <string name="measuring_storage">Midiendo almacenamiento…</string>
+    <string name="source_unknown">Desconocido</string>
+    <string name="header_count">%1$s · %2$d</string>
+    <string name="saved_offline_permanent_copy">Guardado sin conexión (copia permanente)</string>
+    <string name="cached_from_reading">En caché por la lectura: toca «Guardar sin conexión» para conservarlo permanentemente</string>
+    <string name="save_offline_permanent">Guardar sin conexión (permanente)</string>
+    <string name="remove_download_keep_entry">Quitar descarga (conservar entrada)</string>
+    <string name="delete_entry_2">Eliminar entrada</string>
+    <string name="delete_entry_body">«%1$s» se mueve a la papelera, junto con su copia sin conexión. Puedes restaurarlo desde la papelera.</string>
+
+    <!-- i18n sweep: Feeds -->
+    <string name="filter_feeds">Filtrar fuentes</string>
+    <string name="feeds_count">Fuentes · %1$d</string>
+    <string name="n_selected">%1$d seleccionadas</string>
+    <string name="notify">Notificar</string>
+    <string name="expand">Expandir</string>
+    <string name="collapse">Contraer</string>
+    <string name="mark_all_read_count">Marcar todo como leído (%1$d)</string>
+    <string name="sync_failing_tap">Sincronización con errores: toca para comprobar</string>
+    <string name="synced_ago">Sincronizado %1$s</string>
+    <string name="sync_failing">Sincronización con errores</string>
+    <string name="working">Trabajando…</string>
+
+    <!-- i18n sweep: Reader display panel -->
+    <string name="text_size">TAMAÑO DE TEXTO</string>
+    <string name="typeface">TIPOGRAFÍA</string>
+    <string name="background">FONDO</string>
+    <string name="spacing_width">ESPACIADO Y ANCHO</string>
+    <string name="size_small">Pequeño</string>
+    <string name="size_cozy">Cómodo</string>
+    <string name="size_default">Predeterminado</string>
+    <string name="size_large">Grande</string>
+    <string name="size_larger">Más grande</string>
+    <string name="size_huge">Enorme</string>
+    <string name="line_height">Altura de línea</string>
+    <string name="letter_spacing">Espaciado entre letras</string>
+    <string name="paragraph_gap">Espacio entre párrafos</string>
+    <string name="text_width">Ancho del texto</string>
+    <string name="full">Completo</string>
+    <string name="bionic_reading">Lectura biónica</string>
+    <string name="bionic_reading_desc">Resalta el inicio de cada palabra para guiar la vista</string>
+    <string name="justify_text">Justificar texto</string>
+    <string name="immersive_scroll_desc">Oculta todas las barras mientras lees; desplázate hacia arriba para mostrarlas de nuevo</string>
+    <string name="full_screen_desc">Usa toda la pantalla, ocultando también las barras de Android</string>
+
+    <!-- i18n sweep: section labels -->
+    <string name="cleanup">LIMPIEZA</string>
+    <string name="show">MOSTRAR</string>
+    <string name="add_from_a_site">AÑADIR DESDE UN SITIO</string>
+    <string name="you_read_most_from">LO QUE MÁS LEES</string>
+    <string name="top_picks_for_you">RECOMENDACIONES PARA TI</string>
+    <string name="topics_you_re_following">TEMAS QUE SIGUES</string>
+    <string name="feed_hygiene">HIGIENE DE FUENTES</string>
+
+    <!-- i18n sweep: inbox view/filter menu -->
+    <string name="filter_label">Filtro: %1$s</string>
+    <string name="unread_count">No leídos · %1$d</string>
+    <string name="view_mode_list">Lista</string>
+    <string name="view_mode_cards">Tarjetas</string>
+    <string name="view_mode_magazine">Revista</string>
+
+    <!-- i18n sweep: Review -->
+    <string name="review_complete">Repaso completado</string>
+    <string name="nothing_due">Nada pendiente</string>
+    <string name="review_intro">Subraya pasajes mientras lees y reaparecerán aquí para el repaso espaciado, la forma comprobada de recordar lo que lees.</string>
+
+    <!-- i18n sweep: Data forever -->
+    <string name="data_forever_safe">%1$s · %2$s a salvo en este dispositivo</string>
+
+    <!-- Plurals (i18n sweep) -->
+    <plurals name="item_count">
+        <item quantity="one">%1$d elemento</item>
+        <item quantity="other">%1$d elementos</item>
+    </plurals>
+    <plurals name="article_count">
+        <item quantity="one">%1$d artículo</item>
+        <item quantity="other">%1$d artículos</item>
+    </plurals>
+    <plurals name="highlight_count">
+        <item quantity="one">%1$d subrayado</item>
+        <item quantity="other">%1$d subrayados</item>
+    </plurals>
+    <plurals name="annotation_count">
+        <item quantity="one">%1$d anotación</item>
+        <item quantity="other">%1$d anotaciones</item>
+    </plurals>
+    <plurals name="share_all_annotations_count">
+        <item quantity="one">Compartir %1$d anotación</item>
+        <item quantity="other">Compartir las %1$d anotaciones</item>
+    </plurals>
+    <plurals name="saved_articles_offline">
+        <item quantity="one">Se guardó %1$d artículo sin conexión</item>
+        <item quantity="other">Se guardaron %1$d artículos sin conexión</item>
+    </plurals>
+    <plurals name="offline_readable_count">
+        <item quantity="one">%1$d artículo legible sin conexión · %2$s en este dispositivo</item>
+        <item quantity="other">%1$d artículos legibles sin conexión · %2$s en este dispositivo</item>
+    </plurals>
+    <plurals name="trash_delete_forever_count">
+        <item quantity="one">Se borrará %1$d elemento permanentemente, junto con su copia sin conexión. Esto no se puede deshacer.</item>
+        <item quantity="other">Se borrarán %1$d elementos permanentemente, junto con sus copias sin conexión. Esto no se puede deshacer.</item>
+    </plurals>
+    <plurals name="trash_empty_count">
+        <item quantity="one">Esto borra permanentemente %1$d elemento de la papelera, junto con su copia sin conexión. Esto no se puede deshacer.</item>
+        <item quantity="other">Esto borra permanentemente los %1$d elementos de la papelera, junto con sus copias sin conexión. Esto no se puede deshacer.</item>
+    </plurals>
+    <plurals name="notebook_delete_count">
+        <item quantity="one">Eliminar %1$d subrayado y nota de «%2$s». Esto no se puede deshacer.</item>
+        <item quantity="other">Eliminar los %1$d subrayados y notas de «%2$s». Esto no se puede deshacer.</item>
+    </plurals>
+    <plurals name="review_complete_count">
+        <item quantity="one">Repasaste %1$d subrayado. Vuelve mañana para mantenerlos frescos.</item>
+        <item quantity="other">Repasaste %1$d subrayados. Vuelve mañana para mantenerlos frescos.</item>
+    </plurals>
 </resources>

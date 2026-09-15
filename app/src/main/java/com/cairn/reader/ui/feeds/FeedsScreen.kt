@@ -122,7 +122,7 @@ fun FeedsScreen(
     Column(Modifier.fillMaxSize()) {
             if (selectionActive) {
                 TopAppBar(
-                    title = { Text("${selection.size} selected", fontWeight = FontWeight.SemiBold) },
+                    title = { Text(stringResource(R.string.n_selected, selection.size), fontWeight = FontWeight.SemiBold) },
                     navigationIcon = {
                         IconButton(onClick = { viewModel.clearSelection() }) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.clear_selection)) }
                     },
@@ -138,17 +138,17 @@ fun FeedsScreen(
                             com.cairn.reader.ui.components.CairnSearchField(
                                 value = query,
                                 onValueChange = viewModel::setQuery,
-                                placeholder = "Filter feeds",
+                                placeholder = stringResource(R.string.filter_feeds),
                                 autofocus = true,
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         } else {
-                            Text("Feeds · ${allSources.size}", fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.feeds_count, allSources.size), fontWeight = FontWeight.SemiBold)
                         }
                     },
                     navigationIcon = {
                         IconButton(onClick = { if (showSearch) { showSearch = false; viewModel.setQuery("") } else onOpenDrawer() }) {
-                            Icon(if (showSearch) Icons.Outlined.Close else Icons.Outlined.Menu, contentDescription = if (showSearch) "Close search" else "Open navigation")
+                            Icon(if (showSearch) Icons.Outlined.Close else Icons.Outlined.Menu, contentDescription = if (showSearch) stringResource(R.string.close_search) else stringResource(R.string.open_navigation))
                         }
                     },
                     actions = {
@@ -209,11 +209,11 @@ fun FeedsScreen(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    BulkAction(Icons.AutoMirrored.Outlined.DriveFileMove, "Move") { showMove = true }
-                    BulkAction(Icons.Outlined.DoneAll, "Read") { viewModel.bulkMarkRead() }
-                    BulkAction(Icons.Outlined.Subject, "Full text") { viewModel.bulkSetFullText(true) }
-                    BulkAction(Icons.Outlined.Notifications, "Notify") { viewModel.bulkSetNotify(true) }
-                    BulkAction(Icons.Outlined.Close, "Remove") { viewModel.bulkDelete() }
+                    BulkAction(Icons.AutoMirrored.Outlined.DriveFileMove, stringResource(R.string.move)) { showMove = true }
+                    BulkAction(Icons.Outlined.DoneAll, stringResource(R.string.read)) { viewModel.bulkMarkRead() }
+                    BulkAction(Icons.Outlined.Subject, stringResource(R.string.full_text)) { viewModel.bulkSetFullText(true) }
+                    BulkAction(Icons.Outlined.Notifications, stringResource(R.string.notify)) { viewModel.bulkSetNotify(true) }
+                    BulkAction(Icons.Outlined.Close, stringResource(R.string.remove_2)) { viewModel.bulkDelete() }
                 }
                 HorizontalDivider()
             }
@@ -349,13 +349,13 @@ private fun FolderHeader(folder: String, count: Int, collapsed: Boolean, onToggl
     ) {
         Icon(
             if (collapsed) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
-            contentDescription = if (collapsed) "Expand" else "Collapse",
+            contentDescription = if (collapsed) stringResource(R.string.expand) else stringResource(R.string.collapse),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(18.dp),
         )
         Spacer(Modifier.width(4.dp))
         Text(
-            "${folder.uppercase()} · $count",
+            stringResource(R.string.header_count, folder.uppercase(), count),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             letterSpacing = 1.4.sp,
@@ -384,7 +384,7 @@ private fun FeedManageRow(
     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
         DropdownMenuItem(text = { Text(stringResource(R.string.feed_settings_folder)) }, onClick = { menu = false; onClick() })
         DropdownMenuItem(
-            text = { Text(if (unread > 0) "Mark all read ($unread)" else "Mark all read") },
+            text = { Text(if (unread > 0) stringResource(R.string.mark_all_read_count, unread) else stringResource(R.string.mark_all_read)) },
             enabled = unread > 0,
             onClick = { menu = false; onMarkRead() },
         )
@@ -419,8 +419,8 @@ private fun FeedManageRow(
             Text(host, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val failing = source.consecutiveErrors > 0
             val status = when {
-                failing -> "Sync failing — tap to check"
-                source.lastSyncedAt != null -> formatAgo(source.lastSyncedAt)?.takeIf { it.isNotEmpty() }?.let { "Synced $it" }
+                failing -> stringResource(R.string.sync_failing_tap)
+                source.lastSyncedAt != null -> formatAgo(source.lastSyncedAt)?.takeIf { it.isNotEmpty() }?.let { stringResource(R.string.synced_ago, it) }
                 else -> null
             }
             if (failing || status != null) {
@@ -428,7 +428,7 @@ private fun FeedManageRow(
                     Box(Modifier.size(6.dp).clip(CircleShape).background(if (failing) scheme.error else scheme.primary.copy(alpha = 0.6f)))
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        status ?: "Sync failing",
+                        status ?: stringResource(R.string.sync_failing),
                         style = MaterialTheme.typography.labelSmall,
                         color = if (failing) scheme.error else scheme.onSurfaceVariant,
                         maxLines = 1,
@@ -519,7 +519,7 @@ private fun AddFeedSheet(
             )
             Spacer(Modifier.height(12.dp))
             Button(onClick = { onAdd(text); onDismiss() }, enabled = text.isNotBlank() && !busy, modifier = Modifier.fillMaxWidth()) {
-                Text(if (busy) "Working…" else "Add feed")
+                Text(if (busy) stringResource(R.string.working) else stringResource(R.string.add_feed))
             }
             Spacer(Modifier.height(16.dp))
             Text(stringResource(R.string.no_rss_feed_e_g_many),

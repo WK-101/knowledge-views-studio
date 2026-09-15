@@ -406,4 +406,124 @@
     <string name="write_your_whole_library_as_plain">Write your whole library as plain Markdown files — one per article, with YAML frontmatter, tags and your highlights — into a folder you pick. Drop it straight into an Obsidian or Logseq vault. Your notes outlive any app.</string>
     <string name="you_can_also_pinch_to_size">You can also pinch to size text while reading.</string>
     <string name="your_data_forever">Your data, forever</string>
+
+    <!-- i18n sweep: Offline surface -->
+    <string name="search_offline">Search offline</string>
+    <string name="offline_count">Offline · %1$d</string>
+    <string name="preparing_offline_pack">Preparing offline pack…</string>
+    <string name="everything_already_offline">Everything\'s already offline</string>
+    <string name="measuring_storage">Measuring storage…</string>
+    <string name="source_unknown">Unknown</string>
+    <string name="header_count">%1$s · %2$d</string>
+    <string name="saved_offline_permanent_copy">Saved offline (permanent copy)</string>
+    <string name="cached_from_reading">Cached from reading — tap “Save offline” to keep it permanently</string>
+    <string name="save_offline_permanent">Save offline (permanent)</string>
+    <string name="remove_download_keep_entry">Remove download (keep entry)</string>
+    <string name="delete_entry_2">Delete entry</string>
+    <string name="delete_entry_body">“%1$s” moves to the Trash, along with its offline copy. You can restore it from Trash.</string>
+
+    <!-- i18n sweep: Feeds -->
+    <string name="filter_feeds">Filter feeds</string>
+    <string name="feeds_count">Feeds · %1$d</string>
+    <string name="n_selected">%1$d selected</string>
+    <string name="notify">Notify</string>
+    <string name="expand">Expand</string>
+    <string name="collapse">Collapse</string>
+    <string name="mark_all_read_count">Mark all read (%1$d)</string>
+    <string name="sync_failing_tap">Sync failing — tap to check</string>
+    <string name="synced_ago">Synced %1$s</string>
+    <string name="sync_failing">Sync failing</string>
+    <string name="working">Working…</string>
+
+    <!-- i18n sweep: Reader display panel -->
+    <string name="text_size">TEXT SIZE</string>
+    <string name="typeface">TYPEFACE</string>
+    <string name="background">BACKGROUND</string>
+    <string name="spacing_width">SPACING &amp; WIDTH</string>
+    <string name="size_small">Small</string>
+    <string name="size_cozy">Cozy</string>
+    <string name="size_default">Default</string>
+    <string name="size_large">Large</string>
+    <string name="size_larger">Larger</string>
+    <string name="size_huge">Huge</string>
+    <string name="line_height">Line height</string>
+    <string name="letter_spacing">Letter spacing</string>
+    <string name="paragraph_gap">Paragraph gap</string>
+    <string name="text_width">Text width</string>
+    <string name="full">Full</string>
+    <string name="bionic_reading">Bionic reading</string>
+    <string name="bionic_reading_desc">Bold the start of each word to guide the eye</string>
+    <string name="justify_text">Justify text</string>
+    <string name="immersive_scroll_desc">Hide every bar as you read; scroll up to bring them back</string>
+    <string name="full_screen_desc">Use the entire display, hiding the Android bars too</string>
+
+    <!-- i18n sweep: section labels -->
+    <string name="cleanup">CLEANUP</string>
+    <string name="show">SHOW</string>
+    <string name="add_from_a_site">ADD FROM A SITE</string>
+    <string name="you_read_most_from">YOU READ MOST FROM</string>
+    <string name="top_picks_for_you">TOP PICKS FOR YOU</string>
+    <string name="topics_you_re_following">TOPICS YOU\'RE FOLLOWING</string>
+    <string name="feed_hygiene">FEED HYGIENE</string>
+
+    <!-- i18n sweep: inbox view/filter menu -->
+    <string name="filter_label">Filter: %1$s</string>
+    <string name="unread_count">Unread · %1$d</string>
+    <string name="view_mode_list">List</string>
+    <string name="view_mode_cards">Cards</string>
+    <string name="view_mode_magazine">Magazine</string>
+
+    <!-- i18n sweep: Review -->
+    <string name="review_complete">Review complete</string>
+    <string name="nothing_due">Nothing due</string>
+    <string name="review_intro">Highlight passages while you read, and they\'ll resurface here for spaced-repetition recall — the proven way to remember what you read.</string>
+
+    <!-- i18n sweep: Data forever -->
+    <string name="data_forever_safe">%1$s · %2$s safe on this device</string>
+
+    <!-- Plurals (i18n sweep) -->
+    <plurals name="item_count">
+        <item quantity="one">%1$d item</item>
+        <item quantity="other">%1$d items</item>
+    </plurals>
+    <plurals name="article_count">
+        <item quantity="one">%1$d article</item>
+        <item quantity="other">%1$d articles</item>
+    </plurals>
+    <plurals name="highlight_count">
+        <item quantity="one">%1$d highlight</item>
+        <item quantity="other">%1$d highlights</item>
+    </plurals>
+    <plurals name="annotation_count">
+        <item quantity="one">%1$d annotation</item>
+        <item quantity="other">%1$d annotations</item>
+    </plurals>
+    <plurals name="share_all_annotations_count">
+        <item quantity="one">Share all %1$d annotation</item>
+        <item quantity="other">Share all %1$d annotations</item>
+    </plurals>
+    <plurals name="saved_articles_offline">
+        <item quantity="one">Saved %1$d article for offline</item>
+        <item quantity="other">Saved %1$d articles for offline</item>
+    </plurals>
+    <plurals name="offline_readable_count">
+        <item quantity="one">%1$d article readable offline · %2$s on this device</item>
+        <item quantity="other">%1$d articles readable offline · %2$s on this device</item>
+    </plurals>
+    <plurals name="trash_delete_forever_count">
+        <item quantity="one">%1$d item will be erased permanently, along with its offline copy. This can\'t be undone.</item>
+        <item quantity="other">%1$d items will be erased permanently, along with their offline copies. This can\'t be undone.</item>
+    </plurals>
+    <plurals name="trash_empty_count">
+        <item quantity="one">This permanently erases all %1$d item in the Trash, along with its offline copy. This can\'t be undone.</item>
+        <item quantity="other">This permanently erases all %1$d items in the Trash, along with their offline copies. This can\'t be undone.</item>
+    </plurals>
+    <plurals name="notebook_delete_count">
+        <item quantity="one">Remove all %1$d highlight and note from “%2$s”. This can\'t be undone.</item>
+        <item quantity="other">Remove all %1$d highlights and notes from “%2$s”. This can\'t be undone.</item>
+    </plurals>
+    <plurals name="review_complete_count">
+        <item quantity="one">You reviewed %1$d highlight. Come back tomorrow to keep them fresh.</item>
+        <item quantity="other">You reviewed %1$d highlights. Come back tomorrow to keep them fresh.</item>
+    </plurals>
 </resources>

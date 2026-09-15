@@ -3,6 +3,7 @@
 package com.cairn.reader.ui.review
 
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import com.cairn.reader.R
 
 import androidx.compose.foundation.background
@@ -175,11 +176,11 @@ private fun AllDone(reviewed: Int, modifier: Modifier) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(if (reviewed > 0) Icons.Outlined.CheckCircle else Icons.Outlined.School, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(48.dp))
             Spacer(Modifier.height(12.dp))
-            Text(if (reviewed > 0) "Review complete" else "Nothing due", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(if (reviewed > 0) stringResource(R.string.review_complete) else stringResource(R.string.nothing_due), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
             Text(
-                if (reviewed > 0) "You reviewed $reviewed highlight${if (reviewed == 1) "" else "s"}. Come back tomorrow to keep them fresh."
-                else "Highlight passages while you read, and they'll resurface here for spaced-repetition recall — the proven way to remember what you read.",
+                if (reviewed > 0) pluralStringResource(R.plurals.review_complete_count, reviewed, reviewed)
+                else stringResource(R.string.review_intro),
                 style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
             )
         }

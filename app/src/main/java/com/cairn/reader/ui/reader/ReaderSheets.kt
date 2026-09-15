@@ -426,13 +426,20 @@ internal fun TypographySheet(
             // ---- Text size: preset chips — the same control (and preset scale) as Settings ›
             // Appearance, so the one setting looks identical wherever it's edited. Pinch anywhere in
             // the article for finer, off-preset sizing.
-            SectionLabel("TEXT SIZE", SectionLabelVariant.Sheet)
+            SectionLabel(stringResource(R.string.text_size), SectionLabelVariant.Sheet)
             Spacer(Modifier.height(6.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
             ) {
-                listOf(0.8f to "Small", 0.9f to "Cozy", 1.0f to "Default", 1.2f to "Large", 1.5f to "Larger", 2.0f to "Huge")
+                listOf(
+                    0.8f to stringResource(R.string.size_small),
+                    0.9f to stringResource(R.string.size_cozy),
+                    1.0f to stringResource(R.string.size_default),
+                    1.2f to stringResource(R.string.size_large),
+                    1.5f to stringResource(R.string.size_larger),
+                    2.0f to stringResource(R.string.size_huge),
+                )
                     .forEach { (value, label) ->
                         FilterChip(
                             selected = fontScale == value,
@@ -448,7 +455,7 @@ internal fun TypographySheet(
 
             Spacer(Modifier.height(16.dp))
             // ---- Typeface -------------------------------------------------------------------
-            SectionLabel("TYPEFACE", SectionLabelVariant.Sheet)
+            SectionLabel(stringResource(R.string.typeface), SectionLabelVariant.Sheet)
             Spacer(Modifier.height(6.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -465,7 +472,7 @@ internal fun TypographySheet(
 
             Spacer(Modifier.height(16.dp))
             // ---- Background: live swatches that preview the actual reader palette ------------
-            SectionLabel("BACKGROUND", SectionLabelVariant.Sheet)
+            SectionLabel(stringResource(R.string.background), SectionLabelVariant.Sheet)
             Spacer(Modifier.height(8.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -478,21 +485,21 @@ internal fun TypographySheet(
 
             Spacer(Modifier.height(16.dp))
             // ---- Fine typography: line height, letter spacing, paragraph gap, measure --------
-            SectionLabel("SPACING & WIDTH", SectionLabelVariant.Sheet)
+            SectionLabel(stringResource(R.string.spacing_width), SectionLabelVariant.Sheet)
             Spacer(Modifier.height(4.dp))
-            SliderRow("Line height", "${(lineHeight * 100).toInt()}%", lineHeight, 0.9f..2.2f) { onLineHeight((it * 20).toInt() / 20f) }
-            SliderRow("Letter spacing", "${(letterSpacing * 100).toInt() / 100f}em", letterSpacing, -0.05f..0.3f) { onLetterSpacing((it * 100).toInt() / 100f) }
-            SliderRow("Paragraph gap", "${paragraphSpacing}dp", paragraphSpacing.toFloat(), 0f..40f) { onParagraphSpacing(it.toInt()) }
-            SliderRow("Text width", if (measure == 0) "Full" else "${measure}dp", measure.toFloat(), 0f..900f) { onMeasure((it / 20).toInt() * 20) }
+            SliderRow(stringResource(R.string.line_height), "${(lineHeight * 100).toInt()}%", lineHeight, 0.9f..2.2f) { onLineHeight((it * 20).toInt() / 20f) }
+            SliderRow(stringResource(R.string.letter_spacing), "${(letterSpacing * 100).toInt() / 100f}em", letterSpacing, -0.05f..0.3f) { onLetterSpacing((it * 100).toInt() / 100f) }
+            SliderRow(stringResource(R.string.paragraph_gap), "${paragraphSpacing}dp", paragraphSpacing.toFloat(), 0f..40f) { onParagraphSpacing(it.toInt()) }
+            SliderRow(stringResource(R.string.text_width), if (measure == 0) stringResource(R.string.full) else "${measure}dp", measure.toFloat(), 0f..900f) { onMeasure((it / 20).toInt() * 20) }
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp), color = scheme.outlineVariant)
 
             // ---- Toggles --------------------------------------------------------------------
-            ToggleRow("Bionic reading", "Bold the start of each word to guide the eye", bionic, onBionic)
-            ToggleRow("Justify text", null, justify, onJustify)
-            ToggleRow("Show images", "Off gives a text-only, data-light read", showImages, onShowImages)
-            ToggleRow("Immersive scroll", "Hide every bar as you read; scroll up to bring them back", immersive, onImmersive)
-            ToggleRow("Full screen", "Use the entire display, hiding the Android bars too", fullScreen, onFullScreen)
+            ToggleRow(stringResource(R.string.bionic_reading), stringResource(R.string.bionic_reading_desc), bionic, onBionic)
+            ToggleRow(stringResource(R.string.justify_text), null, justify, onJustify)
+            ToggleRow(stringResource(R.string.show_images), stringResource(R.string.off_gives_a_text_only_data), showImages, onShowImages)
+            ToggleRow(stringResource(R.string.immersive_scroll), stringResource(R.string.immersive_scroll_desc), immersive, onImmersive)
+            ToggleRow(stringResource(R.string.full_screen), stringResource(R.string.full_screen_desc), fullScreen, onFullScreen)
         }
     }
 }

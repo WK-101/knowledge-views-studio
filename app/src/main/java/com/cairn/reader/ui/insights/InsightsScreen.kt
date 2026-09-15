@@ -83,7 +83,7 @@ fun InsightsScreen(
                 if (a.topSources.isNotEmpty()) {
                     item {
                         Column {
-                            SectionLabel("YOU READ MOST FROM")
+                            SectionLabel(stringResource(R.string.you_read_most_from))
                             Spacer(Modifier.height(8.dp))
                             a.topSources.forEach { (title, count) ->
                                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -101,7 +101,7 @@ fun InsightsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(6.dp))
-                        SectionLabel("TOP PICKS FOR YOU")
+                        SectionLabel(stringResource(R.string.top_picks_for_you))
                     }
                 }
                 items(state.topPicks.size) { i ->
@@ -124,7 +124,7 @@ fun InsightsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.Hub, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(6.dp))
-                        SectionLabel("TOPICS YOU'RE FOLLOWING")
+                        SectionLabel(stringResource(R.string.topics_you_re_following))
                     }
                 }
                 items(state.topics.size) { i ->
@@ -145,7 +145,7 @@ fun InsightsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.CleaningServices, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(6.dp))
-                        SectionLabel("FEED HYGIENE")
+                        SectionLabel(stringResource(R.string.feed_hygiene))
                     }
                 }
                 items(state.hygiene.size) { i ->

@@ -3,6 +3,7 @@
 package com.cairn.reader.ui.settings
 
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import com.cairn.reader.R
 
 import androidx.compose.foundation.background
@@ -91,7 +92,11 @@ fun DataForeverScreen(
                     Spacer(Modifier.height(14.dp))
                     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(scheme.surfaceContainerHighest).padding(14.dp)) {
                         Text(
-                            "$saved article${if (saved == 1) "" else "s"} · $highlights highlight${if (highlights == 1) "" else "s"} safe on this device",
+                            stringResource(
+                                R.string.data_forever_safe,
+                                pluralStringResource(R.plurals.article_count, saved, saved),
+                                pluralStringResource(R.plurals.highlight_count, highlights, highlights),
+                            ),
                             style = MaterialTheme.typography.labelLarge, color = scheme.onSurface, fontWeight = FontWeight.Medium,
                         )
                     }

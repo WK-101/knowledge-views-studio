@@ -3,6 +3,7 @@
 package com.cairn.reader.ui.settings
 
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import com.cairn.reader.R
 
 import androidx.compose.foundation.layout.Arrangement
@@ -110,11 +111,11 @@ fun OfflineScreen(
                 if (searchOpen) {
                     com.cairn.reader.ui.components.CairnSearchField(
                         value = query, onValueChange = viewModel::setQuery,
-                        placeholder = "Search offline", autofocus = true,
+                        placeholder = stringResource(R.string.search_offline), autofocus = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 } else {
-                    Text(if (totalCount == 0) "Offline" else "Offline · $totalCount", fontWeight = FontWeight.SemiBold)
+                    Text(if (totalCount == 0) stringResource(R.string.offline) else stringResource(R.string.offline_count, totalCount), fontWeight = FontWeight.SemiBold)
                 }
             },
             navigationIcon = {
@@ -130,9 +131,10 @@ fun OfflineScreen(
                     IconButton(
                         enabled = !preparing,
                         onClick = {
-                            android.widget.Toast.makeText(ctx, "Preparing offline pack…", android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(ctx, ctx.getString(R.string.preparing_offline_pack), android.widget.Toast.LENGTH_SHORT).show()
                             viewModel.prepareOfflinePack { saved ->
-                                android.widget.Toast.makeText(ctx, if (saved > 0) "Saved $saved articles for offline" else "Everything's already offline", android.widget.Toast.LENGTH_LONG).show()
+                                val msg = if (saved > 0) ctx.resources.getQuantityString(R.plurals.saved_articles_offline, saved, saved) else ctx.getString(R.string.everything_already_offline)
+                                android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_LONG).show()
                             }
                         },
                     ) {
@@ -195,8 +197,8 @@ fun OfflineScreen(
         } else {
             Text(
                 text = when {
-                    storage < 0 -> "Measuring storage…"
-                    else -> "${items.size} article${if (items.size == 1) "" else "s"} readable offline · ${com.cairn.reader.util.formatBytes(ctx, storage)} on this device"
+                    storage < 0 -> stringResource(R.string.measuring_storage)
+                    else -> pluralStringResource(R.plurals.offline_readable_count, items.size, items.size, com.cairn.reader.util.formatBytes(ctx, storage))
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = scheme.onSurfaceVariant,
@@ -246,16 +248,17 @@ fun OfflineScreen(
                     color = scheme.outlineVariant.copy(alpha = 0.5f),
                 )
             }
+            val unknownSource = stringResource(R.string.source_unknown)
             LazyColumn(
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(top = 2.dp, bottom = padding.calculateBottomPadding() + 24.dp),
             ) {
                 if (groupBySource) {
-                    val groups = items.groupBy { it.sourceTitle ?: it.siteName ?: "Unknown" }.toSortedMap()
+                    val groups = items.groupBy { it.sourceTitle ?: it.siteName ?: unknownSource }.toSortedMap()
                     groups.forEach { (source, rows) ->
                         item(key = "hdr-$source") {
                             Text(
-                                "$source · ${rows.size}",
+                                stringResource(R.string.header_count, source, rows.size),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = scheme.primary,
@@ -277,20 +280,20 @@ fun OfflineScreen(
             Column(Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
                 Text(row.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
                 Text(
-                    if (permanent) "Saved offline (permanent copy)" else "Cached from reading — tap “Save offline” to keep it permanently",
+                    if (permanent) stringResource(R.string.saved_offline_permanent_copy) else stringResource(R.string.cached_from_reading),
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 24.dp),
                 )
                 Spacer(Modifier.height(8.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(6.dp))
-                SheetActionRow(Icons.AutoMirrored.Outlined.Article, "Open", onClick = { onOpenItem(row.id); actionRow = null })
-                SheetActionRow(Icons.Outlined.Checklist, "Select", onClick = { viewModel.togglePick(row.id); actionRow = null })
+                SheetActionRow(Icons.AutoMirrored.Outlined.Article, stringResource(R.string.open), onClick = { onOpenItem(row.id); actionRow = null })
+                SheetActionRow(Icons.Outlined.Checklist, stringResource(R.string.select), onClick = { viewModel.togglePick(row.id); actionRow = null })
                 if (!permanent) {
-                    SheetActionRow(Icons.Outlined.OfflinePin, "Save offline (permanent)", onClick = { viewModel.makePermanent(row.id); actionRow = null })
+                    SheetActionRow(Icons.Outlined.OfflinePin, stringResource(R.string.save_offline_permanent), onClick = { viewModel.makePermanent(row.id); actionRow = null })
                 }
-                SheetActionRow(Icons.Outlined.CloudOff, "Remove download (keep entry)", onClick = { viewModel.removeCache(row.id); actionRow = null })
-                SheetActionRow(Icons.Outlined.DeleteOutline, "Delete entry", onClick = { confirmDelete = row; actionRow = null }, destructive = true)
+                SheetActionRow(Icons.Outlined.CloudOff, stringResource(R.string.remove_download_keep_entry), onClick = { viewModel.removeCache(row.id); actionRow = null })
+                SheetActionRow(Icons.Outlined.DeleteOutline, stringResource(R.string.delete_entry_2), onClick = { confirmDelete = row; actionRow = null }, destructive = true)
             }
         }
     }
@@ -300,7 +303,7 @@ fun OfflineScreen(
             onDismissRequest = { confirmDelete = null },
             icon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = scheme.error) },
             title = { Text(stringResource(R.string.delete_entry)) },
-            text = { Text("“${row.title.take(60)}” moves to the Trash, along with its offline copy. You can restore it from Trash.") },
+            text = { Text(stringResource(R.string.delete_entry_body, row.title.take(60))) },
             confirmButton = { androidx.compose.material3.TextButton(onClick = { viewModel.deleteEntry(row.id); confirmDelete = null }) { Text(stringResource(R.string.delete), color = scheme.error) } },
             dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmDelete = null }) { Text(stringResource(R.string.cancel)) } },
         )

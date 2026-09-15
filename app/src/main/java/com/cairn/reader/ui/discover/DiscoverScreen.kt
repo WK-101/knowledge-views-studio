@@ -192,7 +192,7 @@ private fun DiscoverBody(padding: PaddingValues, viewModel: DiscoverViewModel) {
         }
         if (query.isBlank()) item {
             Column(Modifier.padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 8.dp)) {
-                SectionLabel("ADD FROM A SITE", SectionLabelVariant.Sheet)
+                SectionLabel(stringResource(R.string.add_from_a_site), SectionLabelVariant.Sheet)
                 Spacer(Modifier.height(10.dp))
                 // Compact single row of platform icons (Reddit, YouTube, Substack, …) — tap one to
                 // follow. Scrolls horizontally so it stays one tidy row rather than a wrapped grid.

@@ -7,6 +7,7 @@
 package com.cairn.reader.ui.library
 
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import com.cairn.reader.R
 
 import androidx.activity.compose.BackHandler
@@ -191,7 +192,7 @@ fun LibraryScreen(
                         val scopeCount = showing.size
                         if (scopeCount > 0) {
                             Text(
-                                "$scopeCount item${if (scopeCount == 1) "" else "s"}${if (typeFilter != null) " · ${typeLabel(typeFilter!!)}" else ""}",
+                                pluralStringResource(R.plurals.item_count, scopeCount, scopeCount) + if (typeFilter != null) " · ${typeLabel(typeFilter!!)}" else "",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -666,7 +667,7 @@ private fun LibraryHome(
 
         // Cleanup buckets — only present when there's something to fix.
         if (smartBuckets.isNotEmpty()) {
-            item { SectionLabel("CLEANUP", modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)) }
+            item { SectionLabel(stringResource(R.string.cleanup), modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)) }
             items(smartBuckets.chunked(2)) { pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     pair.forEach { b -> HomeTile(b.icon, b.label, b.count, Modifier.weight(1f), b.onClick) }
