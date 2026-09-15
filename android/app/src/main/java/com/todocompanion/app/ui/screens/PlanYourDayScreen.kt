@@ -27,7 +27,7 @@ import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.PlaylistAddCheck
+import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -298,7 +298,7 @@ fun PlanYourDayScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
             var showPick by remember { mutableStateOf(false) }
             val committedToday = queue.size
             OutlinedButton(onClick = { showPick = !showPick }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Filled.PlaylistAddCheck, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.size(8.dp))
+                Icon(Icons.AutoMirrored.Filled.PlaylistAddCheck, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.size(8.dp))
                 Text(if (showPick) "Hide backlog picks" else "Pick tasks for today")
             }
             if (showPick) {

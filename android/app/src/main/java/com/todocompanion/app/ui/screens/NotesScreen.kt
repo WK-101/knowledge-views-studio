@@ -40,26 +40,26 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteForever
-import androidx.compose.material.icons.filled.DriveFileMove
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EditOff
 import androidx.compose.material.icons.filled.EmojiEmotions
 import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.FormatListBulleted
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.Tune
@@ -262,7 +262,7 @@ fun NotesScreen(
                     IconButton(onClick = { chosen.forEach { vm.saveNote(it.copy(favorite = anyUnfav)) }; selection = emptySet() }) {
                         Icon(if (anyUnfav) Icons.Filled.Star else Icons.Outlined.StarOutline, if (anyUnfav) "Favorite" else "Unfavorite")
                     }
-                    IconButton(onClick = { batchMove = true }) { Icon(Icons.Filled.DriveFileMove, "Move") }
+                    IconButton(onClick = { batchMove = true }) { Icon(Icons.AutoMirrored.Filled.DriveFileMove, "Move") }
                     IconButton(onClick = { chosen.forEach { vm.archiveNote(it.id) }; selection = emptySet() }) { Icon(Icons.Filled.Archive, "Archive") }
                     IconButton(onClick = { chosen.forEach { vm.trashNote(it.id) }; selection = emptySet() }) { Icon(Icons.Filled.Delete, "Move to Trash") }
                 }
@@ -403,7 +403,7 @@ fun NotesScreen(
                     }
                 }
                 Box {
-                    IconButton(onClick = { sortMenu = true }) { Icon(Icons.Filled.Sort, "Sort") }
+                    IconButton(onClick = { sortMenu = true }) { Icon(Icons.AutoMirrored.Filled.Sort, "Sort") }
                     DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
                         listOf("updated" to "Last edited", "created" to "Date created", "titleAsc" to "Title A–Z", "titleDesc" to "Title Z–A").forEach { (id, lbl) ->
                             DropdownMenuItem(

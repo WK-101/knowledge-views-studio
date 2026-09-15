@@ -35,12 +35,12 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.VideoCall
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -430,7 +430,7 @@ internal fun EventEditor(
             }
             Spacer(Modifier.height(8.dp))
             AppTextField(value = notes, onValueChange = { notes = it }, placeholder = { Text("Notes") },
-                leadingIcon = { Icon(Icons.Filled.Notes, null) }, modifier = Modifier.fillMaxWidth())
+                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, null) }, modifier = Modifier.fillMaxWidth())
             // Phase 2 — a full meeting note (Notes module) bound to this event. Only for a saved event,
             // which has a stable id; opening it dismisses the sheet so the note editor takes over.
             if (existing != null) {
@@ -510,7 +510,7 @@ internal fun EventEditor(
                         if (existing != null && organizer.isNotBlank() && rsvp.isNotBlank()) {
                             Spacer(Modifier.height(6.dp))
                             TextButton(onClick = { vm.shareRsvpReply(existing.id) }) {
-                                Icon(Icons.Filled.Send, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Send my RSVP (.ics)")
+                                Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Send my RSVP (.ics)")
                             }
                         }
                         Text("Your RSVP stays on your device. “Send” exports a reply file you forward yourself — nothing leaves the app on its own.",

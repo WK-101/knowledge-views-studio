@@ -42,7 +42,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material3.DropdownMenu
@@ -172,13 +172,13 @@ fun AttachmentsScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
                         )
                     }
                     Box {
-                        IconButton(onClick = { sortMenu = true }) { Icon(Icons.Filled.Sort, "Sort") }
+                        IconButton(onClick = { sortMenu = true }) { Icon(Icons.AutoMirrored.Filled.Sort, "Sort") }
                         DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
                             Text("SORT BY", Modifier.padding(14.dp, 8.dp, 14.dp, 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             AttSort.entries.forEach { s ->
                                 DropdownMenuItem(
                                     text = { Text(s.label) },
-                                    trailingIcon = { if (s == filter.sort) Icon(Icons.Filled.Sort, null, modifier = Modifier.size(16.dp)) },
+                                    trailingIcon = { if (s == filter.sort) Icon(Icons.AutoMirrored.Filled.Sort, null, modifier = Modifier.size(16.dp)) },
                                     onClick = { filter = filter.copy(sort = s); sortMenu = false },
                                 )
                             }

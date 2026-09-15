@@ -97,7 +97,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Repeat
@@ -655,7 +655,7 @@ fun CalendarScreen(
                         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onErrorContainer)
                     Spacer(Modifier.weight(1f))
                     Text("View", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                    Icon(Icons.Filled.KeyboardArrowRight, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
                 }
                 if (clashOpen) ClashDialog(clashItems, onOpen = { id, isEvent -> clashOpen = false; if (isEvent) openEvent(id) else onOpenTask(id) }, onDismiss = { clashOpen = false })
                 // Wave 2 · The day's honest ledger — B1 water-line (committed vs your working capacity) and,
@@ -2089,7 +2089,7 @@ private fun ClashDialog(items: List<TimedItem>, onOpen: (String, Boolean) -> Uni
             Text(it.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("${minLabel(it.start)}–${minLabel(it.end)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.size(2.dp))
-            Icon(Icons.Filled.KeyboardArrowRight, null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     androidx.compose.material3.AlertDialog(

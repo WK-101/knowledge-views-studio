@@ -43,19 +43,19 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteForever
-import androidx.compose.material.icons.filled.DriveFileMove
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EditOff
 import androidx.compose.material.icons.filled.EmojiEmotions
 import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.FormatListBulleted
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.VerticalSplit
@@ -66,7 +66,7 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.Tune
@@ -647,7 +647,7 @@ fun NoteEditorScreen(
         val tiles = buildList {
             add(PTile(if (d.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin, "Pin", d.pinned) { persist(d.copy(pinned = !d.pinned)) })
             add(PTile(if (d.favorite) Icons.Filled.Star else Icons.Outlined.StarOutline, "Favorite", d.favorite) { persist(d.copy(favorite = !d.favorite)) })
-            add(PTile(Icons.Filled.MenuBook, "Reading view") { menu = false; showReading = true })
+            add(PTile(Icons.AutoMirrored.Filled.MenuBook, "Reading view") { menu = false; showReading = true })
             add(PTile(if (d.readonly) Icons.Filled.Edit else Icons.Filled.EditOff, if (d.readonly) "Allow editing" else "Read only", d.readonly) { persist(d.copy(readonly = !d.readonly)) })
             add(PTile(Icons.Filled.Fullscreen, "Focus mode", focus) { menu = false; focus = !focus; vm.setNotesFocusMode(focus) })
             add(PTile(Icons.Filled.Book, if (useNotebooks) "Notebook" else "Folder") { menu = false; sheet = NoteSheet.Container })
@@ -655,7 +655,7 @@ fun NoteEditorScreen(
             add(PTile(Icons.Filled.Alarm, "Remind me", d.reminderAt != null) { menu = false; sheet = NoteSheet.Reminder })
             add(PTile(Icons.Filled.History, "History") { menu = false; sheet = NoteSheet.History })
             add(PTile(Icons.Filled.Link, "Related") { menu = false; sheet = NoteSheet.Related })
-            add(PTile(Icons.Filled.FormatListBulleted, "Outline") { menu = false; sheet = NoteSheet.Outline })
+            add(PTile(Icons.AutoMirrored.Filled.FormatListBulleted, "Outline") { menu = false; sheet = NoteSheet.Outline })
             add(PTile(Icons.Filled.Info, "Note info") { menu = false; sheet = NoteSheet.About })
             add(PTile(Icons.Filled.SwapVert, "Reorder") { menu = false; sheet = NoteSheet.Reorder })
             add(PTile(Icons.Filled.Tune, "Properties") { menu = false; sheet = NoteSheet.Props })

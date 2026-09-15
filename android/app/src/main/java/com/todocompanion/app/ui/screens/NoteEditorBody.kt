@@ -30,7 +30,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatItalic
-import androidx.compose.material.icons.filled.FormatListBulleted
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.material.icons.filled.FormatStrikethrough
@@ -41,11 +41,11 @@ import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Title
-import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -274,7 +274,7 @@ fun NoteBodyEditor(
                                 )
                                 Spacer(Modifier.width(2.dp))
                                 BarIcon(Icons.Filled.FormatQuote, "Quote") { onLinePrefix("> ") }
-                                BarIcon(Icons.Filled.FormatListBulleted, "Bulleted list") { onLinePrefix("- ") }
+                                BarIcon(Icons.AutoMirrored.Filled.FormatListBulleted, "Bulleted list") { onLinePrefix("- ") }
                                 BarIcon(Icons.Filled.FormatListNumbered, "Numbered list") { onLinePrefix("1. ") }
                                 BarIcon(Icons.Filled.CheckBox, "Checklist") { onLinePrefix("- [ ] ") }
                                 BarIcon(Icons.Filled.TableChart, "Table") { showTable = true }
@@ -294,8 +294,8 @@ fun NoteBodyEditor(
                             BarIcon(Icons.Filled.FormatStrikethrough, "Strikethrough") { onWrap("~~") }
                             BarIcon(Icons.Filled.Code, "Inline code") { onWrap("`") }
                             BarIcon(Icons.Filled.MoreVert, if (moreFormat) "Fewer options" else "More options", active = moreFormat) { moreFormat = !moreFormat }
-                            BarIcon(Icons.Filled.Undo, "Undo", enabled = undo.isNotEmpty()) { doUndo() }
-                            BarIcon(Icons.Filled.Redo, "Redo", enabled = redo.isNotEmpty()) { doRedo() }
+                            BarIcon(Icons.AutoMirrored.Filled.Undo, "Undo", enabled = undo.isNotEmpty()) { doUndo() }
+                            BarIcon(Icons.AutoMirrored.Filled.Redo, "Redo", enabled = redo.isNotEmpty()) { doRedo() }
                         }
                     }
                 }
@@ -312,7 +312,7 @@ fun NoteBodyEditor(
                 add(Triple(Icons.Filled.Mic, "Dictate (voice)") { startVoice() })
                 if (onInk != null) add(Triple(Icons.Filled.Draw, "Handwrite") { onInk() })
                 add(Triple(Icons.Filled.CheckBox, "Task list") { onLinePrefix("- [ ] ") })
-                add(Triple(Icons.Filled.FormatListBulleted, "Bulleted list") { onLinePrefix("- ") })
+                add(Triple(Icons.AutoMirrored.Filled.FormatListBulleted, "Bulleted list") { onLinePrefix("- ") })
                 add(Triple(Icons.Filled.FormatListNumbered, "Numbered list") { onLinePrefix("1. ") })
                 add(Triple(Icons.Filled.FormatQuote, "Quote") { onLinePrefix("> ") })
                 add(Triple(Icons.Filled.Code, "Code block") { insertBlock("```\n\n```") })

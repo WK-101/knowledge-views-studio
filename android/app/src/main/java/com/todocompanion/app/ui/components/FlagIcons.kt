@@ -5,7 +5,7 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Label
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.PriorityHigh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Whatshot
@@ -24,7 +24,7 @@ object FlagIcons {
     fun vector(key: String?): ImageVector = when (key) {
         "star" -> Icons.Filled.Star
         "bookmark" -> Icons.Filled.Bookmark
-        "label" -> Icons.Filled.Label
+        "label" -> Icons.AutoMirrored.Filled.Label
         "circle" -> Icons.Filled.Circle
         "bolt" -> Icons.Filled.Bolt
         "fire" -> Icons.Filled.Whatshot

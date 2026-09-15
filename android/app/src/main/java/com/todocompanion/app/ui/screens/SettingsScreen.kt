@@ -71,7 +71,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.ViewSidebar
+import androidx.compose.material.icons.automirrored.filled.ViewSidebar
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Surface
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -571,7 +571,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Text("Now: $curLabel", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         }
 
-        SettingsGroup(Icons.Filled.ViewSidebar, "Sidebar & tabs", open["sidebar"] == true, { open["sidebar"] = open["sidebar"] != true }, keywords = "smart lists entry counts bottom bar tabs drawer sections show hide navigation") {
+        SettingsGroup(Icons.AutoMirrored.Filled.ViewSidebar, "Sidebar & tabs", open["sidebar"] == true, { open["sidebar"] = open["sidebar"] != true }, keywords = "smart lists entry counts bottom bar tabs drawer sections show hide navigation") {
             Sub("Smart lists")
             Text("Choose which smart lists appear in the navigation drawer.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
             SmartKind.entries.forEach { k ->

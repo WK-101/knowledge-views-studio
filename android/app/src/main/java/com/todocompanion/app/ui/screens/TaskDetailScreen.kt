@@ -18,8 +18,8 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material.icons.filled.Segment
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.filled.Segment
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.filled.ExpandMore
@@ -108,13 +108,13 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Slideshow
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material.icons.filled.Folder
@@ -690,7 +690,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             val trend = remember(acts, task.rrule) { com.todocompanion.app.domain.task.TaskReliability.trend(task, acts, System.currentTimeMillis()) }
                             val hours = remember(acts, task.rrule) { com.todocompanion.app.domain.task.TaskReliability.completionHours(task, acts) }
                             Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 4.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.TrendingUp, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                                Icon(Icons.AutoMirrored.Filled.TrendingUp, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(14.dp))
                                 Text("Reliability", style = MaterialTheme.typography.bodyMedium)
                                 trend?.takeIf { it != 0 }?.let { Spacer(Modifier.width(6.dp)); Text(if (it > 0) "▲${it}" else "▼${-it}", style = MaterialTheme.typography.labelSmall, color = if (it > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error) }
@@ -736,7 +736,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 // Break down (C2): paste several lines at once → one step per line.
                 var showBreakdown by remember { mutableStateOf(false) }
                 TextButton(onClick = { showBreakdown = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
-                    Icon(Icons.Filled.Segment, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("Break into steps")
+                    Icon(Icons.AutoMirrored.Filled.Segment, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("Break into steps")
                 }
                 if (showBreakdown) {
                     var bulk by remember { mutableStateOf("") }
@@ -1646,12 +1646,12 @@ private fun attachmentGlyph(mime: String, name: String): Pair<androidx.compose.u
         m.contains("word") || m.contains("msword") || ext in setOf("doc", "docx", "odt", "rtf") -> Icons.AutoMirrored.Filled.Article to androidx.compose.ui.graphics.Color(0xFF2F6BFF)
         m.contains("sheet") || m.contains("excel") || ext in setOf("xls", "xlsx", "ods", "csv") -> Icons.Filled.TableChart to androidx.compose.ui.graphics.Color(0xFF0EA371)
         m.contains("presentation") || m.contains("powerpoint") || ext in setOf("ppt", "pptx", "odp") -> Icons.Filled.Slideshow to androidx.compose.ui.graphics.Color(0xFFEA580C)
-        ext == "epub" || m.contains("epub") -> Icons.Filled.MenuBook to androidx.compose.ui.graphics.Color(0xFF8B5CF6)
+        ext == "epub" || m.contains("epub") -> Icons.AutoMirrored.Filled.MenuBook to androidx.compose.ui.graphics.Color(0xFF8B5CF6)
         m.startsWith("audio") -> Icons.Filled.AudioFile to androidx.compose.ui.graphics.Color(0xFFDB2777)
         m.startsWith("video") -> Icons.Filled.VideoFile to androidx.compose.ui.graphics.Color(0xFF7C3AED)
         m.contains("zip") || m.contains("compressed") || ext in setOf("zip", "rar", "7z", "tar", "gz") -> Icons.Filled.FolderZip to androidx.compose.ui.graphics.Color(0xFFCA8A04)
         m.startsWith("text") || ext in setOf("txt", "md", "log", "json", "xml") -> Icons.AutoMirrored.Filled.TextSnippet to androidx.compose.ui.graphics.Color(0xFF64748B)
-        else -> Icons.Filled.InsertDriveFile to androidx.compose.ui.graphics.Color(0xFF64748B)
+        else -> Icons.AutoMirrored.Filled.InsertDriveFile to androidx.compose.ui.graphics.Color(0xFF64748B)
     }
 }
 

@@ -36,13 +36,13 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
-import androidx.compose.material.icons.filled.Label
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Schedule
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -384,7 +384,7 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
                 IconTool(Icons.Filled.Flag, "Priority", priority != null && priority != PriorityLevel.NONE,
                     tint = priority?.takeIf { it != PriorityLevel.NONE }?.let { priorityColor(it) }) { showPrio = true }
                 Box {
-                    IconTool(Icons.Filled.Label, "Tags", tagIds.isNotEmpty()) { tagMenu = true }
+                    IconTool(Icons.AutoMirrored.Filled.Label, "Tags", tagIds.isNotEmpty()) { tagMenu = true }
                     DropdownMenu(expanded = tagMenu, onDismissRequest = { tagMenu = false }) {
                         if (tags.isEmpty()) DropdownMenuItem(text = { Text("No tags yet — type #tag in the title") }, onClick = { tagMenu = false })
                         tags.forEach { t ->
@@ -470,7 +470,7 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
             }
             Spacer(Modifier.width(6.dp))
             Box(Modifier.size(40.dp).clip(CircleShape).background(if (text.isBlank()) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary).clickable { submit() }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Send, "Add", tint = if (text.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
+                Icon(Icons.AutoMirrored.Filled.Send, "Add", tint = if (text.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
             }
         }
     }

@@ -38,7 +38,7 @@ import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material.icons.outlined.Notes
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -340,7 +340,7 @@ fun TaskLeftMeta(dueMillis: Long?, note: String, repeating: Boolean) {
     if (note.isNotBlank()) {
         Spacer(Modifier.size(3.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.Notes, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(13.dp))
+            Icon(Icons.AutoMirrored.Outlined.Notes, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(13.dp))
             Spacer(Modifier.size(4.dp))
             Text(note.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty(),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -396,7 +396,7 @@ fun TaskMeta(
     if (hasNote) {
         Spacer(Modifier.size(3.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.Notes, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(13.dp))
+            Icon(Icons.AutoMirrored.Outlined.Notes, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(13.dp))
             Spacer(Modifier.size(4.dp))
             Text(
                 note.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty(),

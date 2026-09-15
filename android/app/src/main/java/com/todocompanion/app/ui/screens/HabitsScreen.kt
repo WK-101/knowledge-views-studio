@@ -47,7 +47,7 @@ import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.focus.FocusRequester
@@ -1441,7 +1441,7 @@ private fun HabitQuickAddDialog(onDismiss: () -> Unit, onAdd: (HabitEntity) -> U
                         .clickable { submit() },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Filled.Send, "Add habit",
+                    Icon(Icons.AutoMirrored.Filled.Send, "Add habit",
                         tint = if (draft.name.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(20.dp))
                 }

@@ -24,8 +24,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Segment
-import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.automirrored.filled.Segment
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -205,8 +205,8 @@ fun SearchScreen(
                 when (scope) {
                     Scope.ALL, Scope.TASKS -> {
                         DropControl(Icons.Filled.FilterList, filter, SF.entries, { it.label }) { filter = it }
-                        DropControl(Icons.Filled.Sort, sortBy, SortBy.entries, { it.label }) { sortBy = it }
-                        DropControl(Icons.Filled.Segment, groupBy, GroupBy.entries, { it.label }) { groupBy = it }
+                        DropControl(Icons.AutoMirrored.Filled.Sort, sortBy, SortBy.entries, { it.label }) { sortBy = it }
+                        DropControl(Icons.AutoMirrored.Filled.Segment, groupBy, GroupBy.entries, { it.label }) { groupBy = it }
                     }
                     Scope.NOTES -> DropControl(Icons.Filled.FilterList, noteF, NoteF.entries, { it.label }) { noteF = it }
                     Scope.OCCASIONS -> DropControl(Icons.Filled.FilterList, occF, OccF.entries, { it.label }) { occF = it }

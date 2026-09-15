@@ -47,7 +47,7 @@ import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.DriveFileMove
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -58,7 +58,7 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Label
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ChecklistRtl
@@ -550,7 +550,7 @@ private fun FolderNode(
                 MenuItem(Icons.Filled.Folder, "New folder here") { onNewFolder(folder.id); menu = false }
                 MenuItem(Icons.Filled.KeyboardArrowUp, "Move up") { vm.moveFolderOrder(folder, -1); menu = false }
                 MenuItem(Icons.Filled.KeyboardArrowDown, "Move down") { vm.moveFolderOrder(folder, +1); menu = false }
-                MenuItem(Icons.Filled.DriveFileMove, "Move to…") { onMoveFolder(folder); menu = false }
+                MenuItem(Icons.AutoMirrored.Filled.DriveFileMove, "Move to…") { onMoveFolder(folder); menu = false }
                 MenuItem(Icons.AutoMirrored.Filled.FormatListBulleted, "Convert to list") {
                     if (!vm.convertFolderToList(folder)) Toast.makeText(ctx, "Empty the folder first", Toast.LENGTH_SHORT).show()
                     menu = false
@@ -661,7 +661,7 @@ private fun ListRow(
                 MenuItem(Icons.Filled.KeyboardArrowDown, "Move down") { vm.moveListOrder(list, +1); menu = false }
                 MenuItem(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Nest under list above") { vm.indentList(list); menu = false }
                 if (list.parentListId != null) MenuItem(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Un-nest") { vm.outdentList(list); menu = false }
-                MenuItem(Icons.Filled.DriveFileMove, "Move to folder…") { onMoveList(list); menu = false }
+                MenuItem(Icons.AutoMirrored.Filled.DriveFileMove, "Move to folder…") { onMoveList(list); menu = false }
                 MenuItem(Icons.Filled.Folder, "Convert to folder") { vm.convertListToFolder(list); menu = false }
                 MenuItem(Icons.Filled.Edit, "Rename / colour / delete") { onManageList(list); menu = false }
             }
@@ -686,7 +686,7 @@ private fun TagNode(
             .padding(start = (12 + depth * 16).dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Filled.Label, null, tint = tag.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        Icon(Icons.AutoMirrored.Filled.Label, null, tint = tag.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(11.dp))
         Text("#" + tag.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
@@ -697,7 +697,7 @@ private fun TagNode(
                 val pinRef = "tag:${tag.id}"
                 MenuItem(if (vm.isPinned(pinRef)) Icons.Filled.PushPin else Icons.Filled.PushPin, if (vm.isPinned(pinRef)) "Unpin from top" else "Pin to top") { vm.togglePinnedRef(pinRef); menu = false }
                 MenuItem(Icons.Filled.Add, "New sub-tag") { onNewTag(tag.id); menu = false }
-                MenuItem(Icons.Filled.DriveFileMove, "Move to…") { onMoveTag(tag); menu = false }
+                MenuItem(Icons.AutoMirrored.Filled.DriveFileMove, "Move to…") { onMoveTag(tag); menu = false }
                 MenuItem(Icons.Filled.Edit, "Rename / colour / delete") { onManageTag(tag); menu = false }
             }
         }
@@ -751,7 +751,7 @@ private fun PinnedFavourites(
             }
             "list" -> lists.firstOrNull { it.id == id }?.let { Pin(Icons.AutoMirrored.Filled.FormatListBulleted, it.emoji, it.name, it.colorArgb?.let(::Color), ref, current == ViewRef.ListView(id)) { onSelect(ViewRef.ListView(id)) } }
             "folder" -> folders.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Folder, it.icon, it.name, null, ref, current == ViewRef.FolderView(id)) { onSelect(ViewRef.FolderView(id)) } }
-            "tag" -> tags.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Label, null, "#" + it.name, it.colorArgb?.let(::Color), ref, current == ViewRef.TagView(id)) { onSelect(ViewRef.TagView(id)) } }
+            "tag" -> tags.firstOrNull { it.id == id }?.let { Pin(Icons.AutoMirrored.Filled.Label, null, "#" + it.name, it.colorArgb?.let(::Color), ref, current == ViewRef.TagView(id)) { onSelect(ViewRef.TagView(id)) } }
             "context" -> contexts.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Place, null, "@" + it.name, it.colorArgb?.let(::Color), ref, current == ViewRef.ContextView(id)) { onSelect(ViewRef.ContextView(id)) } }
             "filter" -> filters.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.FilterList, null, it.name, it.colorArgb?.let(::Color), ref, current == ViewRef.FilterView(id)) { onSelect(ViewRef.FilterView(id)) } }
             "view" -> viewMeta(id)?.let { (ic, lbl) -> Pin(ic, null, lbl, null, ref, false) { onOpenRef(ref) } }
@@ -910,7 +910,7 @@ private fun ContextNode(
                 val pinRef = "context:${ctx.id}"
                 MenuItem(if (vm.isPinned(pinRef)) Icons.Filled.PushPin else Icons.Filled.PushPin, if (vm.isPinned(pinRef)) "Unpin from top" else "Pin to top") { vm.togglePinnedRef(pinRef); menu = false }
                 MenuItem(Icons.Filled.Add, "New sub-context") { onNew(ctx.id); menu = false }
-                MenuItem(Icons.Filled.DriveFileMove, "Move to…") { onMove(ctx); menu = false }
+                MenuItem(Icons.AutoMirrored.Filled.DriveFileMove, "Move to…") { onMove(ctx); menu = false }
                 MenuItem(Icons.Filled.Edit, "Edit · availability & open-hours") { onManage(ctx); menu = false }
             }
         }

@@ -66,7 +66,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Notes
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.HorizontalDivider
@@ -875,7 +875,7 @@ private fun ReorderRow(
             Icon(if (selected) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked, null,
                 tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, modifier = Modifier.size(24.dp))
         } else if (task.isNote) Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-            Icon(Icons.Outlined.Notes, "Note", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
+            Icon(Icons.AutoMirrored.Outlined.Notes, "Note", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
         } else PriorityCheckbox(task.completed, level, { onToggle() }, onSetLevel = onSetPriority)
         Spacer(Modifier.width(2.dp))
         Column(Modifier.weight(1f).padding(top = 8.dp, bottom = 2.dp)) {
@@ -1625,7 +1625,7 @@ private fun TaskListItem(
                 Icon(if (selected) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked, null,
                     tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, modifier = Modifier.size(24.dp))
             } else if (task.isNote) Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                Icon(Icons.Outlined.Notes, "Note", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
+                Icon(Icons.AutoMirrored.Outlined.Notes, "Note", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
             } else PriorityCheckbox(task.completed, level, { onAct(SwipeAction.COMPLETE) }, onSetLevel = onSetPriority)
             Spacer(Modifier.width(2.dp))
             // Left: title, date/repeat, note.
