@@ -216,6 +216,11 @@ data class HighlightEntity(
     val srReps: Int = 0,           // successful reviews in a row
     val srLapses: Int = 0,         // times forgotten
     val srLastReviewedAt: Long? = null,
+    // v3.98: FSRS (advanced scheduler) memory state, used when the Advanced scheduler is on.
+    // srPhase: 0=NEW, 1=LEARNING, 2=REVIEW, 3=RELEARNING. Zero stability means "not yet seeded".
+    val srStability: Double = 0.0,
+    val srDifficulty: Double = 0.0,
+    val srPhase: Int = 0,
 )
 
 /** Standalone full-text index. Populated alongside item extraction. */

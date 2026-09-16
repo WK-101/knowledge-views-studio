@@ -23,7 +23,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SyncOpEntity::class,
         RuleEntity::class,
     ],
-    version = 17,
+    version = 18,
     exportSchema = true,
     autoMigrations = [
         // v14 → v15: drop the legacy items.collectionId column. The item_collections join table is
@@ -208,5 +208,16 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
 val MIGRATION_16_17 = object : Migration(16, 17) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE sources ADD COLUMN syncPaused INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** v18: FSRS (advanced spaced-repetition) memory state on highlights. Defaults leave existing cards
+ *  "unseeded" (stability 0, phase NEW), so the advanced scheduler re-seeds each on its next grade;
+ *  the classic SM-2 columns are untouched, so switching schedulers loses no data either way. */
+val MIGRATION_17_18 = object : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE highlights ADD COLUMN srStability REAL NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE highlights ADD COLUMN srDifficulty REAL NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE highlights ADD COLUMN srPhase INTEGER NOT NULL DEFAULT 0")
     }
 }

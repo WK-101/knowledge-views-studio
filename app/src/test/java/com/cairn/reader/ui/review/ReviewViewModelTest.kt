@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.cairn.reader.data.db.CairnDatabase
 import com.cairn.reader.data.db.HighlightEntity
 import com.cairn.reader.data.db.ItemEntity
+import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.data.repo.HighlightRepository
 import com.cairn.reader.domain.review.Grade
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +47,7 @@ class ReviewViewModelTest {
             ApplicationProvider.getApplicationContext(), CairnDatabase::class.java,
         ).allowMainThreadQueries().build()
         val repo = HighlightRepository(db.highlightDao(), db.syncDao())
+        val prefs = PreferencesRepository(ApplicationProvider.getApplicationContext())
         val now = 1_000_000L
 
         db.itemDao().upsertItem(ItemEntity(id = "i1", url = "https://x.com/a", title = "Article", savedAt = now, siteName = "X"))
@@ -53,7 +55,7 @@ class ReviewViewModelTest {
         repo.add(itemId = "i1", blockIndex = 0, start = 0, end = 30, quote = "The quick brown fox jumps high", color = 1)
         repo.add(itemId = "i1", blockIndex = 1, start = 0, end = 30, quote = "Another memorable sentence to recall", color = 2)
 
-        val vm = ReviewViewModel(repo)
+        val vm = ReviewViewModel(repo, prefs)
 
         vm.start()
         val loaded = withTimeout(5_000) { vm.state.filter { !it.loading }.first() }
@@ -83,11 +85,12 @@ class ReviewViewModelTest {
             ApplicationProvider.getApplicationContext(), CairnDatabase::class.java,
         ).allowMainThreadQueries().build()
         val repo = HighlightRepository(db.highlightDao(), db.syncDao())
+        val prefs = PreferencesRepository(ApplicationProvider.getApplicationContext())
         val now = 1_000_000L
         db.itemDao().upsertItem(ItemEntity(id = "i1", url = "https://x.com/a", title = "Article", savedAt = now, siteName = "X"))
         repo.add(itemId = "i1", blockIndex = 0, start = 0, end = 30, quote = "The quick brown fox jumps high", color = 1)
 
-        val vm = ReviewViewModel(repo)
+        val vm = ReviewViewModel(repo, prefs)
         vm.start()
         withTimeout(5_000) { vm.state.filter { !it.loading }.first() }
 

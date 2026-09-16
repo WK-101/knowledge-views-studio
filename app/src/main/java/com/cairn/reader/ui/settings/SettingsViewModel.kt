@@ -252,6 +252,10 @@ class SettingsViewModel @Inject constructor(
         com.cairn.reader.work.CairnWork.scheduleDailyBrief(context, enabled)
     }
     fun setMarkReadOnScroll(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setMarkReadOnScroll(enabled) }
+    fun setReviewScheduler(scheduler: com.cairn.reader.data.prefs.ReviewScheduler) = viewModelScope.launch { preferencesRepository.setReviewScheduler(scheduler) }
+    fun setReviewRetention(retention: Float) = viewModelScope.launch { preferencesRepository.setReviewRetention(retention) }
+    fun setReviewMaxIntervalDays(days: Int) = viewModelScope.launch { preferencesRepository.setReviewMaxIntervalDays(days) }
+    fun setReviewSessionSize(n: Int) = viewModelScope.launch { preferencesRepository.setReviewSessionSize(n) }
     fun setStartDestination(name: String) = viewModelScope.launch { preferencesRepository.setStartDestination(name) }
     fun setStartFilter(name: String) = viewModelScope.launch { preferencesRepository.setStartFilter(name) }
     fun setShowThumbnail(on: Boolean) = viewModelScope.launch { preferencesRepository.setShowThumbnail(on) }

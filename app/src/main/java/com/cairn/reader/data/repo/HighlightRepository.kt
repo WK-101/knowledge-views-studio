@@ -39,12 +39,42 @@ class HighlightRepository @Inject constructor(
     suspend fun dueCards(limit: Int = 40): List<com.cairn.reader.data.db.ReviewCard> =
         highlightDao.dueCards(clock(), limit)
 
-    /** Grade a card and reschedule it via SM-2. */
-    suspend fun review(card: com.cairn.reader.data.db.ReviewCard, grade: com.cairn.reader.domain.review.Grade) {
+    /**
+     * Grade a card and reschedule it. With [advanced] on, the FSRS-5 engine updates the card's
+     * stability/difficulty and targets [retention] (capped at [maxIntervalDays]); otherwise the
+     * classic SM-2 ease ladder runs. Each engine persists only its own columns, so a user can switch
+     * schedulers back and forth without losing either model's memory of a card.
+     */
+    suspend fun review(
+        card: com.cairn.reader.data.db.ReviewCard,
+        grade: com.cairn.reader.domain.review.Grade,
+        advanced: Boolean = true,
+        retention: Double = 0.90,
+        maxIntervalDays: Int = 3650,
+    ) {
         val now = clock()
-        val state = com.cairn.reader.domain.review.SrState(card.srInterval, card.srEase, card.srReps, card.srLapses)
-        val r = com.cairn.reader.domain.review.Sm2.review(state, grade, now)
-        highlightDao.updateSr(card.id, r.dueAt, r.state.intervalDays, r.state.ease, r.state.reps, r.state.lapses, now)
+        if (advanced) {
+            val state = com.cairn.reader.domain.review.FsrsState(
+                stability = card.srStability,
+                difficulty = card.srDifficulty,
+                phase = com.cairn.reader.domain.review.SrPhase.entries.getOrElse(card.srPhase) {
+                    com.cairn.reader.domain.review.SrPhase.NEW
+                },
+                reps = card.srReps,
+                lapses = card.srLapses,
+            )
+            val r = com.cairn.reader.domain.review.Fsrs.review(
+                state, grade, now, card.srLastReviewedAt, retention, maxIntervalDays,
+            )
+            highlightDao.updateSrFsrs(
+                card.id, r.dueAt, r.intervalDays, r.state.reps, r.state.lapses,
+                r.state.stability, r.state.difficulty, r.state.phase.ordinal, now,
+            )
+        } else {
+            val state = com.cairn.reader.domain.review.SrState(card.srInterval, card.srEase, card.srReps, card.srLapses)
+            val r = com.cairn.reader.domain.review.Sm2.review(state, grade, now)
+            highlightDao.updateSr(card.id, r.dueAt, r.state.intervalDays, r.state.ease, r.state.reps, r.state.lapses, now)
+        }
     }
 
     suspend fun add(itemId: String, blockIndex: Int, start: Int, end: Int, quote: String, color: Int) {

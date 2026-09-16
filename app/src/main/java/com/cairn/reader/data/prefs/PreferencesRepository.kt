@@ -32,6 +32,10 @@ enum class ReaderFont(val label: String) {
 enum class ListViewMode { LIST, CARD, MAGAZINE }
 enum class LibraryViewMode { LIST, GRID, MASONRY, HEADLINES }
 
+/** Spaced-repetition scheduler. BASIC = the classic SM-2 ease ladder; ADVANCED = FSRS-5, which
+ *  models memory as difficulty + stability and targets a chosen recall probability. */
+enum class ReviewScheduler { BASIC, ADVANCED }
+
 /** A configurable list-row swipe action. */
 enum class SwipeAction(val label: String) {
     NONE("Nothing"),
@@ -172,6 +176,16 @@ data class AppPreferences(
     val readerMeasure: Int = 0,
     /** Bionic reading: bold the leading part of each word to guide the eye. */
     val bionicReading: Boolean = false,
+    // -- Spaced-repetition review --
+    /** Which scheduler grades highlights. ADVANCED (FSRS) by default — it adapts to each item. */
+    val reviewScheduler: ReviewScheduler = ReviewScheduler.ADVANCED,
+    /** Desired recall probability the advanced scheduler targets (0.70–0.99). Higher = more frequent
+     *  reviews and stronger recall; lower = fewer reviews. Ignored by the basic scheduler. */
+    val reviewRetention: Float = 0.90f,
+    /** Hard cap on any scheduled interval, in days. Keeps mature cards from drifting years out. */
+    val reviewMaxIntervalDays: Int = 3650,
+    /** How many due cards a single review session pulls (new + review, oldest-due first). */
+    val reviewSessionSize: Int = 40,
     /** Which surface opens on cold start (a Destination name, or "" for the default Inbox). */
     val startDestination: String = "",
     /** The Inbox filter to open on cold start (an InboxFilter name, or "" to keep the default). */
@@ -271,6 +285,10 @@ class PreferencesRepository @Inject constructor(
         val READER_PARA_SPACING = intPreferencesKey("reader_paragraph_spacing")
         val READER_MEASURE = intPreferencesKey("reader_measure")
         val BIONIC_READING = booleanPreferencesKey("bionic_reading")
+        val REVIEW_SCHEDULER = stringPreferencesKey("review_scheduler")
+        val REVIEW_RETENTION = floatPreferencesKey("review_retention")
+        val REVIEW_MAX_INTERVAL = intPreferencesKey("review_max_interval_days")
+        val REVIEW_SESSION_SIZE = intPreferencesKey("review_session_size")
         val START_DESTINATION = stringPreferencesKey("start_destination")
         val START_FILTER = stringPreferencesKey("start_filter")
         val SYNC_CHARGING_ONLY = booleanPreferencesKey("sync_charging_only")
@@ -359,6 +377,10 @@ class PreferencesRepository @Inject constructor(
             readerParagraphSpacing = p[Keys.READER_PARA_SPACING] ?: 8,
             readerMeasure = p[Keys.READER_MEASURE] ?: 0,
             bionicReading = p[Keys.BIONIC_READING] ?: false,
+            reviewScheduler = p[Keys.REVIEW_SCHEDULER]?.let { runCatching { ReviewScheduler.valueOf(it) }.getOrNull() } ?: ReviewScheduler.ADVANCED,
+            reviewRetention = p[Keys.REVIEW_RETENTION] ?: 0.90f,
+            reviewMaxIntervalDays = p[Keys.REVIEW_MAX_INTERVAL] ?: 3650,
+            reviewSessionSize = p[Keys.REVIEW_SESSION_SIZE] ?: 40,
             startDestination = p[Keys.START_DESTINATION] ?: "",
             startFilter = p[Keys.START_FILTER] ?: "",
             syncChargingOnly = p[Keys.SYNC_CHARGING_ONLY] ?: false,
@@ -546,6 +568,18 @@ class PreferencesRepository @Inject constructor(
     suspend fun setBionicReading(on: Boolean) =
         context.dataStore.edit { it[Keys.BIONIC_READING] = on }
 
+    suspend fun setReviewScheduler(scheduler: ReviewScheduler) =
+        context.dataStore.edit { it[Keys.REVIEW_SCHEDULER] = scheduler.name }
+
+    suspend fun setReviewRetention(retention: Float) =
+        context.dataStore.edit { it[Keys.REVIEW_RETENTION] = retention.coerceIn(0.70f, 0.99f) }
+
+    suspend fun setReviewMaxIntervalDays(days: Int) =
+        context.dataStore.edit { it[Keys.REVIEW_MAX_INTERVAL] = days.coerceIn(30, 36500) }
+
+    suspend fun setReviewSessionSize(n: Int) =
+        context.dataStore.edit { it[Keys.REVIEW_SESSION_SIZE] = n.coerceIn(5, 200) }
+
     suspend fun setStartDestination(name: String) =
         context.dataStore.edit { it[Keys.START_DESTINATION] = name }
 
@@ -634,6 +668,10 @@ class PreferencesRepository @Inject constructor(
             put("readerParagraphSpacing", p.readerParagraphSpacing)
             put("readerMeasure", p.readerMeasure)
             put("bionicReading", p.bionicReading)
+            put("reviewScheduler", p.reviewScheduler.name)
+            put("reviewRetention", p.reviewRetention.toDouble())
+            put("reviewMaxIntervalDays", p.reviewMaxIntervalDays)
+            put("reviewSessionSize", p.reviewSessionSize)
             put("startDestination", p.startDestination)
             put("startFilter", p.startFilter)
             put("syncChargingOnly", p.syncChargingOnly)
@@ -710,6 +748,10 @@ class PreferencesRepository @Inject constructor(
             if (json.has("readerParagraphSpacing")) e[Keys.READER_PARA_SPACING] = json.getInt("readerParagraphSpacing").coerceIn(0, 40)
             if (json.has("readerMeasure")) e[Keys.READER_MEASURE] = json.getInt("readerMeasure").coerceIn(0, 900)
             if (json.has("bionicReading")) e[Keys.BIONIC_READING] = json.getBoolean("bionicReading")
+            if (json.has("reviewScheduler")) e[Keys.REVIEW_SCHEDULER] = json.getString("reviewScheduler")
+            if (json.has("reviewRetention")) e[Keys.REVIEW_RETENTION] = json.getDouble("reviewRetention").toFloat().coerceIn(0.70f, 0.99f)
+            if (json.has("reviewMaxIntervalDays")) e[Keys.REVIEW_MAX_INTERVAL] = json.getInt("reviewMaxIntervalDays").coerceIn(30, 36500)
+            if (json.has("reviewSessionSize")) e[Keys.REVIEW_SESSION_SIZE] = json.getInt("reviewSessionSize").coerceIn(5, 200)
             if (json.has("startDestination")) e[Keys.START_DESTINATION] = json.getString("startDestination")
             if (json.has("startFilter")) e[Keys.START_FILTER] = json.getString("startFilter")
             if (json.has("syncChargingOnly")) e[Keys.SYNC_CHARGING_ONLY] = json.getBoolean("syncChargingOnly")

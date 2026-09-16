@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.School
@@ -33,6 +34,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -50,8 +52,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.R
 import com.cairn.reader.domain.review.Grade
+import com.cairn.reader.domain.review.intervalLabel
 import com.cairn.reader.ui.components.EmptyState
 import com.cairn.reader.ui.theme.Dimens
+import kotlin.math.roundToInt
 
 @Composable
 fun ReviewScreen(
@@ -74,6 +78,10 @@ fun ReviewScreen(
                         Icon(Icons.Outlined.Menu, contentDescription = stringResource(R.string.open_navigation))
                     }
                 },
+                actions = {
+                    // Always show which scheduler is grading, so the interval previews are legible.
+                    if (!state.loading) SchedulerBadge(state.advanced, state.retention, scheme)
+                },
             )
         },
     ) { inner ->
@@ -87,8 +95,32 @@ fun ReviewScreen(
 
         when {
             state.loading -> Box(contentModifier, contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            state.face == null -> AllDone(state.reviewed, contentModifier)
+            state.face == null -> AllDone(state, contentModifier, scheme)
             else -> ReviewCardBody(state, contentModifier, scheme, viewModel)
+        }
+    }
+}
+
+@Composable
+private fun SchedulerBadge(advanced: Boolean, retention: Float, scheme: androidx.compose.material3.ColorScheme) {
+    val label = if (advanced) {
+        "${stringResource(R.string.review_scheduler_advanced)} · ${(retention * 100).roundToInt()}%"
+    } else {
+        stringResource(R.string.review_scheduler_basic)
+    }
+    Surface(
+        color = if (advanced) scheme.primaryContainer else scheme.surfaceContainerHighest,
+        contentColor = if (advanced) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
+        shape = RoundedCornerShape(50),
+        modifier = Modifier.padding(end = Dimens.md),
+    ) {
+        Row(
+            Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (advanced) Icon(Icons.Outlined.AutoAwesome, contentDescription = null, modifier = Modifier.size(14.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -161,12 +193,18 @@ private fun ReviewCardBody(
                             (face.card.articleSite ?: "").ifBlank { face.card.articleTitle },
                             style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant,
                         )
+                        // Advanced scheduler: show this card's current memory model so the reviewer
+                        // understands why the intervals look the way they do.
+                        if (state.advanced) {
+                            Spacer(Modifier.height(Dimens.md))
+                            MemoryStrength(face.card.srStability, face.card.srDifficulty, scheme)
+                        }
                     }
                 }
             }
         }
 
-        // Controls: reveal, then the four SM-2 grades with their next-interval previews.
+        // Controls: reveal, then the four grades with their next-interval previews.
         if (!state.revealed) {
             Button(
                 onClick = { viewModel.reveal() },
@@ -187,6 +225,20 @@ private fun ReviewCardBody(
 }
 
 @Composable
+private fun MemoryStrength(stability: Double, difficulty: Double, scheme: androidx.compose.material3.ColorScheme) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(14.dp))
+        val text = if (stability <= 0.0 || difficulty <= 0.0) {
+            stringResource(R.string.review_memory_new)
+        } else {
+            val diffPct = (difficulty / 10.0 * 100).roundToInt()
+            stringResource(R.string.review_memory_detail, intervalLabel(stability.roundToInt()), diffPct)
+        }
+        Text(text, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
+    }
+}
+
+@Composable
 private fun GradeButton(label: String, interval: String?, bg: Color, fg: Color, modifier: Modifier, onClick: () -> Unit) {
     FilledTonalButton(
         onClick = onClick,
@@ -202,14 +254,29 @@ private fun GradeButton(label: String, interval: String?, bg: Color, fg: Color, 
 }
 
 @Composable
-private fun AllDone(reviewed: Int, modifier: Modifier) {
-    if (reviewed > 0) {
-        EmptyState(
-            title = stringResource(R.string.review_complete),
-            body = pluralStringResource(R.plurals.review_complete_count, reviewed, reviewed),
-            modifier = modifier,
-            icon = Icons.Outlined.CheckCircle,
-        )
+private fun AllDone(state: ReviewUiState, modifier: Modifier, scheme: androidx.compose.material3.ColorScheme) {
+    if (state.reviewed > 0) {
+        Column(
+            modifier.verticalScroll(rememberScrollState()).padding(Dimens.xl),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(48.dp))
+            Spacer(Modifier.height(Dimens.lg))
+            Text(
+                stringResource(R.string.review_complete),
+                style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold,
+                color = scheme.onSurface, textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(Dimens.sm))
+            Text(
+                pluralStringResource(R.plurals.review_complete_count, state.reviewed, state.reviewed),
+                style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(Dimens.xl))
+            SessionSummary(state, scheme)
+        }
     } else {
         EmptyState(
             title = stringResource(R.string.nothing_due),
@@ -217,5 +284,49 @@ private fun AllDone(reviewed: Int, modifier: Modifier) {
             modifier = modifier,
             icon = Icons.Outlined.School,
         )
+    }
+}
+
+@Composable
+private fun SessionSummary(state: ReviewUiState, scheme: androidx.compose.material3.ColorScheme) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainerLow),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(Dimens.lg)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                SummaryStat(state.reviewed.toString(), stringResource(R.string.review_summary_reviewed), scheme)
+                SummaryStat("${(state.accuracy * 100).roundToInt()}%", stringResource(R.string.review_summary_accuracy), scheme)
+            }
+            Spacer(Modifier.height(Dimens.lg))
+            // Per-grade breakdown as four coloured chips, mirroring the grade-button palette.
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Dimens.sm)) {
+                GradeTally(stringResource(R.string.review_grade_again), state.again, scheme.errorContainer, scheme.onErrorContainer, Modifier.weight(1f))
+                GradeTally(stringResource(R.string.review_grade_hard), state.hard, scheme.surfaceContainerHighest, scheme.onSurface, Modifier.weight(1f))
+                GradeTally(stringResource(R.string.review_grade_good), state.good, scheme.secondaryContainer, scheme.onSecondaryContainer, Modifier.weight(1f))
+                GradeTally(stringResource(R.string.review_grade_easy), state.easy, scheme.primaryContainer, scheme.onPrimaryContainer, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryStat(value: String, label: String, scheme: androidx.compose.material3.ColorScheme) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = scheme.primary)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun GradeTally(label: String, count: Int, bg: Color, fg: Color, modifier: Modifier) {
+    Surface(color = bg, contentColor = fg, shape = RoundedCornerShape(10.dp), modifier = modifier) {
+        Column(
+            Modifier.padding(vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(count.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(label, style = MaterialTheme.typography.labelSmall)
+        }
     }
 }

@@ -66,6 +66,7 @@ import com.cairn.reader.R
 import com.cairn.reader.data.prefs.AppPreferences
 import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
+import com.cairn.reader.data.prefs.ReviewScheduler
 import com.cairn.reader.data.prefs.SwipeAction
 import com.cairn.reader.data.prefs.ThemeMode
 
@@ -593,6 +594,64 @@ internal fun PrivacySection(prefs: AppPreferences, viewModel: SettingsViewModel)
 }
 
 // ─── About ───────────────────────────────────────────────────────────────────
+// ─── Review (spaced repetition) ───────────────────────────────────────────────
+private val ReviewMaxIntervalOptions = listOf(365, 1095, 1825, 3650, 36500)
+private val ReviewSessionSizeOptions = listOf(10, 20, 40, 60, 100, 200)
+
+private fun reviewMaxIntervalLabel(days: Int): String = when (days) {
+    365 -> "1 year"; 1095 -> "3 years"; 1825 -> "5 years"; 3650 -> "10 years"; 36500 -> "No cap"
+    else -> "$days days"
+}
+
+/**
+ * Spaced-repetition controls: which scheduler runs, and — for the advanced (FSRS) scheduler — the
+ * recall target and interval cap, plus how many cards a session pulls. The retention and cap chips
+ * are hidden under the basic scheduler, which doesn't use them.
+ */
+@Composable
+internal fun ReviewSettingsSection(prefs: AppPreferences, viewModel: SettingsViewModel) {
+    val advanced = prefs.reviewScheduler == ReviewScheduler.ADVANCED
+    SettingsGroup("Review") {
+        ChipsBlock(
+            label = stringResource(R.string.review_scheduler_label),
+            options = listOf(
+                ReviewScheduler.ADVANCED to stringResource(R.string.review_scheduler_advanced),
+                ReviewScheduler.BASIC to stringResource(R.string.review_scheduler_basic),
+            ),
+            selected = prefs.reviewScheduler,
+            onSelect = viewModel::setReviewScheduler,
+            caption = if (advanced) stringResource(R.string.review_scheduler_advanced_desc)
+            else stringResource(R.string.review_scheduler_basic_desc),
+        )
+        if (advanced) {
+            SettingDivider()
+            ChipsBlock(
+                label = stringResource(R.string.review_retention_label),
+                options = listOf(0.80f to "80%", 0.85f to "85%", 0.90f to "90%", 0.95f to "95%"),
+                selected = prefs.reviewRetention,
+                onSelect = viewModel::setReviewRetention,
+                caption = stringResource(R.string.review_retention_desc),
+            )
+            SettingDivider()
+            ChipsBlock(
+                label = stringResource(R.string.review_max_interval_label),
+                options = ReviewMaxIntervalOptions.map { it to reviewMaxIntervalLabel(it) },
+                selected = prefs.reviewMaxIntervalDays,
+                onSelect = viewModel::setReviewMaxIntervalDays,
+                caption = stringResource(R.string.review_max_interval_desc),
+            )
+        }
+        SettingDivider()
+        ChipsBlock(
+            label = stringResource(R.string.review_session_size_label),
+            options = ReviewSessionSizeOptions.map { it to it.toString() },
+            selected = prefs.reviewSessionSize,
+            onSelect = viewModel::setReviewSessionSize,
+            caption = stringResource(R.string.review_session_size_desc),
+        )
+    }
+}
+
 @Composable
 internal fun AboutSection() {
     val scheme = MaterialTheme.colorScheme

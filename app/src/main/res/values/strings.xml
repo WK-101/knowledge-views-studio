@@ -469,6 +469,27 @@
     <string name="review_grade_hard">Hard</string>
     <string name="review_grade_good">Good</string>
     <string name="review_grade_easy">Easy</string>
+    <!-- Review comprehensiveness -->
+    <string name="review_scheduler_basic">Basic</string>
+    <string name="review_scheduler_advanced">Advanced</string>
+    <string name="review_scheduler_label">Scheduler</string>
+    <string name="review_scheduler_basic_desc">Classic SM-2 ease ladder — simple and predictable.</string>
+    <string name="review_scheduler_advanced_desc">FSRS-5 — models memory strength and adapts to each highlight.</string>
+    <string name="review_retention_label">Target recall</string>
+    <string name="review_retention_desc">How likely you want to be to remember a highlight when it comes due. Higher means more frequent reviews.</string>
+    <string name="review_max_interval_label">Maximum interval</string>
+    <string name="review_max_interval_desc">Cap on how far out a mature highlight can be scheduled.</string>
+    <string name="review_session_size_label">Cards per session</string>
+    <string name="review_session_size_desc">How many due highlights one review session pulls.</string>
+    <string name="review_memory_strength">Memory strength</string>
+    <string name="review_memory_new">New highlight</string>
+    <string name="review_memory_detail">Stable for %1$s · difficulty %2$d%%</string>
+    <string name="review_summary_reviewed">Reviewed</string>
+    <string name="review_summary_accuracy">Recalled first try</string>
+    <string name="review_days">%1$dd</string>
+    <string name="review_months">%1$dmo</string>
+    <string name="review_years">%1$dy</string>
+    <string name="review_interval_soon">soon</string>
 
     <!-- i18n sweep: Data forever -->
     <string name="data_forever_safe">%1$s · %2$s safe on this device</string>

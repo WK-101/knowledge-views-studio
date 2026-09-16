@@ -74,6 +74,11 @@ data class ReviewCard(
     val srEase: Int,
     val srReps: Int,
     val srLapses: Int,
+    // FSRS (advanced scheduler) state; zero stability = not yet seeded.
+    val srStability: Double,
+    val srDifficulty: Double,
+    val srPhase: Int,
+    val srLastReviewedAt: Long?,
 )
 
 /** A highlight joined with the article it belongs to, for the notebook and exports. */
@@ -158,7 +163,9 @@ interface HighlightDao {
         """
         SELECT h.id AS id, h.itemId AS itemId, h.quote AS quote, h.note AS note, h.color AS color,
                i.title AS articleTitle, i.siteName AS articleSite,
-               h.srInterval AS srInterval, h.srEase AS srEase, h.srReps AS srReps, h.srLapses AS srLapses
+               h.srInterval AS srInterval, h.srEase AS srEase, h.srReps AS srReps, h.srLapses AS srLapses,
+               h.srStability AS srStability, h.srDifficulty AS srDifficulty, h.srPhase AS srPhase,
+               h.srLastReviewedAt AS srLastReviewedAt
         FROM highlights h JOIN items i ON i.id = h.itemId
         WHERE h.srDueAt IS NULL OR h.srDueAt <= :now
         ORDER BY (h.srDueAt IS NULL) DESC, h.srDueAt ASC, h.createdAt ASC
@@ -169,6 +176,28 @@ interface HighlightDao {
 
     @Query("UPDATE highlights SET srDueAt = :dueAt, srInterval = :interval, srEase = :ease, srReps = :reps, srLapses = :lapses, srLastReviewedAt = :reviewedAt WHERE id = :id")
     suspend fun updateSr(id: String, dueAt: Long?, interval: Int, ease: Int, reps: Int, lapses: Int, reviewedAt: Long)
+
+    /** Persist FSRS (advanced) memory state after a review. srInterval mirrors the day-interval so the
+     *  "due count" and legacy queries keep working; srEase is left untouched (SM-2 keeps its own value
+     *  so a user can switch schedulers back without losing either model's state). */
+    @Query(
+        """
+        UPDATE highlights SET srDueAt = :dueAt, srInterval = :interval, srReps = :reps, srLapses = :lapses,
+               srStability = :stability, srDifficulty = :difficulty, srPhase = :phase, srLastReviewedAt = :reviewedAt
+        WHERE id = :id
+        """
+    )
+    suspend fun updateSrFsrs(
+        id: String,
+        dueAt: Long?,
+        interval: Int,
+        reps: Int,
+        lapses: Int,
+        stability: Double,
+        difficulty: Double,
+        phase: Int,
+        reviewedAt: Long,
+    )
 }
 
 /** A collection with the number of items filed directly in it, for the library tree. */

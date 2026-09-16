@@ -135,9 +135,9 @@ enum class SettingsCategory(
     ),
     TOOLS(
         "Tools",
-        "Highlights, rules and insights",
+        "Highlights, review, rules and insights",
         Icons.Outlined.Bolt,
-        "highlights notes notebook rules automation auto tag star file skip insights private reading stats top picks",
+        "highlights notes notebook review spaced repetition recall flashcard fsrs sm2 scheduler retention interval session rules automation auto tag star file skip insights private reading stats top picks",
     ),
     ABOUT(
         "About",
@@ -403,6 +403,7 @@ private fun SettingsDetail(
                         ruleCount = ruleCount,
                     )
                 }
+                item { ReviewSettingsSection(prefs, viewModel) }
             }
             SettingsCategory.ABOUT -> {
                 item { AboutSection() }
