@@ -695,16 +695,16 @@ private fun Header(h: com.todocompanion.app.data.entity.HabitEntity, color: Colo
     }
 }
 
+// Routes through the canonical AppCard so every habit-detail section shares the one card radius,
+// tonal colour and elevation instead of a private Surface clone.
 @Composable
 private fun SectionCard(title: String? = null, content: @Composable ColumnScope.() -> Unit) {
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = appCardColor()) {
-        Column(Modifier.fillMaxWidth().padding(16.dp)) {
-            if (title != null) {
-                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(12.dp))
-            }
-            content()
+    com.todocompanion.app.ui.components.AppCard(padding = 16.dp) {
+        if (title != null) {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(12.dp))
         }
+        content()
     }
 }
 

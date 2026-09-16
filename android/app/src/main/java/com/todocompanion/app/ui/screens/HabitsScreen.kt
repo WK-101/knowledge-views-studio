@@ -1385,12 +1385,11 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     }
 }
 
-/** A rounded surface section for the habit editor, matching the app's card language. */
+/** The habit editor's card — now the app's one card grammar (canonical AppCard), so it matches
+ *  every other card's radius, tonal colour and elevation instead of a private 18dp Surface. */
 @Composable
 private fun EditorCard(content: @Composable ColumnScope.() -> Unit) {
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), content = content)
-    }
+    com.todocompanion.app.ui.components.AppCard(padding = 16.dp, content = content)
 }
 
 
