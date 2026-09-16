@@ -38,7 +38,6 @@ import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.RssFeed
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -65,7 +64,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cairn.reader.data.db.FeedUnread
 import com.cairn.reader.ui.inbox.DrawerSelection
-import com.cairn.reader.ui.inbox.InboxFilter
 
 /**
  * The navigation drawer, modelled on Inoreader's: a branded header, a set of fixed hubs
@@ -77,9 +75,7 @@ fun FeedDrawerContent(
     totalArticles: Int,
     feeds: List<FeedUnread>,
     selection: DrawerSelection,
-    filter: InboxFilter,
     onAllArticles: () -> Unit,
-    onStarred: () -> Unit,
     onSelectFeed: (FeedUnread) -> Unit,
     onSelectFolder: (String) -> Unit,
     onMarkFeedRead: (String) -> Unit,
@@ -113,8 +109,7 @@ fun FeedDrawerContent(
     val grouped = feeds.filter { !it.folder.isNullOrBlank() }.groupBy { it.folder!! }
     val loose = feeds.filter { it.folder.isNullOrBlank() }
 
-    val allSelected = selection is DrawerSelection.All && filter != InboxFilter.STARRED
-    val starredSelected = filter == InboxFilter.STARRED
+    val allSelected = selection is DrawerSelection.All
 
     Column(
         Modifier
@@ -150,13 +145,6 @@ fun FeedDrawerContent(
             icon = { Icon(Icons.AutoMirrored.Outlined.Article, contentDescription = null) },
             badge = { if (totalArticles > 0) Text("$totalArticles") },
             onClick = onAllArticles,
-            modifier = Modifier.padding(itemPad),
-        )
-        NavigationDrawerItem(
-            label = { Text(stringResource(R.string.starred)) },
-            selected = starredSelected,
-            icon = { Icon(Icons.Outlined.StarOutline, contentDescription = null) },
-            onClick = onStarred,
             modifier = Modifier.padding(itemPad),
         )
         NavigationDrawerItem(

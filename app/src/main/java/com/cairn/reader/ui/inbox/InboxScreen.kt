@@ -237,7 +237,9 @@ internal fun InboxScreen(
                     }
                 }
             }
-            // Scroll-to-top FAB: appears once the list is scrolled a few rows down, above the "+" FAB.
+            // Scroll-to-top FAB: appears once the list is scrolled a few rows down. It sits in the
+            // bottom-START corner so it never overlaps the shell's bottom-END "+" Add-feed FAB
+            // (they previously stacked in the same corner and read as two buttons).
             val showScrollTop by remember { derivedStateOf { listState.firstVisibleItemIndex > 4 } }
             if (showScrollTop) {
                 Box(Modifier.fillMaxSize()) {
@@ -246,8 +248,8 @@ internal fun InboxScreen(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(end = 4.dp, bottom = 80.dp),
+                            .align(Alignment.BottomStart)
+                            .padding(start = 16.dp, bottom = padding.calculateBottomPadding() + 16.dp),
                     ) {
                         Icon(Icons.Filled.KeyboardArrowUp, contentDescription = stringResource(R.string.scroll_to_top))
                     }
