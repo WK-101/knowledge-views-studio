@@ -22,6 +22,7 @@ import com.cairn.reader.ui.onboarding.OnboardingScreen
 import com.cairn.reader.ui.reader.ReaderScreen
 import com.cairn.reader.ui.search.SearchScreen
 import com.cairn.reader.ui.settings.OfflineScreen
+import com.cairn.reader.ui.transcript.TranscriptScreen
 import com.cairn.reader.ui.theme.CairnTheme
 import com.cairn.reader.ui.web.WebRoute
 import com.cairn.reader.ui.web.WebScreen
@@ -74,6 +75,7 @@ fun CairnRoot(
         }
         val navController = rememberNavController()
         val openWeb: (String) -> Unit = { url -> navController.navigate("web/${WebRoute.encode(url)}") }
+        val openTranscript: (String) -> Unit = { id -> navController.navigate("transcript/$id") }
         // A notification tap arrives as openItemId — open that article once.
         androidx.compose.runtime.LaunchedEffect(openItemId) {
             openItemId?.let {
@@ -107,6 +109,7 @@ fun CairnRoot(
                 ReaderScreen(
                     onBack = { navController.popBackStack() },
                     onOpenWeb = openWeb,
+                    onOpenTranscript = openTranscript,
                     // Flow to a neighbour article, replacing the current reader so Back still
                     // returns to the list rather than walking back through every article read.
                     onOpenItem = { neighbor ->
@@ -115,6 +118,15 @@ fun CairnRoot(
                             launchSingleTop = true
                         }
                     },
+                )
+            }
+            composable(
+                route = "transcript/{itemId}",
+                arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
+            ) { entry ->
+                TranscriptScreen(
+                    itemId = entry.arguments?.getString("itemId").orEmpty(),
+                    onBack = { navController.popBackStack() },
                 )
             }
             composable(

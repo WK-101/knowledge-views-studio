@@ -471,6 +471,62 @@
     <string name="review_grade_hard">Difícil</string>
     <string name="review_grade_good">Bien</string>
     <string name="review_grade_easy">Fácil</string>
+    <!-- Repaso: nivel avanzado -->
+    <string name="review_scheduler_basic">Básico</string>
+    <string name="review_scheduler_advanced">Avanzado</string>
+    <string name="review_scheduler_label">Programador</string>
+    <string name="review_scheduler_basic_desc">Escala de facilidad SM-2 clásica: simple y predecible.</string>
+    <string name="review_scheduler_advanced_desc">FSRS-5: modela la fuerza de la memoria y se adapta a cada subrayado.</string>
+    <string name="review_retention_label">Retención objetivo</string>
+    <string name="review_retention_desc">Con qué probabilidad quieres recordar un subrayado cuando toque repasarlo. Más alto significa repasos más frecuentes.</string>
+    <string name="review_max_interval_label">Intervalo máximo</string>
+    <string name="review_max_interval_desc">Límite de cuánto puede posponerse un subrayado ya consolidado.</string>
+    <string name="review_session_size_label">Tarjetas por sesión</string>
+    <string name="review_session_size_desc">Cuántos subrayados pendientes trae una sesión de repaso.</string>
+    <string name="review_memory_strength">Fuerza de memoria</string>
+    <string name="review_memory_new">Subrayado nuevo</string>
+    <string name="review_memory_detail">Estable por %1$s · dificultad %2$d%%</string>
+    <string name="review_summary_reviewed">Repasados</string>
+    <string name="review_summary_accuracy">Acertados al primer intento</string>
+    <string name="review_days">%1$dd</string>
+    <string name="review_months">%1$dme</string>
+    <string name="review_years">%1$da</string>
+    <string name="review_interval_soon">pronto</string>
+
+    <!-- Transcripción -->
+    <string name="transcript">Transcripción</string>
+    <string name="transcript_keep_whole">Guardar transcripción completa</string>
+    <string name="transcript_keep_whole_desc">Guarda la transcripción completa en este dispositivo para tenerla sin conexión.</string>
+    <string name="transcript_highlight_hint">Toca una línea para saltar a ella. Subraya una línea para guardarla como anotación con marca de tiempo.</string>
+    <string name="transcript_highlight">Subrayar</string>
+    <string name="transcript_source_youtube">Subtítulos de YouTube</string>
+    <string name="transcript_source_podcast">Transcripción del pódcast</string>
+    <string name="transcript_source_file">Subtítulos</string>
+    <string name="transcript_source_ondevice">Transcripción en el dispositivo</string>
+    <string name="transcript_unavailable_title">No se encontró transcripción</string>
+    <string name="transcript_unavailable_body">Este contenido no publica subtítulos que Cairn pueda obtener.</string>
+    <string name="transcript_ondevice_title">Transcripción en el dispositivo</string>
+    <string name="transcript_ondevice_ready">Genera una transcripción del audio en este dispositivo; no se sube nada.</string>
+    <string name="transcript_ondevice_needs_model">La transcripción en el dispositivo necesita descargar un modelo de voz en Ajustes → Transcripción.</string>
+    <string name="transcript_ondevice_unsupported">La transcripción en el dispositivo aún no está disponible en esta versión. Cairn sigue mostrando los subtítulos del editor cuando existen.</string>
+    <string name="transcript_error">No se pudo cargar la transcripción.</string>
+    <string name="rewind">Retroceder</string>
+    <string name="forward">Avanzar</string>
+    <string name="play">Reproducir</string>
+    <string name="pause">Pausar</string>
+
+    <!-- Ajustes: Transcripción -->
+    <string name="transcription">Transcripción</string>
+    <string name="transcription_desc">Subtítulos y voz a texto en el dispositivo para vídeos y pódcasts</string>
+    <string name="transcription_captions_first">Buscar subtítulos primero</string>
+    <string name="transcription_captions_first_desc">Prefiere los subtítulos ya publicados (YouTube, transcripciones de pódcast) antes de generar uno en el dispositivo.</string>
+    <string name="transcription_ondevice_group">Modelo de voz en el dispositivo</string>
+    <string name="transcription_ondevice_status_unsupported">El motor de voz en el dispositivo aún no viene en esta versión. Los subtítulos siguen funcionando donde se publican.</string>
+    <string name="transcription_ondevice_status_ready">Listo: las transcripciones se generan de forma privada en este dispositivo.</string>
+    <string name="transcription_model_installed">Instalado</string>
+    <string name="transcription_model_download">Descargar</string>
+    <string name="transcription_model_delete">Eliminar</string>
+    <string name="transcription_models_size">Los modelos de voz usan %1$s en este dispositivo.</string>
 
     <!-- i18n sweep: Data forever -->
     <string name="data_forever_safe">%1$s · %2$s a salvo en este dispositivo</string>

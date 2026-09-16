@@ -491,6 +491,41 @@
     <string name="review_years">%1$dy</string>
     <string name="review_interval_soon">soon</string>
 
+    <!-- Transcript -->
+    <string name="transcript">Transcript</string>
+    <string name="transcript_keep_whole">Keep whole transcript</string>
+    <string name="transcript_keep_whole_desc">Store the full transcript on this device so it stays available offline.</string>
+    <string name="transcript_highlight_hint">Tap a line to jump to it. Highlight a line to save it as a timestamped annotation.</string>
+    <string name="transcript_highlight">Highlight</string>
+    <string name="transcript_source_youtube">YouTube captions</string>
+    <string name="transcript_source_podcast">Podcast transcript</string>
+    <string name="transcript_source_file">Captions</string>
+    <string name="transcript_source_ondevice">On-device transcription</string>
+    <string name="transcript_unavailable_title">No transcript found</string>
+    <string name="transcript_unavailable_body">This media doesn\'t publish captions Cairn can fetch.</string>
+    <string name="transcript_ondevice_title">On-device transcription</string>
+    <string name="transcript_ondevice_ready">Generate a transcript from the audio on this device — nothing is uploaded.</string>
+    <string name="transcript_ondevice_needs_model">On-device transcription needs a one-time speech-model download in Settings → Transcription.</string>
+    <string name="transcript_ondevice_unsupported">On-device transcription isn\'t available in this build yet. Cairn still shows a publisher\'s captions whenever they exist.</string>
+    <string name="transcript_error">Couldn\'t load the transcript.</string>
+    <string name="rewind">Rewind</string>
+    <string name="forward">Forward</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+
+    <!-- Settings: Transcription -->
+    <string name="transcription">Transcription</string>
+    <string name="transcription_desc">Captions and on-device speech-to-text for videos and podcasts</string>
+    <string name="transcription_captions_first">Fetch captions first</string>
+    <string name="transcription_captions_first_desc">Prefer a publisher\'s existing captions (YouTube, podcast transcripts) before generating one on-device.</string>
+    <string name="transcription_ondevice_group">On-device speech model</string>
+    <string name="transcription_ondevice_status_unsupported">The on-device speech engine isn\'t bundled in this build yet. Captions still work everywhere they\'re published.</string>
+    <string name="transcription_ondevice_status_ready">Ready — transcripts are generated privately on this device.</string>
+    <string name="transcription_model_installed">Installed</string>
+    <string name="transcription_model_download">Download</string>
+    <string name="transcription_model_delete">Delete</string>
+    <string name="transcription_models_size">Speech models use %1$s on this device.</string>
+
     <!-- i18n sweep: Data forever -->
     <string name="data_forever_safe">%1$s · %2$s safe on this device</string>
 

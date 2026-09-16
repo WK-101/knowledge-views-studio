@@ -137,7 +137,7 @@ enum class SettingsCategory(
         "Tools",
         "Highlights, review, rules and insights",
         Icons.Outlined.Bolt,
-        "highlights notes notebook review spaced repetition recall flashcard fsrs sm2 scheduler retention interval session rules automation auto tag star file skip insights private reading stats top picks",
+        "highlights notes notebook review spaced repetition recall flashcard fsrs sm2 scheduler retention interval session transcript transcription captions subtitles youtube podcast video whisper speech to text on device model rules automation auto tag star file skip insights private reading stats top picks",
     ),
     ABOUT(
         "About",
@@ -404,6 +404,7 @@ private fun SettingsDetail(
                     )
                 }
                 item { ReviewSettingsSection(prefs, viewModel) }
+                item { TranscriptionSettingsSection() }
             }
             SettingsCategory.ABOUT -> {
                 item { AboutSection() }

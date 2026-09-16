@@ -62,6 +62,8 @@ class XmlFeedParser @Inject constructor() : FeedParser {
         var imageUrl: String? = null
         var audioUrl: String? = null
         var commentsUrl: String? = null
+        var transcriptUrl: String? = null
+        var transcriptRank = -1
 
         while (true) {
             val event = parser.next()
@@ -109,6 +111,23 @@ class XmlFeedParser @Inject constructor() : FeedParser {
                     }
                 }
                 "thumbnail" -> if (imageUrl == null) imageUrl = attr(parser, "url")
+                // Podcasting 2.0 <podcast:transcript url=.. type=..> (namespace-unaware → local "transcript").
+                // A feed may list several formats; prefer JSON > VTT/SRT > other, and avoid the HTML variant.
+                "transcript" -> {
+                    val tUrl = attr(parser, "url")
+                    if (!tUrl.isNullOrBlank()) {
+                        val tType = attr(parser, "type").orEmpty().lowercase()
+                        val lu = tUrl.lowercase()
+                        val rank = when {
+                            tType.contains("json") || lu.contains(".json") -> 3
+                            tType.contains("vtt") || lu.contains(".vtt") -> 2
+                            tType.contains("srt") || tType.contains("subrip") || lu.contains(".srt") -> 2
+                            tType.contains("html") -> 0
+                            else -> 1
+                        }
+                        if (rank > transcriptRank) { transcriptUrl = tUrl; transcriptRank = rank }
+                    }
+                }
             }
         }
         return ParsedItem(
@@ -122,6 +141,7 @@ class XmlFeedParser @Inject constructor() : FeedParser {
             imageUrl = imageUrl?.trim(),
             audioUrl = audioUrl?.trim(),
             commentsUrl = commentsUrl?.trim(),
+            transcriptUrl = transcriptUrl?.trim(),
         )
     }
 

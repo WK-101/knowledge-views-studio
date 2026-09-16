@@ -56,6 +56,7 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -223,6 +224,70 @@ internal fun WebDavBackupSection(
                     Toast.makeText(context, "Self-hosted backup turned off", Toast.LENGTH_SHORT).show()
                 },
             ) { Text(stringResource(R.string.off)) }
+        }
+    }
+}
+
+/**
+ * Settings → Transcription: how Cairn turns podcasts and videos into text. Captions are fetched
+ * automatically when a publisher provides them; the on-device speech engine (Whisper) is offered
+ * here for media without captions. When the native speech pack isn't in this build, the status is
+ * honest about it and no misleading download is shown; the open-source model files can still be
+ * managed so the feature lights up the moment the pack lands.
+ */
+@Composable
+internal fun TranscriptionSettingsSection(viewModel: TranscriptionSettingsViewModel = hiltViewModel()) {
+    val scheme = MaterialTheme.colorScheme
+    val context = LocalContext.current
+    val rows by viewModel.rows.collectAsStateWithLifecycle()
+    val installedBytes by viewModel.installedBytes.collectAsStateWithLifecycle()
+    val downloading by viewModel.downloading.collectAsStateWithLifecycle()
+
+    SettingsGroup(stringResource(R.string.transcription)) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Text(stringResource(R.string.transcription_desc), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                if (viewModel.supported) stringResource(R.string.transcription_ondevice_status_ready)
+                else stringResource(R.string.transcription_ondevice_status_unsupported),
+                style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+            )
+        }
+        // Model management is only meaningful (and only offered) when the engine can actually run.
+        if (viewModel.supported) {
+            SettingDivider()
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Text(stringResource(R.string.transcription_ondevice_group), style = MaterialTheme.typography.labelLarge, color = scheme.onSurface)
+                rows.forEach { row ->
+                    Spacer(Modifier.height(10.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(row.label, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
+                            Text("~${row.approxMb} MB", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        }
+                        val active = downloading?.first == row.id
+                        when {
+                            active -> LinearProgressIndicator(
+                                progress = { downloading?.second ?: 0f },
+                                modifier = Modifier.width(96.dp),
+                            )
+                            row.installed -> TextButton(onClick = { viewModel.delete(row.id) }) {
+                                Text(stringResource(R.string.transcription_model_delete))
+                            }
+                            else -> OutlinedButton(onClick = { viewModel.download(row.id) }, enabled = downloading == null) {
+                                Text(stringResource(R.string.transcription_model_download))
+                            }
+                        }
+                    }
+                }
+                if (installedBytes > 0) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        stringResource(R.string.transcription_models_size, com.cairn.reader.util.formatBytes(context, installedBytes)),
+                        style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
     }
 }

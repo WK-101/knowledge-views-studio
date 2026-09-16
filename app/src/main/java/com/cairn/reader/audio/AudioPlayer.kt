@@ -98,6 +98,19 @@ class AudioPlayer @Inject constructor(
         }
     }
 
+    /** Jump to an absolute position (ms), clamped to the episode. Used by transcript tap-to-seek. */
+    fun seekTo(positionMs: Int) {
+        val p = player ?: return
+        runCatching {
+            val pos = positionMs.coerceIn(0, p.duration.coerceAtLeast(0))
+            p.seekTo(pos)
+            _state.update { it.copy(positionMs = pos) }
+        }
+    }
+
+    /** True when an episode is loaded (so a transcript can drive/seek it). */
+    fun isActiveFor(): Boolean = player != null
+
     fun stop() {
         teardown()
         _state.value = State()

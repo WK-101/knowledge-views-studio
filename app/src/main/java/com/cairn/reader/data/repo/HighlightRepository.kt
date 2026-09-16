@@ -95,6 +95,33 @@ class HighlightRepository @Inject constructor(
         enqueue("addHighlight", itemId, id, now)
     }
 
+    /**
+     * Add a transcript annotation: a highlight anchored to a media timestamp rather than an article
+     * block. The time range is stored in the selector columns as `t:<ms>` so the transcript screen
+     * can re-mark and seek to it, and the note carries a human `[mm:ss]` stamp so the annotation
+     * reads as a proper, timestamped quote everywhere it appears (notebook, exports, share).
+     */
+    suspend fun addTimestamped(itemId: String, startMs: Long, endMs: Long, quote: String, color: Int, note: String? = null): String {
+        val now = clock()
+        val id = UUID.randomUUID().toString()
+        highlightDao.upsert(
+            HighlightEntity(
+                id = id,
+                itemId = itemId,
+                quote = quote,
+                note = note?.ifBlank { null },
+                color = color,
+                startSelector = "t:$startMs",
+                startOffset = 0,
+                endSelector = "t:$endMs",
+                endOffset = 0,
+                createdAt = now,
+            ),
+        )
+        enqueue("addHighlight", itemId, id, now)
+        return id
+    }
+
     suspend fun setNote(id: String, itemId: String, note: String?) {
         highlightDao.setNote(id, note?.ifBlank { null })
         enqueue("setHighlightNote", itemId, id, clock())

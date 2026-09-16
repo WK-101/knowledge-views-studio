@@ -22,8 +22,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TombstoneEntity::class,
         SyncOpEntity::class,
         RuleEntity::class,
+        TranscriptEntity::class,
     ],
-    version = 18,
+    version = 19,
     exportSchema = true,
     autoMigrations = [
         // v14 → v15: drop the legacy items.collectionId column. The item_collections join table is
@@ -45,6 +46,7 @@ abstract class CairnDatabase : RoomDatabase() {
     abstract fun syncDao(): SyncDao
     abstract fun ruleDao(): RuleDao
     abstract fun insightsDao(): InsightsDao
+    abstract fun transcriptDao(): TranscriptDao
 }
 
 /** v1 → v2: the Raindrop-style library. Adds nullable columns only, so existing
@@ -219,5 +221,29 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
         db.execSQL("ALTER TABLE highlights ADD COLUMN srStability REAL NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE highlights ADD COLUMN srDifficulty REAL NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE highlights ADD COLUMN srPhase INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** v19: in-app transcripts. Adds the nullable items.transcriptUrl (a feed's <podcast:transcript>)
+ *  and the transcripts table that holds a saved, timed transcript per item. Both are additive, so
+ *  no existing row changes. */
+val MIGRATION_18_19 = object : Migration(18, 19) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE items ADD COLUMN transcriptUrl TEXT")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS transcripts (
+                itemId TEXT NOT NULL PRIMARY KEY,
+                cuesJson TEXT NOT NULL,
+                language TEXT,
+                source TEXT NOT NULL,
+                cueCount INTEGER NOT NULL,
+                durationMs INTEGER NOT NULL,
+                savedAt INTEGER NOT NULL,
+                FOREIGN KEY(itemId) REFERENCES items(id) ON DELETE CASCADE
+            )
+            """.trimIndent(),
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_transcripts_itemId ON transcripts(itemId)")
     }
 }

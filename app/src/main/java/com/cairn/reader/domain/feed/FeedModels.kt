@@ -20,6 +20,8 @@ data class ParsedItem(
     val imageUrl: String?,
     val audioUrl: String? = null,
     val commentsUrl: String? = null,
+    /** Podcasting 2.0 `<podcast:transcript url=.. type=..>`, best machine-readable variant. */
+    val transcriptUrl: String? = null,
 )
 
 /** Pluggable feed parser. In-house [XmlFeedParser] is the default; Rome/RSSParser could

@@ -94,6 +94,9 @@ data class ItemEntity(
     val cacheStatus: String? = null,
     // v1.6: audio enclosure URL for podcast items (nullable → v2→v3 migration adds it).
     val enclosureUrl: String? = null,
+    // v19: Podcasting 2.0 <podcast:transcript> URL, if the feed declared one for this episode.
+    // Powers the in-app transcript screen without any speech-to-text. Migration 18→19 adds it.
+    val transcriptUrl: String? = null,
     // v3.44: soft-delete. Non-null = the item is in the Trash (hidden everywhere but the Trash
     // screen, restorable, auto-purged after a grace period). Migration 7→8 adds the column.
     val trashedAt: Long? = null,
@@ -231,6 +234,31 @@ data class ItemFtsEntity(
     val title: String,
     val author: String? = null,
     val body: String? = null,
+)
+
+/**
+ * A saved transcript for a media item (podcast episode or video). One row per item; the cues are
+ * stored as a compact JSON array in [cuesJson] so the whole timed transcript travels with the row
+ * (and rides the SQLCipher encryption + the normal backup). Only present when the user chose to keep
+ * the whole transcript — highlighted cues are also saved separately as annotations (highlights).
+ */
+@Entity(
+    tableName = "transcripts",
+    foreignKeys = [
+        ForeignKey(entity = ItemEntity::class, parentColumns = ["id"], childColumns = ["itemId"], onDelete = ForeignKey.CASCADE),
+    ],
+    indices = [Index("itemId")],
+)
+data class TranscriptEntity(
+    @PrimaryKey val itemId: String,
+    /** JSON array of cues: [{"s":startMs,"e":endMs,"t":"text"}, …]. */
+    val cuesJson: String,
+    val language: String? = null,
+    /** TranscriptSourceKind.name — provenance for the UI. */
+    val source: String,
+    val cueCount: Int,
+    val durationMs: Long,
+    val savedAt: Long,
 )
 
 @Entity(tableName = "tombstones")

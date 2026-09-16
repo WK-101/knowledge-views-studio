@@ -65,6 +65,7 @@ import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Notes
+import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.MenuBook
@@ -201,6 +202,7 @@ fun ReaderScreen(
     onBack: () -> Unit,
     onOpenWeb: (String) -> Unit = {},
     onOpenItem: (String) -> Unit = {},
+    onOpenTranscript: (String) -> Unit = {},
     viewModel: ReaderViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -399,6 +401,15 @@ fun ReaderScreen(
                                     text = { Text(stringResource(R.string.related_articles)) },
                                     leadingIcon = { Icon(Icons.Outlined.Hub, contentDescription = null) },
                                     onClick = { showMenu = false; viewModel.loadRelated(); showRelated = true },
+                                )
+                            }
+                            // Transcript: only for playable media (podcasts, videos) where captions
+                            // or on-device speech-to-text can produce a timed, highlightable transcript.
+                            if (data?.type == ItemType.AUDIO.name || data?.type == ItemType.VIDEO.name) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.transcript)) },
+                                    leadingIcon = { Icon(Icons.Outlined.Subtitles, contentDescription = null) },
+                                    onClick = { showMenu = false; data?.id?.let(onOpenTranscript) },
                                 )
                             }
                             val permanent = CacheStatus.isPermanent(data?.cacheStatus)

@@ -594,6 +594,7 @@ class FeedRepository @Inject constructor(
             guid = p.guid ?: p.link,
             enclosureUrl = p.audioUrl,
             commentsUrl = p.commentsUrl?.let { if (stripTrackingEnabled()) com.cairn.reader.data.net.UrlCleaner.strip(it) else it },
+            transcriptUrl = p.transcriptUrl,
         )
         itemDao.insertItemWithState(entity, now)
         // On-device automation: run the user's rules against each genuinely-new item.
