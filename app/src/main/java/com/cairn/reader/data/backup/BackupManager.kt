@@ -33,6 +33,17 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
+ * Writes `"name":[ … ]` streaming each row through [toJson], with no whole-document buffer — the
+ * one array is written element-by-element straight to [this] writer. Shared by the streaming
+ * exporter; kept top-level and `internal` so its comma/bracket framing is unit-testable.
+ */
+internal fun <T> java.io.Writer.jsonArrayField(name: String, rows: List<T>, toJson: (T) -> org.json.JSONObject) {
+    write("\""); write(name); write("\":[")
+    rows.forEachIndexed { i, row -> if (i > 0) write(","); write(toJson(row).toString()) }
+    write("]")
+}
+
+/**
  * A full backup of the library — feeds (with all sync/per-feed settings), items (including
  * read/save/trash state), tags, collections, highlights, and every app setting — so the user
  * owns their data and can move it between devices. Two flavours:
@@ -94,31 +105,48 @@ class BackupManager @Inject constructor(
     }
 
     /**
-     * @param pretty indent the JSON for a human to read (manual export). The automated paths
-     *   (scheduled SAF backup, WebDAV, zip archive) pass `false`: indent-2 pretty-printing roughly
-     *   doubles the string a large library holds in memory before it's written, so compact output
-     *   keeps the unattended [com.cairn.reader.work.BackupWorker] well clear of an OOM.
-     *   (A full [android.util.JsonWriter] stream straight to the OutputStream would drop the
-     *   remaining in-memory copies entirely; that is a larger change gated on the instrumented
-     *   backup/restore round-trip test.)
+     * Stream the data backup as compact JSON straight to [out], reusing each entity's own `toJson()`
+     * so the document is byte-for-byte the shape [import] already reads. It holds one DAO list at a
+     * time and writes element-by-element instead of building the whole document, a pretty string and
+     * a byte array (the old ~3× peak), so the unattended [com.cairn.reader.work.BackupWorker] stays
+     * clear of an OOM even on a large library. The caller owns [out]: this flushes but never closes
+     * it, so it is safe to write straight into a zip entry.
+     */
+    suspend fun exportTo(out: OutputStream) = withContext(Dispatchers.IO) {
+        val w = out.bufferedWriter(Charsets.UTF_8)
+        w.write("{")
+        w.write("\"version\":3,")
+        w.write("\"exportedAt\":${System.currentTimeMillis()},")
+        w.write("\"filesRoot\":${JSONObject.quote(blobStore.filesRoot().absolutePath)},")
+        w.jsonArrayField("sources", sourceDao.getAll()) { it.toJson() }; w.write(",")
+        w.jsonArrayField("items", itemDao.allItems()) { it.toJson() }; w.write(",")
+        w.jsonArrayField("states", itemDao.allStates()) { it.toJson() }; w.write(",")
+        w.jsonArrayField("tags", tagDao.allTags()) { it.toJson() }; w.write(",")
+        w.jsonArrayField("itemTags", tagDao.allCrossRefs()) { it.toJson() }; w.write(",")
+        w.jsonArrayField("collections", collectionDao.all()) { it.toJson() }; w.write(",")
+        w.jsonArrayField("itemCollections", itemDao.allItemCollections()) {
+            JSONObject().apply { put("itemId", it.itemId); put("collectionId", it.collectionId) }
+        }; w.write(",")
+        w.jsonArrayField("highlights", highlightDao.all()) { it.toJson() }; w.write(",")
+        w.write("\"settings\":")
+        w.write(preferencesRepository.exportSettings().toString())
+        w.write("}")
+        w.flush()
+    }
+
+    /**
+     * The data backup as a JSON string, for the share sheet and WebDAV upload (both need the bytes
+     * in memory anyway). Delegates to [exportTo] so the document shape is defined in exactly one
+     * place. The automated file paths (scheduled SAF backup, zip archive) call [exportTo] directly
+     * and never materialize the string.
+     *
+     * @param pretty indent the JSON for a human reading the shared file.
      */
     suspend fun export(pretty: Boolean = true): String = withContext(Dispatchers.IO) {
-        val root = JSONObject()
-        root.put("version", 3)
-        root.put("exportedAt", System.currentTimeMillis())
-        root.put("filesRoot", blobStore.filesRoot().absolutePath)
-        root.put("sources", JSONArray().apply { sourceDao.getAll().forEach { put(it.toJson()) } })
-        root.put("items", JSONArray().apply { itemDao.allItems().forEach { put(it.toJson()) } })
-        root.put("states", JSONArray().apply { itemDao.allStates().forEach { put(it.toJson()) } })
-        root.put("tags", JSONArray().apply { tagDao.allTags().forEach { put(it.toJson()) } })
-        root.put("itemTags", JSONArray().apply { tagDao.allCrossRefs().forEach { put(it.toJson()) } })
-        root.put("collections", JSONArray().apply { collectionDao.all().forEach { put(it.toJson()) } })
-        root.put("itemCollections", JSONArray().apply {
-            itemDao.allItemCollections().forEach { put(JSONObject().apply { put("itemId", it.itemId); put("collectionId", it.collectionId) }) }
-        })
-        root.put("highlights", JSONArray().apply { highlightDao.all().forEach { put(it.toJson()) } })
-        root.put("settings", preferencesRepository.exportSettings())
-        if (pretty) root.toString(2) else root.toString()
+        val buf = ByteArrayOutputStream()
+        exportTo(buf)
+        val compact = buf.toString("UTF-8")
+        if (pretty) JSONObject(compact).toString(2) else compact
     }
 
     /**
@@ -236,7 +264,7 @@ class BackupManager @Inject constructor(
     suspend fun exportArchive(out: OutputStream) = withContext(Dispatchers.IO) {
         ZipOutputStream(out.buffered()).use { zip ->
             zip.putNextEntry(ZipEntry("backup.json"))
-            zip.write(export(pretty = false).toByteArray(Charsets.UTF_8))
+            exportTo(zip)
             zip.closeEntry()
             blobStore.archiveDirs().forEach { (name, d) ->
                 d.listFiles()?.filter { it.isFile }?.forEach { f ->
@@ -331,7 +359,9 @@ class BackupManager @Inject constructor(
                 exportArchive(buf)
                 name = "cairn-backup-$stamp.zip"; bytes = buf.toByteArray(); type = "application/zip"
             } else {
-                name = "cairn-backup-$stamp.json"; bytes = export(pretty = false).toByteArray(Charsets.UTF_8); type = "application/json"
+                val buf = ByteArrayOutputStream()
+                exportTo(buf)
+                name = "cairn-backup-$stamp.json"; bytes = buf.toByteArray(); type = "application/json"
             }
             webDavClient.put(cfg, name, bytes, type).getOrThrow()
             runCatching {
