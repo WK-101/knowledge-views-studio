@@ -362,6 +362,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     }
                 }
                 Spacer(Modifier.height(10.dp))
+                Sub("Journal (periodic notes)")
+                Toggle("Fold the period recap into daily/weekly/monthly/yearly notes", s.periodicRecapEmbed) { vm.setPeriodicRecapEmbed(it) }
+                Spacer(Modifier.height(10.dp))
                 Sub("Reading & typography")
                 Toggle("Live-style Markdown as I type", s.notesLiveStyle) { vm.setNotesLiveStyle(it) }
                 Spacer(Modifier.height(6.dp))

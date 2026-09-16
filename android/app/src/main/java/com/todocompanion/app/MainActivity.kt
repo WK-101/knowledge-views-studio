@@ -240,6 +240,10 @@ class MainActivity : FragmentActivity() {
                 "focus" -> return "open_focus"
                 // Phase F — the "Close your day" launcher shortcut lands directly in today's close flow.
                 "closeday" -> return "open_close_day"
+                // Periodic Notes: a new blank note, today's daily note, and the Journal hub.
+                "note" -> return "new_note"
+                "daily" -> return "new_daily_note"
+                "journal" -> return "open_journal"
             }
         }
         val shared = when (intent.action) {

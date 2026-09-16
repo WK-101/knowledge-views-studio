@@ -108,6 +108,10 @@
                 <data android:scheme="todocompanion" android:host="donext" />
                 <data android:scheme="todocompanion" android:host="focus" />
                 <data android:scheme="todocompanion" android:host="closeday" />
+                <!-- Periodic Notes: a new note, today's daily note, and the Journal hub. -->
+                <data android:scheme="todocompanion" android:host="note" />
+                <data android:scheme="todocompanion" android:host="daily" />
+                <data android:scheme="todocompanion" android:host="journal" />
             </intent-filter>
             <!-- H1: capture from the system share sheet — any app can share text into a new task. -->
             <intent-filter>
@@ -297,6 +301,18 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_quickadd_info" />
+        </receiver>
+
+        <!-- Notes widget: new note + today's daily note, both deep-linking into the editor. Offline. -->
+        <receiver
+            android:name=".widget.NoteWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_note_info" />
         </receiver>
 
         <!-- Stats widget: tasks done today + still due. Offline. -->

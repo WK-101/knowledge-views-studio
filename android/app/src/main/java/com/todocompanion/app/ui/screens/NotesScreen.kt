@@ -126,6 +126,7 @@ fun NotesScreen(
     onOpenGraph: () -> Unit = {},
     onOpenGarden: () -> Unit = {},
     onOpenRecall: () -> Unit = {},
+    onOpenJournal: () -> Unit = {},
 ) {
     val settings by vm.settings.collectAsState()
     val notes by vm.notes.collectAsState()
@@ -382,6 +383,7 @@ fun NotesScreen(
                             )
                         }
                         HorizontalDivider()
+                        DropdownMenuItem(text = { Text("🗓 Journal (daily · weekly · monthly · yearly)") }, onClick = { filterMenu = false; onOpenJournal() })
                         DropdownMenuItem(text = { Text("＋ Smart View") }, onClick = { filterMenu = false; showBuilder = true })
                         DropdownMenuItem(text = { Text("◉ Life graph") }, onClick = { filterMenu = false; onOpenGraph() })
                         DropdownMenuItem(text = { Text("🌱 Note garden") }, onClick = { filterMenu = false; onOpenGarden() })

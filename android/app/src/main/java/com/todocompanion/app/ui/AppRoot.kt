@@ -421,6 +421,8 @@ fun AppRoot(
         // Tier Ω: the command palette, the any-period recap overlay, and the annual-report picker.
         var showPalette by remember { mutableStateOf(false) }
         var recapRange by remember { mutableStateOf<Triple<Long, Long, String>?>(null) }
+        // Periodic Notes — the Journal hub overlay: (granularity, anchor epoch-day).
+        var periodicHub by remember { mutableStateOf<Pair<com.todocompanion.app.domain.PeriodRange, Long>?>(null) }
         var showAnnual by remember { mutableStateOf(false) }
         var showTimeStats by remember { mutableStateOf(false) }   // Time tab → Statistics overlay
         // G4 interactive time-blocking: which (day, minute) slot the user tapped on the calendar.
@@ -599,6 +601,10 @@ fun AppRoot(
                 a == "open_close_day" -> { dayReviewStartClose = true; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay(); launchAction.value = null }
                 a == "open_time" -> { showTimeTracking = true; launchAction.value = null }
                 a == "open_calendar" -> { tab = Tab.CALENDAR; launchAction.value = null }
+                // Periodic Notes: widget/shortcut deep links — a new blank note, today's daily note, the Journal hub.
+                a == "new_note" -> { vm.createNote { id -> editingNote = id }; launchAction.value = null }
+                a == "new_daily_note" -> { vm.openDailyNote(java.time.LocalDate.now().toEpochDay()) { id -> editingNote = id }; launchAction.value = null }
+                a == "open_journal" -> { periodicHub = com.todocompanion.app.domain.PeriodRange.DAY to java.time.LocalDate.now().toEpochDay(); launchAction.value = null }
                 a != null && a.startsWith(com.todocompanion.app.MainActivity.ACTION_TRACK_ACTIVITY) -> {
                     val id = a.removePrefix(com.todocompanion.app.MainActivity.ACTION_TRACK_ACTIVITY)
                     vm.startTimeTracking(id); showTimeTracking = true; launchAction.value = null
@@ -1056,7 +1062,7 @@ fun AppRoot(
                                 onOpenGoal = { showGoals = true },
                                 onOpenRoutine = { showRoutines = true })
                             Tab.SETTINGS -> SettingsScreen(vm)
-          Tab.NOTES -> com.todocompanion.app.ui.screens.NotesScreen(vm, onOpenNote = ::openNote, query = notesQuery, onQueryChange = { notesQuery = it }, searchOpen = notesSearchOpen, onOpenGraph = { showNotesGraph = true }, onOpenGarden = { showNotesGarden = true }, onOpenRecall = { showRecall = true })
+          Tab.NOTES -> com.todocompanion.app.ui.screens.NotesScreen(vm, onOpenNote = ::openNote, query = notesQuery, onQueryChange = { notesQuery = it }, searchOpen = notesSearchOpen, onOpenGraph = { showNotesGraph = true }, onOpenGarden = { showNotesGarden = true }, onOpenRecall = { showRecall = true }, onOpenJournal = { periodicHub = com.todocompanion.app.domain.PeriodRange.DAY to java.time.LocalDate.now().toEpochDay() })
                             Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it; if (settings.calendarRememberLast) vm.saveSettings(settings.copy(calendarDefaultMode = it)) },
                                 calAnchor, calSelected, { calAnchor = it }, { calSelected = it },
                                 onAddOnDate = { d ->
@@ -1228,6 +1234,12 @@ fun AppRoot(
                         "goals hub" to { showGoals = true }, "my goals" to { showGoals = true }, "goal" to { showGoals = true },
                         "life systems" to { vm.lifeSystemsRoute.value = "hub" }, "systems" to { vm.lifeSystemsRoute.value = "hub" }, "life" to { vm.lifeSystemsRoute.value = "hub" },
                         "notes graph" to { showNotesGraph = true }, "graph" to { showNotesGraph = true },
+                        // Periodic Notes — the Journal hub + one-tap period notes.
+                        "journal" to { periodicHub = com.todocompanion.app.domain.PeriodRange.DAY to now.toEpochDay() }, "periodic notes" to { periodicHub = com.todocompanion.app.domain.PeriodRange.DAY to now.toEpochDay() },
+                        "daily note" to { vm.openDailyNote(now.toEpochDay()) { id -> editingNote = id } }, "today's note" to { vm.openDailyNote(now.toEpochDay()) { id -> editingNote = id } }, "todays note" to { vm.openDailyNote(now.toEpochDay()) { id -> editingNote = id } },
+                        "weekly note" to { periodicHub = com.todocompanion.app.domain.PeriodRange.WEEK to now.toEpochDay() },
+                        "monthly note" to { periodicHub = com.todocompanion.app.domain.PeriodRange.MONTH to now.toEpochDay() },
+                        "yearly note" to { periodicHub = com.todocompanion.app.domain.PeriodRange.YEAR to now.toEpochDay() },
                         "notes garden" to { showNotesGarden = true }, "garden" to { showNotesGarden = true }, "review notes" to { showNotesGarden = true },
                         "recall" to { showRecall = true }, "active recall" to { showRecall = true },
                         "new note" to { vm.createNote { id -> editingNote = id } }, "add note" to { vm.createNote { id -> editingNote = id } },
@@ -1281,7 +1293,25 @@ fun AppRoot(
                 is OmegaCommand.Command.Ask -> {}   // answered inline in the palette
             }
         }
-        recapRange?.let { (s, e, t) -> RecapScreen(vm, s, e, t, onBack = { recapRange = null }) }
+        recapRange?.let { (s, e, t) -> RecapScreen(vm, s, e, t, onBack = { recapRange = null }, onOpenNote = { id -> recapRange = null; openNote(id) }) }
+        // Periodic Notes — the Journal hub. onOpenReview jumps to the matching review/recap for that period.
+        periodicHub?.let { (p, a) ->
+            com.todocompanion.app.ui.screens.PeriodicNotesScreen(
+                vm, initialPeriod = p, initialAnchor = a,
+                onOpenNote = { id -> periodicHub = null; openNote(id) },
+                onOpenReview = { rp, ra ->
+                    periodicHub = null
+                    val td = java.time.LocalDate.now().toEpochDay()
+                    val w = rp.window(ra, settings.weekStart, td)
+                    when (rp) {
+                        com.todocompanion.app.domain.PeriodRange.DAY -> { dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = w.startDay }
+                        com.todocompanion.app.domain.PeriodRange.WEEK -> { dayReviewStartClose = false; dayReviewStartWeekly = true; showDayReview = w.startDay }
+                        else -> recapRange = Triple(w.startDay, w.endDay, com.todocompanion.app.domain.PeriodicNotes.titleFor(rp, w.startDay))
+                    }
+                },
+                onBack = { periodicHub = null },
+            )
+        }
         if (showAnnual) {
             val yr = java.time.LocalDate.now().year
             AlertDialog(

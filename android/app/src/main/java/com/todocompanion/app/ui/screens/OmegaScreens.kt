@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AssistChip
@@ -95,6 +96,8 @@ private fun commandCatalog(s: com.todocompanion.app.domain.AppSettings): List<Pa
             add("Search everything" to "search deep work")
             add("Switch workspace" to "switch to work")
             if (notes) add("Open Notes" to "go to notes")
+            if (notes) add("Journal — daily/weekly/monthly/yearly" to "journal")
+            if (notes) add("Today's daily note" to "today's note")
             add("Open a smart list (Inbox, Scheduled, Trash…)" to "go to completed")
             add("Waiting On / Needs Attention / Someday" to "go to needs attention")
             add("Board / list view" to "board")
@@ -240,7 +243,7 @@ private fun FlowRowCompat(content: @Composable () -> Unit) {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RecapScreen(vm: AppViewModel, initialStartDay: Long, initialEndDay: Long, initialTitle: String, onBack: () -> Unit) {
+fun RecapScreen(vm: AppViewModel, initialStartDay: Long, initialEndDay: Long, initialTitle: String, onBack: () -> Unit, onOpenNote: (String) -> Unit = {}) {
     BackHandler(onBack = onBack)
     val settings by vm.settings.collectAsState()
     // Live, all-workspace task list: collecting it warms the flow AND re-runs the recap when tasks load,
@@ -350,7 +353,13 @@ fun RecapScreen(vm: AppViewModel, initialStartDay: Long, initialEndDay: Long, in
     Scaffold(topBar = {
         TopAppBar(expandedHeight = 52.dp, title = { Text("Recap") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-            actions = { if (recap.hasData) IconButton(onClick = { shareRecap() }) { Icon(Icons.Filled.Share, "Share recap") } })
+            actions = {
+                // Periodic Notes — open/create this period's note (its recap folds in automatically).
+                if (period != PeriodRange.ALL) IconButton(onClick = { vm.openPeriodicNote(period, anchor) { onOpenNote(it) } }) {
+                    Icon(Icons.Filled.EditNote, "Open this period's note")
+                }
+                if (recap.hasData) IconButton(onClick = { shareRecap() }) { Icon(Icons.Filled.Share, "Share recap") }
+            })
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -784,6 +784,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun setNotesSort(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesSort = v)) }
     fun setNotesNotebookMode(mode: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesNotebookMode = mode)) }
+    fun setPeriodicRecapEmbed(v: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(periodicRecapEmbed = v)) }
     // Wave Q — the reading experience: live-styling, reading theme, and typography setters.
     fun setNotesLiveStyle(v: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesLiveStyle = v)) }
     fun setNotesReadingTheme(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesReadingTheme = v)) }
@@ -873,6 +874,108 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         onOpen(existing?.id ?: repo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(
             id = "", kind = "journal", dayEpoch = epochDay, title = dayNoteTitle(epochDay), workspaceId = ws,
         )))
+    }
+
+    // ── Periodic Notes — one canonical note per day / week / month / year, linked to that period's review ──
+    // Storage reuses NoteEntity.kind (PeriodicNotes.kindFor) + the existing dayEpoch column as the period
+    // anchor (its first day). A note is matched by period-window membership so it survives a week-start
+    // change; daily notes keep their historical kind == "journal", so every daily-note feature keeps working.
+    private fun periodWindow(period: com.todocompanion.app.domain.PeriodRange, anchorDay: Long) =
+        period.window(anchorDay, settings.value.weekStart, today())
+
+    /** The id of the existing periodic note for [period] at [anchorDay], or null — a fast, synchronous
+     *  lookup over the active-workspace note flow (for calendar dots and "open vs create" affordances). */
+    fun periodicNoteId(period: com.todocompanion.app.domain.PeriodRange, anchorDay: Long): String? {
+        val kind = com.todocompanion.app.domain.PeriodicNotes.kindFor(period)
+        val win = periodWindow(period, anchorDay)
+        return notes.value.firstOrNull { it.kind == kind && (it.dayEpoch ?: Long.MIN_VALUE) in win.startDay..win.endDay }?.id
+    }
+
+    /** Open (creating if needed) the periodic note for [period] at [anchorDay]. Daily delegates to the
+     *  historical journal note; week/month/year seed a reflection scaffold and embed the live period recap. */
+    fun openPeriodicNote(period: com.todocompanion.app.domain.PeriodRange, anchorDay: Long, onOpen: (String) -> Unit) {
+        if (period == com.todocompanion.app.domain.PeriodRange.DAY || period == com.todocompanion.app.domain.PeriodRange.ALL) {
+            openDailyNote(minOf(anchorDay, today()), onOpen); return
+        }
+        viewModelScope.launch {
+            val ws = activeWorkspace()
+            val kind = com.todocompanion.app.domain.PeriodicNotes.kindFor(period)
+            val win = periodWindow(period, anchorDay)
+            val existing = repo.getNotesOnce().firstOrNull {
+                !it.trashed && it.workspaceId == ws && it.kind == kind && (it.dayEpoch ?: Long.MIN_VALUE) in win.startDay..win.endDay
+            }
+            if (existing != null) { onOpen(existing.id); return@launch }
+            val title = com.todocompanion.app.domain.PeriodicNotes.titleFor(period, win.startDay)
+            val id = repo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(
+                id = "", kind = kind, dayEpoch = win.startDay, title = title,
+                body = com.todocompanion.app.domain.PeriodicNotes.seedBody(period, title), workspaceId = ws,
+            ))
+            if (settings.value.periodicRecapEmbed) writePeriodDigestToNote(period, win.startDay, createIfMissing = false)
+            onOpen(id)
+        }
+    }
+
+    /** Render the period's recap as Markdown (folded via the same [PeriodRecap]/[ReviewRollup] the review
+     *  screens use), so a period note's embedded digest agrees with its review to the number. */
+    fun periodDigestMarkdown(period: com.todocompanion.app.domain.PeriodRange, startDay: Long, endDay: Long, title: String): String {
+        val recap = periodRecap(startDay, endDay, title)
+        if (!recap.hasData) return ""
+        return buildString {
+            append("## ").append(title).append("\n")
+            if (recap.narrative.isNotBlank()) append(recap.narrative).append("\n\n")
+            recap.lines.forEach { l ->
+                append("- ").append(l.icon).append(" ").append(l.label).append(": ").append(l.value)
+                if (l.delta != 0) append(" (").append(if (l.delta > 0) "+" else "").append(l.delta)
+                    .append(if (l.deltaUnit.isNotBlank()) " " + l.deltaUnit else "").append(" vs prior)")
+                append("\n")
+            }
+        }.trim()
+    }
+
+    /** Fold the period recap into the periodic note between the recap markers (idempotent replace), like
+     *  [writeDayRecapToNote] does for the day. Daily delegates to that. */
+    suspend fun writePeriodDigestToNote(period: com.todocompanion.app.domain.PeriodRange, anchorDay: Long, createIfMissing: Boolean) {
+        if (period == com.todocompanion.app.domain.PeriodRange.DAY) { writeDayRecapToNote(anchorDay, createIfMissing); return }
+        if (period == com.todocompanion.app.domain.PeriodRange.ALL) return
+        val ws = activeWorkspace()
+        val kind = com.todocompanion.app.domain.PeriodicNotes.kindFor(period)
+        val win = periodWindow(period, anchorDay)
+        val existing = repo.getNotesOnce().firstOrNull {
+            !it.trashed && it.workspaceId == ws && it.kind == kind && (it.dayEpoch ?: Long.MIN_VALUE) in win.startDay..win.endDay
+        }
+        if (existing == null && !createIfMissing) return
+        val title = com.todocompanion.app.domain.PeriodicNotes.titleFor(period, win.startDay)
+        val digest = periodDigestMarkdown(period, win.startDay, win.endDay, title).trim()
+        if (digest.isBlank()) return   // no data yet — never wipe an existing block with nothing
+        val block = "${com.todocompanion.app.domain.PeriodicNotes.RECAP_OPEN}\n$digest\n${com.todocompanion.app.domain.PeriodicNotes.RECAP_CLOSE}"
+        val base = existing?.body ?: com.todocompanion.app.domain.PeriodicNotes.seedBody(period, title)
+        val re = Regex("(?s)" + Regex.escape(com.todocompanion.app.domain.PeriodicNotes.RECAP_OPEN) + ".*?" + Regex.escape(com.todocompanion.app.domain.PeriodicNotes.RECAP_CLOSE))
+        val newBody = when {
+            re.containsMatchIn(base) -> re.replace(base) { block }
+            base.isBlank() -> block
+            else -> base.trimEnd() + "\n\n" + block
+        }
+        val note = existing ?: com.todocompanion.app.data.entity.NoteEntity(
+            id = "", kind = kind, dayEpoch = win.startDay, title = title, workspaceId = ws,
+        )
+        repo.upsertNote(note.copy(body = newBody))
+    }
+
+    /** Manual "save this period's recap to its note" (creates the note if needed). */
+    fun savePeriodRecapToNote(period: com.todocompanion.app.domain.PeriodRange, anchorDay: Long, onDone: () -> Unit = {}) = viewModelScope.launch {
+        writePeriodDigestToNote(period, anchorDay, createIfMissing = true); onDone()
+    }
+
+    /** The journaling streak: consecutive days ending today (or yesterday, if today isn't written yet)
+     *  that have a daily note — a gentle, shame-free "you've kept the thread" signal for the journal hub. */
+    fun journalStreak(): Int {
+        val days = notes.value.asSequence().filter { it.kind == "journal" }.mapNotNull { it.dayEpoch }.toHashSet()
+        if (days.isEmpty()) return 0
+        val t = today()
+        var cursor = when { t in days -> t; (t - 1) in days -> t - 1; else -> return 0 }
+        var n = 0
+        while (cursor in days) { n++; cursor-- }
+        return n
     }
 
     /** Open (creating if needed) the meeting note bound to a calendar event. */

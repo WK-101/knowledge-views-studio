@@ -277,6 +277,9 @@ data class AppSettings(
     // User-defined note templates, as a JSON array of {id,name,emoji,titleHint,body}. Sits beside the
     // built-in starter templates in the picker; local + rides the settings backup.
     val notesTemplatesJson: String = "",
+    // Periodic notes (day/week/month/year). When on, opening/creating a period note auto-embeds that
+    // period's live recap digest between the recap markers, keeping the note in step with its review.
+    val periodicRecapEmbed: Boolean = true,
     // Sidebar section keys currently collapsed (persisted so folds survive an app restart).
     val sidebarCollapsed: Set<String> = emptySet(),
     // Sidebar section keys the user has hidden entirely from the drawer.
@@ -529,6 +532,7 @@ data class AppSettings(
         Keys.NOTES_MEASURE to notesMeasure.toString(),
         Keys.NOTES_FOCUS_MODE to notesFocusMode.toString(),
         Keys.NOTES_TEMPLATES_JSON to notesTemplatesJson,
+        Keys.PERIODIC_RECAP_EMBED to periodicRecapEmbed.toString(),
         Keys.ONBOARDED_MODULES to onboardedModules.toString(),
         Keys.ACTIVE_WS to activeWorkspaceId,
         Keys.MX_IMP to matrixImportanceThreshold.toString(),
@@ -735,6 +739,7 @@ data class AppSettings(
         const val NOTES_MEASURE = "notes_measure"
         const val NOTES_FOCUS_MODE = "notes_focus_mode"
         const val NOTES_TEMPLATES_JSON = "notes_templates_json"
+        const val PERIODIC_RECAP_EMBED = "periodic_recap_embed"
         const val ONBOARDED_MODULES = "onboarded_modules"
         const val ACTIVE_WS = "active_ws"
         const val PRIO_MODE = "prio_mode"
@@ -976,6 +981,7 @@ data class AppSettings(
             notesMeasure = m[Keys.NOTES_MEASURE]?.toBooleanStrictOrNull() ?: false,
             notesFocusMode = m[Keys.NOTES_FOCUS_MODE]?.toBooleanStrictOrNull() ?: false,
             notesTemplatesJson = m[Keys.NOTES_TEMPLATES_JSON] ?: "",
+            periodicRecapEmbed = m[Keys.PERIODIC_RECAP_EMBED]?.toBooleanStrictOrNull() ?: true,
             onboardedModules = m[Keys.ONBOARDED_MODULES]?.toBooleanStrictOrNull() ?: false,
             activeWorkspaceId = m[Keys.ACTIVE_WS]?.ifBlank { "default" } ?: "default",
             matrixImportanceThreshold = m[Keys.MX_IMP]?.toIntOrNull() ?: 4,

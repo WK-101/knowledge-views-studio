@@ -18,6 +18,8 @@
     <string name="widget_habitstats_desc">Habits done today and your best current streak</string>
     <string name="widget_momentum_desc">Your unified momentum — habits, task reliability and focus in one score</string>
     <string name="widget_time_desc">Start, switch and stop time tracking from the home screen — a live timer for the running activity</string>
+    <string name="widget_note_desc">Two taps — a new note, or today\'s daily note</string>
+    <string name="widget_note_title">NOTES</string>
     <string name="tile_track_label">Track time</string>
     <string name="tile_habit_label">Check off habit</string>
     <!-- R17: launcher long-press shortcuts. -->
@@ -31,4 +33,8 @@
     <string name="sc_focus_long">Start focus</string>
     <string name="sc_close_day_short">Close day</string>
     <string name="sc_close_day_long">Close your day</string>
+    <string name="sc_new_note_short">New note</string>
+    <string name="sc_new_note_long">New note</string>
+    <string name="sc_daily_note_short">Today\'s note</string>
+    <string name="sc_daily_note_long">Open today\'s daily note</string>
 </resources>
