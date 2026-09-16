@@ -1,23 +1,6 @@
 <resources>
     <string name="app_name">Cairn</string>
 
-    <!-- Navigation destinations -->
-    <string name="nav_inbox">Inbox</string>
-    <string name="nav_library">Library</string>
-    <string name="nav_settings">Settings</string>
-
-    <!-- Inbox -->
-    <string name="inbox_title">Inbox</string>
-    <string name="inbox_empty_title">You\'re all caught up</string>
-    <string name="inbox_empty_body">New articles from your feeds will land here. Add a feed or share a link to Cairn to get started.</string>
-
-    <!-- Common actions -->
-    <string name="action_add_feed">Add feed</string>
-    <string name="action_mark_read">Mark read</string>
-    <string name="action_save">Save</string>
-    <string name="action_archive">Archive</string>
-    <string name="action_search">Search</string>
-
     <!-- Widget -->
     <string name="widget_description">Unread count and your latest article</string>
     <string name="a_colour_theme_for_the_whole">A colour theme for the whole app. Overrides dynamic color when set.</string>
@@ -479,7 +462,6 @@
     <string name="review_complete">Review complete</string>
     <string name="nothing_due">Nothing due</string>
     <string name="nothing_due_body">You\'re all caught up. Highlights you\'ve reviewed will resurface here as they come due — check back later.</string>
-    <string name="review_intro">Highlight passages while you read, and they\'ll resurface here for spaced-repetition recall — the proven way to remember what you read.</string>
     <string name="review_progress">%1$d of %2$d</string>
     <string name="recall_prompt">Recall this highlight</string>
     <string name="recall_prompt_from">Recall this highlight from %1$s</string>

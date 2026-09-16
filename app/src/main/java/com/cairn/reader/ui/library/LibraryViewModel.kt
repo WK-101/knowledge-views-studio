@@ -12,6 +12,7 @@ import com.cairn.reader.data.prefs.LibraryViewMode
 import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.data.prefs.SwipeAction
 import com.cairn.reader.data.prefs.SwipeConfig
+import com.cairn.reader.data.prefs.swipeConfig
 import com.cairn.reader.data.repo.CollectionRepository
 import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.data.repo.ItemRepository
@@ -108,7 +109,7 @@ class LibraryViewModel @Inject constructor(
     /** The user's two-stage swipe actions, shared with the Inbox so list swipes behave the same. */
     val swipeActions: StateFlow<SwipeConfig> =
         preferencesRepository.preferences
-            .map { SwipeConfig(it.swipeRightHalf, it.swipeRightFull, it.swipeLeftHalf, it.swipeLeftFull) }
+            .map { it.swipeConfig }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SwipeConfig())
 
     /** Persisted fold state for the Library home, so sections and tree nodes stay how you left them. */

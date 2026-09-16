@@ -9,6 +9,7 @@ import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.data.prefs.SwipeAction
 import com.cairn.reader.data.prefs.SwipeConfig
+import com.cairn.reader.data.prefs.swipeConfig
 import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.data.repo.ItemRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -57,7 +58,7 @@ class OfflineViewModel @Inject constructor(
     /** The user's two-stage swipe actions, shared with the Inbox so list swipes behave the same. */
     val swipeActions: StateFlow<SwipeConfig> =
         preferencesRepository.preferences
-            .map { SwipeConfig(it.swipeRightHalf, it.swipeRightFull, it.swipeLeftHalf, it.swipeLeftFull) }
+            .map { it.swipeConfig }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SwipeConfig())
 
     /** True while an offline pack is being pulled down, so the UI can show progress. */

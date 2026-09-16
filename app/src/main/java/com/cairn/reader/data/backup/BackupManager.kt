@@ -93,7 +93,16 @@ class BackupManager @Inject constructor(
         return if (v.any { it == ',' || it == '"' }) "\"" + v.replace("\"", "\"\"") + "\"" else v
     }
 
-    suspend fun export(): String = withContext(Dispatchers.IO) {
+    /**
+     * @param pretty indent the JSON for a human to read (manual export). The automated paths
+     *   (scheduled SAF backup, WebDAV, zip archive) pass `false`: indent-2 pretty-printing roughly
+     *   doubles the string a large library holds in memory before it's written, so compact output
+     *   keeps the unattended [com.cairn.reader.work.BackupWorker] well clear of an OOM.
+     *   (A full [android.util.JsonWriter] stream straight to the OutputStream would drop the
+     *   remaining in-memory copies entirely; that is a larger change gated on the instrumented
+     *   backup/restore round-trip test.)
+     */
+    suspend fun export(pretty: Boolean = true): String = withContext(Dispatchers.IO) {
         val root = JSONObject()
         root.put("version", 3)
         root.put("exportedAt", System.currentTimeMillis())
@@ -109,7 +118,7 @@ class BackupManager @Inject constructor(
         })
         root.put("highlights", JSONArray().apply { highlightDao.all().forEach { put(it.toJson()) } })
         root.put("settings", preferencesRepository.exportSettings())
-        root.toString(2)
+        if (pretty) root.toString(2) else root.toString()
     }
 
     /**
@@ -227,7 +236,7 @@ class BackupManager @Inject constructor(
     suspend fun exportArchive(out: OutputStream) = withContext(Dispatchers.IO) {
         ZipOutputStream(out.buffered()).use { zip ->
             zip.putNextEntry(ZipEntry("backup.json"))
-            zip.write(export().toByteArray(Charsets.UTF_8))
+            zip.write(export(pretty = false).toByteArray(Charsets.UTF_8))
             zip.closeEntry()
             blobStore.archiveDirs().forEach { (name, d) ->
                 d.listFiles()?.filter { it.isFile }?.forEach { f ->
@@ -322,7 +331,7 @@ class BackupManager @Inject constructor(
                 exportArchive(buf)
                 name = "cairn-backup-$stamp.zip"; bytes = buf.toByteArray(); type = "application/zip"
             } else {
-                name = "cairn-backup-$stamp.json"; bytes = export().toByteArray(Charsets.UTF_8); type = "application/json"
+                name = "cairn-backup-$stamp.json"; bytes = export(pretty = false).toByteArray(Charsets.UTF_8); type = "application/json"
             }
             webDavClient.put(cfg, name, bytes, type).getOrThrow()
             runCatching {

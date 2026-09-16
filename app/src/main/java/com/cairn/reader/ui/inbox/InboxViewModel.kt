@@ -12,6 +12,7 @@ import com.cairn.reader.audio.TtsReader
 import com.cairn.reader.data.prefs.ListViewMode
 import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.data.prefs.SwipeConfig
+import com.cairn.reader.data.prefs.swipeConfig
 import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.data.repo.ItemRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -163,7 +164,7 @@ class InboxViewModel @Inject constructor(
     /** The four two-stage swipe actions (right-half, right-full, left-half, left-full). */
     val swipeActions: StateFlow<SwipeConfig> =
         preferencesRepository.preferences
-            .map { SwipeConfig(it.swipeRightHalf, it.swipeRightFull, it.swipeLeftHalf, it.swipeLeftFull) }
+            .map { it.swipeConfig }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SwipeConfig())
 
     private val _filter = MutableStateFlow(InboxFilter.UNREAD)

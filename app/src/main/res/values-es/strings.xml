@@ -3,23 +3,6 @@
 <resources>
     <string name="app_name">Cairn</string>
 
-    <!-- Navigation destinations -->
-    <string name="nav_inbox">Entrada</string>
-    <string name="nav_library">Biblioteca</string>
-    <string name="nav_settings">Ajustes</string>
-
-    <!-- Inbox -->
-    <string name="inbox_title">Entrada</string>
-    <string name="inbox_empty_title">Estás al día</string>
-    <string name="inbox_empty_body">Los artículos nuevos de tus fuentes aparecerán aquí. Añade una fuente o comparte un enlace con Cairn para empezar.</string>
-
-    <!-- Common actions -->
-    <string name="action_add_feed">Añadir fuente</string>
-    <string name="action_mark_read">Marcar leído</string>
-    <string name="action_save">Guardar</string>
-    <string name="action_archive">Archivar</string>
-    <string name="action_search">Buscar</string>
-
     <!-- Widget -->
     <string name="widget_description">Número de no leídos y tu último artículo</string>
     <string name="a_colour_theme_for_the_whole">Un tema de color para toda la aplicación. Anula el color dinámico cuando se establece.</string>
@@ -481,7 +464,6 @@
     <string name="review_complete">Repaso completado</string>
     <string name="nothing_due">Nada pendiente</string>
     <string name="nothing_due_body">Estás al día. Los subrayados que has repasado reaparecerán aquí cuando toque repasarlos; vuelve más tarde.</string>
-    <string name="review_intro">Subraya pasajes mientras lees y reaparecerán aquí para el repaso espaciado, la forma comprobada de recordar lo que lees.</string>
     <string name="review_progress">%1$d de %2$d</string>
     <string name="recall_prompt">Recuerda este subrayado</string>
     <string name="recall_prompt_from">Recuerda este subrayado de %1$s</string>

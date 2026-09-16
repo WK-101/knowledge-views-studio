@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -106,15 +105,16 @@ fun EntryDivider(modifier: Modifier = Modifier) {
 @Composable
 fun FilterChipRow(
     modifier: Modifier = Modifier,
-    content: @Composable FlowRowScope.() -> Unit,
+    content: @Composable () -> Unit,
 ) {
+    // The FlowRowScope receiver is kept internal (not exposed in the signature) so callers don't
+    // need to opt into ExperimentalLayoutApi themselves; chips don't use the scope anyway.
     FlowRow(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = Dimens.gutter, vertical = Dimens.xs),
         horizontalArrangement = Arrangement.spacedBy(Dimens.sm),
-        content = content,
-    )
+    ) { content() }
 }
 
 /**

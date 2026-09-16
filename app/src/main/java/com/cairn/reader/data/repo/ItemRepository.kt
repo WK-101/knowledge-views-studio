@@ -110,7 +110,6 @@ class ItemRepository @Inject constructor(
     fun saved(sourceId: String? = null, folder: String? = null): Flow<List<ItemListRow>> = itemDao.observeSaved(sourceId, folder)
     fun all(sourceId: String? = null, folder: String? = null): Flow<List<ItemListRow>> = itemDao.observeAll(sourceId, folder)
     fun starred(sourceId: String? = null, folder: String? = null): Flow<List<ItemListRow>> = itemDao.observeStarred(sourceId, folder)
-    fun library(): Flow<List<ItemListRow>> = itemDao.observeLibrary()
     fun libraryAll(): Flow<List<ItemListRow>> = itemDao.observeLibraryAll()
     fun unsorted(): Flow<List<ItemListRow>> = itemDao.observeUnsorted()
     fun archived(): Flow<List<ItemListRow>> = itemDao.observeArchived()
@@ -230,51 +229,4 @@ class ItemRepository @Inject constructor(
         }
     }
 
-    /** Seeds a small starter library the first time the app runs, so the UI has real
-     *  content before the feed pipeline is wired in. Replaced by real sync soon. */
-    suspend fun seedIfEmpty() {
-        if (sourceDao.getAll().isNotEmpty()) return
-        val now = clock()
-        val sources = listOf(
-            SourceEntity(id = "seed-tns", kind = "RSS", feedUrl = "https://thenewstack.io/feed/", siteUrl = "https://thenewstack.io", title = "The New Stack"),
-            SourceEntity(id = "seed-ala", kind = "RSS", feedUrl = "https://alistapart.com/main/feed/", siteUrl = "https://alistapart.com", title = "A List Apart"),
-            SourceEntity(id = "seed-cabel", kind = "RSS", feedUrl = "https://cabel.com/feed/", siteUrl = "https://cabel.com", title = "Cabel's Blog"),
-        )
-        sources.forEach { sourceDao.upsert(it) }
-
-        data class Seed(val src: String, val title: String, val author: String?, val minutes: Int, val agoMin: Long, val excerpt: String)
-        val seeds = listOf(
-            Seed("seed-tns", "The quiet return of the personal archive", "Ellen Park", 6, 120,
-                "After a decade of feeds that forget, a wave of tools is betting that the things you read should be yours to keep — searchable, offline, and free of the churn."),
-            Seed("seed-ala", "How Readability actually decides what matters", "Marco Reyes", 9, 300,
-                "A walk through the scoring heuristics that turn a cluttered page into a clean article, and where they still fall down."),
-            Seed("seed-tns", "Designing for the second read", "Priya Nair", 4, 1440,
-                "Highlights, notes, and the case for treating saved articles as a library rather than an inbox."),
-            Seed("seed-cabel", "RSS never died. It just went quiet.", "Cabel Sasser", 5, 2880,
-                "Why the humble feed is the most durable format on the web, and how to bend it around sites that pretend not to have one."),
-        )
-        seeds.forEachIndexed { index, s ->
-            val id = "seed-item-$index"
-            itemDao.insertItemWithState(
-                ItemEntity(
-                    id = id,
-                    url = "https://example.com/$id",
-                    title = s.title,
-                    author = s.author,
-                    siteName = sources.first { it.id == s.src }.title,
-                    publishedAt = now - s.agoMin * 60_000,
-                    savedAt = now - s.agoMin * 60_000,
-                    sourceId = s.src,
-                    type = ItemType.ARTICLE.name,
-                    excerpt = s.excerpt,
-                    readingMinutes = s.minutes,
-                    extractStatus = ExtractStatus.NONE.raw,
-                    contentSource = ContentSource.FEED.raw,
-                    guid = id,
-                ),
-                now,
-            )
-            itemDao.indexItem(ItemFtsEntity(itemId = id, title = s.title, author = s.author, body = s.excerpt))
-        }
-    }
 }

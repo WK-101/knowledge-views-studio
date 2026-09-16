@@ -127,14 +127,6 @@ interface ItemDao {
 
     @Query(
         ITEM_LIST_SELECT + """
-        WHERE i.trashedAt IS NULL AND (COALESCE(s.isStarred, 0) = 1 OR COALESCE(s.isArchived, 0) = 1 OR COALESCE(s.isReadLater, 0) = 1)
-        ORDER BY i.savedAt DESC
-        """
-    )
-    fun observeLibrary(): Flow<List<ItemListRow>>
-
-    @Query(
-        ITEM_LIST_SELECT + """
         WHERE i.trashedAt IS NULL AND COALESCE(s.isArchived, 0) = 0 AND COALESCE(s.isReadLater, 0) = 1
           AND (:sourceId IS NULL OR i.sourceId = :sourceId)
           AND (:folder IS NULL OR src.folder = :folder)

@@ -55,6 +55,11 @@ data class SwipeConfig(
     val leftFull: SwipeAction = SwipeAction.ARCHIVE,
 )
 
+/** Projects the four flat swipe preferences into the [SwipeConfig] every entry-list row consumes.
+ *  Was the same four-argument projection copy-pasted across Inbox/Library/ReadLater/Offline VMs. */
+val AppPreferences.swipeConfig: SwipeConfig
+    get() = SwipeConfig(swipeRightHalf, swipeRightFull, swipeLeftHalf, swipeLeftFull)
+
 data class AppPreferences(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,

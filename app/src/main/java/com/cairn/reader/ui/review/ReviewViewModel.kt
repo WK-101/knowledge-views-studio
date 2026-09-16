@@ -8,6 +8,7 @@ import com.cairn.reader.domain.review.Cloze
 import com.cairn.reader.domain.review.Grade
 import com.cairn.reader.domain.review.Sm2
 import com.cairn.reader.domain.review.SrState
+import com.cairn.reader.util.coRunCatching
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -55,7 +56,7 @@ class ReviewViewModel @Inject constructor(
     fun start() {
         viewModelScope.launch {
             _state.value = ReviewUiState(loading = true)
-            queue = ArrayDeque(runCatching { highlightRepository.dueCards(60) }.getOrDefault(emptyList()))
+            queue = ArrayDeque(coRunCatching { highlightRepository.dueCards(60) }.getOrDefault(emptyList()))
             _state.value = ReviewUiState(loading = false, face = faceFor(queue.firstOrNull()), remaining = queue.size)
         }
     }
@@ -65,7 +66,7 @@ class ReviewViewModel @Inject constructor(
     fun grade(grade: Grade) {
         val current = queue.firstOrNull() ?: return
         viewModelScope.launch {
-            runCatching { highlightRepository.review(current, grade) }
+            coRunCatching { highlightRepository.review(current, grade) }
             queue.removeFirst()
             // A lapse ("Again") comes back at the end of this session so you see it again today.
             if (grade == Grade.AGAIN) queue.addLast(current)

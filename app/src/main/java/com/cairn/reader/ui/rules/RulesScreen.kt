@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Bolt
+import com.cairn.reader.ui.components.EmptyState
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Menu
@@ -104,21 +105,12 @@ fun RulesScreen(
         },
     ) { inner ->
         if (rules.isEmpty()) {
-            Column(
-                Modifier.fillMaxSize().padding(inner).padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Icon(Icons.Outlined.Bolt, contentDescription = null, modifier = Modifier.size(48.dp), tint = scheme.primary)
-                Spacer(Modifier.height(12.dp))
-                Text(stringResource(R.string.automate_your_reading), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(6.dp))
-                Text(stringResource(R.string.create_rules_that_run_on_every),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = scheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                )
-            }
+            EmptyState(
+                title = stringResource(R.string.automate_your_reading),
+                body = stringResource(R.string.create_rules_that_run_on_every),
+                icon = Icons.Outlined.Bolt,
+                modifier = Modifier.padding(inner),
+            )
         } else {
             LazyColumn(
                 Modifier.fillMaxSize().padding(inner),

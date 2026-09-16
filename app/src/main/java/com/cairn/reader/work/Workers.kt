@@ -89,7 +89,7 @@ class BackupWorker @AssistedInject constructor(
             val file = tree.createFile("application/zip", "cairn-backup-$stamp.zip") ?: return false
             context.contentResolver.openOutputStream(file.uri)?.use { backupManager.exportArchive(it) }
         } else {
-            val json = backupManager.export()
+            val json = backupManager.export(pretty = false)
             val file = tree.createFile("application/json", "cairn-backup-$stamp.json") ?: return false
             context.contentResolver.openOutputStream(file.uri)?.use { it.write(json.toByteArray()) }
         }

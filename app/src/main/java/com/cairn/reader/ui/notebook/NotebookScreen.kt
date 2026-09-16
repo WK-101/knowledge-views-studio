@@ -12,6 +12,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.outlined.FormatQuote
+import com.cairn.reader.ui.components.EmptyState
+import com.cairn.reader.ui.components.FilterChipRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -106,11 +109,7 @@ fun NotebookScreen(
         // Filter-by-colour: a compact row of swatch chips, shown only when more than one colour
         // is actually in use (so single-colour notebooks stay clutter-free).
         if (usedColors.size > 1) {
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            FilterChipRow {
                 FilterChip(
                     selected = colorFilter == null,
                     onClick = { viewModel.setColorFilter(null) },
@@ -130,19 +129,11 @@ fun NotebookScreen(
             }
         }
         if (groups.isEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(stringResource(R.string.no_annotations_yet), style = MaterialTheme.typography.headlineSmall, color = scheme.onSurface, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.while_reading_long_press_to_select),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = scheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                )
-            }
+            EmptyState(
+                title = stringResource(R.string.no_annotations_yet),
+                body = stringResource(R.string.while_reading_long_press_to_select),
+                icon = Icons.Outlined.FormatQuote,
+            )
         } else {
             LazyVerticalStaggeredGrid(
                 columns = StaggeredGridCells.Fixed(2),
@@ -356,7 +347,7 @@ private fun AnnotationCard(group: NotebookGroup, onClick: () -> Unit, onLongClic
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val source = group.site ?: "Highlight"
                 Text(source, style = MaterialTheme.typography.labelSmall, color = scheme.primary, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                IconButton(onClick = onShare, modifier = Modifier.size(32.dp)) {
+                IconButton(onClick = onShare) {
                     Icon(Icons.Outlined.IosShare, contentDescription = stringResource(R.string.share_these_annotations), tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                 }
             }
