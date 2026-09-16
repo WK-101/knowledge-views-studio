@@ -1375,14 +1375,10 @@ private fun EmptyState(view: ViewRef? = null) {
         SmartKind.SOMEDAY -> Triple(Icons.Outlined.Cloud, "Nothing parked", "Someday/Maybe holds ideas you're not committed to yet — they stay out of your active lists and resurface in the weekly review")
         else -> Triple(Icons.Outlined.CheckCircle, "All clear", "Tap + to add a task")
     }
-    Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(88.dp).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f), androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(42.dp))
-        }
-        Spacer(Modifier.size(16.dp))
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.size(4.dp))
-        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    // Routes through the one shared [EmptyState] grammar, keeping the per-smart-list icon so Inbox,
+    // Today, Waiting etc. each read at a glance — one disc, one type scale, app-wide.
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        com.todocompanion.app.ui.components.EmptyState(title = title, body = subtitle, icon = icon)
     }
 }
 

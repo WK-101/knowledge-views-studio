@@ -167,15 +167,13 @@ fun GoalsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenNote: (String) -> Un
                 }
             }
             if (goals.isEmpty()) item {
-                Column(Modifier.fillMaxWidth().padding(top = 34.dp, start = 8.dp, end = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("🎯", fontSize = 44.sp)
-                    Spacer(Modifier.height(10.dp))
-                    Text("No goals yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text("Start from a template — run a 5K, ship a side project, learn a language — or build your own. Bind a task list, a habit and a time budget, then review it weekly.",
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(top = 4.dp))
-                    Spacer(Modifier.height(12.dp))
-                    FilledTonalButton(onClick = { browse = true }) { Text("Browse goal templates") }
-                }
+                com.todocompanion.app.ui.components.EmptyState(
+                    emoji = "🎯",
+                    title = "No goals yet",
+                    body = "Start from a template — run a 5K, ship a side project, learn a language — or build your own. Bind a task list, a habit and a time budget, then review it weekly.",
+                    actionLabel = "Browse goal templates",
+                    onAction = { browse = true },
+                )
             }
             grouped.forEach { (area, gs) ->
                 if (grouped.size > 1 || area.isNotBlank()) item(key = "area_$area") {

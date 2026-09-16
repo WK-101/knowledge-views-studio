@@ -635,9 +635,10 @@ fun CardLabel(text: String) {
  */
 @Composable
 fun EmptyState(
-    emoji: String,
     title: String,
     body: String,
+    emoji: String? = null,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -649,7 +650,12 @@ fun EmptyState(
         Box(
             Modifier.size(88.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = .5f)),
             contentAlignment = Alignment.Center,
-        ) { Text(emoji, style = MaterialTheme.typography.displaySmall) }
+        ) {
+            // One disc for every empty: a big emoji, or a tinted glyph when a caller (e.g. a smart
+            // list) wants a semantic icon instead. Both sit in the same primary-tinted disc.
+            if (icon != null) Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .75f), modifier = Modifier.size(42.dp))
+            else Text(emoji ?: "", style = MaterialTheme.typography.displaySmall)
+        }
         Spacer(Modifier.height(18.dp))
         Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(6.dp))

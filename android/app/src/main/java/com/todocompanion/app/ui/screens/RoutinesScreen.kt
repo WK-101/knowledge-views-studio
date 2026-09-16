@@ -168,15 +168,13 @@ fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }
             }
             if (routines.isEmpty()) item {
-                Column(Modifier.fillMaxWidth().padding(top = 36.dp, start = 8.dp, end = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("▶️", fontSize = 44.sp)
-                    Spacer(Modifier.height(10.dp))
-                    Text("No routines yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text("Add one from the starter catalog — a morning primer, an evening shutdown, a focus sprint — or build your own from scratch.",
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp))
-                    Spacer(Modifier.height(12.dp))
-                    FilledTonalButton(onClick = { browseCatalog = true }) { Text("Browse starter routines") }
-                }
+                com.todocompanion.app.ui.components.EmptyState(
+                    emoji = "▶️",
+                    title = "No routines yet",
+                    body = "Add one from the starter catalog — a morning primer, an evening shutdown, a focus sprint — or build your own from scratch.",
+                    actionLabel = "Browse starter routines",
+                    onAction = { browseCatalog = true },
+                )
             }
             items(routines.size) { i ->
                 val r = routines[i]

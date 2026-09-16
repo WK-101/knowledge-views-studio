@@ -85,13 +85,10 @@ private fun TWScaffold(title: String, onBack: () -> Unit, actions: @Composable (
     }, content = content)
 }
 
+// One shared [EmptyState] grammar so Third-Wave empties match the rest of the app.
 @Composable
 private fun TWEmpty(emoji: String, title: String, body: String) {
-    Column(Modifier.fillMaxWidth().padding(top = 40.dp, start = 8.dp, end = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(emoji, fontSize = 44.sp); Spacer(Modifier.height(10.dp))
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-    }
+    com.todocompanion.app.ui.components.EmptyState(emoji = emoji, title = title, body = body)
 }
 
 @Composable

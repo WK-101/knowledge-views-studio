@@ -79,13 +79,11 @@ fun TimelineScreen(
 
     if (allDated.isEmpty()) {
         Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Filled.ViewTimeline, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(48.dp))
-                Spacer(Modifier.height(10.dp))
-                Text("Nothing to schedule yet", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                Text("Give a task a start or due date to see it on the timeline.",
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            com.todocompanion.app.ui.components.EmptyState(
+                emoji = "🗓️",
+                title = "Nothing to schedule yet",
+                body = "Give a task a start or due date to see it on the timeline.",
+            )
         }
         return
     }

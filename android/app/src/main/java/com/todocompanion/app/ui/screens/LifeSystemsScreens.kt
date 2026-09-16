@@ -582,15 +582,14 @@ private fun BuddiesScreen(vm: AppViewModel, onBack: () -> Unit) {
     }
 }
 
+// Routes through the one shared [EmptyState] grammar (warm disc + centred title/body + filled CTA),
+// so every Life-Systems empty reads the same as the rest of the app instead of a private variant.
 @Composable
 private fun EmptyBlock(emoji: String, title: String, body: String, onAdd: (() -> Unit)?) {
-    Column(Modifier.fillMaxWidth().padding(top = 40.dp, start = 8.dp, end = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(emoji, fontSize = 44.sp)
-        Spacer(Modifier.height(10.dp))
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-        if (onAdd != null) { Spacer(Modifier.height(10.dp)); FilledTonalButton(onClick = onAdd) { Text("Get started") } }
-    }
+    com.todocompanion.app.ui.components.EmptyState(
+        emoji = emoji, title = title, body = body,
+        actionLabel = if (onAdd != null) "Get started" else null, onAction = onAdd,
+    )
 }
 
 // ══════════════════════════════ R36 · Fourth-wave screens ══════════════════════════════
