@@ -113,20 +113,20 @@ import com.cairn.reader.ui.library.LibraryScreen
 import com.cairn.reader.ui.settings.SettingsScreen
 
 /**
- * A top-level destination. Every destination is now a pane rendered in place inside the one shared
+ * A top-level destination. Every destination is a pane rendered in place inside the one shared
  * shell (same drawer, same bottom bar, same transitions) — no destination navigates away to a
- * detached full-screen route, so they all read as one app. Starred is the sole exception: it just
- * re-scopes the Inbox. The canonical order here is the order they appear in the bar; all are opt-in
- * from Settings except the defaults, and the bar shows up to six.
+ * detached full-screen route, so they all read as one app. The canonical order here is the order
+ * they appear in the bar; all are opt-in from Settings except the defaults, and the bar shows up to
+ * six. (Starring is a per-entry property, not a surface: starred stories live in the Library and are
+ * reachable via the drawer's Starred filter — there is no dedicated Star destination.)
  */
-private enum class Destination(val label: String, val icon: ImageVector, val isPane: Boolean = true, shortLabel: String? = null) {
+private enum class Destination(val label: String, val icon: ImageVector, shortLabel: String? = null) {
     Inbox("Inbox", Icons.Outlined.Inbox),
     Library("Library", Icons.AutoMirrored.Outlined.LibraryBooks),
     Discover("Discover", Icons.Outlined.Explore),
     Brief("Brief", Icons.Outlined.Newspaper),
     Triage("Triage", Icons.Outlined.Style),
     Review("Review", Icons.Outlined.School),
-    Starred("Starred", Icons.Outlined.StarBorder, isPane = false),
     ReadLater("Read Later", Icons.Outlined.Bookmark, shortLabel = "Later"),
     Highlights("Highlights", Icons.Outlined.FormatQuote, shortLabel = "Notes"),
     Feeds("Feeds", Icons.Outlined.RssFeed),
@@ -175,8 +175,8 @@ fun CairnApp(
             .ifEmpty { listOf(Destination.Inbox) }.take(6)  // matches the Settings cap of 6
     }
     var currentName by rememberSaveable { mutableStateOf(Destination.Inbox.name) }
-    // current is always a pane; the only non-pane (Starred) just re-scopes the Inbox.
-    val current = Destination.entries.firstOrNull { it.name == currentName && it.isPane } ?: Destination.Inbox
+    // A stale saved name (e.g. a tab removed in an update) falls back to the Inbox.
+    val current = Destination.entries.firstOrNull { it.name == currentName } ?: Destination.Inbox
 
     // On wide screens (tablets, unfolded foldables) show list + reader side by side,
     // unless the user has asked to keep the single-column phone layout everywhere.
@@ -226,7 +226,7 @@ fun CairnApp(
     var appliedStart by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(appPrefs.startDestination, appPrefs.startFilter) {
         if (appliedStart) return@LaunchedEffect
-        val dest = Destination.entries.firstOrNull { it.name == appPrefs.startDestination && it.isPane }
+        val dest = Destination.entries.firstOrNull { it.name == appPrefs.startDestination }
         if (dest != null) currentName = dest.name
         appPrefs.startFilter.takeIf { it.isNotBlank() }
             ?.let { name -> runCatching { InboxFilter.valueOf(name) }.getOrNull() }
@@ -443,18 +443,10 @@ fun CairnApp(
                     modifier = Modifier.height(64.dp),
                 ) {
                     tabs.forEach { dest ->
-                        val selected = when {
-                            dest.isPane -> current == dest && currentName == dest.name
-                            dest == Destination.Starred ->
-                                currentName == Destination.Inbox.name && inboxState.filter == InboxFilter.STARRED
-                            else -> false
-                        }
+                        val selected = current == dest && currentName == dest.name
                         NavigationBarItem(
                             selected = selected,
-                            onClick = {
-                                if (dest == Destination.Starred) { inboxViewModel.selectStarred(); goTo(Destination.Inbox) }
-                                else goTo(dest)
-                            },
+                            onClick = { goTo(dest) },
                             icon = { Icon(dest.icon, contentDescription = dest.label, modifier = Modifier.size(22.dp)) },
                             label = {
                                 Text(

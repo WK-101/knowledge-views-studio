@@ -363,11 +363,13 @@ internal fun BottomBarSection(prefs: AppPreferences, viewModel: SettingsViewMode
             Text(stringResource(R.string.choose_which_destinations_appear_in_the), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
             val labels = linkedMapOf(
                 "Inbox" to "Inbox", "Library" to "Library", "Discover" to "Discover",
-                "Starred" to "Starred", "ReadLater" to "Read Later", "Highlights" to "Highlights",
+                "ReadLater" to "Read Later", "Highlights" to "Highlights",
                 "Feeds" to "Feeds", "Search" to "Search", "Trash" to "Trash",
                 "Offline" to "Offline", "Settings" to "Settings",
             )
-            val enabled = prefs.bottomTabs
+            // Only tabs that still exist as real destinations are shown/counted; a name left over
+            // from an older build (e.g. a removed "Starred" surface) is ignored, not surfaced.
+            val enabled = prefs.bottomTabs.filter { it in labels }
             val atCap = enabled.size >= 6
             val orderedEnabled = (prefs.bottomTabsOrder.filter { it in enabled } +
                 labels.keys.filter { it in enabled && it !in prefs.bottomTabsOrder })
