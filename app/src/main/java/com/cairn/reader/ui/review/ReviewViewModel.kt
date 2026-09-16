@@ -20,7 +20,7 @@ import javax.inject.Inject
 /** One card presented for review: a recall cue, the answer, and the SM-2 button intervals. */
 data class ReviewFace(
     val card: ReviewCard,
-    val prompt: String,          // cloze blank, or the plain recall cue
+    val clozePrompt: String?,    // the fill-in-the-blank cue when a cloze exists; null → plain recall
     val isCloze: Boolean,
     val intervals: Map<Grade, String>,
 )
@@ -80,10 +80,11 @@ class ReviewViewModel @Inject constructor(
 
     private fun faceFor(card: ReviewCard?): ReviewFace? {
         card ?: return null
+        // The cloze prompt is derived from the highlight text itself, so it is already in the
+        // reader's language; the plain-recall fallback is a UI string localized at render time.
         val cloze = Cloze.of(card.quote)
-        val prompt = cloze?.prompt ?: "Recall what you highlighted" + (card.articleSite?.let { " in $it" } ?: "") + "…"
         val state = SrState(card.srInterval, card.srEase, card.srReps, card.srLapses)
         val intervals = Grade.entries.associateWith { Sm2.preview(state, it) }
-        return ReviewFace(card, prompt, cloze != null, intervals)
+        return ReviewFace(card, cloze?.prompt, cloze != null, intervals)
     }
 }

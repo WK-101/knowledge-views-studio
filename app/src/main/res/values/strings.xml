@@ -476,7 +476,15 @@
     <!-- i18n sweep: Review -->
     <string name="review_complete">Review complete</string>
     <string name="nothing_due">Nothing due</string>
+    <string name="nothing_due_body">You\'re all caught up. Highlights you\'ve reviewed will resurface here as they come due — check back later.</string>
     <string name="review_intro">Highlight passages while you read, and they\'ll resurface here for spaced-repetition recall — the proven way to remember what you read.</string>
+    <string name="review_progress">%1$d of %2$d</string>
+    <string name="recall_prompt">Recall this highlight</string>
+    <string name="recall_prompt_from">Recall this highlight from %1$s</string>
+    <string name="review_grade_again">Again</string>
+    <string name="review_grade_hard">Hard</string>
+    <string name="review_grade_good">Good</string>
+    <string name="review_grade_easy">Easy</string>
 
     <!-- i18n sweep: Data forever -->
     <string name="data_forever_safe">%1$s · %2$s safe on this device</string>

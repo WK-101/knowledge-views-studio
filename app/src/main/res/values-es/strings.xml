@@ -478,7 +478,15 @@
     <!-- i18n sweep: Review -->
     <string name="review_complete">Repaso completado</string>
     <string name="nothing_due">Nada pendiente</string>
+    <string name="nothing_due_body">Estás al día. Los subrayados que has repasado reaparecerán aquí cuando toque repasarlos; vuelve más tarde.</string>
     <string name="review_intro">Subraya pasajes mientras lees y reaparecerán aquí para el repaso espaciado, la forma comprobada de recordar lo que lees.</string>
+    <string name="review_progress">%1$d de %2$d</string>
+    <string name="recall_prompt">Recuerda este subrayado</string>
+    <string name="recall_prompt_from">Recuerda este subrayado de %1$s</string>
+    <string name="review_grade_again">Otra vez</string>
+    <string name="review_grade_hard">Difícil</string>
+    <string name="review_grade_good">Bien</string>
+    <string name="review_grade_easy">Fácil</string>
 
     <!-- i18n sweep: Data forever -->
     <string name="data_forever_safe">%1$s · %2$s a salvo en este dispositivo</string>
