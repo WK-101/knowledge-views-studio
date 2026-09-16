@@ -273,6 +273,7 @@ fun NoteBodyEditor(
                                     },
                                 )
                                 Spacer(Modifier.width(2.dp))
+                                CaseMenu { mode -> apply(NoteEditing.transformCase(tfv.text, tfv.selection.start, tfv.selection.end, mode)) }
                                 BarIcon(Icons.Filled.FormatQuote, "Quote") { onLinePrefix("> ") }
                                 BarIcon(Icons.AutoMirrored.Filled.FormatListBulleted, "Bulleted list") { onLinePrefix("- ") }
                                 BarIcon(Icons.Filled.FormatListNumbered, "Numbered list") { onLinePrefix("1. ") }
@@ -394,6 +395,41 @@ private fun HeadingMenu(level: Int, onPick: (Int) -> Unit) {
                         )
                     },
                     onClick = { onPick(lvl); open = false },
+                )
+            }
+        }
+    }
+}
+
+/** Letter-case selector: a compact "Aa" pill that recases the selection (or caret line) — UPPERCASE,
+ *  lowercase, Title Case, Sentence case. Mirrors [HeadingMenu]'s pill + dropdown so it reads as one
+ *  toolbar family. */
+@Composable
+private fun CaseMenu(onPick: (NoteEditing.CaseMode) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val cs = MaterialTheme.colorScheme
+    Box {
+        Surface(
+            onClick = { open = true },
+            shape = NotesTokens.Pill,
+            color = cs.surfaceVariant.copy(alpha = .5f),
+            modifier = Modifier.height(38.dp),
+        ) {
+            Row(Modifier.padding(start = 12.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Aa", style = MaterialTheme.typography.labelLarge, color = cs.onSurface, maxLines = 1)
+                Icon(Icons.Filled.ArrowDropDown, "Change case", Modifier.size(20.dp), tint = cs.onSurfaceVariant)
+            }
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            listOf(
+                NoteEditing.CaseMode.UPPER to "UPPERCASE",
+                NoteEditing.CaseMode.LOWER to "lowercase",
+                NoteEditing.CaseMode.TITLE to "Title Case",
+                NoteEditing.CaseMode.SENTENCE to "Sentence case",
+            ).forEach { (mode, label) ->
+                DropdownMenuItem(
+                    text = { Text(label, style = MaterialTheme.typography.bodyLarge, color = cs.onSurface) },
+                    onClick = { onPick(mode); open = false },
                 )
             }
         }

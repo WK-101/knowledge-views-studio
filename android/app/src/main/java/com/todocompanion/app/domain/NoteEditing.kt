@@ -17,6 +17,9 @@ object NoteEditing {
     /** A text edit plus where the selection should land afterwards (a collapsed caret when start==end). */
     data class Edit(val text: String, val selStart: Int, val selEnd: Int)
 
+    /** Letter-case transforms offered by the editor's "Case" menu. */
+    enum class CaseMode { UPPER, LOWER, TITLE, SENTENCE }
+
     // Checkbox must be tested before the plain bullet (a checkbox line also matches the bullet shape).
     private val CHECKBOX = Regex("""^(\s*)([-*+])\s+\[([ xX])]\s*(.*)$""")
     private val BULLET = Regex("""^(\s*)([-*+])\s+(.*)$""")
@@ -58,6 +61,46 @@ object NoteEditing {
         val nt = text.substring(0, lineStart) + newLine + text.substring(lineEnd)
         val newCaret = (lineStart + newLine.length).coerceIn(0, nt.length)
         return Edit(nt, newCaret, newCaret)
+    }
+
+    /** Recase the selected text (or, with no selection, the caret's whole line) to [mode]. The recased
+     *  span stays selected so it can be flipped again. UPPER/LOWER are literal; TITLE capitalises the
+     *  first letter of every word; SENTENCE lowercases then capitalises the first letter after each
+     *  sentence terminator (. ! ?) and each newline. Pure text math — no Compose, unit-testable. */
+    fun transformCase(text: String, selStart: Int, selEnd: Int, mode: CaseMode): Edit {
+        var s = selStart.coerceIn(0, text.length)
+        var e = selEnd.coerceIn(0, text.length)
+        if (e < s) { val t = s; s = e; e = t }
+        if (s == e) {                        // nothing selected → recase the caret's line
+            s = lineStartOf(text, s)
+            e = text.indexOf('\n', s).let { if (it == -1) text.length else it }
+        }
+        if (s == e) return Edit(text, s, e)  // empty line: no-op
+        val seg = text.substring(s, e)
+        val out = when (mode) {
+            CaseMode.UPPER -> seg.uppercase()
+            CaseMode.LOWER -> seg.lowercase()
+            CaseMode.TITLE -> titleCase(seg)
+            CaseMode.SENTENCE -> sentenceCase(seg)
+        }
+        return Edit(text.substring(0, s) + out + text.substring(e), s, s + out.length)
+    }
+
+    private val WORD = Regex("""\p{L}[\p{L}\p{Nd}'’]*""")
+    private fun titleCase(s: String): String =
+        WORD.replace(s.lowercase()) { m -> m.value.replaceFirstChar { it.titlecase() } }
+
+    private fun sentenceCase(s: String): String {
+        val sb = StringBuilder(s.lowercase())
+        var capNext = true
+        for (i in sb.indices) {
+            val c = sb[i]
+            when {
+                c == '.' || c == '!' || c == '?' || c == '\n' -> capNext = true
+                capNext && c.isLetter() -> { sb[i] = c.titlecaseChar(); capNext = false }
+            }
+        }
+        return sb.toString()
     }
 
     /** The heading level of the caret line: 0 = paragraph, 1..6 = a leading #-run of that length.
