@@ -210,3 +210,69 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.room:room-testing:2.6.1")
 }
+
+// ── UI-coherence regression guard (ratchet) ──────────────────────────────────────────────────
+// R109 — locks in the design-system adoption reached in the whole-app coherence pass. It counts
+// design-token *bypasses* in feature screens — hard-coded corner radii, raw colour literals and
+// font-size literals — and fails the build (and CI, via `check`) if any count GROWS beyond the
+// committed baseline. It never forces existing, intentional code to change; it only stops NEW
+// drift, nudging new UI to reach for AppShapes / LocalKairoColors / the type scale (or to update
+// config/ui-coherence-baseline.properties consciously, with a reason). Shared component + theme
+// files, where these tokens are legitimately DEFINED, are out of scope — only ui/screens is measured.
+val uiCoherencePatterns = mapOf(
+    "roundedCornerShape" to Regex("""RoundedCornerShape\("""),
+    "colorLiteral" to Regex("""Color\(0x[0-9A-Fa-f]{8}"""),
+    "fontSizeLiteral" to Regex("""fontSize\s*="""),
+)
+val uiCoherenceBaselineFile = file("config/ui-coherence-baseline.properties")
+val uiCoherenceScanDir = file("src/main/java/com/todocompanion/app/ui/screens")
+
+fun scanUiCoherenceCounts(): Map<String, Int> {
+    val counts = uiCoherencePatterns.keys.associateWith { 0 }.toMutableMap()
+    if (uiCoherenceScanDir.exists()) uiCoherenceScanDir.walkTopDown()
+        .filter { it.isFile && it.extension == "kt" }
+        .forEach { f ->
+            val text = f.readText()
+            uiCoherencePatterns.forEach { (k, rx) -> counts[k] = counts[k]!! + rx.findAll(text).count() }
+        }
+    return counts
+}
+
+tasks.register("uiCoherenceCheck") {
+    group = "verification"
+    description = "Ratchet guard: fails if feature screens add hard-coded shapes/colours/font-sizes beyond the baseline."
+    doLast {
+        val current = scanUiCoherenceCounts()
+        val baseline = Properties().apply {
+            if (uiCoherenceBaselineFile.exists()) FileInputStream(uiCoherenceBaselineFile).use { load(it) }
+        }
+        val failures = mutableListOf<String>()
+        current.toSortedMap().forEach { (k, cur) ->
+            val base = baseline.getProperty(k)?.toIntOrNull() ?: Int.MAX_VALUE
+            if (cur > base) failures += "  x $k: $cur (baseline $base) — new token bypass; use the design token or update the baseline with a reason"
+            else if (cur < base) logger.lifecycle("  v $k: $cur (baseline $base) — baseline can be tightened via ./gradlew uiCoherenceBaselineUpdate")
+        }
+        if (failures.isNotEmpty()) throw GradleException(
+            "UI coherence regression:\n" + failures.joinToString("\n") +
+                "\nIf the additions are intentional, run ./gradlew uiCoherenceBaselineUpdate and commit the new baseline."
+        )
+        logger.lifecycle("UI coherence guard OK (" + current.entries.joinToString { "${it.key}=${it.value}" } + ")")
+    }
+}
+
+tasks.register("uiCoherenceBaselineUpdate") {
+    group = "verification"
+    description = "Rewrite config/ui-coherence-baseline.properties to the current counts (only for intentional additions)."
+    doLast {
+        val current = scanUiCoherenceCounts()
+        uiCoherenceBaselineFile.parentFile.mkdirs()
+        uiCoherenceBaselineFile.writeText(buildString {
+            appendLine("# UI-coherence ratchet baseline — token-bypass counts in ui/screens (see build.gradle.kts).")
+            appendLine("# Counts may only shrink. Regenerate with ./gradlew uiCoherenceBaselineUpdate (intentional additions only).")
+            current.toSortedMap().forEach { (k, v) -> appendLine("$k=$v") }
+        })
+        logger.lifecycle("Wrote baseline: " + current.entries.joinToString { "${it.key}=${it.value}" })
+    }
+}
+
+tasks.named("check").configure { dependsOn("uiCoherenceCheck") }
