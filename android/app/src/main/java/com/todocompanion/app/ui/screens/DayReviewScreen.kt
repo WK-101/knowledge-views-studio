@@ -267,7 +267,10 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     // Phase E — align the day to what the user is working toward. Goals are the app's Unified Goals
     // (settings JSON); "top values" are the highest-ranked rows of the values card-sort (by orderIndex).
     // The day's recorded alignment resolves back to live goal / value objects so names & emoji stay real.
-    val goals = remember(settings.goalsJson) { Goals.parse(settings.goalsJson) }
+    // Per-workspace: the align picker and every rollup below see only the active workspace's goals
+    // (goals are workspace-scoped, like the day log itself). Keyed on the active workspace too so a
+    // switch re-resolves. Ids are unique, so resolving a recorded alignment stays correct.
+    val goals = remember(settings.goalsJson, settings.activeWorkspaceId) { vm.goals() }
     val topValues = remember(coreValues) { coreValues.sortedBy { it.orderIndex }.take(TOP_VALUES) }
     val alignment = remember(bookend?.alignmentJson) { DayAlignments.parse(bookend?.alignmentJson ?: "") }
     val movedGoals = remember(goals, alignment) { goals.filter { it.id in alignment.movedGoalIds } }

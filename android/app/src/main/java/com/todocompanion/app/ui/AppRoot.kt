@@ -1049,7 +1049,12 @@ fun AppRoot(
                                 onOpenHabit = { hid -> vm.habitDetailId.value = hid; tab = Tab.HABITS },
                                 onOpenEvent = { eid -> calEventAction = "open:$eid"; tab = Tab.CALENDAR },
                                 onOpenOccasion = openOccasion,
-                                onOpenNote = ::openNote)
+                                onOpenNote = ::openNote,
+                                onOpenActivity = { tab = Tab.TIME },
+                                onOpenNotebook = { tab = Tab.NOTES },
+                                onOpenListFolder = { id, isFolder -> vm.select(if (isFolder) ViewRef.FolderView(id) else ViewRef.ListView(id)); tab = Tab.TASKS },
+                                onOpenGoal = { showGoals = true },
+                                onOpenRoutine = { showRoutines = true })
                             Tab.SETTINGS -> SettingsScreen(vm)
           Tab.NOTES -> com.todocompanion.app.ui.screens.NotesScreen(vm, onOpenNote = ::openNote, query = notesQuery, onQueryChange = { notesQuery = it }, searchOpen = notesSearchOpen, onOpenGraph = { showNotesGraph = true }, onOpenGarden = { showNotesGarden = true }, onOpenRecall = { showRecall = true })
                             Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it; if (settings.calendarRememberLast) vm.saveSettings(settings.copy(calendarDefaultMode = it)) },
@@ -1182,6 +1187,20 @@ fun AppRoot(
                         vm.settingsSearchQuery.value = t.substringAfter(':', "").trim()
                         return@CommandPaletteDialog
                     }
+                    // "search <query>" → open whole-app Search with the query pre-filled.
+                    if (q.startsWith("search:")) {
+                        searchQuery = t.substringAfter(':', "").trim(); tab = Tab.SEARCH
+                        return@CommandPaletteDialog
+                    }
+                    // "switch to <workspace>" → change the active workspace by name (fuzzy: exact, else prefix).
+                    if (q.startsWith("workspace:")) {
+                        val wsName = t.substringAfter(':', "").trim()
+                        val ws = vm.workspaces.value.firstOrNull { it.name.equals(wsName, true) }
+                            ?: vm.workspaces.value.firstOrNull { it.name.contains(wsName, true) }
+                        if (ws != null) { vm.switchWorkspace(ws.id); android.widget.Toast.makeText(context, "Switched to ${ws.name}", android.widget.Toast.LENGTH_SHORT).show() }
+                        else android.widget.Toast.makeText(context, "No workspace “$wsName”", android.widget.Toast.LENGTH_SHORT).show()
+                        return@CommandPaletteDialog
+                    }
                     val tabByName = mapOf(
                         "tasks" to Tab.TASKS, "today" to Tab.TASKS, "calendar" to Tab.CALENDAR, "matrix" to Tab.MATRIX,
                         "timeline" to Tab.TIMELINE, "habits" to Tab.HABITS, "time" to Tab.TIME, "focus" to Tab.FOCUS,
@@ -1219,6 +1238,12 @@ fun AppRoot(
                         "day review" to { dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay() }, "day" to { dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay() }, "today review" to { dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay() },
                         "plan" to { showPlan = true }, "plan my day" to { showPlan = true },
                         "time stats" to { showTimeStats = true }, "time tracking" to { showTimeTracking = true },
+                        // Focus session, board/kanban toggle, and templates — reachable by name like every other surface.
+                        "focus" to { tab = Tab.FOCUS }, "focus session" to { tab = Tab.FOCUS }, "pomodoro" to { tab = Tab.FOCUS }, "start focus" to { tab = Tab.FOCUS },
+                        "board" to { vm.boardMode.value = true; tab = Tab.TASKS }, "kanban" to { vm.boardMode.value = true; tab = Tab.TASKS }, "board view" to { vm.boardMode.value = true; tab = Tab.TASKS },
+                        "list view" to { vm.boardMode.value = false; tab = Tab.TASKS },
+                        "templates" to { templatePicker = true }, "template" to { templatePicker = true }, "new from template" to { templatePicker = true },
+                        "new workspace" to { newWs = true },
                         // R41 — the calendar's own planner surfaces (auto-schedule, time-audit) from the palette.
                         "auto-schedule" to { tab = Tab.CALENDAR; calEventAction = "plan" }, "auto schedule" to { tab = Tab.CALENDAR; calEventAction = "plan" },
                         "calendar plan" to { tab = Tab.CALENDAR; calEventAction = "plan" }, "schedule my day" to { tab = Tab.CALENDAR; calEventAction = "plan" },
@@ -1231,7 +1256,17 @@ fun AppRoot(
                     val tagMatch = tags.firstOrNull { it.name.equals(t, true) }
                     val ctxMatch = contexts.firstOrNull { it.name.equals(t, true) }
                     when {
-                        tabByName.containsKey(q) -> { tab = tabByName.getValue(q); if (q == "today") vm.select(ViewRef.Smart(SmartKind.TODAY)) }
+                        tabByName.containsKey(q) -> {
+                            val target = tabByName.getValue(q)
+                            // Gate on the module system: navigating by name to a turned-off module would land on a
+                            // hidden surface, so point the user to Settings instead (invariant I3 — data is kept).
+                            val mod = Modules.moduleOfTab(target.name)
+                            if (mod != null && !Modules.isEnabled(settings, mod)) {
+                                android.widget.Toast.makeText(context, "${Modules.label(mod)} is turned off — enable it in Settings", android.widget.Toast.LENGTH_SHORT).show()
+                            } else {
+                                tab = target; if (q == "today") vm.select(ViewRef.Smart(SmartKind.TODAY))
+                            }
+                        }
                         overlayByName.containsKey(q) -> overlayByName.getValue(q).invoke()
                         smartByName.containsKey(q) -> { vm.select(ViewRef.Smart(smartByName.getValue(q))); tab = Tab.TASKS }
                         listMatch != null -> { vm.select(ViewRef.ListView(listMatch.id)); tab = Tab.TASKS }

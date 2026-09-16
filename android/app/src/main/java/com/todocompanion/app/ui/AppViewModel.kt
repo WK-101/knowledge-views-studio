@@ -3097,9 +3097,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ── W6 · Routine tags ───────────────────────────────────────────────────────────────────────
-    fun routines(): List<com.todocompanion.app.domain.Routine> = com.todocompanion.app.domain.Routines.parse(settings.value.routinesJson)
+    // Routines are per-workspace: a blank workspaceId is legacy data, treated as the default workspace.
+    private fun routineWs(r: com.todocompanion.app.domain.Routine) = r.workspaceId.ifBlank { com.todocompanion.app.data.entity.WorkspaceEntity.DEFAULT_ID }
+    fun routines(): List<com.todocompanion.app.domain.Routine> {
+        val ws = activeWorkspace()
+        return com.todocompanion.app.domain.Routines.parse(settings.value.routinesJson).filter { routineWs(it) == ws }
+    }
+    /** [list] is the ACTIVE workspace's routines; merge with the other workspaces' so a save here never
+     *  wipes another workspace's routines. Blank ids are stamped with the active workspace. */
     fun saveRoutines(list: List<com.todocompanion.app.domain.Routine>) = viewModelScope.launch {
-        repo.saveSettings(settings.value.copy(routinesJson = com.todocompanion.app.domain.Routines.encode(list)))
+        val ws = activeWorkspace()
+        val others = com.todocompanion.app.domain.Routines.parse(settings.value.routinesJson).filter { routineWs(it) != ws }
+        val mine = list.map { if (it.workspaceId.isBlank()) it.copy(workspaceId = ws) else it }
+        repo.saveSettings(settings.value.copy(routinesJson = com.todocompanion.app.domain.Routines.encode(others + mine)))
         // Re-arm the daily routine nudges whenever the set/times change (self-healing, like habits).
         com.todocompanion.app.reminders.AlarmScheduler.scheduleRoutineReminders(appCtx, repo)
     }
@@ -3225,9 +3235,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ── X1 · Unified Goals ────────────────────────────────────────────────────────────────────────
-    fun goals(): List<com.todocompanion.app.domain.Goal> = com.todocompanion.app.domain.Goals.parse(settings.value.goalsJson)
+    // Goals are per-workspace: a blank workspaceId is legacy data, treated as the default workspace.
+    private fun goalWs(g: com.todocompanion.app.domain.Goal) = g.workspaceId.ifBlank { com.todocompanion.app.data.entity.WorkspaceEntity.DEFAULT_ID }
+    fun goals(): List<com.todocompanion.app.domain.Goal> {
+        val ws = activeWorkspace()
+        return com.todocompanion.app.domain.Goals.parse(settings.value.goalsJson).filter { goalWs(it) == ws }
+    }
+    /** [list] is the ACTIVE workspace's goals; merge with other workspaces' so a save here never wipes
+     *  another workspace's goals. Blank ids are stamped with the active workspace. */
     fun saveGoals(list: List<com.todocompanion.app.domain.Goal>) = viewModelScope.launch {
-        repo.saveSettings(settings.value.copy(goalsJson = com.todocompanion.app.domain.Goals.encode(list)))
+        val ws = activeWorkspace()
+        val others = com.todocompanion.app.domain.Goals.parse(settings.value.goalsJson).filter { goalWs(it) != ws }
+        val mine = list.map { if (it.workspaceId.isBlank()) it.copy(workspaceId = ws) else it }
+        repo.saveSettings(settings.value.copy(goalsJson = com.todocompanion.app.domain.Goals.encode(others + mine)))
     }
     data class GoalHealth(
         val goal: com.todocompanion.app.domain.Goal,
@@ -6135,6 +6155,32 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun searchAttachmentNames(query: String): List<com.todocompanion.app.data.entity.AttachmentMeta> {
         val q = query.trim().lowercase(); if (q.isBlank()) return emptyList()
         return allAttachments.value.filter { it.fileName.lowercase().contains(q) }
+    }
+
+    // Whole-app search now also reaches these first-class types (all already workspace-scoped flows).
+    fun searchTimeActivities(query: String): List<com.todocompanion.app.data.entity.TimeActivityEntity> {
+        val q = query.trim().lowercase(); if (q.isBlank()) return emptyList()
+        return timeActivities.value.filter { !it.archived && it.name.lowercase().contains(q) }.sortedBy { it.name.lowercase() }
+    }
+    fun searchNotebooks(query: String): List<com.todocompanion.app.data.entity.NotebookEntity> {
+        val q = query.trim().lowercase(); if (q.isBlank()) return emptyList()
+        return notebooks.value.filter { it.name.lowercase().contains(q) }.sortedBy { it.name.lowercase() }
+    }
+    /** Matching lists & folders as (id, name, isFolder) triples — tapping opens that list/folder view. */
+    fun searchListsFolders(query: String): List<Triple<String, String, Boolean>> {
+        val q = query.trim().lowercase(); if (q.isBlank()) return emptyList()
+        val f = folders.value.filter { it.name.lowercase().contains(q) }.map { Triple(it.id, it.name, true) }
+        val l = lists.value.filter { it.id != ListEntity.INBOX_ID && it.name.lowercase().contains(q) }.map { Triple(it.id, it.name, false) }
+        return f + l
+    }
+    fun searchGoals(query: String): List<com.todocompanion.app.domain.Goal> {
+        val q = query.trim().lowercase(); if (q.isBlank()) return emptyList()
+        return goals().filter { !it.archived && (it.name.lowercase().contains(q) || it.note.lowercase().contains(q) ||
+            it.area.lowercase().contains(q) || it.identity.lowercase().contains(q)) }
+    }
+    fun searchRoutines(query: String): List<com.todocompanion.app.domain.Routine> {
+        val q = query.trim().lowercase(); if (q.isBlank()) return emptyList()
+        return routines().filter { it.name.lowercase().contains(q) || it.note.lowercase().contains(q) }
     }
 
     /** R57 — calendar events matching the query (title/place/notes), one row per series, newest first. */

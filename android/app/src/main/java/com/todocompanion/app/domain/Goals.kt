@@ -74,6 +74,8 @@ data class Goal(
     val cycleWeeks: Int = 0,           // 1.3 window length in weeks (0 = none; 12 = a 12-week year)
     val reviewCadenceDays: Int = 7,    // 0.4 how often to review (7 = weekly)
     val archived: Boolean = false,
+    // Which workspace this goal belongs to ("" = legacy/pre-scoping, treated as the default workspace).
+    val workspaceId: String = "",
 ) {
     /** Which arms are configured — a goal needs at least one to be meaningful. */
     val hasTasks get() = listId.isNotBlank()

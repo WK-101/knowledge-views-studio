@@ -29,6 +29,8 @@ data class Routine(
     // routines had no cadence and ran daily). Governs the due-today set, the reminder, adherence and capacity.
     val days: List<Int> = emptyList(),
     val createdAt: Long = 0L,
+    // Which workspace this routine belongs to ("" = legacy/pre-scoping, treated as the default workspace).
+    val workspaceId: String = "",
 ) {
     /** Total planned seconds across timed steps (untimed check-off steps contribute 0). */
     val plannedSec: Int get() = steps.sumOf { it.durationSec ?: 0 }

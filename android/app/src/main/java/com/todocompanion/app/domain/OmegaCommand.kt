@@ -25,6 +25,11 @@ object OmegaCommand {
     private val TRACK = Regex("^(?:track|start|timer|time)\\s+(.+)$", RegexOption.IGNORE_CASE)
     // "setting dark mode" / "settings backup" / "preferences" → jump to Settings, pre-filtered (R28 #5).
     private val SETTINGS = Regex("^(?:settings?|preferences?|prefs?|config)\\b\\s*(.*)$", RegexOption.IGNORE_CASE)
+    // "search deep work" / "find milk" → open the whole-app Search with the query pre-filled. Routed as a
+    // Goto with a "search:" prefix so no new Command type is needed (mirrors the "settings:" prefix).
+    private val SEARCH = Regex("^(?:search|find)\\s+(.+)$", RegexOption.IGNORE_CASE)
+    // "switch to work" / "workspace personal" → change the active workspace, routed via a "workspace:" prefix.
+    private val WORKSPACE = Regex("^(?:workspace|ws|switch\\s+workspace|switch\\s+to)\\s+(.+)$", RegexOption.IGNORE_CASE)
     private val GOTO = Regex("^(?:go\\s*to|goto|open|show|jump\\s+to)\\s+(.+)$", RegexOption.IGNORE_CASE)
     private val ASK_PREFIX = Regex("^(?:ask|q:|query)\\s+(.+)$", RegexOption.IGNORE_CASE)
     // Question-shaped lines the local query engine can try to answer.
@@ -59,6 +64,8 @@ object OmegaCommand {
 
         ASK_PREFIX.find(s)?.let { return Command.Ask(it.groupValues[1].trim()) }
         SETTINGS.find(s)?.let { return Command.Goto("settings:" + it.groupValues[1].trim()) }
+        SEARCH.find(s)?.let { return Command.Goto("search:" + it.groupValues[1].trim()) }
+        WORKSPACE.find(s)?.let { return Command.Goto("workspace:" + it.groupValues[1].trim()) }
         GOTO.find(s)?.let { return Command.Goto(it.groupValues[1].trim()) }
         if (QUESTION.matches(s)) return Command.Ask(s)
 

@@ -127,7 +127,7 @@ private fun Sparkline(values: List<Int>, modifier: Modifier = Modifier) {
 fun GoalsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenNote: (String) -> Unit = {}) {
     BackHandler(onBack = onBack)
     val settings by vm.settings.collectAsState()
-    val goals = remember(settings.goalsJson) { vm.goals().filter { !it.archived } }
+    val goals = remember(settings.goalsJson, settings.activeWorkspaceId) { vm.goals().filter { !it.archived } }
     val reviews = remember(settings.goalReviewsJson) { vm.goalReviews() }
     val today = goalToday()
 

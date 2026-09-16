@@ -113,7 +113,7 @@ fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     val settings by vm.settings.collectAsState()
     // Re-parse whenever the persisted JSON changes so add/edit/delete reflect immediately.
-    val routines = remember(settings.routinesJson) { vm.routines() }
+    val routines = remember(settings.routinesJson, settings.activeWorkspaceId) { vm.routines() }
     val runs = remember(settings.routineRunsJson) { vm.routineRuns() }
     val dayLogs by vm.dayLogs.collectAsState()
     val today = vm.today()

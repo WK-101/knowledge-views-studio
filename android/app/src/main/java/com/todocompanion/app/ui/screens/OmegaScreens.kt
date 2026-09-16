@@ -65,55 +65,71 @@ import java.time.format.TextStyle
 import java.util.Locale
 import com.todocompanion.app.ui.components.appCardColor
 
-/** The full command catalog, shown click-to-expand in the palette so no capability stays hidden. */
-private val COMMAND_CATALOG: List<Pair<String, List<Pair<String, String>>>> = listOf(
-    "Capture" to listOf(
-        "Add a task or habit" to "buy milk tomorrow 5pm !!",
-        "Make a habit" to "read every night",
-    ),
-    "Create" to listOf(
-        "New blank note" to "new note",
-        "New task (quick add)" to "new task",
-    ),
-    "Track time" to listOf(
-        "Start a timer" to "track deep work",
-        "Stop the running timer" to "stop timer",
-    ),
-    "Navigate" to listOf(
-        "Go to a tab, list or tag" to "go to habits",
-        "Open Notes" to "go to notes",
-        "Open Today" to "go to today",
-        "Open a smart list (Inbox, Scheduled, Trash…)" to "go to completed",
-        "Waiting On / Needs Attention / Someday" to "go to needs attention",
-        "Open a hub (The Record, Countdowns, Attachments…)" to "open the record",
-        "Open Routines" to "open routines",
-        "Open Goals" to "open goals hub",
-        "Open Life Systems" to "open life systems",
-        "Open Occasions" to "open occasions",
-        "Notes graph, garden or recall" to "open notes graph",
-    ),
-    "Settings" to listOf(
-        "Jump to a setting" to "setting dark mode",
-        "Open backup & export" to "settings backup",
-        "Open privacy & app lock" to "settings privacy",
-    ),
-    "Do" to listOf(
-        "Plan your day" to "plan my day",
-        "Guided weekly review" to "weekly review",
-        "This week's recap" to "recap this week",
-        "Last week's recap" to "recap last week",
-        "This month's recap" to "recap this month",
-        "Open the Momentum dashboard" to "momentum",
-        "Open Statistics" to "stats",
-        "Your year in review (annual report)" to "year in review",
-    ),
-    "Ask your data" to listOf(
-        "Hours on an activity" to "hours on Reading this week",
-        "Tasks completed" to "tasks done last week",
-        "Focus time" to "focus this month",
-        "Strongest habit" to "best habit",
-    ),
-)
+/**
+ * The full command catalog, shown click-to-expand in the palette so no capability stays hidden. It is
+ * built from the active settings so it stays honest about the modular system: rows that only make sense
+ * for a turned-off module (habits, time, notes) are dropped, and empty groups are not rendered. Adding a
+ * row here keeps the palette self-documenting — every command it can run is discoverable in one place.
+ */
+private fun commandCatalog(s: com.todocompanion.app.domain.AppSettings): List<Pair<String, List<Pair<String, String>>>> {
+    val habits = com.todocompanion.app.domain.Modules.isEnabled(s, com.todocompanion.app.domain.Modules.HABITS)
+    val time = com.todocompanion.app.domain.Modules.isEnabled(s, com.todocompanion.app.domain.Modules.TIME)
+    val notes = com.todocompanion.app.domain.Modules.isEnabled(s, com.todocompanion.app.domain.Modules.NOTES)
+    val groups = buildList<Pair<String, List<Pair<String, String>>>> {
+        add("Capture" to buildList<Pair<String, String>> {
+            add("Add a task or habit" to "buy milk tomorrow 5pm !!")
+            if (habits) add("Make a habit" to "read every night")
+        })
+        add("Create" to buildList<Pair<String, String>> {
+            if (notes) add("New blank note" to "new note")
+            add("New task (quick add)" to "new task")
+            add("New from a template" to "templates")
+        })
+        if (time) add("Track time" to listOf(
+            "Start a timer" to "track deep work",
+            "Stop the running timer" to "stop timer",
+            "Focus session (Pomodoro)" to "focus session",
+        )) else add("Focus" to listOf("Focus session (Pomodoro)" to "focus session"))
+        add("Navigate" to buildList {
+            add("Go to a tab, list or tag" to "go to today")
+            add("Search everything" to "search deep work")
+            add("Switch workspace" to "switch to work")
+            if (notes) add("Open Notes" to "go to notes")
+            add("Open a smart list (Inbox, Scheduled, Trash…)" to "go to completed")
+            add("Waiting On / Needs Attention / Someday" to "go to needs attention")
+            add("Board / list view" to "board")
+            add("Open a hub (The Record, Countdowns, Attachments…)" to "open the record")
+            add("Open Routines" to "open routines")
+            add("Open Goals" to "open goals hub")
+            add("Open Life Systems" to "open life systems")
+            add("Open Occasions" to "open occasions")
+            if (notes) add("Notes graph, garden or recall" to "open notes graph")
+        })
+        add("Settings" to listOf(
+            "Jump to a setting" to "setting dark mode",
+            "Open backup & export" to "settings backup",
+            "Open privacy & app lock" to "settings privacy",
+        ))
+        add("Do" to listOf(
+            "Plan your day" to "plan my day",
+            "Guided weekly review" to "weekly review",
+            "This week's recap" to "recap this week",
+            "Last week's recap" to "recap last week",
+            "This month's recap" to "recap this month",
+            "Last month's recap" to "recap last month",
+            "Open the Momentum dashboard" to "momentum",
+            "Open Statistics" to "stats",
+            "Your year in review (annual report)" to "year in review",
+        ))
+        add("Ask your data" to buildList {
+            if (time) add("Hours on an activity" to "hours on Reading this week")
+            add("Tasks completed" to "tasks done last week")
+            if (time) add("Focus time" to "focus this month")
+            if (habits) add("Strongest habit" to "best habit")
+        })
+    }
+    return groups.filter { it.second.isNotEmpty() }
+}
 
 /**
  * Ω1 + Ω2 — the command palette. One line runs the whole app: capture, navigate, act, or ask a data
@@ -127,6 +143,9 @@ fun CommandPaletteDialog(vm: AppViewModel, onDismiss: () -> Unit, onRun: (OmegaC
     var showAll by remember { mutableStateOf(false) }   // catalogue folded by default; tap "All commands" to expand
     val focus = remember { FocusRequester() }
     val parsed = remember(text) { OmegaCommand.parse(text) }
+    // Module-aware: the catalogue only advertises what the active modules can actually do.
+    val settings by vm.settings.collectAsState()
+    val catalog = remember(settings) { commandCatalog(settings) }
 
     fun run() {
         val cmd = OmegaCommand.parse(text)
@@ -175,7 +194,7 @@ fun CommandPaletteDialog(vm: AppViewModel, onDismiss: () -> Unit, onRun: (OmegaC
                 }
                 if (showAll) {
                     Column(Modifier.fillMaxWidth().heightIn(max = 300.dp).verticalScroll(rememberScrollState())) {
-                        COMMAND_CATALOG.forEach { (group, rows) ->
+                        catalog.forEach { (group, rows) ->
                             Text(group.uppercase(), Modifier.padding(top = 8.dp, bottom = 2.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             rows.forEach { (label, ex) ->
                                 Row(Modifier.fillMaxWidth().clickable { text = ex; answer = null }.padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {

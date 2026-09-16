@@ -81,6 +81,9 @@ fun SearchScreen(
     vm: AppViewModel, onOpenTask: (String) -> Unit, query: String, modifier: Modifier = Modifier,
     onOpenHabit: (String) -> Unit = {}, onOpenEvent: (String) -> Unit = {}, onOpenOccasion: (String) -> Unit = {},
     onOpenNote: (String) -> Unit = {},
+    onOpenActivity: () -> Unit = {}, onOpenNotebook: () -> Unit = {},
+    onOpenListFolder: (String, Boolean) -> Unit = { _, _ -> },
+    onOpenGoal: () -> Unit = {}, onOpenRoutine: () -> Unit = {},
 ) {
     val tasks by vm.tasks.collectAsState()
     val habits by vm.habits.collectAsState()
@@ -108,6 +111,15 @@ fun SearchScreen(
     val attachHits = remember(query) { vm.searchAttachmentNames(query).associate { it.taskId to it.fileName } }
     val lists by vm.lists.collectAsState()
     val folders by vm.folders.collectAsState()
+    val notebooksState by vm.notebooks.collectAsState()
+    val timeActivitiesState by vm.timeActivities.collectAsState()
+    // Whole-app coverage — the remaining findable objects, all shown only under the Everything scope so
+    // each typed scope stays a clean single-type list. Goals & routines read the active workspace.
+    val activityResults = remember(query, timeActivitiesState) { vm.searchTimeActivities(query) }
+    val notebookResults = remember(query, notebooksState) { vm.searchNotebooks(query) }
+    val listFolderResults = remember(query, lists, folders) { vm.searchListsFolders(query) }
+    val goalResults = remember(query) { vm.searchGoals(query) }
+    val routineResults = remember(query) { vm.searchRoutines(query) }
     var scope by remember { mutableStateOf(Scope.ALL) }
     var filter by remember { mutableStateOf(SF.ALL) }
     var sortBy by remember { mutableStateOf(SortBy.RELEVANCE) }
@@ -222,11 +234,18 @@ fun SearchScreen(
         val showOccasions = (scope == Scope.ALL || scope == Scope.OCCASIONS) && shownOccasions.isNotEmpty()
         val showNotes = (scope == Scope.ALL || scope == Scope.NOTES) && shownNotes.isNotEmpty()
         val showTasks = tasksShown && shown.isNotEmpty()
+        // These types have no dedicated scope of their own, so they surface only under Everything.
+        val showActivities = scope == Scope.ALL && activityResults.isNotEmpty()
+        val showNotebooks = scope == Scope.ALL && notebookResults.isNotEmpty()
+        val showListsFolders = scope == Scope.ALL && listFolderResults.isNotEmpty()
+        val showGoals = scope == Scope.ALL && goalResults.isNotEmpty()
+        val showRoutines = scope == Scope.ALL && routineResults.isNotEmpty()
         when {
-            query.isBlank() -> SearchHint("Search everything", "Find any task, habit, event, occasion or note (title & content), plus #tags, @contexts and 📎 attachment names. Completed, someday and archived items are included; the Trashed filter searches deleted tasks.")
-            !showTasks && !showHabits && !showEvents && !showOccasions && !showNotes -> SearchHint("No matches", "Nothing found for “$query”", off = true)
+            query.isBlank() -> SearchHint("Search everything", "Find any task, habit, event, occasion, note (title & content), goal, routine, time activity, notebook, list or folder — plus #tags, @contexts and 📎 attachment names. Completed, someday and archived items are included; the Trashed filter searches deleted tasks.")
+            !showTasks && !showHabits && !showEvents && !showOccasions && !showNotes && !showActivities && !showNotebooks && !showListsFolders && !showGoals && !showRoutines -> SearchHint("No matches", "Nothing found for “$query”", off = true)
             else -> {
-                val totalN = (if (showTasks) shown.size else 0) + (if (showHabits) shownHabits.size else 0) + (if (showEvents) shownEvents.size else 0) + (if (showOccasions) shownOccasions.size else 0) + (if (showNotes) shownNotes.size else 0)
+                val totalN = (if (showTasks) shown.size else 0) + (if (showHabits) shownHabits.size else 0) + (if (showEvents) shownEvents.size else 0) + (if (showOccasions) shownOccasions.size else 0) + (if (showNotes) shownNotes.size else 0) +
+                    (if (showActivities) activityResults.size else 0) + (if (showNotebooks) notebookResults.size else 0) + (if (showListsFolders) listFolderResults.size else 0) + (if (showGoals) goalResults.size else 0) + (if (showRoutines) routineResults.size else 0)
                 Text("$totalN result${if (totalN == 1) "" else "s"}",
                     Modifier.padding(start = 18.dp, top = 2.dp, bottom = 4.dp),
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -354,6 +373,45 @@ fun SearchScreen(
                             }
                         }
                     }
+                    // GOALS — a Unified Goal (active workspace); tap opens the Goals screen.
+                    if (showGoals) {
+                        item(key = "goals-header") { SectionHeader("GOALS", top = 10.dp) }
+                        items(goalResults, key = { "g:" + it.id }) { g ->
+                            ResultRow(g.emoji.ifBlank { "🎯" }, g.name.ifBlank { "(untitled goal)" },
+                                listOfNotNull(g.area.ifBlank { null }, g.note.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim()).firstOrNull(),
+                                "Goal", onClick = onOpenGoal)
+                        }
+                    }
+                    // ROUTINES — a press-play ritual (active workspace); tap opens the Routines screen.
+                    if (showRoutines) {
+                        item(key = "routines-header") { SectionHeader("ROUTINES", top = 10.dp) }
+                        items(routineResults, key = { "r:" + it.id }) { r ->
+                            ResultRow(r.emoji.ifBlank { "🔗" }, r.name.ifBlank { "(untitled routine)" },
+                                r.note.trim().lineSequence().firstOrNull { it.isNotBlank() }?.trim(),
+                                if (r.isRunnable) "Routine · ${r.steps.size} step${if (r.steps.size == 1) "" else "s"}" else "Routine", onClick = onOpenRoutine)
+                        }
+                    }
+                    // TIME ACTIVITIES — a tracker activity; tap opens the Time screen.
+                    if (showActivities) {
+                        item(key = "activities-header") { SectionHeader("TIME ACTIVITIES", top = 10.dp) }
+                        items(activityResults, key = { "ta:" + it.id }) { a ->
+                            ResultRow(a.emoji?.ifBlank { null } ?: "⏱️", a.name.ifBlank { "(untitled)" }, null, "Time activity", tint = a.colorArgb?.let { Color(it) }, onClick = onOpenActivity)
+                        }
+                    }
+                    // NOTEBOOKS — a notes notebook; tap opens the Notes screen.
+                    if (showNotebooks) {
+                        item(key = "notebooks-header") { SectionHeader("NOTEBOOKS", top = 10.dp) }
+                        items(notebookResults, key = { "nb:" + it.id }) { nb ->
+                            ResultRow(nb.icon?.ifBlank { null } ?: "📓", nb.name.ifBlank { "(untitled)" }, null, "Notebook", tint = nb.colorArgb?.let { Color(it) }, onClick = onOpenNotebook)
+                        }
+                    }
+                    // LISTS & FOLDERS — tap opens that list/folder view in Tasks.
+                    if (showListsFolders) {
+                        item(key = "listsfolders-header") { SectionHeader("LISTS & FOLDERS", top = 10.dp) }
+                        items(listFolderResults, key = { "lf:" + it.first }) { (id, name, isFolder) ->
+                            ResultRow(if (isFolder) "📁" else "📋", name.ifBlank { "(untitled)" }, null, if (isFolder) "Folder" else "List") { onOpenListFolder(id, isFolder) }
+                        }
+                    }
                 }
             }
         }
@@ -458,6 +516,26 @@ private fun <T> DropControl(icon: ImageVector, selected: T, entries: List<T>, la
                     onClick = { onSelect(e); open = false },
                     trailingIcon = { if (e == selected) Icon(Icons.Filled.Check, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) },
                 )
+            }
+        }
+    }
+}
+
+/** A generic search-result row (emoji tile · name · optional subtitle · type badge), matching the note/
+ *  habit rows so every result type reads the same. Used for goals, routines, activities, notebooks and
+ *  lists/folders — the types with no rich per-row content of their own. */
+@Composable
+private fun ResultRow(emoji: String, title: String, subtitle: String?, badge: String, tint: Color? = null, onClick: () -> Unit) {
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp), shape = RoundedCornerShape(12.dp), color = appCardColor()) {
+        Row(Modifier.fillMaxWidth().clickable { onClick() }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background((tint ?: MaterialTheme.colorScheme.primary).copy(alpha = .16f)), contentAlignment = Alignment.Center) {
+                Text(emoji, style = MaterialTheme.typography.bodyMedium)
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
+                if (!subtitle.isNullOrBlank()) Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(badge, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

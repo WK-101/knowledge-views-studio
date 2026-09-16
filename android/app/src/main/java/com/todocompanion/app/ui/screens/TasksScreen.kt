@@ -984,8 +984,9 @@ private fun HabitsDueStrip(vm: AppViewModel) {
 @Composable
 private fun RoutinesDueStrip(vm: AppViewModel, onOpenRoutineRun: (String) -> Unit) {
     val settings by vm.settings.collectAsState()
-    // routinesDueToday() reads routinesJson + routineRunsJson off settings, so recompute when settings change.
-    val due = remember(settings.routinesJson, settings.routineRunsJson) { vm.routinesDueToday() }
+    // routinesDueToday() reads routinesJson + routineRunsJson off settings AND scopes to the active
+    // workspace, so recompute when either the data or the active workspace changes.
+    val due = remember(settings.routinesJson, settings.routineRunsJson, settings.activeWorkspaceId) { vm.routinesDueToday() }
     if (due.isEmpty()) return
     val expanded = "routinesdue" in settings.smartCardsExpanded
     AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 12.dp) {
