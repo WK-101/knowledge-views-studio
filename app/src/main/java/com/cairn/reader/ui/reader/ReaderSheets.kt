@@ -128,6 +128,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -161,16 +162,47 @@ import com.cairn.reader.ui.util.speedLabel
 import com.cairn.reader.data.db.CacheStatus
 import com.cairn.reader.data.db.ExtractStatus
 
+/**
+ * Keeps the reader's immersive full-screen intact while a [ModalBottomSheet] is open.
+ *
+ * A `ModalBottomSheet` hosts its content in its own focusable window (a `ComponentDialog`, exposed
+ * as a [androidx.compose.ui.window.DialogWindowProvider]). That window does NOT inherit the reader
+ * Activity's hidden-system-bar flags, so the instant it gains focus the system re-shows the
+ * status/navigation bars — visibly dropping the reader out of full-screen, and the resulting
+ * window-inset change on the edge-to-edge Activity shunts the article's scroll. Re-hiding the bars
+ * on the sheet's *own* window keeps the whole read immersive and the Activity's insets unchanged.
+ *
+ * A no-op when [hide] is false (the reader isn't hiding the bars) or when no dialog window is found
+ * (e.g. previews). The reader Activity re-asserts its own bars once the sheet dismisses.
+ */
+@Composable
+internal fun KeepImmersiveWhileOpen(hide: Boolean) {
+    val view = LocalView.current
+    LaunchedEffect(view, hide) {
+        val window = generateSequence(view.parent) { (it as? android.view.View)?.parent }
+            .filterIsInstance<androidx.compose.ui.window.DialogWindowProvider>()
+            .firstOrNull()
+            ?.window ?: return@LaunchedEffect
+        val controller = androidx.core.view.WindowCompat.getInsetsController(window, view)
+        controller.systemBarsBehavior =
+            androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        val bars = androidx.core.view.WindowInsetsCompat.Type.systemBars()
+        if (hide) controller.hide(bars) else controller.show(bars)
+    }
+}
+
 @Composable
 internal fun LookupSheet(
     term: String,
     onlineEnabled: Boolean,
+    keepImmersive: Boolean,
     onDefine: suspend (String) -> Result<com.cairn.reader.domain.lookup.DictionaryEntry>,
     onEnableOnline: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        KeepImmersiveWhileOpen(keepImmersive)
         Column(
             Modifier
                 .fillMaxWidth()
@@ -330,6 +362,7 @@ internal fun ImageLightbox(
 @Composable
 internal fun HighlightSheet(
     highlight: HighlightEntity,
+    keepImmersive: Boolean,
     onColor: (Int) -> Unit,
     onSaveNote: (String?) -> Unit,
     onCopy: () -> Unit,
@@ -339,6 +372,7 @@ internal fun HighlightSheet(
 ) {
     var note by remember(highlight.id) { mutableStateOf(highlight.note.orEmpty()) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        KeepImmersiveWhileOpen(keepImmersive)
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
             Text(
                 text = "“${highlight.quote.trim()}”",

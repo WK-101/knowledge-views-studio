@@ -729,6 +729,8 @@ fun ReaderScreen(
     managed?.let { highlight ->
         HighlightSheet(
             highlight = highlight,
+            // Editing a highlight must not drop the reader out of full-screen either.
+            keepImmersive = hideSystemBars,
             onColor = { viewModel.setHighlightColor(highlight.id, it) },
             onSaveNote = { viewModel.setHighlightNote(highlight.id, it) },
             onCopy = { clipboard.setText(AnnotatedString(highlight.quote.trim())) },
@@ -748,6 +750,9 @@ fun ReaderScreen(
         LookupSheet(
             term = term,
             onlineEnabled = onlineEnabled,
+            // Keep the reader's full-screen while the definition sheet is open — the sheet's own
+            // window would otherwise re-show the system bars (and shunt the article) on focus.
+            keepImmersive = hideSystemBars,
             onDefine = { viewModel.define(it) },
             onEnableOnline = { viewModel.setDictionaryOnline(true) },
             onDismiss = { lookup = null },
