@@ -17,7 +17,6 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -105,7 +104,9 @@ import com.cairn.reader.data.prefs.SwipeConfig
 import com.cairn.reader.ui.components.CollectionPickerSheet
 import com.cairn.reader.ui.components.EmptyState
 import com.cairn.reader.ui.components.EntryDivider
+import com.cairn.reader.ui.components.FilterChipRow
 import com.cairn.reader.ui.components.SectionLabel
+import com.cairn.reader.ui.components.SectionLabelVariant
 import com.cairn.reader.ui.components.SelectionActionBar
 import com.cairn.reader.ui.components.SwipeableItemRow
 
@@ -228,7 +229,7 @@ fun LibraryScreen(
                     Box {
                         IconButton(onClick = { displayMenu = true }) { Icon(Icons.Outlined.Tune, contentDescription = stringResource(R.string.view_and_sort)) }
                         DropdownMenu(expanded = displayMenu, onDismissRequest = { displayMenu = false }) {
-                            Text(stringResource(R.string.view), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                            SectionLabel(stringResource(R.string.view), SectionLabelVariant.Menu)
                             LibraryViewMode.entries.forEach { m ->
                                 DropdownMenuItem(
                                     text = { Text(viewModeLabel(m), fontWeight = if (m == viewMode) FontWeight.SemiBold else FontWeight.Normal) },
@@ -236,7 +237,7 @@ fun LibraryScreen(
                                 )
                             }
                             HorizontalDivider()
-                            Text(stringResource(R.string.sort), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                            SectionLabel(stringResource(R.string.sort), SectionLabelVariant.Menu)
                             LibrarySort.entries.forEach { s ->
                                 DropdownMenuItem(
                                     text = { Text(s.label, fontWeight = if (s == sort) FontWeight.SemiBold else FontWeight.Normal) },
@@ -264,10 +265,7 @@ fun LibraryScreen(
 
         // A single, quiet type-filter strip only when the current scope actually mixes types.
         if (!searching && availableTypes.size >= 2) {
-            FlowRow(
-                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+            FilterChipRow {
                 FilterChip(selected = typeFilter == null, onClick = { viewModel.setTypeFilter(null) }, label = { Text(stringResource(R.string.all)) })
                 availableTypes.forEach { t ->
                     FilterChip(
@@ -631,9 +629,9 @@ private fun HeadlineRow(row: ItemListRow, selected: Boolean, onClick: () -> Unit
             .fillMaxWidth()
             .background(if (selected) scheme.secondaryContainer else scheme.surface)
             .combinedClickable(onClick = onClick, onLongClick = onLongPress)
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+            .padding(horizontal = 16.dp, vertical = 9.dp),
     ) {
-        Text(row.title, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(row.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium, color = scheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(row.sourceTitle ?: row.siteName ?: "", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1)
     }
 }

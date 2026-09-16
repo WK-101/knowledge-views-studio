@@ -52,6 +52,7 @@ import com.cairn.reader.R
 import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.data.prefs.ListViewMode
 import com.cairn.reader.ui.components.EmptyState
+import com.cairn.reader.ui.components.EntryDivider
 import com.cairn.reader.ui.components.ItemActionSheet
 import com.cairn.reader.ui.components.SwipeableItemRow
 
@@ -173,7 +174,7 @@ internal fun InboxScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 FilterChip(
@@ -216,11 +217,7 @@ internal fun InboxScreen(
                         onOpenSource = { sid -> viewModel.selectFeed(sid, row.sourceTitle ?: row.siteName ?: "Feed") },
                     )
                     if (viewMode != ListViewMode.MAGAZINE) {
-                        androidx.compose.material3.HorizontalDivider(
-                            modifier = Modifier.padding(start = 16.dp),
-                            thickness = 0.6.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                        )
+                        EntryDivider()
                     }
                 }
                 LazyColumn(

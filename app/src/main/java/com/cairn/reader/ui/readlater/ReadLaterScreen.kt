@@ -9,7 +9,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -46,7 +45,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -66,14 +64,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.data.prefs.SwipeAction
 import com.cairn.reader.ui.components.CollectionPickerSheet
+import com.cairn.reader.ui.components.EmptyState
+import com.cairn.reader.ui.components.EntryDivider
+import com.cairn.reader.ui.components.FilterChipRow
+import com.cairn.reader.ui.components.SectionLabel
+import com.cairn.reader.ui.components.SectionLabelVariant
 import com.cairn.reader.ui.components.SheetActionRow
+import com.cairn.reader.ui.components.SheetHeader
 import com.cairn.reader.ui.components.SwipeableItemRow
 
 @Composable
@@ -150,7 +153,7 @@ fun ReadLaterScreen(
                         Box {
                             IconButton(onClick = { sortMenu = true }) { Icon(Icons.Outlined.SwapVert, contentDescription = stringResource(R.string.sort_2)) }
                             DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
-                                Text(stringResource(R.string.sort), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                                SectionLabel(stringResource(R.string.sort), SectionLabelVariant.Menu)
                                 ReadLaterSort.entries.forEach { s ->
                                     DropdownMenuItem(
                                         text = { Text(s.label, fontWeight = if (s == sort) FontWeight.SemiBold else FontWeight.Normal) },
@@ -207,10 +210,7 @@ fun ReadLaterScreen(
             }
             // Advanced filter chips: type + unread + offline.
             if (!selecting && (availableTypes.size >= 2 || filtersActive)) {
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+                FilterChipRow {
                     FilterChip(selected = typeFilter == null && !unreadOnly && !offlineOnly, onClick = {
                         viewModel.setTypeFilter(null); viewModel.setUnreadOnly(false); viewModel.setOfflineOnly(false)
                     }, label = { Text(stringResource(R.string.all)) })
@@ -224,30 +224,25 @@ fun ReadLaterScreen(
             }
 
             if (items.isEmpty()) {
-                Column(
-                    Modifier.fillMaxSize().padding(horizontal = 32.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Icon(Icons.Outlined.BookmarkRemove, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(40.dp))
-                    Spacer(Modifier.height(14.dp))
-                    if (filtersActive) {
-                        Text(stringResource(R.string.no_matches), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
-                        Spacer(Modifier.height(8.dp))
-                        Text(stringResource(R.string.nothing_here_matches_your_search_or), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center)
-                    } else {
-                        Text(stringResource(R.string.nothing_to_read_later), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
-                        Spacer(Modifier.height(8.dp))
-                        Text(stringResource(R.string.save_an_article_for_later_from),
-                            style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        TextButton(onClick = { showHelp = true }) {
-                            Icon(Icons.Outlined.MailOutline, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.how_to_save_newsletters_pages))
-                        }
-                    }
+                if (filtersActive) {
+                    EmptyState(
+                        title = stringResource(R.string.no_matches),
+                        body = stringResource(R.string.nothing_here_matches_your_search_or),
+                        icon = Icons.Outlined.BookmarkRemove,
+                    )
+                } else {
+                    EmptyState(
+                        title = stringResource(R.string.nothing_to_read_later),
+                        body = stringResource(R.string.save_an_article_for_later_from),
+                        icon = Icons.Outlined.BookmarkRemove,
+                        action = {
+                            TextButton(onClick = { showHelp = true }) {
+                                Icon(Icons.Outlined.MailOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.how_to_save_newsletters_pages))
+                            }
+                        },
+                    )
                 }
             } else {
                 LazyColumn(
@@ -274,11 +269,7 @@ fun ReadLaterScreen(
                             mode = viewMode,
                         )
                         if (viewMode != com.cairn.reader.data.prefs.ListViewMode.MAGAZINE) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(start = 16.dp),
-                                thickness = 0.6.dp,
-                                color = scheme.outlineVariant.copy(alpha = 0.5f),
-                            )
+                            EntryDivider()
                         }
                     }
                 }
@@ -289,9 +280,7 @@ fun ReadLaterScreen(
     actionRow?.let { row ->
         ModalBottomSheet(onDismissRequest = { actionRow = null }, sheetState = rememberModalBottomSheetState()) {
             Column(Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
-                Text(row.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(6.dp))
+                SheetHeader(row.title)
                 SheetActionRow(Icons.Outlined.Checklist, "Select", onClick = { viewModel.togglePick(row.id); actionRow = null })
                 SheetActionRow(Icons.AutoMirrored.Outlined.LibraryBooks, "Save to Library…", onClick = { moveRow = row; actionRow = null })
                 SheetActionRow(Icons.Outlined.Archive, "Archive", onClick = { viewModel.archive(row.id); actionRow = null })

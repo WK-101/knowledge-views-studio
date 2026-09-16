@@ -107,10 +107,13 @@ fun ItemRow(
             .background(if (selected) scheme.secondaryContainer else scheme.surface)
             .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
             .height(IntrinsicSize.Min)
-            .padding(start = 16.dp, end = 16.dp, top = if (compact) 9.dp else 12.dp, bottom = if (compact) 9.dp else 12.dp),
+            .padding(start = 16.dp, end = 16.dp, top = if (compact) 9.dp else 10.dp, bottom = if (compact) 9.dp else 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Column(modifier = Modifier.weight(1f)) {
+            // One meta line carries everything but the headline and excerpt: unread dot, source,
+            // age, reading time, and status glyphs — so a row costs one line of chrome, not two.
+            val showTime = opts.showReadingTime && row.readingMinutes > 0
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (!row.isRead) {
                     Box(Modifier.size(7.dp).clip(CircleShape).background(scheme.primary))
@@ -136,8 +139,15 @@ fun ItemRow(
                 if (ago.isNotEmpty()) {
                     Text("  ·  $ago", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, maxLines = 1)
                 }
+                if (showTime) {
+                    Text("  ·  ${row.readingMinutes} min", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, maxLines = 1)
+                }
+                if (row.hasStatusGlyph()) {
+                    Spacer(Modifier.width(8.dp))
+                    StatusGlyphs(row)
+                }
             }
-            Spacer(Modifier.height(3.dp))
+            Spacer(Modifier.height(2.dp))
             Text(
                 text = row.title,
                 style = MaterialTheme.typography.titleSmall,
@@ -147,7 +157,7 @@ fun ItemRow(
                 overflow = TextOverflow.Ellipsis,
             )
             if (opts.showExcerpt && !row.excerpt.isNullOrBlank()) {
-                Spacer(Modifier.height(3.dp))
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = row.excerpt,
                     style = MaterialTheme.typography.bodyMedium,
@@ -155,17 +165,6 @@ fun ItemRow(
                     maxLines = if (compact) 1 else 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-            }
-            val showTime = opts.showReadingTime && row.readingMinutes > 0
-            if (showTime || row.hasStatusGlyph()) {
-                Spacer(Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (showTime) {
-                        Text("${row.readingMinutes} min read", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
-                        if (row.hasStatusGlyph()) Spacer(Modifier.width(8.dp))
-                    }
-                    StatusGlyphs(row)
-                }
             }
         }
         if (opts.showThumbnail && row.leadImage != null) {

@@ -3,6 +3,9 @@ package com.cairn.reader.ui.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +26,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cairn.reader.ui.theme.Dimens
@@ -90,6 +94,55 @@ fun EntryDivider(modifier: Modifier = Modifier) {
         thickness = Dimens.entryDivider,
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
     )
+}
+
+/**
+ * The wrapping row of filter / scope chips that sits above a list on every list surface
+ * (Read Later, Trash, Offline, Library). Before this each screen hand-rolled its own `FlowRow`
+ * with a drifting gutter (12 vs 16) and vertical pad (4 vs 6); this fixes both to the standard
+ * [Dimens.gutter] / [Dimens.xs] rhythm so the chips line up with the rows beneath them.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun FilterChipRow(
+    modifier: Modifier = Modifier,
+    content: @Composable FlowRowScope.() -> Unit,
+) {
+    FlowRow(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = Dimens.gutter, vertical = Dimens.xs),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.sm),
+        content = content,
+    )
+}
+
+/**
+ * The title header at the top of an item's long-press action sheet (Read Later, Trash, Offline).
+ * Was three near-identical copies of `Text(titleMedium) [+ subtitle] + HorizontalDivider + Spacer`.
+ */
+@Composable
+fun SheetHeader(title: String, modifier: Modifier = Modifier, subtitle: String? = null) {
+    Text(
+        title,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+            .padding(start = Dimens.xl, end = Dimens.xl, top = Dimens.sm, bottom = if (subtitle == null) Dimens.sm else Dimens.xxs)
+            .semantics { heading() },
+    )
+    if (subtitle != null) {
+        Text(
+            subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = Dimens.xl, end = Dimens.xl, bottom = Dimens.sm),
+        )
+    }
+    HorizontalDivider()
+    Spacer(Modifier.height(Dimens.sm))
 }
 
 /** The three section-label looks that used to be six private copies (see [SectionLabel]). */

@@ -66,7 +66,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.data.db.CacheStatus
 import com.cairn.reader.data.prefs.SwipeAction
+import com.cairn.reader.ui.components.EmptyState
+import com.cairn.reader.ui.components.EntryDivider
+import com.cairn.reader.ui.components.FilterChipRow
+import com.cairn.reader.ui.components.SectionLabel
+import com.cairn.reader.ui.components.SectionLabelVariant
 import com.cairn.reader.ui.components.SheetActionRow
+import com.cairn.reader.ui.components.SheetHeader
 import com.cairn.reader.ui.components.SwipeableItemRow
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -160,7 +166,7 @@ fun OfflineScreen(
                     androidx.compose.foundation.layout.Box {
                         IconButton(onClick = { sortMenu = true }) { Icon(Icons.Outlined.SwapVert, contentDescription = stringResource(R.string.sort_group)) }
                         DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
-                            Text(stringResource(R.string.sort), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                            SectionLabel(stringResource(R.string.sort), SectionLabelVariant.Menu)
                             OfflineSort.entries.forEach { s ->
                                 DropdownMenuItem(
                                     text = { Text(s.label, fontWeight = if (s == sort) FontWeight.SemiBold else FontWeight.Normal) },
@@ -184,10 +190,7 @@ fun OfflineScreen(
         )
         // Filter chips: kind (all / permanent / cached) + item types.
         if (!selecting && totalCount > 0) {
-            androidx.compose.foundation.layout.FlowRow(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+            FilterChipRow {
                 FilterChip(selected = !filtersActive, onClick = { viewModel.clearFilters() }, label = { Text(stringResource(R.string.all)) })
                 FilterChip(selected = kind == OfflineKind.PERMANENT, onClick = { viewModel.setKind(if (kind == OfflineKind.PERMANENT) OfflineKind.ALL else OfflineKind.PERMANENT) }, label = { Text(stringResource(R.string.permanent)) })
                 FilterChip(selected = kind == OfflineKind.CACHED, onClick = { viewModel.setKind(if (kind == OfflineKind.CACHED) OfflineKind.ALL else OfflineKind.CACHED) }, label = { Text(stringResource(R.string.cached)) })
@@ -218,31 +221,23 @@ fun OfflineScreen(
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = scheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
         }
         if (items.isEmpty()) {
-            Column(
-                Modifier.fillMaxSize().padding(horizontal = 32.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Icon(Icons.Outlined.OfflinePin, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(40.dp))
-                Spacer(Modifier.height(14.dp))
-                if (filtersActive && totalCount > 0) {
-                    Text(stringResource(R.string.no_matches), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
-                    Spacer(Modifier.height(8.dp))
-                    Text(stringResource(R.string.nothing_offline_matches_your_search_or), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Spacer(Modifier.height(12.dp))
-                    TextButton(onClick = { viewModel.clearFilters() }) { Text(stringResource(R.string.clear_filters)) }
-                } else {
-                    Text(stringResource(R.string.nothing_saved_offline_yet), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
-                    Spacer(Modifier.height(8.dp))
-                    Text(stringResource(R.string.open_an_article_to_cache_it),
-                        style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    )
-                }
+            if (filtersActive && totalCount > 0) {
+                EmptyState(
+                    title = stringResource(R.string.no_matches),
+                    body = stringResource(R.string.nothing_offline_matches_your_search_or),
+                    icon = Icons.Outlined.OfflinePin,
+                    action = { TextButton(onClick = { viewModel.clearFilters() }) { Text(stringResource(R.string.clear_filters)) } },
+                )
+            } else {
+                EmptyState(
+                    title = stringResource(R.string.nothing_saved_offline_yet),
+                    body = stringResource(R.string.open_an_article_to_cache_it),
+                    icon = Icons.Outlined.OfflinePin,
+                )
             }
         } else {
             val cell: @Composable (com.cairn.reader.data.db.ItemListRow) -> Unit = { row ->
@@ -264,11 +259,7 @@ fun OfflineScreen(
                     onAction = { action -> onOfflineSwipe(row, action) },
                     mode = com.cairn.reader.data.prefs.ListViewMode.LIST,
                 )
-                HorizontalDivider(
-                    modifier = Modifier.padding(start = 16.dp),
-                    thickness = 0.6.dp,
-                    color = scheme.outlineVariant.copy(alpha = 0.5f),
-                )
+                EntryDivider()
             }
             val unknownSource = stringResource(R.string.source_unknown)
             LazyColumn(
@@ -279,12 +270,10 @@ fun OfflineScreen(
                     val groups = items.groupBy { it.sourceTitle ?: it.siteName ?: unknownSource }.toSortedMap()
                     groups.forEach { (source, rows) ->
                         item(key = "hdr-$source") {
-                            Text(
+                            SectionLabel(
                                 stringResource(R.string.header_count, source, rows.size),
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = scheme.primary,
-                                modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 4.dp),
+                                SectionLabelVariant.Group,
+                                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
                             )
                         }
                         items(rows, key = { it.id }) { row -> cell(row) }
@@ -300,15 +289,10 @@ fun OfflineScreen(
         val permanent = CacheStatus.isPermanent(row.cacheStatus)
         androidx.compose.material3.ModalBottomSheet(onDismissRequest = { actionRow = null }, sheetState = androidx.compose.material3.rememberModalBottomSheetState()) {
             Column(Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
-                Text(row.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
-                Text(
-                    if (permanent) stringResource(R.string.saved_offline_permanent_copy) else stringResource(R.string.cached_from_reading),
-                    style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 24.dp),
+                SheetHeader(
+                    title = row.title,
+                    subtitle = if (permanent) stringResource(R.string.saved_offline_permanent_copy) else stringResource(R.string.cached_from_reading),
                 )
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(6.dp))
                 SheetActionRow(Icons.AutoMirrored.Outlined.Article, stringResource(R.string.open), onClick = { onOpenItem(row.id); actionRow = null })
                 SheetActionRow(Icons.Outlined.Checklist, stringResource(R.string.select), onClick = { viewModel.togglePick(row.id); actionRow = null })
                 if (!permanent) {

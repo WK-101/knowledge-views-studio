@@ -40,7 +40,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -61,12 +60,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.ui.components.EmptyState
+import com.cairn.reader.ui.components.EntryDivider
+import com.cairn.reader.ui.components.FilterChipRow
+import com.cairn.reader.ui.components.SectionLabel
+import com.cairn.reader.ui.components.SectionLabelVariant
 import com.cairn.reader.ui.components.SheetActionRow
+import com.cairn.reader.ui.components.SheetHeader
 import com.cairn.reader.ui.components.SwipeSlot
 import com.cairn.reader.ui.components.SwipeableItemRow
 
@@ -136,7 +140,7 @@ fun TrashScreen(
                         Box {
                             IconButton(onClick = { sortMenu = true }) { Icon(Icons.Outlined.SwapVert, contentDescription = stringResource(R.string.sort_2)) }
                             DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
-                                Text(stringResource(R.string.sort), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 2.dp))
+                                SectionLabel(stringResource(R.string.sort), SectionLabelVariant.Menu)
                                 TrashSort.entries.forEach { s ->
                                     DropdownMenuItem(
                                         text = { Text(s.label, fontWeight = if (s == sort) FontWeight.SemiBold else FontWeight.Normal) },
@@ -200,10 +204,7 @@ fun TrashScreen(
             }
             // Advanced filter chips: type + read-state + offline + starred + source.
             if (!selecting && totalCount > 0) {
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+                FilterChipRow {
                     FilterChip(selected = !filtersActive, onClick = { viewModel.clearFilters() }, label = { Text(stringResource(R.string.all)) })
                     availableTypes.forEach { t ->
                         FilterChip(
@@ -243,28 +244,20 @@ fun TrashScreen(
             }
 
             if (items.isEmpty()) {
-                Column(
-                    Modifier.fillMaxSize().padding(horizontal = 32.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(40.dp))
-                    Spacer(Modifier.height(14.dp))
-                    if (filtersActive && totalCount > 0) {
-                        Text(stringResource(R.string.no_matches), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
-                        Spacer(Modifier.height(8.dp))
-                        Text(stringResource(R.string.nothing_in_the_trash_matches_your), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center)
-                        Spacer(Modifier.height(12.dp))
-                        TextButton(onClick = { viewModel.clearFilters() }) { Text(stringResource(R.string.clear_filters)) }
-                    } else {
-                        Text(stringResource(R.string.trash_is_empty), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            if (retentionDays > 0) "Deleted articles land here — hidden from your feeds and Library but kept intact. Restore anything you want back, or empty the Trash to erase it for good. Items auto-clear after $retentionDays days."
-                            else "Deleted articles land here — hidden from your feeds and Library but kept intact. Restore anything you want back, or empty the Trash to erase it for good. Auto-clear is off — items stay until you empty the Trash.",
-                            style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
-                        )
-                    }
+                if (filtersActive && totalCount > 0) {
+                    EmptyState(
+                        title = stringResource(R.string.no_matches),
+                        body = stringResource(R.string.nothing_in_the_trash_matches_your),
+                        icon = Icons.Outlined.DeleteOutline,
+                        action = { TextButton(onClick = { viewModel.clearFilters() }) { Text(stringResource(R.string.clear_filters)) } },
+                    )
+                } else {
+                    EmptyState(
+                        title = stringResource(R.string.trash_is_empty),
+                        body = if (retentionDays > 0) "Deleted articles land here — hidden from your feeds and Library but kept intact. Restore anything you want back, or empty the Trash to erase it for good. Items auto-clear after $retentionDays days."
+                        else "Deleted articles land here — hidden from your feeds and Library but kept intact. Restore anything you want back, or empty the Trash to erase it for good. Auto-clear is off — items stay until you empty the Trash.",
+                        icon = Icons.Outlined.DeleteOutline,
+                    )
                 }
             } else {
                 LazyColumn(
@@ -301,11 +294,7 @@ fun TrashScreen(
                             mode = viewMode,
                         )
                         if (viewMode != com.cairn.reader.data.prefs.ListViewMode.MAGAZINE) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(start = 16.dp),
-                                thickness = 0.6.dp,
-                                color = scheme.outlineVariant.copy(alpha = 0.5f),
-                            )
+                            EntryDivider()
                         }
                     }
                 }
@@ -316,9 +305,7 @@ fun TrashScreen(
     actionRow?.let { row ->
         ModalBottomSheet(onDismissRequest = { actionRow = null }, sheetState = rememberModalBottomSheetState()) {
             Column(Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
-                Text(row.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(6.dp))
+                SheetHeader(row.title)
                 SheetActionRow(Icons.Outlined.Checklist, stringResource(R.string.select), onClick = { viewModel.togglePick(row.id); actionRow = null })
                 SheetActionRow(Icons.Outlined.RestoreFromTrash, stringResource(R.string.restore), onClick = { viewModel.restore(row.id); actionRow = null })
                 SheetActionRow(Icons.Outlined.DeleteForever, stringResource(R.string.delete_forever_2), onClick = { confirmForever = row; actionRow = null }, destructive = true)

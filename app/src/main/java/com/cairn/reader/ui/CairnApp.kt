@@ -49,7 +49,7 @@ import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material.icons.outlined.ViewCarousel
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -297,7 +297,7 @@ fun CairnApp(
             // Feeds, Search, Trash, Offline) render it themselves; the shared bar steps aside so
             // there is exactly one. Inbox and Settings use this shared bar.
             if (current in OWN_TOP_BAR) return@topBar
-            CenterAlignedTopAppBar(
+            TopAppBar(
                 title = {
                     if (current == Destination.Inbox && inboxSearchOpen) {
                         com.cairn.reader.ui.components.CairnSearchField(
