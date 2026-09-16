@@ -194,6 +194,7 @@ internal fun AppearanceSection(prefs: AppPreferences, viewModel: SettingsViewMod
             options = ThemeMode.entries.map { it to it.name.lowercase().replaceFirstChar(Char::uppercase) },
             selected = prefs.themeMode,
             onSelect = viewModel::setThemeMode,
+            caption = "System follows your device. Auto follows the local time — light by day, dark from 7pm to 7am.",
         )
         SettingDivider()
         SettingSwitchRow(

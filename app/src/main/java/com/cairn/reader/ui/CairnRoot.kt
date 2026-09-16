@@ -26,6 +26,24 @@ import com.cairn.reader.ui.theme.CairnTheme
 import com.cairn.reader.ui.web.WebRoute
 import com.cairn.reader.ui.web.WebScreen
 
+/** True when the local clock is in the "night" window (19:00–06:59), re-evaluated each minute so an
+ *  Auto-theme session flips light↔dark as the day turns without needing an app restart. */
+@Composable
+private fun rememberIsNight(): Boolean {
+    val night by androidx.compose.runtime.produceState(initialValue = isNightNow()) {
+        while (true) {
+            value = isNightNow()
+            kotlinx.coroutines.delay(60_000L)
+        }
+    }
+    return night
+}
+
+private fun isNightNow(): Boolean {
+    val hour = java.time.LocalTime.now().hour
+    return hour < 7 || hour >= 19
+}
+
 /** Applies the user's theme preference, then hosts navigation. */
 @Composable
 fun CairnRoot(
@@ -37,10 +55,14 @@ fun CairnRoot(
     val appViewModel: AppViewModel = hiltViewModel()
     val prefs by appViewModel.preferences.collectAsStateWithLifecycle()
 
+    // Computed unconditionally (not inside the when-branch) so the composable call is stable.
+    val systemDark = isSystemInDarkTheme()
+    val night = rememberIsNight()
     val dark = when (prefs.themeMode) {
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.SYSTEM -> systemDark
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
+        ThemeMode.AUTO -> night
     }
 
     val accent = runCatching { com.cairn.reader.ui.theme.AppAccent.valueOf(prefs.appAccent) }

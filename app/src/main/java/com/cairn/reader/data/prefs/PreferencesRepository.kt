@@ -20,7 +20,7 @@ import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
-enum class ThemeMode { SYSTEM, LIGHT, DARK }
+enum class ThemeMode { SYSTEM, LIGHT, DARK, AUTO }
 enum class ReaderTheme { DEFAULT, PAPER, SEPIA, GRAY, NIGHT, BLACK }
 
 /** Reading typeface. SERIF/SANS are the bundled Newsreader/Inter; the rest use device
