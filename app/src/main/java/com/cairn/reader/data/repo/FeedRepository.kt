@@ -304,7 +304,9 @@ class FeedRepository @Inject constructor(
         val fresh = mutableListOf<com.cairn.reader.notifications.NewArticle>()
         // WebSub-aware ordering: feeds that declare a real-time hub sync first, so "live" sources
         // are the freshest even though a serverless client can't hold a push callback.
-        sourceDao.getAll().sortedByDescending { it.hubUrl != null }.forEach { source ->
+        // Paused feeds are excluded from sync entirely (they stay visible with their items readable);
+        // only the sync loop skips them — retention/pruning in runMaintenance still covers them.
+        sourceDao.getAll().filterNot { it.syncPaused }.sortedByDescending { it.hubUrl != null }.forEach { source ->
             coroutineContext.ensureActive()  // honor cancellation between feeds
             coRunCatching { syncSource(source, now, if (source.notify) fresh else null) }
                 .onFailure { AppLog.w("sync failed for ${source.feedUrl}", it) }

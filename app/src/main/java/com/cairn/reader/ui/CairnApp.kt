@@ -572,6 +572,7 @@ fun CairnApp(
             onFullText = { inboxViewModel.setFeedFullText(source.id, it) },
             onNotify = { inboxViewModel.setFeedNotify(source.id, it) },
             onMuted = { inboxViewModel.setFeedMuted(source.id, it) },
+            onSetPaused = { inboxViewModel.setFeedPaused(source.id, it) },
             onPodcast = { inboxViewModel.setFeedPodcast(source.id, it) },
             onFeedUrl = { inboxViewModel.setFeedUrl(source.id, it) },
             onOpenIn = { inboxViewModel.setFeedOpenIn(source.id, it) },

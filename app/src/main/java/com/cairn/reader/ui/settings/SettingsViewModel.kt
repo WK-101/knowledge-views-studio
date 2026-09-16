@@ -73,6 +73,7 @@ class SettingsViewModel @Inject constructor(
     fun setFullText(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setFullText(id, enabled) }
     fun setNotify(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setNotify(id, enabled) }
     fun setMuted(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setMuted(id, enabled) }
+    fun setSyncPaused(id: String, paused: Boolean) = viewModelScope.launch { sourceRepository.setSyncPaused(id, paused) }
 
     fun importOpml(text: String, onResult: (Int) -> Unit) = viewModelScope.launch {
         val added = coRunCatching { feedRepository.importOpml(text) }.getOrDefault(0)

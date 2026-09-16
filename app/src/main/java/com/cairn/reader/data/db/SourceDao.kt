@@ -47,6 +47,9 @@ interface SourceDao {
     @Query("UPDATE sources SET muted = :muted WHERE id = :id")
     suspend fun setMuted(id: String, muted: Boolean)
 
+    @Query("UPDATE sources SET syncPaused = :paused WHERE id = :id")
+    suspend fun setSyncPaused(id: String, paused: Boolean)
+
     @Query("UPDATE sources SET isPodcast = :enabled WHERE id = :id")
     suspend fun setPodcast(id: String, enabled: Boolean)
 

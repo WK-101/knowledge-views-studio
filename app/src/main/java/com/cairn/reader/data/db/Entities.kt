@@ -48,6 +48,11 @@ data class SourceEntity(
      *  of real-time push; Cairn is serverless so it can't host a callback, but treats hub-enabled
      *  feeds as "live" and syncs them ahead of the rest. Migration 12→13 adds it. */
     val hubUrl: String? = null,
+    /** v17: paused feeds are excluded from sync entirely — [FeedRepository.syncAll] skips them — but
+     *  stay fully visible in feed lists/drawers/counts, and their already-fetched items remain
+     *  readable. Distinct from [muted] (which keeps syncing but hides items from the Inbox).
+     *  Migration 16→17 adds it. */
+    val syncPaused: Boolean = false,
 )
 
 @Entity(

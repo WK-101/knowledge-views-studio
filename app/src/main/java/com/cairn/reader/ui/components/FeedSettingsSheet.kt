@@ -51,6 +51,7 @@ fun FeedSettingsSheet(
     onFullText: (Boolean) -> Unit,
     onNotify: (Boolean) -> Unit,
     onMuted: (Boolean) -> Unit = {},
+    onSetPaused: (Boolean) -> Unit = {},
     onRemove: () -> Unit,
     onDismiss: () -> Unit,
     onRename: (String) -> Unit = {},
@@ -66,6 +67,7 @@ fun FeedSettingsSheet(
     var fullText by remember(source.id) { mutableStateOf(source.fullTextByDefault) }
     var notify by remember(source.id) { mutableStateOf(source.notify) }
     var muted by remember(source.id) { mutableStateOf(source.muted) }
+    var paused by remember(source.id) { mutableStateOf(source.syncPaused) }
     var podcast by remember(source.id) { mutableStateOf(source.isPodcast) }
     var openIn by remember(source.id) { mutableStateOf(source.openIn) }
     var maxItems by remember(source.id) { mutableStateOf(source.maxItems) }
@@ -147,6 +149,14 @@ fun FeedSettingsSheet(
                     Text(stringResource(R.string.keep_syncing_but_hide_from_the), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = muted, onCheckedChange = { muted = it; onMuted(it) })
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.pause_updates), style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.keep_this_feed_but_stop_syncing), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = paused, onCheckedChange = { paused = it; onSetPaused(it) })
             }
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {

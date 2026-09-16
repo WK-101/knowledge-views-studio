@@ -23,7 +23,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SyncOpEntity::class,
         RuleEntity::class,
     ],
-    version = 16,
+    version = 17,
     exportSchema = true,
     autoMigrations = [
         // v14 → v15: drop the legacy items.collectionId column. The item_collections join table is
@@ -200,5 +200,13 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
         db.execSQL("DROP INDEX IF EXISTS index_item_states_isArchived")
         db.execSQL("DROP INDEX IF EXISTS index_item_states_isReadLater")
         db.execSQL("DROP INDEX IF EXISTS index_items_publishedAt")
+    }
+}
+
+/** v17: per-feed "pause updates". Non-null with a default, so existing feeds keep syncing. A paused
+ *  feed is excluded from sync ([FeedRepository.syncAll]) but stays visible with its items readable. */
+val MIGRATION_16_17 = object : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE sources ADD COLUMN syncPaused INTEGER NOT NULL DEFAULT 0")
     }
 }

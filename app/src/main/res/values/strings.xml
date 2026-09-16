@@ -161,6 +161,7 @@
     <string name="keep_per_feed">Keep per feed</string>
     <string name="keep_syncing_but_hide_from_the">Keep syncing but hide from the main Inbox and unread count. Still readable by opening the feed.</string>
     <string name="keep_the_phone_layout_on_big">Keep the phone layout on big screens instead of the two-pane list + reader.</string>
+    <string name="keep_this_feed_but_stop_syncing">Keep this feed in your list but stop syncing new articles.</string>
     <string name="key_points">Key points</string>
     <string name="library">Library</string>
     <string name="library_home">Library home</string>
@@ -266,6 +267,7 @@
     <string name="password">Password</string>
     <string name="paste_a_website_or_feed_url">Paste a website or feed URL. Cairn will find the feed — including YouTube, Reddit, Substack, and more.</string>
     <string name="paste_a_website_or_feed_url_2">Paste a website or feed URL. Cairn finds the feed — YouTube, Reddit, Substack, and more.</string>
+    <string name="pause_updates">Pause updates</string>
     <string name="pdf">PDF</string>
     <string name="permanent">Permanent</string>
     <string name="pick_any_seed_and_the_app">Pick any seed and the app derives its whole palette from it. Overrides the accent and dynamic color.</string>

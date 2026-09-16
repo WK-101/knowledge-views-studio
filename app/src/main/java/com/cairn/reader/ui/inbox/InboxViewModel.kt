@@ -94,6 +94,7 @@ class InboxViewModel @Inject constructor(
     fun setFeedFullText(id: String, on: Boolean) = viewModelScope.launch { sourceRepository.setFullText(id, on) }
     fun setFeedNotify(id: String, on: Boolean) = viewModelScope.launch { sourceRepository.setNotify(id, on) }
     fun setFeedMuted(id: String, on: Boolean) = viewModelScope.launch { sourceRepository.setMuted(id, on) }
+    fun setFeedPaused(id: String, on: Boolean) = viewModelScope.launch { sourceRepository.setSyncPaused(id, on) }
     fun setFeedPodcast(id: String, on: Boolean) = viewModelScope.launch { sourceRepository.setPodcast(id, on) }
     fun setFeedUrl(id: String, url: String) = viewModelScope.launch { sourceRepository.setFeedUrl(id, url) }
     fun setFeedOpenIn(id: String, mode: String) = viewModelScope.launch { sourceRepository.setOpenIn(id, mode) }

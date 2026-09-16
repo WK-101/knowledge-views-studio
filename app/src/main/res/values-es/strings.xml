@@ -163,6 +163,7 @@
     <string name="keep_per_feed">Conservar por fuente</string>
     <string name="keep_syncing_but_hide_from_the">Seguir sincronizando pero ocultar de la entrada principal y del número de no leídos. Sigue siendo legible al abrir la fuente.</string>
     <string name="keep_the_phone_layout_on_big">Mantener el diseño de teléfono en pantallas grandes en lugar de la vista de dos paneles (lista + lector).</string>
+    <string name="keep_this_feed_but_stop_syncing">Mantén esta fuente en tu lista pero deja de sincronizar artículos nuevos.</string>
     <string name="key_points">Puntos clave</string>
     <string name="library">Biblioteca</string>
     <string name="library_home">Inicio de la biblioteca</string>
@@ -268,6 +269,7 @@
     <string name="password">Contraseña</string>
     <string name="paste_a_website_or_feed_url">Pega la URL de un sitio web o una fuente. Cairn encontrará la fuente, incluidos YouTube, Reddit, Substack y más.</string>
     <string name="paste_a_website_or_feed_url_2">Pega la URL de un sitio web o una fuente. Cairn encuentra la fuente: YouTube, Reddit, Substack y más.</string>
+    <string name="pause_updates">Pausar actualizaciones</string>
     <string name="pdf">PDF</string>
     <string name="permanent">Permanente</string>
     <string name="pick_any_seed_and_the_app">Elige cualquier color base y la aplicación deriva toda su paleta de él. Anula el acento y el color dinámico.</string>

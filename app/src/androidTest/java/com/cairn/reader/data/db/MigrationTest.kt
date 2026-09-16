@@ -14,8 +14,9 @@ import org.junit.runner.RunWith
  * app's "your data, forever" promise: a broken migration must fail here in CI, not on a user's
  * device. Runs on an emulator (connected check); the v1 schema JSON was never exported, so the
  * replay starts at v2 and covers MIGRATION_2_3 … MIGRATION_13_14, the v14→v15 auto-migration
- * (which drops the legacy items.collectionId column) and MIGRATION_15_16 (the effectiveDate /
- * dedupeKey helper columns and the non-selective-index cleanup).
+ * (which drops the legacy items.collectionId column), MIGRATION_15_16 (the effectiveDate /
+ * dedupeKey helper columns and the non-selective-index cleanup) and MIGRATION_16_17 (the per-feed
+ * syncPaused column).
  */
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
@@ -25,7 +26,7 @@ class MigrationTest {
     private val allMigrations = arrayOf(
         MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
-        MIGRATION_12_13, MIGRATION_13_14, MIGRATION_15_16,
+        MIGRATION_12_13, MIGRATION_13_14, MIGRATION_15_16, MIGRATION_16_17,
     )
 
     @get:Rule
@@ -41,7 +42,7 @@ class MigrationTest {
         // Create the schema at v2, then apply every migration up to the current version and let
         // Room validate that the resulting schema exactly matches the compiled entities (v16).
         helper.createDatabase(dbName, 2).close()
-        val db = helper.runMigrationsAndValidate(dbName, 16, true, *allMigrations)
+        val db = helper.runMigrationsAndValidate(dbName, 17, true, *allMigrations)
         assertNotNull(db)
         db.close()
     }

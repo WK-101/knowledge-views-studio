@@ -418,6 +418,7 @@ private fun SettingsDetail(
             onFullText = { viewModel.setFullText(source.id, it) },
             onNotify = { viewModel.setNotify(source.id, it) },
             onMuted = { viewModel.setMuted(source.id, it) },
+            onSetPaused = { viewModel.setSyncPaused(source.id, it) },
             onRemove = { viewModel.removeSource(source.id) },
             onDismiss = { feedSettings = null },
         )
