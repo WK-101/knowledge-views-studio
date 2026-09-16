@@ -1,5 +1,6 @@
 package com.cairn.reader.ui.feeds
 
+import com.cairn.reader.util.coRunCatching
 import com.cairn.reader.util.MultiSelectStore
 
 import androidx.lifecycle.ViewModel
@@ -124,7 +125,7 @@ class FeedsViewModel @Inject constructor(
     fun setFeedUrl(id: String, url: String) = viewModelScope.launch {
         sourceRepository.setFeedUrl(id, url)
         _snacks.emit("Feed link updated — syncing…")
-        runCatching { feedRepository.syncAll() }
+        coRunCatching { feedRepository.syncAll() }
     }
     fun markFeedRead(id: String) = viewModelScope.launch { itemRepository.markAllRead(sourceId = id, folder = null) }
     fun delete(id: String) = viewModelScope.launch {

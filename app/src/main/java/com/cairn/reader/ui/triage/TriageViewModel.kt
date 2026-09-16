@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.data.repo.ItemRepository
+import com.cairn.reader.util.coRunCatching
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,7 +45,7 @@ class TriageViewModel @Inject constructor(
     fun load() {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true)
-            candidates = runCatching { itemRepository.inbox().first() }.getOrDefault(emptyList())
+            candidates = coRunCatching { itemRepository.inbox().first() }.getOrDefault(emptyList())
             rebuild(resetDone = true)
         }
     }

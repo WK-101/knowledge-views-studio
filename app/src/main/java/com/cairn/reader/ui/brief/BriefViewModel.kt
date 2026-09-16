@@ -8,6 +8,7 @@ import com.cairn.reader.audio.TtsReader
 import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.data.repo.InsightsRepository
 import com.cairn.reader.data.repo.ItemRepository
+import com.cairn.reader.util.coRunCatching
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -43,7 +44,7 @@ class BriefViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true)
-            val picks = runCatching { insightsRepository.topPicks(8) }.getOrDefault(emptyList())
+            val picks = coRunCatching { insightsRepository.topPicks(8) }.getOrDefault(emptyList())
             _state.value = BriefUiState(loading = false, items = picks, totalMinutes = picks.sumOf { it.readingMinutes })
         }
     }

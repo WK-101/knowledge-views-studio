@@ -1,5 +1,6 @@
 package com.cairn.reader.ui.inbox
 
+import com.cairn.reader.util.coRunCatching
 import com.cairn.reader.util.MultiSelectStore
 
 import androidx.lifecycle.ViewModel
@@ -367,7 +368,7 @@ class InboxViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             _refreshing.value = true
-            runCatching { feedRepository.syncAll() }
+            coRunCatching { feedRepository.syncAll() }
             _refreshing.value = false
         }
     }

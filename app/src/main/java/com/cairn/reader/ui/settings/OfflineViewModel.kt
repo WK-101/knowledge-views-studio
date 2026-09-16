@@ -1,5 +1,6 @@
 package com.cairn.reader.ui.settings
 
+import com.cairn.reader.util.coRunCatching
 import com.cairn.reader.util.MultiSelectStore
 
 import androidx.lifecycle.ViewModel
@@ -70,7 +71,7 @@ class OfflineViewModel @Inject constructor(
         if (_preparing.value) return
         _preparing.value = true
         viewModelScope.launch {
-            val saved = runCatching { feedRepository.prepareOfflinePack(25) }.getOrDefault(0)
+            val saved = coRunCatching { feedRepository.prepareOfflinePack(25) }.getOrDefault(0)
             _preparing.value = false
             onDone(saved)
         }
@@ -135,7 +136,7 @@ class OfflineViewModel @Inject constructor(
     init { refreshStorage() }
 
     fun refreshStorage() = viewModelScope.launch {
-        _storageBytes.value = withContext(Dispatchers.IO) { runCatching { blobStore.storageBytes() }.getOrDefault(0L) }
+        _storageBytes.value = withContext(Dispatchers.IO) { coRunCatching { blobStore.storageBytes() }.getOrDefault(0L) }
     }
 
     /** Remove just the offline download; the entry stays and re-fetches on next open. */

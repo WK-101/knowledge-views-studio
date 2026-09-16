@@ -19,6 +19,7 @@ import com.cairn.reader.data.repo.HighlightRepository
 import com.cairn.reader.data.repo.ItemRepository
 import com.cairn.reader.data.repo.ReaderData
 import com.cairn.reader.data.repo.TagRepository
+import com.cairn.reader.util.coRunCatching
 import dagger.hilt.android.lifecycle.HiltViewModel
 import org.jsoup.Jsoup
 import java.text.BreakIterator
@@ -73,7 +74,7 @@ class ReaderViewModel @Inject constructor(
     val related: StateFlow<List<com.cairn.reader.data.repo.RelatedItem>?> = _related.asStateFlow()
     fun loadRelated() {
         if (_related.value != null || itemId.isEmpty()) return
-        viewModelScope.launch { _related.value = runCatching { semanticRepository.related(itemId, 8) }.getOrDefault(emptyList()) }
+        viewModelScope.launch { _related.value = coRunCatching { semanticRepository.related(itemId, 8) }.getOrDefault(emptyList()) }
     }
 
     /** Extractive TL;DR (on-device), loaded lazily when the summary sheet is opened. */
@@ -82,9 +83,9 @@ class ReaderViewModel @Inject constructor(
     fun loadSummary() {
         if (_summary.value != null || itemId.isEmpty()) return
         viewModelScope.launch {
-            val body = runCatching { itemRepository.articleText(itemId)?.second }.getOrNull()
+            val body = coRunCatching { itemRepository.articleText(itemId)?.second }.getOrNull()
             _summary.value = if (body.isNullOrBlank()) emptyList()
-            else runCatching { summarizer.summarize(body, 5) }.getOrDefault(emptyList())
+            else coRunCatching { summarizer.summarize(body, 5) }.getOrDefault(emptyList())
         }
     }
 
@@ -157,7 +158,7 @@ class ReaderViewModel @Inject constructor(
                 if (fresh != null && fresh.type != ItemType.PDF.name && !CacheStatus.isPermanent(fresh.cacheStatus) &&
                     preferencesRepository.preferences.first().cacheOnOpen
                 ) {
-                    launch { runCatching { feedRepository.saveOffline(itemId) } }
+                    launch { coRunCatching { feedRepository.saveOffline(itemId) } }
                 }
             }
         }
@@ -344,7 +345,7 @@ class ReaderViewModel @Inject constructor(
     /** Full-article Markdown (frontmatter + body + highlights) for sharing to a vault or notes app. */
     fun exportMarkdown(onReady: (String) -> Unit) {
         viewModelScope.launch {
-            val doc = runCatching { markdownExportManager.documentFor(itemId) }.getOrNull()
+            val doc = coRunCatching { markdownExportManager.documentFor(itemId) }.getOrNull()
             if (doc != null) onReady(doc.content)
         }
     }
@@ -352,7 +353,7 @@ class ReaderViewModel @Inject constructor(
     /** Build an EPUB of this article and hand back the file to share (Send to Kindle, Kobo, …). */
     fun exportEpub(onReady: (java.io.File) -> Unit) {
         viewModelScope.launch {
-            val file = runCatching { ebookExportManager.epubForItem(itemId) }.getOrNull()
+            val file = coRunCatching { ebookExportManager.epubForItem(itemId) }.getOrNull()
             if (file != null) onReady(file) else _messages.tryEmit("Couldn't build the EPUB")
         }
     }
@@ -360,7 +361,7 @@ class ReaderViewModel @Inject constructor(
     /** Build a self-contained full-page HTML snapshot and hand back the file to share or save. */
     fun exportSnapshot(onReady: (java.io.File) -> Unit) {
         viewModelScope.launch {
-            val file = runCatching { ebookExportManager.htmlSnapshotForItem(itemId) }.getOrNull()
+            val file = coRunCatching { ebookExportManager.htmlSnapshotForItem(itemId) }.getOrNull()
             if (file != null) onReady(file) else _messages.tryEmit("Couldn't build the snapshot")
         }
     }
@@ -404,7 +405,7 @@ class ReaderViewModel @Inject constructor(
         val chunks = ArrayList<String>()
         data.title.takeIf { it.isNotBlank() }?.let { chunks += it }
         data.html?.let { html ->
-            val text = runCatching { Jsoup.parse(html).text() }.getOrDefault("")
+            val text = coRunCatching { Jsoup.parse(html).text() }.getOrDefault("")
             chunks += splitSentences(text)
         }
         return chunks

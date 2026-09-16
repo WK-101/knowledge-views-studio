@@ -1,5 +1,6 @@
 package com.cairn.reader.domain.lookup
 
+import com.cairn.reader.util.coRunCatching
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -58,7 +59,7 @@ class DictionaryRepository @Inject constructor(
         synchronized(cache) { cache[word] }?.let { return@withContext Result.success(it) }
 
         val url = "https://api.dictionaryapi.dev/api/v2/entries/en/" + URLEncoder.encode(word, "UTF-8")
-        val body = runCatching {
+        val body = coRunCatching {
             http.newCall(Request.Builder().url(url).header("Accept", "application/json").get().build())
                 .execute().use { r -> if (r.isSuccessful) r.body?.string() else null }
         }.getOrNull()

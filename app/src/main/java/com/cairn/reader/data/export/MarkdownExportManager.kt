@@ -10,6 +10,7 @@ import com.cairn.reader.data.db.ItemEntity
 import com.cairn.reader.data.db.ItemType
 import com.cairn.reader.data.db.TagDao
 import com.cairn.reader.domain.export.MarkdownExporter
+import com.cairn.reader.util.coRunCatching
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -54,11 +55,11 @@ class MarkdownExportManager @Inject constructor(
         var fail = 0
         val used = HashSet<String>()
         items.forEach { e ->
-            val doc = runCatching { build(e) }.getOrNull()
+            val doc = coRunCatching { build(e) }.getOrNull()
             if (doc == null) { fail++; return@forEach }
             val name = uniqueName(doc.filename, used)
-            val wrote = runCatching {
-                val file = folder.createFile("text/markdown", name) ?: return@runCatching false
+            val wrote = coRunCatching {
+                val file = folder.createFile("text/markdown", name) ?: return@coRunCatching false
                 context.contentResolver.openOutputStream(file.uri)?.use {
                     it.write(doc.content.toByteArray(Charsets.UTF_8))
                 }
@@ -70,9 +71,9 @@ class MarkdownExportManager @Inject constructor(
     }
 
     private suspend fun build(e: ItemEntity): MarkdownExporter.Doc {
-        val tags = runCatching { tagDao.tagsForItem(e.id).map { it.name } }.getOrDefault(emptyList())
+        val tags = coRunCatching { tagDao.tagsForItem(e.id).map { it.name } }.getOrDefault(emptyList())
         val html = if (e.type == ItemType.PDF.name) null else blobStore.readArticle(e.blobPath)
-        val highlights = runCatching { highlightDao.forItemWithArticle(e.id) }.getOrDefault(emptyList())
+        val highlights = coRunCatching { highlightDao.forItemWithArticle(e.id) }.getOrDefault(emptyList())
             .map { MarkdownExporter.Highlight(it.quote, it.note, it.createdAt) }
         val meta = MarkdownExporter.Meta(
             title = e.title,

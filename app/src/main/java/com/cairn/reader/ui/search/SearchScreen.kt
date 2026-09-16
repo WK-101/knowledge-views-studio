@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cairn.reader.ui.components.EmptyState
 import com.cairn.reader.ui.components.ItemRow
 import com.cairn.reader.ui.util.formatAgo
 import androidx.compose.runtime.LaunchedEffect
@@ -266,15 +267,5 @@ private fun typeLabel(type: String): String = com.cairn.reader.data.db.ItemType.
 
 @Composable
 private fun SearchHint(title: String, body: String) {
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(Icons.Outlined.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
-        Spacer(Modifier.height(14.dp))
-        Text(title, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-    }
+    EmptyState(title = title, body = body, icon = Icons.Outlined.Search)
 }

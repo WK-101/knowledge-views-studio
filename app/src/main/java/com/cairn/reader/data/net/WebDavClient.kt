@@ -1,5 +1,6 @@
 package com.cairn.reader.data.net
 
+import com.cairn.reader.util.coRunCatching
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Credentials
@@ -46,7 +47,7 @@ class WebDavClient @Inject constructor(
 
     /** Verify the server is reachable and the credentials work (PROPFIND depth 0 on the folder). */
     suspend fun test(cfg: Config): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching {
+        coRunCatching {
             val req = Request.Builder()
                 .url(dir(cfg.baseUrl))
                 .method("PROPFIND", ByteArray(0).toRequestBody())
@@ -64,7 +65,7 @@ class WebDavClient @Inject constructor(
     /** Upload [bytes] to [name] inside the configured folder, replacing any existing file. */
     suspend fun put(cfg: Config, name: String, bytes: ByteArray, contentType: String): Result<Unit> =
         withContext(Dispatchers.IO) {
-            runCatching {
+            coRunCatching {
                 val body: RequestBody = bytes.toRequestBody(contentType.toMediaTypeOrNull())
                 val req = Request.Builder()
                     .url(dir(cfg.baseUrl) + name)
@@ -81,7 +82,7 @@ class WebDavClient @Inject constructor(
     /** Stream [name] from the folder to [consume]; returns whatever the consumer produces. */
     suspend fun <T> get(cfg: Config, name: String, consume: (InputStream) -> T): Result<T> =
         withContext(Dispatchers.IO) {
-            runCatching {
+            coRunCatching {
                 val req = Request.Builder().url(dir(cfg.baseUrl) + name).get().auth(cfg).build()
                 client.newCall(req).execute().use { r ->
                     if (!r.isSuccessful) error("Download failed: HTTP ${r.code}")
@@ -93,7 +94,7 @@ class WebDavClient @Inject constructor(
 
     /** Delete one file from the folder (used to prune old backups). Missing files are not an error. */
     suspend fun delete(cfg: Config, name: String): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching {
+        coRunCatching {
             val req = Request.Builder().url(dir(cfg.baseUrl) + name).delete().auth(cfg).build()
             client.newCall(req).execute().use { r ->
                 if (!r.isSuccessful && r.code != 404) error("Delete failed: HTTP ${r.code}")
@@ -105,7 +106,7 @@ class WebDavClient @Inject constructor(
     /** List backup files in the folder, newest-named first. Parses the PROPFIND multistatus for
      *  &lt;d:href&gt; entries and keeps only Cairn's own backup files. */
     suspend fun listBackups(cfg: Config): Result<List<String>> = withContext(Dispatchers.IO) {
-        runCatching {
+        coRunCatching {
             val req = Request.Builder()
                 .url(dir(cfg.baseUrl))
                 .method("PROPFIND", ByteArray(0).toRequestBody())

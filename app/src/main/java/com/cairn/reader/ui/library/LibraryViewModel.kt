@@ -1,5 +1,6 @@
 package com.cairn.reader.ui.library
 
+import com.cairn.reader.util.coRunCatching
 import com.cairn.reader.util.MultiSelectStore
 
 import androidx.lifecycle.ViewModel
@@ -85,7 +86,7 @@ class LibraryViewModel @Inject constructor(
 
     /** Run the broken-link watchdog on demand (also runs opportunistically during sync). */
     fun checkLinks(onDone: (Int) -> Unit) = viewModelScope.launch {
-        onDone(runCatching { feedRepository.checkLinks(200) }.getOrDefault(0))
+        onDone(coRunCatching { feedRepository.checkLinks(200) }.getOrDefault(0))
     }
 
     // Open on the storage-first browse home (Raindrop-style), not a flat list.

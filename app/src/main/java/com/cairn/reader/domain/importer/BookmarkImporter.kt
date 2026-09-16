@@ -7,6 +7,7 @@ import com.cairn.reader.data.net.UrlCleaner
 import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.data.repo.CollectionRepository
 import com.cairn.reader.data.repo.TagRepository
+import com.cairn.reader.util.coRunCatching
 import kotlinx.coroutines.flow.first
 import org.jsoup.Jsoup
 import javax.inject.Inject
@@ -59,7 +60,7 @@ class BookmarkImporter @Inject constructor(
         var skipped = 0
         // Cache folder→collectionId so a run only creates each collection once.
         val folderToCollection = HashMap<String, String>()
-        val strip = runCatching { preferencesRepository.preferences.first().stripTrackingParams }.getOrDefault(true)
+        val strip = coRunCatching { preferencesRepository.preferences.first().stripTrackingParams }.getOrDefault(true)
 
         for (e in entries) {
             val normalized = normalize(e.url) ?: continue
@@ -81,12 +82,12 @@ class BookmarkImporter @Inject constructor(
             )
             itemDao.setReadLater(itemId, true, now)
             itemDao.indexItem(ItemFtsEntity(itemId = itemId, title = e.title.orEmpty(), author = null, body = null))
-            e.tags.filter { it.isNotBlank() }.forEach { runCatching { tagRepository.addToItem(itemId, it) } }
+            e.tags.filter { it.isNotBlank() }.forEach { coRunCatching { tagRepository.addToItem(itemId, it) } }
             e.folder?.takeIf { it.isNotBlank() }?.let { folder ->
                 val colId = folderToCollection.getOrPut(folder) {
-                    runCatching { collectionRepository.create(folder) }.getOrDefault("")
+                    coRunCatching { collectionRepository.create(folder) }.getOrDefault("")
                 }
-                if (colId.isNotBlank()) runCatching { collectionRepository.setInCollection(itemId, colId, true) }
+                if (colId.isNotBlank()) coRunCatching { collectionRepository.setInCollection(itemId, colId, true) }
             }
             imported++
         }
@@ -96,7 +97,7 @@ class BookmarkImporter @Inject constructor(
     // -- HTML (Pocket / Instapaper / bookmarks) --------------------------------
 
     private fun parseHtml(html: String): List<Entry> {
-        val doc = runCatching { Jsoup.parse(html) }.getOrNull() ?: return emptyList()
+        val doc = coRunCatching { Jsoup.parse(html) }.getOrNull() ?: return emptyList()
         return doc.select("a[href]").mapNotNull { a ->
             val href = a.attr("href").trim().ifBlank { return@mapNotNull null }
             if (!href.startsWith("http", true)) return@mapNotNull null
@@ -173,7 +174,7 @@ class BookmarkImporter @Inject constructor(
     }
 
     private fun hostOf(url: String): String =
-        runCatching { java.net.URI(url).host?.removePrefix("www.") }.getOrNull()?.takeIf { it.isNotBlank() } ?: url
+        coRunCatching { java.net.URI(url).host?.removePrefix("www.") }.getOrNull()?.takeIf { it.isNotBlank() } ?: url
 
     /** Must match FeedRepository.deterministicId so an imported link dedups against a saved one. */
     private fun deterministicId(seed: String): String =

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.data.repo.SourceRepository
+import com.cairn.reader.util.coRunCatching
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -112,7 +113,7 @@ class DiscoverViewModel @Inject constructor(
     }
 
     private suspend fun loadCatalog(): List<CatalogCategory> = withContext(Dispatchers.IO) {
-        runCatching {
+        coRunCatching {
             val json = context.assets.open("explore_catalog.json").bufferedReader().use { it.readText() }
             val cats = JSONObject(json).getJSONArray("categories")
             (0 until cats.length()).map { i ->
