@@ -806,8 +806,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun askNotes(query: String) = viewModelScope.launch {
         if (query.isBlank()) { noteAnswers.value = emptyList(); return@launch }
         val now = System.currentTimeMillis()
+        val ws = activeWorkspace()   // scope Ask-your-notes to the active workspace (no cross-workspace leak)
         val notes = repo.getNotesOnce()
-            .filter { !it.trashed && !it.noIndex && (it.sealedUntil == null || it.sealedUntil!! <= now) }
+            .filter { it.workspaceId == ws && !it.trashed && !it.noIndex && (it.sealedUntil == null || it.sealedUntil!! <= now) }
         val docs = notes.map { com.todocompanion.app.domain.NoteAsk.Doc(it.id, it.title, it.body) }
         val literal = com.todocompanion.app.domain.NoteAsk.answer(query, docs)
         // Semantic fallback: fill up to 6 results with conceptually-near notes the literal pass missed.
@@ -1097,7 +1098,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val recallDue = MutableStateFlow<List<com.todocompanion.app.data.entity.NoteCardEntity>>(emptyList())
     val recallDueCount = MutableStateFlow(0)
     fun refreshRecall() = viewModelScope.launch {
-        val due = repo.dueNoteCards()
+        // Scope due cards to the active workspace: note-cards have no workspaceId, so join through
+        // their parent note's workspace (else Active-Recall would surface cards from every workspace).
+        val ws = activeWorkspace()
+        val wsNoteIds = repo.getNotesOnce().asSequence().filter { it.workspaceId == ws }.map { it.id }.toSet()
+        val due = repo.dueNoteCards().filter { it.noteId in wsNoteIds }
         recallDue.value = due
         recallDueCount.value = due.size
     }
@@ -1107,7 +1112,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val current = recallDue.value.firstOrNull { it.id == id }
         val rest = recallDue.value.filter { it.id != id }
         recallDue.value = if (grade == com.todocompanion.app.domain.NoteCards.Grade.AGAIN && current != null) rest + current else rest
-        recallDueCount.value = repo.dueNoteCardCount()
+        // Badge tracks the (workspace-scoped) remaining due set, not the global table count.
+        recallDueCount.value = recallDue.value.size
     }
     suspend fun cardCountForNote(noteId: String): Int = repo.noteCardsForNote(noteId).size
 
@@ -2329,7 +2335,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- attachments ----------
     fun attachmentMeta(taskId: String) = repo.attachmentMeta(taskId)
-    val allAttachments = repo.allAttachmentMeta.state(emptyList())
+    // Scope the Attachments hub to the active workspace: an attachment belongs to a task or a note,
+    // so keep only those whose owner lives in the active workspace (re-scopes on workspace switch too).
+    val allAttachments = combine(repo.allAttachmentMeta, repo.allTasks, repo.observeNotes(), activeWs) { atts, tks, nts, ws ->
+        val taskIds = tks.asSequence().filter { it.workspaceId == ws }.map { it.id }.toSet()
+        val noteIds = nts.asSequence().filter { it.workspaceId == ws }.map { it.id }.toSet()
+        atts.filter { it.taskId in taskIds || (it.noteId != null && it.noteId in noteIds) }
+    }.state(emptyList())
     /** Attachment bytes as Base64 — reads a file-backed attachment (F4) from disk, else the DB. */
     suspend fun attachmentContent(id: String): String? = withContext(Dispatchers.IO) {
         repo.attachmentFilePath(id)?.let { path ->
@@ -2583,6 +2595,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun switchWorkspace(id: String) = viewModelScope.launch {
         repo.saveSettings(settings.value.copy(activeWorkspaceId = id))
         currentView.value = ViewRef.Smart(SmartKind.TODAY)
+        // Clear cross-workspace-derived transient state so nothing from the old workspace lingers
+        // (allAttachments/notes/tasks flows re-scope reactively; these MutableStateFlows don't).
+        recallDue.value = emptyList(); recallDueCount.value = 0
+        noteAnswers.value = emptyList(); noteSearchIds.value = emptyList(); notesNow.value = emptyList()
     }
     fun renameWorkspace(w: com.todocompanion.app.data.entity.WorkspaceEntity, name: String) = viewModelScope.launch { repo.upsertWorkspace(w.copy(name = name.trim())) }
     fun deleteWorkspace(id: String) = viewModelScope.launch {
@@ -6150,7 +6166,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun searchHabits(query: String): List<com.todocompanion.app.data.entity.HabitEntity> {
         val q = query.trim().lowercase().removePrefix("#").removePrefix("@")
         if (q.isBlank()) return emptyList()
-        return habits.value.filter { h ->
+        // Search over archived habits too (the row labels them "· archived") so a habit is never
+        // unfindable — matches this function's contract, which `habits` (active-only) silently broke.
+        return habitsWithArchived.value.filter { h ->
             h.name.lowercase().contains(q) || h.description.lowercase().contains(q) ||
                 h.identity.lowercase().contains(q) || h.category.lowercase().contains(q) ||
                 h.notes.lowercase().contains(q) || (h.unit?.lowercase()?.contains(q) == true)

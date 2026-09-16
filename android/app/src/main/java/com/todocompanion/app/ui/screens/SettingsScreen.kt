@@ -1171,6 +1171,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 }
                 Text("An end-of-day tap to line up tomorrow before you clock off.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Toggle("Adapt to my rhythm", s.eveningReviewAdaptive) { vm.saveSettings(s.copy(eveningReviewAdaptive = it)) }
+                Text("Nudge me when I usually wind down — learned from when you actually close your days — instead of the fixed time above.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             // Z4 — the morning brief: one calm daily note instead of scattered pings.

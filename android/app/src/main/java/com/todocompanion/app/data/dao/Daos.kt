@@ -698,11 +698,11 @@ interface SettingDao {
 @Dao
 interface AttachmentDao {
     /** Metadata only (no Base64 bytes) so the observed flow stays cheap. */
-    @Query("SELECT id, taskId, fileName, mime, sizeBytes, isImage, addedAt FROM attachments WHERE taskId = :taskId ORDER BY addedAt")
+    @Query("SELECT id, taskId, fileName, mime, sizeBytes, isImage, addedAt, noteId FROM attachments WHERE taskId = :taskId ORDER BY addedAt")
     fun observeMetaForTask(taskId: String): Flow<List<AttachmentMeta>>
 
     /** Metadata for every attachment (no bytes) — powers the Attachments hub. */
-    @Query("SELECT id, taskId, fileName, mime, sizeBytes, isImage, addedAt FROM attachments ORDER BY addedAt DESC")
+    @Query("SELECT id, taskId, fileName, mime, sizeBytes, isImage, addedAt, noteId FROM attachments ORDER BY addedAt DESC")
     fun observeAllMeta(): Flow<List<AttachmentMeta>>
 
     @Query("SELECT contentBase64 FROM attachments WHERE id = :id")
@@ -730,7 +730,7 @@ interface AttachmentDao {
     suspend fun deleteForTask(taskId: String)
 
     /** Metadata for a note's attachments (v66 — the hub is shared with notes). */
-    @Query("SELECT id, taskId, fileName, mime, sizeBytes, isImage, addedAt FROM attachments WHERE noteId = :noteId ORDER BY addedAt")
+    @Query("SELECT id, taskId, fileName, mime, sizeBytes, isImage, addedAt, noteId FROM attachments WHERE noteId = :noteId ORDER BY addedAt")
     fun observeMetaForNote(noteId: String): Flow<List<AttachmentMeta>>
 
     @Query("DELETE FROM attachments WHERE noteId = :noteId")

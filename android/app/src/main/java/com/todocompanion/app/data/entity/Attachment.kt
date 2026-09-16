@@ -38,4 +38,7 @@ data class AttachmentMeta(
     val sizeBytes: Long,
     val isImage: Boolean,
     val addedAt: Long,
+    // v66 — an attachment belongs to a task ([taskId]) OR a note ([noteId]); the hub needs the owner
+    // to scope its listing to the active workspace (a note's/ task's workspace).
+    val noteId: String? = null,
 )

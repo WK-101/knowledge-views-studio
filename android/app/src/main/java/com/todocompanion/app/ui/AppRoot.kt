@@ -1168,6 +1168,7 @@ fun AppRoot(
                     OmegaCommand.Action.RECAP_WEEK -> { val ws = com.todocompanion.app.domain.weekStartOf(now, settings.weekStart); recapRange = Triple(ws.toEpochDay(), td, "This week") }
                     OmegaCommand.Action.RECAP_LAST_WEEK -> { val ws = com.todocompanion.app.domain.weekStartOf(now, settings.weekStart); recapRange = Triple(ws.minusWeeks(1).toEpochDay(), ws.minusDays(1).toEpochDay(), "Last week") }
                     OmegaCommand.Action.RECAP_MONTH -> recapRange = Triple(now.withDayOfMonth(1).toEpochDay(), td, "This month")
+                    OmegaCommand.Action.RECAP_LAST_MONTH -> { val fm = now.withDayOfMonth(1).minusMonths(1); recapRange = Triple(fm.toEpochDay(), fm.plusMonths(1).minusDays(1).toEpochDay(), "Last month") }
                     OmegaCommand.Action.NEW_NOTE -> vm.createNote { id -> editingNote = id }
                     OmegaCommand.Action.NEW_TASK -> showQuickAdd = true
                     OmegaCommand.Action.STOP_TIMER -> { vm.stopTimeTracking(); android.widget.Toast.makeText(context, "Timer stopped", android.widget.Toast.LENGTH_SHORT).show() }

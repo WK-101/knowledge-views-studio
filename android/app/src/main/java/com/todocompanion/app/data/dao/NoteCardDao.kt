@@ -45,6 +45,10 @@ interface NoteCardDao {
     @Query("DELETE FROM note_cards WHERE noteId = :noteId")
     suspend fun deleteForNote(noteId: String)
 
+    /** Wipe every flashcard — used by a replace-restore so stale SM-2 schedules don't survive a full reset. */
+    @Query("DELETE FROM note_cards")
+    suspend fun clear()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(cards: List<NoteCardEntity>)
 }

@@ -2029,6 +2029,7 @@ class AppRepository(private val db: AppDatabase) {
         experiments.clear(); activation.clear(); dayLogs.clear()
         escrows.clear(); nudgeEvents.clear(); eventCalendars.clear(); events.clear()
         notes.clear(); notes.clearTagCrossRefs(); notes.clearContextCrossRefs(); notebooks.clear(); noteRevisions.clear(); noteLinks.clear(); smartViews.clear()
+        noteCards.clear()   // replace-restore must reset flashcards too, else stale SM-2 schedules survive
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)

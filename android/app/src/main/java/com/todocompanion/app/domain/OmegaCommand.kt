@@ -20,7 +20,7 @@ object OmegaCommand {
         data class Capture(val text: String) : Command
     }
 
-    enum class Action { PLAN, WEEKLY_REVIEW, MOMENTUM, STATS, ANNUAL_REPORT, RECAP_WEEK, RECAP_LAST_WEEK, RECAP_MONTH, NEW_NOTE, NEW_TASK, STOP_TIMER }
+    enum class Action { PLAN, WEEKLY_REVIEW, MOMENTUM, STATS, ANNUAL_REPORT, RECAP_WEEK, RECAP_LAST_WEEK, RECAP_MONTH, RECAP_LAST_MONTH, NEW_NOTE, NEW_TASK, STOP_TIMER }
 
     private val TRACK = Regex("^(?:track|start|timer|time)\\s+(.+)$", RegexOption.IGNORE_CASE)
     // "setting dark mode" / "settings backup" / "preferences" → jump to Settings, pre-filtered (R28 #5).
@@ -41,7 +41,8 @@ object OmegaCommand {
         Regex("^(?:plan(?:\\s+my)?\\s+day|plan)$", RegexOption.IGNORE_CASE) to Action.PLAN,
         Regex("^(?:review\\s+(?:last|past)\\s+week|recap\\s+last\\s+week|last\\s+week)$", RegexOption.IGNORE_CASE) to Action.RECAP_LAST_WEEK,
         Regex("^(?:review\\s+(?:this\\s+)?week|recap\\s+(?:this\\s+)?week|week\\s+in\\s+review|recap)$", RegexOption.IGNORE_CASE) to Action.RECAP_WEEK,
-        Regex("^(?:review\\s+(?:this\\s+|last\\s+)?month|recap\\s+(?:this\\s+|last\\s+)?month|month\\s+in\\s+review)$", RegexOption.IGNORE_CASE) to Action.RECAP_MONTH,
+        Regex("^(?:review\\s+(?:last|past)\\s+month|recap\\s+last\\s+month|last\\s+month)$", RegexOption.IGNORE_CASE) to Action.RECAP_LAST_MONTH,
+        Regex("^(?:review\\s+(?:this\\s+)?month|recap\\s+(?:this\\s+)?month|month\\s+in\\s+review)$", RegexOption.IGNORE_CASE) to Action.RECAP_MONTH,
         Regex("^(?:weekly\\s+review|guided\\s+review|review)$", RegexOption.IGNORE_CASE) to Action.WEEKLY_REVIEW,
         Regex("^(?:momentum|dashboard|home)$", RegexOption.IGNORE_CASE) to Action.MOMENTUM,
         Regex("^(?:stats|statistics|my\\s+stats)$", RegexOption.IGNORE_CASE) to Action.STATS,

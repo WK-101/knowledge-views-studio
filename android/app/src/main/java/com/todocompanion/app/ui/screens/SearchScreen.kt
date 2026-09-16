@@ -223,7 +223,7 @@ fun SearchScreen(
         val showNotes = (scope == Scope.ALL || scope == Scope.NOTES) && shownNotes.isNotEmpty()
         val showTasks = tasksShown && shown.isNotEmpty()
         when {
-            query.isBlank() -> SearchHint("Search everything", "Find any task, habit, event, occasion, note (title & content), #tag, @context or 📎 attachment name — completed, someday and archived included; tap Trashed to search the bin")
+            query.isBlank() -> SearchHint("Search everything", "Find any task, habit, event, occasion or note (title & content), plus #tags, @contexts and 📎 attachment names. Completed, someday and archived items are included; the Trashed filter searches deleted tasks.")
             !showTasks && !showHabits && !showEvents && !showOccasions && !showNotes -> SearchHint("No matches", "Nothing found for “$query”", off = true)
             else -> {
                 val totalN = (if (showTasks) shown.size else 0) + (if (showHabits) shownHabits.size else 0) + (if (showEvents) shownEvents.size else 0) + (if (showOccasions) shownOccasions.size else 0) + (if (showNotes) shownNotes.size else 0)
