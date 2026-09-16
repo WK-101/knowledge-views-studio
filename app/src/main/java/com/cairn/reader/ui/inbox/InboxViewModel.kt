@@ -11,6 +11,7 @@ import com.cairn.reader.audio.SpeechText
 import com.cairn.reader.audio.TtsReader
 import com.cairn.reader.data.prefs.ListViewMode
 import com.cairn.reader.data.prefs.PreferencesRepository
+import com.cairn.reader.data.prefs.SwipeConfig
 import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.data.repo.ItemRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -44,14 +45,6 @@ sealed interface DrawerSelection {
 }
 
 enum class InboxSort(val label: String) { NEWEST("Newest first"), OLDEST("Oldest first") }
-
-/** The two-stage swipe configuration surfaced to the list rows. */
-data class SwipeConfig(
-    val rightHalf: com.cairn.reader.data.prefs.SwipeAction = com.cairn.reader.data.prefs.SwipeAction.STAR,
-    val rightFull: com.cairn.reader.data.prefs.SwipeAction = com.cairn.reader.data.prefs.SwipeAction.SAVE,
-    val leftHalf: com.cairn.reader.data.prefs.SwipeAction = com.cairn.reader.data.prefs.SwipeAction.MARK_READ,
-    val leftFull: com.cairn.reader.data.prefs.SwipeAction = com.cairn.reader.data.prefs.SwipeAction.ARCHIVE,
-)
 
 /** A transient snackbar; when [onAction] is set the UI shows an action button (usually "Undo"). */
 data class Snack(val message: String, val actionLabel: String? = null, val onAction: (() -> Unit)? = null)

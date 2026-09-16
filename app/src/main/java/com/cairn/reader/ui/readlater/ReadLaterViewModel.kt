@@ -6,6 +6,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cairn.reader.data.db.CollectionWithCount
 import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.data.prefs.PreferencesRepository
+import com.cairn.reader.data.prefs.SwipeAction
+import com.cairn.reader.data.prefs.SwipeConfig
 import com.cairn.reader.data.repo.CollectionRepository
 import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.data.repo.ItemRepository
@@ -15,6 +18,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -36,10 +40,17 @@ class ReadLaterViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val collectionRepository: CollectionRepository,
     private val feedRepository: FeedRepository,
+    private val preferencesRepository: PreferencesRepository,
 ) : ViewModel() {
 
     private val raw: StateFlow<List<ItemListRow>> =
         itemRepository.readLater().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** The user's two-stage swipe actions, shared with the Inbox so list swipes behave the same. */
+    val swipeActions: StateFlow<SwipeConfig> =
+        preferencesRepository.preferences
+            .map { SwipeConfig(it.swipeRightHalf, it.swipeRightFull, it.swipeLeftHalf, it.swipeLeftFull) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SwipeConfig())
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
@@ -108,6 +119,29 @@ class ReadLaterViewModel @Inject constructor(
     fun archive(id: String) = viewModelScope.launch { itemRepository.setArchived(id, true) }
 
     fun saveLink(url: String) = viewModelScope.launch { feedRepository.saveUrl(url) }
+
+    // -- Single-item ops wired to list-row swipes (mirrors the Inbox) ----------
+    fun markRead(id: String, read: Boolean) = viewModelScope.launch { itemRepository.setRead(id, read) }
+    fun toggleStar(id: String, starred: Boolean) = viewModelScope.launch { itemRepository.setStarred(id, starred) }
+    fun toggleSave(id: String, save: Boolean) = viewModelScope.launch { itemRepository.setReadLater(id, save) }
+    fun delete(id: String) = viewModelScope.launch { feedRepository.trashItem(id) }
+    fun saveOffline(id: String) = viewModelScope.launch { feedRepository.saveOffline(id) }
+
+    /** Perform a configurable swipe action on a row. SHARE / OPEN_ORIGINAL need UI context, so the
+     *  list host intercepts those before delegating here. */
+    fun swipe(row: ItemListRow, action: SwipeAction) {
+        when (action) {
+            SwipeAction.MARK_READ -> markRead(row.id, !row.isRead)
+            SwipeAction.SAVE -> toggleSave(row.id, !row.isReadLater)
+            SwipeAction.STAR -> toggleStar(row.id, !row.isStarred)
+            SwipeAction.ARCHIVE -> archive(row.id)
+            SwipeAction.DELETE -> delete(row.id)
+            SwipeAction.SAVE_OFFLINE -> saveOffline(row.id)
+            // Promote into the Library (Favorites), which clears the read-later flag.
+            SwipeAction.LIBRARY -> saveToLibrary(row.id, null)
+            SwipeAction.OPEN_ORIGINAL, SwipeAction.SHARE, SwipeAction.NONE -> Unit
+        }
+    }
 
     // -- Multi-select (bulk actions) -------------------------------------------
     private val picks = MultiSelectStore<String>()

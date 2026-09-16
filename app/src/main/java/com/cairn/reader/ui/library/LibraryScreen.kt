@@ -99,12 +99,15 @@ import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.data.db.LibraryCounts
 import com.cairn.reader.data.db.TagWithCount
 import com.cairn.reader.data.prefs.LibraryViewMode
+import com.cairn.reader.data.prefs.ListViewMode
+import com.cairn.reader.data.prefs.SwipeAction
+import com.cairn.reader.data.prefs.SwipeConfig
 import com.cairn.reader.ui.components.CollectionPickerSheet
 import com.cairn.reader.ui.components.EmptyState
 import com.cairn.reader.ui.components.EntryDivider
-import com.cairn.reader.ui.components.ItemRow
 import com.cairn.reader.ui.components.SectionLabel
 import com.cairn.reader.ui.components.SelectionActionBar
+import com.cairn.reader.ui.components.SwipeableItemRow
 
 @Composable
 fun LibraryScreen(
@@ -127,6 +130,20 @@ fun LibraryScreen(
     val selection by viewModel.selection.collectAsStateWithLifecycle()
     val availableTypes by viewModel.availableTypes.collectAsStateWithLifecycle()
     val typeFilter by viewModel.typeFilter.collectAsStateWithLifecycle()
+    val swipeCfg by viewModel.swipeActions.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    // A swipe action that needs UI context (share / open original) is handled here; the rest are
+    // pure data changes the ViewModel owns. Mirrors the Inbox's swipe host.
+    fun onLibrarySwipe(row: ItemListRow, action: SwipeAction) {
+        when (action) {
+            SwipeAction.OPEN_ORIGINAL -> runCatching {
+                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(row.url)))
+            }
+            SwipeAction.SHARE -> com.cairn.reader.util.shareText(context, row.url, subject = row.title, chooser = null)
+            else -> viewModel.swipe(row, action)
+        }
+    }
 
     var showCreate by remember { mutableStateOf<String?>(null) } // parentId (or "" for a top-level collection)
     var renaming by remember { mutableStateOf<Pair<String, String>?>(null) }
@@ -320,7 +337,9 @@ fun LibraryScreen(
                     }
                 },
                 onLongPress = { row -> viewModel.toggleSelect(row.id) },
-                onToggleSave = { row -> viewModel.toggleSave(row.id, !row.isReadLater) },
+                swipeCfg = swipeCfg,
+                swipeEnabled = !selectionActive,
+                onSwipe = { row, action -> onLibrarySwipe(row, action) },
             )
         }
     }
@@ -457,12 +476,28 @@ private fun LibraryContent(
     selected: Set<String>,
     onClick: (ItemListRow) -> Unit,
     onLongPress: (ItemListRow) -> Unit,
-    onToggleSave: (ItemListRow) -> Unit,
+    swipeCfg: SwipeConfig,
+    swipeEnabled: Boolean,
+    onSwipe: (ItemListRow, SwipeAction) -> Unit,
 ) {
     when (mode) {
+        // Only the full-width list view fits a horizontal swipe row; the grid / moodboard modes
+        // (2-column cards) and the compact headline rows keep their tap/long-press behaviour.
         LibraryViewMode.LIST -> LazyColumn(contentPadding = PaddingValues(top = 6.dp, bottom = bottomPad)) {
             items(items, key = { it.id }) { row ->
-                ItemRow(row = row, onOpen = { onClick(row) }, onToggleSave = { onToggleSave(row) }, onLongPress = { onLongPress(row) }, selected = row.id in selected)
+                SwipeableItemRow(
+                    row = row,
+                    onOpen = { onClick(row) },
+                    onLongPress = { onLongPress(row) },
+                    selected = row.id in selected,
+                    swipeEnabled = swipeEnabled,
+                    rightHalf = swipeCfg.rightHalf,
+                    rightFull = swipeCfg.rightFull,
+                    leftHalf = swipeCfg.leftHalf,
+                    leftFull = swipeCfg.leftFull,
+                    onAction = { action -> onSwipe(row, action) },
+                    mode = ListViewMode.CARD,
+                )
                 EntryDivider()
             }
         }

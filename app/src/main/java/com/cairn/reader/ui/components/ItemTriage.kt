@@ -63,10 +63,86 @@ import kotlinx.coroutines.launch
 import com.cairn.reader.data.db.CacheStatus
 
 /**
- * A list row with two-stage, user-configurable swipe actions per direction: a short (half)
- * swipe fires the "half" action, a long (full) swipe fires the "full" action. The row is
- * dragged directly (not M3 SwipeToDismiss) so the two thresholds and their live icon/colour
- * feedback are precise. The row always springs back; every action carries Undo via the snackbar.
+ * A fully-resolved swipe slot: the live icon and label to reveal, whether it reads as destructive
+ * (error palette), and what firing it does. A null slot means "nothing happens" for that
+ * stage/direction. The generic surfaces build these from the user's [SwipeAction] preferences; a
+ * surface with fixed actions (e.g. Trash) supplies them directly — so every list shares one swipe
+ * implementation instead of forking a second component.
+ */
+class SwipeSlot(
+    val icon: ImageVector,
+    val label: String,
+    val destructive: Boolean = false,
+    val onFire: () -> Unit,
+)
+
+/**
+ * A list row with two-stage swipe actions per direction: a short (half) swipe fires the "half"
+ * slot, a long (full) swipe fires the "full" slot. The row is dragged directly (not M3
+ * SwipeToDismiss) so the two thresholds and their live icon/colour feedback are precise. The row
+ * always springs back.
+ *
+ * This is the shared core. [SwipeableItemRow] with [SwipeAction] arguments (below) adapts the
+ * user-configurable enum onto it; callers with fixed actions pass [SwipeSlot]s here directly.
+ */
+@Composable
+fun SwipeableItemRow(
+    row: ItemListRow,
+    onOpen: () -> Unit,
+    onLongPress: () -> Unit,
+    rightHalf: SwipeSlot? = null,
+    rightFull: SwipeSlot? = null,
+    leftHalf: SwipeSlot? = null,
+    leftFull: SwipeSlot? = null,
+    modifier: Modifier = Modifier,
+    mode: ListViewMode = ListViewMode.CARD,
+    compact: Boolean = false,
+    selected: Boolean = false,
+    swipeEnabled: Boolean = true,
+    onOpenSource: ((String) -> Unit)? = null,
+) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val halfPx = with(density) { 76.dp.toPx() }
+    val fullPx = with(density) { 200.dp.toPx() }
+    val offset = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
+    val rightEnabled = swipeEnabled && (rightHalf != null || rightFull != null)
+    val leftEnabled = swipeEnabled && (leftHalf != null || leftFull != null)
+    val maxRight = if (rightEnabled) fullPx * 1.1f else 0f
+    val minLeft = if (leftEnabled) -fullPx * 1.1f else 0f
+
+    fun pick(primary: SwipeSlot?, fallback: SwipeSlot?) = primary ?: fallback
+
+    Box(modifier.fillMaxWidth()) {
+        // matchParentSize makes the coloured reveal span the full row (its size follows the
+        // foreground cell), instead of collapsing to the icon's height in a LazyColumn item.
+        SwipeBackground(Modifier.matchParentSize(), offset.value, halfPx, fullPx, rightHalf, rightFull, leftHalf, leftFull)
+        Box(
+            Modifier
+                .offset { androidx.compose.ui.unit.IntOffset(offset.value.toInt(), 0) }
+                .androidxDraggable(offset, minLeft, maxRight) {
+                    val o = offset.value
+                    val slot = when {
+                        o >= fullPx -> pick(rightFull, rightHalf)
+                        o >= halfPx -> pick(rightHalf, rightFull)
+                        o <= -fullPx -> pick(leftFull, leftHalf)
+                        o <= -halfPx -> pick(leftHalf, leftFull)
+                        else -> null
+                    }
+                    offset.animateTo(0f, androidx.compose.animation.core.tween(220))
+                    slot?.onFire?.invoke()
+                },
+        ) {
+            FeedItemCell(row = row, mode = mode, onOpen = onOpen, onLongPress = onLongPress, compact = compact, selected = selected, onOpenSource = onOpenSource)
+        }
+    }
+}
+
+/**
+ * The user-configurable variant: maps each [SwipeAction] preference to a [SwipeSlot] (icon, label,
+ * destructive flag) and delegates the fired action back through [onAction]. Inbox, Library, Read
+ * Later and Offline all use this so a swipe behaves identically everywhere; SHARE / OPEN_ORIGINAL
+ * are delegated too and handled by the list host (they need UI context). The row always springs
+ * back; each action carries its own Undo where the surface provides one.
  */
 @Composable
 fun SwipeableItemRow(
@@ -85,40 +161,29 @@ fun SwipeableItemRow(
     swipeEnabled: Boolean = true,
     onOpenSource: ((String) -> Unit)? = null,
 ) {
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val halfPx = with(density) { 76.dp.toPx() }
-    val fullPx = with(density) { 200.dp.toPx() }
-    val offset = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
-    val rightEnabled = swipeEnabled && (rightHalf != SwipeAction.NONE || rightFull != SwipeAction.NONE)
-    val leftEnabled = swipeEnabled && (leftHalf != SwipeAction.NONE || leftFull != SwipeAction.NONE)
-    val maxRight = if (rightEnabled) fullPx * 1.1f else 0f
-    val minLeft = if (leftEnabled) -fullPx * 1.1f else 0f
-
-    fun pick(primary: SwipeAction, fallback: SwipeAction) = if (primary != SwipeAction.NONE) primary else fallback
-
-    Box(modifier.fillMaxWidth()) {
-        // matchParentSize makes the coloured reveal span the full row (its size follows the
-        // foreground cell), instead of collapsing to the icon's height in a LazyColumn item.
-        SwipeBackground(Modifier.matchParentSize(), offset.value, halfPx, fullPx, row, rightHalf, rightFull, leftHalf, leftFull)
-        Box(
-            Modifier
-                .offset { androidx.compose.ui.unit.IntOffset(offset.value.toInt(), 0) }
-                .androidxDraggable(offset, minLeft, maxRight) {
-                    val o = offset.value
-                    val action = when {
-                        o >= fullPx -> pick(rightFull, rightHalf)
-                        o >= halfPx -> pick(rightHalf, rightFull)
-                        o <= -fullPx -> pick(leftFull, leftHalf)
-                        o <= -halfPx -> pick(leftHalf, leftFull)
-                        else -> SwipeAction.NONE
-                    }
-                    offset.animateTo(0f, androidx.compose.animation.core.tween(220))
-                    if (action != SwipeAction.NONE) onAction(action)
-                },
-        ) {
-            FeedItemCell(row = row, mode = mode, onOpen = onOpen, onLongPress = onLongPress, compact = compact, selected = selected, onOpenSource = onOpenSource)
-        }
-    }
+    fun slot(action: SwipeAction): SwipeSlot? =
+        if (action == SwipeAction.NONE) null
+        else SwipeSlot(
+            icon = swipeIcon(action, row),
+            label = action.label,
+            destructive = action == SwipeAction.DELETE,
+            onFire = { onAction(action) },
+        )
+    SwipeableItemRow(
+        row = row,
+        onOpen = onOpen,
+        onLongPress = onLongPress,
+        rightHalf = slot(rightHalf),
+        rightFull = slot(rightFull),
+        leftHalf = slot(leftHalf),
+        leftFull = slot(leftFull),
+        modifier = modifier,
+        mode = mode,
+        compact = compact,
+        selected = selected,
+        swipeEnabled = swipeEnabled,
+        onOpenSource = onOpenSource,
+    )
 }
 
 /** Horizontal drag wired to an [Animatable], clamped to the enabled directions. */
@@ -138,7 +203,6 @@ private fun Modifier.androidxDraggable(
     )
 }
 
-@Composable
 private fun swipeIcon(action: SwipeAction, row: ItemListRow): ImageVector = when (action) {
     SwipeAction.MARK_READ -> if (row.isRead) Icons.Outlined.MarkEmailUnread else Icons.Outlined.MarkEmailRead
     SwipeAction.SAVE -> if (row.isReadLater) Icons.Outlined.BookmarkRemove else Icons.Outlined.Bookmark
@@ -158,26 +222,25 @@ private fun SwipeBackground(
     offset: Float,
     halfPx: Float,
     fullPx: Float,
-    row: ItemListRow,
-    rightHalf: SwipeAction,
-    rightFull: SwipeAction,
-    leftHalf: SwipeAction,
-    leftFull: SwipeAction,
+    rightHalf: SwipeSlot?,
+    rightFull: SwipeSlot?,
+    leftHalf: SwipeSlot?,
+    leftFull: SwipeSlot?,
 ) {
     if (offset == 0f) return
     val scheme = MaterialTheme.colorScheme
     val toRight = offset > 0
     val mag = kotlin.math.abs(offset)
     val past = mag >= fullPx
-    val action = when {
-        toRight && past -> if (rightFull != SwipeAction.NONE) rightFull else rightHalf
-        toRight -> if (rightHalf != SwipeAction.NONE) rightHalf else rightFull
-        past -> if (leftFull != SwipeAction.NONE) leftFull else leftHalf
-        else -> if (leftHalf != SwipeAction.NONE) leftHalf else leftFull
-    }
+    val slot = when {
+        toRight && past -> rightFull ?: rightHalf
+        toRight -> rightHalf ?: rightFull
+        past -> leftFull ?: leftHalf
+        else -> leftHalf ?: leftFull
+    } ?: return
     // The colour deepens once the full threshold is crossed, so the two stages read distinctly.
-    // A destructive delete always reads in the error palette so it can't be confused with a save.
-    val destructive = action == SwipeAction.DELETE
+    // A destructive action always reads in the error palette so it can't be confused with a save.
+    val destructive = slot.destructive
     val base = when {
         destructive -> scheme.errorContainer
         toRight -> scheme.tertiaryContainer
@@ -201,8 +264,8 @@ private fun SwipeBackground(
     ) {
         if (mag > 12f) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(swipeIcon(action, row), contentDescription = null, tint = fg, modifier = Modifier.size(22.dp))
-                if (mag >= halfPx) Text(action.label, style = MaterialTheme.typography.labelLarge, color = fg, fontWeight = FontWeight.SemiBold)
+                Icon(slot.icon, contentDescription = null, tint = fg, modifier = Modifier.size(22.dp))
+                if (mag >= halfPx) Text(slot.label, style = MaterialTheme.typography.labelLarge, color = fg, fontWeight = FontWeight.SemiBold)
             }
         }
     }

@@ -46,6 +46,15 @@ enum class SwipeAction(val label: String) {
     SHARE("Share"),
 }
 
+/** The user's two-stage swipe configuration (right-half, right-full, left-half, left-full),
+ *  surfaced to every entry-list row so a swipe behaves identically across surfaces. */
+data class SwipeConfig(
+    val rightHalf: SwipeAction = SwipeAction.STAR,
+    val rightFull: SwipeAction = SwipeAction.SAVE,
+    val leftHalf: SwipeAction = SwipeAction.MARK_READ,
+    val leftFull: SwipeAction = SwipeAction.ARCHIVE,
+)
+
 data class AppPreferences(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,

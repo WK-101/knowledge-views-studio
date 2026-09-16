@@ -6,7 +6,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cairn.reader.data.blob.BlobStore
 import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.data.prefs.PreferencesRepository
+import com.cairn.reader.data.prefs.SwipeAction
+import com.cairn.reader.data.prefs.SwipeConfig
 import com.cairn.reader.data.repo.FeedRepository
+import com.cairn.reader.data.repo.ItemRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,11 +46,19 @@ enum class OfflineKind(val label: String) { ALL("All"), PERMANENT("Permanent"), 
 @HiltViewModel
 class OfflineViewModel @Inject constructor(
     private val feedRepository: FeedRepository,
+    private val itemRepository: ItemRepository,
+    private val preferencesRepository: PreferencesRepository,
     private val blobStore: BlobStore,
 ) : ViewModel() {
 
     private val raw: StateFlow<List<ItemListRow>> =
         feedRepository.observeCached().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** The user's two-stage swipe actions, shared with the Inbox so list swipes behave the same. */
+    val swipeActions: StateFlow<SwipeConfig> =
+        preferencesRepository.preferences
+            .map { SwipeConfig(it.swipeRightHalf, it.swipeRightFull, it.swipeLeftHalf, it.swipeLeftFull) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SwipeConfig())
 
     /** True while an offline pack is being pulled down, so the UI can show progress. */
     private val _preparing = MutableStateFlow(false)
@@ -141,6 +153,29 @@ class OfflineViewModel @Inject constructor(
     fun makePermanent(id: String) = viewModelScope.launch {
         feedRepository.saveOffline(id)
         refreshStorage()
+    }
+
+    // -- Single-item ops wired to list-row swipes (mirrors the Inbox) ----------
+    fun markRead(id: String, read: Boolean) = viewModelScope.launch { itemRepository.setRead(id, read) }
+    fun toggleStar(id: String, starred: Boolean) = viewModelScope.launch { itemRepository.setStarred(id, starred) }
+    fun toggleSave(id: String, save: Boolean) = viewModelScope.launch { itemRepository.setReadLater(id, save) }
+    fun archive(id: String) = viewModelScope.launch { itemRepository.setArchived(id, true) }
+
+    /** Perform a configurable swipe action on a row. SHARE / OPEN_ORIGINAL need UI context, so the
+     *  list host intercepts those before delegating here. */
+    fun swipe(row: ItemListRow, action: SwipeAction) {
+        when (action) {
+            SwipeAction.MARK_READ -> markRead(row.id, !row.isRead)
+            SwipeAction.SAVE -> toggleSave(row.id, !row.isReadLater)
+            SwipeAction.STAR -> toggleStar(row.id, !row.isStarred)
+            SwipeAction.ARCHIVE -> archive(row.id)
+            // On the Offline surface, "delete" removes the whole entry (to Trash), not just the copy.
+            SwipeAction.DELETE -> deleteEntry(row.id)
+            // Already-offline items just re-affirm a permanent copy; a no-op-ish but harmless promote.
+            SwipeAction.SAVE_OFFLINE -> makePermanent(row.id)
+            SwipeAction.LIBRARY -> toggleStar(row.id, true)
+            SwipeAction.OPEN_ORIGINAL, SwipeAction.SHARE, SwipeAction.NONE -> Unit
+        }
     }
 
     // -- Multi-select (bulk actions) -------------------------------------------

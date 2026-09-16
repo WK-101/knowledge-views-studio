@@ -67,6 +67,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.data.db.ItemListRow
 import com.cairn.reader.ui.components.SheetActionRow
+import com.cairn.reader.ui.components.SwipeSlot
+import com.cairn.reader.ui.components.SwipeableItemRow
 
 @Composable
 fun TrashScreen(
@@ -270,8 +272,19 @@ fun TrashScreen(
                     contentPadding = PaddingValues(top = 4.dp, bottom = padding.calculateBottomPadding() + 24.dp),
                 ) {
                     items(items, key = { it.id }) { row ->
-                        com.cairn.reader.ui.components.FeedItemCell(
-                            row = row, mode = viewMode,
+                        // Trash swipes are fixed (not the user's configurable actions): a short
+                        // swipe restores, a long swipe deletes forever — either direction.
+                        val restoreSlot = SwipeSlot(
+                            icon = Icons.Outlined.RestoreFromTrash,
+                            label = stringResource(R.string.restore),
+                        ) { viewModel.restore(row.id) }
+                        val deleteForeverSlot = SwipeSlot(
+                            icon = Icons.Outlined.DeleteForever,
+                            label = stringResource(R.string.delete_forever_2),
+                            destructive = true,
+                        ) { viewModel.deleteForever(row.id) }
+                        SwipeableItemRow(
+                            row = row,
                             onOpen = {
                                 if (selecting) viewModel.togglePick(row.id) else {
                                     com.cairn.reader.ui.reader.ReaderQueue.set(items.map { it.id })
@@ -280,6 +293,12 @@ fun TrashScreen(
                             },
                             onLongPress = { if (selecting) viewModel.togglePick(row.id) else actionRow = row },
                             selected = row.id in picked,
+                            swipeEnabled = !selecting,
+                            rightHalf = restoreSlot,
+                            rightFull = deleteForeverSlot,
+                            leftHalf = restoreSlot,
+                            leftFull = deleteForeverSlot,
+                            mode = viewMode,
                         )
                         if (viewMode != com.cairn.reader.data.prefs.ListViewMode.MAGAZINE) {
                             HorizontalDivider(

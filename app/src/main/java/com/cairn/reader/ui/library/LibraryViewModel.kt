@@ -10,6 +10,8 @@ import com.cairn.reader.data.db.ItemType
 import com.cairn.reader.data.db.TagWithCount
 import com.cairn.reader.data.prefs.LibraryViewMode
 import com.cairn.reader.data.prefs.PreferencesRepository
+import com.cairn.reader.data.prefs.SwipeAction
+import com.cairn.reader.data.prefs.SwipeConfig
 import com.cairn.reader.data.repo.CollectionRepository
 import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.data.repo.ItemRepository
@@ -102,6 +104,12 @@ class LibraryViewModel @Inject constructor(
     val savedSearches: StateFlow<List<String>> =
         preferencesRepository.preferences.map { it.savedSearches.sorted() }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** The user's two-stage swipe actions, shared with the Inbox so list swipes behave the same. */
+    val swipeActions: StateFlow<SwipeConfig> =
+        preferencesRepository.preferences
+            .map { SwipeConfig(it.swipeRightHalf, it.swipeRightFull, it.swipeLeftHalf, it.swipeLeftFull) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SwipeConfig())
 
     /** Persisted fold state for the Library home, so sections and tree nodes stay how you left them. */
     data class FoldState(
@@ -270,6 +278,30 @@ class LibraryViewModel @Inject constructor(
     fun toggleSave(id: String, save: Boolean) = viewModelScope.launch { itemRepository.setReadLater(id, save) }
 
     fun saveLink(url: String) = viewModelScope.launch { feedRepository.saveUrl(url) }
+
+    // -- Single-item ops wired to list-row swipes (mirrors the Inbox) ----------
+    fun markRead(id: String, read: Boolean) = viewModelScope.launch { itemRepository.setRead(id, read) }
+    fun toggleStar(id: String, starred: Boolean) = viewModelScope.launch { itemRepository.setStarred(id, starred) }
+    fun archive(id: String) = viewModelScope.launch { itemRepository.setArchived(id, true) }
+    fun delete(id: String) = viewModelScope.launch { feedRepository.trashItem(id) }
+    fun saveOffline(id: String) = viewModelScope.launch { feedRepository.saveOffline(id) }
+    /** Star an item so it lands in the Library's Favorites — the "Save to Library" swipe. */
+    fun saveToLibrary(id: String) = viewModelScope.launch { itemRepository.setStarred(id, true) }
+
+    /** Perform a configurable swipe action on a row. SHARE / OPEN_ORIGINAL need UI context, so the
+     *  list host intercepts those before delegating here. */
+    fun swipe(row: ItemListRow, action: SwipeAction) {
+        when (action) {
+            SwipeAction.MARK_READ -> markRead(row.id, !row.isRead)
+            SwipeAction.SAVE -> toggleSave(row.id, !row.isReadLater)
+            SwipeAction.STAR -> toggleStar(row.id, !row.isStarred)
+            SwipeAction.ARCHIVE -> archive(row.id)
+            SwipeAction.DELETE -> delete(row.id)
+            SwipeAction.SAVE_OFFLINE -> saveOffline(row.id)
+            SwipeAction.LIBRARY -> saveToLibrary(row.id)
+            SwipeAction.OPEN_ORIGINAL, SwipeAction.SHARE, SwipeAction.NONE -> Unit
+        }
+    }
 
     // -- Bulk selection --------------------------------------------------------
 

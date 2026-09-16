@@ -71,9 +71,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.data.db.ItemListRow
+import com.cairn.reader.data.prefs.SwipeAction
 import com.cairn.reader.ui.components.CollectionPickerSheet
-import com.cairn.reader.ui.components.ItemRow
 import com.cairn.reader.ui.components.SheetActionRow
+import com.cairn.reader.ui.components.SwipeableItemRow
 
 @Composable
 fun ReadLaterScreen(
@@ -91,8 +92,22 @@ fun ReadLaterScreen(
     val offlineOnly by viewModel.offlineOnly.collectAsStateWithLifecycle()
     val availableTypes by viewModel.availableTypes.collectAsStateWithLifecycle()
     val picked by viewModel.picked.collectAsStateWithLifecycle()
+    val swipeCfg by viewModel.swipeActions.collectAsStateWithLifecycle()
     val selecting = picked.isNotEmpty()
     val scheme = MaterialTheme.colorScheme
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    // A swipe that needs UI context (share / open original) is handled here; the rest are pure data
+    // changes the ViewModel owns. Mirrors the Inbox's swipe host.
+    fun onReadLaterSwipe(row: ItemListRow, action: SwipeAction) {
+        when (action) {
+            SwipeAction.OPEN_ORIGINAL -> runCatching {
+                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(row.url)))
+            }
+            SwipeAction.SHARE -> com.cairn.reader.util.shareText(context, row.url, subject = row.title, chooser = null)
+            else -> viewModel.swipe(row, action)
+        }
+    }
 
     androidx.activity.compose.BackHandler(enabled = selecting) { viewModel.clearPicks() }
 
@@ -240,8 +255,8 @@ fun ReadLaterScreen(
                     contentPadding = PaddingValues(top = 4.dp, bottom = padding.calculateBottomPadding() + 96.dp),
                 ) {
                     items(items, key = { it.id }) { row ->
-                        com.cairn.reader.ui.components.FeedItemCell(
-                            row = row, mode = viewMode,
+                        SwipeableItemRow(
+                            row = row,
                             onOpen = {
                                 if (selecting) viewModel.togglePick(row.id) else {
                                     com.cairn.reader.ui.reader.ReaderQueue.set(items.map { it.id })
@@ -250,6 +265,13 @@ fun ReadLaterScreen(
                             },
                             onLongPress = { if (selecting) viewModel.togglePick(row.id) else actionRow = row },
                             selected = row.id in picked,
+                            swipeEnabled = !selecting,
+                            rightHalf = swipeCfg.rightHalf,
+                            rightFull = swipeCfg.rightFull,
+                            leftHalf = swipeCfg.leftHalf,
+                            leftFull = swipeCfg.leftFull,
+                            onAction = { action -> onReadLaterSwipe(row, action) },
+                            mode = viewMode,
                         )
                         if (viewMode != com.cairn.reader.data.prefs.ListViewMode.MAGAZINE) {
                             HorizontalDivider(
