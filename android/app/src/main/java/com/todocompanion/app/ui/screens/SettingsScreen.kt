@@ -1231,8 +1231,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Toggle("Block screenshots & screen recording", s.secureScreen) { vm.saveSettings(s.copy(secureScreen = it)) }
             Text("Marks the app secure (FLAG_SECURE): screenshots, screen recorders and the recent-apps thumbnail can't capture your content.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Toggle("Hide notification content on lock screen", s.lockscreenPrivacy) { vm.saveSettings(s.copy(lockscreenPrivacy = it)) }
-            Text("Reminder and summary notifications show only a generic title on a locked screen — task names stay hidden until you unlock.",
+            Toggle("Hide notifications completely on lock screen", s.lockscreenPrivacy) { vm.saveSettings(s.copy(lockscreenPrivacy = it)) }
+            Text("By default, notifications already redact their content on a locked screen — you see that a reminder arrived (“Kairo · reminder”) but never the task, note or habit name. Turn this on to hide them from the lock screen entirely, showing nothing at all until you unlock.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Toggle("Redact notes from shared exports", s.exportRedactNotes) { vm.saveSettings(s.copy(exportRedactNotes = it)) }
             Text("Leaves task notes out of the Markdown, CSV and calendar (.ics) exports you share — titles, dates and tags still export. The full JSON backup is unaffected.",

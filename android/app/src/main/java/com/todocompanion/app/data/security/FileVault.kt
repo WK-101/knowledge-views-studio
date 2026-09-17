@@ -49,20 +49,31 @@ object FileVault {
         val ks = KeyStore.getInstance(KS_PROVIDER).apply { load(null) }
         (ks.getEntry(KS_ALIAS, null) as? KeyStore.SecretKeyEntry)?.let { return it.secretKey }
         val kg = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, KS_PROVIDER)
-        fun spec(strongBox: Boolean) = KeyGenParameterSpec.Builder(
+        fun spec(strongBox: Boolean, requireUnlocked: Boolean) = KeyGenParameterSpec.Builder(
             KS_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
         )
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setKeySize(256)
-            .apply { if (strongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) setIsStrongBoxBacked(true) }
+            .apply {
+                if (strongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) setIsStrongBoxBacked(true)
+                // SEC (Batch 4) — bind the key's usability to an UNLOCKED device (API 28+). Attachments and
+                // habit photos are only ever decrypted in the foreground (a viewer has to unlock to see the
+                // screen), so this never blocks a background task — unlike the DB-passphrase key, which
+                // reminders/widgets must use while the device is locked and which is therefore NOT gated.
+                // The result: a lost/stolen phone that is locked (or off) can't decrypt these files even as
+                // the app's own process. Deliberately NOT invalidatedByBiometricEnrollment — a fingerprint
+                // change must never orphan a user's existing attachments.
+                if (requireUnlocked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) setUnlockedDeviceRequired(true)
+            }
             .build()
-        // Prefer StrongBox (a discrete secure element); fall back to the TEE if the device lacks it.
-        return try {
-            kg.init(spec(true)); kg.generateKey()
-        } catch (_: Exception) {
-            kg.init(spec(false)); kg.generateKey()
+        // Prefer StrongBox + the unlocked-device gate, then degrade gracefully so no device is ever left
+        // unable to encrypt attachments: StrongBox+gate → TEE+gate → TEE (no gate, e.g. pre-API-28).
+        for ((sb, ru) in listOf(true to true, false to true, false to false)) {
+            runCatching { kg.init(spec(sb, ru)); return kg.generateKey() }
         }
+        // Unreachable in practice (the last option always succeeds); a final plain attempt satisfies the compiler.
+        kg.init(spec(strongBox = false, requireUnlocked = false)); return kg.generateKey()
     }
 
     /** Encrypt [plain] into a FileVault envelope (MAGIC ‖ iv ‖ ciphertext+tag). */

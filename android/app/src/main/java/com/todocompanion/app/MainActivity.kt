@@ -43,7 +43,12 @@ class MainActivity : FragmentActivity() {
         lifecycleScope.launch {
             (application as App).repository.allSettings.collect { rows ->
                 fun flag(key: String) = rows.firstOrNull { it.key == key }?.value?.toBooleanStrictOrNull() ?: false
-                if (flag(com.todocompanion.app.domain.AppSettings.Keys.SECURE_SCREEN)) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                // SEC (Batch 4) — mark the window secure when the user has EITHER the explicit "block
+                // screenshots" setting on OR app-lock enabled. Tying it to app-lock means a locked app never
+                // leaks its last frame into the recents thumbnail (captured around background/foreground) and
+                // can't be screenshotted — the expected posture for anyone who put a lock on their data.
+                if (flag(com.todocompanion.app.domain.AppSettings.Keys.SECURE_SCREEN) ||
+                    flag(com.todocompanion.app.domain.AppSettings.Keys.APP_LOCK)) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
                 com.todocompanion.app.reminders.Notifications.lockscreenPrivate = flag(com.todocompanion.app.domain.AppSettings.Keys.LOCKSCREEN_PRIVACY)
                 // R59 — keep the notification Snooze duration in sync with the setting.

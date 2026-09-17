@@ -725,7 +725,12 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit, onOpenGoals: () -> Unit
                     Spacer(Modifier.height(6.dp))
                     TextButton(onClick = {
                         val cm = shareCtx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-                        cm?.setPrimaryClip(android.content.ClipData.newPlainText("Weekly note", txt))
+                        val clip = android.content.ClipData.newPlainText("Weekly note", txt)
+                        // SEC — mark personal reflection text sensitive so Android 13+ keeps it out of the
+                        // clipboard preview toast and clipboard history.
+                        if (android.os.Build.VERSION.SDK_INT >= 33) clip.description.extras =
+                            android.os.PersistableBundle().apply { putBoolean("android.content.extra.IS_SENSITIVE", true) }
+                        cm?.setPrimaryClip(clip)
                         android.widget.Toast.makeText(shareCtx, "Copied", android.widget.Toast.LENGTH_SHORT).show()
                     }) { Text("Copy") }
                 }

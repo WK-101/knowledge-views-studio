@@ -276,3 +276,24 @@ tasks.register("uiCoherenceBaselineUpdate") {
 }
 
 tasks.named("check").configure { dependsOn("uiCoherenceCheck") }
+
+// SEC (Batch 5) — never ship a release signed with the debug key. The signingConfig above falls back to
+// debug when no release keystore is configured so that local/day-to-day builds still produce an
+// installable APK; this guard makes that fallback FAIL LOUDLY the moment a real release task is in the
+// graph, so a debug-signed APK can never be mistaken for a distributable release. It only trips when a
+// release/bundle task actually runs (debug builds and IDE sync are unaffected), and `-PallowInsecureSigning`
+// is the explicit escape hatch for a deliberate throwaway build.
+gradle.taskGraph.whenReady {
+    val buildingRelease = allTasks.any { t ->
+        val n = t.name
+        (n.startsWith("assemble") || n.startsWith("bundle") || n.startsWith("package")) && n.contains("Release")
+    }
+    val hasReleaseKeystore = android.signingConfigs.findByName("release") != null
+    if (buildingRelease && !hasReleaseKeystore && !project.hasProperty("allowInsecureSigning")) {
+        throw GradleException(
+            "Refusing to build a RELEASE without a release keystore — it would be signed with the debug key. " +
+                "Configure keystore.properties (storeFile/storePassword/keyAlias/keyPassword) or the KEYSTORE_* env vars. " +
+                "For an intentional throwaway build, pass -PallowInsecureSigning."
+        )
+    }
+}

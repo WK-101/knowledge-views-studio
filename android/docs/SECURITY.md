@@ -33,15 +33,30 @@ the same invariant on every release.
 
 ## 2. Data at rest
 
-- **Database.** All app data lives in a single Room/SQLite database encrypted with **SQLCipher (AES-256)**.
-  The passphrase is generated on first run and wrapped by a hardware-backed key held in the **Android
-  KeyStore** (`SecureDb`); the plaintext key is never written to disk. On devices with a secure element
-  the wrapping key is non-exportable.
-- **Migration.** Turning encryption on/off performs a guarded plaintext↔ciphertext migration; the
-  round-trip is exercised by an instrumented migration test across the full (~59-version) schema chain.
-- **Backups & sync files** written to a user-chosen folder are encrypted at rest; the "Sealed Courier"
-  transfer format carries only the metadata needed to merge and uses post-quantum-oriented crypto for the
-  sealed payload.
+- **Database.** All app data lives in a single Room/SQLite database that can be encrypted with **SQLCipher
+  (AES-256)**. Encryption is **ON by default for fresh installs** — a new install creates the database
+  encrypted from the first byte, so plaintext never touches disk; the toggle in Settings → Security lets a
+  user opt out, and existing users (who predate this default) keep their prior state and can turn it on.
+  The passphrase is a high-entropy random string wrapped by a hardware-backed key in the **Android
+  KeyStore** (`SecureDb`), StrongBox-preferred; the plaintext key is never written to disk and is excluded
+  from cloud backup and device-to-device transfer. If the device's KeyStore can't produce a key,
+  encryption degrades gracefully to plaintext rather than bricking the app.
+- **Migration.** Turning encryption on/off performs a guarded, verified, rollback-safe plaintext↔ciphertext
+  migration (backup → integrity + row-count verify → atomic swap). On success the transient plaintext
+  copies — the old DB, its WAL/SHM and the pre-migrate backup — are **securely erased** (random overwrite +
+  fsync before unlink), not merely unlinked. The round-trip is exercised by an instrumented migration test
+  across the full schema chain.
+- **File attachments & habit photos** (`FileVault`) are AES-256-GCM under a separate KeyStore key. On
+  API 28+ that key is **`setUnlockedDeviceRequired`** — a locked or powered-off phone cannot decrypt these
+  files even as the app's own process. (The DB-passphrase key is deliberately *not* unlocked-gated, because
+  reminders and widgets must read the database while the device is locked.)
+- **Backups & sync files** written to a user-chosen folder are encrypted at rest with AES-256-GCM under a
+  key derived from the user's passphrase via **PBKDF2-HMAC-SHA256 at 210,000 iterations** (current OWASP
+  guidance; legacy 120k files still decrypt and are upgraded transparently). A manual JSON export is
+  encrypted by default whenever a passphrase is set. The "Sealed Courier" transfer format carries only the
+  metadata needed to merge and uses post-quantum-oriented crypto for the sealed payload.
+- **Notifications** redact their content on the lock screen by default (a neutral "Kairo · reminder"
+  placeholder); the "hide on lock screen" setting escalates to showing nothing at all.
 - **Crash log.** A crash writes a local `last_crash.txt` for the user to inspect or attach — it is never
   transmitted.
 
@@ -64,8 +79,17 @@ target app, and `FileProvider` grants that app read access to that one file only
 **In scope (mitigated):**
 - Passive data exfiltration by the app itself — impossible without `INTERNET`.
 - Data readable by another app or by pulling the app's data directory off an unrooted device — mitigated
-  by SQLCipher + KeyStore-wrapped key.
-- Casual shoulder-surfing / device sharing — optional biometric / device-credential **app lock**.
+  by SQLCipher + KeyStore-wrapped key (default-on) and FileVault for file-backed blobs.
+- Data on a **lost/stolen locked or powered-off device** — the DB is encrypted under a hardware key, and
+  attachments/photos are additionally bound to an unlocked device (API 28+).
+- Casual shoulder-surfing / device sharing — optional biometric / device-credential **app lock**, which
+  also marks the window `FLAG_SECURE` (no screenshots, and the recents thumbnail is blanked). Open Vault
+  notes are `FLAG_SECURE` regardless of the global setting.
+- **Hostile note content** (a shared/imported/synced `.md` that embeds `<script>` or a `javascript:` URL) —
+  the Markdown renderer escapes raw HTML and sanitizes URLs, and the reader WebView blocks all network and
+  file-URL cross-origin access, so injected markup is inert.
+- **Other apps driving the tracker** — the on-device automation broadcast API is off by default; nothing
+  can start/stop tracking or read start/stop events until the user opts in.
 - Leaking private notes when sharing a plan — per-field export redaction.
 
 **Out of scope (documented, not defended against):**
@@ -77,6 +101,8 @@ target app, and `FileProvider` grants that app read access to that one file only
   places it somewhere, its security is the destination's responsibility. (Redaction and at-rest encryption
   reduce this exposure.)
 - **Screen-capture / accessibility-service snooping** by other apps the user has granted those powers to.
+  (Turning on app lock or "block screenshots" sets `FLAG_SECURE`, which stops ordinary screen capture, but
+  an accessibility service the user has explicitly granted can still read the screen.)
 
 ## 5. Supply chain
 
