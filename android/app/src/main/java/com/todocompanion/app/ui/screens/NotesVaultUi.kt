@@ -77,6 +77,7 @@ fun VaultUnlockDialog(vm: AppViewModel, onReady: () -> Unit, onDismiss: () -> Un
         title = { Text(if (configured) "Unlock Vault" else "Create your Vault") },
         text = {
             Column {
+                com.todocompanion.app.ui.components.SecureDialogFlag()   // SEC (R2-C) — no screenshots/recents of the passphrase prompt
                 Text(
                     if (configured) "Enter your vault passphrase to open encrypted notes this session."
                     else "Choose a passphrase. It encrypts vault notes at rest and in backups, and is never stored — keep it safe; it can't be recovered, only re-entered on any device.",

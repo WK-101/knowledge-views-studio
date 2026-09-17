@@ -248,9 +248,14 @@ object SecureDb {
             if (want) {
                 val ok = runCatching { ensurePassphrase(context); unwrapPassphrase(context) != null }.getOrDefault(false)
                 if (ok) {
-                    prefs(context).edit().putBoolean(K_ACTUAL, true).apply()
+                    prefs(context).edit().putBoolean(K_ACTUAL, true).putString(K_LAST_ERROR, "").apply()
                 } else {
-                    prefs(context).edit().putBoolean(K_DESIRED, false).putBoolean(K_ACTUAL, false).apply()
+                    // SEC (R2-C) — this used to flip encryption off SILENTLY, so a user whose device couldn't
+                    // hold a KeyStore key saw "not encrypted" with no explanation. Record a reason so Settings
+                    // can say why the opt-in didn't take.
+                    prefs(context).edit().putBoolean(K_DESIRED, false).putBoolean(K_ACTUAL, false)
+                        .putString(K_LAST_ERROR, "This device's key store could not create or keep an encryption key, so the database was left unencrypted. Keep a JSON backup.")
+                        .apply()
                 }
             } else {
                 prefs(context).edit().putBoolean(K_ACTUAL, false).apply()

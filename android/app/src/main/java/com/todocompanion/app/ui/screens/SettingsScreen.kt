@@ -827,7 +827,10 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                         )
                         TextButton(onClick = {
                             val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-                            cm?.setPrimaryClip(android.content.ClipData.newPlainText("Kairo automation token", s.automationToken))
+                            val clip = android.content.ClipData.newPlainText("Kairo automation token", s.automationToken)
+                            if (android.os.Build.VERSION.SDK_INT >= 33) clip.description.extras =
+                                android.os.PersistableBundle().apply { putBoolean("android.content.extra.IS_SENSITIVE", true) }   // SEC (R2-C)
+                            cm?.setPrimaryClip(clip)
                             android.widget.Toast.makeText(context, "Token copied", android.widget.Toast.LENGTH_SHORT).show()
                         }) { Text("Copy") }
                     }

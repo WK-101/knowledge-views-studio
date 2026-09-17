@@ -92,7 +92,11 @@ fun RichNoteView(
     AndroidView(
         modifier = sizedModifier,
         factory = { ctx ->
-            if (softwareLayer) android.util.Log.d("KairoSplitDiag", "RichNoteView WebView factory (creating; software layer)")
+            // SEC (R2-C) — the KairoSplitDiag traces are a dev aid; keep them out of release logcat. Gate on
+            // the app's debuggable flag (BuildConfig generation is off in this project, so this is the
+            // dependency-free equivalent of BuildConfig.DEBUG).
+            val diag = (ctx.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+            if (softwareLayer && diag) android.util.Log.d("KairoSplitDiag", "RichNoteView WebView factory (creating; software layer)")
             WebView(ctx).apply {
                 // R108 — a software layer keeps the WebView inside the app's own surface, so attaching it
                 // next to the live editor doesn't make the window re-composite (which flashed the editor
@@ -136,7 +140,7 @@ fun RichNoteView(
                     }
                     override fun shouldOverrideUrlLoading(view: WebView, req: WebResourceRequest): Boolean = true
                     override fun onPageFinished(view: WebView, url: String?) {
-                        if (softwareLayer) android.util.Log.d("KairoSplitDiag", "RichNoteView onPageFinished (software=$softwareLayer)")
+                        if (softwareLayer && diag) android.util.Log.d("KairoSplitDiag", "RichNoteView onPageFinished (software=$softwareLayer)")
                         if (autoHeight) view.evaluateJavascript(HEIGHT_OBSERVER_JS, null)
                     }
                 }

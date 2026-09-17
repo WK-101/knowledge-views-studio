@@ -385,7 +385,12 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
                 }
                 runCatching {
                     val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                    cm.setPrimaryClip(android.content.ClipData.newPlainText("Availability", txt))
+                    val clip = android.content.ClipData.newPlainText("Availability", txt)
+                    // SEC (R2-C) — mark the clip sensitive (API 33+) so the OS keeps it out of clipboard
+                    // previews / history, matching the weekly-note copy. Your schedule isn't for a bystander.
+                    if (android.os.Build.VERSION.SDK_INT >= 33) clip.description.extras =
+                        android.os.PersistableBundle().apply { putBoolean("android.content.extra.IS_SENSITIVE", true) }
+                    cm.setPrimaryClip(clip)
                     android.widget.Toast.makeText(ctx, "Availability copied.", android.widget.Toast.LENGTH_SHORT).show()
                 }
             }) { Icon(Icons.Filled.ContentCopy, null, Modifier.width(18.dp)); Spacer(Modifier.width(6.dp)); Text("Copy availability") }

@@ -57,6 +57,7 @@ object PortableCrypto {
         val key = deriveKey(passphrase, salt, ITERATIONS)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(TAG_BITS, iv))
+        java.util.Arrays.fill(key, 0)   // SEC (R2-C) — drop the raw key bytes once the cipher holds them
         val ct = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
         return json.encodeToString(
             Envelope.serializer(),
@@ -78,6 +79,7 @@ object PortableCrypto {
             val key = deriveKey(passphrase, unb64.decode(env.salt), env.iterations)
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(TAG_BITS, unb64.decode(env.iv)))
+            java.util.Arrays.fill(key, 0)   // SEC (R2-C) — drop the raw key bytes once the cipher holds them
             String(cipher.doFinal(unb64.decode(env.ciphertext)), Charsets.UTF_8)
         }.getOrNull()
     }
@@ -87,7 +89,11 @@ object PortableCrypto {
         runCatching { json.decodeFromString(Envelope.serializer(), blob).magic == MAGIC }.getOrDefault(false)
 
     private fun deriveKey(passphrase: CharArray, salt: ByteArray, iterations: Int): ByteArray {
+        // SEC (R2-C) — clear the PBEKeySpec's internal passphrase copy after derivation. The returned key
+        // bytes are the caller's to zeroize once loaded into a SecretKeySpec (see encrypt/decrypt).
         val spec = PBEKeySpec(passphrase, salt, iterations, KEY_BITS)
-        return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded
+        return try {
+            SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded
+        } finally { spec.clearPassword() }
     }
 }

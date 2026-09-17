@@ -1303,11 +1303,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Encrypted Note Courier — read a picked courier file, then decrypt + create the note. */
     fun receiveEncryptedNote(uriString: String, passphrase: String, onOpen: (String) -> Unit) = viewModelScope.launch {
-        val blob = withContext(Dispatchers.IO) {
-            runCatching {
-                appCtx.contentResolver.openInputStream(android.net.Uri.parse(uriString))?.bufferedReader()?.use { it.readText() }
-            }.getOrNull()
-        }
+        val blob = withContext(Dispatchers.IO) { readImportTextBounded(android.net.Uri.parse(uriString)) }
         if (blob.isNullOrBlank()) { toast("Couldn't read that file"); return@launch }
         if (!com.todocompanion.app.util.NoteCourier.looksEncrypted(blob)) { toast("Not a Kairo encrypted-note file"); return@launch }
         importEncryptedNote(blob, passphrase, onOpen)
@@ -1376,6 +1372,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             runCatching { com.todocompanion.app.data.security.SecureDb.panicWipe(appCtx) }
             runCatching { purgeRichImgCache() }
+            runCatching { purgeSharedCache() }   // SEC (R2-C) — stale exports/captures/share cards too
             // The live SQLCipher handle still holds the passphrase in RAM until the process dies — end it now.
             android.os.Process.killProcess(android.os.Process.myPid())
         }
@@ -1401,13 +1398,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         vaultPass?.fill(' ')   // SEC: zeroize the in-memory passphrase before dropping the reference
         vaultPass = null
         vaultUnlocked.value = false
-        viewModelScope.launch(Dispatchers.IO) { runCatching { purgeRichImgCache() } }
+        viewModelScope.launch(Dispatchers.IO) { runCatching { purgeRichImgCache() }; runCatching { purgeSharedCache() } }
     }
 
-    /** Best-effort secure wipe of the decrypted-image cache the rich-note renderer materializes.
-     *  Overwrites each file with random bytes before unlinking (bounded, IO-thread only). */
-    fun purgeRichImgCache() {
-        val dir = java.io.File(appCtx.cacheDir, "richimg")
+    /** Best-effort secure wipe of the decrypted-image cache the rich-note renderer materializes. */
+    fun purgeRichImgCache() = secureWipeCacheDir("richimg")
+
+    /** SEC (R2-C) — the cacheDir/shared folder accumulates single-note exports, camera captures and share
+     *  cards handed to other apps via FileProvider. Once the share is done those are stale plaintext copies
+     *  of your content sitting in cache, so sweep them on vault-lock, cold start and panic wipe. */
+    fun purgeSharedCache() = secureWipeCacheDir("shared")
+
+    /** SEC (R2-C) — read an imported text file with an upper bound, so a hostile multi-gigabyte file can't
+     *  OOM the app on import (share exports were already capped; imports were not). Returns null past the cap
+     *  or on any read error. 64 MB comfortably covers a large full-JSON backup while refusing a pathological
+     *  file. */
+    private fun readImportTextBounded(uri: android.net.Uri, maxBytes: Long = 64L * 1024 * 1024): String? =
+        runCatching {
+            appCtx.contentResolver.openInputStream(uri)?.use { ins ->
+                val buf = java.io.ByteArrayOutputStream()
+                val chunk = ByteArray(64 * 1024)
+                var total = 0L
+                while (true) {
+                    val n = ins.read(chunk); if (n < 0) break
+                    total += n; if (total > maxBytes) return null
+                    buf.write(chunk, 0, n)
+                }
+                buf.toString(Charsets.UTF_8.name())
+            }
+        }.getOrNull()
+
+    /** Overwrite each file in cacheDir/[name] with random bytes (bounded) before unlinking. IO-thread only. */
+    private fun secureWipeCacheDir(name: String) {
+        val dir = java.io.File(appCtx.cacheDir, name)
         val files = dir.listFiles() ?: return
         val rnd = java.security.SecureRandom()
         for (f in files) {
@@ -1957,7 +1980,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // (it can't read FileVault ciphertext or a KeyStore key). Those plaintext copies live in the
         // app-private cache; bound their lifetime to a single process by wiping them on every cold start,
         // so a decrypted image never survives a reboot or lingers after the app is killed.
-        viewModelScope.launch(Dispatchers.IO) { runCatching { purgeRichImgCache() } }
+        viewModelScope.launch(Dispatchers.IO) { runCatching { purgeRichImgCache() }; runCatching { purgeSharedCache() } }
         // N1 — give the repo a Context-free way to cancel a reminder's alarm on permanent delete.
         repo.onCancelReminder = { reminderId -> com.todocompanion.app.reminders.AlarmScheduler.cancelById(appCtx, reminderId) }
         viewModelScope.launch {
@@ -4997,7 +5020,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** R52 — import into a CHOSEN calendar (null = the default). */
     fun importIcsEvents(uri: android.net.Uri, calendarId: String? = null, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
         val calId = calendarId ?: ensureDefaultCalendar()
-        val text = withContext(Dispatchers.IO) { runCatching { appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull() }
+        val text = withContext(Dispatchers.IO) { runCatching { readImportTextBounded(uri) }.getOrNull() }
         if (text == null) { toast("Couldn't read that file."); onDone(0); return@launch }
         val method = com.todocompanion.app.domain.calendar.EventIcs.methodOf(text)
         val evs = com.todocompanion.app.domain.calendar.EventIcs.import(text, calId, zone)
@@ -5061,7 +5084,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * De-dupes against occasions that already have the same person + month/day so re-importing is safe.
      */
     fun importVcardBirthdays(uri: android.net.Uri, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
-        val text = withContext(Dispatchers.IO) { runCatching { appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull() }
+        val text = withContext(Dispatchers.IO) { runCatching { readImportTextBounded(uri) }.getOrNull() }
         if (text == null) { toast("Couldn't read that file."); onDone(0); return@launch }
         val parsed = com.todocompanion.app.domain.VCard.parse(text)
         if (parsed.isEmpty()) { toast("No birthdays found in that file."); onDone(0); return@launch }
@@ -6401,7 +6424,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         onDone(ok)
     }
     fun importEncryptedBackup(uri: Uri, passphrase: String, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
-        val text = withContext(Dispatchers.IO) { runCatching { appCtx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull() }
+        val text = withContext(Dispatchers.IO) { runCatching { readImportTextBounded(uri) }.getOrNull() }
         if (text == null) { onDone(false, "Couldn't read the file"); return@launch }
         val plain = com.todocompanion.app.util.PortableCrypto.decrypt(text, passphrase.toCharArray())
         if (plain == null) { onDone(false, "Wrong passphrase or damaged backup"); return@launch }

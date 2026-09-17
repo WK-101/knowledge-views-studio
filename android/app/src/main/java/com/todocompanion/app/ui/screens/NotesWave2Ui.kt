@@ -244,6 +244,7 @@ fun CourierPassphraseDialog(
         title = { Text(title) },
         text = {
             Column {
+                com.todocompanion.app.ui.components.SecureDialogFlag()   // SEC (R2-C) — courier passphrase prompt out of screenshots/recents
                 Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(10.dp))
                 AppTextField(
