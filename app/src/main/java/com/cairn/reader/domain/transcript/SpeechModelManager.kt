@@ -21,8 +21,15 @@ import javax.inject.Singleton
 @Singleton
 class SpeechModelManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val client: OkHttpClient,
+    appClient: OkHttpClient,
 ) {
+    // The shared client caps every call at 45s; a ~40 MB model over cellular blows past that, so the
+    // download uses a variant with no overall call timeout (a generous read timeout still guards a
+    // truly stalled connection). Without this a slow download is aborted and the model never installs.
+    private val client: OkHttpClient = appClient.newBuilder()
+        .callTimeout(0, java.util.concurrent.TimeUnit.MILLISECONDS)
+        .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
     data class Model(val id: String, val label: String, val url: String, val approxMb: Int, val lang: String)
 
     /** A curated set of Vosk "small" models — light enough to download on a phone (~40 MB each). */

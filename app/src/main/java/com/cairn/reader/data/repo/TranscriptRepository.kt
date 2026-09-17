@@ -39,6 +39,7 @@ class TranscriptRepository @Inject constructor(
     private val transcriptDao: TranscriptDao,
     private val itemDao: ItemDao,
     private val captionFetcher: CaptionFetcher,
+    private val youtubeProxy: com.cairn.reader.domain.transcript.YouTubeProxyResolver,
     private val youtubeCaptions: com.cairn.reader.domain.transcript.YouTubeCaptionWebView,
     private val speechEngine: SpeechToTextEngine,
     private val highlightRepository: HighlightRepository,
@@ -61,11 +62,17 @@ class TranscriptRepository @Inject constructor(
         else TranscriptResult.Unavailable(speechEngine.isSupported(), speechEngine.isModelReady())
     }
 
-    /** YouTube captions: first from a real page context (WebView) where the signed caption URL is
-     *  valid, then the plain-HTTP path as a fallback. */
+    /** YouTube captions, most-reliable source first:
+     *   1. a public Piped/Invidious instance, which runs the extractor server-side and re-serves the
+     *      caption track through its proxy — this is the only path that isn't defeated by YouTube's
+     *      PoToken gate, and it's what LibreTube/Clipious do;
+     *   2. an in-session WebView fetch (works from a residential browser context that has the token);
+     *   3. the plain-HTTP InnerTube / watch-page path.
+     *  We try them in that order and take the first that yields cues. */
     private suspend fun fetchYouTube(url: String): Transcript? {
         val id = captionFetcher.youtubeVideoId(url)
         if (id != null) {
+            youtubeProxy.captions(id, "en")?.takeIf { !it.isEmpty }?.let { return it }
             val json3 = youtubeCaptions.fetchJson3(id, "en")
             val cues = json3?.let { CaptionParsers.parseJson3(it) }.orEmpty()
             if (cues.isNotEmpty()) return Transcript(cues, source = TranscriptSourceKind.YOUTUBE_CAPTIONS)
@@ -109,7 +116,11 @@ class TranscriptRepository @Inject constructor(
             val item = itemDao.getItem(itemId) ?: return@withContext null
             val audioUrl = when {
                 !item.enclosureUrl.isNullOrBlank() -> item.enclosureUrl
-                captionFetcher.isYouTube(item.url) -> captionFetcher.youtubeAudioUrl(item.url)
+                // YouTube audio is normally ciphered (no plain URL); the Piped proxy re-serves a
+                // directly-fetchable stream, so try it first and fall back to any un-ciphered format.
+                captionFetcher.isYouTube(item.url) ->
+                    captionFetcher.youtubeVideoId(item.url)?.let { youtubeProxy.audioUrl(it) }
+                        ?: captionFetcher.youtubeAudioUrl(item.url)
                 else -> item.url.takeIf { it.isNotBlank() }
             }
             if (audioUrl.isNullOrBlank()) {

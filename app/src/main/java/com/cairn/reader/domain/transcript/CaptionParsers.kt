@@ -53,7 +53,9 @@ object CaptionParsers {
         return coalesce(cues)
     }
 
-    /** YouTube timedtext: `<text start="1.23" dur="3.4">line</text>` (or `<p t="1230" d="3400">`). */
+    /** YouTube timedtext: `<text start="1.23" dur="3.4">line</text>` (or `<p t="1230" d="3400">`),
+     *  and W3C TTML `<p begin="00:00:01.200" end="00:00:03.360">line</p>` (what Piped/Invidious hand
+     *  back for a proxied caption track when the format isn't overridden to vtt). */
     fun parseTimedTextXml(body: String): List<TranscriptCue> {
         val cues = ArrayList<TranscriptCue>()
         // <text ...>...</text>
@@ -65,13 +67,21 @@ object CaptionParsers {
             if (start != null && text.isNotEmpty()) cues.add(TranscriptCue(start, start + dur, text))
         }
         if (cues.isNotEmpty()) return coalesce(cues)
-        // srv3 / timedtext v3: <p t="1230" d="3400">line</p>
+        // srv3 / timedtext v3 and TTML both use <p ...>line</p>; the timing attributes differ:
+        //   • srv3:  t="1230" d="3400"           (millisecond integers)
+        //   • TTML:  begin="00:00:01.200" end="…"  (clock strings)
         Regex("<p([^>]*)>(.*?)</p>", RegexOption.DOT_MATCHES_ALL).findAll(body).forEach { m ->
             val attrs = m.groupValues[1]
             val start = attrOf(attrs, "t")?.toLongOrNull()
-            val dur = attrOf(attrs, "d")?.toLongOrNull() ?: 0L
-            val text = unescapeXml(stripInlineTags(m.groupValues[2])).trim()
-            if (start != null && text.isNotEmpty()) cues.add(TranscriptCue(start, start + dur, text))
+                ?: attrOf(attrs, "begin")?.let { parseTimestamp(it) }
+            val end = attrOf(attrs, "end")?.let { parseTimestamp(it) }
+            val dur = attrOf(attrs, "d")?.toLongOrNull()
+            // TTML text can carry <br/> line breaks; normalise them to spaces before stripping tags.
+            val text = unescapeXml(stripInlineTags(m.groupValues[2].replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), " "))).trim()
+            if (start != null && text.isNotEmpty()) {
+                val endMs = end ?: (start + (dur ?: 0L))
+                cues.add(TranscriptCue(start, maxOf(endMs, start), text))
+            }
         }
         return coalesce(cues)
     }

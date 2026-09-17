@@ -123,4 +123,30 @@ class CaptionParsersTest {
         assertEquals(3_723_250L, CaptionParsers.parseTimestamp("01:02:03.25"))
         assertEquals(null, CaptionParsers.parseTimestamp("garbage"))
     }
+
+    @Test fun parsesTtmlFromProxyInstance() {
+        // TTML is what a Piped/Invidious caption proxy returns when the format isn't overridden to vtt.
+        val ttml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <tt xml:lang="en" xmlns="http://www.w3.org/ns/ttml">
+            <body><div>
+            <p begin="00:00:01.200" end="00:00:03.360">All right, so here we are,<br/>in front of the elephants</p>
+            <p begin="00:00:05.318" end="00:00:07.974">the cool thing about these guys</p>
+            </div></body>
+            </tt>
+        """.trimIndent()
+        val cues = CaptionParsers.parseTimedTextXml(ttml)
+        assertEquals(2, cues.size)
+        assertEquals(1200L, cues[0].startMs)
+        assertEquals(3360L, cues[0].endMs)
+        assertEquals("All right, so here we are, in front of the elephants", cues[0].text)
+        assertEquals(5318L, cues[1].startMs)
+    }
+
+    @Test fun dispatcherRoutesTtmlByAngleBracket() {
+        val ttml = "<tt><body><div><p begin=\"00:00:00.000\" end=\"00:00:01.000\">hi</p></div></body></tt>"
+        val cues = CaptionParsers.parse(ttml, "captions.ttml")
+        assertEquals(1, cues.size)
+        assertEquals("hi", cues[0].text)
+    }
 }
