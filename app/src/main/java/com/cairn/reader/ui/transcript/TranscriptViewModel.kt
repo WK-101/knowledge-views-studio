@@ -58,6 +58,10 @@ class TranscriptViewModel @Inject constructor(
     private val _state = MutableStateFlow(TranscriptUiState())
     val state: StateFlow<TranscriptUiState> = _state.asStateFlow()
 
+    /** 0f..1f while an on-device transcription runs, else null. */
+    private val _generating = MutableStateFlow<Float?>(null)
+    val generating: StateFlow<Float?> = _generating.asStateFlow()
+
     private var itemId: String = ""
     private var transcript: Transcript? = null
     private var enclosureUrl: String? = null
@@ -121,6 +125,25 @@ class TranscriptViewModel @Inject constructor(
         viewModelScope.launch {
             transcriptRepository.observeSaved(itemId).collect { saved ->
                 _state.value = _state.value.copy(saved = saved)
+            }
+        }
+    }
+
+    /** Run offline on-device transcription for un-captioned media, then show the result. */
+    fun generateOnDevice() {
+        if (_generating.value != null) return
+        viewModelScope.launch {
+            _generating.value = 0f
+            val t = coRunCatching {
+                transcriptRepository.transcribeOnDevice(itemId) { p -> _generating.value = p }
+            }.getOrNull()
+            _generating.value = null
+            if (t != null && !t.isEmpty) {
+                transcript = t
+                _state.value = _state.value.copy(
+                    unavailable = false, error = null,
+                    cues = t.cues, provenance = t.source, language = t.language,
+                )
             }
         }
     }

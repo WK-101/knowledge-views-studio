@@ -33,6 +33,8 @@ androidxTestExt = "1.2.1"
 androidxTestCore = "1.6.1"
 androidxTestRunner = "1.6.2"
 robolectric = "4.13"
+# On-device speech-to-text (prebuilt native libs in the AAR; no NDK needed to consume).
+vosk = "0.3.47"
 
 [libraries]
 # AndroidX core / lifecycle / activity
@@ -83,6 +85,9 @@ jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 sqlcipher-android = { group = "net.zetetic", name = "sqlcipher-android", version.ref = "sqlcipher" }
 androidx-sqlite = { group = "androidx.sqlite", name = "sqlite", version.ref = "sqlite" }
+
+# On-device speech-to-text (offline ASR). Ships prebuilt native libraries in the AAR.
+vosk-android = { group = "com.alphacephei", name = "vosk-android", version.ref = "vosk" }
 
 # Test
 junit = { group = "junit", name = "junit", version.ref = "junit" }

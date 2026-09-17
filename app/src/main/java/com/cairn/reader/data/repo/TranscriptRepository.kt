@@ -77,6 +77,27 @@ class TranscriptRepository @Inject constructor(
     /** Forget the permanently-saved transcript (annotations already made are untouched). */
     suspend fun forget(itemId: String) = withContext(Dispatchers.IO) { transcriptDao.delete(itemId) }
 
+    /** Whether the on-device engine can run here (native ready) and has a model installed. */
+    suspend fun onDeviceStatus(): Pair<Boolean, Boolean> =
+        speechEngine.isSupported() to speechEngine.isModelReady()
+
+    /**
+     * Transcribe the item's audio entirely on-device (offline ASR), for media with no captions. Finds
+     * the audio: a podcast enclosure, a YouTube audio stream, or a direct media URL — decodes and
+     * transcribes it locally. Returns the transcript (not yet saved), or null if it can't run.
+     */
+    suspend fun transcribeOnDevice(itemId: String, onProgress: (Float) -> Unit): Transcript? =
+        withContext(Dispatchers.IO) {
+            if (!speechEngine.isSupported() || !speechEngine.isModelReady()) return@withContext null
+            val item = itemDao.getItem(itemId) ?: return@withContext null
+            val audioUrl = when {
+                !item.enclosureUrl.isNullOrBlank() -> item.enclosureUrl
+                captionFetcher.isYouTube(item.url) -> captionFetcher.youtubeAudioUrl(item.url)
+                else -> item.url.takeIf { it.isNotBlank() }
+            } ?: return@withContext null
+            speechEngine.transcribe(audioUrl, null, onProgress)?.takeIf { !it.isEmpty }
+        }
+
     private fun serialize(cues: List<TranscriptCue>): String {
         val arr = JSONArray()
         cues.forEach { arr.put(JSONObject().put("s", it.startMs).put("e", it.endMs).put("t", it.text)) }

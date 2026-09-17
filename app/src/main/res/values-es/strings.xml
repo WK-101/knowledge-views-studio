@@ -510,6 +510,8 @@
     <string name="transcript_ondevice_needs_model">La transcripción en el dispositivo necesita descargar un modelo de voz en Ajustes → Transcripción.</string>
     <string name="transcript_ondevice_unsupported">La transcripción en el dispositivo aún no está disponible en esta versión. Cairn sigue mostrando los subtítulos del editor cuando existen.</string>
     <string name="transcript_error">No se pudo cargar la transcripción.</string>
+    <string name="transcript_generate">Transcribir en el dispositivo</string>
+    <string name="transcript_generating">Transcribiendo en el dispositivo… puede tardar un rato.</string>
     <string name="rewind">Retroceder</string>
     <string name="forward">Avanzar</string>
     <string name="play">Reproducir</string>

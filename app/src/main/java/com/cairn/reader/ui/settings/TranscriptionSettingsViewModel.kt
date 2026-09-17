@@ -2,8 +2,8 @@ package com.cairn.reader.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cairn.reader.domain.transcript.SpeechModelManager
 import com.cairn.reader.domain.transcript.SpeechToTextEngine
-import com.cairn.reader.domain.transcript.WhisperModelManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,7 +16,7 @@ import javax.inject.Inject
  *  the model needs the native speech pack, which [supported] reflects honestly). */
 @HiltViewModel
 class TranscriptionSettingsViewModel @Inject constructor(
-    private val modelManager: WhisperModelManager,
+    private val modelManager: SpeechModelManager,
     engine: SpeechToTextEngine,
 ) : ViewModel() {
 

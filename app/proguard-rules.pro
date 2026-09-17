@@ -71,3 +71,12 @@
 }
 
 # --- Compose is handled by AGP's bundled consumer rules --------------------
+
+# --- On-device speech-to-text (Vosk + JNA) ---------------------------------
+# JNA maps native functions via reflection and JNA needs its own classes + the
+# library-binding interfaces kept; Vosk's JNI-facing classes must survive too.
+-keep class com.sun.jna.** { *; }
+-keepclassmembers class * extends com.sun.jna.** { *; }
+-keep class org.vosk.** { *; }
+-dontwarn com.sun.jna.**
+-dontwarn java.awt.**

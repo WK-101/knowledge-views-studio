@@ -508,6 +508,8 @@
     <string name="transcript_ondevice_needs_model">On-device transcription needs a one-time speech-model download in Settings → Transcription.</string>
     <string name="transcript_ondevice_unsupported">On-device transcription isn\'t available in this build yet. Cairn still shows a publisher\'s captions whenever they exist.</string>
     <string name="transcript_error">Couldn\'t load the transcript.</string>
+    <string name="transcript_generate">Transcribe on device</string>
+    <string name="transcript_generating">Transcribing on device… this can take a while.</string>
     <string name="rewind">Rewind</string>
     <string name="forward">Forward</string>
     <string name="play">Play</string>

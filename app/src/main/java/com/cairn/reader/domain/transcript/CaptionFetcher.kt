@@ -57,10 +57,10 @@ class CaptionFetcher @Inject constructor(private val client: OkHttpClient) {
 
     private data class CaptionTrack(val baseUrl: String, val lang: String, val asr: Boolean)
 
-    /** Ask InnerTube's player endpoint for the caption track list (proper JSON, no HTML scraping). */
-    private fun innerTubeTracks(id: String, contextJson: String, ua: String): List<CaptionTrack>? {
-        val payload = """{"context":$contextJson,"videoId":"$id"}"""
-        val body = try {
+    /** POST YouTube's InnerTube player endpoint and return the raw JSON, or null. */
+    private fun postPlayer(id: String, contextJson: String, ua: String): String? {
+        val payload = """{"context":$contextJson,"videoId":"$id","contentCheckOk":true,"racyCheckOk":true}"""
+        return try {
             val req = Request.Builder()
                 .url("https://www.youtube.com/youtubei/v1/player?key=$INNERTUBE_KEY&prettyPrint=false")
                 .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
@@ -71,7 +71,32 @@ class CaptionFetcher @Inject constructor(private val client: OkHttpClient) {
             client.newCall(req).execute().use { if (it.isSuccessful) it.body?.string() else null }
         } catch (_: Exception) {
             null
-        } ?: return null
+        }
+    }
+
+    /** A direct (un-ciphered) audio-only stream URL for on-device transcription of an un-captioned
+     *  video, preferring an m4a/mp4 track MediaCodec decodes cleanly. Null when only ciphered URLs
+     *  exist (YouTube throttles those; captions are the reliable path). */
+    fun youtubeAudioUrl(urlOrId: String): String? {
+        val id = youtubeVideoId(urlOrId) ?: urlOrId.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) } ?: return null
+        val body = postPlayer(id, ANDROID_CTX, ANDROID_UA) ?: return null
+        val formats = runCatching { JSONObject(body) }.getOrNull()
+            ?.optJSONObject("streamingData")?.optJSONArray("adaptiveFormats") ?: return null
+        var fallback: String? = null
+        for (i in 0 until formats.length()) {
+            val f = formats.optJSONObject(i) ?: continue
+            val mime = f.optString("mimeType")
+            if (!mime.startsWith("audio")) continue
+            val url = f.optString("url").takeIf { it.isNotBlank() } ?: continue // ciphered formats have no plain url
+            if (mime.contains("mp4") || mime.contains("m4a")) return url
+            fallback = fallback ?: url
+        }
+        return fallback
+    }
+
+    /** Ask InnerTube's player endpoint for the caption track list (proper JSON, no HTML scraping). */
+    private fun innerTubeTracks(id: String, contextJson: String, ua: String): List<CaptionTrack>? {
+        val body = postPlayer(id, contextJson, ua) ?: return null
         val root = runCatching { JSONObject(body) }.getOrNull() ?: return null
         val list = root.optJSONObject("captions")
             ?.optJSONObject("playerCaptionsTracklistRenderer")

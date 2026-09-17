@@ -16,8 +16,8 @@ android {
         applicationId = "com.cairn.reader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 129
-        versionName = "3.98.1"
+        versionCode = 130
+        versionName = "3.99.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -159,6 +159,11 @@ dependencies {
     implementation(libs.readability4j)
     implementation(libs.jsoup)
     implementation(libs.androidx.documentfile)
+    // On-device speech-to-text (offline transcription for un-captioned audio/video). Vosk ships
+    // prebuilt native libraries in its AAR — consumed as a normal dependency, no NDK. Models are
+    // downloaded on demand, so this adds runtime .so weight but no bundled model data. (sherpa-onnx
+    // is the higher-accuracy alternative but is only on JitPack, unreachable from this build env.)
+    implementation(libs.vosk.android)
     // On-device translation (ML Kit) is planned but removed for now to keep the APK lean.
 
     // Unit tests (JVM, Robolectric for Android-framework-touching pieces)

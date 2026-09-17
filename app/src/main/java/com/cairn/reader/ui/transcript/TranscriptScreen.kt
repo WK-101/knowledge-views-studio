@@ -31,10 +31,12 @@ import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.Replay10
 import androidx.compose.material.icons.outlined.Subtitles
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -77,6 +79,7 @@ fun TranscriptScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val audio by viewModel.audio.collectAsStateWithLifecycle()
+    val generating by viewModel.generating.collectAsStateWithLifecycle()
     val scheme = MaterialTheme.colorScheme
     val context = LocalContext.current
     var colorIndex by remember { mutableIntStateOf(0) }
@@ -128,7 +131,7 @@ fun TranscriptScreen(
                 modifier = modifier,
                 icon = Icons.Outlined.Subtitles,
             )
-            state.unavailable -> Unavailable(state, modifier, scheme)
+            state.unavailable -> Unavailable(state, generating, viewModel::generateOnDevice, modifier, scheme)
             else -> Ready(
                 state = state,
                 positionMs = if (audio.active) audio.positionMs.toLong() else -1L,
@@ -235,7 +238,13 @@ private fun CueRow(
 }
 
 @Composable
-private fun Unavailable(state: TranscriptUiState, modifier: Modifier, scheme: androidx.compose.material3.ColorScheme) {
+private fun Unavailable(
+    state: TranscriptUiState,
+    generating: Float?,
+    onGenerate: () -> Unit,
+    modifier: Modifier,
+    scheme: androidx.compose.material3.ColorScheme,
+) {
     Column(
         modifier.padding(Dimens.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -254,7 +263,7 @@ private fun Unavailable(state: TranscriptUiState, modifier: Modifier, scheme: an
             style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(Dimens.lg))
-        // Honest on-device status: only offered when the speech engine can actually run here.
+        // On-device transcription: honest about whether it can run, with a live action when it can.
         Surface(color = scheme.surfaceContainer, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(Dimens.lg)) {
                 Text(stringResource(R.string.transcript_ondevice_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
@@ -265,6 +274,18 @@ private fun Unavailable(state: TranscriptUiState, modifier: Modifier, scheme: an
                     else -> stringResource(R.string.transcript_ondevice_ready)
                 }
                 Text(body, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                if (state.onDeviceSupported && state.onDeviceModelReady) {
+                    Spacer(Modifier.height(Dimens.md))
+                    if (generating != null) {
+                        Text(stringResource(R.string.transcript_generating), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
+                        Spacer(Modifier.height(6.dp))
+                        LinearProgressIndicator(progress = { generating }, modifier = Modifier.fillMaxWidth())
+                    } else {
+                        Button(onClick = onGenerate, modifier = Modifier.fillMaxWidth()) {
+                            Text(stringResource(R.string.transcript_generate))
+                        }
+                    }
+                }
             }
         }
     }

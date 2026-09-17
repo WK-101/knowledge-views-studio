@@ -1,7 +1,7 @@
 package com.cairn.reader.di
 
 import com.cairn.reader.domain.transcript.SpeechToTextEngine
-import com.cairn.reader.domain.transcript.WhisperEngine
+import com.cairn.reader.domain.transcript.VoskEngine
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -15,5 +15,5 @@ import javax.inject.Singleton
 abstract class TranscriptModule {
     @Binds
     @Singleton
-    abstract fun bindSpeechToTextEngine(impl: WhisperEngine): SpeechToTextEngine
+    abstract fun bindSpeechToTextEngine(impl: VoskEngine): SpeechToTextEngine
 }
