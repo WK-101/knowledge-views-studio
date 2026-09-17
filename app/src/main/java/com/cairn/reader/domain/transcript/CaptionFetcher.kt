@@ -1,5 +1,6 @@
 package com.cairn.reader.domain.transcript
 
+import com.cairn.reader.util.AppLog
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -23,7 +24,12 @@ import javax.inject.Singleton
  * Blocking by design; callers run it on [kotlinx.coroutines.Dispatchers.IO].
  */
 @Singleton
-class CaptionFetcher @Inject constructor(private val client: OkHttpClient) {
+class CaptionFetcher @Inject constructor(appClient: OkHttpClient) {
+
+    // A dedicated client that DROPS the app's UA/Accept interceptor: YouTube's InnerTube rejects a
+    // request whose User-Agent doesn't match the client declared in the body, and the shared client
+    // rewrites every UA to Cairn's. We keep the shared connection pool/timeouts but control headers.
+    private val client: OkHttpClient = appClient.newBuilder().apply { interceptors().clear() }.build()
 
     /** Download and parse a transcript from a direct URL (a `<podcast:transcript>`, .vtt, .srt, JSON). */
     fun fetchFromUrl(url: String, mime: String? = null, kind: TranscriptSourceKind = TranscriptSourceKind.CAPTION_FILE): Transcript? {
@@ -37,19 +43,23 @@ class CaptionFetcher @Inject constructor(private val client: OkHttpClient) {
     /** Fetch YouTube captions for a video URL or bare id. Prefers a manually-authored track in the
      *  requested language, then any track in it, then auto-generated, then the first available. */
     fun fetchYouTube(urlOrId: String, preferLang: String = "en"): Transcript? {
-        val id = youtubeVideoId(urlOrId) ?: urlOrId.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) } ?: return null
-        // Ask each InnerTube client in turn; the ANDROID client usually answers without a consent wall.
-        val tracks = innerTubeTracks(id, ANDROID_CTX, ANDROID_UA)
-            ?: innerTubeTracks(id, WEB_CTX, WEB_UA)
-            ?: watchPageTracks(id)
-            ?: return null
-        if (tracks.isEmpty()) return null
+        val id = youtubeVideoId(urlOrId) ?: urlOrId.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) }
+        if (id == null) { AppLog.w("transcript/yt: no video id in $urlOrId"); return null }
+        // Try each source in turn; log which one answers so a field failure is diagnosable. The
+        // watch-page scrape goes FIRST: it's what still works from a normal (residential) browser
+        // context, whereas the InnerTube endpoints increasingly gate captions behind bot checks.
+        val tracks = watchPageTracks(id)?.takeIf { it.isNotEmpty() }?.also { AppLog.diag("yt watch-page tracks=${it.size}") }
+            ?: innerTubeTracks(id, WEB_CTX, WEB_UA, WEB_KEY)?.takeIf { it.isNotEmpty() }?.also { AppLog.diag("yt WEB tracks=${it.size}") }
+            ?: innerTubeTracks(id, ANDROID_CTX, ANDROID_UA, ANDROID_KEY)?.also { AppLog.diag("yt ANDROID tracks=${it.size}") }
+        if (tracks.isNullOrEmpty()) { AppLog.w("transcript/yt: no caption tracks for $id"); return null }
         val chosen = tracks.firstOrNull { it.lang == preferLang && !it.asr }
             ?: tracks.firstOrNull { it.lang == preferLang }
             ?: tracks.firstOrNull { it.lang.startsWith(preferLang) }
             ?: tracks.firstOrNull { !it.asr }
             ?: tracks.first()
-        return fetchTimedText(chosen.baseUrl, chosen.lang)
+        val t = fetchTimedText(chosen.baseUrl, chosen.lang)
+        if (t == null) AppLog.w("transcript/yt: track chosen (lang=${chosen.lang}) but timedtext was empty")
+        return t
     }
 
     /** True if [url] looks like a YouTube video we can fetch captions for. */
@@ -58,15 +68,17 @@ class CaptionFetcher @Inject constructor(private val client: OkHttpClient) {
     private data class CaptionTrack(val baseUrl: String, val lang: String, val asr: Boolean)
 
     /** POST YouTube's InnerTube player endpoint and return the raw JSON, or null. */
-    private fun postPlayer(id: String, contextJson: String, ua: String): String? {
+    private fun postPlayer(id: String, contextJson: String, ua: String, key: String): String? {
         val payload = """{"context":$contextJson,"videoId":"$id","contentCheckOk":true,"racyCheckOk":true}"""
         return try {
             val req = Request.Builder()
-                .url("https://www.youtube.com/youtubei/v1/player?key=$INNERTUBE_KEY&prettyPrint=false")
+                .url("https://www.youtube.com/youtubei/v1/player?key=$key&prettyPrint=false")
                 .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
                 .header("User-Agent", ua)
                 .header("Accept-Language", "en-US,en;q=0.9")
                 .header("Content-Type", "application/json")
+                .header("Origin", "https://www.youtube.com")
+                .header("Referer", "https://www.youtube.com/")
                 .build()
             client.newCall(req).execute().use { if (it.isSuccessful) it.body?.string() else null }
         } catch (_: Exception) {
@@ -79,7 +91,7 @@ class CaptionFetcher @Inject constructor(private val client: OkHttpClient) {
      *  exist (YouTube throttles those; captions are the reliable path). */
     fun youtubeAudioUrl(urlOrId: String): String? {
         val id = youtubeVideoId(urlOrId) ?: urlOrId.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) } ?: return null
-        val body = postPlayer(id, ANDROID_CTX, ANDROID_UA) ?: return null
+        val body = postPlayer(id, ANDROID_CTX, ANDROID_UA, ANDROID_KEY) ?: return null
         val formats = runCatching { JSONObject(body) }.getOrNull()
             ?.optJSONObject("streamingData")?.optJSONArray("adaptiveFormats") ?: return null
         var fallback: String? = null
@@ -95,8 +107,8 @@ class CaptionFetcher @Inject constructor(private val client: OkHttpClient) {
     }
 
     /** Ask InnerTube's player endpoint for the caption track list (proper JSON, no HTML scraping). */
-    private fun innerTubeTracks(id: String, contextJson: String, ua: String): List<CaptionTrack>? {
-        val body = postPlayer(id, contextJson, ua) ?: return null
+    private fun innerTubeTracks(id: String, contextJson: String, ua: String, key: String): List<CaptionTrack>? {
+        val body = postPlayer(id, contextJson, ua, key) ?: return null
         val root = runCatching { JSONObject(body) }.getOrNull() ?: return null
         val list = root.optJSONObject("captions")
             ?.optJSONObject("playerCaptionsTracklistRenderer")
@@ -138,15 +150,17 @@ class CaptionFetcher @Inject constructor(private val client: OkHttpClient) {
         return out
     }
 
-    /** Download a timedtext track. The default response is srv1 XML; if that's empty, ask for json3. */
+    /** Download a timedtext track. YouTube now often returns an empty body for the bare baseUrl, so
+     *  we ask for the explicit json3 format first (most reliable), then fall back to srv1 XML. */
     private fun fetchTimedText(baseUrl: String, lang: String): Transcript? {
+        val sep = if (baseUrl.contains('?')) '&' else '?'
+        val json = get("$baseUrl${sep}fmt=json3", youtube = true)
+        val fromJson = json?.let { CaptionParsers.parseJson3(it) }.orEmpty()
+        if (fromJson.isNotEmpty()) return Transcript(fromJson, language = lang, source = TranscriptSourceKind.YOUTUBE_CAPTIONS)
         val xml = get(baseUrl, youtube = true)
         val fromXml = xml?.let { CaptionParsers.parseTimedTextXml(it) }.orEmpty()
-        if (fromXml.isNotEmpty()) return Transcript(fromXml, language = lang, source = TranscriptSourceKind.YOUTUBE_CAPTIONS)
-        val sep = if (baseUrl.contains('?')) '&' else '?'
-        val json = get("$baseUrl${sep}fmt=json3", youtube = true) ?: return null
-        val fromJson = CaptionParsers.parseJson3(json)
-        return if (fromJson.isEmpty()) null else Transcript(fromJson, language = lang, source = TranscriptSourceKind.YOUTUBE_CAPTIONS)
+        AppLog.diag("yt timedtext json3=${json?.length ?: -1}b→${fromJson.size} cues, xml=${xml?.length ?: -1}b→${fromXml.size} cues")
+        return if (fromXml.isEmpty()) null else Transcript(fromXml, language = lang, source = TranscriptSourceKind.YOUTUBE_CAPTIONS)
     }
 
     /** Find a caption track referenced by an HTML page: an HTML5 `<track kind=captions src=..>` or a
@@ -188,6 +202,7 @@ class CaptionFetcher @Inject constructor(private val client: OkHttpClient) {
             if (youtube) {
                 header("User-Agent", WEB_UA)
                 header("Accept-Language", "en-US,en;q=0.9")
+                header("Referer", "https://www.youtube.com/")
                 // Bypass the EU "before you continue" consent interstitial that has no caption data.
                 header("Cookie", "CONSENT=YES+cb; SOCS=CAI")
             }
@@ -200,8 +215,9 @@ class CaptionFetcher @Inject constructor(private val client: OkHttpClient) {
     }
 
     private companion object {
-        // The public InnerTube key shipped in YouTube's own web player; no account, no quota.
-        const val INNERTUBE_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
+        // Public InnerTube keys baked into YouTube's own web/Android clients; no account, no quota.
+        const val WEB_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
+        const val ANDROID_KEY = "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w"
         const val WEB_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
         const val ANDROID_UA = "com.google.android.youtube/19.09.37 (Linux; U; Android 13) gzip"
         const val ANDROID_CTX = """{"client":{"clientName":"ANDROID","clientVersion":"19.09.37","androidSdkVersion":33,"hl":"en","gl":"US"}}"""

@@ -512,6 +512,7 @@
     <string name="transcript_error">No se pudo cargar la transcripción.</string>
     <string name="transcript_generate">Transcribir en el dispositivo</string>
     <string name="transcript_generating">Transcribiendo en el dispositivo… puede tardar un rato.</string>
+    <string name="transcript_generate_failed">No se pudo transcribir este audio en el dispositivo. Si sigue fallando, comparte un registro de diagnóstico desde Ajustes → Copia de seguridad → Diagnóstico.</string>
     <string name="rewind">Retroceder</string>
     <string name="forward">Avanzar</string>
     <string name="play">Reproducir</string>

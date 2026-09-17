@@ -3,6 +3,7 @@ package com.cairn.reader.audio
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
+import com.cairn.reader.util.AppLog
 import java.nio.ByteBuffer
 
 /**
@@ -33,7 +34,8 @@ object AudioDecoder {
             extractor.setDataSource(source)
             val trackIndex = (0 until extractor.trackCount).firstOrNull { i ->
                 extractor.getTrackFormat(i).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
-            } ?: return false
+            }
+            if (trackIndex == null) { AppLog.w("audio-decode: no audio track in $source (tracks=${extractor.trackCount})"); return false }
             extractor.selectTrack(trackIndex)
             val inputFormat = extractor.getTrackFormat(trackIndex)
             val mime = inputFormat.getString(MediaFormat.KEY_MIME) ?: return false
@@ -87,7 +89,8 @@ object AudioDecoder {
             }
             onProgress(1f)
             return produced
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLog.e("audio-decode: failed for $source", e)
             return produced
         } finally {
             runCatching { codec?.stop() }

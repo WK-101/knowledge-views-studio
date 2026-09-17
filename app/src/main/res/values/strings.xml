@@ -510,6 +510,7 @@
     <string name="transcript_error">Couldn\'t load the transcript.</string>
     <string name="transcript_generate">Transcribe on device</string>
     <string name="transcript_generating">Transcribing on device… this can take a while.</string>
+    <string name="transcript_generate_failed">Couldn\'t transcribe this audio on device. If it keeps failing, share a diagnostics log from Settings → Backup → Diagnostics so it can be fixed.</string>
     <string name="rewind">Rewind</string>
     <string name="forward">Forward</string>
     <string name="play">Play</string>

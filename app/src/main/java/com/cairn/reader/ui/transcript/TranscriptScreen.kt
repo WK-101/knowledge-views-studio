@@ -284,6 +284,13 @@ private fun Unavailable(
                         Button(onClick = onGenerate, modifier = Modifier.fillMaxWidth()) {
                             Text(stringResource(R.string.transcript_generate))
                         }
+                        if (state.generateError) {
+                            Spacer(Modifier.height(Dimens.sm))
+                            Text(
+                                stringResource(R.string.transcript_generate_failed),
+                                style = MaterialTheme.typography.bodySmall, color = scheme.error,
+                            )
+                        }
                     }
                 }
             }

@@ -27,6 +27,8 @@ data class TranscriptUiState(
     val unavailable: Boolean = false,
     val onDeviceSupported: Boolean = false,
     val onDeviceModelReady: Boolean = false,
+    /** Set when an on-device transcription attempt produced nothing, so the UI can explain it. */
+    val generateError: Boolean = false,
     val cues: List<TranscriptCue> = emptyList(),
     /** Start-ms of cues that carry a saved annotation, for the highlight marker. */
     val highlightedStarts: Set<Long> = emptySet(),
@@ -134,6 +136,7 @@ class TranscriptViewModel @Inject constructor(
         if (_generating.value != null) return
         viewModelScope.launch {
             _generating.value = 0f
+            _state.value = _state.value.copy(generateError = false)
             val t = coRunCatching {
                 transcriptRepository.transcribeOnDevice(itemId) { p -> _generating.value = p }
             }.getOrNull()
@@ -141,9 +144,11 @@ class TranscriptViewModel @Inject constructor(
             if (t != null && !t.isEmpty) {
                 transcript = t
                 _state.value = _state.value.copy(
-                    unavailable = false, error = null,
+                    unavailable = false, error = null, generateError = false,
                     cues = t.cues, provenance = t.source, language = t.language,
                 )
+            } else {
+                _state.value = _state.value.copy(generateError = true)
             }
         }
     }

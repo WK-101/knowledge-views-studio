@@ -1,6 +1,7 @@
 package com.cairn.reader.domain.transcript
 
 import com.cairn.reader.audio.AudioDecoder
+import com.cairn.reader.util.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -33,8 +34,10 @@ class VoskEngine @Inject constructor(
         language: String?,
         onProgress: (Float) -> Unit,
     ): Transcript? = withContext(Dispatchers.IO) {
-        if (!nativeReady) return@withContext null
-        val modelPath = modelManager.firstInstalledPath(language) ?: return@withContext null
+        if (!nativeReady) { AppLog.w("transcript/vosk: native lib not loaded"); return@withContext null }
+        val modelPath = modelManager.firstInstalledPath(language)
+        if (modelPath == null) { AppLog.w("transcript/vosk: no model installed"); return@withContext null }
+        AppLog.diag("vosk: model=$modelPath source=${audioPath.take(80)}")
         var model: Model? = null
         var recognizer: Recognizer? = null
         try {
@@ -48,12 +51,14 @@ class VoskEngine @Inject constructor(
                 },
                 onProgress = { onProgress(it.coerceIn(0f, 0.99f)) },
             )
-            if (!produced) return@withContext null
+            if (!produced) { AppLog.w("transcript/vosk: audio decode produced no PCM for $audioPath"); return@withContext null }
             collectWords(recognizer.finalResult, words)
             onProgress(1f)
             val cues = groupIntoCues(words)
+            AppLog.diag("vosk: words=${words.size} cues=${cues.size}")
             if (cues.isEmpty()) null else Transcript(cues, language = language, source = TranscriptSourceKind.ON_DEVICE)
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            AppLog.e("transcript/vosk: transcription failed", t)
             null
         } finally {
             runCatching { recognizer?.close() }

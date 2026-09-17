@@ -88,13 +88,21 @@ class TranscriptRepository @Inject constructor(
      */
     suspend fun transcribeOnDevice(itemId: String, onProgress: (Float) -> Unit): Transcript? =
         withContext(Dispatchers.IO) {
-            if (!speechEngine.isSupported() || !speechEngine.isModelReady()) return@withContext null
+            if (!speechEngine.isSupported() || !speechEngine.isModelReady()) {
+                com.cairn.reader.util.AppLog.w("transcript/ondevice: engine not ready (supported=${speechEngine.isSupported()}, model=${speechEngine.isModelReady()})")
+                return@withContext null
+            }
             val item = itemDao.getItem(itemId) ?: return@withContext null
             val audioUrl = when {
                 !item.enclosureUrl.isNullOrBlank() -> item.enclosureUrl
                 captionFetcher.isYouTube(item.url) -> captionFetcher.youtubeAudioUrl(item.url)
                 else -> item.url.takeIf { it.isNotBlank() }
-            } ?: return@withContext null
+            }
+            if (audioUrl.isNullOrBlank()) {
+                com.cairn.reader.util.AppLog.w("transcript/ondevice: no audio URL for item ${item.type} url=${item.url}")
+                return@withContext null
+            }
+            com.cairn.reader.util.AppLog.diag("ondevice: transcribing audio=${audioUrl.take(80)}")
             speechEngine.transcribe(audioUrl, null, onProgress)?.takeIf { !it.isEmpty }
         }
 
