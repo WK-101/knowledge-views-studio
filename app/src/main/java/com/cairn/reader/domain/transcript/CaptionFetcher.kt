@@ -46,9 +46,12 @@ class CaptionFetcher @Inject constructor(appClient: OkHttpClient) {
         val id = youtubeVideoId(urlOrId) ?: urlOrId.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) }
         if (id == null) { AppLog.w("transcript/yt: no video id in $urlOrId"); return null }
         // Try each source in turn; log which one answers so a field failure is diagnosable. The
-        // watch-page scrape goes FIRST: it's what still works from a normal (residential) browser
-        // context, whereas the InnerTube endpoints increasingly gate captions behind bot checks.
-        val tracks = watchPageTracks(id)?.takeIf { it.isNotEmpty() }?.also { AppLog.diag("yt watch-page tracks=${it.size}") }
+        // VISIONOS Apple client goes FIRST: unlike WEB/ANDROID it isn't subject to YouTube's
+        // "confirm you're not a bot" gate, and its caption baseUrls work with no PoToken — this is
+        // how NewPipe extracts captions now. The watch-page scrape and WEB/ANDROID InnerTube calls
+        // remain as fallbacks in case the Apple-client path is ever closed.
+        val tracks = visionOsTracks(id)?.takeIf { it.isNotEmpty() }?.also { AppLog.diag("yt visionOS tracks=${it.size}") }
+            ?: watchPageTracks(id)?.takeIf { it.isNotEmpty() }?.also { AppLog.diag("yt watch-page tracks=${it.size}") }
             ?: innerTubeTracks(id, WEB_CTX, WEB_UA, WEB_KEY)?.takeIf { it.isNotEmpty() }?.also { AppLog.diag("yt WEB tracks=${it.size}") }
             ?: innerTubeTracks(id, ANDROID_CTX, ANDROID_UA, ANDROID_KEY)?.also { AppLog.diag("yt ANDROID tracks=${it.size}") }
         if (tracks.isNullOrEmpty()) { AppLog.w("transcript/yt: no caption tracks for $id"); return null }
@@ -86,11 +89,121 @@ class CaptionFetcher @Inject constructor(appClient: OkHttpClient) {
         }
     }
 
+    // ── VISIONOS Apple client ─────────────────────────────────────────────────────────────────────
+    // YouTube's Apple visionOS InnerTube client is (as of 2025/2026) not subject to the
+    // "SignInConfirmNotBotException" bot gate that broke the WEB/ANDROID clients and every public
+    // Piped/Invidious instance. Its player response returns caption tracks whose baseUrls work with a
+    // plain GET (no PoToken) and adaptiveFormats with DIRECT, un-ciphered stream URLs — so it fixes
+    // both caption fetching and on-device audio in one call. This mirrors what NewPipe does now.
+    // These constants and URL shapes are protocol facts (documented in yt-dlp, public domain).
+
+    @Volatile private var cachedVisitorData: String? = null
+    private data class PlayerCache(val id: String, val json: JSONObject, val atMs: Long)
+    @Volatile private var visionPlayerCache: PlayerCache? = null
+
+    /** A random content-playback nonce / t-parameter from YouTube's alphabet. */
+    private fun nonce(len: Int): String =
+        (1..len).map { NONCE_ALPHABET[kotlin.random.Random.nextInt(NONCE_ALPHABET.length)] }.joinToString("")
+
+    private fun visionOsBody(visitorData: String?): JSONObject {
+        val client = JSONObject()
+            .put("clientName", "VISIONOS").put("clientVersion", VISIONOS_CV)
+            .put("clientScreen", "WATCH").put("platform", "MOBILE")
+            .put("deviceMake", "Apple").put("deviceModel", VISIONOS_MODEL)
+            .put("osName", "visionOS").put("osVersion", VISIONOS_OS)
+            .put("hl", "en").put("gl", "US").put("utcOffsetMinutes", 0)
+        if (!visitorData.isNullOrBlank()) client.put("visitorData", visitorData)
+        return JSONObject().put("context", JSONObject()
+            .put("client", client)
+            .put("request", JSONObject().put("internalExperimentFlags", org.json.JSONArray()).put("useSsl", true))
+            .put("user", JSONObject().put("lockedSafetyMode", false)))
+    }
+
+    /** POST a visionOS InnerTube request (no API key; the Apple client is keyed by its context +
+     *  the X-Goog-Api-Format-Version header). */
+    private fun postVisionOs(url: String, body: JSONObject): String? = try {
+        val req = Request.Builder().url(url)
+            .post(body.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
+            .header("User-Agent", VISIONOS_UA)
+            .header("X-Goog-Api-Format-Version", "2")
+            .header("Content-Type", "application/json")
+            .build()
+        client.newCall(req).execute().use { if (it.isSuccessful) it.body?.string() else null }
+    } catch (_: Exception) {
+        null
+    }
+
+    /** A visitorData token is required for a valid player response; fetch once and reuse. */
+    private fun visitorData(): String? {
+        cachedVisitorData?.let { return it }
+        val body = postVisionOs("https://www.youtube.com/youtubei/v1/visitor_id?prettyPrint=false", visionOsBody(null))
+        val vd = body?.let { runCatching { JSONObject(it).optJSONObject("responseContext")?.optString("visitorData") }.getOrNull() }
+            ?.takeIf { it.isNotBlank() }
+        cachedVisitorData = vd
+        return vd
+    }
+
+    /** The visionOS player response for [id] (captions + streamingData), briefly cached so a caption
+     *  fetch and an audio-URL fetch for the same video share one round-trip. */
+    private fun visionOsPlayer(id: String): JSONObject? {
+        visionPlayerCache?.let { if (it.id == id && System.currentTimeMillis() - it.atMs < PLAYER_TTL_MS) return it.json }
+        val body = visionOsBody(visitorData())
+            .put("videoId", id).put("cpn", nonce(16)).put("contentCheckOk", true).put("racyCheckOk", true)
+        val url = "https://youtubei.googleapis.com/youtubei/v1/player?prettyPrint=false&t=${nonce(12)}&id=$id"
+        val resp = postVisionOs(url, body) ?: return null
+        val json = runCatching { JSONObject(resp) }.getOrNull() ?: return null
+        val status = json.optJSONObject("playabilityStatus")?.optString("status")
+        if (status != null && status != "OK") AppLog.diag("yt visionOS: playability=$status for $id")
+        // Keep it even on a non-OK status if it still carries captions/streams (some LIMITED states do).
+        if (json.optJSONObject("captions") == null && json.optJSONObject("streamingData") == null) return null
+        visionPlayerCache = PlayerCache(id, json, System.currentTimeMillis())
+        return json
+    }
+
+    /** Caption tracks from the visionOS player response, with each baseUrl cleaned of a preexisting
+     *  fmt/tlang (so [fetchTimedText] can request json3 cleanly). */
+    private fun visionOsTracks(id: String): List<CaptionTrack>? {
+        val list = visionOsPlayer(id)
+            ?.optJSONObject("captions")?.optJSONObject("playerCaptionsTracklistRenderer")
+            ?.optJSONArray("captionTracks") ?: return null
+        val out = ArrayList<CaptionTrack>(list.length())
+        for (i in 0 until list.length()) {
+            val t = list.optJSONObject(i) ?: continue
+            val base = t.optString("baseUrl").takeIf { it.isNotBlank() } ?: continue
+            val clean = base.replace(Regex("&fmt=[^&]*"), "").replace(Regex("&tlang=[^&]*"), "")
+            out.add(CaptionTrack(clean, t.optString("languageCode"), t.optString("vssId").startsWith("a.")))
+        }
+        return out
+    }
+
+    /** A direct (un-ciphered) audio stream URL from the visionOS player response, preferring the
+     *  smallest audio-only m4a track (itag 139-class), which MediaCodec decodes cleanly. */
+    private fun visionOsAudioUrl(id: String): String? {
+        val formats = visionOsPlayer(id)?.optJSONObject("streamingData")?.optJSONArray("adaptiveFormats") ?: return null
+        var bestUrl: String? = null
+        var bestBitrate = Int.MAX_VALUE
+        var fallback: String? = null
+        for (i in 0 until formats.length()) {
+            val f = formats.optJSONObject(i) ?: continue
+            val mime = f.optString("mimeType")
+            if (!mime.startsWith("audio")) continue
+            val url = f.optString("url").takeIf { it.isNotBlank() } ?: continue
+            if (mime.contains("mp4") || mime.contains("m4a")) {
+                val br = f.optInt("bitrate", Int.MAX_VALUE)
+                if (br < bestBitrate) { bestBitrate = br; bestUrl = url }
+            } else {
+                fallback = fallback ?: url
+            }
+        }
+        return (bestUrl ?: fallback)?.also { AppLog.diag("yt visionOS: audio stream chosen (${bestBitrate.takeIf { it != Int.MAX_VALUE } ?: "?"}bps)") }
+    }
+
     /** A direct (un-ciphered) audio-only stream URL for on-device transcription of an un-captioned
-     *  video, preferring an m4a/mp4 track MediaCodec decodes cleanly. Null when only ciphered URLs
-     *  exist (YouTube throttles those; captions are the reliable path). */
+     *  video. Prefers the visionOS Apple client (its formats carry plain URLs and aren't bot-gated),
+     *  then falls back to the ANDROID client. Null when only ciphered URLs exist. */
     fun youtubeAudioUrl(urlOrId: String): String? {
         val id = youtubeVideoId(urlOrId) ?: urlOrId.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) } ?: return null
+        visionOsAudioUrl(id)?.let { return it }
         val body = postPlayer(id, ANDROID_CTX, ANDROID_UA, ANDROID_KEY) ?: return null
         val formats = runCatching { JSONObject(body) }.getOrNull()
             ?.optJSONObject("streamingData")?.optJSONArray("adaptiveFormats") ?: return null
@@ -222,5 +335,14 @@ class CaptionFetcher @Inject constructor(appClient: OkHttpClient) {
         const val ANDROID_UA = "com.google.android.youtube/19.09.37 (Linux; U; Android 13) gzip"
         const val ANDROID_CTX = """{"client":{"clientName":"ANDROID","clientVersion":"19.09.37","androidSdkVersion":33,"hl":"en","gl":"US"}}"""
         const val WEB_CTX = """{"client":{"clientName":"WEB","clientVersion":"2.20240101.00.00","hl":"en","gl":"US"}}"""
+
+        // VISIONOS Apple client (the current, bot-check-free path). Version tracks the App Store build.
+        const val VISIONOS_CV = "1.04"
+        const val VISIONOS_MODEL = "RealityDevice17,1"
+        const val VISIONOS_OS = "26.6.0.23O770"
+        const val VISIONOS_UA =
+            "com.google.visionos.youtube/1.04(RealityDevice17,1; U; CPU visionOS 26_6_0 like Mac OS X; US)"
+        const val NONCE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+        const val PLAYER_TTL_MS = 5 * 60 * 1000L
     }
 }
