@@ -83,6 +83,57 @@ object SecureDb {
     fun fileEncrypted(context: Context): Boolean = prefs(context).getBoolean(K_ACTUAL, false)
     fun lastError(context: Context): String = prefs(context).getString(K_LAST_ERROR, "") ?: ""
 
+    /** SEC (Batch 6) — where the DB-wrap key actually lives, for an honest readout in Settings → Security:
+     *  "StrongBox (secure element)", "TEE (hardware-backed)", "Software", or null when there's no key yet.
+     *  This is the real attested level, not what we asked for, so users on a device without a secure element
+     *  see the truth. */
+    fun keySecurityLevel(): String? = runCatching {
+        val ks = KeyStore.getInstance(KS_PROVIDER).apply { load(null) }
+        val entry = ks.getEntry(KS_ALIAS, null) as? KeyStore.SecretKeyEntry ?: return null
+        val factory = javax.crypto.SecretKeyFactory.getInstance(entry.secretKey.algorithm, KS_PROVIDER)
+        val info = factory.getKeySpec(entry.secretKey, android.security.keystore.KeyInfo::class.java) as android.security.keystore.KeyInfo
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            when (info.securityLevel) {
+                android.security.keystore.KeyProperties.SECURITY_LEVEL_STRONGBOX -> "StrongBox (secure element)"
+                android.security.keystore.KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT -> "TEE (hardware-backed)"
+                android.security.keystore.KeyProperties.SECURITY_LEVEL_SOFTWARE -> "Software"
+                else -> if (@Suppress("DEPRECATION") info.isInsideSecureHardware) "Hardware-backed" else "Software"
+            }
+        } else {
+            @Suppress("DEPRECATION") if (info.isInsideSecureHardware) "Hardware-backed" else "Software"
+        }
+    }.getOrNull()
+
+    /**
+     * SEC (Batch 6) — "burn it". Irreversibly destroys the on-device encryption keys AND securely erases the
+     * encrypted database (+ its WAL/SHM and any migration scratch) and the file-vault directories, so
+     * nothing on this device can be recovered — not by this app, not by forensics of freed space, not by a
+     * later reinstall. There is NO undo: the only path back to the data is a JSON backup exported earlier.
+     * The caller MUST terminate the process right after (the live SQLCipher handle still holds the key in
+     * RAM until then); on the next launch the app seeds a fresh, empty, encrypted store. Off-main-thread.
+     */
+    fun panicWipe(context: Context) {
+        // 1. Evict the KeyStore keys (DB-wrap + file-vault). Once gone, all ciphertext is unreadable forever.
+        runCatching {
+            val ks = KeyStore.getInstance(KS_PROVIDER).apply { load(null) }
+            runCatching { ks.deleteEntry(KS_ALIAS) }
+        }
+        FileVault.evictKey()
+        // 2. Securely erase the database and its journals / migration scratch.
+        val db = dbFile(context)
+        secureErase(db)
+        db.parentFile?.let { p ->
+            secureErase(File(p, "$DB_NAME-wal")); secureErase(File(p, "$DB_NAME-shm"))
+            secureErase(File(p, "$DB_NAME.premigrate.bak")); secureErase(File(p, "$DB_NAME.migrate.tmp"))
+        }
+        // 3. Securely erase file-backed attachments and habit photos.
+        for (d in listOf(File(context.filesDir, "attachments"), File(context.filesDir, "habit_photos"))) {
+            d.listFiles()?.forEach { secureErase(it) }
+        }
+        // 4. Clear our prefs (wrapped passphrase + flags) so next launch seeds a clean encrypted store.
+        runCatching { prefs(context).edit().clear().apply() }
+    }
+
     /** True while the desired state differs from the file's real state (a migration is pending a restart). */
     fun migrationPending(context: Context): Boolean =
         desiredEncrypted(context) != fileEncrypted(context)

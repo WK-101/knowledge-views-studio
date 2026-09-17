@@ -76,6 +76,15 @@ object FileVault {
         kg.init(spec(strongBox = false, requireUnlocked = false)); return kg.generateKey()
     }
 
+    /** SEC (Batch 6) — irreversibly delete the file-vault KeyStore key, part of the app's panic wipe. After
+     *  this, every FileVault envelope on disk is permanently undecryptable. Best-effort; never throws. */
+    fun evictKey() {
+        runCatching {
+            val ks = KeyStore.getInstance(KS_PROVIDER).apply { load(null) }
+            ks.deleteEntry(KS_ALIAS)
+        }
+    }
+
     /** Encrypt [plain] into a FileVault envelope (MAGIC ‖ iv ‖ ciphertext+tag). */
     fun encrypt(plain: ByteArray): ByteArray {
         val cipher = Cipher.getInstance(TRANSFORM)

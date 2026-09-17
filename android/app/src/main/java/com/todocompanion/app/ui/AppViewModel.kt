@@ -1357,6 +1357,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** True once the user has chosen a vault passphrase (a verifier is stored). */
     fun vaultConfigured(): Boolean = settings.value.notesVaultCheck.isNotBlank()
 
+    // ── SEC (Batch 6) — frontier: honest readouts + panic wipe ────────────────────────────────────────
+    /** The DB-wrap key's real hardware security level (StrongBox / TEE / Software), for Settings → Security. */
+    fun keySecurityLevel(): String? = com.todocompanion.app.data.security.SecureDb.keySecurityLevel()
+
+    /** A one-line advisory when the OS itself undercuts at-rest guarantees (root/emulator), else null. */
+    fun securityAdvisory(): String? = com.todocompanion.app.data.security.SecurityAdvisory.advisory()
+
+    /** Panic wipe: destroy every on-device key and securely erase the encrypted DB + attachments, then kill
+     *  the process so the next launch starts clean. IRREVERSIBLE — guarded by a typed confirmation in the UI. */
+    fun panicWipe() {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { com.todocompanion.app.data.security.SecureDb.panicWipe(appCtx) }
+            runCatching { purgeRichImgCache() }
+            // The live SQLCipher handle still holds the passphrase in RAM until the process dies — end it now.
+            android.os.Process.killProcess(android.os.Process.myPid())
+        }
+    }
+
     /** First-time setup: choose the vault passphrase and store only a verifier (never the passphrase). */
     fun setUpVault(pass: String) = viewModelScope.launch {
         if (pass.isBlank()) return@launch

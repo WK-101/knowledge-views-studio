@@ -103,6 +103,22 @@ target app, and `FileProvider` grants that app read access to that one file only
 - **Screen-capture / accessibility-service snooping** by other apps the user has granted those powers to.
   (Turning on app lock or "block screenshots" sets `FLAG_SECURE`, which stops ordinary screen capture, but
   an accessibility service the user has explicitly granted can still read the screen.)
+- **Coerced disclosure of the Vault passphrase** ("rubber-hose"). A decoy/duress passphrase is *not* shipped,
+  on purpose: because a locked note's mere existence is visible in the notes list, a duress passphrase that
+  revealed only decoys would leave the real notes on screen as un-openable — advertising that a second
+  passphrase exists, which is *false* deniability and worse than none. Genuine plausible deniability needs
+  hidden-existence (a hidden encrypted volume whose presence can't be proven); that is a designed follow-up,
+  not a half-measure bolted onto the current per-note vault.
+
+## 6a. Break-glass
+
+- **Panic wipe** (Settings → Security) irreversibly deletes the hardware encryption keys and securely erases
+  the database and all attachments on the device, then closes the app — a deliberate "burn it" for a
+  high-threat moment. It is guarded by a typed confirmation and has no undo; the only recovery is a JSON
+  backup exported beforehand.
+- **Honest hardware readout.** Settings → Security shows where the key actually lives (StrongBox / TEE /
+  software) and warns when the OS looks rooted or emulated, rather than implying protection the device
+  can't deliver.
 
 ## 5. Supply chain
 

@@ -1262,6 +1262,47 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
             Text("What it does NOT protect: a rooted device while the app is installed and unlocked. And note — uninstalling the app erases the encryption key, so keep a JSON backup as your recovery copy.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+            // SEC (Batch 6) — the honest hardware readout: where the key actually landed on THIS device.
+            vm.keySecurityLevel()?.let { lvl ->
+                Text("Key storage on this device: $lvl", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+            }
+            // SEC (Batch 6) — one-line advisory when the OS itself weakens the guarantees (root / emulator).
+            vm.securityAdvisory()?.let { adv ->
+                Text("⚠︎ $adv", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            // SEC (Batch 6) — panic wipe: a deliberate, irreversible "burn it" for a high-threat moment.
+            Text("Panic wipe", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(bottom = 2.dp))
+            Text("Immediately destroy the encryption keys and securely erase the database and every attachment on this device, then close the app. There is no undo — only a JSON backup you exported earlier can restore the data.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            var panicConfirm by remember { mutableStateOf(false) }
+            Action("Panic wipe this device…") { panicConfirm = true }
+            if (panicConfirm) {
+                var typed by remember { mutableStateOf("") }
+                AlertDialog(
+                    onDismissRequest = { panicConfirm = false },
+                    title = { Text("Wipe everything on this device?") },
+                    text = {
+                        Column {
+                            Text("This destroys the encryption keys and securely erases your database and every attachment. It cannot be undone. Type WIPE to confirm.")
+                            Spacer(Modifier.height(8.dp))
+                            androidx.compose.material3.OutlinedTextField(
+                                value = typed, onValueChange = { typed = it }, singleLine = true,
+                                label = { Text("Type WIPE") },
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(enabled = typed.trim() == "WIPE", onClick = { panicConfirm = false; vm.panicWipe() }) {
+                            Text("Wipe now", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = { TextButton(onClick = { panicConfirm = false }) { Text("Cancel") } },
+                )
+            }
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             // Z7 — the trust dashboard: make the zero-permission promise something you can see.
