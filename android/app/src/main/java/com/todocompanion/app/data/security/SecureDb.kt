@@ -130,8 +130,10 @@ object SecureDb {
         for (d in listOf(File(context.filesDir, "attachments"), File(context.filesDir, "habit_photos"))) {
             d.listFiles()?.forEach { secureErase(it) }
         }
-        // 4. Clear our prefs (wrapped passphrase + flags) so next launch seeds a clean encrypted store.
+        // 4. Clear our prefs (wrapped passphrase + flags) so next launch seeds a clean encrypted store,
+        //    and the KeyStore-wrapped SecurePrefs (sync/backup passphrase).
         runCatching { prefs(context).edit().clear().apply() }
+        runCatching { SecurePrefs.clearAll(context) }
     }
 
     /** True while the desired state differs from the file's real state (a migration is pending a restart). */

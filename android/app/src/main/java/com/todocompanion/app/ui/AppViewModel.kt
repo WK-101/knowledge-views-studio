@@ -121,7 +121,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)
 
     val settings: StateFlow<AppSettings> =
-        repo.allSettings.map { AppSettings.fromMap(it.associate { s -> s.key to s.value }) }
+        repo.allSettings.map { rows ->
+            val base = AppSettings.fromMap(rows.associate { s -> s.key to s.value })
+            // SEC (R2-A/H2) — the sync passphrase is KeyStore-wrapped in SecurePrefs, not the DB table; the
+            // sync_pass_rev row (bumped on every save) makes this flow re-emit so the value stays fresh.
+            val sp = runCatching { com.todocompanion.app.data.security.SecurePrefs.getSecret(appCtx, AppSettings.Keys.SYNC_PASS) }.getOrNull()
+            if (sp != null) base.copy(syncPassphrase = sp) else base
+        }
             // Mirror theme fields to a synchronous cache so the next cold start's first frame is correct.
             .onEach { com.todocompanion.app.domain.ThemePrefs.save(appCtx, it) }
             // Seed the initial value from that cache — no dark→light flash on launch.

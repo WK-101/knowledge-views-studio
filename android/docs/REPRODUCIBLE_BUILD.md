@@ -6,9 +6,15 @@ APK is produced and how to verify a build hash.
 
 ## What makes the build deterministic
 
-- **Pinned toolchain.** AGP, the Kotlin compiler, `compileSdk`/`targetSdk`, and every dependency version
-  are pinned in `gradle/libs.versions.toml` and `app/build.gradle.kts` — no dynamic (`+`) versions, no
-  snapshot repos.
+- **Pinned toolchain.** AGP and the Kotlin compiler are pinned in the root `build.gradle.kts` plugins
+  block, and `compileSdk`/`targetSdk` plus every dependency version are pinned directly in
+  `app/build.gradle.kts` (this project has no `gradle/libs.versions.toml` version catalog) — no dynamic
+  (`+`) versions, and only `google()` / `mavenCentral()` / `gradlePluginPortal()` over HTTPS, no snapshot
+  repos.
+- **One non-code input to expect.** `versionCode`/`versionName` derive from the `GITHUB_RUN_NUMBER`
+  environment variable, so a third-party rebuild gets `versionCode=1` / `versionName=0.1.0` and a
+  correspondingly different binary manifest. BuildConfig generation is off, so the version is not compiled
+  into the dex — which is why the `classes*.dex` comparison below still matches across rebuilds.
 - **No network at build-injection time.** The app declares no `INTERNET` permission and pulls in no
   networking transitive; the build does not fetch code at assembly time beyond the pinned dependency graph.
 - **R8 is code+resource shrinking only — obfuscation is off** (`proguard-rules.pro`), so class and method

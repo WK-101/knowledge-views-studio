@@ -691,6 +691,9 @@ interface SettingDao {
     @Upsert
     suspend fun putAll(settings: List<SettingEntity>)
 
+    @Query("DELETE FROM settings WHERE key = :key")
+    suspend fun delete(key: String)
+
     @Query("DELETE FROM settings")
     suspend fun clear()
 }

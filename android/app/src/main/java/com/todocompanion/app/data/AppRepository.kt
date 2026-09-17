@@ -24,12 +24,16 @@ import com.todocompanion.app.data.entity.AttachmentMeta
 import com.todocompanion.app.domain.AppSettings
 import com.todocompanion.app.domain.port.Backup
 import com.todocompanion.app.domain.port.BackupFile
+import com.todocompanion.app.data.security.SecurePrefs
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import java.util.UUID
 
-/** Single source of truth over Room. Reads are reactive Flows; writes are suspend. */
-class AppRepository(private val db: AppDatabase) {
+/** Single source of truth over Room. Reads are reactive Flows; writes are suspend.
+ *  [appContext] (supplied in production, null in tests) lets the settings path route device-local secrets
+ *  — currently the sync/backup passphrase — through the KeyStore-wrapped [SecurePrefs] instead of storing
+ *  them in the DB settings table. When null, the old in-table behaviour is preserved. */
+class AppRepository(private val db: AppDatabase, private val appContext: android.content.Context? = null) {
 
     /**
      * A habit auto-credited by a finished time interval (Focus / timer / QS tile / automation).
@@ -304,6 +308,9 @@ class AppRepository(private val db: AppDatabase) {
         const val REV_KEEP = 25; const val REV_MIN_GAP_MS = 30_000L
         // Track 3.4 — settings (DataStore) key holding the CSV set of already-notified sealed-letter ids.
         const val SEALED_NOTIFIED_KEY = "sealedLetterNotifiedIds"
+        // SEC (R2-A/H2) — non-secret token bumped on every settings save so the reactive flow re-emits
+        // and re-reads the KeyStore-wrapped sync passphrase (which lives outside the DB table).
+        const val SYNC_PASS_REV = "sync_pass_rev"
     }
 
     /** Fields worth versioning — cosmetic/order/timestamp churn is deliberately excluded. */
@@ -1872,8 +1879,23 @@ class AppRepository(private val db: AppDatabase) {
     suspend fun removeDependency(dep: DependencyEntity) = deps.remove(dep)
 
     // ============ settings ============
-    suspend fun settingsSnapshot(): AppSettings =
-        AppSettings.fromMap(settings.getAll().associate { it.key to it.value })
+    suspend fun settingsSnapshot(): AppSettings {
+        val base = AppSettings.fromMap(settings.getAll().associate { it.key to it.value })
+        // SEC (R2-A/H2) — the sync passphrase lives KeyStore-wrapped in SecurePrefs, not the DB table.
+        // Inject it here so every consumer of a snapshot sees the real value with zero call-site changes.
+        val ctx = appContext ?: return base
+        val sp = SecurePrefs.getSecret(ctx, AppSettings.Keys.SYNC_PASS) ?: return base
+        return base.copy(syncPassphrase = sp)
+    }
+
+    /** SEC (R2-A/H2) — one-time move of any legacy cleartext SYNC_PASS row into the KeyStore-wrapped
+     *  SecurePrefs, then delete the row. Idempotent; safe to call on every start. */
+    suspend fun migrateSyncPassToSecurePrefs() {
+        val ctx = appContext ?: return
+        val legacy = settings.get(AppSettings.Keys.SYNC_PASS) ?: return
+        if (legacy.isNotBlank()) runCatching { SecurePrefs.putSecret(ctx, AppSettings.Keys.SYNC_PASS, legacy) }
+        runCatching { settings.delete(AppSettings.Keys.SYNC_PASS) }
+    }
     /** R62 — the active workspace, read synchronously, so repo-side creates stamp the right isolation. */
     suspend fun activeWs(): String = settingsSnapshot().activeWorkspaceId
 
@@ -1906,13 +1928,24 @@ class AppRepository(private val db: AppDatabase) {
         val calIds = eventCalendars.getAll().filter { it.workspaceId == activeWs() }.map { it.id }.toSet()
         return events.getAll().filter { it.calendarId in calIds }
     }
-    suspend fun saveSettings(s: AppSettings) =
-        settings.putAll(s.toMap().map { SettingEntity(it.key, it.value) })
+    suspend fun saveSettings(s: AppSettings) {
+        val ctx = appContext
+        if (ctx == null) { settings.putAll(s.toMap().map { SettingEntity(it.key, it.value) }); return }
+        // SEC (R2-A/H2) — keep the sync passphrase out of the DB settings table (cleartext when DB
+        // encryption is off). Write it KeyStore-wrapped into SecurePrefs and drop it from the table map.
+        // A non-secret `sync_pass_rev` token changes on every save so the reactive settings flow — which
+        // only observes the DB table — re-emits and re-reads SecurePrefs, keeping the UI fresh.
+        runCatching { SecurePrefs.putSecret(ctx, AppSettings.Keys.SYNC_PASS, s.syncPassphrase) }
+        val rows = s.toMap().filterNot { it.key == AppSettings.Keys.SYNC_PASS }
+            .map { SettingEntity(it.key, it.value) } + SettingEntity(SYNC_PASS_REV, System.currentTimeMillis().toString())
+        settings.putAll(rows)
+    }
 
     // ============ export / import ============
-    /** Settings for export/sync, minus device-secret keys (the encryption passphrase never leaves). */
+    /** Settings for export/sync, minus device-secret keys (the encryption passphrase never leaves, and the
+     *  reactive-refresh rev token is device-local noise). */
     private suspend fun exportableSettings(): List<SettingEntity> =
-        settings.getAll().filterNot { it.key == com.todocompanion.app.domain.AppSettings.Keys.SYNC_PASS }
+        settings.getAll().filterNot { it.key == com.todocompanion.app.domain.AppSettings.Keys.SYNC_PASS || it.key == SYNC_PASS_REV }
 
     suspend fun exportJson(): String = Backup.encode(
         BackupFile(

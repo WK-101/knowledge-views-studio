@@ -58,9 +58,11 @@ fun AppLockGate(enabled: Boolean, content: @Composable () -> Unit) {
 
     val context = LocalContext.current
     val activity = context as? FragmentActivity
-    // If we can't host a prompt (shouldn't happen — MainActivity is a FragmentActivity), fail open rather
-    // than trapping the user out of their own data.
-    if (activity == null) { content(); return }
+    // SEC (R2-A) — if we can't host a biometric prompt (shouldn't happen: MainActivity is a
+    // FragmentActivity), FAIL CLOSED. Previously this fell through to content(), silently disabling the
+    // lock the user opted into. A blocking notice is the safe default — the user asked for a lock, so a
+    // context that can't show one must not simply reveal the data.
+    if (activity == null) { CannotLockScreen(); return }
 
     val authenticators = remember { pickAuthenticators(context) }
     // No device lock at all → nothing to authenticate against. We can't enforce a gate, but rather than
@@ -144,10 +146,39 @@ private fun NoCredentialLockScreen(onOpen: () -> Unit, content: @Composable () -
             Spacer(Modifier.height(16.dp))
             Text("App lock needs a screen lock", style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
             Spacer(Modifier.height(6.dp))
-            Text("Set a device PIN, pattern, password, or biometric in system Settings for this lock to take effect. Until then the app can't be secured.",
+            Text("Set a device PIN, pattern, password, or biometric in system Settings, then reopen Kairo — the lock only works once your device has a screen lock to check against.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             Spacer(Modifier.height(24.dp))
-            Button(onClick = { onOpen(); opened = true }, contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp)) { Text("Open anyway") }
+            // SEC (R2-A) — an explicit, clearly-labeled per-session downgrade (not a quiet "Open anyway").
+            // Refusing outright would trap the user out of their own offline data, so we allow it — but name
+            // the tradeoff so the choice is informed, and it resets every launch (this composable re-runs).
+            Button(onClick = { onOpen(); opened = true }, contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)) {
+                Text("Open unprotected this time")
+            }
+            Spacer(Modifier.height(8.dp))
+            Text("Your data will NOT be locked until you add a device screen lock.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+/** SEC (R2-A) — fail-closed screen shown if the app-lock gate can't host a biometric prompt (no
+ *  FragmentActivity). This should never happen (MainActivity is a FragmentActivity); it exists so a
+ *  broken host reveals nothing rather than silently passing the content through. */
+@Composable
+private fun CannotLockScreen() {
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(
+            Modifier.fillMaxSize().padding(32.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(Icons.Filled.Lock, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp))
+            Spacer(Modifier.height(16.dp))
+            Text("Locked", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(6.dp))
+            Text("The app lock can't be shown here. Reopen Kairo from your launcher to unlock.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         }
     }
 }

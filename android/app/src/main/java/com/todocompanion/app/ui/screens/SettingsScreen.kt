@@ -1467,6 +1467,24 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Text("Encrypt folder files", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 2.dp))
             Text("Set a passphrase and every backup/sync file is AES-encrypted — unreadable to the drive it lands on, and to us. Keep it safe: lose it and those files can't be recovered.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            // SEC (R2-A/H1) — a folder backup with no passphrase writes a full PLAINTEXT copy of everything.
+            // If that folder is cloud-mirrored (Drive/Dropbox/Syncthing), anyone with access to it can read
+            // the lot. Warn loudly whenever a folder is configured but encryption is off.
+            val folderConfigured = s.autoBackupEnabled || s.syncFolder.isNotBlank()
+            if (folderConfigured && s.syncPassphrase.isBlank()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                ) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+                        Text("⚠️", modifier = Modifier.padding(end = 8.dp))
+                        Text("Your backup folder is NOT encrypted. A full, readable copy of all your data is being written there. If this folder syncs to a cloud, anyone with access can read everything. Set a passphrase below to encrypt it.",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
             com.todocompanion.app.ui.components.AppTextField(
                 value = pass, onValueChange = { pass = it },
                 label = { Text("Passphrase (blank = off)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),

@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 class App : Application() {
 
     val database by lazy { AppDatabase.get(this) }
-    val repository by lazy { AppRepository(database) }
+    val repository by lazy { AppRepository(database, this) }
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
@@ -43,6 +43,9 @@ class App : Application() {
         // Warm the DB + settings on a background thread at process start so the first UI frame's
         // queries are already cached (opening happens off the main thread, before Compose asks).
         appScope.launch {
+            // SEC (R2-A/H2) — one-time move of any legacy cleartext sync passphrase out of the DB settings
+            // table into the KeyStore-wrapped SecurePrefs, before the first snapshot reads it.
+            runCatching { repository.migrateSyncPassToSecurePrefs() }
             val s0 = repository.settingsSnapshot(); repository.ensureSeed()
             // Seed the lock-screen-privacy flag so background notifications honour it even before any UI.
             Notifications.lockscreenPrivate = s0.lockscreenPrivacy
