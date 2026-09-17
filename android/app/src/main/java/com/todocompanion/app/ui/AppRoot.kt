@@ -333,7 +333,7 @@ fun AppRoot(
       androidx.compose.runtime.CompositionLocalProvider(
         com.todocompanion.app.ui.components.LocalColorPickerHost provides com.todocompanion.app.ui.components.ColorPickerHost(colorRecents, vm::rememberRecentColor)
       ) {
-      AppLockGate(enabled = settings.appLockEnabled) {
+      AppLockGate(enabled = settings.appLockEnabled, wipeAfter = settings.appLockWipeAfter, onWipe = { vm.panicWipe() }) {
         // Surface the last captured crash (App.kt writes every uncaught crash to last_crash.txt). The file
         // lives under Android/data/… which modern Android hides from file managers, so show it in-app: the
         // user can read/copy the exact stack trace instead of the crash vanishing into a system dialog.

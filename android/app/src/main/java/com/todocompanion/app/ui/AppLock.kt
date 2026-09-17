@@ -53,7 +53,12 @@ private fun pickAuthenticators(context: android.content.Context): Int? {
 }
 
 @Composable
-fun AppLockGate(enabled: Boolean, content: @Composable () -> Unit) {
+fun AppLockGate(
+    enabled: Boolean,
+    wipeAfter: Int = 0,
+    onWipe: () -> Unit = {},
+    content: @Composable () -> Unit,
+) {
     if (!enabled) { content(); return }
 
     val context = LocalContext.current
@@ -71,14 +76,25 @@ fun AppLockGate(enabled: Boolean, content: @Composable () -> Unit) {
 
     var unlocked by remember { mutableStateOf(false) }
     var attempting by remember { mutableStateOf(false) }
+    // SEC (R2-D) — opt-in anti-coercion counter: count failed biometric presentations across this locked
+    // session; at the (deliberately high, user-chosen) threshold, run the panic wipe. Reset on success.
+    var failCount by remember { mutableStateOf(0) }
+    var wiping by remember { mutableStateOf(false) }
 
     fun prompt() {
-        if (attempting) return
+        if (attempting || wiping) return
         attempting = true
         val executor = ContextCompat.getMainExecutor(context)
         val bp = BiometricPrompt(activity, executor, object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                attempting = false; unlocked = true
+                attempting = false; failCount = 0; unlocked = true
+            }
+            override fun onAuthenticationFailed() {
+                // A biometric was presented and rejected (distinct from a user cancel / terminal error).
+                if (wipeAfter > 0 && !wiping) {
+                    failCount += 1
+                    if (failCount >= wipeAfter) { wiping = true; onWipe() }
+                }
             }
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                 attempting = false

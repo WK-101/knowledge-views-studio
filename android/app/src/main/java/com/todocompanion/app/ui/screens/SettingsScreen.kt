@@ -1271,6 +1271,29 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Toggle("Require unlock to open", s.appLockEnabled) { vm.saveSettings(s.copy(appLockEnabled = it)) }
             Text("Ask for your fingerprint, face or device PIN each time the app opens (strong biometric preferred). All checks happen on-device.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (s.appLockEnabled) {
+                // SEC (R2-D) — opt-in anti-coercion wipe. Off by default; the enabled thresholds are high so
+                // ordinary fumbling can't trip it (the OS already rate-limits biometrics on top). IRREVERSIBLE.
+                Spacer(Modifier.height(6.dp))
+                Sub("Wipe after repeated failed unlocks")
+                Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                    listOf(0 to "Off", 10 to "10", 20 to "20", 30 to "30").forEach { (n, label) ->
+                        val sel = s.appLockWipeAfter == n
+                        androidx.compose.material3.FilterChip(
+                            selected = sel, onClick = { vm.saveSettings(s.copy(appLockWipeAfter = n)) },
+                            label = { Text(label) }, modifier = Modifier.padding(end = 6.dp),
+                        )
+                    }
+                }
+                Text(
+                    if (s.appLockWipeAfter > 0)
+                        "⚠︎ IRREVERSIBLE: after ${s.appLockWipeAfter} failed unlock attempts, Kairo destroys the encryption keys and securely erases all data on this device — the same as Panic wipe. Only a JSON backup you exported earlier can restore it. Counts rejected fingerprint/face attempts; PIN entry is handled (and rate-limited) by the system."
+                    else "Off — repeated failures never wipe. Turn on only if you understand a lost/forgotten biometric could destroy your data; always keep a JSON backup.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (s.appLockWipeAfter > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
             if (!s.appLockEnabled) {
                 Toggle("Lock The Record (proof vault)", s.lockRecord) { vm.saveSettings(s.copy(lockRecord = it)) }
                 Text("Gate just your accomplishment record behind the device biometric, even when the whole app isn't locked.",

@@ -199,6 +199,11 @@ data class AppSettings(
     val reminderSound: String = "default",      // notification sound for reminders: default | silent | URI
     // Require biometric / device credential to open the app.
     val appLockEnabled: Boolean = false,
+    // SEC (R2-D) — optional anti-coercion "burn on repeated failure": after this many failed biometric
+    // unlock attempts in a locked session, run the panic wipe. 0 = OFF (the default). Strictly opt-in and
+    // clearly labelled IRREVERSIBLE in Settings; the minimum enabled value is deliberately high (the OS
+    // already rate-limits/locks out biometrics) so ordinary fumbling never triggers it.
+    val appLockWipeAfter: Int = 0,
     // Frontier F5 — the proof vault: lock just The Record behind biometrics (when the whole app isn't locked).
     val lockRecord: Boolean = false,
     // Security hardening (R18): block screenshots / screen recording / recents-thumbnail capture, and
@@ -605,6 +610,7 @@ data class AppSettings(
         Keys.FOCUS_DONE_SOUND to focusDoneSound,
         Keys.REMINDER_SOUND to reminderSound,
         Keys.APP_LOCK to appLockEnabled.toString(),
+        Keys.APP_LOCK_WIPE_AFTER to appLockWipeAfter.toString(),
         Keys.LOCK_RECORD to lockRecord.toString(),
         Keys.SECURE_SCREEN to secureScreen.toString(),
         Keys.LOCKSCREEN_PRIVACY to lockscreenPrivacy.toString(),
@@ -823,6 +829,7 @@ data class AppSettings(
         const val FOCUS_DONE_SOUND = "focus_done_sound"
         const val REMINDER_SOUND = "reminder_sound"
         const val APP_LOCK = "app_lock"
+        const val APP_LOCK_WIPE_AFTER = "app_lock_wipe_after"
         const val LOCK_RECORD = "lock_record"
         const val SECURE_SCREEN = "secure_screen"
         const val LOCKSCREEN_PRIVACY = "lockscreen_privacy"
@@ -1123,6 +1130,7 @@ data class AppSettings(
             focusDoneSound = m[Keys.FOCUS_DONE_SOUND] ?: "chime",
             reminderSound = m[Keys.REMINDER_SOUND] ?: "default",
             appLockEnabled = m[Keys.APP_LOCK]?.toBooleanStrictOrNull() ?: false,
+            appLockWipeAfter = m[Keys.APP_LOCK_WIPE_AFTER]?.toIntOrNull() ?: 0,
             lockRecord = m[Keys.LOCK_RECORD]?.toBooleanStrictOrNull() ?: false,
             secureScreen = m[Keys.SECURE_SCREEN]?.toBooleanStrictOrNull() ?: false,
             lockscreenPrivacy = m[Keys.LOCKSCREEN_PRIVACY]?.toBooleanStrictOrNull() ?: false,
