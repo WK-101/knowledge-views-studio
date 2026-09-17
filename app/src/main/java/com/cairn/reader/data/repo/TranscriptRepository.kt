@@ -4,6 +4,7 @@ import com.cairn.reader.data.db.ItemDao
 import com.cairn.reader.data.db.TranscriptDao
 import com.cairn.reader.data.db.TranscriptEntity
 import com.cairn.reader.domain.transcript.CaptionFetcher
+import com.cairn.reader.domain.transcript.CaptionParsers
 import com.cairn.reader.domain.transcript.SpeechToTextEngine
 import com.cairn.reader.domain.transcript.Transcript
 import com.cairn.reader.domain.transcript.TranscriptCue
@@ -38,6 +39,7 @@ class TranscriptRepository @Inject constructor(
     private val transcriptDao: TranscriptDao,
     private val itemDao: ItemDao,
     private val captionFetcher: CaptionFetcher,
+    private val youtubeCaptions: com.cairn.reader.domain.transcript.YouTubeCaptionWebView,
     private val speechEngine: SpeechToTextEngine,
     private val highlightRepository: HighlightRepository,
 ) {
@@ -48,7 +50,7 @@ class TranscriptRepository @Inject constructor(
         transcriptDao.get(itemId)?.let { return@withContext TranscriptResult.Ready(deserialize(it), saved = true) }
         val item = itemDao.getItem(itemId) ?: return@withContext TranscriptResult.Failed("Item not found")
         val fetched = when {
-            captionFetcher.isYouTube(item.url) -> captionFetcher.fetchYouTube(item.url)
+            captionFetcher.isYouTube(item.url) -> fetchYouTube(item.url)
             !item.transcriptUrl.isNullOrBlank() ->
                 captionFetcher.fetchFromUrl(item.transcriptUrl!!, kind = TranscriptSourceKind.PODCAST_TRANSCRIPT)
             // Any other video/web media: try to discover a caption <track> or sidecar .vtt/.srt on the
@@ -57,6 +59,18 @@ class TranscriptRepository @Inject constructor(
         }
         if (fetched != null && !fetched.isEmpty) TranscriptResult.Ready(fetched, saved = false)
         else TranscriptResult.Unavailable(speechEngine.isSupported(), speechEngine.isModelReady())
+    }
+
+    /** YouTube captions: first from a real page context (WebView) where the signed caption URL is
+     *  valid, then the plain-HTTP path as a fallback. */
+    private suspend fun fetchYouTube(url: String): Transcript? {
+        val id = captionFetcher.youtubeVideoId(url)
+        if (id != null) {
+            val json3 = youtubeCaptions.fetchJson3(id, "en")
+            val cues = json3?.let { CaptionParsers.parseJson3(it) }.orEmpty()
+            if (cues.isNotEmpty()) return Transcript(cues, source = TranscriptSourceKind.YOUTUBE_CAPTIONS)
+        }
+        return captionFetcher.fetchYouTube(url)
     }
 
     /** Persist the whole transcript so it stays available offline without re-fetching. */
