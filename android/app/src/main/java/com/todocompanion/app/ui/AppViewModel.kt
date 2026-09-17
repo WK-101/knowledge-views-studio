@@ -3286,7 +3286,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (r.activityId.isNotBlank() && timeActivities.value.any { it.id == r.activityId && !it.archived }) {
             repo.startTimeTracking(r.activityId, stopFirst = !settings.value.multiTimer)
             com.todocompanion.app.reminders.AutomationRunner.onStart(appCtx, repo, r.activityId)
-            com.todocompanion.app.reminders.TimeIntentApi.broadcastStarted(appCtx, timeActivities.value.firstOrNull { it.id == r.activityId }?.name ?: "")
+            // SEC (R2-B/M4) — only emit the activity name to another app when the automation API is on, and
+            // only to the user's pinned package (blank target = no outgoing event).
+            if (settings.value.automationApi)
+                com.todocompanion.app.reminders.TimeIntentApi.broadcastStarted(appCtx, timeActivities.value.firstOrNull { it.id == r.activityId }?.name ?: "", settings.value.automationTargetPackage)
             refreshTimeWidget()
         }
         toast("Routine “${r.name}” started")

@@ -9,6 +9,14 @@ import com.todocompanion.app.util.PortableCrypto
  * KeyStore-bound SQLCipher key, a passphrase-derived envelope decrypts on any device with the passphrase,
  * so a device change doesn't lose the vault. The passphrase is never stored; a [makeCheck]/[verify] token
  * lets an entered passphrase be validated without persisting it. Pure JVM, unit-testable.
+ *
+ * SEC (R2-B/M2) — cost of a guess. The verifier is inherently a passphrase oracle: an attacker with the
+ * DB/backup can grind guesses against the stored check (or, equally, against any real vaulted note, since
+ * both are the same passphrase-derived AES-GCM envelope). We can't remove the oracle without removing the
+ * portability that is the whole point of a passphrase vault — so the defence is per-guess cost, which now
+ * rides on [PortableCrypto]'s raised KDF work factor (600k, and the Argon2id seam). [verifyByNote] is the
+ * token-free alternative: validate by trial-decrypting an actual vaulted note, so no known-plaintext
+ * verifier need be stored at all.
  */
 object NoteVault {
     private const val TOKEN = "KAIRO-VAULT-OK-v1"
@@ -29,4 +37,11 @@ object NoteVault {
     /** True if [pass] is the passphrase the vault was set up with (decrypts the verifier to the token). */
     fun verify(check: String, pass: CharArray): Boolean =
         check.isNotBlank() && PortableCrypto.decrypt(check, pass) == TOKEN
+
+    /** SEC (R2-B/M2) — validate [pass] against a REAL vaulted note ([sampleEnvelope]) instead of a stored
+     *  known-plaintext token: the GCM tag authenticates, so a correct passphrase decrypts and a wrong one
+     *  returns null. Preferable to [verify] when at least one vaulted note exists, since it stores no extra
+     *  oracle in the settings table / backups. Returns false for a blank or non-envelope sample. */
+    fun verifyByNote(sampleEnvelope: String, pass: CharArray): Boolean =
+        isLocked(sampleEnvelope) && PortableCrypto.decrypt(sampleEnvelope, pass) != null
 }

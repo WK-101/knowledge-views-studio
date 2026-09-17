@@ -20,17 +20,29 @@ object TimeIntentApi {
     const val ACTION_STOP = "com.todocompanion.app.api.STOP_ACTIVITY"
     const val ACTION_STOP_ALL = "com.todocompanion.app.api.STOP_ALL"
     const val EXTRA_ACTIVITY = "activity"   // activity name (created if unknown)
+    const val EXTRA_TOKEN = "token"         // SEC (R2-B/M4) — per-install shared secret; must match settings
 
     // Outgoing — us → other apps.
     const val EVENT_STARTED = "com.todocompanion.app.api.EVENT_STARTED"
     const val EVENT_STOPPED = "com.todocompanion.app.api.EVENT_STOPPED"
     const val EXTRA_NAME = "activityName"
 
-    fun broadcastStarted(context: Context, activityName: String) {
-        runCatching { context.sendBroadcast(Intent(EVENT_STARTED).setPackage(null).putExtra(EXTRA_NAME, activityName)) }
+    /** Generate a fresh per-install token to gate the automation receiver (shown to the user to paste
+     *  into their automation app). URL-safe, no padding, ~128 bits. */
+    fun newToken(): String {
+        val raw = ByteArray(16).also { java.security.SecureRandom().nextBytes(it) }
+        return android.util.Base64.encodeToString(raw, android.util.Base64.NO_WRAP or android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING)
     }
-    fun broadcastStopped(context: Context, activityName: String) {
-        runCatching { context.sendBroadcast(Intent(EVENT_STOPPED).setPackage(null).putExtra(EXTRA_NAME, activityName)) }
+
+    /** SEC (R2-B/M4) — outgoing events are pinned to the user's chosen automation package; a blank target
+     *  means we emit nothing rather than world-broadcast the activity name to every registered receiver. */
+    fun broadcastStarted(context: Context, activityName: String, targetPackage: String) {
+        if (targetPackage.isBlank()) return
+        runCatching { context.sendBroadcast(Intent(EVENT_STARTED).setPackage(targetPackage).putExtra(EXTRA_NAME, activityName)) }
+    }
+    fun broadcastStopped(context: Context, activityName: String, targetPackage: String) {
+        if (targetPackage.isBlank()) return
+        runCatching { context.sendBroadcast(Intent(EVENT_STOPPED).setPackage(targetPackage).putExtra(EXTRA_NAME, activityName)) }
     }
 }
 
@@ -45,7 +57,14 @@ class TimeIntentReceiver : BroadcastReceiver() {
                 // SEC — this receiver is exported (automation apps need to reach it), so anyone could drive
                 // or seed the tracker. Honour the opt-in: do nothing unless the user turned the automation
                 // API on in Settings. Checked inside the coroutine so the DB read is off the main thread.
-                if (!repo.settingsSnapshot().automationApi) return@launch
+                val s = repo.settingsSnapshot()
+                if (!s.automationApi) return@launch
+                // SEC (R2-B/M4) — beyond the opt-in, require the per-install token so only the user's own
+                // automation (which they pasted the token into) can drive the tracker, not any app that
+                // knows the public action string. A blank stored token means the receiver stays closed.
+                val token = intent.getStringExtra(TimeIntentApi.EXTRA_TOKEN).orEmpty()
+                if (s.automationToken.isBlank() || token != s.automationToken) return@launch
+                val targetPkg = s.automationTargetPackage
                 when (intent.action) {
                     TimeIntentApi.ACTION_START -> {
                         val name = intent.getStringExtra(TimeIntentApi.EXTRA_ACTIVITY)?.trim().orEmpty()
@@ -55,7 +74,7 @@ class TimeIntentReceiver : BroadcastReceiver() {
                             val multi = repo.settingsSnapshot().multiTimer
                             repo.startTimeTracking(id, stopFirst = !multi)
                             AutomationRunner.onStart(context, repo, id)
-                            TimeIntentApi.broadcastStarted(context, name)
+                            TimeIntentApi.broadcastStarted(context, name, targetPkg)
                         }
                     }
                     TimeIntentApi.ACTION_STOP -> {
@@ -66,12 +85,12 @@ class TimeIntentReceiver : BroadcastReceiver() {
                             else running.firstOrNull { e -> acts.firstOrNull { it.id == e.activityId }?.name.equals(name, true) }
                         if (target != null) {
                             repo.stopTimeEntry(target.id)
-                            TimeIntentApi.broadcastStopped(context, acts.firstOrNull { it.id == target.activityId }?.name ?: "")
+                            TimeIntentApi.broadcastStopped(context, acts.firstOrNull { it.id == target.activityId }?.name ?: "", targetPkg)
                         }
                     }
                     TimeIntentApi.ACTION_STOP_ALL -> {
                         repo.runningTimeEntries().forEach { repo.stopTimeEntry(it.id) }
-                        TimeIntentApi.broadcastStopped(context, "")
+                        TimeIntentApi.broadcastStopped(context, "", targetPkg)
                     }
                 }
                 com.todocompanion.app.widget.TimeWidget.refresh(context)

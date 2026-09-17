@@ -433,7 +433,10 @@
         </receiver>
         <receiver android:name=".widget.TimeTrackReceiver" android:exported="false" />
 
-        <!-- V8: local intent API — automation apps (Tasker/MacroDroid) can start/stop tracking. Local IPC, no network. -->
+        <!-- V8: local intent API — automation apps (Tasker/MacroDroid) can start/stop tracking. Local IPC, no
+             network. Exported so automation apps can reach it, but doubly gated at runtime (SEC R2-B/M4): the
+             user must opt in AND every command must carry the per-install "token" extra shown in Settings, so
+             a mere knowledge of the public action string can't drive the tracker. -->
         <receiver android:name=".reminders.TimeIntentReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="com.todocompanion.app.api.START_ACTIVITY" />

@@ -801,9 +801,54 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Toggle("Reveal untracked time on the calendar", s.untrackedReveal) { on -> vm.saveSettings(s.copy(untrackedReveal = on)) }
                 Text("Shade the day-column gaps between tracked intervals so uncounted time is visible.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Toggle("Automation API (Tasker etc.)", s.automationApi) { on -> vm.saveSettings(s.copy(automationApi = on)) }
-                Text("Off by default for privacy. When on, other apps on this device (Tasker, MacroDroid, Automate) can start/stop your timer via local broadcasts, and Kairo emits start/stop events for them to react to. All on-device — no network. Leave off unless you use automation.",
+                Toggle("Automation API (Tasker etc.)", s.automationApi) { on ->
+                    // SEC (R2-B/M4) — mint a per-install token the first time it's enabled, so the exported
+                    // receiver has a shared secret to check even before the user opens the fields below.
+                    vm.saveSettings(s.copy(
+                        automationApi = on,
+                        automationToken = if (on && s.automationToken.isBlank())
+                            com.todocompanion.app.reminders.TimeIntentApi.newToken() else s.automationToken,
+                    ))
+                }
+                Text("Off by default for privacy. When on, other apps on this device (Tasker, MacroDroid, Automate) can start/stop your timer via local broadcasts. All on-device — no network. Leave off unless you use automation.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (s.automationApi) {
+                    // SEC (R2-B/M4) — the incoming access token. The receiver is exported (automation apps must
+                    // reach it), so a token is required on every START/STOP broadcast: only automation the user
+                    // pasted this into can drive the tracker, not any app that knows the public action string.
+                    Spacer(Modifier.height(8.dp))
+                    Sub("Access token — required on every command")
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = s.automationToken, onValueChange = {}, readOnly = true, singleLine = true,
+                            textStyle = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f),
+                            label = { Text("token extra") },
+                        )
+                        TextButton(onClick = {
+                            val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                            cm?.setPrimaryClip(android.content.ClipData.newPlainText("Kairo automation token", s.automationToken))
+                            android.widget.Toast.makeText(context, "Token copied", android.widget.Toast.LENGTH_SHORT).show()
+                        }) { Text("Copy") }
+                    }
+                    Text("Send this as a string extra named \"token\" on each com.todocompanion.app.api.* broadcast. Commands without it are ignored.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = { vm.saveSettings(s.copy(automationToken = com.todocompanion.app.reminders.TimeIntentApi.newToken())) }) {
+                        Text("Regenerate token")
+                    }
+                    // SEC (R2-B/M4) — outgoing start/stop events. Pin the ONE automation app's package so the
+                    // activity name isn't world-broadcast; blank = Kairo emits no outgoing events at all.
+                    Spacer(Modifier.height(4.dp))
+                    Sub("Send events only to (optional)")
+                    var pkg by remember { mutableStateOf(s.automationTargetPackage) }
+                    androidx.compose.material3.OutlinedTextField(
+                        value = pkg, onValueChange = { pkg = it.trim(); vm.saveSettings(s.copy(automationTargetPackage = it.trim())) },
+                        singleLine = true, textStyle = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth(),
+                        label = { Text("e.g. net.dinglisch.android.taskerm") },
+                    )
+                    Text("Kairo emits start/stop events only to this package. Leave blank (the default) and no outgoing events are sent — so your activity names are never broadcast to other apps.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
         if (Modules.isEnabled(s, Modules.HABITS)) {
@@ -1263,9 +1308,20 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Text("What it does NOT protect: a rooted device while the app is installed and unlocked. And note — uninstalling the app erases the encryption key, so keep a JSON backup as your recovery copy.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             // SEC (Batch 6) — the honest hardware readout: where the key actually landed on THIS device.
+            // SEC (R2-B/M3) — when it's a SOFTWARE keystore, "encrypted at rest" is only as strong as the
+            // app sandbox (no secure hardware to hold the key), so say so LOUDLY in error colour rather than
+            // as a neutral aside — the guarantee is materially weaker and the user should know.
             vm.keySecurityLevel()?.let { lvl ->
+                val soft = lvl.equals("Software", ignoreCase = true)
                 Text("Key storage on this device: $lvl", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+                    color = if (soft) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp))
+                if (soft) Text(
+                    "⚠︎ No secure hardware (StrongBox/TEE) on this device, so the key is held in software. " +
+                        "At-rest encryption here is only as strong as the app sandbox — it protects a copied " +
+                        "database file far less than on a device with a hardware key store. Keep a JSON backup.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 2.dp))
             }
             // SEC (Batch 6) — one-line advisory when the OS itself weakens the guarantees (root / emulator).
             vm.securityAdvisory()?.let { adv ->

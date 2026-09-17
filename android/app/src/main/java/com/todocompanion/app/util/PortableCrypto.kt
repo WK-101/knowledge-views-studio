@@ -16,15 +16,26 @@ import java.security.SecureRandom
  * new phone; this wraps the plaintext JSON backup in a self-describing, versioned envelope encrypted
  * from a passphrase alone — so it restores anywhere, with no account and no network.
  *
- * PBKDF2-HMAC-SHA256 (210k iterations, OWASP-current) derives a 256-bit key from the passphrase + a
- * random 16-byte salt; AES-GCM (random 12-byte IV, 128-bit tag) encrypts. The GCM tag authenticates, so
+ * PBKDF2-HMAC-SHA256 (600k iterations, OWASP-2023 guidance) derives a 256-bit key from the passphrase +
+ * a random 16-byte salt; AES-GCM (random 12-byte IV, 128-bit tag) encrypts. The GCM tag authenticates, so
  * a wrong passphrase or a tampered/corrupt file decrypts to null rather than garbage. Pure JVM crypto +
  * java.util.Base64, so it unit-tests without Android.
+ *
+ * The envelope already names its own [Envelope.kdf] and [Envelope.iterations], so an old file always
+ * decrypts under the parameters it was written with, and a future memory-hard KDF (Argon2id) is a purely
+ * additive change: register it under a new `kdf` name and write it — old PBKDF2 files keep reading. The
+ * iteration count is read from the (untrusted) file, so it is CAPPED at [MAX_ITERATIONS] on read: a hostile
+ * blob can otherwise name a billion iterations and pin the CPU (a cheap denial-of-service on import).
  */
 object PortableCrypto {
     private const val MAGIC = "kairo-encrypted-backup"
     private const val VERSION = 1
-    private const val ITERATIONS = 210_000
+    private const val KDF_PBKDF2 = "PBKDF2WithHmacSHA256"
+    private const val ITERATIONS = 600_000
+    // A hostile import file controls `iterations`; refuse an absurd count rather than grind the CPU.
+    // Comfortably above any legitimate value we (or a future rev) would write, far below a DoS.
+    private const val MAX_ITERATIONS = 4_000_000
+    private const val MIN_ITERATIONS = 10_000
     private const val KEY_BITS = 256
     private const val TAG_BITS = 128
 
@@ -49,7 +60,7 @@ object PortableCrypto {
         val ct = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
         return json.encodeToString(
             Envelope.serializer(),
-            Envelope(MAGIC, VERSION, "PBKDF2WithHmacSHA256", ITERATIONS, b64.encodeToString(salt), b64.encodeToString(iv), b64.encodeToString(ct)),
+            Envelope(MAGIC, VERSION, KDF_PBKDF2, ITERATIONS, b64.encodeToString(salt), b64.encodeToString(iv), b64.encodeToString(ct)),
         )
     }
 
@@ -58,6 +69,11 @@ object PortableCrypto {
     fun decrypt(blob: String, passphrase: CharArray): String? {
         val env = runCatching { json.decodeFromString(Envelope.serializer(), blob) }.getOrNull() ?: return null
         if (env.magic != MAGIC || env.version > VERSION) return null
+        // Only the PBKDF2 KDF is understood by this build. An unknown `kdf` (e.g. a future "argon2id"
+        // envelope opened by an older app) is refused cleanly rather than silently mis-derived.
+        if (env.kdf != KDF_PBKDF2) return null
+        // The iteration count comes from the (untrusted) file — clamp it so a hostile blob can't pin the CPU.
+        if (env.iterations !in MIN_ITERATIONS..MAX_ITERATIONS) return null
         return runCatching {
             val key = deriveKey(passphrase, unb64.decode(env.salt), env.iterations)
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")

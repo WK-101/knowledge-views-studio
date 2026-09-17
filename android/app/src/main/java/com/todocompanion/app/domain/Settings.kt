@@ -315,6 +315,15 @@ data class AppSettings(
     // is a device-local IPC surface any installed app can reach. OFF by default so the tracker can't be
     // driven or seeded from outside until the user opts in (Settings ▸ Time ▸ Automation).
     val automationApi: Boolean = false,
+    // SEC (R2-B/M4) — the exported automation receiver is reachable by any installed app once the API is on.
+    // A per-install random token (generated when the user first enables it, shown in Settings to paste into
+    // Tasker) must accompany an incoming START/STOP broadcast, so only the user's own automation — not any
+    // app that guessed the action string — can drive the tracker. Device-local; never leaves the phone.
+    val automationToken: String = "",
+    // SEC (R2-B/M4) — outgoing EVENT_STARTED/STOPPED broadcasts name the current activity. Rather than
+    // world-broadcasting that (setPackage(null) reaches every registered receiver), the user pins the ONE
+    // automation app's package here; blank means Kairo emits no outgoing events at all (the safe default).
+    val automationTargetPackage: String = "",
     // U8 / 1.6 calm default: forgiving streaks — count a rolling completion rate with grace days instead
     // of a brittle chain, so one missed day never resets to zero and never shames. On by default; the
     // "never miss twice" recovery is kinder than "don't break the chain".
@@ -636,6 +645,8 @@ data class AppSettings(
         Keys.MULTI_TIMER to multiTimer.toString(),
         Keys.AUTO_TRACK_PROMPT to autoTrackPrompt.toString(),
         Keys.AUTOMATION_API to automationApi.toString(),
+        Keys.AUTOMATION_TOKEN to automationToken,
+        Keys.AUTOMATION_TARGET_PKG to automationTargetPackage,
         Keys.FORGIVING_STREAKS to forgivingStreaks.toString(),
         Keys.UNTRACKED_REVEAL to untrackedReveal.toString(),
         Keys.AUTOMATION_RULES to automationRulesJson,
@@ -852,6 +863,8 @@ data class AppSettings(
         const val MULTI_TIMER = "multi_timer"
         const val AUTO_TRACK_PROMPT = "auto_track_prompt"
         const val AUTOMATION_API = "automation_api"
+        const val AUTOMATION_TOKEN = "automation_token"
+        const val AUTOMATION_TARGET_PKG = "automation_target_pkg"
         const val FORGIVING_STREAKS = "forgiving_streaks"
         const val UNTRACKED_REVEAL = "untracked_reveal"
         const val AUTOMATION_RULES = "automation_rules"
@@ -1035,6 +1048,8 @@ data class AppSettings(
             multiTimer = m[Keys.MULTI_TIMER]?.toBooleanStrictOrNull() ?: false,
             autoTrackPrompt = m[Keys.AUTO_TRACK_PROMPT]?.toBooleanStrictOrNull() ?: false,
             automationApi = m[Keys.AUTOMATION_API]?.toBooleanStrictOrNull() ?: false,
+            automationToken = m[Keys.AUTOMATION_TOKEN] ?: "",
+            automationTargetPackage = m[Keys.AUTOMATION_TARGET_PKG] ?: "",
             forgivingStreaks = m[Keys.FORGIVING_STREAKS]?.toBooleanStrictOrNull() ?: true,
             untrackedReveal = m[Keys.UNTRACKED_REVEAL]?.toBooleanStrictOrNull() ?: false,
             automationRulesJson = m[Keys.AUTOMATION_RULES] ?: "",

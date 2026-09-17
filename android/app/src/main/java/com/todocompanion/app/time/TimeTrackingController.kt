@@ -103,21 +103,21 @@ class TimeTrackingController(
         // SEC — only emit the activity name to other apps when the user has opted into the automation API;
         // otherwise a system-wide broadcast would leak what they're tracking to any installed listener.
         if (settings().automationApi)
-            TimeIntentApi.broadcastStarted(context, activities().firstOrNull { it.id == activityId }?.name ?: "")
+            TimeIntentApi.broadcastStarted(context, activities().firstOrNull { it.id == activityId }?.name ?: "", settings().automationTargetPackage)
         refreshTimeWidget()
     }
 
     suspend fun stopTimeTracking() {
         val nm = entries().firstOrNull { it.running }?.let { r -> activities().firstOrNull { it.id == r.activityId }?.name }
         repo.stopTimeTracking(); onRefreshHabits(); refreshTimeWidget()
-        if (settings().automationApi) nm?.let { TimeIntentApi.broadcastStopped(context, it) }
+        if (settings().automationApi) nm?.let { TimeIntentApi.broadcastStopped(context, it, settings().automationTargetPackage) }
     }
 
     /** U15: stop one specific running timer (when several overlap). */
     suspend fun stopTimeEntry(id: String) {
         val nm = entries().firstOrNull { it.id == id }?.let { r -> activities().firstOrNull { it.id == r.activityId }?.name }
         repo.stopTimeEntry(id); onRefreshHabits(); refreshTimeWidget()
-        if (settings().automationApi) nm?.let { TimeIntentApi.broadcastStopped(context, it) }
+        if (settings().automationApi) nm?.let { TimeIntentApi.broadcastStopped(context, it, settings().automationTargetPackage) }
     }
 
     suspend fun pauseTracking() {
