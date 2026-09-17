@@ -54,18 +54,29 @@ object SecureDb {
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private fun dbFile(context: Context): File = context.getDatabasePath(DB_NAME)
 
-    /** Seed first-run defaults. Encryption is OPT-IN for everyone (fresh installs included): the
-     *  SQLCipher code path then only ever executes when the user deliberately enables it, and a
-     *  failure on any device degrades gracefully to plaintext instead of bricking the app. The whole
-     *  feature is shipped and one toggle away — just off until chosen. */
+    /** Seed first-run defaults. Encryption is now ON BY DEFAULT for FRESH installs: a brand-new
+     *  install has no DB file yet, so Room creates it encrypted from the first byte — no plaintext
+     *  ever touches disk and no migration is needed. The toggle still exists (one tap to opt out),
+     *  and any device whose KeyStore can't produce a wrap key degrades gracefully to plaintext
+     *  rather than bricking the app.
+     *
+     *  Existing users are deliberately NOT flipped on here: if a DB file already exists when we seed
+     *  for the first time (an upgrade from a build that predates seeding, or a restored plaintext
+     *  DB), we keep the opt-in default so we never trigger a surprise migration behind their back —
+     *  they can still enable it from Settings whenever they choose. */
     fun init(context: Context) {
         val p = prefs(context)
         if (p.getBoolean(K_SEEDED, false)) return
+        val freshInstall = !dbFile(context).exists()
+        val default = freshInstall
         p.edit()
             .putBoolean(K_SEEDED, true)
-            .putBoolean(K_DESIRED, false)
+            .putBoolean(K_DESIRED, default)
             .putBoolean(K_ACTUAL, false)
             .apply()
+        // Pre-create the wrapped passphrase for a fresh encrypted install so reconcile() can create
+        // the DB encrypted immediately. Best-effort: reconcile() re-checks and degrades if it's absent.
+        if (default) runCatching { ensurePassphrase(context) }
     }
 
     fun desiredEncrypted(context: Context): Boolean = prefs(context).getBoolean(K_DESIRED, false)
@@ -177,8 +188,20 @@ object SecureDb {
         if (want == have) return
         val db = dbFile(context)
         if (!db.exists()) {
-            // Nothing on disk yet — Room will create it fresh in the desired state.
-            prefs(context).edit().putBoolean(K_ACTUAL, want).apply()
+            // Nothing on disk yet — Room will create it fresh in the desired state. When enabling,
+            // the wrapped passphrase MUST be in place first, or openFactory() returns null and Room
+            // would silently create a PLAINTEXT file while state claims "encrypted". If the KeyStore
+            // can't produce/keep the key on this device, degrade to plaintext honestly (no churn).
+            if (want) {
+                val ok = runCatching { ensurePassphrase(context); unwrapPassphrase(context) != null }.getOrDefault(false)
+                if (ok) {
+                    prefs(context).edit().putBoolean(K_ACTUAL, true).apply()
+                } else {
+                    prefs(context).edit().putBoolean(K_DESIRED, false).putBoolean(K_ACTUAL, false).apply()
+                }
+            } else {
+                prefs(context).edit().putBoolean(K_ACTUAL, false).apply()
+            }
             return
         }
         runCatching {
@@ -204,7 +227,7 @@ object SecureDb {
         val bak = File(parent, "$DB_NAME.premigrate.bak")
         val tmp = File(parent, "$DB_NAME.migrate.tmp")
         val wal = File(parent, "$DB_NAME-wal"); val shm = File(parent, "$DB_NAME-shm")
-        tmp.delete()
+        secureErase(tmp)   // a stale tmp from a previous aborted run may itself be sensitive
         db.copyTo(bak, overwrite = true)   // rollback copy of the ORIGINAL (same encryption state)
         try {
             // CREATE_IF_NECESSARY is required: ATTACH derives the attached file's open flags from this
@@ -242,23 +265,57 @@ object SecureDb {
             if (dstCount != srcCount) throw IllegalStateException("row-count mismatch ($srcCount → $dstCount)")
 
             // Atomic-ish swap: drop the original + its stale WAL/SHM, move the verified target in.
-            if (!db.delete()) throw IllegalStateException("could not remove original DB")
-            wal.delete(); shm.delete()
+            // secureErase (not a plain unlink) so a plaintext original isn't left recoverable in
+            // freed space once we swap the encrypted copy in.
+            secureErase(db)
+            if (db.exists()) throw IllegalStateException("could not remove original DB")
+            secureErase(wal); secureErase(shm)
             if (!tmp.renameTo(db)) {
                 // Rename failed — restore from backup and bail.
                 bak.copyTo(db, overwrite = true)
                 throw IllegalStateException("could not swap migrated DB into place")
             }
-            // Success: the transient plaintext/encrypted backup is sensitive — remove it.
-            bak.delete()
+            // Success: the transient plaintext/encrypted backup is sensitive — secure-erase it.
+            secureErase(bak)
         } catch (e: Throwable) {
             // Restore the original from backup if the live file was touched, then rethrow. The backup is a
-            // full plaintext/encrypted copy of the DB — delete it once restored so a failed attempt never
-            // leaves a sensitive copy at rest.
+            // full plaintext/encrypted copy of the DB — secure-erase it once restored so a failed attempt
+            // never leaves a sensitive copy at rest.
             runCatching { if (bak.exists()) bak.copyTo(db, overwrite = true) }
-            tmp.delete(); bak.delete()
+            secureErase(tmp); secureErase(bak)
             throw e
         }
+    }
+
+    /**
+     * Best-effort secure erase: overwrite the file's bytes with cryptographically-random data and
+     * fsync before unlinking, so a plaintext (or transient encrypted) DB copy isn't left trivially
+     * recoverable in freed space. Honest caveat: on flash storage with wear-levelling the FS may
+     * remap writes elsewhere, so this shrinks the recovery window rather than guaranteeing erasure —
+     * the real defence is that the live DB is encrypted. Falls back to a plain unlink on any error.
+     */
+    private fun secureErase(f: File) {
+        runCatching {
+            if (f.exists() && f.isFile) {
+                val len = f.length()
+                if (len > 0L) {
+                    java.io.RandomAccessFile(f, "rw").use { raf ->
+                        val rnd = SecureRandom()
+                        val buf = ByteArray(64 * 1024)
+                        var remaining = len
+                        raf.seek(0)
+                        while (remaining > 0L) {
+                            val n = minOf(remaining, buf.size.toLong()).toInt()
+                            rnd.nextBytes(buf)
+                            raf.write(buf, 0, n)
+                            remaining -= n
+                        }
+                        raf.fd.sync()
+                    }
+                }
+            }
+        }
+        f.delete()
     }
 
     /** A cheap fingerprint of "did all the rows survive": summed counts of the big tables. */

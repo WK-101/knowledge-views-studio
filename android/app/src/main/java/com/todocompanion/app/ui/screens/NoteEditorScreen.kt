@@ -183,9 +183,10 @@ fun NoteEditorScreen(
     // L11 — set up or unlock the Vault, then mark this note vaulted on success.
     if (vaultDialog) VaultUnlockDialog(vm = vm, onReady = { draft = draft?.copy(vault = true); vaultDialog = false }, onDismiss = { vaultDialog = false })
 
-    // Wave O — a sealed note gets screenshot / recents-thumbnail protection while open, regardless of the
-    // app-wide secure-screen setting (restored to that setting on leave).
-    com.todocompanion.app.ui.components.SecureFlagWhile(active = d.sealedUntil != null, globalOn = settings.secureScreen)
+    // Wave O + SEC — a sealed OR vault note gets screenshot / recents-thumbnail protection while open,
+    // regardless of the app-wide secure-screen setting (restored to that setting on leave). A vault note is
+    // only rendered here once unlocked, so its decrypted body is on screen — never let that be captured.
+    com.todocompanion.app.ui.components.SecureFlagWhile(active = d.sealedUntil != null || d.vault, globalOn = settings.secureScreen)
     // Edit-first (NotesNook-style): the note is always the editor surface (a read-only note shows a
     // read-only editor). The fully-rendered view — math, diagrams, tables — is a clean full-screen
     // overlay reached from the ⋮ menu ("Reading view"), never an in-place swap (which used to crash).

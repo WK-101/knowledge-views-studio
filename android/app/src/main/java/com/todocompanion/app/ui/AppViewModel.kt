@@ -1371,8 +1371,31 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return ok
     }
 
-    /** Re-lock the vault (clears the in-memory passphrase). */
-    fun lockVault() { vaultPass = null; vaultUnlocked.value = false }
+    /** Re-lock the vault (clears the in-memory passphrase) and wipe any decrypted image copies the
+     *  WebView renderer left in the cache, so re-locking a vaulted note also removes its plaintext images. */
+    fun lockVault() {
+        vaultPass?.fill(' ')   // SEC: zeroize the in-memory passphrase before dropping the reference
+        vaultPass = null
+        vaultUnlocked.value = false
+        viewModelScope.launch(Dispatchers.IO) { runCatching { purgeRichImgCache() } }
+    }
+
+    /** Best-effort secure wipe of the decrypted-image cache the rich-note renderer materializes.
+     *  Overwrites each file with random bytes before unlinking (bounded, IO-thread only). */
+    fun purgeRichImgCache() {
+        val dir = java.io.File(appCtx.cacheDir, "richimg")
+        val files = dir.listFiles() ?: return
+        val rnd = java.security.SecureRandom()
+        for (f in files) {
+            runCatching {
+                if (f.isFile && f.length() in 1..(8L * 1024 * 1024)) {
+                    val buf = ByteArray(f.length().toInt()); rnd.nextBytes(buf)
+                    java.io.RandomAccessFile(f, "rw").use { it.write(buf); it.fd.sync() }
+                }
+            }
+            f.delete()
+        }
+    }
 
     /** Decrypt a vaulted note's body for display/editing; returns the body unchanged when not vaulted or
      *  when locked and un-unlockable (never throws). */
@@ -1906,6 +1929,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** On launch, open the resume-last view (if enabled) or the configured default view. */
     init {
+        // SEC (privacy hardening) — the rich-note WebView needs decrypted image copies on disk to render
+        // (it can't read FileVault ciphertext or a KeyStore key). Those plaintext copies live in the
+        // app-private cache; bound their lifetime to a single process by wiping them on every cold start,
+        // so a decrypted image never survives a reboot or lingers after the app is killed.
+        viewModelScope.launch(Dispatchers.IO) { runCatching { purgeRichImgCache() } }
         // N1 — give the repo a Context-free way to cancel a reminder's alarm on permanent delete.
         repo.onCancelReminder = { reminderId -> com.todocompanion.app.reminders.AlarmScheduler.cancelById(appCtx, reminderId) }
         viewModelScope.launch {

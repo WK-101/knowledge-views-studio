@@ -41,8 +41,16 @@ object NoteRichRenderer {
     private val parser: Parser = Parser.builder()
         .extensions(listOf(TablesExtension.create(), StrikethroughExtension.create(), TaskListItemsExtension.create()))
         .build()
+    // SEC (privacy hardening) — a note's Markdown can arrive from a share, an imported `.md`, or a synced
+    // folder, and it renders in a JavaScript-enabled WebView. escapeHtml(true) makes commonmark ESCAPE any
+    // raw HTML in the source instead of passing it through, so an injected <script>/<img onerror=…> becomes
+    // inert text; sanitizeUrls(true) strips javascript:/data: (and other non-safe) URLs off links and images.
+    // The app's own note features are pure Markdown (callouts are blockquotes, CSV becomes a GFM table), so
+    // nothing legitimate depends on raw HTML — this closes the injection vector with no feature cost.
     private val renderer: HtmlRenderer = HtmlRenderer.builder()
         .extensions(listOf(TablesExtension.create(), StrikethroughExtension.create(), TaskListItemsExtension.create()))
+        .escapeHtml(true)
+        .sanitizeUrls(true)
         .build()
 
     // ── content gating ──────────────────────────────────────────────────────────

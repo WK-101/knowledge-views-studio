@@ -16,6 +16,8 @@ import kotlinx.coroutines.launch
  * stays on MainActivity; this is the notes counterpart, offered as a distinct share target.)
  */
 class ShareToNoteActivity : Activity() {
+    private companion object { const val MAX_SHARE_CHARS = 500_000 }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val text = extractText(intent)?.trim().orEmpty()
@@ -28,7 +30,9 @@ class ShareToNoteActivity : Activity() {
         // The full shared text always lands in the body, so nothing is lost when a lead is derived.
         val title = if (subject.isNotBlank()) subject.take(120)
         else text.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.take(60).orEmpty()
-        val body = text
+        // SEC — an external app controls this text; cap it so a hostile/huge share can't spike memory or
+        // wedge the editor. 500k chars is far beyond any real clipping while still bounding abuse.
+        val body = if (text.length > MAX_SHARE_CHARS) text.take(MAX_SHARE_CHARS) else text
 
         val app = applicationContext as App
         app.appScope.launch {

@@ -42,6 +42,10 @@ class TimeIntentReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val repo = app.repository
+                // SEC — this receiver is exported (automation apps need to reach it), so anyone could drive
+                // or seed the tracker. Honour the opt-in: do nothing unless the user turned the automation
+                // API on in Settings. Checked inside the coroutine so the DB read is off the main thread.
+                if (!repo.settingsSnapshot().automationApi) return@launch
                 when (intent.action) {
                     TimeIntentApi.ACTION_START -> {
                         val name = intent.getStringExtra(TimeIntentApi.EXTRA_ACTIVITY)?.trim().orEmpty()

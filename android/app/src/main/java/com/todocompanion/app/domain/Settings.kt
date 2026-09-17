@@ -311,6 +311,10 @@ data class AppSettings(
     val multiTimer: Boolean = false,
     // U2: when a time-blocked task's start time arrives, post a notification to start tracking it.
     val autoTrackPrompt: Boolean = false,
+    // SEC: the on-device automation API (Tasker/MacroDroid can start/stop the time tracker via broadcasts)
+    // is a device-local IPC surface any installed app can reach. OFF by default so the tracker can't be
+    // driven or seeded from outside until the user opts in (Settings ▸ Time ▸ Automation).
+    val automationApi: Boolean = false,
     // U8 / 1.6 calm default: forgiving streaks — count a rolling completion rate with grace days instead
     // of a brittle chain, so one missed day never resets to zero and never shames. On by default; the
     // "never miss twice" recovery is kinder than "don't break the chain".
@@ -631,6 +635,7 @@ data class AppSettings(
         Keys.TIMELINE_FILL to timelineFill.toString(),
         Keys.MULTI_TIMER to multiTimer.toString(),
         Keys.AUTO_TRACK_PROMPT to autoTrackPrompt.toString(),
+        Keys.AUTOMATION_API to automationApi.toString(),
         Keys.FORGIVING_STREAKS to forgivingStreaks.toString(),
         Keys.UNTRACKED_REVEAL to untrackedReveal.toString(),
         Keys.AUTOMATION_RULES to automationRulesJson,
@@ -846,6 +851,7 @@ data class AppSettings(
         const val TIMELINE_FILL = "timeline_fill"
         const val MULTI_TIMER = "multi_timer"
         const val AUTO_TRACK_PROMPT = "auto_track_prompt"
+        const val AUTOMATION_API = "automation_api"
         const val FORGIVING_STREAKS = "forgiving_streaks"
         const val UNTRACKED_REVEAL = "untracked_reveal"
         const val AUTOMATION_RULES = "automation_rules"
@@ -1028,6 +1034,7 @@ data class AppSettings(
             timelineFill = m[Keys.TIMELINE_FILL]?.toBooleanStrictOrNull() ?: false,
             multiTimer = m[Keys.MULTI_TIMER]?.toBooleanStrictOrNull() ?: false,
             autoTrackPrompt = m[Keys.AUTO_TRACK_PROMPT]?.toBooleanStrictOrNull() ?: false,
+            automationApi = m[Keys.AUTOMATION_API]?.toBooleanStrictOrNull() ?: false,
             forgivingStreaks = m[Keys.FORGIVING_STREAKS]?.toBooleanStrictOrNull() ?: true,
             untrackedReveal = m[Keys.UNTRACKED_REVEAL]?.toBooleanStrictOrNull() ?: false,
             automationRulesJson = m[Keys.AUTOMATION_RULES] ?: "",

@@ -20,10 +20,11 @@ object Notifications {
     const val CHANNEL_CUSTOM = "reminders_custom"
     const val SUMMARY_ID = 424242
 
-    // Security (R18): when the user turns on "hide notification content on the lock screen", every
-    // notification is built VISIBILITY_SECRET so task titles never surface on a locked device. Kept as a
-    // volatile flag updated from the settings flow (notifications fire from background receivers). Off = the
-    // platform default. Fully local.
+    // Security (R18 → SEC hardening): lock-screen content is REDACTED BY DEFAULT. Every notification is
+    // built VISIBILITY_PRIVATE with a neutral public version, so a locked device shows only "Kairo ·
+    // reminder" — never a task/note title, an occasion, or a habit name. When the user turns the setting ON
+    // ("hide on lock screen"), we escalate to VISIBILITY_SECRET so nothing shows at all. Kept as a volatile
+    // flag mirrored from the settings flow (notifications fire from background receivers). Fully local.
     @Volatile var lockscreenPrivate: Boolean = false
 
     // R59 (Wave 1) — the snooze duration (minutes) every notification's Snooze action uses, mirrored from
@@ -55,9 +56,27 @@ object Notifications {
         ensureChannel(context)
         val id = activeChannelId()
         return NotificationCompat.Builder(context, id).apply {
-            if (lockscreenPrivate) setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            if (lockscreenPrivate) {
+                // Strongest: nothing at all on a locked device.
+                setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            } else {
+                // Privacy-first default: the notification is visible when unlocked and in the shade, but the
+                // lock screen shows only the neutral public version below — never the private title/text.
+                setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                setPublicVersion(redactedPublic(context, id))
+            }
         }
     }
+
+    /** The neutral stand-in the OS shows on the lock screen when content is redacted (VISIBILITY_PRIVATE):
+     *  it reveals that a reminder exists without leaking what it's about. */
+    private fun redactedPublic(context: Context, channelId: String): Notification =
+        NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            .setContentTitle("Kairo")
+            .setContentText("You have a reminder")
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .build()
 
     /** R95 — post a notification only when we're actually allowed to. On Android 13+ POST_NOTIFICATIONS is
      *  runtime-revocable, so a bare notify() both risks a swallowed SecurityException and wastes the work of

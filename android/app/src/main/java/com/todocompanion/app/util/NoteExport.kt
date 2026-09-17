@@ -25,7 +25,12 @@ object NoteExport {
         JSON("JSON (.json)", "json", "application/json"),
     }
 
-    private val htmlRenderer: HtmlRenderer = HtmlRenderer.builder().build()
+    // SEC (privacy hardening) — same rationale as NoteRichRenderer: escape raw HTML and sanitize URLs so an
+    // exported/printed note can't carry an injected <script> or a javascript:/data: link into whatever opens it.
+    private val htmlRenderer: HtmlRenderer = HtmlRenderer.builder()
+        .escapeHtml(true)
+        .sanitizeUrls(true)
+        .build()
 
     private fun titleOf(note: NoteEntity) = note.title.ifBlank { "Untitled note" }
 

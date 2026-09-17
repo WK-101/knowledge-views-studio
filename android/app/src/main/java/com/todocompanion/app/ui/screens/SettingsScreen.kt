@@ -801,6 +801,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Toggle("Reveal untracked time on the calendar", s.untrackedReveal) { on -> vm.saveSettings(s.copy(untrackedReveal = on)) }
                 Text("Shade the day-column gaps between tracked intervals so uncounted time is visible.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Toggle("Automation API (Tasker etc.)", s.automationApi) { on -> vm.saveSettings(s.copy(automationApi = on)) }
+                Text("Off by default for privacy. When on, other apps on this device (Tasker, MacroDroid, Automate) can start/stop your timer via local broadcasts, and Kairo emits start/stop events for them to react to. All on-device — no network. Leave off unless you use automation.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         if (Modules.isEnabled(s, Modules.HABITS)) {

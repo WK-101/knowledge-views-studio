@@ -25,8 +25,17 @@ class BackupExporter(
 ) {
     private val resolver get() = context.contentResolver
 
+    /** SEC — when the user has set a sync/backup passphrase, a JSON export is a full copy of their data, so
+     *  encrypt it at rest by default (same AES-256-GCM envelope the sync/auto-backup path uses). Import
+     *  transparently decrypts it (RestoreManager already tries [Crypto.decrypt]); with no passphrase set it
+     *  stays plaintext exactly as before. */
+    private suspend fun protect(json: String): String {
+        val pass = runCatching { repo.settingsSnapshot().syncPassphrase }.getOrDefault("")
+        return if (pass.isNotBlank()) com.todocompanion.app.data.sync.Crypto.encrypt(json, pass) else json
+    }
+
     suspend fun exportJson(uri: Uri): Boolean = runCatching {
-        val json = repo.exportJson()
+        val json = protect(repo.exportJson())
         resolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
     }.isSuccess
 
@@ -57,7 +66,9 @@ class BackupExporter(
      */
     suspend fun downloadExport(kind: String): String? = runCatching {
         val (content, name, mime) = when (kind) {
-            "json" -> Triple(repo.exportJson(), "todo-companion-backup.json", "application/json")
+            // Only the full JSON backup is passphrase-protected; md/csv/ics are interop formats the user
+            // deliberately exports to read in other apps, so they stay plaintext.
+            "json" -> Triple(protect(repo.exportJson()), "todo-companion-backup.json", "application/json")
             "md" -> Triple(repo.exportMarkdown(true), "todo-companion.md", "text/markdown")
             "csv" -> Triple(repo.exportCsv(true), "todo-companion.csv", "text/csv")
             "ics" -> Triple(repo.exportIcs(false), "todo-companion.ics", "text/calendar")
