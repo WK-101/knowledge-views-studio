@@ -51,7 +51,9 @@ class TranscriptRepository @Inject constructor(
             captionFetcher.isYouTube(item.url) -> captionFetcher.fetchYouTube(item.url)
             !item.transcriptUrl.isNullOrBlank() ->
                 captionFetcher.fetchFromUrl(item.transcriptUrl!!, kind = TranscriptSourceKind.PODCAST_TRANSCRIPT)
-            else -> null
+            // Any other video/web media: try to discover a caption <track> or sidecar .vtt/.srt on the
+            // page itself before giving up to on-device transcription.
+            else -> item.url.takeIf { it.isNotBlank() }?.let { captionFetcher.fetchFromUrl(it) }
         }
         if (fetched != null && !fetched.isEmpty) TranscriptResult.Ready(fetched, saved = false)
         else TranscriptResult.Unavailable(speechEngine.isSupported(), speechEngine.isModelReady())

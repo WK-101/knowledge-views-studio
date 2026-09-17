@@ -20,6 +20,7 @@ object CaptionParsers {
         return when {
             hint.contains("vtt") || trimmed.startsWith("WEBVTT") -> parseVtt(body)
             hint.contains("srt") || hint.contains("subrip") -> parseSrt(body)
+            hint.contains("json3") || (trimmed.startsWith("{") && trimmed.contains("\"events\"")) -> parseJson3(body)
             hint.contains("json") || trimmed.startsWith("{") -> parseJsonTranscript(body)
             hint.contains("xml") || hint.contains("timedtext") || trimmed.startsWith("<") -> parseTimedTextXml(body)
             trimmed.contains("-->") -> if (trimmed.contains(',')) parseSrt(body) else parseVtt(body)
@@ -87,6 +88,25 @@ object CaptionParsers {
             val end = (seg.optDouble("endTime", Double.NaN)).let { if (it.isNaN()) start else (it * 1000).toLong() }
             val text = seg.optString("body").trim()
             if (text.isNotEmpty()) cues.add(TranscriptCue(start, maxOf(end, start), text))
+        }
+        return coalesce(cues)
+    }
+
+    /** YouTube timedtext `fmt=json3`: `{"events":[{"tStartMs":..,"dDurationMs":..,"segs":[{"utf8":".."}]}]}`. */
+    fun parseJson3(body: String): List<TranscriptCue> {
+        val cues = ArrayList<TranscriptCue>()
+        val obj = runCatching { JSONObject(body) }.getOrNull() ?: return emptyList()
+        val events = obj.optJSONArray("events") ?: return emptyList()
+        for (i in 0 until events.length()) {
+            val e = events.optJSONObject(i) ?: continue
+            val segs = e.optJSONArray("segs") ?: continue // style/window events have no segs
+            val start = e.optLong("tStartMs", -1L)
+            if (start < 0) continue
+            val dur = e.optLong("dDurationMs", 0L)
+            val text = buildString {
+                for (j in 0 until segs.length()) segs.optJSONObject(j)?.optString("utf8")?.let { append(it) }
+            }.trim()
+            if (text.isNotEmpty()) cues.add(TranscriptCue(start, start + dur, text))
         }
         return coalesce(cues)
     }

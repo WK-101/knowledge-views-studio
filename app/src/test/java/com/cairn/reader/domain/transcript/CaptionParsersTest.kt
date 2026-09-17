@@ -94,6 +94,28 @@ class CaptionParsersTest {
         assertEquals(0, CaptionParsers.parse("not a transcript at all").size)
     }
 
+    @Test fun parsesYouTubeJson3() {
+        val json = """
+            {"wireMagic":"pb3","events":[
+              {"tStartMs":0,"dDurationMs":1200,"segs":[{"utf8":"Hello "},{"utf8":"there"}]},
+              {"tStartMs":1200,"dDurationMs":800,"segs":[{"utf8":"world"}]},
+              {"tStartMs":2000,"dDurationMs":500}
+            ]}
+        """.trimIndent()
+        val cues = CaptionParsers.parseJson3(json)
+        assertEquals(2, cues.size)
+        assertEquals(0L, cues[0].startMs)
+        assertEquals(1200L, cues[0].endMs)
+        assertEquals("Hello there", cues[0].text)
+        assertEquals("world", cues[1].text)
+    }
+
+    @Test fun dispatcherRoutesJson3ByEventsKey() {
+        val cues = CaptionParsers.parse("{\"events\":[{\"tStartMs\":0,\"dDurationMs\":900,\"segs\":[{\"utf8\":\"hi\"}]}]}")
+        assertEquals(1, cues.size)
+        assertEquals("hi", cues[0].text)
+    }
+
     @Test fun timestampParsingHandlesAllShapes() {
         assertEquals(1000L, CaptionParsers.parseTimestamp("00:00:01.000"))
         assertEquals(65_500L, CaptionParsers.parseTimestamp("01:05.500"))
