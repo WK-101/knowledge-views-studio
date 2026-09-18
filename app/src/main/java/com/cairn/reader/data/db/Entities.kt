@@ -288,6 +288,30 @@ data class TombstoneEntity(
     val deletedAt: Long,
 )
 
+/**
+ * v22 (Content Engine P3): the deep-archive crawl frontier — a resumable, persisted queue of article
+ * URLs discovered for a source's whole published history. The archive worker drains it in small polite
+ * batches across sync cycles, so a large site backfills in the background and survives restarts. One
+ * row per (source, url); [state] is PENDING / FETCHED / FAILED.
+ */
+@Entity(
+    tableName = "crawl_frontier",
+    primaryKeys = ["sourceId", "url"],
+    indices = [Index("sourceId"), Index("state")],
+)
+data class CrawlFrontierEntity(
+    val sourceId: String,
+    val url: String,
+    /** Where the URL was discovered: "wordpress" / "sitemap" / "wayback" / "scrape". */
+    val discoveredVia: String,
+    /** Best-known publish/modified time (from the sitemap lastmod or CMS date), for ordering + item date. */
+    val lastmod: Long? = null,
+    /** PENDING (not yet fetched) / FETCHED (stored) / FAILED (gave up after retries). */
+    val state: String = "PENDING",
+    val attempts: Int = 0,
+    val addedAt: Long,
+)
+
 @Entity(tableName = "sync_ops")
 data class SyncOpEntity(
     @PrimaryKey val id: String,

@@ -117,6 +117,9 @@ class FeedsViewModel @Inject constructor(
     fun setFolder(id: String, folder: String?) = viewModelScope.launch { sourceRepository.setFolder(id, folder) }
     fun setFullText(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setFullText(id, enabled) }
     fun setAcquisition(id: String, mode: String) = viewModelScope.launch { sourceRepository.setAcquisitionMode(id, mode) }
+    fun setDepth(id: String, mode: String) = viewModelScope.launch { sourceRepository.setDepthMode(id, mode) }
+    fun requestBackfill(id: String) = viewModelScope.launch { sourceRepository.requestBackfill(id) }
+    fun cancelBackfill(id: String) = viewModelScope.launch { sourceRepository.cancelBackfill(id) }
     fun setNotify(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setNotify(id, enabled) }
     fun setMuted(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setMuted(id, enabled) }
     fun setSyncPaused(id: String, paused: Boolean) = viewModelScope.launch { sourceRepository.setSyncPaused(id, paused) }

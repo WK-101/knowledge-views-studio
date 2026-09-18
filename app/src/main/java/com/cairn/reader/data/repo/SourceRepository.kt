@@ -1,6 +1,7 @@
 package com.cairn.reader.data.repo
 
 import com.cairn.reader.data.blob.BlobStore
+import com.cairn.reader.data.db.CrawlFrontierDao
 import com.cairn.reader.data.db.ItemDao
 import com.cairn.reader.data.db.SourceDao
 import com.cairn.reader.data.db.SourceEntity
@@ -14,6 +15,7 @@ class SourceRepository @Inject constructor(
     private val sourceDao: SourceDao,
     private val itemDao: ItemDao,
     private val blobStore: BlobStore,
+    private val crawlFrontierDao: CrawlFrontierDao,
 ) {
     fun sources(): Flow<List<SourceEntity>> = sourceDao.observeAll()
     fun folders(): Flow<List<String>> = sourceDao.observeFolders()
@@ -34,6 +36,13 @@ class SourceRepository @Inject constructor(
     suspend fun setAcquisitionMode(id: String, mode: String) = sourceDao.setAcquisitionMode(id, mode)
     suspend fun setDepthMode(id: String, mode: String) = sourceDao.setDepthMode(id, mode)
     suspend fun setOfflineTier(id: String, tier: String) = sourceDao.setOfflineTier(id, tier)
+    /** Queue a source for a whole-archive backfill; the archive worker picks it up (Content Engine P3). */
+    suspend fun requestBackfill(id: String) = sourceDao.setBackfillState(id, "PENDING")
+    /** Stop a source's backfill: clear its queued URLs and reset its state. */
+    suspend fun cancelBackfill(id: String) {
+        crawlFrontierDao.clearForSource(id)
+        sourceDao.setBackfillState(id, "NONE")
+    }
 
     /** Change where a feed pulls from. Normalises http→https-friendly input and resets sync state. */
     suspend fun setFeedUrl(id: String, feedUrl: String) {

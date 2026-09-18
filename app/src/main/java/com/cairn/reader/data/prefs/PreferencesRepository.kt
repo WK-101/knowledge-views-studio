@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -223,6 +224,17 @@ data class AppPreferences(
     /** Device-local one-time flag: the full-text FTS re-index (Content Engine P2) has completed. Not
      *  backed up — it's a per-install data migration marker, not a user preference. */
     val ftsFullReindexed: Boolean = false,
+    // -- Deep-archive crawler politeness (Content Engine P3) --
+    /** Honour robots.txt (Disallow + Crawl-delay) when backfilling a site's archive. Default: on. */
+    val crawlRespectRobots: Boolean = true,
+    /** Only run archive backfill on un-metered (Wi-Fi) networks. Default: on. */
+    val crawlWifiOnly: Boolean = true,
+    /** Only run archive backfill while charging. Default: on. */
+    val crawlChargingOnly: Boolean = true,
+    /** How many archive articles to fetch per background run (keeps each pass bounded and polite). */
+    val crawlMaxPerRun: Int = 40,
+    /** Floor for the delay between requests to the same host, in ms (raised by robots Crawl-delay). */
+    val crawlDelayMs: Long = 1500,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -316,6 +328,11 @@ class PreferencesRepository @Inject constructor(
         val DEFAULT_FEED_NOTIFY = booleanPreferencesKey("default_feed_notify")
         val DEFAULT_ACQUISITION = stringPreferencesKey("default_acquisition_mode")
         val FTS_FULL_REINDEXED = booleanPreferencesKey("fts_full_reindexed")
+        val CRAWL_RESPECT_ROBOTS = booleanPreferencesKey("crawl_respect_robots")
+        val CRAWL_WIFI_ONLY = booleanPreferencesKey("crawl_wifi_only")
+        val CRAWL_CHARGING_ONLY = booleanPreferencesKey("crawl_charging_only")
+        val CRAWL_MAX_PER_RUN = intPreferencesKey("crawl_max_per_run")
+        val CRAWL_DELAY_MS = longPreferencesKey("crawl_delay_ms")
     }
 
     /** Per-scope view entries are stored as "scopeKey<sep>MODE" in a string set. */
@@ -411,6 +428,11 @@ class PreferencesRepository @Inject constructor(
             defaultFeedNotify = p[Keys.DEFAULT_FEED_NOTIFY] ?: false,
             defaultAcquisitionMode = p[Keys.DEFAULT_ACQUISITION] ?: "FEED",
             ftsFullReindexed = p[Keys.FTS_FULL_REINDEXED] ?: false,
+            crawlRespectRobots = p[Keys.CRAWL_RESPECT_ROBOTS] ?: true,
+            crawlWifiOnly = p[Keys.CRAWL_WIFI_ONLY] ?: true,
+            crawlChargingOnly = p[Keys.CRAWL_CHARGING_ONLY] ?: true,
+            crawlMaxPerRun = p[Keys.CRAWL_MAX_PER_RUN] ?: 40,
+            crawlDelayMs = p[Keys.CRAWL_DELAY_MS] ?: 1500L,
         )
     }
 
@@ -622,6 +644,9 @@ class PreferencesRepository @Inject constructor(
     suspend fun setDefaultFeedNotify(on: Boolean) = context.dataStore.edit { it[Keys.DEFAULT_FEED_NOTIFY] = on }
     suspend fun setDefaultAcquisitionMode(mode: String) = context.dataStore.edit { it[Keys.DEFAULT_ACQUISITION] = mode }
     suspend fun setFtsFullReindexed(done: Boolean) = context.dataStore.edit { it[Keys.FTS_FULL_REINDEXED] = done }
+    suspend fun setCrawlRespectRobots(on: Boolean) = context.dataStore.edit { it[Keys.CRAWL_RESPECT_ROBOTS] = on }
+    suspend fun setCrawlWifiOnly(on: Boolean) = context.dataStore.edit { it[Keys.CRAWL_WIFI_ONLY] = on }
+    suspend fun setCrawlChargingOnly(on: Boolean) = context.dataStore.edit { it[Keys.CRAWL_CHARGING_ONLY] = on }
 
     // -- Settings backup -------------------------------------------------------
     //

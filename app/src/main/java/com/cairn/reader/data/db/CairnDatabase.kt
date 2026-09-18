@@ -23,8 +23,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SyncOpEntity::class,
         RuleEntity::class,
         TranscriptEntity::class,
+        CrawlFrontierEntity::class,
     ],
-    version = 21,
+    version = 22,
     exportSchema = true,
     autoMigrations = [
         // v14 → v15: drop the legacy items.collectionId column. The item_collections join table is
@@ -47,6 +48,7 @@ abstract class CairnDatabase : RoomDatabase() {
     abstract fun ruleDao(): RuleDao
     abstract fun insightsDao(): InsightsDao
     abstract fun transcriptDao(): TranscriptDao
+    abstract fun crawlFrontierDao(): CrawlFrontierDao
 }
 
 /** v1 → v2: the Raindrop-style library. Adds nullable columns only, so existing
@@ -269,5 +271,28 @@ val MIGRATION_20_21 = object : Migration(20, 21) {
         db.execSQL("ALTER TABLE sources ADD COLUMN backfillCursor TEXT")
         db.execSQL("ALTER TABLE sources ADD COLUMN backfillDiscovered INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE sources ADD COLUMN backfillDone INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** v22 (Content Engine P3): the resumable deep-archive crawl frontier. A new table only — no existing
+ *  row changes — so it's a pure add. */
+val MIGRATION_21_22 = object : Migration(21, 22) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS crawl_frontier (
+                sourceId TEXT NOT NULL,
+                url TEXT NOT NULL,
+                discoveredVia TEXT NOT NULL,
+                lastmod INTEGER,
+                state TEXT NOT NULL DEFAULT 'PENDING',
+                attempts INTEGER NOT NULL DEFAULT 0,
+                addedAt INTEGER NOT NULL,
+                PRIMARY KEY(sourceId, url)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_crawl_frontier_sourceId ON crawl_frontier(sourceId)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_crawl_frontier_state ON crawl_frontier(state)")
     }
 }

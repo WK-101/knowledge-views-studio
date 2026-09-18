@@ -169,6 +169,28 @@ internal fun FeedDefaultsSection(prefs: AppPreferences, viewModel: SettingsViewM
             checked = prefs.defaultFeedNotify,
             onCheckedChange = { viewModel.setDefaultFeedNotify(it) },
         )
+        SettingDivider()
+        SettingCaption("Archiving — how whole-site backfills behave (Content depth → Full archive on any feed).")
+        SettingSwitchRow(
+            title = stringResource(R.string.crawl_respect_robots),
+            subtitle = stringResource(R.string.crawl_respect_robots_sub),
+            checked = prefs.crawlRespectRobots,
+            onCheckedChange = { viewModel.setCrawlRespectRobots(it) },
+        )
+        SettingDivider()
+        SettingSwitchRow(
+            title = stringResource(R.string.crawl_wifi_only),
+            subtitle = stringResource(R.string.crawl_wifi_only_sub),
+            checked = prefs.crawlWifiOnly,
+            onCheckedChange = { viewModel.setCrawlWifiOnly(it) },
+        )
+        SettingDivider()
+        SettingSwitchRow(
+            title = stringResource(R.string.crawl_charging_only),
+            subtitle = stringResource(R.string.crawl_charging_only_sub),
+            checked = prefs.crawlChargingOnly,
+            onCheckedChange = { viewModel.setCrawlChargingOnly(it) },
+        )
     }
 }
 

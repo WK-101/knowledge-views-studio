@@ -62,6 +62,9 @@ fun FeedSettingsSheet(
     onMaxItems: (Int?) -> Unit = {},
     onVerify: (() -> Unit)? = null,
     onAcquisition: (String) -> Unit = {},
+    onDepth: (String) -> Unit = {},
+    onBackfill: () -> Unit = {},
+    onCancelBackfill: () -> Unit = {},
 ) {
     var title by remember(source.id) { mutableStateOf(source.title) }
     var folder by remember(source.id) { mutableStateOf(source.folder.orEmpty()) }
@@ -74,6 +77,7 @@ fun FeedSettingsSheet(
     var openIn by remember(source.id) { mutableStateOf(source.openIn) }
     var maxItems by remember(source.id) { mutableStateOf(source.maxItems) }
     var acquisition by remember(source.id) { mutableStateOf(source.acquisitionMode) }
+    var depth by remember(source.id) { mutableStateOf(source.depthMode) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         com.cairn.reader.ui.KeepImmersiveWhileOpen()
@@ -141,6 +145,53 @@ fun FeedSettingsSheet(
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
             )
+            Spacer(Modifier.height(16.dp))
+
+            // ---- Depth: recent window vs the whole published archive --------------------------
+            Text(stringResource(R.string.content_depth), style = MaterialTheme.typography.labelLarge)
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(depth == "LIVE", { depth = "LIVE"; onDepth("LIVE") }, label = { Text(stringResource(R.string.depth_recent)) })
+                FilterChip(depth == "ARCHIVE", { depth = "ARCHIVE"; onDepth("ARCHIVE") }, label = { Text(stringResource(R.string.depth_full_archive)) })
+                FilterChip(depth == "BOTH", { depth = "BOTH"; onDepth("BOTH") }, label = { Text(stringResource(R.string.depth_both)) })
+            }
+            Spacer(Modifier.height(8.dp))
+            // Backfill action + progress. Reflects the state captured when this sheet was opened.
+            when (source.backfillState) {
+                "RUNNING", "PENDING" -> {
+                    val discovered = source.backfillDiscovered
+                    val done = source.backfillDone
+                    if (source.backfillState == "RUNNING" && discovered > 0) {
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { (done.toFloat() / discovered).coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(6.dp))
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (source.backfillState == "PENDING") stringResource(R.string.backfill_queued)
+                            else stringResource(R.string.backfill_running, done, discovered),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = onCancelBackfill) { Text(stringResource(R.string.cancel)) }
+                    }
+                }
+                else -> {
+                    androidx.compose.material3.OutlinedButton(onClick = onBackfill) {
+                        Text(
+                            if (source.backfillState == "DONE") stringResource(R.string.rebuild_full_archive)
+                            else stringResource(R.string.download_full_archive),
+                        )
+                    }
+                    Text(
+                        stringResource(R.string.backfill_hint),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
             Spacer(Modifier.height(16.dp))
 
             Text(stringResource(R.string.folder), style = MaterialTheme.typography.labelLarge)

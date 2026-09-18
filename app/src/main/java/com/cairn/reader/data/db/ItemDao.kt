@@ -505,6 +505,11 @@ interface ItemDao {
     @Query("SELECT id FROM items WHERE trashedAt IS NULL AND blobPath IS NOT NULL AND blobPath != ''")
     suspend fun idsWithBody(): List<String>
 
+    /** Cross-channel dedupe (Content Engine P3): is any item already stored under this dedupe key
+     *  (canonical URL, lowercased)? Lets the archive crawler skip an article the feed already brought. */
+    @Query("SELECT EXISTS(SELECT 1 FROM items WHERE dedupeKey = :key)")
+    suspend fun existsByDedupeKey(key: String): Boolean
+
     @Query(
         ITEM_LIST_COLUMNS + """
         FROM item_fts

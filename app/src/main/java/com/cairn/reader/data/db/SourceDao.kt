@@ -81,6 +81,9 @@ interface SourceDao {
     @Query("UPDATE sources SET backfillState = :state WHERE id = :id")
     suspend fun setBackfillState(id: String, state: String)
 
+    @Query("SELECT * FROM sources WHERE backfillState = :state")
+    suspend fun sourcesByBackfillState(state: String): List<SourceEntity>
+
     @Query("UPDATE sources SET contentHash = :hash, lastSyncedAt = :syncedAt, consecutiveErrors = 0 WHERE id = :id")
     suspend fun setContentHash(id: String, hash: String, syncedAt: Long)
 

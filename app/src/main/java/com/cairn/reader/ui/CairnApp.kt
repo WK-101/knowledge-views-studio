@@ -554,6 +554,7 @@ fun CairnApp(
 
     manageFeed?.let { source ->
         val manageFolders by inboxViewModel.folders.collectAsStateWithLifecycle()
+        val archiveCtx = androidx.compose.ui.platform.LocalContext.current
         com.cairn.reader.ui.components.FeedSettingsSheet(
             source = source,
             folders = manageFolders,
@@ -561,6 +562,9 @@ fun CairnApp(
             onFolder = { inboxViewModel.setFeedFolder(source.id, it) },
             onFullText = { inboxViewModel.setFeedFullText(source.id, it) },
             onAcquisition = { inboxViewModel.setFeedAcquisition(source.id, it) },
+            onDepth = { inboxViewModel.setFeedDepth(source.id, it) },
+            onBackfill = { inboxViewModel.requestFeedBackfill(source.id); com.cairn.reader.work.CairnWork.startArchive(archiveCtx) },
+            onCancelBackfill = { inboxViewModel.cancelFeedBackfill(source.id) },
             onNotify = { inboxViewModel.setFeedNotify(source.id, it) },
             onMuted = { inboxViewModel.setFeedMuted(source.id, it) },
             onSetPaused = { inboxViewModel.setFeedPaused(source.id, it) },

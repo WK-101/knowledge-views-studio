@@ -413,12 +413,16 @@ private fun SettingsDetail(
     }
 
     feedSettings?.let { source ->
+        val archiveCtx = androidx.compose.ui.platform.LocalContext.current
         FeedSettingsSheet(
             source = source,
             folders = folders,
             onFolder = { viewModel.setFolder(source.id, it) },
             onFullText = { viewModel.setFullText(source.id, it) },
             onAcquisition = { viewModel.setAcquisition(source.id, it) },
+            onDepth = { viewModel.setDepth(source.id, it) },
+            onBackfill = { viewModel.requestBackfill(source.id); com.cairn.reader.work.CairnWork.startArchive(archiveCtx) },
+            onCancelBackfill = { viewModel.cancelBackfill(source.id) },
             onNotify = { viewModel.setNotify(source.id, it) },
             onMuted = { viewModel.setMuted(source.id, it) },
             onSetPaused = { viewModel.setSyncPaused(source.id, it) },

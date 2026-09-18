@@ -173,6 +173,30 @@ class MaintenanceWorker @AssistedInject constructor(
             .fold(onSuccess = { Result.success() }, onFailure = { Result.retry() })
 }
 
+/** Drains the deep-archive crawl frontier in one polite, bounded batch (Content Engine P3), then
+ *  reschedules itself if work remains — so a big site backfills across many Wi-Fi/charging windows. */
+@HiltWorker
+class ArchiveWorker @AssistedInject constructor(
+    @Assisted private val context: Context,
+    @Assisted params: WorkerParameters,
+    private val archiveRepository: com.cairn.reader.data.repo.ArchiveRepository,
+    private val preferencesRepository: com.cairn.reader.data.prefs.PreferencesRepository,
+) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        val prefs = coRunCatching { preferencesRepository.preferences.first() }.getOrNull()
+        coRunCatching { archiveRepository.enumeratePending() }   // turn newly-requested backfills into a queue
+        coRunCatching { archiveRepository.drain(prefs?.crawlMaxPerRun ?: 40) }
+        if (coRunCatching { archiveRepository.hasWork() }.getOrDefault(false)) {
+            CairnWork.startArchive(
+                context,
+                wifiOnly = prefs?.crawlWifiOnly ?: true,
+                chargingOnly = prefs?.crawlChargingOnly ?: true,
+            )
+        }
+        return Result.success()
+    }
+}
+
 /** Entry points for scheduling background work. */
 object CairnWork {
     private const val UNIQUE_PERIODIC = "cairn-periodic-sync"
@@ -180,6 +204,18 @@ object CairnWork {
     private const val UNIQUE_BACKUP = "cairn-periodic-backup"
     private const val UNIQUE_BRIEF = "cairn-daily-brief"
     private const val UNIQUE_MAINTENANCE = "cairn-periodic-maintenance"
+    private const val UNIQUE_ARCHIVE = "cairn-archive-crawl"
+
+    /** Kick off (or continue) the deep-archive backfill. Gated on Wi-Fi/charging per the crawl policy;
+     *  the worker reschedules itself while work remains. REPLACE keeps a single chain running. */
+    fun startArchive(context: Context, wifiOnly: Boolean = true, chargingOnly: Boolean = true) {
+        val request = OneTimeWorkRequestBuilder<ArchiveWorker>()
+            .setConstraints(constraints(wifiOnly, chargingOnly))
+            .setInitialDelay(20, TimeUnit.SECONDS)
+            .setBackoffCriteria(androidx.work.BackoffPolicy.EXPONENTIAL, 60, TimeUnit.SECONDS)
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(UNIQUE_ARCHIVE, ExistingWorkPolicy.REPLACE, request)
+    }
 
     /** (Re)schedule the once-daily brief notification, or cancel it when [enabled] is false. */
     fun scheduleDailyBrief(context: Context, enabled: Boolean) {

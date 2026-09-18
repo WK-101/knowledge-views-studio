@@ -794,6 +794,45 @@ class FeedRepository @Inject constructor(
         return Result.success(itemId)
     }
 
+    /**
+     * Store one archive-crawled URL as an item under [source] (Content Engine P3). It's de-duplicated
+     * against everything already stored (so an article the live feed already brought is skipped), filed
+     * under the source, marked READ (a backfilled historic article isn't "new/unread"), then extracted
+     * so its full text lands in the offline search index. Returns true when a new item was created.
+     */
+    suspend fun saveArchivedUrl(source: SourceEntity, rawUrl: String, lastmod: Long?): Boolean {
+        val normalized = normalize(rawUrl) ?: return false
+        val url = if (stripTrackingEnabled()) com.cairn.reader.data.net.UrlCleaner.strip(normalized) else normalized
+        val canonical = com.cairn.reader.data.net.UrlCanonicalizer.canonicalize(url)
+        val dedupeKey = (canonical.takeIf { it.isNotBlank() } ?: url).lowercase()
+        if (itemDao.existsByDedupeKey(dedupeKey)) return false          // cross-channel dedupe
+        val itemId = deterministicId("archive|${source.id}|$url")
+        if (syncDao.isTombstoned(itemId)) return false
+        if (itemDao.getItem(itemId)?.trashedAt != null) return false
+        val now = System.currentTimeMillis()
+        itemDao.insertItemWithState(
+            ItemEntity(
+                id = itemId,
+                url = url,
+                canonicalUrl = canonical,
+                title = hostOf(url),
+                siteName = source.title,
+                sourceId = source.id,
+                publishedAt = lastmod,
+                savedAt = now,
+                effectiveDate = lastmod ?: now,
+                dedupeKey = dedupeKey,
+                type = detectType(url, hasBody = false),
+                extractStatus = ExtractStatus.PENDING.raw,
+                contentSource = ContentSource.READABLE.raw,
+            ),
+            now,
+        )
+        coRunCatching { itemDao.setRead(itemId, true, now) }
+        coRunCatching { extractInto(itemId, url) }
+        return true
+    }
+
     /** Save shared text (e.g. a forwarded newsletter) as a readable Read Later item. When the
      *  text carries a URL we prefer saving that; otherwise the text itself becomes the article. */
     suspend fun saveText(subject: String?, text: String): Result<String> {

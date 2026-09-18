@@ -187,6 +187,152 @@ class SiteFeedBuilder @Inject constructor(
         }
     }
 
+    // -- Deep-archive enumeration (Content Engine P3) -------------------------------------------
+
+    /** A discovered archive URL: where an article lives, its best-known date, and how it was found. */
+    data class ArchiveUrl(val url: String, val lastmod: Long?, val via: String)
+
+    /**
+     * Enumerate (as completely as politely possible) every article URL a site ever published, via a
+     * ladder of richest → most-universal sources: the WordPress REST API paginated to exhaustion, the
+     * FULL sitemap tree (not the recent-40 window [buildFromSitemap] takes), and finally the Wayback
+     * Machine's CDX index (which lists every URL archive.org has ever seen for the host — the fallback
+     * for sites with no sitemap/CMS API, and a net that even recovers deleted articles). Results are
+     * merged, filtered to real articles, de-duplicated, and capped at [maxUrls].
+     */
+    suspend fun enumerateArchive(siteUrl: String, maxUrls: Int = 20_000): List<ArchiveUrl> {
+        val http = siteUrl.toHttpUrlOrNull() ?: return emptyList()
+        val origin = "${http.scheme}://${http.host}"
+        val host = http.host.removePrefix("www.")
+
+        val raw = ArrayList<Triple<String, Long?, String>>()
+        coRunCatching { enumerateWordPress(origin, maxUrls) }.getOrDefault(emptyList())
+            .forEach { raw += Triple(it.first, it.second, "wordpress") }
+        if (raw.size < maxUrls) coRunCatching { enumerateSitemaps(siteUrl, origin, maxUrls) }.getOrDefault(emptyList())
+            .forEach { raw += Triple(it.first, it.second, "sitemap") }
+        if (raw.size < maxUrls) coRunCatching { enumerateWayback(host, maxUrls) }.getOrDefault(emptyList())
+            .forEach { raw += Triple(it.first, it.second, "wayback") }
+
+        val out = LinkedHashMap<String, ArchiveUrl>()
+        for ((url, mod, via) in raw) {
+            if (out.size >= maxUrls) break
+            val u = url.substringBefore('#').trim()
+            if (!u.startsWith("http")) continue
+            val h = u.toHttpUrlOrNull() ?: continue
+            if (h.host.removePrefix("www.") != host) continue        // same site only
+            if (!looksLikeArticle(u)) continue
+            val key = u.trimEnd('/')
+            val existing = out[key]
+            if (existing == null) out[key] = ArchiveUrl(u, mod, via)
+            else if (existing.lastmod == null && mod != null) out[key] = existing.copy(lastmod = mod)
+        }
+        return out.values.toList()
+    }
+
+    /** Page the WordPress REST API to exhaustion, collecting (link, date) for every post. */
+    private suspend fun enumerateWordPress(origin: String, max: Int): List<Pair<String, Long?>> {
+        val out = ArrayList<Pair<String, Long?>>()
+        var page = 1
+        while (page <= WP_MAX_PAGES && out.size < max) {
+            val url = "$origin/wp-json/wp/v2/posts?per_page=100&page=$page&_fields=link,date_gmt,modified_gmt"
+            val body = coRunCatching { fetcher.fetch(url).body }.getOrNull() ?: break
+            val arr = coRunCatching { JSONArray(body) }.getOrNull() ?: break   // 400 error object at end → stop
+            if (arr.length() == 0) break
+            for (i in 0 until arr.length()) {
+                val p = arr.optJSONObject(i) ?: continue
+                val link = p.optString("link").ifBlank { null } ?: continue
+                out += link to parseDate(p.optString("date_gmt").ifBlank { p.optString("modified_gmt") })
+            }
+            if (arr.length() < 100) break
+            page++
+        }
+        return out
+    }
+
+    /** Walk the whole sitemap tree (robots.txt + common locations), collecting every <loc>+<lastmod>. */
+    private suspend fun enumerateSitemaps(input: String, origin: String, max: Int): List<Pair<String, Long?>> {
+        val candidates = LinkedHashSet<String>()
+        if (input.contains("sitemap", ignoreCase = true) && input.endsWith(".xml")) candidates += input
+        coRunCatching {
+            fetcher.fetch("$origin/robots.txt").body?.lineSequence()?.forEach { line ->
+                val l = line.trim()
+                if (l.startsWith("Sitemap:", ignoreCase = true)) {
+                    val rest = l.substringAfter(':', "").trim()
+                    val url = if (rest.startsWith("//")) "https:$rest" else l.removePrefix("Sitemap:").removePrefix("sitemap:").trim()
+                    if (url.startsWith("http")) candidates += url
+                }
+            }
+        }
+        candidates += listOf(
+            "$origin/sitemap.xml", "$origin/sitemap_index.xml", "$origin/sitemap-index.xml",
+            "$origin/news-sitemap.xml", "$origin/sitemap-news.xml", "$origin/sitemap/sitemap.xml",
+            "$origin/wp-sitemap.xml",
+        )
+        val out = ArrayList<Pair<String, Long?>>()
+        val fetches = intArrayOf(0)
+        for (sm in candidates) {
+            if (out.size >= max || fetches[0] >= SITEMAP_MAX_FETCHES) break
+            val body = coRunCatching { fetcher.fetch(sm).body }.getOrNull() ?: continue
+            fetches[0]++
+            harvestAll(body, origin, out, depth = 0, max = max, fetches = fetches)
+        }
+        return out
+    }
+
+    /** Recurse a sitemap index into all child sitemaps (bounded), collecting URLs + dates. */
+    private suspend fun harvestAll(
+        xml: String, origin: String, out: MutableList<Pair<String, Long?>>, depth: Int, max: Int, fetches: IntArray,
+    ) {
+        if (out.size >= max) return
+        val doc = coRunCatching { Jsoup.parse(xml, origin, Parser.xmlParser()) }.getOrNull() ?: return
+        val sitemaps = doc.select("sitemapindex > sitemap > loc")
+        if (sitemaps.isNotEmpty() && depth < 4) {
+            val children = sitemaps.map { it.text().trim() }.filter { it.startsWith("http") }
+                .sortedByDescending { u -> if (Regex("(post|news|article|sitemap-pt-post)").containsMatchIn(u.lowercase())) 1 else 0 }
+            for (child in children) {
+                if (out.size >= max || fetches[0] >= SITEMAP_MAX_FETCHES) break
+                val body = coRunCatching { fetcher.fetch(child).body }.getOrNull() ?: continue
+                fetches[0]++
+                harvestAll(body, origin, out, depth + 1, max, fetches)
+            }
+            return
+        }
+        for (url in doc.select("urlset > url")) {
+            if (out.size >= max) break
+            val loc = url.selectFirst("loc")?.text()?.trim() ?: continue
+            val mod = url.selectFirst("lastmod")?.text()?.trim()
+                ?: url.selectFirst("news|publication_date")?.text()?.trim()
+                ?: url.selectFirst("publication_date")?.text()?.trim()
+            out += loc to (mod?.let { parseDate(it) })
+        }
+    }
+
+    /** The Wayback Machine CDX index for the whole host — every URL archive.org has captured. */
+    private suspend fun enumerateWayback(host: String, max: Int): List<Pair<String, Long?>> {
+        val limit = max.coerceAtMost(WAYBACK_LIMIT)
+        val url = "https://web.archive.org/cdx/search/cdx?url=${host}/*&output=json&fl=original,timestamp" +
+            "&collapse=urlkey&filter=statuscode:200&limit=$limit"
+        val body = coRunCatching { fetcher.fetch(url, maxBytes = 16L * 1024 * 1024).body }.getOrNull() ?: return emptyList()
+        val arr = coRunCatching { JSONArray(body) }.getOrNull() ?: return emptyList()
+        val out = ArrayList<Pair<String, Long?>>()
+        // Row 0 is the header ["original","timestamp"]; data rows follow.
+        for (i in 1 until arr.length()) {
+            val row = arr.optJSONArray(i) ?: continue
+            val original = row.optString(0).ifBlank { null } ?: continue
+            out += original to parseWaybackTs(row.optString(1))
+        }
+        return out
+    }
+
+    /** Wayback CDX timestamps are yyyyMMddHHmmss (UTC). */
+    private fun parseWaybackTs(ts: String): Long? {
+        if (ts.length < 8) return null
+        return coRunCatching {
+            SimpleDateFormat("yyyyMMddHHmmss", Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+                .parse(ts.take(14).padEnd(14, '0'))?.time
+        }.getOrNull()
+    }
+
     private fun stripHtml(html: String): String =
         if (html.isBlank()) "" else coRunCatching { Jsoup.parse(html).text().trim() }.getOrDefault(html.trim())
 
@@ -301,5 +447,14 @@ class SiteFeedBuilder @Inject constructor(
             coRunCatching { return SimpleDateFormat(p, Locale.US).parse(s)?.time }.getOrNull()
         }
         return null
+    }
+
+    private companion object {
+        /** WordPress caps offset paging near 10k posts by default; 100 pages × 100 is a safe ceiling. */
+        const val WP_MAX_PAGES = 100
+        /** Bound how many sitemap documents we open, so a pathological index can't spin forever. */
+        const val SITEMAP_MAX_FETCHES = 300
+        /** Upper bound on Wayback CDX rows requested for one host. */
+        const val WAYBACK_LIMIT = 10_000
     }
 }

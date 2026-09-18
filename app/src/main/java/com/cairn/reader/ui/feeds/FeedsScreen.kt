@@ -107,6 +107,7 @@ fun FeedsScreen(
     val selection by viewModel.selection.collectAsStateWithLifecycle()
     val scheme = MaterialTheme.colorScheme
     val snackbar = remember { SnackbarHostState() }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     var editing by remember { mutableStateOf<SourceEntity?>(null) }
     var showAdd by remember { mutableStateOf(false) }
@@ -301,6 +302,9 @@ fun FeedsScreen(
             onFolder = { viewModel.setFolder(source.id, it) },
             onFullText = { viewModel.setFullText(source.id, it) },
             onAcquisition = { viewModel.setAcquisition(source.id, it) },
+            onDepth = { viewModel.setDepth(source.id, it) },
+            onBackfill = { viewModel.requestBackfill(source.id); com.cairn.reader.work.CairnWork.startArchive(context) },
+            onCancelBackfill = { viewModel.cancelBackfill(source.id) },
             onNotify = { viewModel.setNotify(source.id, it) },
             onMuted = { viewModel.setMuted(source.id, it) },
             onSetPaused = { viewModel.setSyncPaused(source.id, it) },
