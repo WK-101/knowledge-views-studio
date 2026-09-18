@@ -7,7 +7,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,21 +17,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.BookmarkAdd
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,7 +41,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
@@ -58,10 +48,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.res.stringResource
 import com.cairn.reader.R
 import com.cairn.reader.domain.transcript.TranscriptProse
@@ -219,52 +206,6 @@ internal fun HighlightableProse(
                 )
             },
     )
-}
-
-@Composable
-internal fun TranscriptSelectionPill(
-    yInWindow: Float,
-    onHighlight: (Int) -> Unit,
-    onKeep: () -> Unit,
-    onCopy: () -> Unit,
-    onShare: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val density = LocalDensity.current
-    val above = with(density) { 56.dp.toPx() }
-    val minY = with(density) { 96.dp.toPx() }
-    val rawAbove = yInWindow - above
-    val y = if (rawAbove < minY) yInWindow + with(density) { 40.dp.toPx() } else rawAbove
-    val yPx = y.toInt().coerceAtLeast(with(density) { 8.dp.toPx() }.toInt())
-
-    Popup(alignment = Alignment.TopCenter, offset = IntOffset(0, yPx), onDismissRequest = onDismiss, properties = PopupProperties(focusable = false)) {
-        Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerHighest, tonalElevation = 3.dp, shadowElevation = 8.dp) {
-            Row(
-                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                HighlightColors.all.forEach { c ->
-                    Box(
-                        Modifier.size(26.dp).clip(CircleShape).background(Color(c))
-                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                            .clickable { onHighlight(c) },
-                    )
-                }
-                Box(Modifier.padding(horizontal = 2.dp).size(width = 1.dp, height = 24.dp).background(MaterialTheme.colorScheme.outlineVariant))
-                PillAction(Icons.Outlined.BookmarkAdd, stringResource(R.string.transcript_keep_passage), onKeep)
-                PillAction(Icons.Outlined.ContentCopy, stringResource(R.string.transcript_copy), onCopy)
-                PillAction(Icons.Outlined.IosShare, stringResource(R.string.transcript_share), onShare)
-            }
-        }
-    }
-}
-
-@Composable
-private fun PillAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    Box(Modifier.clip(CircleShape).clickable(onClick = onClick).padding(8.dp)) {
-        Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp))
-    }
 }
 
 @Composable

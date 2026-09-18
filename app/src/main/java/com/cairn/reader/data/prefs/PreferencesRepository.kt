@@ -83,8 +83,8 @@ data class AppPreferences(
     val readerShowImages: Boolean = true,
     /** Auto-hide the reader's bars while scrolling down, reveal on scroll up. */
     val readerImmersive: Boolean = true,
-    /** Full-screen reading: also hide the system status/navigation bars. */
-    val readerFullScreen: Boolean = false,
+    /** App-wide full screen: hide the Android status/navigation bars across the whole app. */
+    val appFullScreen: Boolean = false,
     val blockedKeywords: Set<String> = emptySet(),
     val hideDuplicates: Boolean = false,
     val savedSearches: Set<String> = emptySet(),
@@ -238,7 +238,9 @@ class PreferencesRepository @Inject constructor(
         val READER_JUSTIFY = booleanPreferencesKey("reader_justify")
         val READER_IMAGES = booleanPreferencesKey("reader_show_images")
         val READER_IMMERSIVE = booleanPreferencesKey("reader_immersive")
-        val READER_FULLSCREEN = booleanPreferencesKey("reader_fullscreen")
+        // Kept the legacy datastore key name so users who had full-screen on keep it after the
+        // rename from reader-only to app-wide full screen.
+        val APP_FULLSCREEN = booleanPreferencesKey("reader_fullscreen")
         val BLOCKED = stringSetPreferencesKey("blocked_keywords")
         val HIDE_DUP = booleanPreferencesKey("hide_duplicates")
         val SAVED_SEARCHES = stringSetPreferencesKey("saved_searches")
@@ -324,7 +326,7 @@ class PreferencesRepository @Inject constructor(
             readerJustify = p[Keys.READER_JUSTIFY] ?: false,
             readerShowImages = p[Keys.READER_IMAGES] ?: true,
             readerImmersive = p[Keys.READER_IMMERSIVE] ?: true,
-            readerFullScreen = p[Keys.READER_FULLSCREEN] ?: false,
+            appFullScreen = p[Keys.APP_FULLSCREEN] ?: false,
             blockedKeywords = p[Keys.BLOCKED] ?: emptySet(),
             hideDuplicates = p[Keys.HIDE_DUP] ?: false,
             savedSearches = p[Keys.SAVED_SEARCHES] ?: emptySet(),
@@ -420,7 +422,7 @@ class PreferencesRepository @Inject constructor(
     suspend fun setReaderJustify(justify: Boolean) = context.dataStore.edit { it[Keys.READER_JUSTIFY] = justify }
     suspend fun setReaderShowImages(show: Boolean) = context.dataStore.edit { it[Keys.READER_IMAGES] = show }
     suspend fun setReaderImmersive(on: Boolean) = context.dataStore.edit { it[Keys.READER_IMMERSIVE] = on }
-    suspend fun setReaderFullScreen(on: Boolean) = context.dataStore.edit { it[Keys.READER_FULLSCREEN] = on }
+    suspend fun setAppFullScreen(on: Boolean) = context.dataStore.edit { it[Keys.APP_FULLSCREEN] = on }
 
     suspend fun setHideDuplicates(enabled: Boolean) = context.dataStore.edit { it[Keys.HIDE_DUP] = enabled }
 
@@ -629,7 +631,7 @@ class PreferencesRepository @Inject constructor(
             put("readerJustify", p.readerJustify)
             put("readerShowImages", p.readerShowImages)
             put("readerImmersive", p.readerImmersive)
-            put("readerFullScreen", p.readerFullScreen)
+            put("appFullScreen", p.appFullScreen)
             put("blockedKeywords", JSONArray(p.blockedKeywords.toList()))
             put("hideDuplicates", p.hideDuplicates)
             put("savedSearches", JSONArray(p.savedSearches.toList()))
@@ -707,7 +709,8 @@ class PreferencesRepository @Inject constructor(
             if (json.has("readerJustify")) e[Keys.READER_JUSTIFY] = json.getBoolean("readerJustify")
             if (json.has("readerShowImages")) e[Keys.READER_IMAGES] = json.getBoolean("readerShowImages")
             if (json.has("readerImmersive")) e[Keys.READER_IMMERSIVE] = json.getBoolean("readerImmersive")
-            if (json.has("readerFullScreen")) e[Keys.READER_FULLSCREEN] = json.getBoolean("readerFullScreen")
+            if (json.has("appFullScreen")) e[Keys.APP_FULLSCREEN] = json.getBoolean("appFullScreen")
+            else if (json.has("readerFullScreen")) e[Keys.APP_FULLSCREEN] = json.getBoolean("readerFullScreen")
             json.optJSONArray("blockedKeywords")?.let { arr -> e[Keys.BLOCKED] = (0 until arr.length()).map { arr.getString(it) }.toSet() }
             if (json.has("hideDuplicates")) e[Keys.HIDE_DUP] = json.getBoolean("hideDuplicates")
             json.optJSONArray("savedSearches")?.let { arr -> e[Keys.SAVED_SEARCHES] = (0 until arr.length()).map { arr.getString(it) }.toSet() }

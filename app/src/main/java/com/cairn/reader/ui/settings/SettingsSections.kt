@@ -315,7 +315,7 @@ internal fun GesturesSection(prefs: AppPreferences, viewModel: SettingsViewModel
         SettingDivider()
         SettingSwitchRow(stringResource(R.string.immersive_scroll), stringResource(R.string.hide_the_bars_as_you_read), prefs.readerImmersive, viewModel::setReaderImmersive)
         SettingDivider()
-        SettingSwitchRow(stringResource(R.string.full_screen), stringResource(R.string.use_the_entire_display_for_text), prefs.readerFullScreen, viewModel::setReaderFullScreen)
+        SettingSwitchRow(stringResource(R.string.full_screen), stringResource(R.string.use_the_entire_display_for_text), prefs.appFullScreen, viewModel::setAppFullScreen)
         SettingDivider()
         SettingSwitchRow(stringResource(R.string.tap_edges_to_turn_pages), stringResource(R.string.in_the_reader_tap_the_left), prefs.tapZonePaging, viewModel::setTapZonePaging)
         SettingDivider()

@@ -372,7 +372,7 @@
     <string name="unread">Unread</string>
     <string name="unsubscribe">Unsubscribe</string>
     <string name="update_link">Update link</string>
-    <string name="use_the_entire_display_for_text">Use the entire display for text</string>
+    <string name="use_the_entire_display_for_text">Hide the Android status and navigation bars across the whole app</string>
     <string name="use_wallpaper_colors_android_12">Use wallpaper colors (Android 12+)</string>
     <string name="username">Username</string>
     <string name="value">Value</string>
@@ -440,7 +440,7 @@
     <string name="bionic_reading_desc">Bold the start of each word to guide the eye</string>
     <string name="justify_text">Justify text</string>
     <string name="immersive_scroll_desc">Hide every bar as you read; scroll up to bring them back</string>
-    <string name="full_screen_desc">Use the entire display, hiding the Android bars too</string>
+    <string name="full_screen_desc">Hide the Android bars across the whole app</string>
 
     <!-- i18n sweep: section labels -->
     <string name="cleanup">CLEANUP</string>
@@ -501,9 +501,6 @@
     <string name="transcript_more">More</string>
     <string name="transcript_save_options">Save options</string>
     <string name="transcript_save_sheet_title">Keep this transcript</string>
-    <string name="transcript_keep_passage">Keep passage</string>
-    <string name="transcript_copy">Copy</string>
-    <string name="transcript_share">Share</string>
     <string name="transcript_manage_annotation">Annotation</string>
     <string name="transcript_note_hint">Note (optional)</string>
     <string name="transcript_remove_highlight">Remove</string>

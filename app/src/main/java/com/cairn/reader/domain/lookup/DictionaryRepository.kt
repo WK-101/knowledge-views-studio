@@ -25,13 +25,15 @@ data class DictionaryEntry(
 )
 
 /**
- * Looks a word up in the free, key-less Dictionary API (dictionaryapi.dev), which returns both
- * definitions and thesaurus data (synonyms / antonyms). Online-only — there is no bundled
- * dictionary — so it fails cleanly when offline, and only the single looked-up word is sent.
+ * Looks a word up online (no bundled dictionary, so it fails cleanly offline and only the single
+ * looked-up word is ever sent). Two key-less sources are tried in turn for reliability:
+ *   1. dictionaryapi.dev — rich (definitions + synonyms/antonyms), but a community service that is
+ *      frequently down or rate-limited;
+ *   2. Wiktionary's Wikimedia REST API — very reliable, definitions + examples (HTML, which we strip).
+ * Whichever answers first wins, so a lookup keeps working even when dictionaryapi.dev is unavailable.
  *
  * A small in-memory cache makes repeat look-ups instant, and a dedicated short-timeout HTTP client
- * (10s, no redirect/UA overhead) keeps a single lookup snappy instead of inheriting the 45s
- * article-fetch timeout — so a slow or missing word fails fast rather than hanging the sheet.
+ * keeps a single lookup snappy instead of inheriting the 45s article-fetch timeout.
  */
 @Singleton
 class DictionaryRepository @Inject constructor(
@@ -58,15 +60,51 @@ class DictionaryRepository @Inject constructor(
 
         synchronized(cache) { cache[word] }?.let { return@withContext Result.success(it) }
 
-        val url = "https://api.dictionaryapi.dev/api/v2/entries/en/" + URLEncoder.encode(word, "UTF-8")
-        val body = coRunCatching {
-            http.newCall(Request.Builder().url(url).header("Accept", "application/json").get().build())
-                .execute().use { r -> if (r.isSuccessful) r.body?.string() else null }
-        }.getOrNull()
-        if (body.isNullOrBlank()) return@withContext Result.failure(IOException("No definition found for “$word”"))
-
-        parse(body).onSuccess { entry -> synchronized(cache) { cache[word] = entry } }
+        // 1. dictionaryapi.dev (rich), then 2. Wiktionary (reliable fallback).
+        primaryDefine(word).recoverCatching { wiktionaryDefine(word).getOrThrow() }
+            .onSuccess { entry -> synchronized(cache) { cache[word] = entry } }
     }
+
+    private fun primaryDefine(word: String): Result<DictionaryEntry> {
+        val url = "https://api.dictionaryapi.dev/api/v2/entries/en/" + URLEncoder.encode(word, "UTF-8")
+        val body = get(url) ?: return Result.failure(IOException("No definition found for “$word”"))
+        return parse(body)
+    }
+
+    /** Wikimedia's Wiktionary REST definition endpoint — returns HTML-in-JSON, so tags are stripped. */
+    private fun wiktionaryDefine(word: String): Result<DictionaryEntry> {
+        val url = "https://en.wiktionary.org/api/rest_v1/page/definition/" + URLEncoder.encode(word, "UTF-8")
+        val body = get(url) ?: return Result.failure(IOException("No definition found for “$word”"))
+        val root = runCatching { org.json.JSONObject(body) }.getOrNull()
+            ?: return Result.failure(IOException("No definition found"))
+        val en = root.optJSONArray("en") ?: return Result.failure(IOException("No English definition for “$word”"))
+        val senses = ArrayList<WordSense>()
+        for (i in 0 until en.length()) {
+            val group = en.optJSONObject(i) ?: continue
+            val pos = group.optString("partOfSpeech")
+            val defs = group.optJSONArray("definitions") ?: continue
+            for (d in 0 until defs.length()) {
+                val def = defs.optJSONObject(d) ?: continue
+                val text = stripHtml(def.optString("definition")).takeIf { it.isNotBlank() } ?: continue
+                val example = def.optJSONArray("examples")?.optString(0)?.let { stripHtml(it) }?.takeIf { it.isNotBlank() }
+                if (senses.size < 12) senses += WordSense(pos, text, example)
+            }
+        }
+        if (senses.isEmpty()) return Result.failure(IOException("No definition found for “$word”"))
+        return Result.success(DictionaryEntry(word = word, phonetic = null, senses = senses, synonyms = emptyList(), antonyms = emptyList()))
+    }
+
+    private fun get(url: String): String? = coRunCatching {
+        http.newCall(Request.Builder().url(url).header("Accept", "application/json").get().build())
+            .execute().use { r -> if (r.isSuccessful) r.body?.string() else null }
+    }.getOrNull()?.takeIf { it.isNotBlank() }
+
+    /** Strip HTML tags + collapse entities/whitespace from a Wiktionary definition fragment. */
+    private fun stripHtml(s: String): String = s
+        .replace(Regex("<[^>]*>"), "")
+        .replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'")
+        .replace(Regex("\\s+"), " ")
+        .trim()
 
     private fun parse(body: String): Result<DictionaryEntry> {
         val arr = JSONArray(body)

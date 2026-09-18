@@ -428,7 +428,7 @@ class ReaderViewModel @Inject constructor(
     fun setReaderJustify(justify: Boolean) = viewModelScope.launch { preferencesRepository.setReaderJustify(justify) }
     fun setReaderShowImages(show: Boolean) = viewModelScope.launch { preferencesRepository.setReaderShowImages(show) }
     fun setReaderImmersive(on: Boolean) = viewModelScope.launch { preferencesRepository.setReaderImmersive(on) }
-    fun setReaderFullScreen(on: Boolean) = viewModelScope.launch { preferencesRepository.setReaderFullScreen(on) }
+    fun setAppFullScreen(on: Boolean) = viewModelScope.launch { preferencesRepository.setAppFullScreen(on) }
     fun setReaderLineHeight(v: Float) = viewModelScope.launch { preferencesRepository.setReaderLineHeight(v) }
     fun setReaderLetterSpacing(v: Float) = viewModelScope.launch { preferencesRepository.setReaderLetterSpacing(v) }
     fun setReaderParagraphSpacing(dp: Int) = viewModelScope.launch { preferencesRepository.setReaderParagraphSpacing(dp) }

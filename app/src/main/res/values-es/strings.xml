@@ -374,7 +374,7 @@
     <string name="unread">No leídos</string>
     <string name="unsubscribe">Cancelar suscripción</string>
     <string name="update_link">Actualizar enlace</string>
-    <string name="use_the_entire_display_for_text">Usar toda la pantalla para el texto</string>
+    <string name="use_the_entire_display_for_text">Ocultar las barras de estado y navegación de Android en toda la app</string>
     <string name="use_wallpaper_colors_android_12">Usar los colores del fondo de pantalla (Android 12+)</string>
     <string name="username">Usuario</string>
     <string name="value">Valor</string>
@@ -442,7 +442,7 @@
     <string name="bionic_reading_desc">Resalta el inicio de cada palabra para guiar la vista</string>
     <string name="justify_text">Justificar texto</string>
     <string name="immersive_scroll_desc">Oculta todas las barras mientras lees; desplázate hacia arriba para mostrarlas de nuevo</string>
-    <string name="full_screen_desc">Usa toda la pantalla, ocultando también las barras de Android</string>
+    <string name="full_screen_desc">Ocultar las barras de Android en toda la app</string>
 
     <!-- i18n sweep: section labels -->
     <string name="cleanup">LIMPIEZA</string>
@@ -503,9 +503,6 @@
     <string name="transcript_more">Más</string>
     <string name="transcript_save_options">Opciones de guardado</string>
     <string name="transcript_save_sheet_title">Guardar esta transcripción</string>
-    <string name="transcript_keep_passage">Guardar fragmento</string>
-    <string name="transcript_copy">Copiar</string>
-    <string name="transcript_share">Compartir</string>
     <string name="transcript_manage_annotation">Anotación</string>
     <string name="transcript_note_hint">Nota (opcional)</string>
     <string name="transcript_remove_highlight">Quitar</string>

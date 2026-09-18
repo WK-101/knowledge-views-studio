@@ -207,7 +207,6 @@ fun ReaderScreen(
     onBack: () -> Unit,
     onOpenWeb: (String) -> Unit = {},
     onOpenItem: (String) -> Unit = {},
-    onOpenTranscript: (String) -> Unit = {},
     viewModel: ReaderViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -260,7 +259,8 @@ fun ReaderScreen(
     // top or when scrolling up. A shared list state lets the screen watch scroll direction.
     val listState = rememberLazyListState()
     val immersive = prefs.readerImmersive
-    val fullScreen = prefs.readerFullScreen
+    // App-wide full screen (shared by the whole app; CairnRoot keeps it applied off-reader too).
+    val fullScreen = prefs.appFullScreen
     var barsVisible by remember { mutableStateOf(true) }
     LaunchedEffect(fullScreen) { barsVisible = !fullScreen }
     LaunchedEffect(listState, immersive, fullScreen) {
@@ -292,10 +292,14 @@ fun ReaderScreen(
         if (hideSystemBars) controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
         else controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
     }
-    DisposableEffect(window) {
+    // Leaving the reader restores the bars — UNLESS app-wide full screen is on, in which case the
+    // whole app stays full-screen and CairnRoot keeps the bars hidden.
+    DisposableEffect(window, fullScreen) {
         onDispose {
-            window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) }
-                ?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            if (!fullScreen) {
+                window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) }
+                    ?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            }
         }
     }
 
@@ -686,7 +690,7 @@ fun ReaderScreen(
             justify = prefs.readerJustify,
             showImages = prefs.readerShowImages,
             immersive = prefs.readerImmersive,
-            fullScreen = prefs.readerFullScreen,
+            fullScreen = prefs.appFullScreen,
             lineHeight = prefs.readerLineHeight,
             letterSpacing = prefs.readerLetterSpacing,
             paragraphSpacing = prefs.readerParagraphSpacing,
@@ -698,7 +702,7 @@ fun ReaderScreen(
             onJustify = viewModel::setReaderJustify,
             onShowImages = viewModel::setReaderShowImages,
             onImmersive = viewModel::setReaderImmersive,
-            onFullScreen = viewModel::setReaderFullScreen,
+            onFullScreen = viewModel::setAppFullScreen,
             onLineHeight = viewModel::setReaderLineHeight,
             onLetterSpacing = viewModel::setReaderLetterSpacing,
             onParagraphSpacing = viewModel::setReaderParagraphSpacing,
@@ -857,11 +861,13 @@ fun ReaderScreen(
 
     // Inline-transcript selection + annotation management + save options (hoisted to the root so the
     // pill/sheets float over the reader like the article's own selection pill).
+    // The transcript uses the *same* selection pill as the article body, for a uniform experience.
     transcriptPending?.let { sel ->
-        com.cairn.reader.ui.transcript.TranscriptSelectionPill(
+        SelectionPill(
             yInWindow = sel.y,
             onHighlight = { color -> viewModel.annotateTranscript(sel.globalStart, sel.globalEnd, sel.startMs, sel.endMs, sel.quote, color); transcriptPending = null },
-            onKeep = { viewModel.annotateTranscript(sel.globalStart, sel.globalEnd, sel.startMs, sel.endMs, sel.quote, com.cairn.reader.ui.transcript.SavedPassageColor); transcriptPending = null },
+            onSearch = { webLookup(sel.quote, define = false); transcriptPending = null },
+            onDefine = { lookup = sel.quote; transcriptPending = null },
             onCopy = { clipboard.setText(AnnotatedString(sel.quote.trim())); transcriptPending = null },
             onShare = { shareText(sel.quote.trim(), data?.title); transcriptPending = null },
             onDismiss = { transcriptPending = null },

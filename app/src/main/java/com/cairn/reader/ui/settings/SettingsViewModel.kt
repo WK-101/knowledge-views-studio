@@ -199,7 +199,7 @@ class SettingsViewModel @Inject constructor(
     fun setReaderFontScale(scale: Float) = viewModelScope.launch { preferencesRepository.setReaderFontScale(scale) }
     fun setReaderShowImages(show: Boolean) = viewModelScope.launch { preferencesRepository.setReaderShowImages(show) }
     fun setReaderImmersive(on: Boolean) = viewModelScope.launch { preferencesRepository.setReaderImmersive(on) }
-    fun setReaderFullScreen(on: Boolean) = viewModelScope.launch { preferencesRepository.setReaderFullScreen(on) }
+    fun setAppFullScreen(on: Boolean) = viewModelScope.launch { preferencesRepository.setAppFullScreen(on) }
 
     // -- Offline & storage policy ---------------------------------------------
 

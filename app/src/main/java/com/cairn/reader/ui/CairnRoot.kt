@@ -7,11 +7,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.cairn.reader.data.prefs.ThemeMode
@@ -22,7 +24,6 @@ import com.cairn.reader.ui.onboarding.OnboardingScreen
 import com.cairn.reader.ui.reader.ReaderScreen
 import com.cairn.reader.ui.search.SearchScreen
 import com.cairn.reader.ui.settings.OfflineScreen
-import com.cairn.reader.ui.transcript.TranscriptScreen
 import com.cairn.reader.ui.theme.CairnTheme
 import com.cairn.reader.ui.web.WebRoute
 import com.cairn.reader.ui.web.WebScreen
@@ -75,13 +76,26 @@ fun CairnRoot(
         }
         val navController = rememberNavController()
         val openWeb: (String) -> Unit = { url -> navController.navigate("web/${WebRoute.encode(url)}") }
-        val openTranscript: (String) -> Unit = { id -> navController.navigate("transcript/$id") }
         // A notification tap arrives as openItemId — open that article once.
         androidx.compose.runtime.LaunchedEffect(openItemId) {
             openItemId?.let {
                 navController.navigate("reader/$it")
                 onOpenConsumed()
             }
+        }
+
+        // App-wide full screen: when on, the Android status/navigation bars stay hidden across every
+        // screen (not just the reader). Re-asserted on each destination change so a sheet or a screen
+        // that briefly reclaimed the bars can't leave the app stuck out of full screen. A transient
+        // swipe still reveals the bars temporarily. The reader layers its own immersive-scroll on top.
+        val activity = LocalContext.current as? android.app.Activity
+        val currentEntry by navController.currentBackStackEntryAsState()
+        androidx.compose.runtime.LaunchedEffect(prefs.appFullScreen, currentEntry) {
+            val window = activity?.window ?: return@LaunchedEffect
+            val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+            controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            if (prefs.appFullScreen) controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            else controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
         }
         // One consistent motion for every screen transition: a detail slides in from the end and
         // back out to it, cross-fading so the whole app feels of a piece rather than stitched together.
@@ -109,7 +123,6 @@ fun CairnRoot(
                 ReaderScreen(
                     onBack = { navController.popBackStack() },
                     onOpenWeb = openWeb,
-                    onOpenTranscript = openTranscript,
                     // Flow to a neighbour article, replacing the current reader so Back still
                     // returns to the list rather than walking back through every article read.
                     onOpenItem = { neighbor ->
@@ -118,15 +131,6 @@ fun CairnRoot(
                             launchSingleTop = true
                         }
                     },
-                )
-            }
-            composable(
-                route = "transcript/{itemId}",
-                arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
-            ) { entry ->
-                TranscriptScreen(
-                    itemId = entry.arguments?.getString("itemId").orEmpty(),
-                    onBack = { navController.popBackStack() },
                 )
             }
             composable(
