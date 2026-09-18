@@ -31,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CheckBox
@@ -308,6 +309,7 @@ fun NotesScreen(
             val viewMode = settings.notesViewMode
             var viewMenu by remember { mutableStateOf(false) }
             var filterMenu by remember { mutableStateOf(false) }
+            var toolsMenu by remember { mutableStateOf(false) }   // the note-feature surfaces, split out of the filter list
             val viewLabel = when (viewMode) { "board" -> "▤ Board"; "calendar" -> "🗓 Calendar"; else -> "▦ Cards" }
             val activeFilterLabel = when {
                 trashView -> "🗑 Trash"
@@ -382,24 +384,33 @@ fun NotesScreen(
                                 onClick = { if (decoded != null) { activePredicate = decoded; activeLabel = v.id; container = null; archiveView = false; trashView = false }; filterMenu = false },
                             )
                         }
+                        // This popup stays note-ORGANIZATION only (filters + saved views). The note-feature
+                        // surfaces live in their own "Note tools" popup (the ✨ button) so neither list runs long.
                         HorizontalDivider()
-                        DropdownMenuItem(text = { Text("🗓 Journal (daily · weekly · monthly · yearly)") }, onClick = { filterMenu = false; onOpenJournal() })
                         DropdownMenuItem(text = { Text("＋ Smart View") }, onClick = { filterMenu = false; showBuilder = true })
-                        DropdownMenuItem(text = { Text("◉ Life graph") }, onClick = { filterMenu = false; onOpenGraph() })
-                        DropdownMenuItem(text = { Text("🌱 Note garden") }, onClick = { filterMenu = false; onOpenGarden() })
+                    }
+                }
+                // Note tools — the feature surfaces (Journal, Life graph, Note garden, Recall, Wrapped, Ask,
+                // Relevant now, Publish, Receive) as a separate popup, split out of the filter list.
+                Box {
+                    IconButton(onClick = { toolsMenu = true }) { Icon(Icons.Filled.AutoAwesome, "Note tools") }
+                    DropdownMenu(expanded = toolsMenu, onDismissRequest = { toolsMenu = false }) {
+                        DropdownMenuItem(text = { Text("🗓 Journal (daily · weekly · monthly · yearly)") }, onClick = { toolsMenu = false; onOpenJournal() })
+                        DropdownMenuItem(text = { Text("◉ Life graph") }, onClick = { toolsMenu = false; onOpenGraph() })
+                        DropdownMenuItem(text = { Text("🌱 Note garden") }, onClick = { toolsMenu = false; onOpenGarden() })
                         val dueCards by vm.recallDueCount.collectAsState()
                         LaunchedEffect(Unit) { vm.refreshRecall() }
-                        DropdownMenuItem(text = { Text("🎴 Recall" + if (dueCards > 0) "  ·  $dueCards due" else "") }, onClick = { filterMenu = false; onOpenRecall() })
-                        DropdownMenuItem(text = { Text("✨ Wrapped") }, onClick = { filterMenu = false; showWrapped = true })
-                        DropdownMenuItem(text = { Text("🔎 Ask your notes") }, onClick = { filterMenu = false; showAsk = true })
-                        DropdownMenuItem(text = { Text("📍 Relevant now") }, onClick = { filterMenu = false; showNow = true })
+                        DropdownMenuItem(text = { Text("🎴 Recall" + if (dueCards > 0) "  ·  $dueCards due" else "") }, onClick = { toolsMenu = false; onOpenRecall() })
+                        DropdownMenuItem(text = { Text("✨ Wrapped") }, onClick = { toolsMenu = false; showWrapped = true })
+                        DropdownMenuItem(text = { Text("🔎 Ask your notes") }, onClick = { toolsMenu = false; showAsk = true })
+                        DropdownMenuItem(text = { Text("📍 Relevant now") }, onClick = { toolsMenu = false; showNow = true })
                         HorizontalDivider()
                         DropdownMenuItem(text = { Text("🌐 Publish site (offline)") }, onClick = {
-                            filterMenu = false
+                            toolsMenu = false
                             com.todocompanion.app.util.SystemPicker.openTree { uri -> vm.publishSite(uri.toString()) }
                         })
                         DropdownMenuItem(text = { Text("🔐 Receive encrypted note") }, onClick = {
-                            filterMenu = false
+                            toolsMenu = false
                             com.todocompanion.app.util.SystemPicker.openFile(com.todocompanion.app.util.PickTypes.ANY) { uri -> courierUri = uri.toString() }
                         })
                     }

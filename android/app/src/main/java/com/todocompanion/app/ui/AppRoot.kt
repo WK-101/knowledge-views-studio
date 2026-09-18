@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.combinedClickable
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -311,6 +313,45 @@ private fun DualFab(icon: ImageVector, contentDescription: String, onClick: () -
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(icon, contentDescription) }
+    }
+}
+
+/**
+ * A bounded "proper surface" for the Notes feature screens (Recall, Note garden, Life graph, Journal).
+ *
+ * These used to be hoisted to the root and drawn edge-to-edge, so each looked like a whole new page
+ * swallowing the app. Wrapping them here floats the screen as a rounded panel over a dim scrim — the same
+ * "overlay, not a page" grammar as the app's dialogs and sheets. The panel insets clear the system bars,
+ * a scrim tap or the system Back closes it, and taps inside the panel are swallowed so only its own
+ * controls act. The child keeps its existing layout untouched; the rounded [Surface] clips it to shape.
+ */
+@Composable
+private fun NoteFeatureOverlay(onDismiss: () -> Unit, content: @Composable () -> Unit) {
+    val scrimSource = remember { MutableInteractionSource() }
+    val panelSource = remember { MutableInteractionSource() }
+    BackHandler(onBack = onDismiss)
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.45f))
+            .clickable(interactionSource = scrimSource, indication = null, onClick = onDismiss),
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.background,
+            tonalElevation = 3.dp,
+            shadowElevation = 12.dp,
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding()
+                // A visible frame of scrim all around so it reads as a floating surface, not a full page.
+                .padding(horizontal = 12.dp, vertical = 12.dp)
+                // Swallow taps on the panel so clicks on empty areas don't fall through to the scrim.
+                .clickable(interactionSource = panelSource, indication = null, onClick = {}),
+        ) {
+            content()
+        }
     }
 }
 
@@ -1130,16 +1171,22 @@ fun AppRoot(
             onBack = { editingNote = null }, onOpenTask = { tid -> editingNote = null; editing = tid },
             onOpenNote = { nid -> editingNote = nid }) }
 
-        // Life Graph — full-screen overlay above the app chrome (single header, like the note editor).
-        if (showNotesGraph) com.todocompanion.app.ui.screens.NoteGraphScreen(vm,
-            onOpenNote = { showNotesGraph = false; openNote(it) }, onClose = { showNotesGraph = false })
+        // Life Graph — a bounded overlay panel (proper surface, not a full page) over the app chrome.
+        if (showNotesGraph) NoteFeatureOverlay(onDismiss = { showNotesGraph = false }) {
+            com.todocompanion.app.ui.screens.NoteGraphScreen(vm,
+                onOpenNote = { showNotesGraph = false; openNote(it) }, onClose = { showNotesGraph = false })
+        }
 
-        // Note-Garden review — full-screen overlay (same pattern as the graph).
-        if (showNotesGarden) com.todocompanion.app.ui.screens.NoteGardenScreen(vm,
-            onOpenNote = { showNotesGarden = false; openNote(it) }, onClose = { showNotesGarden = false })
+        // Note-Garden review — bounded overlay panel (same grammar as the graph).
+        if (showNotesGarden) NoteFeatureOverlay(onDismiss = { showNotesGarden = false }) {
+            com.todocompanion.app.ui.screens.NoteGardenScreen(vm,
+                onOpenNote = { showNotesGarden = false; openNote(it) }, onClose = { showNotesGarden = false })
+        }
 
-        // Wave 3 · Active Recall — full-screen review overlay.
-        if (showRecall) com.todocompanion.app.ui.screens.RecallScreen(vm, onClose = { showRecall = false })
+        // Wave 3 · Active Recall — bounded review overlay panel.
+        if (showRecall) NoteFeatureOverlay(onDismiss = { showRecall = false }) {
+            com.todocompanion.app.ui.screens.RecallScreen(vm, onClose = { showRecall = false })
+        }
 
         // Habit analytics + editor: full-screen overlays (like the task editor) so each shows a single
         // top bar and Back returns to the Habits list, never the inbox.
@@ -1314,23 +1361,26 @@ fun AppRoot(
             }
         }
         recapRange?.let { (s, e, t) -> RecapScreen(vm, s, e, t, onBack = { recapRange = null }, onOpenNote = { id -> recapRange = null; openNote(id) }) }
-        // Periodic Notes — the Journal hub. onOpenReview jumps to the matching review/recap for that period.
+        // Periodic Notes — the Journal hub, as a bounded overlay panel. onOpenReview jumps to the matching
+        // review/recap for that period.
         periodicHub?.let { (p, a) ->
-            com.todocompanion.app.ui.screens.PeriodicNotesScreen(
-                vm, initialPeriod = p, initialAnchor = a,
-                onOpenNote = { id -> periodicHub = null; openNote(id) },
-                onOpenReview = { rp, ra ->
-                    periodicHub = null
-                    val td = java.time.LocalDate.now().toEpochDay()
-                    val w = rp.window(ra, settings.weekStart, td)
-                    when (rp) {
-                        com.todocompanion.app.domain.PeriodRange.DAY -> { dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = w.startDay }
-                        com.todocompanion.app.domain.PeriodRange.WEEK -> { dayReviewStartClose = false; dayReviewStartWeekly = true; showDayReview = w.startDay }
-                        else -> recapRange = Triple(w.startDay, w.endDay, com.todocompanion.app.domain.PeriodicNotes.titleFor(rp, w.startDay))
-                    }
-                },
-                onBack = { periodicHub = null },
-            )
+            NoteFeatureOverlay(onDismiss = { periodicHub = null }) {
+                com.todocompanion.app.ui.screens.PeriodicNotesScreen(
+                    vm, initialPeriod = p, initialAnchor = a,
+                    onOpenNote = { id -> periodicHub = null; openNote(id) },
+                    onOpenReview = { rp, ra ->
+                        periodicHub = null
+                        val td = java.time.LocalDate.now().toEpochDay()
+                        val w = rp.window(ra, settings.weekStart, td)
+                        when (rp) {
+                            com.todocompanion.app.domain.PeriodRange.DAY -> { dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = w.startDay }
+                            com.todocompanion.app.domain.PeriodRange.WEEK -> { dayReviewStartClose = false; dayReviewStartWeekly = true; showDayReview = w.startDay }
+                            else -> recapRange = Triple(w.startDay, w.endDay, com.todocompanion.app.domain.PeriodicNotes.titleFor(rp, w.startDay))
+                        }
+                    },
+                    onBack = { periodicHub = null },
+                )
+            }
         }
         if (showAnnual) {
             val yr = java.time.LocalDate.now().year
