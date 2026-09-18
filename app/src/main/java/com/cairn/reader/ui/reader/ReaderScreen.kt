@@ -65,6 +65,7 @@ import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Notes
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.Label
@@ -149,6 +150,9 @@ import coil3.compose.AsyncImage
 import com.cairn.reader.data.db.HighlightEntity
 import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
+import com.cairn.reader.domain.transcript.TranscriptProse
+import com.cairn.reader.ui.transcript.TranscriptAnnotationView
+import com.cairn.reader.ui.transcript.TranscriptSelectionInfo
 import com.cairn.reader.ui.components.CollectionMembershipSheet
 import com.cairn.reader.ui.components.TagEditorSheet
 import com.cairn.reader.ui.theme.InterFamily
@@ -232,7 +236,24 @@ fun ReaderScreen(
     var lightbox by remember { mutableStateOf<String?>(null) }
     val clipboard = LocalClipboardManager.current
 
+    // Inline transcript, shown right in this reading pane so it inherits the reader's typography.
+    val transcript by viewModel.transcript.collectAsStateWithLifecycle()
+    val transcriptGenerating by viewModel.transcriptGenerating.collectAsStateWithLifecycle()
+    val transcriptSaved by viewModel.transcriptSaved.collectAsStateWithLifecycle()
+    var transcriptPending by remember { mutableStateOf<TranscriptSelectionInfo?>(null) }
+    var transcriptManageId by remember { mutableStateOf<String?>(null) }
+    var showTranscriptSave by remember { mutableStateOf(false) }
+    // Article highlights are block-anchored; transcript annotations are time-anchored ("t:" selector).
+    // Keep them apart so neither paints over the other's surface.
+    val articleHighlights = remember(highlights) { highlights.filterNot { it.startSelector?.startsWith("t:") == true } }
+    val transcriptAnnotations = remember(highlights) {
+        highlights.filter { it.startSelector?.startsWith("t:") == true }
+            .map { TranscriptAnnotationView(it.id, it.startOffset, it.endOffset, it.color, it.quote, it.note) }
+    }
+    val transcriptProse = remember(transcript.cues) { TranscriptProse.from(transcript.cues) }
+
     val palette = readerPalette(prefs.readerTheme)
+    val transcriptAccent = MaterialTheme.colorScheme.primary
 
     // Immersive / full-screen reading: the chrome auto-hides on scroll and reappears near the
     // top or when scrolling up. A shared list state lets the screen watch scroll direction.
@@ -409,7 +430,8 @@ fun ReaderScreen(
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.transcript)) },
                                     leadingIcon = { Icon(Icons.Outlined.Subtitles, contentDescription = null) },
-                                    onClick = { showMenu = false; data?.id?.let(onOpenTranscript) },
+                                    trailingIcon = { if (transcript.visible) Icon(Icons.Outlined.Check, contentDescription = null) },
+                                    onClick = { showMenu = false; viewModel.toggleTranscript() },
                                 )
                             }
                             val permanent = CacheStatus.isPermanent(data?.cacheStatus)
@@ -569,7 +591,7 @@ fun ReaderScreen(
                 padding = padding,
                 state = state,
                 palette = palette,
-                highlights = highlights,
+                highlights = articleHighlights,
                 fontFamily = readerFontFamily(prefs.readerFont),
                 scale = prefs.readerFontScale,
                 justify = prefs.readerJustify,
@@ -599,6 +621,25 @@ fun ReaderScreen(
                 tapZonePaging = prefs.tapZonePaging,
                 volumeKeyPaging = prefs.volumeKeyPaging,
                 resumeProgress = data.readProgress,
+                inlineTranscript = if (transcript.visible) InlineTranscriptUi(
+                    state = transcript,
+                    generating = transcriptGenerating,
+                    prose = transcriptProse,
+                    annotations = transcriptAnnotations,
+                    activeRange = if (audioState.active && transcript.isAudio) transcriptProse.charRangeAtTime(audioState.positionMs.toLong()) else null,
+                    saved = transcriptSaved,
+                    accent = transcriptAccent,
+                    onSeekMs = { ms ->
+                        val yt = transcript.youtubeId
+                        if (yt != null) runCatching {
+                            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://www.youtube.com/watch?v=$yt&t=${ms / 1000}s")))
+                        } else viewModel.seekTranscript(ms)
+                    },
+                    onSelect = { transcriptPending = it },
+                    onManage = { transcriptManageId = it },
+                    onGenerate = viewModel::generateTranscriptOnDevice,
+                    onOpenSave = { showTranscriptSave = true },
+                ) else null,
             )
         }
     }
@@ -753,7 +794,7 @@ fun ReaderScreen(
 
     // A selection is dismissed the moment the reader scrolls, so the pill never lingers.
     LaunchedEffect(listState.isScrollInProgress) {
-        if (listState.isScrollInProgress) pending = null
+        if (listState.isScrollInProgress) { pending = null; transcriptPending = null }
     }
 
     lookup?.let { term ->
@@ -792,6 +833,40 @@ fun ReaderScreen(
             onCopy = { clipboard.setText(AnnotatedString(sel.quote.trim())); pending = null },
             onShare = { shareText(sel.quote.trim(), data?.title); pending = null },
             onDismiss = { pending = null },
+        )
+    }
+
+    // Inline-transcript selection + annotation management + save options (hoisted to the root so the
+    // pill/sheets float over the reader like the article's own selection pill).
+    transcriptPending?.let { sel ->
+        com.cairn.reader.ui.transcript.TranscriptSelectionPill(
+            yInWindow = sel.y,
+            onHighlight = { color -> viewModel.annotateTranscript(sel.globalStart, sel.globalEnd, sel.startMs, sel.endMs, sel.quote, color); transcriptPending = null },
+            onKeep = { viewModel.annotateTranscript(sel.globalStart, sel.globalEnd, sel.startMs, sel.endMs, sel.quote, com.cairn.reader.ui.transcript.SavedPassageColor); transcriptPending = null },
+            onCopy = { clipboard.setText(AnnotatedString(sel.quote.trim())); transcriptPending = null },
+            onShare = { shareText(sel.quote.trim(), data?.title); transcriptPending = null },
+            onDismiss = { transcriptPending = null },
+        )
+    }
+
+    transcriptManageId?.let { id ->
+        val ann = transcriptAnnotations.firstOrNull { it.id == id }
+        if (ann == null) transcriptManageId = null
+        else com.cairn.reader.ui.transcript.ManageAnnotationSheet(
+            currentColor = ann.color, note = ann.note,
+            onColor = { viewModel.recolorTranscriptAnnotation(id, it) },
+            onNote = { viewModel.noteTranscriptAnnotation(id, it) },
+            onRemove = { viewModel.removeTranscriptAnnotation(id); transcriptManageId = null },
+            onDismiss = { transcriptManageId = null },
+        )
+    }
+
+    if (showTranscriptSave) {
+        com.cairn.reader.ui.transcript.SaveOptionsSheet(
+            saved = transcriptSaved,
+            annotationCount = transcriptAnnotations.size,
+            onToggleWhole = viewModel::toggleSaveTranscriptWhole,
+            onDismiss = { showTranscriptSave = false },
         )
     }
 }

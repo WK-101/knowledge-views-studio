@@ -19,6 +19,13 @@ import com.cairn.reader.data.repo.HighlightRepository
 import com.cairn.reader.data.repo.ItemRepository
 import com.cairn.reader.data.repo.ReaderData
 import com.cairn.reader.data.repo.TagRepository
+import com.cairn.reader.data.repo.TranscriptRepository
+import com.cairn.reader.data.repo.TranscriptResult
+import com.cairn.reader.domain.transcript.CaptionFetcher
+import com.cairn.reader.domain.transcript.Transcript
+import com.cairn.reader.domain.transcript.TranscriptCue
+import com.cairn.reader.domain.transcript.TranscriptSourceKind
+import com.cairn.reader.domain.transcript.formatTimestamp
 import com.cairn.reader.util.coRunCatching
 import dagger.hilt.android.lifecycle.HiltViewModel
 import org.jsoup.Jsoup
@@ -64,6 +71,8 @@ class ReaderViewModel @Inject constructor(
     private val summarizer: com.cairn.reader.domain.summary.Summarizer,
     private val markdownExportManager: com.cairn.reader.data.export.MarkdownExportManager,
     private val ebookExportManager: com.cairn.reader.data.export.EbookExportManager,
+    private val transcriptRepository: TranscriptRepository,
+    private val captionFetcher: CaptionFetcher,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -135,6 +144,117 @@ class ReaderViewModel @Inject constructor(
 
     val highlights: StateFlow<List<HighlightEntity>> =
         highlightRepository.observeForItem(itemId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // -- Inline transcript (rendered inside the reader pane so it inherits the reading typography:
+    //    font, size, line height, theme/background, justify — everything the article body uses). --
+
+    data class TranscriptState(
+        val visible: Boolean = false,
+        val loading: Boolean = false,
+        val loaded: Boolean = false,
+        val cues: List<TranscriptCue> = emptyList(),
+        val provenance: TranscriptSourceKind = TranscriptSourceKind.UNKNOWN,
+        val unavailable: Boolean = false,
+        val onDeviceSupported: Boolean = false,
+        val onDeviceModelReady: Boolean = false,
+        val generateError: Boolean = false,
+        val youtubeId: String? = null,
+        val isAudio: Boolean = false,
+    )
+
+    private val _transcript = MutableStateFlow(TranscriptState())
+    val transcript: StateFlow<TranscriptState> = _transcript.asStateFlow()
+
+    private val _transcriptGenerating = MutableStateFlow<Float?>(null)
+    val transcriptGenerating: StateFlow<Float?> = _transcriptGenerating.asStateFlow()
+
+    val transcriptSaved: StateFlow<Boolean> =
+        transcriptRepository.observeSaved(itemId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    private var transcriptObj: Transcript? = null
+
+    /** Show/hide the inline transcript section; loads it the first time it's opened. */
+    fun toggleTranscript() {
+        val cur = _transcript.value
+        if (cur.visible) { _transcript.update { it.copy(visible = false) }; return }
+        _transcript.update { it.copy(visible = true) }
+        if (!cur.loaded && !cur.loading) loadTranscript()
+    }
+
+    private fun loadTranscript() {
+        viewModelScope.launch {
+            _transcript.update { it.copy(loading = true, unavailable = false) }
+            val data = _state.value.data
+            val yt = data?.url?.let { captionFetcher.youtubeVideoId(it) }
+            val isAudio = data?.type == ItemType.AUDIO.name && !data.enclosureUrl.isNullOrBlank()
+            when (val r = coRunCatching { transcriptRepository.load(itemId) }
+                .getOrElse { TranscriptResult.Failed(it.message ?: "") }) {
+                is TranscriptResult.Ready -> {
+                    transcriptObj = r.transcript
+                    _transcript.update {
+                        it.copy(loading = false, loaded = true, unavailable = false, cues = r.transcript.cues,
+                            provenance = r.transcript.source, youtubeId = yt, isAudio = isAudio)
+                    }
+                    val (s, m) = transcriptRepository.onDeviceStatus()
+                    _transcript.update { it.copy(onDeviceSupported = s, onDeviceModelReady = m) }
+                }
+                is TranscriptResult.Unavailable -> _transcript.update {
+                    it.copy(loading = false, loaded = true, unavailable = true,
+                        onDeviceSupported = r.onDeviceSupported, onDeviceModelReady = r.onDeviceModelReady,
+                        youtubeId = yt, isAudio = isAudio)
+                }
+                is TranscriptResult.Failed -> _transcript.update { it.copy(loading = false, loaded = true, unavailable = true) }
+            }
+        }
+    }
+
+    fun generateTranscriptOnDevice() {
+        if (_transcriptGenerating.value != null) return
+        viewModelScope.launch {
+            _transcriptGenerating.value = 0f
+            _transcript.update { it.copy(generateError = false) }
+            val t = coRunCatching {
+                transcriptRepository.transcribeOnDevice(itemId) { p -> _transcriptGenerating.value = p }
+            }.getOrNull()
+            _transcriptGenerating.value = null
+            if (t != null && !t.isEmpty) {
+                transcriptObj = t
+                _transcript.update { it.copy(loaded = true, unavailable = false, cues = t.cues, provenance = t.source, generateError = false) }
+            } else {
+                _transcript.update { it.copy(generateError = true) }
+            }
+        }
+    }
+
+    fun annotateTranscript(charStart: Int, charEnd: Int, startMs: Long, endMs: Long, quote: String, color: Int) {
+        if (quote.isBlank()) return
+        viewModelScope.launch {
+            coRunCatching {
+                highlightRepository.addTimestamped(
+                    itemId, startMs, endMs, quote.trim(), color,
+                    note = "[${formatTimestamp(startMs)}]", charStart = charStart, charEnd = charEnd,
+                )
+            }
+        }
+    }
+
+    fun removeTranscriptAnnotation(id: String) = viewModelScope.launch { coRunCatching { highlightRepository.remove(id, itemId) } }
+    fun recolorTranscriptAnnotation(id: String, color: Int) = viewModelScope.launch { coRunCatching { highlightRepository.setColor(id, itemId, color) } }
+    fun noteTranscriptAnnotation(id: String, note: String?) = viewModelScope.launch { coRunCatching { highlightRepository.setNote(id, itemId, note) } }
+
+    fun toggleSaveTranscriptWhole() {
+        val t = transcriptObj ?: return
+        viewModelScope.launch {
+            if (transcriptSaved.value) coRunCatching { transcriptRepository.forget(itemId) }
+            else coRunCatching { transcriptRepository.saveWhole(itemId, t) }
+        }
+    }
+
+    /** Tap a transcript timecode: seek the playing episode, else start it. */
+    fun seekTranscript(ms: Long) {
+        if (!_transcript.value.isAudio) return
+        if (audioPlayer.isActiveFor()) audioPlayer.seekTo(ms.toInt()) else playEpisode()
+    }
 
     init {
         viewModelScope.launch {

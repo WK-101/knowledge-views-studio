@@ -33,6 +33,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -62,6 +64,7 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.FormatSize
+import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Notes
@@ -148,6 +151,10 @@ import coil3.compose.AsyncImage
 import com.cairn.reader.data.db.HighlightEntity
 import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
+import com.cairn.reader.domain.transcript.TranscriptProse
+import com.cairn.reader.ui.transcript.TranscriptAnnotationView
+import com.cairn.reader.ui.transcript.TranscriptSelectionInfo
+import com.cairn.reader.ui.transcript.transcriptParagraphItems
 import com.cairn.reader.ui.components.CollectionMembershipSheet
 import com.cairn.reader.ui.components.TagEditorSheet
 import com.cairn.reader.ui.theme.InterFamily
@@ -197,6 +204,7 @@ internal fun ArticleBody(
     tapZonePaging: Boolean = false,
     volumeKeyPaging: Boolean = false,
     resumeProgress: Float = 0f,
+    inlineTranscript: InlineTranscriptUi? = null,
 ) {
     val data = state.data ?: return
     val linkColor = MaterialTheme.colorScheme.primary
@@ -408,6 +416,11 @@ internal fun ArticleBody(
                     paragraphSpacing = paragraphSpacing,
                     bionic = bionic,
                 )
+            }
+            // Inline transcript — rendered right here in the article pane so it uses the very same
+            // typography (font, size, line height, theme/background, justify) as the article above.
+            if (inlineTranscript != null) {
+                inlineTranscriptSection(inlineTranscript, bodyStyle, palette, justify, paragraphSpacing)
             }
             // Flow to the next/previous article without going back to the list.
             if (hasPrev || hasNext) {
@@ -751,4 +764,127 @@ private fun wordRangeAt(text: String, offset: Int): IntRange? {
     var e = probe
     while (e < text.length && text[e].isLetterOrDigit()) e++
     return if (e > s) s..(e - 1) else null
+}
+
+// -- Inline transcript section ------------------------------------------------
+
+/** Everything the reader needs to render the transcript inline in the article pane. */
+internal class InlineTranscriptUi(
+    val state: ReaderViewModel.TranscriptState,
+    val generating: Float?,
+    val prose: TranscriptProse,
+    val annotations: List<TranscriptAnnotationView>,
+    val activeRange: IntRange?,
+    val saved: Boolean,
+    val accent: Color,
+    val onSeekMs: (Long) -> Unit,
+    val onSelect: (TranscriptSelectionInfo) -> Unit,
+    val onManage: (String) -> Unit,
+    val onGenerate: () -> Unit,
+    val onOpenSave: () -> Unit,
+)
+
+/** Emit the transcript as a section of the article's LazyColumn, styled with the reader's own
+ *  [bodyStyle]/[justify]/[paragraphSpacing] so it inherits every reading setting. */
+private fun LazyListScope.inlineTranscriptSection(
+    t: InlineTranscriptUi,
+    bodyStyle: TextStyle,
+    palette: ReaderPalette,
+    justify: Boolean,
+    paragraphSpacing: Int,
+) {
+    item {
+        Column(Modifier.padding(horizontal = ReaderHPad)) {
+            Spacer(Modifier.height(24.dp))
+            HorizontalDivider(color = palette.secondary.copy(alpha = 0.25f))
+            Spacer(Modifier.height(16.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.transcript),
+                    style = bodyStyle.copy(fontWeight = FontWeight.SemiBold, fontSize = bodyStyle.fontSize * 1.3f),
+                    color = palette.text,
+                    modifier = Modifier.weight(1f),
+                )
+                val ready = t.state.onDeviceSupported && t.state.onDeviceModelReady
+                if (ready && t.generating == null && !t.state.loading) {
+                    IconButton(onClick = t.onGenerate) {
+                        Icon(Icons.Outlined.GraphicEq, contentDescription = stringResource(R.string.transcript_generate), tint = palette.secondary)
+                    }
+                }
+                if (t.state.loaded && !t.state.unavailable) {
+                    IconButton(onClick = t.onOpenSave) {
+                        Icon(
+                            if (t.saved) Icons.Filled.Bookmark else Icons.Outlined.Bookmark,
+                            contentDescription = stringResource(R.string.transcript_save_options),
+                            tint = if (t.saved) t.accent else palette.secondary,
+                        )
+                    }
+                }
+            }
+            val prov = when (t.state.provenance) {
+                com.cairn.reader.domain.transcript.TranscriptSourceKind.YOUTUBE_CAPTIONS -> stringResource(R.string.transcript_source_youtube)
+                com.cairn.reader.domain.transcript.TranscriptSourceKind.PODCAST_TRANSCRIPT -> stringResource(R.string.transcript_source_podcast)
+                com.cairn.reader.domain.transcript.TranscriptSourceKind.CAPTION_FILE -> stringResource(R.string.transcript_source_file)
+                com.cairn.reader.domain.transcript.TranscriptSourceKind.ON_DEVICE -> stringResource(R.string.transcript_source_ondevice)
+                com.cairn.reader.domain.transcript.TranscriptSourceKind.UNKNOWN -> null
+            }
+            if (prov != null && t.state.loaded && !t.state.unavailable) {
+                Text(prov, style = MaterialTheme.typography.labelMedium, color = palette.secondary)
+            }
+            if (t.generating != null) {
+                Spacer(Modifier.height(8.dp))
+                LinearProgressIndicator(progress = { t.generating }, modifier = Modifier.fillMaxWidth())
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+    }
+
+    when {
+        t.state.loading -> item {
+            Row(Modifier.fillMaxWidth().padding(horizontal = ReaderHPad, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(stringResource(R.string.transcript), style = MaterialTheme.typography.labelMedium, color = palette.secondary)
+            }
+        }
+        t.state.unavailable -> item {
+            Column(Modifier.padding(horizontal = ReaderHPad, vertical = 8.dp)) {
+                Text(stringResource(R.string.transcript_unavailable_body), style = bodyStyle.copy(fontSize = bodyStyle.fontSize * 0.9f), color = palette.secondary)
+                Spacer(Modifier.height(10.dp))
+                val body = when {
+                    !t.state.onDeviceSupported -> stringResource(R.string.transcript_ondevice_unsupported)
+                    !t.state.onDeviceModelReady -> stringResource(R.string.transcript_ondevice_needs_model)
+                    else -> stringResource(R.string.transcript_ondevice_ready)
+                }
+                Text(body, style = MaterialTheme.typography.bodySmall, color = palette.secondary)
+                if (t.state.onDeviceSupported && t.state.onDeviceModelReady && t.generating == null) {
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedButton(onClick = t.onGenerate) {
+                        Icon(Icons.Outlined.GraphicEq, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.transcript_generate))
+                    }
+                }
+                if (t.state.generateError) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(stringResource(R.string.transcript_generate_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+        else -> {
+            item {
+                Text(
+                    stringResource(R.string.transcript_read_hint),
+                    style = MaterialTheme.typography.bodySmall, color = palette.secondary,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = ReaderHPad, vertical = 4.dp),
+                )
+            }
+            transcriptParagraphItems(
+                prose = t.prose, annotations = t.annotations, activeRange = t.activeRange,
+                bodyStyle = bodyStyle, justify = justify, paragraphSpacing = paragraphSpacing, hPad = ReaderHPad,
+                timeColor = t.accent, selColor = t.accent,
+                onSeekMs = t.onSeekMs, onSelect = t.onSelect, onManage = t.onManage,
+            )
+        }
+    }
 }
