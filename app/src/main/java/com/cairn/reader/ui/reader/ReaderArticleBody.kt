@@ -205,6 +205,13 @@ internal fun ArticleBody(
     volumeKeyPaging: Boolean = false,
     resumeProgress: Float = 0f,
     inlineTranscript: InlineTranscriptUi? = null,
+    // Highlights box: every highlight on the page (article + transcript), shown foldable at the top.
+    boxHighlights: List<HighlightEntity> = emptyList(),
+    highlightsBoxDefaultExpanded: Boolean = true,
+    onCopyHighlight: (HighlightEntity) -> Unit = {},
+    onShareHighlight: (HighlightEntity) -> Unit = {},
+    onDeleteHighlight: (HighlightEntity) -> Unit = {},
+    onSetHighlightColor: (HighlightEntity, Int) -> Unit = { _, _ -> },
 ) {
     val data = state.data ?: return
     val linkColor = MaterialTheme.colorScheme.primary
@@ -382,6 +389,23 @@ internal fun ArticleBody(
                     }
                     HorizontalDivider(color = palette.secondary.copy(alpha = 0.25f))
                     Spacer(Modifier.height(12.dp))
+                }
+            }
+
+            // Highlights on this page — foldable, only when there are any (article + transcript).
+            if (boxHighlights.isNotEmpty()) {
+                item(key = "highlights_box") {
+                    HighlightsBox(
+                        highlights = boxHighlights,
+                        palette = palette,
+                        defaultExpanded = highlightsBoxDefaultExpanded,
+                        onManage = onManageHighlight,
+                        onSetColor = onSetHighlightColor,
+                        onCopy = onCopyHighlight,
+                        onShare = onShareHighlight,
+                        onDelete = onDeleteHighlight,
+                    )
+                    Spacer(Modifier.height(16.dp))
                 }
             }
 

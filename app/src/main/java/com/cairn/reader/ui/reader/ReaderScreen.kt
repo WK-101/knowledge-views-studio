@@ -626,7 +626,8 @@ fun ReaderScreen(
                 onOpenOriginal = ::openOriginal,
                 onSaveProgress = viewModel::setProgress,
                 onSelectText = { b, s, e, q, y -> pending = PendingSelection(b, s, e, q, y) },
-                onManageHighlight = { managed = it },
+                // Route to the right manage sheet: transcript excerpts ("t:") vs article passages.
+                onManageHighlight = { h -> if (h.startSelector?.startsWith("t:") == true) transcriptManageId = h.id else managed = h },
                 onPlayEpisode = viewModel::playEpisode,
                 onWatch = ::watchVideo,
                 onScaleCommit = viewModel::setFontScale,
@@ -663,6 +664,13 @@ fun ReaderScreen(
                     onGenerate = viewModel::generateTranscriptOnDevice,
                     onOpenSave = { showTranscriptSave = true },
                 ) else null,
+                // Highlights box — every highlight on the page (article passages + transcript excerpts).
+                boxHighlights = highlights,
+                highlightsBoxDefaultExpanded = prefs.highlightsBoxExpanded,
+                onCopyHighlight = { clipboard.setText(AnnotatedString(it.quote.trim())) },
+                onShareHighlight = { shareText(it.quote.trim(), data?.title) },
+                onDeleteHighlight = { viewModel.removeHighlight(it.id) },
+                onSetHighlightColor = { h, c -> viewModel.setHighlightColor(h.id, c) },
             )
         }
     }

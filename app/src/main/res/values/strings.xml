@@ -441,6 +441,30 @@
     <string name="justify_text">Justify text</string>
     <string name="immersive_scroll_desc">Hide every bar as you read; scroll up to bring them back</string>
     <string name="full_screen_desc">Hide the Android bars across the whole app</string>
+    <string name="more_options">More options</string>
+    <string name="highlights_box_expanded">Show highlights box open</string>
+    <string name="highlights_box_expanded_desc">Unfold the article\'s highlights panel by default (off keeps it folded)</string>
+    <string name="highlights_box_title">Highlights on this page</string>
+    <string name="search_annotations">Search annotations</string>
+    <string name="annotation_options">View options</string>
+    <string name="group">Group</string>
+    <string name="group_by_article">By article</string>
+    <string name="group_by_color">By colour</string>
+    <string name="group_none">No grouping</string>
+    <string name="sort_recent">Newest first</string>
+    <string name="sort_oldest">Oldest first</string>
+    <string name="sort_title">Title A–Z</string>
+    <string name="sort_most_highlighted">Most highlighted</string>
+    <string name="view_cards">Cards</string>
+    <string name="view_list">List</string>
+    <string name="type_label">Type</string>
+    <string name="type_articles">Articles</string>
+    <string name="type_transcripts">Transcripts</string>
+    <string name="colour_label">Colour</string>
+    <string name="open_article">Open article</string>
+    <string name="change_color">Change colour</string>
+    <string name="no_results">No matches</string>
+    <string name="try_a_different_search">Try a different search or clear the filters.</string>
 
     <!-- i18n sweep: section labels -->
     <string name="cleanup">CLEANUP</string>

@@ -229,16 +229,17 @@ class ReaderViewModel @Inject constructor(
     fun annotateTranscript(charStart: Int, charEnd: Int, startMs: Long, endMs: Long, quote: String, color: Int) {
         if (quote.isBlank()) return
         viewModelScope.launch {
+            // Only the highlighted excerpt is persisted (quote + time + char range) — NOT the whole
+            // transcript, which would waste space for hour-long media. The excerpt shows in the reader's
+            // Highlights box offline; when the full transcript is later loaded it re-anchors to its
+            // proper place by char range, falling back to a quote search (see paintSpansFor). The whole
+            // transcript is kept only when the reader explicitly asks (Save options → keep transcript).
             coRunCatching {
                 highlightRepository.addTimestamped(
                     itemId, startMs, endMs, quote.trim(), color,
                     note = "[${formatTimestamp(startMs)}]", charStart = charStart, charEnd = charEnd,
                 )
             }
-            // Highlighting a passage means you want to keep it: persist the whole transcript so the
-            // highlight stays visible on reopen — offline, with no re-fetch or re-transcribe. The
-            // char offsets the highlight stored anchor onto exactly these saved cues. Idempotent.
-            transcriptObj?.let { t -> coRunCatching { transcriptRepository.saveWhole(itemId, t) } }
         }
     }
 
@@ -284,8 +285,9 @@ class ReaderViewModel @Inject constructor(
                 ) {
                     launch { coRunCatching { feedRepository.saveOffline(itemId) } }
                 }
-                // A kept transcript (one holding highlights, or explicitly saved) is shown on open so it
-                // — and its highlights — are there again, offline, without re-fetching or re-transcribing.
+                // A transcript the reader explicitly kept (Save options → keep transcript) is shown on
+                // open so it's there again offline. Highlight-only excerpts don't keep the whole
+                // transcript; they surface in the reader's Highlights box instead.
                 if (coRunCatching { transcriptRepository.hasSaved(itemId) }.getOrDefault(false)) {
                     _transcript.update { it.copy(visible = true) }
                     loadTranscript()

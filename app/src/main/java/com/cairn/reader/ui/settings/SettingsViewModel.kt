@@ -200,6 +200,7 @@ class SettingsViewModel @Inject constructor(
     fun setReaderShowImages(show: Boolean) = viewModelScope.launch { preferencesRepository.setReaderShowImages(show) }
     fun setReaderImmersive(on: Boolean) = viewModelScope.launch { preferencesRepository.setReaderImmersive(on) }
     fun setAppFullScreen(on: Boolean) = viewModelScope.launch { preferencesRepository.setAppFullScreen(on) }
+    fun setHighlightsBoxExpanded(on: Boolean) = viewModelScope.launch { preferencesRepository.setHighlightsBoxExpanded(on) }
 
     // -- Offline & storage policy ---------------------------------------------
 

@@ -443,6 +443,30 @@
     <string name="justify_text">Justificar texto</string>
     <string name="immersive_scroll_desc">Oculta todas las barras mientras lees; desplázate hacia arriba para mostrarlas de nuevo</string>
     <string name="full_screen_desc">Ocultar las barras de Android en toda la app</string>
+    <string name="more_options">Más opciones</string>
+    <string name="highlights_box_expanded">Mostrar el panel de subrayados abierto</string>
+    <string name="highlights_box_expanded_desc">Desplegar el panel de subrayados del artículo por defecto (si se desactiva, queda plegado)</string>
+    <string name="highlights_box_title">Subrayados en esta página</string>
+    <string name="search_annotations">Buscar anotaciones</string>
+    <string name="annotation_options">Opciones de vista</string>
+    <string name="group">Agrupar</string>
+    <string name="group_by_article">Por artículo</string>
+    <string name="group_by_color">Por color</string>
+    <string name="group_none">Sin agrupar</string>
+    <string name="sort_recent">Más recientes primero</string>
+    <string name="sort_oldest">Más antiguos primero</string>
+    <string name="sort_title">Título A–Z</string>
+    <string name="sort_most_highlighted">Más subrayados</string>
+    <string name="view_cards">Tarjetas</string>
+    <string name="view_list">Lista</string>
+    <string name="type_label">Tipo</string>
+    <string name="type_articles">Artículos</string>
+    <string name="type_transcripts">Transcripciones</string>
+    <string name="colour_label">Color</string>
+    <string name="open_article">Abrir artículo</string>
+    <string name="change_color">Cambiar color</string>
+    <string name="no_results">Sin coincidencias</string>
+    <string name="try_a_different_search">Prueba otra búsqueda o borra los filtros.</string>
 
     <!-- i18n sweep: section labels -->
     <string name="cleanup">LIMPIEZA</string>

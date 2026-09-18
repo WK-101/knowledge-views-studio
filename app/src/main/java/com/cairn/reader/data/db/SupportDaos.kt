@@ -93,6 +93,9 @@ data class HighlightWithArticle(
     val note: String?,
     val color: Int,
     val createdAt: Long,
+    // "t:<ms>" for a transcript excerpt; a block anchor for an article passage. Lets the notebook
+    // tell the two apart (type filter) without a second query.
+    val startSelector: String? = null,
 )
 
 @Dao
@@ -122,7 +125,8 @@ interface HighlightDao {
         """
         SELECT h.id AS id, h.itemId AS itemId, i.title AS articleTitle, i.url AS articleUrl,
                i.leadImage AS articleImage, i.siteName AS articleSite,
-               h.quote AS quote, h.note AS note, h.color AS color, h.createdAt AS createdAt
+               h.quote AS quote, h.note AS note, h.color AS color, h.createdAt AS createdAt,
+               h.startSelector AS startSelector
         FROM highlights h JOIN items i ON i.id = h.itemId
         ORDER BY h.createdAt DESC
         """
@@ -133,7 +137,8 @@ interface HighlightDao {
         """
         SELECT h.id AS id, h.itemId AS itemId, i.title AS articleTitle, i.url AS articleUrl,
                i.leadImage AS articleImage, i.siteName AS articleSite,
-               h.quote AS quote, h.note AS note, h.color AS color, h.createdAt AS createdAt
+               h.quote AS quote, h.note AS note, h.color AS color, h.createdAt AS createdAt,
+               h.startSelector AS startSelector
         FROM highlights h JOIN items i ON i.id = h.itemId
         ORDER BY i.title COLLATE NOCASE, h.startSelector, h.startOffset
         """
@@ -144,7 +149,8 @@ interface HighlightDao {
         """
         SELECT h.id AS id, h.itemId AS itemId, i.title AS articleTitle, i.url AS articleUrl,
                i.leadImage AS articleImage, i.siteName AS articleSite,
-               h.quote AS quote, h.note AS note, h.color AS color, h.createdAt AS createdAt
+               h.quote AS quote, h.note AS note, h.color AS color, h.createdAt AS createdAt,
+               h.startSelector AS startSelector
         FROM highlights h JOIN items i ON i.id = h.itemId
         WHERE h.itemId = :itemId
         ORDER BY h.startSelector, h.startOffset

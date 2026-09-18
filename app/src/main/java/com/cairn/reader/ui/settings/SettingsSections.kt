@@ -317,6 +317,8 @@ internal fun GesturesSection(prefs: AppPreferences, viewModel: SettingsViewModel
         SettingDivider()
         SettingSwitchRow(stringResource(R.string.full_screen), stringResource(R.string.use_the_entire_display_for_text), prefs.appFullScreen, viewModel::setAppFullScreen)
         SettingDivider()
+        SettingSwitchRow(stringResource(R.string.highlights_box_expanded), stringResource(R.string.highlights_box_expanded_desc), prefs.highlightsBoxExpanded, viewModel::setHighlightsBoxExpanded)
+        SettingDivider()
         SettingSwitchRow(stringResource(R.string.tap_edges_to_turn_pages), stringResource(R.string.in_the_reader_tap_the_left), prefs.tapZonePaging, viewModel::setTapZonePaging)
         SettingDivider()
         SettingSwitchRow(stringResource(R.string.volume_keys_turn_pages), stringResource(R.string.while_reading_the_volume_keys_page), prefs.volumeKeyPaging, viewModel::setVolumeKeyPaging)
