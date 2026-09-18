@@ -486,7 +486,11 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         // user pin any one to the home screen.
         SettingsGroup(Icons.Filled.RocketLaunch, "App shortcuts", open["shortcuts"] == true, { open["shortcuts"] = open["shortcuts"] != true }, keywords = "app shortcuts launcher long press home screen pin add note today focus quick add close day track") {
             val pinnable = remember { com.todocompanion.app.util.AppShortcuts.canPin(context) }
-            val dynamicShortcuts = remember { com.todocompanion.app.util.AppShortcuts.dynamicTrack(context) }
+            // SEC-corr — derive the "Track: …" rows from the actual time activities (a live flow), not from
+            // the launcher's registered dynamic shortcuts: those are capped at 4 and may be empty until a
+            // refresh runs, which is why they weren't showing. This lists EVERY non-archived activity.
+            val allTimeActs by vm.timeActivities.collectAsState()
+            val trackActs = if (Modules.isEnabled(s, Modules.TIME)) allTimeActs.filter { !it.archived } else emptyList()
             Text("Your launcher's long-press menu only shows the first few. These are all of Kairo's shortcuts — tap “Add to home” to place any one directly on your home screen.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             com.todocompanion.app.util.AppShortcuts.STATIC.forEach { spec ->
@@ -501,15 +505,17 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     TextButton(enabled = pinnable, onClick = { com.todocompanion.app.util.AppShortcuts.pin(context, spec) }) { Text("Add to home") }
                 }
             }
-            if (dynamicShortcuts.isNotEmpty()) {
+            if (trackActs.isNotEmpty()) {
                 HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
-                Sub("Time-tracking (one per activity)")
-                dynamicShortcuts.forEach { info ->
+                Sub("Start a timer (one per activity)")
+                trackActs.forEach { a ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Filled.Schedule, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
                         Spacer(Modifier.width(12.dp))
-                        Text(info.shortLabel?.toString() ?: info.id, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                        TextButton(enabled = pinnable, onClick = { com.todocompanion.app.util.AppShortcuts.pin(context, info) }) { Text("Add to home") }
+                        Text("Track: " + (a.emoji?.let { "$it " } ?: "") + a.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        TextButton(enabled = pinnable, onClick = {
+                            com.todocompanion.app.util.AppShortcuts.pin(context, com.todocompanion.app.util.AppShortcuts.trackInfo(context, a.id, a.name))
+                        }) { Text("Add to home") }
                     }
                 }
             }

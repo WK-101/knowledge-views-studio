@@ -358,11 +358,34 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Lazy on-open sweep — hard-delete trashed notes older than the retention setting (0 = never). */
     fun purgeExpiredNoteTrash() = viewModelScope.launch { repo.purgeExpiredTrashedNotes(settings.value.notesTrashRetentionDays) }
 
+    /** SEC-corr — for EXPORT, materialize a periodic note's recap in place of its `<!-- kairo:recap -->`
+     *  marker so daily/weekly/monthly notes export with their ACTUAL recap content, not the empty
+     *  placeholder (the marker is only baked into the stored body when "embed recap" is on). Drops the
+     *  HTML-comment fences in the exported copy, and strips the block entirely when there's no recap data.
+     *  Non-periodic notes and bodies without the marker are returned unchanged. This is export-only — the
+     *  result is never written back, so the two-way `.md` mirror stays clean (no round-trip pollution). */
+    suspend fun expandRecapForExport(note: com.todocompanion.app.data.entity.NoteEntity): String {
+        val re = Regex("(?s)" + Regex.escape(com.todocompanion.app.domain.PeriodicNotes.RECAP_OPEN) + ".*?" +
+            Regex.escape(com.todocompanion.app.domain.PeriodicNotes.RECAP_CLOSE))
+        if (!re.containsMatchIn(note.body)) return note.body
+        val period = com.todocompanion.app.domain.PeriodicNotes.periodOf(note.kind)
+        val anchor = note.dayEpoch
+        val digest = if (period != null && anchor != null) {
+            val win = periodWindow(period, anchor)
+            if (period == com.todocompanion.app.domain.PeriodRange.DAY)
+                repo.dayDigestMarkdown(win.startDay).trim()
+            else
+                periodDigestMarkdown(period, win.startDay, win.endDay,
+                    com.todocompanion.app.domain.PeriodicNotes.titleFor(period, win.startDay)).trim()
+        } else ""
+        return re.replace(note.body) { if (digest.isBlank()) "" else digest }.trim()
+    }
+
     // ── Wave I: single-note export (TXT/MD/HTML/JSON via the share sheet; PDF prints from the UI). ──
     fun exportNote(noteId: String, format: com.todocompanion.app.util.NoteExport.Format) = viewModelScope.launch {
         val note = repo.getNote(noteId) ?: return@launch
         if (note.sealedUntil != null && note.sealedUntil!! > System.currentTimeMillis()) { toast("This note is sealed — unseal it to export"); return@launch }
-        val content = com.todocompanion.app.util.NoteExport.buildContent(note, format)
+        val content = com.todocompanion.app.util.NoteExport.buildContent(note.copy(body = expandRecapForExport(note)), format)
         val uri = withContext(Dispatchers.IO) {
             runCatching {
                 val dir = java.io.File(appCtx.cacheDir, "shared").apply { mkdirs() }
@@ -391,7 +414,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (list.isEmpty()) { toast("No notes to export"); return@launch }
         val tagName = repo.getTagsOnce().associate { it.id to it.name }
         val refs = repo.getNoteTagCrossRefs().groupBy { it.noteId }
-        val payload = list.map { n -> n to refs[n.id].orEmpty().mapNotNull { tagName[it.tagId] } }
+        // SEC-corr — expand each note's recap marker into real content for this one-way .md export (the
+        // guard inside makes it a no-op for the non-periodic majority).
+        val payload = list.map { n -> n.copy(body = expandRecapForExport(n)) to refs[n.id].orEmpty().mapNotNull { tagName[it.tagId] } }
         val count = withContext(Dispatchers.IO) {
             com.todocompanion.app.util.NoteFolderSync.exportAll(appCtx, folderUri, payload)
         }

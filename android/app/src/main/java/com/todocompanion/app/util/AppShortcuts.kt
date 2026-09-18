@@ -76,8 +76,17 @@ object AppShortcuts {
 
     fun pin(context: Context, spec: Spec): Boolean = pin(context, infoFor(context, spec))
 
-    /** The dynamic "Track: …" shortcuts currently registered (0–4). They already carry their own label +
-     *  intent, so they can be listed and pinned directly. */
-    fun dynamicTrack(context: Context): List<ShortcutInfoCompat> =
-        runCatching { ShortcutManagerCompat.getDynamicShortcuts(context) }.getOrDefault(emptyList())
+    /** Build the "Track: <name>" shortcut for a time-tracking activity, mirroring [TrackShortcuts]. Derived
+     *  from the activity itself (not from the launcher's registered dynamic shortcuts), so Settings can list
+     *  and pin EVERY activity — including ones past the 4-shortcut launcher cap, and even when no dynamic
+     *  shortcut is currently registered. */
+    fun trackInfo(context: Context, activityId: String, activityName: String): ShortcutInfoCompat {
+        val uri = Uri.parse("todocompanion://track?activity=${Uri.encode(activityId)}")
+        return ShortcutInfoCompat.Builder(context, "track_$activityId")
+            .setShortLabel(("Track: $activityName").take(24))
+            .setLongLabel(("Track: $activityName").take(40))
+            .setIcon(IconCompat.createWithResource(context, R.mipmap.ic_launcher))
+            .setIntent(Intent(Intent.ACTION_VIEW, uri).setClassName(PKG, MAIN))
+            .build()
+    }
 }
