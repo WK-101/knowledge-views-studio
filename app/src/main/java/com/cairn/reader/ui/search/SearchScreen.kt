@@ -89,6 +89,8 @@ fun SearchScreen(
     val archiveSites by viewModel.archiveSites.collectAsStateWithLifecycle()
     val archive by viewModel.archive.collectAsStateWithLifecycle()
     val archiveBusy by viewModel.archiveBusy.collectAsStateWithLifecycle()
+    val savingAll by viewModel.savingAll.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val scheme = MaterialTheme.colorScheme
 
     Column(Modifier.fillMaxSize()) {
@@ -202,7 +204,13 @@ fun SearchScreen(
                                     modifier = Modifier.padding(top = 6.dp),
                                 )
                             } else {
-                                Text(stringResource(R.string.from_the_web), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(stringResource(R.string.from_the_web), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                                    androidx.compose.material3.TextButton(
+                                        onClick = { viewModel.saveAllWebHits { n -> android.widget.Toast.makeText(context, context.getString(R.string.saved_n_articles, n), android.widget.Toast.LENGTH_SHORT).show() } },
+                                        enabled = !savingAll,
+                                    ) { Text(stringResource(R.string.save_all_results, web.size)) }
+                                }
                             }
                         }
                     }
@@ -232,6 +240,24 @@ fun SearchScreen(
                                             label = { Text(site.title, maxLines = 1) },
                                         )
                                     }
+                                }
+                            }
+                        }
+                        if (archive.isNotEmpty()) {
+                            item {
+                                Row(
+                                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        stringResource(R.string.archive_matches, archive.size),
+                                        style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f),
+                                    )
+                                    androidx.compose.material3.TextButton(
+                                        onClick = { viewModel.saveAllArchiveHits { n -> android.widget.Toast.makeText(context, context.getString(R.string.saved_n_articles, n), android.widget.Toast.LENGTH_SHORT).show() } },
+                                        enabled = !savingAll,
+                                    ) { Text(stringResource(R.string.save_all_results, archive.size)) }
                                 }
                             }
                         }

@@ -40,13 +40,13 @@ import com.cairn.reader.data.db.ExtractStatus
 import com.cairn.reader.data.db.ItemType
 
 /**
- * How many characters of an item's plain-text body are stored in the standalone FTS4 [item_fts]
- * index. The body index is the dominant DB-size driver, so this is deliberately modest: title +
- * excerpt + roughly the first ~600 words of body is plenty for full-text search to find an article,
- * while keeping each indexed row ~5× smaller than the old 20k cap. Forward-only — existing rows
- * shrink as they're re-synced, re-indexed, or pruned; no FTS rebuild or schema change.
+ * v3.99.15 (Content Engine P2): search is now truly full-text. We index the WHOLE plain-text body
+ * (not the old ~600-word window) so a phrase buried deep in a long article is findable offline. This
+ * value is only a safety ceiling for pathological pages (~30k words); real articles index in full.
+ * The one-time [reindexFullText] pass rebuilds existing rows to this depth; new items index in full
+ * on sync/extract. The archive crawler (P3) then makes every historical article searchable this way.
  */
-private const val FTS_BODY_CHARS = 4_000
+private const val FTS_BODY_CHARS = 200_000
 
 /**
  * Owns capture and sync: discovering feeds from a URL, pulling new items with
@@ -413,6 +413,30 @@ class FeedRepository @Inject constructor(
         if (maxAgeDays > 0) coRunCatching { pruneOlderThan(now - maxAgeDays * 86_400_000L, keepUnread) }
         // Empty out anything that has sat in the Trash past the grace period.
         coRunCatching { purgeExpiredTrash() }
+        // One-time (Content Engine P2): rebuild the FTS index of already-stored items at full depth,
+        // so historic articles become fully searchable, not just their first ~600 words.
+        if (prefs?.ftsFullReindexed != true) coRunCatching { reindexFullText() }
+    }
+
+    /**
+     * Re-index every stored item's full body text into FTS (Content Engine P2). Items were previously
+     * indexed with only a ~600-word body window; this rebuilds them from their on-disk article so the
+     * whole text is searchable offline. One-time and idempotent — a device-local pref flag marks it
+     * done. Runs in small batches on [Dispatchers.Default], honouring cancellation.
+     */
+    suspend fun reindexFullText() = withContext(Dispatchers.Default) {
+        val ids = coRunCatching { itemDao.idsWithBody() }.getOrDefault(emptyList())
+        for (id in ids) {
+            coroutineContext.ensureActive()
+            val e = coRunCatching { itemDao.getItem(id) }.getOrNull() ?: continue
+            val html = coRunCatching { blobStore.readArticle(e.blobPath) }.getOrNull() ?: continue
+            val plain = coRunCatching { Jsoup.parse(html).text() }.getOrNull()?.takeIf { it.isNotBlank() } ?: continue
+            coRunCatching {
+                itemDao.indexItem(ItemFtsEntity(itemId = id, title = e.title, author = e.author, body = plain.take(FTS_BODY_CHARS)))
+            }
+        }
+        coRunCatching { preferencesRepository.setFtsFullReindexed(true) }
+        Unit
     }
 
     /** Enforce the per-feed retention cap: drop the oldest items the user never engaged with,

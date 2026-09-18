@@ -220,6 +220,9 @@ data class AppPreferences(
     val defaultFeedNotify: Boolean = false,
     /** Default acquisition mode for newly added sources — [AcquisitionMode] name (FEED/EXTRACT/BOTH). */
     val defaultAcquisitionMode: String = "FEED",
+    /** Device-local one-time flag: the full-text FTS re-index (Content Engine P2) has completed. Not
+     *  backed up — it's a per-install data migration marker, not a user preference. */
+    val ftsFullReindexed: Boolean = false,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -312,6 +315,7 @@ class PreferencesRepository @Inject constructor(
         val DEFAULT_FEED_FULLTEXT = booleanPreferencesKey("default_feed_fulltext")
         val DEFAULT_FEED_NOTIFY = booleanPreferencesKey("default_feed_notify")
         val DEFAULT_ACQUISITION = stringPreferencesKey("default_acquisition_mode")
+        val FTS_FULL_REINDEXED = booleanPreferencesKey("fts_full_reindexed")
     }
 
     /** Per-scope view entries are stored as "scopeKey<sep>MODE" in a string set. */
@@ -406,6 +410,7 @@ class PreferencesRepository @Inject constructor(
             defaultFeedFullText = p[Keys.DEFAULT_FEED_FULLTEXT] ?: false,
             defaultFeedNotify = p[Keys.DEFAULT_FEED_NOTIFY] ?: false,
             defaultAcquisitionMode = p[Keys.DEFAULT_ACQUISITION] ?: "FEED",
+            ftsFullReindexed = p[Keys.FTS_FULL_REINDEXED] ?: false,
         )
     }
 
@@ -616,6 +621,7 @@ class PreferencesRepository @Inject constructor(
     suspend fun setDefaultFeedFullText(on: Boolean) = context.dataStore.edit { it[Keys.DEFAULT_FEED_FULLTEXT] = on }
     suspend fun setDefaultFeedNotify(on: Boolean) = context.dataStore.edit { it[Keys.DEFAULT_FEED_NOTIFY] = on }
     suspend fun setDefaultAcquisitionMode(mode: String) = context.dataStore.edit { it[Keys.DEFAULT_ACQUISITION] = mode }
+    suspend fun setFtsFullReindexed(done: Boolean) = context.dataStore.edit { it[Keys.FTS_FULL_REINDEXED] = done }
 
     // -- Settings backup -------------------------------------------------------
     //

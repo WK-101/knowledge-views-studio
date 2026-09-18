@@ -115,6 +115,9 @@
     <string name="follow_via_google_news">Follow via Google News</string>
     <string name="forward_30_seconds">Forward 30 seconds</string>
     <string name="from_the_web">FROM THE WEB</string>
+    <string name="save_all_results">Save all %1$d</string>
+    <string name="saved_n_articles">Saved %1$d for offline search</string>
+    <string name="archive_matches">ARCHIVE MATCHES (%1$d)</string>
     <string name="full_archive_zip">Full archive (.zip)</string>
     <string name="full_screen">Full screen</string>
     <string name="full_text">Full text</string>

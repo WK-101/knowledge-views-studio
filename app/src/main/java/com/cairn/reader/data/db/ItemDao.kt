@@ -500,6 +500,11 @@ interface ItemDao {
         insertFts(fts)
     }
 
+    /** Ids of stored, non-trashed items that have an article body on disk — the set the one-time
+     *  full-text re-index (Content Engine P2) walks to rebuild the FTS index at full depth. */
+    @Query("SELECT id FROM items WHERE trashedAt IS NULL AND blobPath IS NOT NULL AND blobPath != ''")
+    suspend fun idsWithBody(): List<String>
+
     @Query(
         ITEM_LIST_COLUMNS + """
         FROM item_fts

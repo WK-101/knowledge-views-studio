@@ -128,6 +128,27 @@ class SearchViewModel @Inject constructor(
 
     fun saveWebHit(url: String) = viewModelScope.launch { feedRepository.saveUrl(url) }
 
+    /** Whether a bulk "save all results" is running (drives the button's busy state). */
+    private val _savingAll = MutableStateFlow(false)
+    val savingAll: StateFlow<Boolean> = _savingAll.asStateFlow()
+
+    /** Persist every current web hit so it enters the library and the offline full-text index. */
+    fun saveAllWebHits(onDone: (Int) -> Unit = {}) = saveAll(_web.value.map { it.url }, onDone)
+
+    /** Persist every current archive hit — the bridge that makes archive matches permanently
+     *  searchable offline (until the deep-archive crawler stores whole sites automatically). */
+    fun saveAllArchiveHits(onDone: (Int) -> Unit = {}) = saveAll(_archive.value.map { it.url }, onDone)
+
+    private fun saveAll(urls: List<String>, onDone: (Int) -> Unit) = viewModelScope.launch {
+        if (urls.isEmpty()) { onDone(0); return@launch }
+        _savingAll.value = true
+        var saved = 0
+        urls.forEach { url -> if (feedRepository.saveUrl(url).isSuccess) saved++ }
+        _savingAll.value = false
+        _tick.value += 1
+        onDone(saved)
+    }
+
     // -- Full-archive search (a single site's entire published history) --------
 
     /** Sites the user is subscribed to, resolved to a base URL for archive crawling. */
