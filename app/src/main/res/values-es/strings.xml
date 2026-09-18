@@ -499,6 +499,17 @@
     <string name="transcript_keep_whole_desc">Guarda la transcripción completa en este dispositivo para tenerla sin conexión.</string>
     <string name="transcript_highlight_hint">Toca una línea para saltar a ella. Subraya una línea para guardarla como anotación con marca de tiempo.</string>
     <string name="transcript_highlight">Subrayar</string>
+    <string name="transcript_read_hint">Selecciona cualquier texto para subrayarlo o guardarlo: cada anotación se guarda con su marca de tiempo. Toca una marca para saltar ahí.</string>
+    <string name="transcript_more">Más</string>
+    <string name="transcript_save_options">Opciones de guardado</string>
+    <string name="transcript_save_sheet_title">Guardar esta transcripción</string>
+    <string name="transcript_keep_passage">Guardar fragmento</string>
+    <string name="transcript_copy">Copiar</string>
+    <string name="transcript_share">Compartir</string>
+    <string name="transcript_manage_annotation">Anotación</string>
+    <string name="transcript_note_hint">Nota (opcional)</string>
+    <string name="transcript_remove_highlight">Quitar</string>
+    <string name="transcript_keep_highlights_note">Tus subrayados y fragmentos guardados siempre se guardan en tu Cuaderno con sus marcas de tiempo, aunque no guardes la transcripción completa. Guardados hasta ahora: %1$d.</string>
     <string name="transcript_source_youtube">Subtítulos de YouTube</string>
     <string name="transcript_source_podcast">Transcripción del pódcast</string>
     <string name="transcript_source_file">Subtítulos</string>

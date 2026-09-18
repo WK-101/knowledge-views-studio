@@ -497,6 +497,17 @@
     <string name="transcript_keep_whole_desc">Store the full transcript on this device so it stays available offline.</string>
     <string name="transcript_highlight_hint">Tap a line to jump to it. Highlight a line to save it as a timestamped annotation.</string>
     <string name="transcript_highlight">Highlight</string>
+    <string name="transcript_read_hint">Select any words to highlight or keep them — every annotation is saved with its timestamp. Tap a timecode to jump there.</string>
+    <string name="transcript_more">More</string>
+    <string name="transcript_save_options">Save options</string>
+    <string name="transcript_save_sheet_title">Keep this transcript</string>
+    <string name="transcript_keep_passage">Keep passage</string>
+    <string name="transcript_copy">Copy</string>
+    <string name="transcript_share">Share</string>
+    <string name="transcript_manage_annotation">Annotation</string>
+    <string name="transcript_note_hint">Note (optional)</string>
+    <string name="transcript_remove_highlight">Remove</string>
+    <string name="transcript_keep_highlights_note">Your highlights and kept passages are always saved to your Notebook with their timestamps — even if you don\'t keep the whole transcript. Saved so far: %1$d.</string>
     <string name="transcript_source_youtube">YouTube captions</string>
     <string name="transcript_source_podcast">Podcast transcript</string>
     <string name="transcript_source_file">Captions</string>

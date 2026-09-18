@@ -101,7 +101,16 @@ class HighlightRepository @Inject constructor(
      * can re-mark and seek to it, and the note carries a human `[mm:ss]` stamp so the annotation
      * reads as a proper, timestamped quote everywhere it appears (notebook, exports, share).
      */
-    suspend fun addTimestamped(itemId: String, startMs: Long, endMs: Long, quote: String, color: Int, note: String? = null): String {
+    suspend fun addTimestamped(
+        itemId: String,
+        startMs: Long,
+        endMs: Long,
+        quote: String,
+        color: Int,
+        note: String? = null,
+        charStart: Int = 0,
+        charEnd: Int = 0,
+    ): String {
         val now = clock()
         val id = UUID.randomUUID().toString()
         highlightDao.upsert(
@@ -111,10 +120,13 @@ class HighlightRepository @Inject constructor(
                 quote = quote,
                 note = note?.ifBlank { null },
                 color = color,
+                // Timestamp anchors live in the selectors ("t:<ms>"); the char range into the reflowed
+                // transcript prose is kept in the offset columns so the highlight repaints over the
+                // exact words on reload (with the quote as a re-anchoring fallback).
                 startSelector = "t:$startMs",
-                startOffset = 0,
+                startOffset = charStart,
                 endSelector = "t:$endMs",
-                endOffset = 0,
+                endOffset = charEnd,
                 createdAt = now,
             ),
         )

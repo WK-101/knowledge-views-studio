@@ -21,6 +21,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** A saved transcript annotation, anchored to a media time range and to a character range in the
+ *  reflowed prose (so it repaints over the exact words). */
+data class TranscriptAnnotation(
+    val id: String,
+    val startMs: Long,
+    val endMs: Long,
+    val charStart: Int,
+    val charEnd: Int,
+    val color: Int,
+    val quote: String,
+    val note: String?,
+)
+
 data class TranscriptUiState(
     val loading: Boolean = true,
     val error: String? = null,
@@ -30,8 +43,8 @@ data class TranscriptUiState(
     /** Set when an on-device transcription attempt produced nothing, so the UI can explain it. */
     val generateError: Boolean = false,
     val cues: List<TranscriptCue> = emptyList(),
-    /** Start-ms of cues that carry a saved annotation, for the highlight marker. */
-    val highlightedStarts: Set<Long> = emptySet(),
+    /** Saved annotations for this transcript, for painting + management. */
+    val annotations: List<TranscriptAnnotation> = emptyList(),
     /** Whether the whole transcript is permanently saved (vs. re-fetchable). */
     val saved: Boolean = false,
     val provenance: TranscriptSourceKind = TranscriptSourceKind.UNKNOWN,
@@ -43,8 +56,9 @@ data class TranscriptUiState(
 
 /**
  * Backs the transcript screen: resolves a transcript (saved copy → captions → honest unavailability),
- * keeps the highlighted-cue markers live, drives podcast playback for tap-to-seek, and toggles both
- * whole-transcript keeping and per-cue annotations. All on-device.
+ * keeps annotations live, drives podcast playback for tap-to-seek, and toggles whole-transcript
+ * keeping and per-selection annotations. On-device transcription can be run at any time (even when a
+ * caption transcript is already showing), so the reader can always fall back to speech-to-text.
  */
 @HiltViewModel
 class TranscriptViewModel @Inject constructor(
@@ -68,13 +82,11 @@ class TranscriptViewModel @Inject constructor(
     private var transcript: Transcript? = null
     private var enclosureUrl: String? = null
     private var mediaTitle: String = ""
-    // start-ms → highlight id, so a second tap on a cue removes its annotation.
-    private var idByStart: Map<Long, String> = emptyMap()
 
     fun start(itemId: String) {
         if (this.itemId == itemId && !_state.value.loading) return
         this.itemId = itemId
-        observeHighlights(itemId)
+        observeAnnotations(itemId)
         observeSaved(itemId)
         load(itemId)
     }
@@ -91,11 +103,15 @@ class TranscriptViewModel @Inject constructor(
                 .getOrElse { TranscriptResult.Failed(it.message ?: "Couldn't load the transcript") }) {
                 is TranscriptResult.Ready -> {
                     transcript = r.transcript
+                    // Report on-device readiness even when captions loaded, so "Transcribe on device"
+                    // stays available from the menu over a caption transcript.
+                    val (onDeviceSupported, onDeviceReady) = transcriptRepository.onDeviceStatus()
                     _state.value = _state.value.copy(
                         loading = false, error = null, unavailable = false,
                         cues = r.transcript.cues, provenance = r.transcript.source,
                         language = r.transcript.language, title = mediaTitle,
                         isAudio = isAudio, youtubeId = ytId,
+                        onDeviceSupported = onDeviceSupported, onDeviceModelReady = onDeviceReady,
                     )
                 }
                 is TranscriptResult.Unavailable -> _state.value = _state.value.copy(
@@ -108,17 +124,21 @@ class TranscriptViewModel @Inject constructor(
         }
     }
 
-    private fun observeHighlights(itemId: String) {
+    private fun observeAnnotations(itemId: String) {
         viewModelScope.launch {
             highlightRepository.observeForItem(itemId).collect { list ->
-                val timed = list.mapNotNull { h ->
+                val anns = list.mapNotNull { h ->
                     val sel = h.startSelector ?: return@mapNotNull null
                     if (!sel.startsWith("t:")) return@mapNotNull null
-                    val ms = sel.removePrefix("t:").toLongOrNull() ?: return@mapNotNull null
-                    ms to h.id
-                }
-                idByStart = timed.toMap()
-                _state.value = _state.value.copy(highlightedStarts = idByStart.keys)
+                    val startMs = sel.removePrefix("t:").toLongOrNull() ?: return@mapNotNull null
+                    val endMs = h.endSelector?.removePrefix("t:")?.toLongOrNull() ?: startMs
+                    TranscriptAnnotation(
+                        id = h.id, startMs = startMs, endMs = endMs,
+                        charStart = h.startOffset, charEnd = h.endOffset,
+                        color = h.color, quote = h.quote, note = h.note,
+                    )
+                }.sortedBy { it.startMs }
+                _state.value = _state.value.copy(annotations = anns)
             }
         }
     }
@@ -131,7 +151,8 @@ class TranscriptViewModel @Inject constructor(
         }
     }
 
-    /** Run offline on-device transcription for un-captioned media, then show the result. */
+    /** Run offline on-device transcription — available whether or not a caption transcript is loaded,
+     *  so the reader can always get a speech-to-text version. On success it replaces what's shown. */
     fun generateOnDevice() {
         if (_generating.value != null) return
         viewModelScope.launch {
@@ -162,37 +183,43 @@ class TranscriptViewModel @Inject constructor(
         }
     }
 
-    /** Toggle a cue's annotation: add a timestamped highlight, or remove the existing one. */
-    fun toggleHighlight(cue: TranscriptCue, color: Int) {
+    /** Save a selected passage as a timestamped annotation over a character range of the prose. */
+    fun annotate(charStart: Int, charEnd: Int, startMs: Long, endMs: Long, quote: String, color: Int) {
+        if (quote.isBlank()) return
         viewModelScope.launch {
-            val existing = idByStart[cue.startMs]
-            if (existing != null) {
-                coRunCatching { highlightRepository.remove(existing, itemId) }
-            } else {
-                coRunCatching {
-                    highlightRepository.addTimestamped(
-                        itemId, cue.startMs, cue.endMs, cue.text, color,
-                        note = "[${formatTimestamp(cue.startMs)}]",
-                    )
-                }
+            coRunCatching {
+                highlightRepository.addTimestamped(
+                    itemId, startMs, endMs, quote.trim(), color,
+                    note = "[${formatTimestamp(startMs)}]",
+                    charStart = charStart, charEnd = charEnd,
+                )
             }
         }
     }
 
-    /** Tap a cue: seek the episode if it's playing, otherwise start it (podcast tap-to-listen). */
-    fun onCueTap(cue: TranscriptCue) {
+    fun removeAnnotation(id: String) {
+        viewModelScope.launch { coRunCatching { highlightRepository.remove(id, itemId) } }
+    }
+
+    fun recolorAnnotation(id: String, color: Int) {
+        viewModelScope.launch { coRunCatching { highlightRepository.setColor(id, itemId, color) } }
+    }
+
+    fun noteAnnotation(id: String, note: String?) {
+        viewModelScope.launch { coRunCatching { highlightRepository.setNote(id, itemId, note) } }
+    }
+
+    /** Tap the transcript at a media time: seek the episode if it's playing, else start it. */
+    fun onSeek(ms: Long) {
         if (!_state.value.isAudio) return
-        if (audioPlayer.isActiveFor()) {
-            audioPlayer.seekTo(cue.startMs.toInt())
-        } else {
-            enclosureUrl?.let { audioPlayer.play(it, mediaTitle) }
-        }
+        if (audioPlayer.isActiveFor()) audioPlayer.seekTo(ms.toInt())
+        else enclosureUrl?.let { audioPlayer.play(it, mediaTitle) }
     }
 
     fun audioToggle() = audioPlayer.togglePlayPause()
     fun seekBy(deltaMs: Int) = audioPlayer.seekBy(deltaMs)
 
-    /** External-open URL for a YouTube cue (opens the video at the cue's second). */
+    /** External-open URL for a YouTube transcript position (opens the video at that second). */
     fun youtubeUrlAt(ms: Long): String? =
         _state.value.youtubeId?.let { "https://www.youtube.com/watch?v=$it&t=${ms / 1000}s" }
 }
