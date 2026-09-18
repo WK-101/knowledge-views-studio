@@ -277,6 +277,7 @@
     <string name="open_articles_in">Open articles in</string>
     <string name="open_as_web_page">Open as web page</string>
     <string name="open_comments">Open comments</string>
+    <string name="open_from_archive">Open from archive</string>
     <string name="open_in_browser">Open in browser</string>
     <string name="open_navigation">Open navigation</string>
     <string name="open_original">Open original</string>
@@ -299,6 +300,7 @@
     <string name="pure_black_amoled">Pure black (AMOLED)</string>
     <string name="read">Read</string>
     <string name="read_articles_aloud_off_hides_the">Read articles aloud. Off hides the Listen buttons everywhere.</string>
+    <string name="read_from_archive">Read from archive</string>
     <string name="read_later">Read Later</string>
     <string name="reader">Reader</string>
     <string name="reading">Reading</string>

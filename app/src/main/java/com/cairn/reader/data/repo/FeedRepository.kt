@@ -1020,6 +1020,57 @@ class FeedRepository @Inject constructor(
     }
 
     /**
+     * Paywall recovery (Content Engine P5): fetch a public-archive snapshot of the item's URL —
+     * archive.today first, then the Wayback Machine — run readability on it, and if that yields a
+     * real article body, store it as the item's offline body (marked [ContentSource.ARCHIVE]). This
+     * is how a paywalled or blocked article becomes readable and searchable. Best-effort and entirely
+     * on-device beyond the two archive fetches; returns true only when a substantial body was saved,
+     * so the caller can fall back to simply opening the snapshot in the browser.
+     */
+    suspend fun saveFromArchive(itemId: String): Boolean {
+        val item = itemDao.getItem(itemId) ?: return false
+        val target = item.url.takeIf { it.startsWith("http", ignoreCase = true) } ?: return false
+        val candidates = listOf(
+            com.cairn.reader.domain.archive.ArchiveResolver.archiveTodayNewest(target),
+            com.cairn.reader.domain.archive.ArchiveResolver.waybackNewest(target),
+        )
+        for (snapshot in candidates) {
+            coroutineContext.ensureActive()
+            val res = coRunCatching { fetcher.fetch(snapshot) }.getOrNull() ?: continue
+            val extracted = res.body?.let { coRunCatching { extractor.extract(res.finalUrl, it) }.getOrNull() } ?: continue
+            // Require a genuine article — archives return a listing/placeholder page when they have no
+            // capture, which extracts to almost nothing.
+            if (extracted.wordCount < com.cairn.reader.domain.archive.ArchiveResolver.THIN_WORD_COUNT) continue
+            val cleanHtml = if (sanitizeEnabled()) {
+                coRunCatching { sanitizer.sanitize(extracted.contentHtml, res.finalUrl).html }.getOrDefault(extracted.contentHtml)
+            } else {
+                extracted.contentHtml
+            }
+            val blob = blobStore.writeArticle(itemId, cleanHtml)
+            extracted.title?.let { itemDao.updateMeta(itemId, it, extracted.byline, hostOf(target)) }
+            itemDao.setExtracted(
+                id = itemId,
+                blobPath = blob,
+                excerpt = extracted.excerpt,
+                wordCount = extracted.wordCount,
+                minutes = extracted.readingMinutes,
+                leadImage = extracted.leadImage,
+                status = "OK",
+                contentSource = ContentSource.ARCHIVE.raw,
+            )
+            itemDao.indexItem(
+                ItemFtsEntity(itemId, extracted.title ?: item.title, extracted.byline, extracted.plainText.take(FTS_BODY_CHARS)),
+            )
+            coRunCatching { itemDao.setSimHash(itemId, com.cairn.reader.domain.dedupe.SimHash.compute(extracted.plainText)) }
+            if (extracted.wordCount >= 200 && itemDao.getItem(itemId)?.type == ItemType.LINK.name) {
+                itemDao.setType(itemId, ItemType.ARTICLE.name)
+            }
+            return true
+        }
+        return false
+    }
+
+    /**
      * Broken-link watchdog: HEAD/GET a batch of saved items' URLs and record whether the link still
      * resolves (linkStatus OK / BROKEN). A 4xx/5xx or a network failure that is not a timeout marks
      * it broken; a permanent offline copy means the article is still readable regardless. Runs a few

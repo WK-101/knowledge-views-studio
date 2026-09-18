@@ -49,6 +49,8 @@ enum class ContentSource(val raw: String) {
     READABLE("READABLE"),
     /** Captured from a Share-to-Cairn / saved-URL flow. */
     SHARED("SHARED"),
+    /** Recovered from a public archive snapshot (archive.today / Wayback) — e.g. a paywalled page. */
+    ARCHIVE("ARCHIVE"),
     /** An imported PDF document. */
     PDF("PDF");
 

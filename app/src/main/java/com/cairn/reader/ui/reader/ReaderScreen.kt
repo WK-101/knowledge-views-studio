@@ -314,6 +314,13 @@ fun ReaderScreen(
         onOpenWeb(url)
     }
 
+    // Paywall bypass (Content Engine P5): open the most recent public-archive snapshot of this
+    // article in the in-app browser. archive.today usually holds a readable copy of paywalled pages.
+    fun openFromArchive() {
+        val url = data?.url?.takeIf { it.startsWith("http", ignoreCase = true) } ?: return
+        onOpenWeb(com.cairn.reader.domain.archive.ArchiveResolver.archiveTodayNewest(url))
+    }
+
     // Video items (e.g. YouTube) open in whatever app handles the watch URL, not the reader WebView.
     fun watchVideo() {
         val url = data?.url ?: return
@@ -541,6 +548,12 @@ fun ReaderScreen(
                                     leadingIcon = { Icon(Icons.Outlined.Code, contentDescription = null) },
                                     onClick = { showMenu = false; viewModel.loadWithJavaScript() },
                                 )
+                                // Paywall bypass (Content Engine P5): read a public-archive snapshot.
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.open_from_archive)) },
+                                    leadingIcon = { Icon(Icons.Outlined.Unarchive, contentDescription = null) },
+                                    onClick = { showMenu = false; openFromArchive() },
+                                )
                             }
                             DropdownMenuItem(
                                 text = { Text(if (highlights.isEmpty()) "Share article" else "Export highlights") },
@@ -624,6 +637,7 @@ fun ReaderScreen(
                 onLoadFull = viewModel::loadFullArticle,
                 onLoadWithJs = viewModel::loadWithJavaScript,
                 onOpenOriginal = ::openOriginal,
+                onRecoverFromArchive = viewModel::saveFromArchive,
                 onSaveProgress = viewModel::setProgress,
                 onSelectText = { b, s, e, q, y -> pending = PendingSelection(b, s, e, q, y) },
                 // Keep the selected passage tinted while the pill is open (cleared when pending clears).

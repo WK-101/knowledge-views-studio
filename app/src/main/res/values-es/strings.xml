@@ -279,6 +279,7 @@
     <string name="open_articles_in">Abrir los artículos en</string>
     <string name="open_as_web_page">Abrir como página web</string>
     <string name="open_comments">Abrir comentarios</string>
+    <string name="open_from_archive">Abrir desde archivo</string>
     <string name="open_in_browser">Abrir en el navegador</string>
     <string name="open_navigation">Abrir navegación</string>
     <string name="open_original">Abrir original</string>
@@ -301,6 +302,7 @@
     <string name="pure_black_amoled">Negro puro (AMOLED)</string>
     <string name="read">Leer</string>
     <string name="read_articles_aloud_off_hides_the">Lee los artículos en voz alta. Desactivado oculta los botones de Escuchar en todas partes.</string>
+    <string name="read_from_archive">Leer desde archivo</string>
     <string name="read_later">Leer después</string>
     <string name="reader">Lector</string>
     <string name="reading">Lectura</string>

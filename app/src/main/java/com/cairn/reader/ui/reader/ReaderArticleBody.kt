@@ -182,6 +182,7 @@ internal fun ArticleBody(
     onLoadFull: () -> Unit,
     onLoadWithJs: () -> Unit,
     onOpenOriginal: () -> Unit,
+    onRecoverFromArchive: () -> Unit = {},
     onSaveProgress: (Float) -> Unit,
     onSelectText: (blockIndex: Int, start: Int, end: Int, quote: String, yInWindow: Float) -> Unit,
     onManageHighlight: (HighlightEntity) -> Unit,
@@ -363,6 +364,12 @@ internal fun ArticleBody(
                                     Text(stringResource(R.string.load_with_javascript))
                                 }
                             }
+                            Spacer(Modifier.height(8.dp))
+                            // Paywall / blocked page recovery (Content Engine P5): pull a readable copy
+                            // from a public archive (archive.today / Wayback), or open the snapshot.
+                            OutlinedButton(onClick = onRecoverFromArchive) {
+                                Text(stringResource(R.string.read_from_archive))
+                            }
                             Spacer(Modifier.height(4.dp))
                             Text(stringResource(R.string.showing_the_summary_the_full_article), style = MaterialTheme.typography.labelSmall, color = palette.secondary)
                             Spacer(Modifier.height(8.dp))
@@ -425,6 +432,11 @@ internal fun ArticleBody(
                                 Text(stringResource(R.string.load_with_javascript))
                             }
                             OutlinedButton(onClick = onOpenOriginal) { Text(stringResource(R.string.open_original)) }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        // Paywall / blocked page recovery (Content Engine P5).
+                        OutlinedButton(onClick = onRecoverFromArchive) {
+                            Text(stringResource(R.string.read_from_archive))
                         }
                     }
                 }

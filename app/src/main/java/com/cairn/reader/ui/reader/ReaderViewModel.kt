@@ -331,6 +331,25 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Paywall recovery (Content Engine P5): fetch a public-archive snapshot (archive.today, then the
+     * Wayback Machine), extract it, and store it as this item's offline body. When it succeeds the
+     * article becomes readable and searchable in-app; when it fails the reader falls back to opening
+     * the snapshot in the in-app browser. Shares the [_rendering] guard so it can't overlap a JS pass.
+     */
+    fun saveFromArchive() {
+        if (_rendering.value || itemId.isEmpty()) return
+        viewModelScope.launch {
+            _rendering.value = true
+            _state.update { it.copy(extracting = true) }
+            val ok = coRunCatching { feedRepository.saveFromArchive(itemId) }.getOrDefault(false)
+            val data = itemRepository.reader(itemId)
+            _rendering.value = false
+            _state.value = ReaderUiState(loading = false, extracting = false, data = data)
+            _messages.emit(if (ok) "Recovered from a public archive" else "No archived copy found — opening the archive")
+        }
+    }
+
     fun toggleStar() {
         val current = _state.value.data ?: return
         viewModelScope.launch {
