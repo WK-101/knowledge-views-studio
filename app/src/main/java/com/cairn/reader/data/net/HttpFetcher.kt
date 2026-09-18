@@ -17,6 +17,9 @@ data class FetchResult(
     val lastModified: String?,
     val finalUrl: String,
     val contentType: String?,
+    /** The final URL when the request began with a PERMANENT redirect (301/308) — i.e. a stable
+     *  replacement worth persisting (e.g. http→https, a moved feed). Null for no/temporary redirects. */
+    val permanentUrl: String? = null,
 ) {
     val isSuccess: Boolean get() = status in 200..299 || notModified
 }
@@ -58,10 +61,21 @@ class HttpFetcher @Inject constructor(
                 lastModified = response.header("Last-Modified"),
                 finalUrl = response.request.url.toString(),
                 contentType = contentType,
+                permanentUrl = permanentRedirectTarget(response),
             )
         }
     }
 
+
+    /** If the redirect chain that produced [response] STARTED with a permanent redirect (301/308),
+     *  return the final URL — a stable replacement the caller can persist so future syncs skip the
+     *  hop (and http→https / moved feeds self-heal). Walks priorResponse back to the first hop. */
+    private fun permanentRedirectTarget(response: okhttp3.Response): String? {
+        var prior = response.priorResponse ?: return null
+        var firstCode = prior.code
+        while (true) { val p = prior.priorResponse ?: break; prior = p; firstCode = p.code }
+        return if (firstCode == 301 || firstCode == 308) response.request.url.toString() else null
+    }
 
     /** Raw bytes for a binary resource (used to cache article images for the offline copy),
      *  paired with the reported content type. Null on any failure or an oversized body. */

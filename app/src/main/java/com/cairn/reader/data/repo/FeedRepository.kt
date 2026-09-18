@@ -302,14 +302,34 @@ class FeedRepository @Inject constructor(
     suspend fun syncAll(): List<com.cairn.reader.notifications.NewArticle> = withContext(Dispatchers.Default) {
         val now = System.currentTimeMillis()
         val fresh = mutableListOf<com.cairn.reader.notifications.NewArticle>()
+        // No network → don't even try: a whole offline pass would otherwise throw a connect error
+        // per feed and bury the log in one warning per feed (making every feed look broken). Local
+        // upkeep still runs so retention/trash purge happen offline too.
+        if (!isOnline()) {
+            AppLog.w("sync skipped: no network")
+            runMaintenance()
+            return@withContext fresh
+        }
         // WebSub-aware ordering: feeds that declare a real-time hub sync first, so "live" sources
         // are the freshest even though a serverless client can't hold a push callback.
         // Paused feeds are excluded from sync entirely (they stay visible with their items readable);
         // only the sync loop skips them — retention/pruning in runMaintenance still covers them.
-        sourceDao.getAll().filterNot { it.syncPaused }.sortedByDescending { it.hubUrl != null }.forEach { source ->
+        val sources = sourceDao.getAll().filterNot { it.syncPaused }.sortedByDescending { it.hubUrl != null }
+        val failures = ArrayList<Pair<String, Throwable>>()
+        sources.forEach { source ->
             coroutineContext.ensureActive()  // honor cancellation between feeds
             coRunCatching { syncSource(source, now, if (source.notify) fresh else null) }
-                .onFailure { AppLog.w("sync failed for ${source.feedUrl}", it) }
+                .onFailure { failures.add(source.feedUrl to it) }
+        }
+        // Log compactly: a total outage (every feed failed) is one line — almost always the network
+        // dropped mid-sync, not the feeds. A partial failure logs each feed with its cause so a
+        // genuinely broken feed is diagnosable without 70 lines of noise drowning it.
+        if (failures.isNotEmpty()) {
+            if (failures.size == sources.size && sources.size > 3) {
+                AppLog.w("sync: all ${sources.size} feeds failed this pass — likely a network drop (${failures.first().second.javaClass.simpleName})")
+            } else {
+                failures.forEach { (url, e) -> AppLog.w("sync failed for $url — ${e.javaClass.simpleName}: ${e.message?.take(140)}") }
+            }
         }
         // Retention + trash auto-purge, unchanged from when it lived inline here. Pruning each feed
         // only reads/deletes its own items, so running it after all feeds have synced yields the
@@ -495,6 +515,16 @@ class FeedRepository @Inject constructor(
         caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
     }.getOrDefault(true)
 
+    /** True when an internet-capable network is active. Used to skip a whole sync pass when the
+     *  device is offline — otherwise every feed throws a connect error and the log fills with one
+     *  warning per feed (and it looks like every feed is broken when it's just the network).
+     *  Defaults to true if the state can't be read, so an unclear network never blocks a sync. */
+    private fun isOnline(): Boolean = coRunCatching {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return true
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+        caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }.getOrDefault(true)
+
     private suspend fun syncSource(
         source: SourceEntity,
         now: Long,
@@ -531,6 +561,12 @@ class FeedRepository @Inject constructor(
             return
         }
         feed.items.forEach { insertParsed(source, it, now, newItems) }
+        // Self-heal a permanently-moved feed URL (http→https, or a moved domain the feed 301s to)
+        // so future syncs skip the redirect hop and the stored URL stays correct. Guard the unique
+        // feedUrl index by only claiming a URL no other source already holds.
+        res.permanentUrl?.takeIf { it != source.feedUrl }?.let { moved ->
+            if (sourceDao.getByFeedUrl(moved) == null) coRunCatching { sourceDao.setFeedUrl(source.id, moved) }
+        }
         // Learn / refresh the WebSub hub declaration so the feed is marked real-time-aware.
         if (!feed.hubUrl.isNullOrBlank() && feed.hubUrl != source.hubUrl) {
             coRunCatching { sourceDao.setHubUrl(source.id, feed.hubUrl) }
