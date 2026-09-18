@@ -993,7 +993,9 @@ fun NoteEditorScreen(
                     Text(fmt.label, Modifier.fillMaxWidth().clickable {
                         sheet = null
                         if (fmt == com.todocompanion.app.util.NoteExport.Format.PDF)
-                            com.todocompanion.app.util.NoteExport.printPdf(ctx, d)
+                            // Expand live tokens + the recap marker first, so the printed PDF matches the
+                            // reading view instead of showing raw {{…}} / recap placeholders.
+                            scope.launch { com.todocompanion.app.util.NoteExport.printPdf(ctx, d.copy(body = vm.expandNoteForExport(d))) }
                         else vm.exportNote(noteId, fmt)
                     }.padding(vertical = 12.dp), style = MaterialTheme.typography.bodyLarge)
                 }
