@@ -302,6 +302,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         SettingsSectionHeader("General",
             "Modules",
             "Appearance theme dark light mode dynamic color accent palette theme pack background tint density compact spacing fab position swipe actions gestures",
+            "App shortcuts launcher long press home screen pin add note today focus quick add close day track",
         )
         SettingsGroup(Icons.Filled.Dashboard, "Modules", open["modules"] == true, { open["modules"] = open["modules"] != true }) {
             Sub("Primary (your home + always shown)")
@@ -478,6 +479,42 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             SwipeRow("Swipe left", s.swipeLeft) { vm.saveSettings(s.copy(swipeLeft = it)) }
             SwipeRow("Swipe left — full", s.swipeLeftFar) { vm.saveSettings(s.copy(swipeLeftFar = it)) }
             Text("A short swipe runs the first action; a longer swipe runs the “full” action.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        // Corrections — the launcher's long-press menu only renders the first ~4 shortcuts, so most of
+        // Kairo's (New note, Today's note, Close day, Track: …) never show there. List them ALL and let the
+        // user pin any one to the home screen.
+        SettingsGroup(Icons.Filled.RocketLaunch, "App shortcuts", open["shortcuts"] == true, { open["shortcuts"] = open["shortcuts"] != true }, keywords = "app shortcuts launcher long press home screen pin add note today focus quick add close day track") {
+            val pinnable = remember { com.todocompanion.app.util.AppShortcuts.canPin(context) }
+            val dynamicShortcuts = remember { com.todocompanion.app.util.AppShortcuts.dynamicTrack(context) }
+            Text("Your launcher's long-press menu only shows the first few. These are all of Kairo's shortcuts — tap “Add to home” to place any one directly on your home screen.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            com.todocompanion.app.util.AppShortcuts.STATIC.forEach { spec ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(androidx.compose.ui.res.painterResource(spec.iconRes), null,
+                        tint = androidx.compose.ui.graphics.Color.Unspecified, modifier = Modifier.size(30.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(context.getString(spec.shortLabelRes), style = MaterialTheme.typography.bodyMedium)
+                        Text(spec.descr, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    TextButton(enabled = pinnable, onClick = { com.todocompanion.app.util.AppShortcuts.pin(context, spec) }) { Text("Add to home") }
+                }
+            }
+            if (dynamicShortcuts.isNotEmpty()) {
+                HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                Sub("Time-tracking (one per activity)")
+                dynamicShortcuts.forEach { info ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Schedule, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text(info.shortLabel?.toString() ?: info.id, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        TextButton(enabled = pinnable, onClick = { com.todocompanion.app.util.AppShortcuts.pin(context, info) }) { Text("Add to home") }
+                    }
+                }
+            }
+            if (!pinnable) Text("This launcher can't add shortcuts from inside apps. You can still long-press Kairo's icon on the home screen to reach the first few.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
         }
 
         SettingsSectionHeader("Planning",

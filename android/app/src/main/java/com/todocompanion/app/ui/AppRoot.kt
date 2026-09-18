@@ -1016,8 +1016,28 @@ fun AppRoot(
                             Icon(Icons.Filled.Add, "New habit")
                         }
                     } else if (tab == Tab.NOTES) {
-                        FloatingActionButton(onClick = { vm.createNote { id -> editingNote = id } }) {
-                            Icon(Icons.Filled.Add, "New note")
+                        var notesFabMenu by remember { mutableStateOf(false) }
+                        Box {
+                            // Tap adds a plain note; long-press reveals quick daily/weekly/monthly notes.
+                            // The periodic-note helpers are idempotent find-or-create, so "Today's note"
+                            // opens the existing one if it's already there. DualFab so the long-press fires.
+                            DualFab(
+                                icon = Icons.Filled.Add,
+                                contentDescription = "New note (hold for daily / weekly / monthly)",
+                                onClick = { vm.createNote { id -> editingNote = id } },
+                                onLongClick = { notesFabMenu = true },
+                            )
+                            DropdownMenu(expanded = notesFabMenu, onDismissRequest = { notesFabMenu = false }) {
+                                val notesToday = java.time.LocalDate.now().toEpochDay()
+                                DropdownMenuItem(text = { Text("New note") }, leadingIcon = { Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp)) },
+                                    onClick = { notesFabMenu = false; vm.createNote { id -> editingNote = id } })
+                                DropdownMenuItem(text = { Text("Today's note") }, leadingIcon = { Text("🌅") },
+                                    onClick = { notesFabMenu = false; vm.openDailyNote(notesToday) { id -> editingNote = id } })
+                                DropdownMenuItem(text = { Text("This week's note") }, leadingIcon = { Text("📆") },
+                                    onClick = { notesFabMenu = false; vm.openPeriodicNote(com.todocompanion.app.domain.PeriodRange.WEEK, notesToday) { id -> editingNote = id } })
+                                DropdownMenuItem(text = { Text("This month's note") }, leadingIcon = { Text("🗓️") },
+                                    onClick = { notesFabMenu = false; vm.openPeriodicNote(com.todocompanion.app.domain.PeriodRange.MONTH, notesToday) { id -> editingNote = id } })
+                            }
                         }
                     } else if (tab == Tab.TIME && !timeFocus) {
                         // Double-action FAB (R18/R19): a single tap starts a new timer straight away (smart
