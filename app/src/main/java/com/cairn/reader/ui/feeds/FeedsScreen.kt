@@ -303,6 +303,7 @@ fun FeedsScreen(
             onFullText = { viewModel.setFullText(source.id, it) },
             onAcquisition = { viewModel.setAcquisition(source.id, it) },
             onDepth = { viewModel.setDepth(source.id, it) },
+            onOfflineTier = { viewModel.setOfflineTier(source.id, it) },
             onBackfill = { viewModel.requestBackfill(source.id); com.cairn.reader.work.CairnWork.startArchive(context) },
             onCancelBackfill = { viewModel.cancelBackfill(source.id) },
             onNotify = { viewModel.setNotify(source.id, it) },

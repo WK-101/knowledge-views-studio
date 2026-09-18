@@ -45,10 +45,12 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +65,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cairn.reader.R
+import com.cairn.reader.data.db.SourceEntity
 import com.cairn.reader.data.prefs.AppPreferences
 import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
@@ -191,6 +194,67 @@ internal fun FeedDefaultsSection(prefs: AppPreferences, viewModel: SettingsViewM
             checked = prefs.crawlChargingOnly,
             onCheckedChange = { viewModel.setCrawlChargingOnly(it) },
         )
+    }
+}
+
+// ─── Site archives ───────────────────────────────────────────────────────────
+/**
+ * Live status of the deep-archive backfills (Content Engine P4). Lists every source that is queued,
+ * downloading, or has a finished whole-site archive — with a progress bar and a Cancel while it runs.
+ * Renders nothing (the whole group is skipped) when no source has ever been archived, so it stays out
+ * of the way for feed-only users. Fed by the same `sources` flow the rest of Settings uses, so the
+ * bars advance as the crawler stores each article.
+ */
+@Composable
+internal fun SiteArchivesSection(sources: List<SourceEntity>, viewModel: SettingsViewModel) {
+    val scheme = MaterialTheme.colorScheme
+    val active = sources.filter { it.backfillState == "PENDING" || it.backfillState == "RUNNING" }
+    val done = sources.filter { it.backfillState == "DONE" }
+    if (active.isEmpty() && done.isEmpty()) return
+    SettingsGroup(stringResource(R.string.site_archives)) {
+        SettingCaption(stringResource(R.string.site_archives_sub))
+        active.forEachIndexed { i, s ->
+            if (i > 0) SettingDivider()
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(s.title, style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { viewModel.cancelBackfill(s.id) }) { Text(stringResource(R.string.cancel)) }
+                }
+                Spacer(Modifier.height(6.dp))
+                if (s.backfillState == "RUNNING" && s.backfillDiscovered > 0) {
+                    LinearProgressIndicator(
+                        progress = { (s.backfillDone.toFloat() / s.backfillDiscovered).coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        stringResource(R.string.backfill_running, s.backfillDone, s.backfillDiscovered),
+                        style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+                    )
+                } else {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(6.dp))
+                    Text(stringResource(R.string.backfill_queued), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                }
+            }
+        }
+        done.forEach { s ->
+            if (active.isNotEmpty() || s != done.first()) SettingDivider()
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Outlined.Inventory2, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(s.title, style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
+                    Text(
+                        stringResource(R.string.archive_done, s.backfillDone),
+                        style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
     }
 }
 

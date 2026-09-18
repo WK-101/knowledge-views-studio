@@ -91,7 +91,8 @@ class ArchiveRepository @Inject constructor(
             }
             lastHostFetch[host] = System.currentTimeMillis()
 
-            val ok = coRunCatching { feedRepository.saveArchivedUrl(source, row.url, row.lastmod) }.getOrDefault(false)
+            val mirror = com.cairn.reader.data.db.OfflineTier.from(source.offlineTier) == com.cairn.reader.data.db.OfflineTier.MIRROR
+            val ok = coRunCatching { feedRepository.saveArchivedUrl(source, row.url, row.lastmod, mirror) }.getOrDefault(false)
             frontierDao.mark(row.sourceId, row.url, "FETCHED")
             if (ok) { stored++; bumpDone(row.sourceId) }
         }

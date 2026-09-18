@@ -347,6 +347,7 @@ private fun SettingsDetail(
         when (category) {
             SettingsCategory.FEEDS -> {
                 item { FeedDefaultsSection(prefs, viewModel, folders) }
+                item { SiteArchivesSection(sources, viewModel) }
                 item { SyncSettingsGroup(prefs, viewModel) }
                 item { RetentionSettingsGroup(prefs, viewModel) }
                 item { FiltersSection(prefs, viewModel) }
@@ -421,6 +422,7 @@ private fun SettingsDetail(
             onFullText = { viewModel.setFullText(source.id, it) },
             onAcquisition = { viewModel.setAcquisition(source.id, it) },
             onDepth = { viewModel.setDepth(source.id, it) },
+            onOfflineTier = { viewModel.setOfflineTier(source.id, it) },
             onBackfill = { viewModel.requestBackfill(source.id); com.cairn.reader.work.CairnWork.startArchive(archiveCtx) },
             onCancelBackfill = { viewModel.cancelBackfill(source.id) },
             onNotify = { viewModel.setNotify(source.id, it) },

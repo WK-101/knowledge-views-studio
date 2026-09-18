@@ -224,6 +224,9 @@ data class AppPreferences(
     /** Device-local one-time flag: the full-text FTS re-index (Content Engine P2) has completed. Not
      *  backed up — it's a per-install data migration marker, not a user preference. */
     val ftsFullReindexed: Boolean = false,
+    /** Device-local one-time flag: the SimHash near-dup fingerprint backfill (Content Engine P4) has
+     *  completed for pre-P4 rows. Same rationale as [ftsFullReindexed] — a per-install marker. */
+    val simHashBackfilled: Boolean = false,
     // -- Deep-archive crawler politeness (Content Engine P3) --
     /** Honour robots.txt (Disallow + Crawl-delay) when backfilling a site's archive. Default: on. */
     val crawlRespectRobots: Boolean = true,
@@ -328,6 +331,7 @@ class PreferencesRepository @Inject constructor(
         val DEFAULT_FEED_NOTIFY = booleanPreferencesKey("default_feed_notify")
         val DEFAULT_ACQUISITION = stringPreferencesKey("default_acquisition_mode")
         val FTS_FULL_REINDEXED = booleanPreferencesKey("fts_full_reindexed")
+        val SIMHASH_BACKFILLED = booleanPreferencesKey("simhash_backfilled")
         val CRAWL_RESPECT_ROBOTS = booleanPreferencesKey("crawl_respect_robots")
         val CRAWL_WIFI_ONLY = booleanPreferencesKey("crawl_wifi_only")
         val CRAWL_CHARGING_ONLY = booleanPreferencesKey("crawl_charging_only")
@@ -428,6 +432,7 @@ class PreferencesRepository @Inject constructor(
             defaultFeedNotify = p[Keys.DEFAULT_FEED_NOTIFY] ?: false,
             defaultAcquisitionMode = p[Keys.DEFAULT_ACQUISITION] ?: "FEED",
             ftsFullReindexed = p[Keys.FTS_FULL_REINDEXED] ?: false,
+            simHashBackfilled = p[Keys.SIMHASH_BACKFILLED] ?: false,
             crawlRespectRobots = p[Keys.CRAWL_RESPECT_ROBOTS] ?: true,
             crawlWifiOnly = p[Keys.CRAWL_WIFI_ONLY] ?: true,
             crawlChargingOnly = p[Keys.CRAWL_CHARGING_ONLY] ?: true,
@@ -644,6 +649,7 @@ class PreferencesRepository @Inject constructor(
     suspend fun setDefaultFeedNotify(on: Boolean) = context.dataStore.edit { it[Keys.DEFAULT_FEED_NOTIFY] = on }
     suspend fun setDefaultAcquisitionMode(mode: String) = context.dataStore.edit { it[Keys.DEFAULT_ACQUISITION] = mode }
     suspend fun setFtsFullReindexed(done: Boolean) = context.dataStore.edit { it[Keys.FTS_FULL_REINDEXED] = done }
+    suspend fun setSimHashBackfilled(done: Boolean) = context.dataStore.edit { it[Keys.SIMHASH_BACKFILLED] = done }
     suspend fun setCrawlRespectRobots(on: Boolean) = context.dataStore.edit { it[Keys.CRAWL_RESPECT_ROBOTS] = on }
     suspend fun setCrawlWifiOnly(on: Boolean) = context.dataStore.edit { it[Keys.CRAWL_WIFI_ONLY] = on }
     suspend fun setCrawlChargingOnly(on: Boolean) = context.dataStore.edit { it[Keys.CRAWL_CHARGING_ONLY] = on }

@@ -19,6 +19,7 @@ private const val ITEM_LIST_COLUMNS = """
            i.siteName AS siteName, i.sourceId AS sourceId, src.title AS sourceTitle, i.excerpt AS excerpt, i.leadImage AS leadImage,
            i.publishedAt AS publishedAt, i.savedAt AS savedAt, i.readingMinutes AS readingMinutes,
            i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
+           i.simHash AS simHash,
            COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
            COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
     """
@@ -61,6 +62,7 @@ data class ItemListRow(
     val extractStatus: String,
     val type: String,
     val cacheStatus: String?,
+    val simHash: Long,
     val isRead: Boolean,
     val isStarred: Boolean,
     val isReadLater: Boolean,
@@ -509,6 +511,10 @@ interface ItemDao {
      *  (canonical URL, lowercased)? Lets the archive crawler skip an article the feed already brought. */
     @Query("SELECT EXISTS(SELECT 1 FROM items WHERE dedupeKey = :key)")
     suspend fun existsByDedupeKey(key: String): Boolean
+
+    /** Content Engine P4: store the 64-bit content SimHash used for near-duplicate collapse. */
+    @Query("UPDATE items SET simHash = :hash WHERE id = :id")
+    suspend fun setSimHash(id: String, hash: Long)
 
     @Query(
         ITEM_LIST_COLUMNS + """

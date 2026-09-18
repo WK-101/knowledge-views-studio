@@ -416,6 +416,8 @@ class FeedRepository @Inject constructor(
         // One-time (Content Engine P2): rebuild the FTS index of already-stored items at full depth,
         // so historic articles become fully searchable, not just their first ~600 words.
         if (prefs?.ftsFullReindexed != true) coRunCatching { reindexFullText() }
+        // One-time (Content Engine P4): fingerprint already-stored bodies for near-dup collapse.
+        if (prefs?.simHashBackfilled != true) coRunCatching { backfillSimHashes() }
     }
 
     /**
@@ -434,8 +436,31 @@ class FeedRepository @Inject constructor(
             coRunCatching {
                 itemDao.indexItem(ItemFtsEntity(itemId = id, title = e.title, author = e.author, body = plain.take(FTS_BODY_CHARS)))
             }
+            // Backfill the near-dup fingerprint for pre-P4 rows while we already have the body in hand.
+            if (e.simHash == 0L) coRunCatching { itemDao.setSimHash(id, com.cairn.reader.domain.dedupe.SimHash.compute(plain)) }
         }
         coRunCatching { preferencesRepository.setFtsFullReindexed(true) }
+        Unit
+    }
+
+    /**
+     * One-time (Content Engine P4): compute the [SimHash] near-duplicate fingerprint for every stored
+     * item that still has none (simHash == 0) but does have an on-disk body — the rows saved before
+     * P4 existed. Idempotent and device-local; a pref flag marks it done so it runs at most once. Small
+     * batches on [Dispatchers.Default], cancellation-honouring. (When the P2 full re-index runs on this
+     * same install it already fingerprints in-line, so on most devices this pass finds nothing to do.)
+     */
+    suspend fun backfillSimHashes() = withContext(Dispatchers.Default) {
+        val ids = coRunCatching { itemDao.idsWithBody() }.getOrDefault(emptyList())
+        for (id in ids) {
+            coroutineContext.ensureActive()
+            val e = coRunCatching { itemDao.getItem(id) }.getOrNull() ?: continue
+            if (e.simHash != 0L) continue
+            val html = coRunCatching { blobStore.readArticle(e.blobPath) }.getOrNull() ?: continue
+            val plain = coRunCatching { Jsoup.parse(html).text() }.getOrNull()?.takeIf { it.isNotBlank() } ?: continue
+            coRunCatching { itemDao.setSimHash(id, com.cairn.reader.domain.dedupe.SimHash.compute(plain)) }
+        }
+        coRunCatching { preferencesRepository.setSimHashBackfilled(true) }
         Unit
     }
 
@@ -706,6 +731,7 @@ class FeedRepository @Inject constructor(
             savedAt = now,
             effectiveDate = p.publishedAt ?: now,
             dedupeKey = (canonical.takeIf { it.isNotBlank() } ?: displayUrl).lowercase(),
+            simHash = com.cairn.reader.domain.dedupe.SimHash.compute(plain),
             sourceId = source.id,
             type = if (!p.audioUrl.isNullOrBlank() || source.isPodcast) ItemType.AUDIO.name else detectType(p.link, hasBody = !content.isNullOrBlank()),
             excerpt = excerpt,
@@ -800,7 +826,7 @@ class FeedRepository @Inject constructor(
      * under the source, marked READ (a backfilled historic article isn't "new/unread"), then extracted
      * so its full text lands in the offline search index. Returns true when a new item was created.
      */
-    suspend fun saveArchivedUrl(source: SourceEntity, rawUrl: String, lastmod: Long?): Boolean {
+    suspend fun saveArchivedUrl(source: SourceEntity, rawUrl: String, lastmod: Long?, mirror: Boolean = false): Boolean {
         val normalized = normalize(rawUrl) ?: return false
         val url = if (stripTrackingEnabled()) com.cairn.reader.data.net.UrlCleaner.strip(normalized) else normalized
         val canonical = com.cairn.reader.data.net.UrlCanonicalizer.canonicalize(url)
@@ -830,6 +856,10 @@ class FeedRepository @Inject constructor(
         )
         coRunCatching { itemDao.setRead(itemId, true, now) }
         coRunCatching { extractInto(itemId, url) }
+        // Full Offline Mirror tier (Content Engine P4): a MIRROR-tier site archives the whole article —
+        // text *and* its images — as a permanent, self-contained offline copy, not just a searchable
+        // index entry. INDEX-tier sites keep the on-demand body extractInto already stored.
+        if (mirror) coRunCatching { saveOffline(itemId) }
         return true
     }
 
@@ -864,6 +894,7 @@ class FeedRepository @Inject constructor(
                 blobPath = blobPath,
                 extractStatus = ExtractStatus.OK.raw,
                 contentSource = ContentSource.SHARED.raw,
+                simHash = com.cairn.reader.domain.dedupe.SimHash.compute(clean),
             ),
             now,
         )
@@ -949,6 +980,7 @@ class FeedRepository @Inject constructor(
         itemDao.indexItem(
             ItemFtsEntity(itemId, extracted.title ?: "", extracted.byline, extracted.plainText.take(FTS_BODY_CHARS)),
         )
+        coRunCatching { itemDao.setSimHash(itemId, com.cairn.reader.domain.dedupe.SimHash.compute(extracted.plainText)) }
         if (extracted.wordCount >= 200 && itemDao.getItem(itemId)?.type == ItemType.LINK.name) {
             itemDao.setType(itemId, ItemType.ARTICLE.name)
         }
@@ -979,6 +1011,7 @@ class FeedRepository @Inject constructor(
         itemDao.indexItem(
             ItemFtsEntity(itemId, extracted.title ?: "", extracted.byline, extracted.plainText.take(FTS_BODY_CHARS)),
         )
+        coRunCatching { itemDao.setSimHash(itemId, com.cairn.reader.domain.dedupe.SimHash.compute(extracted.plainText)) }
         // A saved bare link that turned out to have a real article body is promoted to ARTICLE,
         // so it filters and reads like one. Video/image classifications are left untouched.
         if (extracted.wordCount >= 200 && itemDao.getItem(itemId)?.type == ItemType.LINK.name) {

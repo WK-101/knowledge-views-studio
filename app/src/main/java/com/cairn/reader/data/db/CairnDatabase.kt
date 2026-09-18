@@ -25,7 +25,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TranscriptEntity::class,
         CrawlFrontierEntity::class,
     ],
-    version = 22,
+    version = 23,
     exportSchema = true,
     autoMigrations = [
         // v14 → v15: drop the legacy items.collectionId column. The item_collections join table is
@@ -294,5 +294,14 @@ val MIGRATION_21_22 = object : Migration(21, 22) {
         )
         db.execSQL("CREATE INDEX IF NOT EXISTS index_crawl_frontier_sourceId ON crawl_frontier(sourceId)")
         db.execSQL("CREATE INDEX IF NOT EXISTS index_crawl_frontier_state ON crawl_frontier(state)")
+    }
+}
+
+/** v23 (Content Engine P4): a per-item 64-bit SimHash for near-duplicate detection across channels
+ *  (RSS vs. site-extract vs. archive). 0 = not yet computed; existing rows are treated as "unknown"
+ *  by the deduper and get a value on their next re-index. Additive column only — no row rewrite. */
+val MIGRATION_22_23 = object : Migration(22, 23) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE items ADD COLUMN simHash INTEGER NOT NULL DEFAULT 0")
     }
 }

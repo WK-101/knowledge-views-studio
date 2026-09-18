@@ -89,6 +89,7 @@ class InboxViewModel @Inject constructor(
     fun setFeedFullText(id: String, on: Boolean) = viewModelScope.launch { sourceRepository.setFullText(id, on) }
     fun setFeedAcquisition(id: String, mode: String) = viewModelScope.launch { sourceRepository.setAcquisitionMode(id, mode) }
     fun setFeedDepth(id: String, mode: String) = viewModelScope.launch { sourceRepository.setDepthMode(id, mode) }
+    fun setFeedOfflineTier(id: String, tier: String) = viewModelScope.launch { sourceRepository.setOfflineTier(id, tier) }
     fun requestFeedBackfill(id: String) = viewModelScope.launch { sourceRepository.requestBackfill(id) }
     fun cancelFeedBackfill(id: String) = viewModelScope.launch { sourceRepository.cancelBackfill(id) }
     fun setFeedNotify(id: String, on: Boolean) = viewModelScope.launch { sourceRepository.setNotify(id, on) }

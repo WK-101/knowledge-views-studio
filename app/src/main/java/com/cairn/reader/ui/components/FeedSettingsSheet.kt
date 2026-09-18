@@ -63,6 +63,7 @@ fun FeedSettingsSheet(
     onVerify: (() -> Unit)? = null,
     onAcquisition: (String) -> Unit = {},
     onDepth: (String) -> Unit = {},
+    onOfflineTier: (String) -> Unit = {},
     onBackfill: () -> Unit = {},
     onCancelBackfill: () -> Unit = {},
 ) {
@@ -78,6 +79,7 @@ fun FeedSettingsSheet(
     var maxItems by remember(source.id) { mutableStateOf(source.maxItems) }
     var acquisition by remember(source.id) { mutableStateOf(source.acquisitionMode) }
     var depth by remember(source.id) { mutableStateOf(source.depthMode) }
+    var offlineTier by remember(source.id) { mutableStateOf(source.offlineTier) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         com.cairn.reader.ui.KeepImmersiveWhileOpen()
@@ -154,6 +156,21 @@ fun FeedSettingsSheet(
                 FilterChip(depth == "LIVE", { depth = "LIVE"; onDepth("LIVE") }, label = { Text(stringResource(R.string.depth_recent)) })
                 FilterChip(depth == "ARCHIVE", { depth = "ARCHIVE"; onDepth("ARCHIVE") }, label = { Text(stringResource(R.string.depth_full_archive)) })
                 FilterChip(depth == "BOTH", { depth = "BOTH"; onDepth("BOTH") }, label = { Text(stringResource(R.string.depth_both)) })
+            }
+            // ---- Offline storage tier: index-only vs full mirror (only meaningful once archiving) ----
+            if (depth != "LIVE") {
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.offline_tier_label), style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(offlineTier == "INDEX", { offlineTier = "INDEX"; onOfflineTier("INDEX") }, label = { Text(stringResource(R.string.tier_index)) })
+                    FilterChip(offlineTier == "MIRROR", { offlineTier = "MIRROR"; onOfflineTier("MIRROR") }, label = { Text(stringResource(R.string.tier_mirror)) })
+                }
+                Text(
+                    stringResource(if (offlineTier == "MIRROR") R.string.tier_mirror_hint else R.string.tier_index_hint),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
             }
             Spacer(Modifier.height(8.dp))
             // Backfill action + progress. Reflects the state captured when this sheet was opened.

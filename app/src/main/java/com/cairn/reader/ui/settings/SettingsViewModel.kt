@@ -76,6 +76,7 @@ class SettingsViewModel @Inject constructor(
     fun setFullText(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setFullText(id, enabled) }
     fun setAcquisition(id: String, mode: String) = viewModelScope.launch { sourceRepository.setAcquisitionMode(id, mode) }
     fun setDepth(id: String, mode: String) = viewModelScope.launch { sourceRepository.setDepthMode(id, mode) }
+    fun setOfflineTier(id: String, tier: String) = viewModelScope.launch { sourceRepository.setOfflineTier(id, tier) }
     fun requestBackfill(id: String) = viewModelScope.launch { sourceRepository.requestBackfill(id) }
     fun cancelBackfill(id: String) = viewModelScope.launch { sourceRepository.cancelBackfill(id) }
     fun setNotify(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setNotify(id, enabled) }

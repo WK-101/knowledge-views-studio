@@ -132,6 +132,9 @@ data class ItemEntity(
     // directly instead of the non-sargable COALESCE(publishedAt, savedAt), so the sort uses an index.
     // Migration 15→16 adds the column, backfills it, and creates index_items_effectiveDate.
     val effectiveDate: Long = 0L,
+    // v23 (Content Engine P4): 64-bit SimHash of the article's text, for near-duplicate detection
+    // (cross-posted / lightly-edited reposts the exact-URL/title keys miss). 0 = not computed.
+    val simHash: Long = 0L,
     // v16: precomputed, indexed duplicate-grouping key = lower(canonicalUrl ?: url). The Duplicates
     // view groups on this instead of the non-sargable LOWER(COALESCE(canonicalUrl, url)). Kept in sync
     // on write and by the canonicalUrl backfill. Migration 15→16 adds it and index_items_dedupeKey.

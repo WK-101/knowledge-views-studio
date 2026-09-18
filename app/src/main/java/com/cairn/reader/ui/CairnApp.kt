@@ -563,6 +563,7 @@ fun CairnApp(
             onFullText = { inboxViewModel.setFeedFullText(source.id, it) },
             onAcquisition = { inboxViewModel.setFeedAcquisition(source.id, it) },
             onDepth = { inboxViewModel.setFeedDepth(source.id, it) },
+            onOfflineTier = { inboxViewModel.setFeedOfflineTier(source.id, it) },
             onBackfill = { inboxViewModel.requestFeedBackfill(source.id); com.cairn.reader.work.CairnWork.startArchive(archiveCtx) },
             onCancelBackfill = { inboxViewModel.cancelFeedBackfill(source.id) },
             onNotify = { inboxViewModel.setFeedNotify(source.id, it) },

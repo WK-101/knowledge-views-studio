@@ -17,11 +17,12 @@ class ContentDeduperTest {
         cache: String? = null,
         extract: String = "NONE",
         savedAt: Long = (seq++).toLong(),
+        simHash: Long = 0L,
     ) = ItemListRow(
         id = "id-${seq}-$url-$title", url = url, title = title, author = null, siteName = null,
         sourceId = null, sourceTitle = null, excerpt = null, leadImage = null,
         publishedAt = null, savedAt = savedAt, readingMinutes = 0, extractStatus = extract,
-        type = "ARTICLE", cacheStatus = cache, isRead = read, isStarred = starred,
+        type = "ARTICLE", cacheStatus = cache, simHash = simHash, isRead = read, isStarred = starred,
         isReadLater = readLater, isArchived = false,
     )
 
@@ -92,5 +93,50 @@ class ContentDeduperTest {
     @Test fun `empty and single-item lists pass through`() {
         assertTrue(ContentDeduper.dedupe(emptyList()).isEmpty())
         assertEquals(1, ContentDeduper.dedupe(listOf(row("https://a.com/1", "Solo"))).size)
+    }
+
+    // ── SimHash near-duplicate collapse (Content Engine P4) ──────────────────────
+
+    @Test fun `collapses near-identical bodies from different channels via SimHash`() {
+        // The same article arriving as an RSS-summary vs. a full site-extract: different URLs, headline
+        // varies, but the body is near-identical — so their fingerprints are within the Hamming bound.
+        val base = "The city council approved the new transit plan on Tuesday after months of debate " +
+            "over funding and routes. Supporters say it will cut commute times across the east side, " +
+            "add protected crossings near schools and clinics, and lower emissions along the busiest " +
+            "downtown corridors over the coming decade. Opponents questioned the cost and asked for " +
+            "independent audits and firm timelines before the city issues any new transit bonds."
+        val h1 = SimHash.compute(base)
+        val h2 = SimHash.compute("$base Read the full story with photos and a map on our website.")
+        assertTrue("bodies should be near-dups", SimHash.isNearDuplicate(h1, h2))
+        val out = ContentDeduper.dedupe(
+            listOf(
+                row("https://feed.example.com/a?utm_source=rss", "Transit plan approved", simHash = h1),
+                row("https://www.example.com/news/transit", "Council approves transit plan", simHash = h2),
+            ),
+        )
+        assertEquals(1, out.size)
+    }
+
+    @Test fun `unrelated bodies are not collapsed by SimHash`() {
+        val h1 = SimHash.compute("A long-form review of the newest flagship phone and its camera system.")
+        val h2 = SimHash.compute("An analysis of central bank policy and its effect on mortgage rates.")
+        val out = ContentDeduper.dedupe(
+            listOf(
+                row("https://a.com/phone", "Phone review", simHash = h1),
+                row("https://b.com/rates", "Rate analysis", simHash = h2),
+            ),
+        )
+        assertEquals(2, out.size)
+    }
+
+    @Test fun `zero fingerprint never matches`() {
+        // 0 is the "not computed" sentinel; two un-fingerprinted, otherwise-distinct rows stay separate.
+        val out = ContentDeduper.dedupe(
+            listOf(
+                row("https://a.com/1", "Alpha", simHash = 0L),
+                row("https://b.com/2", "Beta", simHash = 0L),
+            ),
+        )
+        assertEquals(2, out.size)
     }
 }

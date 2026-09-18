@@ -7,10 +7,13 @@ import com.cairn.reader.data.net.UrlCanonicalizer
 /**
  * Collapses duplicate articles for the Inbox "hide duplicates" filter.
  *
- * Two rows are duplicates when they share **either** a canonical URL (the same link — tracking,
- * mobile/AMP and query-order variants aside) **or** a normalized title (the same story syndicated
- * across several feeds, which is the case users most want collapsed). Grouping is transitive
- * (union-find): if A≈B by title and B≈C by URL, all three collapse to one.
+ * Two rows are duplicates when they share **any** of: a canonical URL (the same link — tracking,
+ * mobile/AMP and query-order variants aside), a normalized title (the same story syndicated across
+ * several feeds, which is the case users most want collapsed), or a near-identical body fingerprint
+ * ([SimHash] within [SimHash.NEAR_DUP_HAMMING] bits — the same article arriving through different
+ * channels, e.g. an RSS summary vs. the full site-extract vs. an archive capture, where the URL and
+ * even the exact headline differ). Grouping is transitive (union-find): if A≈B by title and B≈C by
+ * URL, all three collapse to one.
  *
  * From each duplicate group the single most useful copy is kept — starred first, then a copy with an
  * offline/full-text body, then read-later, then unread, then the newest — and it is emitted in its
@@ -36,6 +39,10 @@ object ContentDeduper {
 
         val firstByUrl = HashMap<String, Int>()
         val firstByTitle = HashMap<String, Int>()
+        // LSH blocking for SimHash near-dups: bucket rows by each of their 8 tagged 8-bit bands, so
+        // only rows that share a band (the only ones that *can* be within the Hamming threshold) are
+        // ever compared. Keeps this O(n · buckets) rather than O(n²).
+        val byBand = HashMap<Long, MutableList<Int>>()
         rows.forEachIndexed { i, r ->
             val urlKey = UrlCanonicalizer.canonicalize(r.url)
             if (urlKey.isNotEmpty()) {
@@ -46,6 +53,17 @@ object ContentDeduper {
             if (titleKey.isNotEmpty()) {
                 val prev = firstByTitle.putIfAbsent(titleKey, i)
                 if (prev != null) union(prev, i)
+            }
+            if (r.simHash != 0L) {
+                for (band in SimHash.bands(r.simHash)) {
+                    val bucket = byBand.getOrPut(band) { ArrayList(2) }
+                    // Confirm each candidate already in this band with the exact Hamming check before
+                    // uniting — a shared band is necessary but not sufficient for a near-dup.
+                    for (j in bucket) {
+                        if (find(i) != find(j) && SimHash.isNearDuplicate(r.simHash, rows[j].simHash)) union(i, j)
+                    }
+                    bucket.add(i)
+                }
             }
         }
 
