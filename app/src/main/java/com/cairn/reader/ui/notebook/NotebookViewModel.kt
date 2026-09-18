@@ -37,7 +37,7 @@ data class NotebookSection(
 
 enum class NoteSort { RECENT, OLDEST, TITLE, COUNT }
 enum class NoteGroup { ARTICLE, COLOR, NONE }
-enum class NoteView { CARDS, LIST }
+enum class NoteView { CARDS, LIST, COMPACT }
 enum class NoteType { ALL, ARTICLE, TRANSCRIPT }
 
 /** Every view knob for the Annotations panel, applied together over the raw highlight rows. */

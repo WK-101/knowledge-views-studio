@@ -47,7 +47,6 @@ import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.CollectionsBookmark
-import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Inbox
@@ -152,10 +151,11 @@ fun LibraryScreen(
     var scopeMenu by remember { mutableStateOf(false) }
     var displayMenu by remember { mutableStateOf(false) }
     var searchOpen by remember { mutableStateOf(false) }
-    var filterSheet by remember { mutableStateOf(false) }
     var reparenting by remember { mutableStateOf<Pair<String, String>?>(null) } // (id, name) to move under a new parent
     var renamingTag by remember { mutableStateOf<Pair<String, String>?>(null) } // (path, leaf label) to rename
     var movingTag by remember { mutableStateOf<String?>(null) } // tag path to move under a new parent
+    var confirmDeleteCollection by remember { mutableStateOf<Pair<String, String>?>(null) } // (id, name)
+    var confirmDeleteTag by remember { mutableStateOf<Pair<String, String>?>(null) } // (path, label)
 
     val selectionActive = selection.isNotEmpty()
     val searching = query.isNotBlank()
@@ -225,7 +225,6 @@ fun LibraryScreen(
                     }
                 } else {
                     IconButton(onClick = { searchOpen = true }) { Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search)) }
-                    IconButton(onClick = { filterSheet = true }) { Icon(Icons.Outlined.FilterList, contentDescription = stringResource(R.string.filter_collections)) }
                     Box {
                         IconButton(onClick = { displayMenu = true }) { Icon(Icons.Outlined.Tune, contentDescription = stringResource(R.string.view_and_sort)) }
                         DropdownMenu(expanded = displayMenu, onDismissRequest = { displayMenu = false }) {
@@ -254,7 +253,7 @@ fun LibraryScreen(
                                 DropdownMenuItem(text = { Text(stringResource(R.string.new_sub_collection)) }, onClick = { scopeMenu = false; showCreate = current.id })
                                 DropdownMenuItem(text = { Text(stringResource(R.string.rename)) }, onClick = { scopeMenu = false; renaming = current.id to current.name })
                                 DropdownMenuItem(text = { Text(stringResource(R.string.move_under)) }, onClick = { scopeMenu = false; reparenting = current.id to current.name })
-                                DropdownMenuItem(text = { Text(stringResource(R.string.delete)) }, onClick = { scopeMenu = false; viewModel.deleteCollection(current.id) })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }, onClick = { scopeMenu = false; confirmDeleteCollection = current.id to current.name })
                             }
                         }
                     }
@@ -298,6 +297,7 @@ fun LibraryScreen(
                 smart = smart,
                 collections = collections,
                 tags = tags,
+                savedSearches = savedSearches,
                 bottomPad = padding.calculateBottomPadding() + 88.dp,
                 fold = fold,
                 onSetQuickOpen = viewModel::setQuickOpen,
@@ -308,6 +308,18 @@ fun LibraryScreen(
                 onScope = { viewModel.setScope(it) },
                 onOpenHighlights = onOpenHighlights,
                 onNewCollection = { showCreate = "" },
+                // Inline collection management (direct in the library view).
+                onNewSubCollection = { parentId -> showCreate = parentId },
+                onRenameCollection = { id, name -> renaming = id to name },
+                onReparentCollection = { id, name -> reparenting = id to name },
+                onDeleteCollection = { id, name -> confirmDeleteCollection = id to name },
+                // Inline tag management.
+                onRenameTag = { path, label -> renamingTag = path to label },
+                onMoveTag = { path -> movingTag = path },
+                onDeleteTag = { path, label -> confirmDeleteTag = path to label },
+                // Saved searches (previously only reachable from the removed filter sheet).
+                onRunSavedSearch = { q -> viewModel.setQuery(q); searchOpen = true },
+                onRemoveSavedSearch = { viewModel.removeSavedSearch(it) },
             )
         } else if (showing.isEmpty()) {
             val (emptyIcon, emptyTitle, emptyBody) = when {
@@ -378,24 +390,35 @@ fun LibraryScreen(
             onDismiss = { showMove = false },
         )
     }
-    if (filterSheet) {
-        LibraryFilterSheet(
-            scope = scope,
-            counts = counts,
-            collections = collections,
-            tags = tags,
-            savedSearches = savedSearches,
-            onScope = { viewModel.setScope(it); filterSheet = false },
-            onOpenHighlights = { filterSheet = false; onOpenHighlights() },
-            onSavedSearch = { q -> viewModel.setQuery(q); searchOpen = true; filterSheet = false },
-            onRemoveSavedSearch = { viewModel.removeSavedSearch(it) },
-            onNewCollection = { parentId -> showCreate = parentId ?: "" },
-            onRenameCollection = { id, name -> renaming = id to name },
-            onDeleteCollection = { viewModel.deleteCollection(it) },
-            onRenameTag = { path, label -> renamingTag = path to label },
-            onMoveTag = { path -> movingTag = path },
-            onDeleteTag = { viewModel.deleteTag(it) },
-            onDismiss = { filterSheet = false },
+    confirmDeleteCollection?.let { (id, name) ->
+        AlertDialog(
+            onDismissRequest = { confirmDeleteCollection = null },
+            title = { Text(stringResource(R.string.delete_collection_q)) },
+            text = { Text(stringResource(R.string.delete_collection_body, name)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteCollection(id)
+                    if (scope.let { it is LibraryScope.Collection && it.id == id }) viewModel.setScope(LibraryScope.Home)
+                    confirmDeleteCollection = null
+                }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDeleteCollection = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+    confirmDeleteTag?.let { (path, label) ->
+        val leaf = label.ifBlank { path.substringAfterLast('/') }
+        AlertDialog(
+            onDismissRequest = { confirmDeleteTag = null },
+            title = { Text(stringResource(R.string.delete_tag_q)) },
+            text = { Text(stringResource(R.string.delete_tag_body, leaf)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteTag(path)
+                    if (scope.let { it is LibraryScope.Tag && it.name == path }) viewModel.setScope(LibraryScope.Home)
+                    confirmDeleteTag = null
+                }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDeleteTag = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
     renamingTag?.let { (path, label) ->
@@ -649,6 +672,7 @@ private fun LibraryHome(
     smart: LibraryViewModel.SmartCounts,
     collections: List<CollectionWithCount>,
     tags: List<TagWithCount>,
+    savedSearches: List<String>,
     bottomPad: Dp,
     fold: LibraryViewModel.FoldState,
     onSetQuickOpen: (Boolean) -> Unit,
@@ -659,6 +683,15 @@ private fun LibraryHome(
     onScope: (LibraryScope) -> Unit,
     onOpenHighlights: () -> Unit,
     onNewCollection: () -> Unit,
+    onNewSubCollection: (parentId: String) -> Unit,
+    onRenameCollection: (id: String, name: String) -> Unit,
+    onReparentCollection: (id: String, name: String) -> Unit,
+    onDeleteCollection: (id: String, name: String) -> Unit,
+    onRenameTag: (path: String, label: String) -> Unit,
+    onMoveTag: (path: String) -> Unit,
+    onDeleteTag: (path: String, label: String) -> Unit,
+    onRunSavedSearch: (String) -> Unit,
+    onRemoveSavedSearch: (String) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     // Foldable state is persisted in prefs (via the ViewModel), so it survives navigation and restarts.
@@ -736,6 +769,10 @@ private fun LibraryHome(
                         hasChildren = r.hasChildren, collapsed = isCollapsed,
                         onToggle = { onToggleCollection(r.id, !isCollapsed) },
                         onOpen = { onScope(LibraryScope.Collection(r.id, r.name)) },
+                        onNewSub = { onNewSubCollection(r.id) },
+                        onRename = { onRenameCollection(r.id, r.name) },
+                        onReparent = { onReparentCollection(r.id, r.name) },
+                        onDelete = { onDeleteCollection(r.id, r.name) },
                     )
                 }
             }
@@ -748,10 +785,32 @@ private fun LibraryHome(
                     val isCollapsed = r.path in fold.collapsedTags
                     TagTreeItem(
                         label = r.label, count = r.totalCount, depth = r.depth,
-                        hasChildren = r.hasChildren, collapsed = isCollapsed,
+                        hasChildren = r.hasChildren, collapsed = isCollapsed, canRename = r.exists,
                         onToggle = { onToggleTag(r.path, !isCollapsed) },
                         onOpen = if (r.exists && r.tagId != null) ({ onScope(LibraryScope.Tag(r.tagId, r.path)) }) else null,
+                        onRename = { onRenameTag(r.path, r.label) },
+                        onMove = { onMoveTag(r.path) },
+                        onDelete = { onDeleteTag(r.path, r.label) },
                     )
+                }
+            }
+        }
+
+        // Saved searches — preserved here now that the old "Filter & organize" sheet is gone.
+        if (savedSearches.isNotEmpty()) {
+            item { SectionLabel(stringResource(R.string.saved_searches), modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)) }
+            items(savedSearches, key = { "ss-$it" }) { q ->
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onRunSavedSearch(q) }
+                        .padding(start = 8.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.Search, contentDescription = null, tint = scheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(q, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { onRemoveSavedSearch(q) }) {
+                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.remove_2), tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                    }
                 }
             }
         }
@@ -782,16 +841,19 @@ private fun FoldableSectionHeader(
     }
 }
 
-/** One row of the collections tree: indent by depth, chevron to expand, tap to open. */
+/** One row of the collections tree: indent by depth, chevron to expand, tap to open, and an inline
+ *  ⋮ menu for the collection's own management (new sub-collection / rename / move / delete). */
 @Composable
 private fun CollectionTreeItem(
     name: String, count: Int, depth: Int, hasChildren: Boolean, collapsed: Boolean,
     onToggle: () -> Unit, onOpen: () -> Unit,
+    onNewSub: () -> Unit, onRename: () -> Unit, onReparent: () -> Unit, onDelete: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    var menu by remember { mutableStateOf(false) }
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onOpen)
-            .padding(start = (8 + depth * 18).dp, top = 10.dp, bottom = 10.dp, end = 8.dp),
+            .padding(start = (8 + depth * 18).dp, top = 10.dp, bottom = 10.dp, end = 0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (hasChildren) {
@@ -808,20 +870,34 @@ private fun CollectionTreeItem(
         Spacer(Modifier.width(10.dp))
         Text(name, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         Text("$count", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
+        Box {
+            IconButton(onClick = { menu = true }, modifier = Modifier.size(40.dp)) {
+                Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.manage_collection), tint = scheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+            }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                DropdownMenuItem(text = { Text(stringResource(R.string.new_sub_collection)) }, onClick = { menu = false; onNewSub() })
+                DropdownMenuItem(text = { Text(stringResource(R.string.rename)) }, onClick = { menu = false; onRename() })
+                DropdownMenuItem(text = { Text(stringResource(R.string.move_under)) }, onClick = { menu = false; onReparent() })
+                DropdownMenuItem(text = { Text(stringResource(R.string.delete), color = scheme.error) }, onClick = { menu = false; onDelete() })
+            }
+        }
     }
 }
 
-/** One row of the nested-tag tree. [onOpen] is null for a synthesized parent (expand-only). */
+/** One row of the nested-tag tree. [onOpen] is null for a synthesized parent (expand-only); such a
+ *  parent can still be moved or deleted (its whole subtree), but only a real tag can be renamed. */
 @Composable
 private fun TagTreeItem(
-    label: String, count: Int, depth: Int, hasChildren: Boolean, collapsed: Boolean,
+    label: String, count: Int, depth: Int, hasChildren: Boolean, collapsed: Boolean, canRename: Boolean,
     onToggle: () -> Unit, onOpen: (() -> Unit)?,
+    onRename: () -> Unit, onMove: () -> Unit, onDelete: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    var menu by remember { mutableStateOf(false) }
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
             .clickable(enabled = onOpen != null || hasChildren, onClick = { onOpen?.invoke() ?: onToggle() })
-            .padding(start = (8 + depth * 18).dp, top = 9.dp, bottom = 9.dp, end = 8.dp),
+            .padding(start = (8 + depth * 18).dp, top = 9.dp, bottom = 9.dp, end = 0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (hasChildren) {
@@ -838,6 +914,19 @@ private fun TagTreeItem(
         Spacer(Modifier.width(10.dp))
         Text(label, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         if (count > 0) Text("$count", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
+        Box {
+            IconButton(onClick = { menu = true }, modifier = Modifier.size(40.dp)) {
+                Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.manage_tag), tint = scheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+            }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                if (canRename) DropdownMenuItem(text = { Text(stringResource(R.string.rename)) }, onClick = { menu = false; onRename() })
+                DropdownMenuItem(text = { Text(stringResource(R.string.move_under)) }, onClick = { menu = false; onMove() })
+                DropdownMenuItem(
+                    text = { Text(if (hasChildren) stringResource(R.string.delete_tag_and_subtags) else stringResource(R.string.delete), color = scheme.error) },
+                    onClick = { menu = false; onDelete() },
+                )
+            }
+        }
     }
 }
 

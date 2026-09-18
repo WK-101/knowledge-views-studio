@@ -83,7 +83,11 @@ class ReaderViewModel @Inject constructor(
     val related: StateFlow<List<com.cairn.reader.data.repo.RelatedItem>?> = _related.asStateFlow()
     fun loadRelated() {
         if (_related.value != null || itemId.isEmpty()) return
-        viewModelScope.launch { _related.value = coRunCatching { semanticRepository.related(itemId, 8) }.getOrDefault(emptyList()) }
+        viewModelScope.launch {
+            // Ground the query in the whole article body (falls back to title+excerpt inside related()).
+            val body = coRunCatching { itemRepository.articleText(itemId)?.second }.getOrNull()
+            _related.value = coRunCatching { semanticRepository.related(itemId, 8, targetBody = body) }.getOrDefault(emptyList())
+        }
     }
 
     /** Extractive TL;DR (on-device), loaded lazily when the summary sheet is opened. */

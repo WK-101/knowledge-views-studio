@@ -212,6 +212,10 @@ internal fun ArticleBody(
     onShareHighlight: (HighlightEntity) -> Unit = {},
     onDeleteHighlight: (HighlightEntity) -> Unit = {},
     onSetHighlightColor: (HighlightEntity, Int) -> Unit = { _, _ -> },
+    // The selection still awaiting a pill action, so the chosen words stay tinted while it's open.
+    activeSelBlock: Int? = null,
+    activeSelStart: Int = 0,
+    activeSelEnd: Int = 0,
 ) {
     val data = state.data ?: return
     val linkColor = MaterialTheme.colorScheme.primary
@@ -439,6 +443,8 @@ internal fun ArticleBody(
                     onImageClick = onImageClick,
                     paragraphSpacing = paragraphSpacing,
                     bionic = bionic,
+                    selStart = if (activeSelBlock == index) activeSelStart else 0,
+                    selEnd = if (activeSelBlock == index) activeSelEnd else 0,
                 )
             }
             // Inline transcript — rendered right here in the article pane so it uses the very same
@@ -536,6 +542,8 @@ private fun BlockView(
     onImageClick: (String) -> Unit = {},
     paragraphSpacing: Int = 9,
     bionic: Boolean = false,
+    selStart: Int = 0,
+    selEnd: Int = 0,
 ) {
     when (block) {
         is ReaderBlock.Heading -> HighlightableText(
@@ -549,6 +557,8 @@ private fun BlockView(
             onSelect = { s, e, q, y -> onSelectText(blockIndex, s, e, q, y) },
             onManage = onManageHighlight,
             modifier = Modifier.padding(horizontal = ReaderHPad, vertical = 10.dp),
+            selStart = selStart,
+            selEnd = selEnd,
         )
         is ReaderBlock.Paragraph -> HighlightableText(
             base = if (bionic) bionicize(block.text) else block.text,
@@ -557,6 +567,8 @@ private fun BlockView(
             onSelect = { s, e, q, y -> onSelectText(blockIndex, s, e, q, y) },
             onManage = onManageHighlight,
             modifier = Modifier.padding(horizontal = ReaderHPad, vertical = paragraphSpacing.dp),
+            selStart = selStart,
+            selEnd = selEnd,
         )
         is ReaderBlock.Image -> Column(Modifier.padding(vertical = 10.dp)) {
             AsyncImage(
@@ -582,6 +594,8 @@ private fun BlockView(
                 highlights = highlights,
                 onSelect = { s, e, q, y -> onSelectText(blockIndex, s, e, q, y) },
                 onManage = onManageHighlight,
+                selStart = selStart,
+                selEnd = selEnd,
             )
         }
         is ReaderBlock.Code -> Box(
@@ -616,6 +630,10 @@ private fun HighlightableText(
     onSelect: (start: Int, end: Int, quote: String, yInWindow: Float) -> Unit,
     onManage: (HighlightEntity) -> Unit,
     modifier: Modifier = Modifier,
+    // The still-pending selection for this block (0..0 = none). Drives the tint so the selected
+    // words stay visibly highlighted while the action pill is open, until the pill is dismissed.
+    selStart: Int = 0,
+    selEnd: Int = 0,
 ) {
     val plain = base.text
     val layoutState = remember { mutableStateOf<TextLayoutResult?>(null) }
@@ -630,15 +648,22 @@ private fun HighlightableText(
     var anchor by remember { mutableStateOf<Int?>(null) }
     var focus by remember { mutableStateOf<Int?>(null) }
 
-    val rendered = remember(base, highlights, anchor, focus) {
+    val rendered = remember(base, highlights, anchor, focus, selStart, selEnd) {
         val withHl = applyHighlights(base, highlights)
         val a = anchor; val f = focus
-        if (a != null && f != null && a != f) {
-            buildAnnotatedString {
+        when {
+            // Live drag in progress — track the finger.
+            a != null && f != null && a != f -> buildAnnotatedString {
                 append(withHl)
                 addStyle(SpanStyle(background = selColor.copy(alpha = 0.28f)), minOf(a, f), maxOf(a, f))
             }
-        } else withHl
+            // Drag ended but the pill is still open — keep the committed selection tinted.
+            selStart in 0 until selEnd && selEnd <= withHl.length -> buildAnnotatedString {
+                append(withHl)
+                addStyle(SpanStyle(background = selColor.copy(alpha = 0.28f)), selStart, selEnd)
+            }
+            else -> withHl
+        }
     }
 
     fun offsetAt(pos: androidx.compose.ui.geometry.Offset): Int =
@@ -806,6 +831,10 @@ internal class InlineTranscriptUi(
     val onManage: (String) -> Unit,
     val onGenerate: () -> Unit,
     val onOpenSave: () -> Unit,
+    // The still-pending transcript selection (global char offsets; 0..0 = none), kept tinted while
+    // the action pill is open.
+    val selStart: Int = 0,
+    val selEnd: Int = 0,
 )
 
 /** Emit the transcript as a section of the article's LazyColumn, styled with the reader's own
@@ -907,6 +936,7 @@ private fun LazyListScope.inlineTranscriptSection(
                 prose = t.prose, annotations = t.annotations, activeRange = t.activeRange,
                 bodyStyle = bodyStyle, justify = justify, hPad = ReaderHPad, accent = t.accent,
                 onSeekMs = t.onSeekMs, onSelect = t.onSelect, onManage = t.onManage,
+                selStart = t.selStart, selEnd = t.selEnd,
             )
         }
     }

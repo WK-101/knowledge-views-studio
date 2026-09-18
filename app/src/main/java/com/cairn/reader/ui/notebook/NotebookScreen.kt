@@ -159,6 +159,21 @@ fun NotebookScreen(
                     )
                 }
             }
+            // Compact — one dense row per entry (title + source + count), highlights hidden.
+            options.view == NoteView.COMPACT -> LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + 24.dp),
+            ) {
+                items(content.cards, key = { it.itemId }) { group ->
+                    CompactEntryRow(
+                        group = group,
+                        onClick = { onOpenItem(group.itemId) },
+                        onLongClick = { actionGroup = group },
+                        onShare = { shareGroup = group },
+                    )
+                    HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.4f), modifier = Modifier.padding(start = 16.dp))
+                }
+            }
             else -> LazyColumn(
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + 24.dp),
@@ -251,6 +266,7 @@ private fun AnnotationOptionsSheet(
             FilterChipRow {
                 FilterChip(options.view == NoteView.CARDS, { onView(NoteView.CARDS) }, label = { Text(stringResource(R.string.view_cards)) })
                 FilterChip(options.view == NoteView.LIST, { onView(NoteView.LIST) }, label = { Text(stringResource(R.string.view_list)) })
+                FilterChip(options.view == NoteView.COMPACT, { onView(NoteView.COMPACT) }, label = { Text(stringResource(R.string.view_compact)) })
             }
             OptionLabel(stringResource(R.string.sort))
             FilterChipRow {
@@ -408,6 +424,48 @@ private fun HighlightListRow(
                     }
                 }
             }
+        }
+    }
+}
+
+/** A dense one-line-per-entry row for the Compact view: source, title and a highlight count —
+ *  no individual highlights shown. Tap opens the article; long-press opens the entry actions. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun CompactEntryRow(
+    group: NotebookGroup,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onShare: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val accent = group.highlights.firstOrNull()?.color?.let { Color(it) } ?: scheme.primary
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(Modifier.size(10.dp).clip(CircleShape).background(accent))
+        Column(Modifier.weight(1f)) {
+            Text(
+                group.title,
+                style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium,
+                color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            val sub = group.site?.takeIf { it.isNotBlank() }
+            if (sub != null) Text(sub, style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(
+            group.highlights.size.toString(),
+            style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold,
+            color = scheme.onSurfaceVariant,
+            modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(scheme.surfaceContainerHigh).padding(horizontal = 8.dp, vertical = 3.dp),
+        )
+        IconButton(onClick = onShare) {
+            Icon(Icons.Outlined.IosShare, contentDescription = stringResource(R.string.share_these_annotations), tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
         }
     }
 }

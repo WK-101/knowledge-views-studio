@@ -81,6 +81,11 @@
     <string name="delete_forever">¿Eliminar para siempre?</string>
     <string name="delete_forever_2">Eliminar para siempre</string>
     <string name="delete_older_than">Eliminar los anteriores a</string>
+    <string name="delete_collection_q">¿Eliminar la colección?</string>
+    <string name="delete_collection_body">«%1$s» se elimina y sus elementos quedan sin ordenar (los artículos se conservan). Las subcolecciones suben un nivel.</string>
+    <string name="delete_tag_q">¿Eliminar la etiqueta?</string>
+    <string name="delete_tag_body">«%1$s» se quita de todos los elementos que la tienen. Los elementos se conservan.</string>
+    <string name="delete_tag_and_subtags">Eliminar etiqueta y subetiquetas</string>
     <string name="discover">Descubrir</string>
     <string name="display">Pantalla</string>
     <string name="display_text">Pantalla y texto</string>
@@ -459,6 +464,7 @@
     <string name="sort_most_highlighted">Más subrayados</string>
     <string name="view_cards">Tarjetas</string>
     <string name="view_list">Lista</string>
+    <string name="view_compact">Compacta</string>
     <string name="type_label">Tipo</string>
     <string name="type_articles">Artículos</string>
     <string name="type_transcripts">Transcripciones</string>

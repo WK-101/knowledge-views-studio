@@ -88,6 +88,8 @@ internal fun LazyListScope.transcriptBodyItem(
     onSeekMs: (Long) -> Unit,
     onSelect: (TranscriptSelectionInfo) -> Unit,
     onManage: (String) -> Unit,
+    selStart: Int = 0,
+    selEnd: Int = 0,
 ) {
     item(key = "transcript_body") {
         val paints = remember(prose, annotations) { paintSpansFor(prose.text, 0, annotations) }
@@ -104,6 +106,8 @@ internal fun LazyListScope.transcriptBodyItem(
             onSeekChar = { off -> onSeekMs(prose.timeAt(off)) },
             onManage = onManage,
             modifier = Modifier.fillMaxWidth().padding(horizontal = hPad, vertical = 4.dp),
+            selStart = selStart,
+            selEnd = selEnd,
         )
     }
 }
@@ -135,6 +139,9 @@ internal fun HighlightableProse(
     onSeekChar: (Int) -> Unit,
     onManage: (String) -> Unit,
     modifier: Modifier = Modifier,
+    // The still-pending selection (0..0 = none) — keeps the chosen words tinted while the pill is open.
+    selStart: Int = 0,
+    selEnd: Int = 0,
 ) {
     val layout = remember { mutableStateOf<TextLayoutResult?>(null) }
     val currentSelect by rememberUpdatedState(onSelect)
@@ -145,7 +152,7 @@ internal fun HighlightableProse(
     var anchor by remember { mutableStateOf<Int?>(null) }
     var focus by remember { mutableStateOf<Int?>(null) }
 
-    val rendered = remember(fullText, paints, activeRange, timeMarks, anchor, focus, accent) {
+    val rendered = remember(fullText, paints, activeRange, timeMarks, anchor, focus, accent, selStart, selEnd) {
         buildAnnotatedString {
             append(fullText)
             // Inline timecodes read as subtle jump-links.
@@ -161,7 +168,12 @@ internal fun HighlightableProse(
                 if (e > s) addStyle(SpanStyle(background = Color(p.color).copy(alpha = 0.42f)), s, e)
             }
             val a = anchor; val f = focus
-            if (a != null && f != null && a != f) addStyle(SpanStyle(background = accent.copy(alpha = 0.30f)), minOf(a, f), maxOf(a, f))
+            when {
+                // Live drag in progress — track the finger.
+                a != null && f != null && a != f -> addStyle(SpanStyle(background = accent.copy(alpha = 0.30f)), minOf(a, f), maxOf(a, f))
+                // Drag ended but the pill is still open — keep the committed selection tinted.
+                selStart in 0 until selEnd && selEnd <= fullText.length -> addStyle(SpanStyle(background = accent.copy(alpha = 0.30f)), selStart, selEnd)
+            }
         }
     }
 

@@ -626,6 +626,10 @@ fun ReaderScreen(
                 onOpenOriginal = ::openOriginal,
                 onSaveProgress = viewModel::setProgress,
                 onSelectText = { b, s, e, q, y -> pending = PendingSelection(b, s, e, q, y) },
+                // Keep the selected passage tinted while the pill is open (cleared when pending clears).
+                activeSelBlock = pending?.blockIndex,
+                activeSelStart = pending?.start ?: 0,
+                activeSelEnd = pending?.end ?: 0,
                 // Route to the right manage sheet: transcript excerpts ("t:") vs article passages.
                 onManageHighlight = { h -> if (h.startSelector?.startsWith("t:") == true) transcriptManageId = h.id else managed = h },
                 onPlayEpisode = viewModel::playEpisode,
@@ -653,6 +657,8 @@ fun ReaderScreen(
                     activeRange = if (audioState.active && transcript.isAudio) transcriptProse.charRangeAtTime(audioState.positionMs.toLong()) else null,
                     saved = transcriptSaved,
                     accent = transcriptAccent,
+                    selStart = transcriptPending?.globalStart ?: 0,
+                    selEnd = transcriptPending?.globalEnd ?: 0,
                     onSeekMs = { ms ->
                         val yt = transcript.youtubeId
                         if (yt != null) runCatching {

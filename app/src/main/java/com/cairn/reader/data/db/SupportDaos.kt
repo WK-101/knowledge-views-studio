@@ -118,7 +118,7 @@ interface HighlightDao {
     @Query("SELECT * FROM highlights")
     suspend fun all(): List<HighlightEntity>
 
-    @Query("SELECT COUNT(*) FROM highlights")
+    @Query("SELECT COUNT(*) FROM highlights h JOIN items i ON i.id = h.itemId WHERE i.trashedAt IS NULL")
     fun observeCount(): Flow<Int>
 
     @Query(
@@ -128,6 +128,7 @@ interface HighlightDao {
                h.quote AS quote, h.note AS note, h.color AS color, h.createdAt AS createdAt,
                h.startSelector AS startSelector
         FROM highlights h JOIN items i ON i.id = h.itemId
+        WHERE i.trashedAt IS NULL
         ORDER BY h.createdAt DESC
         """
     )
@@ -140,6 +141,7 @@ interface HighlightDao {
                h.quote AS quote, h.note AS note, h.color AS color, h.createdAt AS createdAt,
                h.startSelector AS startSelector
         FROM highlights h JOIN items i ON i.id = h.itemId
+        WHERE i.trashedAt IS NULL
         ORDER BY i.title COLLATE NOCASE, h.startSelector, h.startOffset
         """
     )
@@ -160,8 +162,14 @@ interface HighlightDao {
 
     // -- Spaced-repetition review (SM-2) ---------------------------------------
 
-    /** How many highlights are due for review right now (null srDueAt = new / due). */
-    @Query("SELECT COUNT(*) FROM highlights WHERE srDueAt IS NULL OR srDueAt <= :now")
+    /** How many highlights are due for review right now (null srDueAt = new / due).
+     *  Trashed articles' highlights are excluded — a trashed entry is not part of the notebook. */
+    @Query(
+        """
+        SELECT COUNT(*) FROM highlights h JOIN items i ON i.id = h.itemId
+        WHERE i.trashedAt IS NULL AND (h.srDueAt IS NULL OR h.srDueAt <= :now)
+        """
+    )
     fun observeDueCount(now: Long): Flow<Int>
 
     /** The next batch of due cards, oldest-due first (new cards, srDueAt null, come first). */
@@ -173,7 +181,7 @@ interface HighlightDao {
                h.srStability AS srStability, h.srDifficulty AS srDifficulty, h.srPhase AS srPhase,
                h.srLastReviewedAt AS srLastReviewedAt
         FROM highlights h JOIN items i ON i.id = h.itemId
-        WHERE h.srDueAt IS NULL OR h.srDueAt <= :now
+        WHERE i.trashedAt IS NULL AND (h.srDueAt IS NULL OR h.srDueAt <= :now)
         ORDER BY (h.srDueAt IS NULL) DESC, h.srDueAt ASC, h.createdAt ASC
         LIMIT :limit
         """

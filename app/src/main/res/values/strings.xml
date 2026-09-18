@@ -79,6 +79,11 @@
     <string name="delete_forever">Delete forever?</string>
     <string name="delete_forever_2">Delete forever</string>
     <string name="delete_older_than">Delete older than</string>
+    <string name="delete_collection_q">Delete collection?</string>
+    <string name="delete_collection_body">“%1$s” is removed and its items become unsorted (the articles themselves are kept). Any sub-collections move up a level.</string>
+    <string name="delete_tag_q">Delete tag?</string>
+    <string name="delete_tag_body">“%1$s” is removed from every item it\'s on. The items themselves are kept.</string>
+    <string name="delete_tag_and_subtags">Delete tag &amp; sub-tags</string>
     <string name="discover">Discover</string>
     <string name="display">Display</string>
     <string name="display_text">Display &amp; text</string>
@@ -457,6 +462,7 @@
     <string name="sort_most_highlighted">Most highlighted</string>
     <string name="view_cards">Cards</string>
     <string name="view_list">List</string>
+    <string name="view_compact">Compact</string>
     <string name="type_label">Type</string>
     <string name="type_articles">Articles</string>
     <string name="type_transcripts">Transcripts</string>
