@@ -715,6 +715,7 @@ fun ReaderScreen(
     if (showSummary) {
         val summary by viewModel.summary.collectAsStateWithLifecycle()
         androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showSummary = false }) {
+            com.cairn.reader.ui.KeepImmersiveWhileOpen(hideSystemBars)
             androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 32.dp)) {
                 Text(stringResource(R.string.key_points),
                     style = MaterialTheme.typography.titleMedium,
@@ -745,6 +746,7 @@ fun ReaderScreen(
     if (showRelated) {
         val related by viewModel.related.collectAsStateWithLifecycle()
         androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showRelated = false }) {
+            com.cairn.reader.ui.KeepImmersiveWhileOpen(hideSystemBars)
             androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
                 Text(stringResource(R.string.related_articles),
                     style = MaterialTheme.typography.titleMedium,
@@ -883,6 +885,7 @@ fun ReaderScreen(
             onNote = { viewModel.noteTranscriptAnnotation(id, it) },
             onRemove = { viewModel.removeTranscriptAnnotation(id); transcriptManageId = null },
             onDismiss = { transcriptManageId = null },
+            keepImmersive = hideSystemBars,
         )
     }
 
@@ -892,6 +895,7 @@ fun ReaderScreen(
             annotationCount = transcriptAnnotations.size,
             onToggleWhole = viewModel::toggleSaveTranscriptWhole,
             onDismiss = { showTranscriptSave = false },
+            keepImmersive = hideSystemBars,
         )
     }
 }

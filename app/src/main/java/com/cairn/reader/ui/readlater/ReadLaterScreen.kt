@@ -279,6 +279,7 @@ fun ReadLaterScreen(
 
     actionRow?.let { row ->
         ModalBottomSheet(onDismissRequest = { actionRow = null }, sheetState = rememberModalBottomSheetState()) {
+            com.cairn.reader.ui.KeepImmersiveWhileOpen()
             Column(Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
                 SheetHeader(row.title)
                 SheetActionRow(Icons.Outlined.Checklist, "Select", onClick = { viewModel.togglePick(row.id); actionRow = null })
@@ -337,6 +338,7 @@ fun ReadLaterScreen(
 @Composable
 private fun CaptureHelpSheet(onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        com.cairn.reader.ui.KeepImmersiveWhileOpen()
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
             Text(stringResource(R.string.save_anything_to_read_later), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))

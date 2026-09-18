@@ -451,6 +451,7 @@ private fun FeedManageRow(
 private fun MoveToFolderSheet(folders: List<String>, onPick: (String?) -> Unit, onDismiss: () -> Unit) {
     var newName by remember { mutableStateOf("") }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        com.cairn.reader.ui.KeepImmersiveWhileOpen()
         Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             Text(stringResource(R.string.move_to_folder), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             Row(
@@ -502,6 +503,7 @@ private fun AddFeedSheet(
 ) {
     var text by remember { mutableStateOf("") }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        com.cairn.reader.ui.KeepImmersiveWhileOpen()
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
             Text(stringResource(R.string.add_a_feed), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))

@@ -207,6 +207,7 @@ private fun NotebookEntrySheet(
 ) {
     val scheme = MaterialTheme.colorScheme
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        com.cairn.reader.ui.KeepImmersiveWhileOpen()
         Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             Text(
                 group.title,
@@ -257,6 +258,7 @@ private fun AnnotationShareSheet(
     val scheme = MaterialTheme.colorScheme
     var format by remember { mutableStateOf(ShareFormat.QUOTE) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        com.cairn.reader.ui.KeepImmersiveWhileOpen()
         Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             Text(stringResource(R.string.share_annotations),
                 style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,

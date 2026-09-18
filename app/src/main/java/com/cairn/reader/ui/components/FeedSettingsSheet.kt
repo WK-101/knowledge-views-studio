@@ -73,6 +73,7 @@ fun FeedSettingsSheet(
     var maxItems by remember(source.id) { mutableStateOf(source.maxItems) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        com.cairn.reader.ui.KeepImmersiveWhileOpen()
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp)
                 .verticalScroll(rememberScrollState()),

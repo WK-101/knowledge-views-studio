@@ -288,6 +288,7 @@ fun OfflineScreen(
     actionRow?.let { row ->
         val permanent = CacheStatus.isPermanent(row.cacheStatus)
         androidx.compose.material3.ModalBottomSheet(onDismissRequest = { actionRow = null }, sheetState = androidx.compose.material3.rememberModalBottomSheetState()) {
+            com.cairn.reader.ui.KeepImmersiveWhileOpen()
             Column(Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
                 SheetHeader(
                     title = row.title,
@@ -333,6 +334,7 @@ private fun StorageSettingsSheet(
 ) {
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        com.cairn.reader.ui.KeepImmersiveWhileOpen()
         Column(
             Modifier
                 .fillMaxWidth()

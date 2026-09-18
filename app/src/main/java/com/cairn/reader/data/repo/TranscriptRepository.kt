@@ -50,6 +50,10 @@ class TranscriptRepository @Inject constructor(
 ) {
     fun observeSaved(itemId: String): Flow<Boolean> = transcriptDao.observeSaved(itemId)
 
+    /** One-shot: does a permanently-kept transcript exist for this item? (Used to auto-show a saved
+     *  transcript — with its highlights — on reader open, offline, without re-fetching.) */
+    suspend fun hasSaved(itemId: String): Boolean = withContext(Dispatchers.IO) { transcriptDao.get(itemId) != null }
+
     /** Resolve a transcript: prefer the saved copy, then fetch captions, else report unavailability. */
     suspend fun load(itemId: String): TranscriptResult = withContext(Dispatchers.IO) {
         transcriptDao.get(itemId)?.let { return@withContext TranscriptResult.Ready(deserialize(it), saved = true) }

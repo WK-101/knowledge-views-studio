@@ -322,6 +322,7 @@ fun ItemActionSheet(
         if (onDelete != null) add(SheetAction(Icons.Outlined.DeleteOutline, "Trash", destructive = true) { onDelete(); onDismiss() })
     }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        com.cairn.reader.ui.KeepImmersiveWhileOpen()
         Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 20.dp)) {
             Text(
                 text = row.title,

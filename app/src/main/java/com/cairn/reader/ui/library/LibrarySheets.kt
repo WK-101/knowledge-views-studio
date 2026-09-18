@@ -130,6 +130,7 @@ internal fun LibraryFilterSheet(
     val tagRows = buildTagTree(tags, collapsedTags)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        com.cairn.reader.ui.KeepImmersiveWhileOpen()
         LazyColumn(
             state = rememberLazyListState(),
             modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp),

@@ -216,10 +216,13 @@ internal fun ManageAnnotationSheet(
     onNote: (String?) -> Unit,
     onRemove: () -> Unit,
     onDismiss: () -> Unit,
+    keepImmersive: Boolean = false,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var noteText by remember { mutableStateOf(note.orEmpty()) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        // Tapping a highlight opens this sheet in its own window; keep the app's full screen intact.
+        com.cairn.reader.ui.KeepImmersiveWhileOpen(keepImmersive)
         Column(Modifier.fillMaxWidth().padding(horizontal = Dimens.lg).padding(bottom = Dimens.xl)) {
             Text(stringResource(R.string.transcript_manage_annotation), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(Dimens.md))
@@ -249,10 +252,12 @@ internal fun SaveOptionsSheet(
     annotationCount: Int,
     onToggleWhole: () -> Unit,
     onDismiss: () -> Unit,
+    keepImmersive: Boolean = false,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scheme = MaterialTheme.colorScheme
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        com.cairn.reader.ui.KeepImmersiveWhileOpen(keepImmersive)
         Column(Modifier.fillMaxWidth().padding(horizontal = Dimens.lg).padding(bottom = Dimens.xl)) {
             Text(stringResource(R.string.transcript_save_sheet_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(Dimens.md))

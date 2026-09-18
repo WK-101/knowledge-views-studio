@@ -235,6 +235,10 @@ class ReaderViewModel @Inject constructor(
                     note = "[${formatTimestamp(startMs)}]", charStart = charStart, charEnd = charEnd,
                 )
             }
+            // Highlighting a passage means you want to keep it: persist the whole transcript so the
+            // highlight stays visible on reopen — offline, with no re-fetch or re-transcribe. The
+            // char offsets the highlight stored anchor onto exactly these saved cues. Idempotent.
+            transcriptObj?.let { t -> coRunCatching { transcriptRepository.saveWhole(itemId, t) } }
         }
     }
 
@@ -279,6 +283,12 @@ class ReaderViewModel @Inject constructor(
                     preferencesRepository.preferences.first().cacheOnOpen
                 ) {
                     launch { coRunCatching { feedRepository.saveOffline(itemId) } }
+                }
+                // A kept transcript (one holding highlights, or explicitly saved) is shown on open so it
+                // — and its highlights — are there again, offline, without re-fetching or re-transcribing.
+                if (coRunCatching { transcriptRepository.hasSaved(itemId) }.getOrDefault(false)) {
+                    _transcript.update { it.copy(visible = true) }
+                    loadTranscript()
                 }
             }
         }

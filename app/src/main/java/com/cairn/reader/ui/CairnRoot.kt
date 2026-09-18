@@ -99,6 +99,10 @@ fun CairnRoot(
         }
         // One consistent motion for every screen transition: a detail slides in from the end and
         // back out to it, cross-fading so the whole app feels of a piece rather than stitched together.
+        // LocalBarsHidden carries the app-wide full-screen state into every screen — and, crucially,
+        // into each ModalBottomSheet's own window — so KeepImmersiveWhileOpen holds full screen there
+        // too (a sheet otherwise opens its own window that re-shows the system bars).
+        androidx.compose.runtime.CompositionLocalProvider(LocalBarsHidden provides prefs.appFullScreen) {
         NavHost(
             navController = navController,
             startDestination = "home",
@@ -152,6 +156,7 @@ fun CairnRoot(
                     onBack = { navController.popBackStack() },
                 )
             }
+        }
         }
     }
 }

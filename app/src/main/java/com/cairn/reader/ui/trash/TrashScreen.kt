@@ -304,6 +304,7 @@ fun TrashScreen(
 
     actionRow?.let { row ->
         ModalBottomSheet(onDismissRequest = { actionRow = null }, sheetState = rememberModalBottomSheetState()) {
+            com.cairn.reader.ui.KeepImmersiveWhileOpen()
             Column(Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
                 SheetHeader(row.title)
                 SheetActionRow(Icons.Outlined.Checklist, stringResource(R.string.select), onClick = { viewModel.togglePick(row.id); actionRow = null })

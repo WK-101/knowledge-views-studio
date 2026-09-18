@@ -434,6 +434,7 @@ private fun TagMovePicker(
 ) {
     val scheme = MaterialTheme.colorScheme
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        com.cairn.reader.ui.KeepImmersiveWhileOpen()
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 520.dp), contentPadding = PaddingValues(bottom = 28.dp)) {
             item {
                 Text(
