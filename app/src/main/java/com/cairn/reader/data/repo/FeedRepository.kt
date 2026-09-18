@@ -87,10 +87,18 @@ class FeedRepository @Inject constructor(
      *  options on — so a subscribe path that set its own value is never overridden. */
     private suspend fun withFeedDefaults(source: SourceEntity): SourceEntity {
         val p = preferencesRepository.preferences.first()
+        // Apply the global default acquisition mode only when the source hasn't already chosen one
+        // (i.e. it's still the plain FEED default); an explicit per-subscribe choice is never overridden.
+        val acquisition = if (source.acquisitionMode == com.cairn.reader.data.db.AcquisitionMode.FEED.raw) {
+            p.defaultAcquisitionMode
+        } else {
+            source.acquisitionMode
+        }
         return source.copy(
             folder = source.folder ?: p.defaultFeedFolder.trim().ifBlank { null },
             fullTextByDefault = source.fullTextByDefault || p.defaultFeedFullText,
             notify = source.notify || p.defaultFeedNotify,
+            acquisitionMode = acquisition,
         )
     }
 
@@ -694,9 +702,12 @@ class FeedRepository @Inject constructor(
         itemDao.indexItem(
             ItemFtsEntity(itemId = itemId, title = p.title ?: "", author = p.author, body = plain.take(FTS_BODY_CHARS)),
         )
-        // Per-feed "full text on sync": fetch the whole article for new items so they're
-        // complete and offline before they're ever opened. Opt-in, so most feeds stay cheap.
-        if (isNew && source.fullTextByDefault) {
+        // Per-feed full text on sync: fetch the whole article for new items so they're complete and
+        // offline before they're ever opened. Triggered by the legacy "full text on sync" switch OR
+        // an acquisition mode of EXTRACT/BOTH (which always wants the full page, not the feed summary).
+        val wantsFullText = source.fullTextByDefault ||
+            com.cairn.reader.data.db.AcquisitionMode.from(source.acquisitionMode).wantsFullText
+        if (isNew && wantsFullText) {
             p.link?.takeIf { it.isNotBlank() }?.let { coRunCatching { extractInto(itemId, it) } }
         }
         // Collect genuinely-new items for notification (only when the caller asked, i.e. a

@@ -218,6 +218,8 @@ data class AppPreferences(
     val defaultFeedFullText: Boolean = false,
     /** Post a new-article notification for new feeds. */
     val defaultFeedNotify: Boolean = false,
+    /** Default acquisition mode for newly added sources — [AcquisitionMode] name (FEED/EXTRACT/BOTH). */
+    val defaultAcquisitionMode: String = "FEED",
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -309,6 +311,7 @@ class PreferencesRepository @Inject constructor(
         val DEFAULT_FEED_FOLDER = stringPreferencesKey("default_feed_folder")
         val DEFAULT_FEED_FULLTEXT = booleanPreferencesKey("default_feed_fulltext")
         val DEFAULT_FEED_NOTIFY = booleanPreferencesKey("default_feed_notify")
+        val DEFAULT_ACQUISITION = stringPreferencesKey("default_acquisition_mode")
     }
 
     /** Per-scope view entries are stored as "scopeKey<sep>MODE" in a string set. */
@@ -402,6 +405,7 @@ class PreferencesRepository @Inject constructor(
             defaultFeedFolder = p[Keys.DEFAULT_FEED_FOLDER] ?: "",
             defaultFeedFullText = p[Keys.DEFAULT_FEED_FULLTEXT] ?: false,
             defaultFeedNotify = p[Keys.DEFAULT_FEED_NOTIFY] ?: false,
+            defaultAcquisitionMode = p[Keys.DEFAULT_ACQUISITION] ?: "FEED",
         )
     }
 
@@ -611,6 +615,7 @@ class PreferencesRepository @Inject constructor(
     suspend fun setDefaultFeedFolder(folder: String) = context.dataStore.edit { it[Keys.DEFAULT_FEED_FOLDER] = folder }
     suspend fun setDefaultFeedFullText(on: Boolean) = context.dataStore.edit { it[Keys.DEFAULT_FEED_FULLTEXT] = on }
     suspend fun setDefaultFeedNotify(on: Boolean) = context.dataStore.edit { it[Keys.DEFAULT_FEED_NOTIFY] = on }
+    suspend fun setDefaultAcquisitionMode(mode: String) = context.dataStore.edit { it[Keys.DEFAULT_ACQUISITION] = mode }
 
     // -- Settings backup -------------------------------------------------------
     //
@@ -695,6 +700,7 @@ class PreferencesRepository @Inject constructor(
             put("defaultFeedFolder", p.defaultFeedFolder)
             put("defaultFeedFullText", p.defaultFeedFullText)
             put("defaultFeedNotify", p.defaultFeedNotify)
+            put("defaultAcquisitionMode", p.defaultAcquisitionMode)
         }
     }
 
@@ -777,6 +783,7 @@ class PreferencesRepository @Inject constructor(
             if (json.has("defaultFeedFolder")) e[Keys.DEFAULT_FEED_FOLDER] = json.getString("defaultFeedFolder")
             if (json.has("defaultFeedFullText")) e[Keys.DEFAULT_FEED_FULLTEXT] = json.getBoolean("defaultFeedFullText")
             if (json.has("defaultFeedNotify")) e[Keys.DEFAULT_FEED_NOTIFY] = json.getBoolean("defaultFeedNotify")
+            if (json.has("defaultAcquisitionMode")) e[Keys.DEFAULT_ACQUISITION] = json.getString("defaultAcquisitionMode")
         }
     }
 }

@@ -121,6 +121,11 @@
     <string name="full_screen">Pantalla completa</string>
     <string name="full_text">Texto completo</string>
     <string name="full_text_on_sync">Texto completo al sincronizar</string>
+    <string name="get_content_via">Obtener contenido mediante</string>
+    <string name="acq_feed">Fuente RSS</string>
+    <string name="acq_extract">Artículo completo</string>
+    <string name="acq_both">Ambos</string>
+    <string name="acq_hint">«Fuente RSS» usa la suscripción tal cual. «Artículo completo» descarga la página entera de cada elemento (y, en modo archivo, el sitio directamente). «Ambos» los combina y elimina duplicados.</string>
     <string name="get_started">Empezar</string>
     <string name="goes_beyond_what_you_ve_stored">Va más allá de lo que has guardado: busca en toda la web (mediante Google News) todo lo publicado sobre este tema.</string>
     <string name="group_by_folder">Agrupar por carpeta</string>

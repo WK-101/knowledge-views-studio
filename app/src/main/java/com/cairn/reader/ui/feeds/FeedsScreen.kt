@@ -300,6 +300,7 @@ fun FeedsScreen(
             onRename = { viewModel.rename(source.id, it) },
             onFolder = { viewModel.setFolder(source.id, it) },
             onFullText = { viewModel.setFullText(source.id, it) },
+            onAcquisition = { viewModel.setAcquisition(source.id, it) },
             onNotify = { viewModel.setNotify(source.id, it) },
             onMuted = { viewModel.setMuted(source.id, it) },
             onSetPaused = { viewModel.setSyncPaused(source.id, it) },

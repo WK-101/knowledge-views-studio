@@ -560,6 +560,7 @@ fun CairnApp(
             onRename = { inboxViewModel.renameFeed(source.id, it) },
             onFolder = { inboxViewModel.setFeedFolder(source.id, it) },
             onFullText = { inboxViewModel.setFeedFullText(source.id, it) },
+            onAcquisition = { inboxViewModel.setFeedAcquisition(source.id, it) },
             onNotify = { inboxViewModel.setFeedNotify(source.id, it) },
             onMuted = { inboxViewModel.setFeedMuted(source.id, it) },
             onSetPaused = { inboxViewModel.setFeedPaused(source.id, it) },

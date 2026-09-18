@@ -61,6 +61,7 @@ fun FeedSettingsSheet(
     onOpenIn: (String) -> Unit = {},
     onMaxItems: (Int?) -> Unit = {},
     onVerify: (() -> Unit)? = null,
+    onAcquisition: (String) -> Unit = {},
 ) {
     var title by remember(source.id) { mutableStateOf(source.title) }
     var folder by remember(source.id) { mutableStateOf(source.folder.orEmpty()) }
@@ -72,6 +73,7 @@ fun FeedSettingsSheet(
     var podcast by remember(source.id) { mutableStateOf(source.isPodcast) }
     var openIn by remember(source.id) { mutableStateOf(source.openIn) }
     var maxItems by remember(source.id) { mutableStateOf(source.maxItems) }
+    var acquisition by remember(source.id) { mutableStateOf(source.acquisitionMode) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         com.cairn.reader.ui.KeepImmersiveWhileOpen()
@@ -124,6 +126,21 @@ fun FeedSettingsSheet(
                 )
                 if (onVerify != null) TextButton(onClick = onVerify) { Text(stringResource(R.string.verify_now)) }
             }
+            Spacer(Modifier.height(16.dp))
+
+            // ---- Acquisition: where this source's content comes from --------------------------
+            Text(stringResource(R.string.get_content_via), style = MaterialTheme.typography.labelLarge)
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = acquisition == "FEED", onClick = { acquisition = "FEED"; onAcquisition("FEED") }, label = { Text(stringResource(R.string.acq_feed)) })
+                FilterChip(selected = acquisition == "EXTRACT", onClick = { acquisition = "EXTRACT"; onAcquisition("EXTRACT") }, label = { Text(stringResource(R.string.acq_extract)) })
+                FilterChip(selected = acquisition == "BOTH", onClick = { acquisition = "BOTH"; onAcquisition("BOTH") }, label = { Text(stringResource(R.string.acq_both)) })
+            }
+            Text(
+                stringResource(R.string.acq_hint),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
             Spacer(Modifier.height(16.dp))
 
             Text(stringResource(R.string.folder), style = MaterialTheme.typography.labelLarge)

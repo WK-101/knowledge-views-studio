@@ -30,6 +30,11 @@ class SourceRepository @Inject constructor(
     suspend fun setOpenIn(id: String, mode: String) = sourceDao.setOpenIn(id, mode)
     suspend fun setMaxItems(id: String, maxItems: Int?) = sourceDao.setMaxItems(id, maxItems)
 
+    // ---- v21: Content Engine per-source knobs ----
+    suspend fun setAcquisitionMode(id: String, mode: String) = sourceDao.setAcquisitionMode(id, mode)
+    suspend fun setDepthMode(id: String, mode: String) = sourceDao.setDepthMode(id, mode)
+    suspend fun setOfflineTier(id: String, tier: String) = sourceDao.setOfflineTier(id, tier)
+
     /** Change where a feed pulls from. Normalises http→https-friendly input and resets sync state. */
     suspend fun setFeedUrl(id: String, feedUrl: String) {
         val url = feedUrl.trim()

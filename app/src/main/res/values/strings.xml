@@ -119,6 +119,11 @@
     <string name="full_screen">Full screen</string>
     <string name="full_text">Full text</string>
     <string name="full_text_on_sync">Full text on sync</string>
+    <string name="get_content_via">Get content via</string>
+    <string name="acq_feed">RSS feed</string>
+    <string name="acq_extract">Full article</string>
+    <string name="acq_both">Both</string>
+    <string name="acq_hint">RSS feed uses the subscription as-is. Full article fetches the whole page for every item (and, with archive mode, the site directly). Both combines them and removes duplicates.</string>
     <string name="get_started">Get started</string>
     <string name="goes_beyond_what_you_ve_stored">Goes beyond what you\'ve stored — searches across the web (via Google News) for everything published on this topic.</string>
     <string name="group_by_folder">Group by folder</string>

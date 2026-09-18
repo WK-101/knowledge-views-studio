@@ -57,6 +57,23 @@ data class SourceEntity(
      *  readable. Distinct from [muted] (which keeps syncing but hides items from the Inbox).
      *  Migration 16→17 adds it. */
     val syncPaused: Boolean = false,
+    // ---- v21: Content Engine (beyond RSS) ------------------------------------------------------
+    /** How this source acquires content — [AcquisitionMode] name: FEED (feed as-is), EXTRACT (fetch
+     *  every article's full page / crawl the site), or BOTH (feed + extract, de-duplicated). */
+    val acquisitionMode: String = "FEED",
+    /** How far back to fetch — [DepthMode] name: LIVE (recent window), ARCHIVE (whole history once),
+     *  or BOTH. Drives the deep-archive crawler. */
+    val depthMode: String = "LIVE",
+    /** Offline depth for archived articles — [OfflineTier] name: INDEX (searchable text, body on open)
+     *  or MIRROR (full body + images kept offline). */
+    val offlineTier: String = "INDEX",
+    /** One-time whole-archive backfill progress — [BackfillState] name. */
+    val backfillState: String = "NONE",
+    /** Opaque resume cursor for the archive backfill (page number, sitemap position, CDX offset…). */
+    val backfillCursor: String? = null,
+    /** How many archive URLs have been discovered / fetched so far, for the progress display. */
+    val backfillDiscovered: Int = 0,
+    val backfillDone: Int = 0,
 )
 
 @Entity(

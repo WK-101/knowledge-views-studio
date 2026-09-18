@@ -116,6 +116,7 @@ class FeedsViewModel @Inject constructor(
     fun rename(id: String, title: String) = viewModelScope.launch { sourceRepository.setTitle(id, title) }
     fun setFolder(id: String, folder: String?) = viewModelScope.launch { sourceRepository.setFolder(id, folder) }
     fun setFullText(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setFullText(id, enabled) }
+    fun setAcquisition(id: String, mode: String) = viewModelScope.launch { sourceRepository.setAcquisitionMode(id, mode) }
     fun setNotify(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setNotify(id, enabled) }
     fun setMuted(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setMuted(id, enabled) }
     fun setSyncPaused(id: String, paused: Boolean) = viewModelScope.launch { sourceRepository.setSyncPaused(id, paused) }

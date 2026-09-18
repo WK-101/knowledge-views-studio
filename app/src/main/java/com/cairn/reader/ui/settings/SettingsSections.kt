@@ -109,6 +109,19 @@ internal fun FeedDefaultsSection(prefs: AppPreferences, viewModel: SettingsViewM
     val scheme = MaterialTheme.colorScheme
     SettingsGroup("Feed defaults") {
         SettingCaption("Applied to each new feed you add. Change any feed from its own settings later.")
+        // Default acquisition: how new sources get content — feed as-is, full-page extract, or both.
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+            Text("Get content via", style = MaterialTheme.typography.labelLarge, color = scheme.onSurface)
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(prefs.defaultAcquisitionMode == "FEED", { viewModel.setDefaultAcquisitionMode("FEED") }, label = { Text(stringResource(R.string.acq_feed)) })
+                FilterChip(prefs.defaultAcquisitionMode == "EXTRACT", { viewModel.setDefaultAcquisitionMode("EXTRACT") }, label = { Text(stringResource(R.string.acq_extract)) })
+                FilterChip(prefs.defaultAcquisitionMode == "BOTH", { viewModel.setDefaultAcquisitionMode("BOTH") }, label = { Text(stringResource(R.string.acq_both)) })
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(stringResource(R.string.acq_hint), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+        }
+        SettingDivider()
         // Default folder: pick an existing folder, "None", or type a new one — one control, no dupes.
         Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
             Text("Default folder", style = MaterialTheme.typography.labelLarge, color = scheme.onSurface)

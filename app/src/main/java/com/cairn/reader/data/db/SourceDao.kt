@@ -64,6 +64,23 @@ interface SourceDao {
     @Query("UPDATE sources SET maxItems = :maxItems WHERE id = :id")
     suspend fun setMaxItems(id: String, maxItems: Int?)
 
+    // ---- v21: Content Engine per-source knobs ----
+    @Query("UPDATE sources SET acquisitionMode = :mode WHERE id = :id")
+    suspend fun setAcquisitionMode(id: String, mode: String)
+
+    @Query("UPDATE sources SET depthMode = :mode WHERE id = :id")
+    suspend fun setDepthMode(id: String, mode: String)
+
+    @Query("UPDATE sources SET offlineTier = :tier WHERE id = :id")
+    suspend fun setOfflineTier(id: String, tier: String)
+
+    /** Set backfill progress/state (the archive crawler owns these; UI reads them for progress). */
+    @Query("UPDATE sources SET backfillState = :state, backfillCursor = :cursor, backfillDiscovered = :discovered, backfillDone = :done WHERE id = :id")
+    suspend fun setBackfill(id: String, state: String, cursor: String?, discovered: Int, done: Int)
+
+    @Query("UPDATE sources SET backfillState = :state WHERE id = :id")
+    suspend fun setBackfillState(id: String, state: String)
+
     @Query("UPDATE sources SET contentHash = :hash, lastSyncedAt = :syncedAt, consecutiveErrors = 0 WHERE id = :id")
     suspend fun setContentHash(id: String, hash: String, syncedAt: Long)
 

@@ -74,6 +74,7 @@ class SettingsViewModel @Inject constructor(
 
     fun setFolder(id: String, folder: String?) = viewModelScope.launch { sourceRepository.setFolder(id, folder) }
     fun setFullText(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setFullText(id, enabled) }
+    fun setAcquisition(id: String, mode: String) = viewModelScope.launch { sourceRepository.setAcquisitionMode(id, mode) }
     fun setNotify(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setNotify(id, enabled) }
     fun setMuted(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setMuted(id, enabled) }
     fun setSyncPaused(id: String, paused: Boolean) = viewModelScope.launch { sourceRepository.setSyncPaused(id, paused) }
@@ -273,6 +274,7 @@ class SettingsViewModel @Inject constructor(
     fun setDefaultFeedFolder(folder: String) = viewModelScope.launch { preferencesRepository.setDefaultFeedFolder(folder) }
     fun setDefaultFeedFullText(on: Boolean) = viewModelScope.launch { preferencesRepository.setDefaultFeedFullText(on) }
     fun setDefaultFeedNotify(on: Boolean) = viewModelScope.launch { preferencesRepository.setDefaultFeedNotify(on) }
+    fun setDefaultAcquisitionMode(mode: String) = viewModelScope.launch { preferencesRepository.setDefaultAcquisitionMode(mode) }
     fun setTrashRetentionDays(days: Int) = viewModelScope.launch { preferencesRepository.setTrashRetentionDays(days) }
     fun moveBottomTab(name: String, up: Boolean) = viewModelScope.launch { preferencesRepository.moveBottomTab(name, up) }
 

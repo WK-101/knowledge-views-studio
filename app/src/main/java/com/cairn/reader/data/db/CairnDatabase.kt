@@ -24,7 +24,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RuleEntity::class,
         TranscriptEntity::class,
     ],
-    version = 20,
+    version = 21,
     exportSchema = true,
     autoMigrations = [
         // v14 → v15: drop the legacy items.collectionId column. The item_collections join table is
@@ -254,5 +254,20 @@ val MIGRATION_18_19 = object : Migration(18, 19) {
 val MIGRATION_19_20 = object : Migration(19, 20) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE sources ADD COLUMN latestItemAt INTEGER")
+    }
+}
+
+/** v21: the Content Engine (beyond RSS). Adds per-source acquisition mode (FEED/EXTRACT/BOTH), depth
+ *  mode (LIVE/ARCHIVE/BOTH), offline tier (INDEX/MIRROR) and one-time archive-backfill bookkeeping.
+ *  All additive with safe defaults, so every existing feed keeps its exact current behaviour. */
+val MIGRATION_20_21 = object : Migration(20, 21) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE sources ADD COLUMN acquisitionMode TEXT NOT NULL DEFAULT 'FEED'")
+        db.execSQL("ALTER TABLE sources ADD COLUMN depthMode TEXT NOT NULL DEFAULT 'LIVE'")
+        db.execSQL("ALTER TABLE sources ADD COLUMN offlineTier TEXT NOT NULL DEFAULT 'INDEX'")
+        db.execSQL("ALTER TABLE sources ADD COLUMN backfillState TEXT NOT NULL DEFAULT 'NONE'")
+        db.execSQL("ALTER TABLE sources ADD COLUMN backfillCursor TEXT")
+        db.execSQL("ALTER TABLE sources ADD COLUMN backfillDiscovered INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE sources ADD COLUMN backfillDone INTEGER NOT NULL DEFAULT 0")
     }
 }

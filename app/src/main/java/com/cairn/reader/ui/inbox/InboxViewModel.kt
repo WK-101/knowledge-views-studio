@@ -87,6 +87,7 @@ class InboxViewModel @Inject constructor(
     fun renameFeed(id: String, title: String) = viewModelScope.launch { sourceRepository.setTitle(id, title) }
     fun setFeedFolder(id: String, folder: String?) = viewModelScope.launch { sourceRepository.setFolder(id, folder) }
     fun setFeedFullText(id: String, on: Boolean) = viewModelScope.launch { sourceRepository.setFullText(id, on) }
+    fun setFeedAcquisition(id: String, mode: String) = viewModelScope.launch { sourceRepository.setAcquisitionMode(id, mode) }
     fun setFeedNotify(id: String, on: Boolean) = viewModelScope.launch { sourceRepository.setNotify(id, on) }
     fun setFeedMuted(id: String, on: Boolean) = viewModelScope.launch { sourceRepository.setMuted(id, on) }
     fun setFeedPaused(id: String, on: Boolean) = viewModelScope.launch { sourceRepository.setSyncPaused(id, on) }
