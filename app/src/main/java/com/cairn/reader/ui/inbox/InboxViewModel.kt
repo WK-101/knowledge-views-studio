@@ -368,10 +368,15 @@ class InboxViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             _refreshing.value = true
-            coRunCatching { feedRepository.syncAll() }
+            // A user-initiated pull-to-refresh forces a full fetch (no conditional GET), so it always
+            // pulls the publisher's current items rather than a sticky 304 or a stale local snapshot.
+            coRunCatching { feedRepository.syncAll(force = true) }
             _refreshing.value = false
         }
     }
+
+    /** Force-fetch one feed and refresh its freshness stamp (the manage sheet's "Verify now"). */
+    fun verifyFeed(id: String) = viewModelScope.launch { coRunCatching { feedRepository.verifyFeed(id) } }
 
     fun addFeed(url: String) {
         val trimmed = url.trim()

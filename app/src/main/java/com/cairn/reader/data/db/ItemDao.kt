@@ -96,6 +96,10 @@ data class LibraryCounts(
 @Dao
 interface ItemDao {
 
+    /** How many (non-trashed) items a feed currently has — for the per-feed verification readout. */
+    @Query("SELECT COUNT(*) FROM items WHERE sourceId = :sourceId AND trashedAt IS NULL")
+    suspend fun countForSource(sourceId: String): Int
+
     @Upsert
     suspend fun upsertItem(item: ItemEntity)
 

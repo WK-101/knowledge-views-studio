@@ -60,6 +60,7 @@ fun FeedSettingsSheet(
     onFeedUrl: (String) -> Unit = {},
     onOpenIn: (String) -> Unit = {},
     onMaxItems: (Int?) -> Unit = {},
+    onVerify: (() -> Unit)? = null,
 ) {
     var title by remember(source.id) { mutableStateOf(source.title) }
     var folder by remember(source.id) { mutableStateOf(source.folder.orEmpty()) }
@@ -106,6 +107,22 @@ fun FeedSettingsSheet(
                     TextButton(onClick = { feedUrl = source.feedUrl }) { Text(stringResource(R.string.reset)) }
                     TextButton(onClick = { onFeedUrl(feedUrl.trim()) }) { Text(stringResource(R.string.update_link)) }
                 }
+            }
+
+            // ---- Freshness verification: when it was last checked, and the newest post it holds ----
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                val checked = source.lastSyncedAt?.let { android.text.format.DateUtils.getRelativeTimeSpanString(it).toString() }
+                    ?: stringResource(R.string.never)
+                val latest = source.latestItemAt?.let { android.text.format.DateUtils.getRelativeTimeSpanString(it).toString() }
+                    ?: stringResource(R.string.unknown)
+                Text(
+                    stringResource(R.string.feed_checked_latest, checked, latest),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                if (onVerify != null) TextButton(onClick = onVerify) { Text(stringResource(R.string.verify_now)) }
             }
             Spacer(Modifier.height(16.dp))
 

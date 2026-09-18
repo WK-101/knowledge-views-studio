@@ -465,6 +465,9 @@
     <string name="colour_label">Color</string>
     <string name="open_article">Abrir artículo</string>
     <string name="change_color">Cambiar color</string>
+    <string name="unknown">Desconocido</string>
+    <string name="verify_now">Verificar ahora</string>
+    <string name="feed_checked_latest">Comprobado %1$s · última entrada %2$s</string>
     <string name="no_results">Sin coincidencias</string>
     <string name="try_a_different_search">Prueba otra búsqueda o borra los filtros.</string>
 

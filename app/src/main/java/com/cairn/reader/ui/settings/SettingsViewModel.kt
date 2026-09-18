@@ -67,7 +67,10 @@ class SettingsViewModel @Inject constructor(
         sourceRepository.folders().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun removeSource(id: String) = viewModelScope.launch { sourceRepository.delete(id) }
-    fun syncNow() = viewModelScope.launch { coRunCatching { feedRepository.syncAll() } }
+    fun syncNow() = viewModelScope.launch { coRunCatching { feedRepository.syncAll(force = true) } }
+
+    /** Force-fetch one feed and refresh its freshness stamp (the manage sheet's "Verify now"). */
+    fun verifyFeed(id: String) = viewModelScope.launch { coRunCatching { feedRepository.verifyFeed(id) } }
 
     fun setFolder(id: String, folder: String?) = viewModelScope.launch { sourceRepository.setFolder(id, folder) }
     fun setFullText(id: String, enabled: Boolean) = viewModelScope.launch { sourceRepository.setFullText(id, enabled) }
@@ -78,7 +81,7 @@ class SettingsViewModel @Inject constructor(
     fun importOpml(text: String, onResult: (Int) -> Unit) = viewModelScope.launch {
         val added = coRunCatching { feedRepository.importOpml(text) }.getOrDefault(0)
         onResult(added)
-        if (added > 0) coRunCatching { feedRepository.syncAll() }
+        if (added > 0) coRunCatching { feedRepository.syncAll(force = true) }
     }
 
     fun exportOpml(onReady: (String) -> Unit) = viewModelScope.launch { onReady(feedRepository.exportOpml()) }

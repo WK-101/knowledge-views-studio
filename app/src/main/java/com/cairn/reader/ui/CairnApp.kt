@@ -568,6 +568,7 @@ fun CairnApp(
             onOpenIn = { inboxViewModel.setFeedOpenIn(source.id, it) },
             onMaxItems = { inboxViewModel.setFeedMaxItems(source.id, it) },
             onOpenSite = { source.siteUrl?.let(onOpenWeb) },
+            onVerify = { inboxViewModel.verifyFeed(source.id) },
             onRemove = { inboxViewModel.unsubscribe(source.id); manageFeed = null },
             onDismiss = { manageFeed = null },
         )

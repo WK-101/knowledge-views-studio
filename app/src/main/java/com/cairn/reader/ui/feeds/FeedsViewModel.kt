@@ -125,7 +125,21 @@ class FeedsViewModel @Inject constructor(
     fun setFeedUrl(id: String, url: String) = viewModelScope.launch {
         sourceRepository.setFeedUrl(id, url)
         _snacks.emit("Feed link updated — syncing…")
-        coRunCatching { feedRepository.syncAll() }
+        coRunCatching { feedRepository.syncAll(force = true) }
+    }
+
+    /** Verify one feed on demand: force-fetch it, ingest the latest, and report freshness in a snack. */
+    fun verifyFeed(id: String) = viewModelScope.launch {
+        _snacks.emit("Verifying feed…")
+        val v = coRunCatching { feedRepository.verifyFeed(id) }.getOrNull()
+        _snacks.emit(
+            when {
+                v == null -> "Couldn't verify this feed"
+                !v.ok -> "Feed problem: ${v.error ?: "unreachable"}"
+                v.newestItemAt == null -> "Verified — ${v.itemCount} items"
+                else -> "Verified — latest post ${android.text.format.DateUtils.getRelativeTimeSpanString(v.newestItemAt!!)} · ${v.itemCount} items"
+            },
+        )
     }
     fun markFeedRead(id: String) = viewModelScope.launch { itemRepository.markAllRead(sourceId = id, folder = null) }
     fun delete(id: String) = viewModelScope.launch {

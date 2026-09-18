@@ -421,6 +421,7 @@ private fun SettingsDetail(
             onNotify = { viewModel.setNotify(source.id, it) },
             onMuted = { viewModel.setMuted(source.id, it) },
             onSetPaused = { viewModel.setSyncPaused(source.id, it) },
+            onVerify = { viewModel.verifyFeed(source.id) },
             onRemove = { viewModel.removeSource(source.id) },
             onDismiss = { feedSettings = null },
         )

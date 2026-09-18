@@ -463,6 +463,9 @@
     <string name="colour_label">Colour</string>
     <string name="open_article">Open article</string>
     <string name="change_color">Change colour</string>
+    <string name="unknown">Unknown</string>
+    <string name="verify_now">Verify now</string>
+    <string name="feed_checked_latest">Checked %1$s · latest post %2$s</string>
     <string name="no_results">No matches</string>
     <string name="try_a_different_search">Try a different search or clear the filters.</string>
 

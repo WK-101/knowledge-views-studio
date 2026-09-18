@@ -308,6 +308,7 @@ fun FeedsScreen(
             onOpenIn = { viewModel.setOpenIn(source.id, it) },
             onMaxItems = { viewModel.setMaxItems(source.id, it) },
             onOpenSite = { source.siteUrl?.let(onOpenWeb) },
+            onVerify = { viewModel.verifyFeed(source.id) },
             onRemove = { viewModel.delete(source.id) },
             onDismiss = { editing = null },
         )

@@ -29,6 +29,11 @@ interface SourceDao {
     @Query("UPDATE sources SET hubUrl = :hubUrl WHERE id = :id")
     suspend fun setHubUrl(id: String, hubUrl: String?)
 
+    /** Records the newest item date seen at the last successful parse (feed freshness verification).
+     *  Only advances the stamp — never moves it backwards on a partial/stale re-fetch. */
+    @Query("UPDATE sources SET latestItemAt = :latestItemAt WHERE id = :id AND (latestItemAt IS NULL OR latestItemAt < :latestItemAt)")
+    suspend fun setLatestItemAt(id: String, latestItemAt: Long)
+
     @Query("UPDATE sources SET consecutiveErrors = consecutiveErrors + 1, retryAfter = :retryAfter WHERE id = :id")
     suspend fun markError(id: String, retryAfter: Long?)
 

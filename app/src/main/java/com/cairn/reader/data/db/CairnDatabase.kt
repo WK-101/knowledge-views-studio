@@ -24,7 +24,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RuleEntity::class,
         TranscriptEntity::class,
     ],
-    version = 19,
+    version = 20,
     exportSchema = true,
     autoMigrations = [
         // v14 → v15: drop the legacy items.collectionId column. The item_collections join table is
@@ -245,5 +245,14 @@ val MIGRATION_18_19 = object : Migration(18, 19) {
             """.trimIndent(),
         )
         db.execSQL("CREATE INDEX IF NOT EXISTS index_transcripts_itemId ON transcripts(itemId)")
+    }
+}
+
+/** v20: per-feed freshness verification. Adds the nullable sources.latestItemAt (publish time of the
+ *  newest item seen at the last successful parse), so the app can show "verified up to date as of
+ *  <checked>, newest post <this>". Additive; existing rows backfill to NULL until next sync. */
+val MIGRATION_19_20 = object : Migration(19, 20) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE sources ADD COLUMN latestItemAt INTEGER")
     }
 }

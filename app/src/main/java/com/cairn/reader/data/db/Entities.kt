@@ -34,6 +34,10 @@ data class SourceEntity(
     val consecutiveErrors: Int = 0,
     val remoteId: String? = null,
     val lastSyncedAt: Long? = null,
+    /** v20: publish time of the NEWEST item seen the last time this feed was successfully parsed.
+     *  With [lastSyncedAt] it answers "verified up to date as of <checked>, newest post <this>" and
+     *  drives the per-feed freshness badge. Null until the feed is fetched under v20+. */
+    val latestItemAt: Long? = null,
     val sortOrder: Int = 0,
     /** Per-feed retention override: null = use the global cap, 0 = keep everything, N = keep newest N. */
     val maxItems: Int? = null,

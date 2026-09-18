@@ -53,6 +53,16 @@ private const val FTS_BODY_CHARS = 4_000
  * conditional GET, saving arbitrary URLs (with on-device extraction), and running
  * Readability on demand. All content bodies are gzipped to the [BlobStore].
  */
+/** Result of a one-feed freshness check ([FeedRepository.verifyFeed]): whether it fetched and parsed
+ *  cleanly right now, how many items it holds, the newest item's date, and any error to show. */
+data class FeedVerification(
+    val ok: Boolean,
+    val itemCount: Int,
+    val newestItemAt: Long?,
+    val checkedAt: Long,
+    val error: String? = null,
+)
+
 @Singleton
 class FeedRepository @Inject constructor(
     private val sourceDao: SourceDao,
@@ -299,7 +309,7 @@ class FeedRepository @Inject constructor(
     // Runs on Default so the per-feed XML parse + per-item Jsoup.parse never execute on the caller's
     // thread. WorkManager's CoroutineWorker is already off-main, but "Sync now" / pull-to-refresh are
     // launched from viewModelScope (Main); this keeps their heavy parsing off the UI thread too.
-    suspend fun syncAll(): List<com.cairn.reader.notifications.NewArticle> = withContext(Dispatchers.Default) {
+    suspend fun syncAll(force: Boolean = false): List<com.cairn.reader.notifications.NewArticle> = withContext(Dispatchers.Default) {
         val now = System.currentTimeMillis()
         val fresh = mutableListOf<com.cairn.reader.notifications.NewArticle>()
         // No network → don't even try: a whole offline pass would otherwise throw a connect error
@@ -318,7 +328,7 @@ class FeedRepository @Inject constructor(
         val failures = ArrayList<Pair<String, Throwable>>()
         sources.forEach { source ->
             coroutineContext.ensureActive()  // honor cancellation between feeds
-            coRunCatching { syncSource(source, now, if (source.notify) fresh else null) }
+            coRunCatching { syncSource(source, now, if (source.notify) fresh else null, force) }
                 .onFailure { failures.add(source.feedUrl to it) }
         }
         // Log compactly: a total outage (every feed failed) is one line — almost always the network
@@ -336,6 +346,39 @@ class FeedRepository @Inject constructor(
         // same final state as the old interleaved pass.
         runMaintenance()
         fresh
+    }
+
+    /**
+     * Verify ONE feed on demand: force-fetch it (no conditional-GET, so we always see the publisher's
+     * current items), ingest anything new, and report what we found — item count, newest item date,
+     * and whether it fetched+parsed cleanly. Powers the per-feed "Verify now" action and the freshness
+     * badge, so a user can confirm a feed is up to date with the latest posts.
+     */
+    suspend fun verifyFeed(sourceId: String): FeedVerification = withContext(Dispatchers.Default) {
+        val now = System.currentTimeMillis()
+        val source = sourceDao.getById(sourceId)
+            ?: return@withContext FeedVerification(ok = false, itemCount = 0, newestItemAt = null, checkedAt = now, error = "Feed not found")
+        if (!isOnline()) {
+            return@withContext FeedVerification(ok = false, itemCount = itemDao.countForSource(sourceId), newestItemAt = source.latestItemAt, checkedAt = now, error = "No network")
+        }
+        val outcome = coRunCatching { syncSource(source, now, null, force = true) }
+        val after = sourceDao.getById(sourceId)
+        val count = itemDao.countForSource(sourceId)
+        outcome.fold(
+            onSuccess = {
+                val healthy = (after?.consecutiveErrors ?: 0) == 0
+                FeedVerification(
+                    ok = healthy,
+                    itemCount = count,
+                    newestItemAt = after?.latestItemAt,
+                    checkedAt = now,
+                    error = if (healthy) null else "Reached the feed but found no readable items",
+                )
+            },
+            onFailure = { e ->
+                FeedVerification(ok = false, itemCount = count, newestItemAt = after?.latestItemAt, checkedAt = now, error = "${e.javaClass.simpleName}: ${e.message?.take(120)}")
+            },
+        )
     }
 
     /**
@@ -529,6 +572,10 @@ class FeedRepository @Inject constructor(
         source: SourceEntity,
         now: Long,
         newItems: MutableList<com.cairn.reader.notifications.NewArticle>? = null,
+        // force = true drops the conditional-GET validators (ETag / If-Modified-Since) so the server
+        // must return the full current feed. Used by user-initiated refresh so "pull to refresh" and
+        // "Sync now" always pull the latest, never a sticky 304 or a months-old local snapshot.
+        force: Boolean = false,
     ) {
         // Watched pages: fetch, hash the text, and emit an item only when it changed.
         if (source.kind == "WATCH") {
@@ -549,7 +596,11 @@ class FeedRepository @Inject constructor(
             sourceDao.markSynced(source.id, null, null, now)
             return
         }
-        val res = fetcher.fetch(source.feedUrl, source.etag, source.lastModified)
+        val res = fetcher.fetch(
+            source.feedUrl,
+            etag = if (force) null else source.etag,
+            lastModified = if (force) null else source.lastModified,
+        )
         if (res.notModified) {
             sourceDao.markSynced(source.id, source.etag, source.lastModified, now)
             return
@@ -561,6 +612,11 @@ class FeedRepository @Inject constructor(
             return
         }
         feed.items.forEach { insertParsed(source, it, now, newItems) }
+        // Freshness verification: record the newest item's publish time so the UI can show "verified
+        // up to date as of <lastSyncedAt>, newest post <latestItemAt>". Only advances (see the DAO).
+        feed.items.mapNotNull { it.publishedAt }.maxOrNull()?.let { newest ->
+            coRunCatching { sourceDao.setLatestItemAt(source.id, newest) }
+        }
         // Self-heal a permanently-moved feed URL (http→https, or a moved domain the feed 301s to)
         // so future syncs skip the redirect hop and the stored URL stays correct. Guard the unique
         // feedUrl index by only claiming a URL no other source already holds.
