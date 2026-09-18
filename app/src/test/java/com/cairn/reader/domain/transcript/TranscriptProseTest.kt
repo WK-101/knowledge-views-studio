@@ -18,12 +18,14 @@ class TranscriptProseTest {
                 cue(1800, 2600, "the cool thing about these guys"),
             ),
         )
-        // One paragraph, cues joined with spaces (not one line per cue).
+        // One paragraph, cues joined with spaces (not one line per cue); an inline timecode leads it.
         assertEquals(1, prose.paragraphs.size)
         assertEquals(
-            "All right, so here we are in front of the elephants the cool thing about these guys",
+            "0:00  All right, so here we are in front of the elephants the cool thing about these guys",
             prose.text,
         )
+        assertEquals(1, prose.timeMarks.size)
+        assertEquals(0L, prose.timeMarks[0].ms)
     }
 
     @Test fun startsNewParagraphOnLongPause() {
@@ -75,8 +77,27 @@ class TranscriptProseTest {
                 cue(2000, 3000, "new line"),
             ),
         )
-        // The verbatim repeat is collapsed.
-        assertEquals("repeated line new line", prose.text)
+        // The verbatim repeat is collapsed (with the leading inline timecode).
+        assertEquals("0:00  repeated line new line", prose.text)
+    }
+
+    @Test fun timecodeMarkResolvesToParagraphTimeAndRangeSpansParagraphs() {
+        val prose = TranscriptProse.from(
+            listOf(
+                cue(0, 1000, "first part."),
+                cue(6000, 7000, "second part starts later."),
+            ),
+        )
+        // Two paragraphs (long pause), each with an inline timecode mark.
+        assertEquals(2, prose.timeMarks.size)
+        // Tapping the second paragraph's timecode jumps to 6000, not the end of paragraph one.
+        val secondMark = prose.timeMarks[1]
+        assertEquals(6000L, prose.timeAt(secondMark.start))
+        // A selection spanning both paragraphs resolves start=first cue, end=last cue.
+        val s = prose.text.indexOf("first")
+        val e = prose.text.indexOf("later") + "later".length
+        assertEquals(0L, prose.startMsForRange(s, e))
+        assertEquals(7000L, prose.endMsForRange(s, e))
     }
 
     @Test fun charRangeAtTimeFindsPlayingCue() {

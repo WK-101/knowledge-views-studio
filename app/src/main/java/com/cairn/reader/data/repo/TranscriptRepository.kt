@@ -17,6 +17,10 @@ import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** How much transcript text to put in the full-text index — generous, since a kept transcript is the
+ *  item's main searchable content. */
+private const val TRANSCRIPT_FTS_CHARS = 200_000
+
 /** The outcome of resolving a transcript for an item. */
 sealed interface TranscriptResult {
     /** A transcript is available; [saved] is true when it's the permanently-kept copy. */
@@ -92,10 +96,28 @@ class TranscriptRepository @Inject constructor(
                 savedAt = System.currentTimeMillis(),
             ),
         )
+        // Make the kept transcript findable in the app's search: index its text into the item's
+        // full-text row (media items rarely have article body text, so this is their content).
+        itemDao.getItem(itemId)?.let { item ->
+            itemDao.indexItem(
+                com.cairn.reader.data.db.ItemFtsEntity(
+                    itemId = itemId, title = item.title, author = item.author,
+                    body = transcript.plainText.take(TRANSCRIPT_FTS_CHARS),
+                ),
+            )
+        }
     }
 
-    /** Forget the permanently-saved transcript (annotations already made are untouched). */
-    suspend fun forget(itemId: String) = withContext(Dispatchers.IO) { transcriptDao.delete(itemId) }
+    /** Forget the permanently-saved transcript (annotations already made are untouched). The item's
+     *  FTS body is reset so its transcript text no longer turns up in search. */
+    suspend fun forget(itemId: String) = withContext(Dispatchers.IO) {
+        transcriptDao.delete(itemId)
+        itemDao.getItem(itemId)?.let { item ->
+            itemDao.indexItem(
+                com.cairn.reader.data.db.ItemFtsEntity(itemId = itemId, title = item.title, author = item.author, body = null),
+            )
+        }
+    }
 
     /** Whether the on-device engine can run here (native ready) and has a model installed. */
     suspend fun onDeviceStatus(): Pair<Boolean, Boolean> =

@@ -215,10 +215,9 @@ private fun TranscriptReady(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Dimens.lg, vertical = Dimens.md),
             )
         }
-        transcriptParagraphItems(
+        transcriptBodyItem(
             prose = prose, annotations = annViews, activeRange = activeRange,
-            bodyStyle = bodyStyle, justify = false, paragraphSpacing = 8, hPad = Dimens.lg,
-            timeColor = scheme.primary, selColor = scheme.primary,
+            bodyStyle = bodyStyle, justify = false, hPad = Dimens.lg, accent = scheme.primary,
             onSeekMs = onSeekMs, onSelect = { selection = it }, onManage = { manageId = it },
         )
     }

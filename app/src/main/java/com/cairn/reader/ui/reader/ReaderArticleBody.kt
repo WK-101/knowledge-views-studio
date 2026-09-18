@@ -154,7 +154,7 @@ import com.cairn.reader.data.prefs.ReaderTheme
 import com.cairn.reader.domain.transcript.TranscriptProse
 import com.cairn.reader.ui.transcript.TranscriptAnnotationView
 import com.cairn.reader.ui.transcript.TranscriptSelectionInfo
-import com.cairn.reader.ui.transcript.transcriptParagraphItems
+import com.cairn.reader.ui.transcript.transcriptBodyItem
 import com.cairn.reader.ui.components.CollectionMembershipSheet
 import com.cairn.reader.ui.components.TagEditorSheet
 import com.cairn.reader.ui.theme.InterFamily
@@ -879,10 +879,9 @@ private fun LazyListScope.inlineTranscriptSection(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = ReaderHPad, vertical = 4.dp),
                 )
             }
-            transcriptParagraphItems(
+            transcriptBodyItem(
                 prose = t.prose, annotations = t.annotations, activeRange = t.activeRange,
-                bodyStyle = bodyStyle, justify = justify, paragraphSpacing = paragraphSpacing, hPad = ReaderHPad,
-                timeColor = t.accent, selColor = t.accent,
+                bodyStyle = bodyStyle, justify = justify, hPad = ReaderHPad, accent = t.accent,
                 onSeekMs = t.onSeekMs, onSelect = t.onSelect, onManage = t.onManage,
             )
         }

@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -66,7 +65,6 @@ import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.res.stringResource
 import com.cairn.reader.R
 import com.cairn.reader.domain.transcript.TranscriptProse
-import com.cairn.reader.domain.transcript.formatTimestamp
 import com.cairn.reader.ui.reader.HighlightColors
 import com.cairn.reader.ui.theme.Dimens
 
@@ -86,62 +84,47 @@ internal data class TranscriptSelectionInfo(
 internal data class TranscriptPaintSpan(val localStart: Int, val localEnd: Int, val color: Int, val id: String)
 
 /**
- * Emit the transcript prose as reader paragraphs into a [LazyListScope], styled by the caller's
- * [bodyStyle]/[justify]/[paragraphSpacing] — so wherever it's shown (the standalone screen or inline
- * in the article reader) it inherits that surface's font, size, line height, colour and theme. Each
- * paragraph carries a subtle, tappable timecode; selection reports GLOBAL prose offsets.
+ * Emit the whole transcript as ONE selectable block of prose into a [LazyListScope], styled by the
+ * caller's [bodyStyle]/[justify] so it inherits that surface's font, size, line height, colour and
+ * theme. Because it's a single Text, a reader can select across paragraph (time) boundaries in one
+ * gesture. Inline "m:ss" timecodes are styled in [accent] and tapping one (or any word) jumps there;
+ * selection reports GLOBAL prose offsets and resolves to a real start/end time.
  */
-internal fun LazyListScope.transcriptParagraphItems(
+internal fun LazyListScope.transcriptBodyItem(
     prose: TranscriptProse,
     annotations: List<TranscriptAnnotationView>,
     activeRange: IntRange?,
     bodyStyle: TextStyle,
     justify: Boolean,
-    paragraphSpacing: Int,
     hPad: Dp,
-    timeColor: Color,
-    selColor: Color,
+    accent: Color,
     onSeekMs: (Long) -> Unit,
     onSelect: (TranscriptSelectionInfo) -> Unit,
     onManage: (String) -> Unit,
 ) {
-    items(prose.paragraphs, key = { "tp_" + it.charStart }) { para ->
-        val paraText = remember(para) { prose.text.substring(para.charStart, para.charEnd) }
-        val paints = remember(para, annotations) { paintSpansFor(paraText, para.charStart, annotations) }
-        val activeLocal = activeRange?.let { r ->
-            val s = (r.first - para.charStart); val e = (r.last + 1 - para.charStart)
-            if (e > 0 && s < paraText.length) s.coerceIn(0, paraText.length) until e.coerceIn(0, paraText.length) else null
-        }
-        Column(Modifier.fillMaxWidth().padding(horizontal = hPad, vertical = paragraphSpacing.dp)) {
-            Text(
-                formatTimestamp(para.startMs),
-                style = MaterialTheme.typography.labelSmall,
-                color = timeColor,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { onSeekMs(para.startMs) }.padding(vertical = 2.dp),
-            )
-            Spacer(Modifier.height(4.dp))
-            HighlightableProse(
-                localText = paraText,
-                baseChar = para.charStart,
-                style = bodyStyle.copy(textAlign = if (justify) TextAlign.Justify else TextAlign.Start),
-                paints = paints,
-                activeLocal = activeLocal,
-                selColor = selColor,
-                onSelect = { gs, ge, q, y ->
-                    onSelect(
-                        TranscriptSelectionInfo(
-                            gs, ge, q,
-                            prose.startMsForRange(gs, ge), prose.endMsForRange(gs, ge), y,
-                        ),
-                    )
-                },
-                onSeekChar = { global -> onSeekMs(prose.timeAt(global)) },
-                onManage = onManage,
-            )
-        }
+    item(key = "transcript_body") {
+        val paints = remember(prose, annotations) { paintSpansFor(prose.text, 0, annotations) }
+        HighlightableProse(
+            fullText = prose.text,
+            style = bodyStyle.copy(textAlign = if (justify) TextAlign.Justify else TextAlign.Start),
+            paints = paints,
+            activeRange = activeRange,
+            timeMarks = prose.timeMarks,
+            accent = accent,
+            onSelect = { gs, ge, q, y ->
+                onSelect(TranscriptSelectionInfo(gs, ge, cleanQuote(q), prose.startMsForRange(gs, ge), prose.endMsForRange(gs, ge), y))
+            },
+            onSeekChar = { off -> onSeekMs(prose.timeAt(off)) },
+            onManage = onManage,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = hPad, vertical = 4.dp),
+        )
     }
 }
+
+/** Strip a leading inline timecode ("m:ss" / "h:mm:ss") from a selected quote so saved annotations
+ *  read as clean prose. */
+internal fun cleanQuote(q: String): String =
+    q.replaceFirst(Regex("^\\s*\\d{1,2}:\\d{2}(?::\\d{2})?\\s+"), "").trim().ifBlank { q.trim() }
 
 /** A minimal projection of a saved annotation for painting/managing, decoupled from the ViewModel. */
 internal data class TranscriptAnnotationView(
@@ -155,15 +138,16 @@ internal data class TranscriptAnnotationView(
 
 @Composable
 internal fun HighlightableProse(
-    localText: String,
-    baseChar: Int,
+    fullText: String,
     style: TextStyle,
     paints: List<TranscriptPaintSpan>,
-    activeLocal: IntRange?,
-    selColor: Color,
+    activeRange: IntRange?,
+    timeMarks: List<TranscriptProse.Mark>,
+    accent: Color,
     onSelect: (Int, Int, String, Float) -> Unit,
     onSeekChar: (Int) -> Unit,
     onManage: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val layout = remember { mutableStateOf<TextLayoutResult?>(null) }
     val currentSelect by rememberUpdatedState(onSelect)
@@ -174,44 +158,47 @@ internal fun HighlightableProse(
     var anchor by remember { mutableStateOf<Int?>(null) }
     var focus by remember { mutableStateOf<Int?>(null) }
 
-    val rendered = remember(localText, paints, activeLocal, anchor, focus, selColor) {
+    val rendered = remember(fullText, paints, activeRange, timeMarks, anchor, focus, accent) {
         buildAnnotatedString {
-            append(localText)
-            activeLocal?.let { r ->
-                val s = r.first.coerceIn(0, localText.length); val e = (r.last + 1).coerceIn(s, localText.length)
-                if (e > s) addStyle(SpanStyle(background = selColor.copy(alpha = 0.16f)), s, e)
+            append(fullText)
+            // Inline timecodes read as subtle jump-links.
+            timeMarks.forEach { m ->
+                if (m.end <= fullText.length) addStyle(SpanStyle(color = accent, fontWeight = FontWeight.Medium, fontSize = style.fontSize * 0.82f), m.start, m.end)
+            }
+            activeRange?.let { r ->
+                val s = r.first.coerceIn(0, fullText.length); val e = (r.last + 1).coerceIn(s, fullText.length)
+                if (e > s) addStyle(SpanStyle(background = accent.copy(alpha = 0.16f)), s, e)
             }
             paints.forEach { p ->
-                val s = p.localStart.coerceIn(0, localText.length); val e = p.localEnd.coerceIn(s, localText.length)
+                val s = p.localStart.coerceIn(0, fullText.length); val e = p.localEnd.coerceIn(s, fullText.length)
                 if (e > s) addStyle(SpanStyle(background = Color(p.color).copy(alpha = 0.42f)), s, e)
             }
             val a = anchor; val f = focus
-            if (a != null && f != null && a != f) addStyle(SpanStyle(background = selColor.copy(alpha = 0.30f)), minOf(a, f), maxOf(a, f))
+            if (a != null && f != null && a != f) addStyle(SpanStyle(background = accent.copy(alpha = 0.30f)), minOf(a, f), maxOf(a, f))
         }
     }
 
     fun offsetAt(pos: androidx.compose.ui.geometry.Offset): Int =
-        (layout.value?.getOffsetForPosition(pos) ?: 0).coerceIn(0, localText.length)
+        (layout.value?.getOffsetForPosition(pos) ?: 0).coerceIn(0, fullText.length)
 
     Text(
         text = rendered,
         style = style,
         onTextLayout = { layout.value = it },
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .onGloballyPositioned { topInWindow = it.positionInWindow().y }
-            .pointerInput(localText) {
+            .pointerInput(fullText) {
                 detectTapGestures { pos ->
                     val o = offsetAt(pos)
                     val hit = currentPaints.firstOrNull { o >= it.localStart && o < it.localEnd }
-                    if (hit != null) currentManage(hit.id) else currentSeek(baseChar + o)
+                    if (hit != null) currentManage(hit.id) else currentSeek(o)
                 }
             }
-            .pointerInput(localText) {
+            .pointerInput(fullText) {
                 detectDragGesturesAfterLongPress(
                     onDragStart = { pos ->
                         val o = offsetAt(pos)
-                        val w = wordRangeAt(localText, o)
+                        val w = wordRangeAt(fullText, o)
                         anchor = w?.first ?: o
                         focus = w?.let { it.last + 1 } ?: o
                     },
@@ -222,11 +209,11 @@ internal fun HighlightableProse(
                         anchor = null; focus = null
                         if (a == null || f == null) return@detectDragGesturesAfterLongPress
                         var s = minOf(a, f); var e = maxOf(a, f)
-                        while (e > s && localText[e - 1].isWhitespace()) e--
-                        while (s < e && localText[s].isWhitespace()) s++
+                        while (e > s && fullText[e - 1].isWhitespace()) e--
+                        while (s < e && fullText[s].isWhitespace()) s++
                         if (e > s) {
                             val boxTop = runCatching { layout.value?.getBoundingBox(s)?.top ?: 0f }.getOrDefault(0f)
-                            currentSelect(baseChar + s, baseChar + e, localText.substring(s, e), topInWindow + boxTop)
+                            currentSelect(s, e, fullText.substring(s, e), topInWindow + boxTop)
                         }
                     },
                 )

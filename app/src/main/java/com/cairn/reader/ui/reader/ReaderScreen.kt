@@ -62,6 +62,7 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.FormatSize
+import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Notes
@@ -433,6 +434,24 @@ fun ReaderScreen(
                                     trailingIcon = { if (transcript.visible) Icon(Icons.Outlined.Check, contentDescription = null) },
                                     onClick = { showMenu = false; viewModel.toggleTranscript() },
                                 )
+                                // On-device speech-to-text — reachable here whether or not captions loaded.
+                                if (transcript.visible) {
+                                    val odReady = transcript.onDeviceSupported && transcript.onDeviceModelReady
+                                    DropdownMenuItem(
+                                        text = {
+                                            Column {
+                                                Text(stringResource(R.string.transcript_generate))
+                                                if (!odReady) Text(
+                                                    stringResource(if (!transcript.onDeviceSupported) R.string.transcript_ondevice_unsupported else R.string.transcript_ondevice_needs_model),
+                                                    style = MaterialTheme.typography.labelSmall, color = palette.secondary,
+                                                )
+                                            }
+                                        },
+                                        leadingIcon = { Icon(Icons.Outlined.GraphicEq, contentDescription = null) },
+                                        enabled = odReady && transcriptGenerating == null,
+                                        onClick = { showMenu = false; viewModel.generateTranscriptOnDevice() },
+                                    )
+                                }
                             }
                             val permanent = CacheStatus.isPermanent(data?.cacheStatus)
                             DropdownMenuItem(
