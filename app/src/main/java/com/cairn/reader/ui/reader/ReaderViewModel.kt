@@ -73,6 +73,7 @@ class ReaderViewModel @Inject constructor(
     private val ebookExportManager: com.cairn.reader.data.export.EbookExportManager,
     private val transcriptRepository: TranscriptRepository,
     private val captionFetcher: CaptionFetcher,
+    private val followsRepository: com.cairn.reader.data.repo.FollowsRepository,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -347,6 +348,25 @@ class ReaderViewModel @Inject constructor(
             _rendering.value = false
             _state.value = ReaderUiState(loading = false, extracting = false, data = data)
             _messages.emit(if (ok) "Recovered from a public archive" else "No archived copy found — opening the archive")
+        }
+    }
+
+    /** Follow this article's author (Content Engine P5): a live stream of everything by that byline
+     *  across the whole archive, surfaced under Following. */
+    fun followAuthor() {
+        val author = _state.value.data?.author?.trim()?.takeIf { it.isNotBlank() } ?: return
+        viewModelScope.launch {
+            followsRepository.follow(com.cairn.reader.domain.follow.FollowSpec.author(author))
+            _messages.emit("Following $author")
+        }
+    }
+
+    /** Follow a topic from selected text (Content Engine P5): a live keyword stream over the archive. */
+    fun followTopic(topic: String) {
+        val t = topic.trim().takeIf { it.isNotBlank() } ?: return
+        viewModelScope.launch {
+            followsRepository.follow(com.cairn.reader.domain.follow.FollowSpec.topic(t))
+            _messages.emit("Following “$t”")
         }
     }
 

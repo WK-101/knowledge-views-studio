@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FormatQuote
+import androidx.compose.material.icons.outlined.PersonSearch
 import androidx.compose.material.icons.outlined.Newspaper
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Shield
@@ -85,6 +86,7 @@ fun FeedDrawerContent(
     onSaved: () -> Unit,
     onReadLater: () -> Unit,
     onHighlights: () -> Unit,
+    onFollowing: () -> Unit = {},
     onBrief: () -> Unit = {},
     onTriage: () -> Unit = {},
     onReview: () -> Unit = {},
@@ -166,6 +168,13 @@ fun FeedDrawerContent(
             selected = false,
             icon = { Icon(Icons.Outlined.FormatQuote, contentDescription = null) },
             onClick = onHighlights,
+            modifier = Modifier.padding(itemPad),
+        )
+        NavigationDrawerItem(
+            label = { Text(stringResource(R.string.following)) },
+            selected = false,
+            icon = { Icon(Icons.Outlined.PersonSearch, contentDescription = null) },
+            onClick = onFollowing,
             modifier = Modifier.padding(itemPad),
         )
 

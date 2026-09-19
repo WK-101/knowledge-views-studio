@@ -33,6 +33,7 @@
     <string name="any_condition">Cualquier condición</string>
     <string name="any_source">Cualquier fuente</string>
     <string name="any_type">Cualquier tipo</string>
+    <string name="sort_by_meaning">Ordenar por significado</string>
     <string name="archive">Archivar</string>
     <string name="auto_clear_trash_after">Vaciar la papelera automáticamente después de</string>
     <string name="automate_your_reading">Automatiza tu lectura</string>
@@ -115,6 +116,15 @@
     <string name="filter_organize">Filtrar y organizar</string>
     <string name="folder">Carpeta</string>
     <string name="follow_via_google_news">Seguir mediante Google News</string>
+    <string name="following">Siguiendo</string>
+    <string name="follow_author">Seguir autor</string>
+    <string name="follow_topic">Seguir tema</string>
+    <string name="follow_author_label">Autor</string>
+    <string name="follow_topic_label">Tema</string>
+    <string name="unfollow">Dejar de seguir</string>
+    <string name="following_empty_title">Sigue autores y temas</string>
+    <string name="following_empty_body">Sigue una firma o un tema desde cualquier artículo: toca Seguir autor en el menú del lector, o selecciona una frase y elige Seguir tema. Cada uno se convierte en una fuente en vivo extraída de todo lo que has recopilado.</string>
+    <string name="following_no_matches">Aún no hay artículos guardados que coincidan. Las nuevas coincidencias aparecerán aquí a medida que recopiles más.</string>
     <string name="forward_30_seconds">Avanzar 30 segundos</string>
     <string name="from_the_web">DE LA WEB</string>
     <string name="save_all_results">Guardar los %1$d</string>

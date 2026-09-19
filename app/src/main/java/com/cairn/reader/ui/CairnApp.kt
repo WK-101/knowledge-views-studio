@@ -40,6 +40,7 @@ import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.RssFeed
 import androidx.compose.material.icons.outlined.School
+import androidx.compose.material.icons.outlined.PersonSearch
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Settings
@@ -130,6 +131,7 @@ private enum class Destination(val label: String, val icon: ImageVector, shortLa
     ReadLater("Read Later", Icons.Outlined.Bookmark, shortLabel = "Later"),
     Highlights("Highlights", Icons.Outlined.FormatQuote, shortLabel = "Notes"),
     Feeds("Feeds", Icons.Outlined.RssFeed),
+    Following("Following", Icons.Outlined.PersonSearch),
     Search("Search", Icons.Outlined.Search),
     Trash("Trash", Icons.Outlined.DeleteOutline),
     Offline("Offline", Icons.Outlined.OfflinePin),
@@ -274,6 +276,7 @@ fun CairnApp(
                     onSaved = { goTo(Destination.Library) },
                     onReadLater = { goTo(Destination.ReadLater) },
                     onHighlights = { goTo(Destination.Highlights) },
+                    onFollowing = { goTo(Destination.Following) },
                     onBrief = { goTo(Destination.Brief) },
                     onTriage = { goTo(Destination.Triage) },
                     onReview = { goTo(Destination.Review) },
@@ -479,6 +482,7 @@ fun CairnApp(
                 Destination.ReadLater -> com.cairn.reader.ui.readlater.ReadLaterScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
                 Destination.Highlights -> com.cairn.reader.ui.notebook.NotebookScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
                 Destination.Feeds -> com.cairn.reader.ui.feeds.FeedsScreen(padding, onOpenWeb = onOpenWeb, onTeach = onTeach, onOpenDrawer = openDrawer)
+                Destination.Following -> com.cairn.reader.ui.following.FollowingScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
                 Destination.Search -> com.cairn.reader.ui.search.SearchScreen(padding, onOpenItem = open, onOpenWeb = onOpenWeb, onOpenDrawer = openDrawer)
                 Destination.Trash -> com.cairn.reader.ui.trash.TrashScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)
                 Destination.Offline -> com.cairn.reader.ui.settings.OfflineScreen(padding, onOpenItem = open, onOpenDrawer = openDrawer)

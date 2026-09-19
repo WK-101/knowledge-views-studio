@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Bolt
@@ -735,6 +736,7 @@ internal fun SelectionPill(
     onCopy: () -> Unit,
     onShare: () -> Unit,
     onDismiss: () -> Unit,
+    onFollow: (() -> Unit)? = null,
 ) {
     val density = LocalDensity.current
     val above = with(density) { 56.dp.toPx() }
@@ -783,6 +785,8 @@ internal fun SelectionPill(
                 PillAction(Icons.Outlined.MenuBook, "Define", onDefine)
                 PillAction(Icons.Outlined.Search, "Search", onSearch)
                 PillAction(Icons.Outlined.IosShare, "Share", onShare)
+                // Follow the selected phrase as a topic (Content Engine P5).
+                onFollow?.let { PillAction(Icons.Outlined.Add, stringResource(R.string.follow_topic), it) }
             }
         }
     }

@@ -528,6 +528,22 @@ interface ItemDao {
     )
     suspend fun search(query: String): List<ItemListRow>
 
+    /** Content Engine P5 (Follow author): every non-trashed item whose byline contains [author],
+     *  across the whole archive, newest first. Case-insensitive substring so "Coates" matches
+     *  "Ta-Nehisi Coates". */
+    @Query(
+        ITEM_LIST_SELECT + """
+        WHERE i.trashedAt IS NULL AND i.author IS NOT NULL
+          AND LOWER(i.author) LIKE '%' || LOWER(:author) || '%'
+        ORDER BY i.effectiveDate DESC
+        """
+    )
+    suspend fun itemsByAuthor(author: String): List<ItemListRow>
+
+    /** Distinct non-empty bylines across the archive — powers author suggestions/autocomplete. */
+    @Query("SELECT DISTINCT author FROM items WHERE author IS NOT NULL AND author != '' AND trashedAt IS NULL ORDER BY author COLLATE NOCASE LIMIT :limit")
+    suspend fun distinctAuthors(limit: Int = 500): List<String>
+
     // -- Library scopes (Raindrop-style) --------------------------------------
 
     @Query(

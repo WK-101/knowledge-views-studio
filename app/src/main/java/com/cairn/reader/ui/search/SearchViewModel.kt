@@ -49,6 +49,7 @@ class SearchViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val feedRepository: FeedRepository,
     private val sourceRepository: com.cairn.reader.data.repo.SourceRepository,
+    private val semanticRepository: com.cairn.reader.data.repo.SemanticRepository,
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
@@ -62,6 +63,10 @@ class SearchViewModel @Inject constructor(
 
     private val _type = MutableStateFlow<String?>(null)
     val type: StateFlow<String?> = _type.asStateFlow()
+
+    /** When on, results are re-ranked by semantic closeness to the query (meaning, not just keyword). */
+    private val _sortByMeaning = MutableStateFlow(false)
+    val sortByMeaning: StateFlow<Boolean> = _sortByMeaning.asStateFlow()
 
     /** Bumped after a mutation or filter change so the current query re-runs. */
     private val _tick = MutableStateFlow(0)
@@ -89,7 +94,19 @@ class SearchViewModel @Inject constructor(
                             (type == null || row.type == type) &&
                             (cutoff == 0L || (row.publishedAt ?: row.savedAt) >= cutoff)
                     }
-                    emit(SearchUiState(query = q, results = hits, searching = false, hasSearched = true))
+                    // Optionally re-rank by meaning: keyword FTS finds the candidates, the on-device
+                    // TF-IDF engine reorders them by semantic closeness to the query (stable — unscored
+                    // items keep their recency order).
+                    val ordered = if (_sortByMeaning.value && hits.size > 1) {
+                        val scores = semanticRepository.rankByQuery(
+                            trimmed,
+                            hits.map { com.cairn.reader.data.db.ItemText(it.id, it.title, it.excerpt, it.sourceTitle) },
+                        )
+                        hits.sortedByDescending { scores[it.id] ?: 0.0 }
+                    } else {
+                        hits
+                    }
+                    emit(SearchUiState(query = q, results = ordered, searching = false, hasSearched = true))
                 }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchUiState())
@@ -112,6 +129,7 @@ class SearchViewModel @Inject constructor(
     fun setState(s: SearchState) { _state.value = s }
     fun setSince(s: SearchSince) { _since.value = s }
     fun setType(t: String?) { _type.value = t }
+    fun setSortByMeaning(on: Boolean) { _sortByMeaning.value = on; _tick.value += 1 }
 
     /** Search the whole web (Google News) for the current query — far beyond what's stored. */
     fun searchWeb() = viewModelScope.launch {

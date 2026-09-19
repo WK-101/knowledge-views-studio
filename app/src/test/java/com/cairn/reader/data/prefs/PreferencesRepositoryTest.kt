@@ -40,9 +40,15 @@ class PreferencesRepositoryTest {
         repo.setLinkCheckEnabled(true)
         repo.setBackupFrequency(168)
         repo.setTtsEnabled(false)
+        // Follows (Content Engine P5): an author and a topic; a blank/malformed entry is ignored.
+        repo.addFollow(com.cairn.reader.domain.follow.FollowSpec.author("Jane Roe").encode())
+        repo.addFollow(com.cairn.reader.domain.follow.FollowSpec.topic("climate").encode())
+        repo.addFollow("malformed-no-separator")
+        assertEquals(setOf("A\u001FJane Roe", "T\u001Fclimate"), repo.preferences.first().follows)
 
         val exported = repo.exportSettings()
         assertTrue("export carries the dictionary opt-in", exported.getBoolean("dictionaryOnline"))
+        assertEquals("export carries both follows", 2, exported.getJSONArray("follows").length())
 
         // 3) Change them again, so the restore — not leftover state — is what we verify.
         repo.setDictionaryOnline(false)
@@ -50,6 +56,9 @@ class PreferencesRepositoryTest {
         repo.setLinkCheckEnabled(false)
         repo.setBackupFrequency(0)
         repo.setTtsEnabled(true)
+        repo.removeFollow(com.cairn.reader.domain.follow.FollowSpec.author("Jane Roe").encode())
+        repo.removeFollow(com.cairn.reader.domain.follow.FollowSpec.topic("climate").encode())
+        assertTrue("follows cleared before restore", repo.preferences.first().follows.isEmpty())
 
         // 4) Import the earlier export and confirm every value came back.
         repo.importSettings(exported)
@@ -59,5 +68,6 @@ class PreferencesRepositoryTest {
         assertTrue(restored.linkCheckEnabled)
         assertEquals(168, restored.backupFrequencyHours)
         assertFalse(restored.ttsEnabled)
+        assertEquals("follows restored from backup", setOf("A\u001FJane Roe", "T\u001Fclimate"), restored.follows)
     }
 }

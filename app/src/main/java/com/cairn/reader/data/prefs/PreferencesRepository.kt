@@ -91,6 +91,9 @@ data class AppPreferences(
     val blockedKeywords: Set<String> = emptySet(),
     val hideDuplicates: Boolean = false,
     val savedSearches: Set<String> = emptySet(),
+    /** Followed authors & topics (Content Engine P5). Each entry is `A\u001F<byline>` (an author)
+     *  or `T\u001F<keyword>` (a topic); resolved live against the whole local archive. */
+    val follows: Set<String> = emptySet(),
     /** Remembered library view mode per scope key (e.g. "col:<id>"), Raindrop-style. */
     val libraryViewByScope: Map<String, LibraryViewMode> = emptyMap(),
     // -- Library home fold state (remembered across navigation and restarts) --
@@ -267,6 +270,7 @@ class PreferencesRepository @Inject constructor(
         val BLOCKED = stringSetPreferencesKey("blocked_keywords")
         val HIDE_DUP = booleanPreferencesKey("hide_duplicates")
         val SAVED_SEARCHES = stringSetPreferencesKey("saved_searches")
+        val FOLLOWS = stringSetPreferencesKey("follows")
         val LIBRARY_VIEW_BY_SCOPE = stringSetPreferencesKey("library_view_by_scope")
         val LIB_QUICK_OPEN = booleanPreferencesKey("library_quick_open")
         val LIB_COLLECTIONS_OPEN = booleanPreferencesKey("library_collections_open")
@@ -362,6 +366,7 @@ class PreferencesRepository @Inject constructor(
             blockedKeywords = p[Keys.BLOCKED] ?: emptySet(),
             hideDuplicates = p[Keys.HIDE_DUP] ?: false,
             savedSearches = p[Keys.SAVED_SEARCHES] ?: emptySet(),
+            follows = p[Keys.FOLLOWS] ?: emptySet(),
             libraryViewByScope = (p[Keys.LIBRARY_VIEW_BY_SCOPE] ?: emptySet()).mapNotNull { entry ->
                 val parts = entry.split(scopeSep)
                 if (parts.size != 2) return@mapNotNull null
@@ -566,6 +571,17 @@ class PreferencesRepository @Inject constructor(
     suspend fun removeSavedSearch(query: String) =
         context.dataStore.edit { it[Keys.SAVED_SEARCHES] = (it[Keys.SAVED_SEARCHES] ?: emptySet()) - query }
 
+    /** Follow an author or topic (Content Engine P5). [encoded] is `A\u001F<byline>` / `T\u001F<kw>`
+     *  (see [FollowSpec]); blank values are ignored. */
+    suspend fun addFollow(encoded: String) {
+        val e = encoded.trim()
+        if (e.isBlank() || !e.contains('\u001F')) return
+        context.dataStore.edit { it[Keys.FOLLOWS] = (it[Keys.FOLLOWS] ?: emptySet()) + e }
+    }
+
+    suspend fun removeFollow(encoded: String) =
+        context.dataStore.edit { it[Keys.FOLLOWS] = (it[Keys.FOLLOWS] ?: emptySet()) - encoded }
+
     suspend fun setBackupIncludeOffline(enabled: Boolean) =
         context.dataStore.edit { it[Keys.BACKUP_INCLUDE_OFFLINE] = enabled }
 
@@ -683,6 +699,7 @@ class PreferencesRepository @Inject constructor(
             put("blockedKeywords", JSONArray(p.blockedKeywords.toList()))
             put("hideDuplicates", p.hideDuplicates)
             put("savedSearches", JSONArray(p.savedSearches.toList()))
+            put("follows", JSONArray(p.follows.toList()))
             put("libraryViewByScope", JSONObject().apply { p.libraryViewByScope.forEach { (k, v) -> put(k, v.name) } })
             put("swipeRightHalf", p.swipeRightHalf.name)
             put("swipeRightFull", p.swipeRightFull.name)
@@ -764,6 +781,7 @@ class PreferencesRepository @Inject constructor(
             json.optJSONArray("blockedKeywords")?.let { arr -> e[Keys.BLOCKED] = (0 until arr.length()).map { arr.getString(it) }.toSet() }
             if (json.has("hideDuplicates")) e[Keys.HIDE_DUP] = json.getBoolean("hideDuplicates")
             json.optJSONArray("savedSearches")?.let { arr -> e[Keys.SAVED_SEARCHES] = (0 until arr.length()).map { arr.getString(it) }.toSet() }
+            json.optJSONArray("follows")?.let { arr -> e[Keys.FOLLOWS] = (0 until arr.length()).map { arr.getString(it) }.toSet() }
             json.optJSONObject("libraryViewByScope")?.let { obj ->
                 e[Keys.LIBRARY_VIEW_BY_SCOPE] = obj.keys().asSequence().map { k -> "$k=${obj.getString(k)}" }.toSet()
             }

@@ -78,6 +78,21 @@ class SemanticRepository @Inject constructor(
     }
 
     /**
+     * Rank a candidate set by semantic closeness to a free-text [query] (Content Engine P5). Used to
+     * re-order search results "by meaning": the FTS layer finds the candidates by keyword, this scores
+     * each one's title+excerpt against the query with the same TF-IDF+bigram cosine used for related
+     * articles. IDF is built over the candidate set itself. Returns id → score (0..1); callers stable-
+     * sort by it, so unscored items keep their original (recency) order. On-device, no network.
+     */
+    fun rankByQuery(query: String, docs: List<ItemText>): Map<String, Double> {
+        if (docs.isEmpty()) return emptyMap()
+        val idf = buildIdf(docs)
+        val queryVec = tfidf(featureWeights(query, null), idf)
+        if (queryVec.isEmpty()) return emptyMap()
+        return docs.associate { d -> d.id to cosine(queryVec, tfidf(docWeights(d), idf)) }
+    }
+
+    /**
      * Greedy single-pass clustering of recent items into topics: seed a cluster with an unassigned
      * item, absorb everything similar enough, label it by the terms its members share. Cheap and
      * deterministic — good enough to show "what you're following, by theme".

@@ -90,6 +90,7 @@ fun SearchScreen(
     val archive by viewModel.archive.collectAsStateWithLifecycle()
     val archiveBusy by viewModel.archiveBusy.collectAsStateWithLifecycle()
     val savingAll by viewModel.savingAll.collectAsStateWithLifecycle()
+    val sortByMeaning by viewModel.sortByMeaning.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
     val scheme = MaterialTheme.colorScheme
 
@@ -116,7 +117,8 @@ fun SearchScreen(
                 var filtersOpen by remember { mutableStateOf(false) }
                 val activeCount = (if (filterState != SearchState.ALL) 1 else 0) +
                     (if (since != SearchSince.ANY) 1 else 0) +
-                    (if (typeFilter != null) 1 else 0)
+                    (if (typeFilter != null) 1 else 0) +
+                    (if (sortByMeaning) 1 else 0)
                 Row(
                     Modifier
                         .fillMaxWidth()
@@ -133,7 +135,7 @@ fun SearchScreen(
                         modifier = Modifier.weight(1f),
                     )
                     if (activeCount > 0 && !filtersOpen) {
-                        TextButton(onClick = { viewModel.setState(SearchState.ALL); viewModel.setSince(SearchSince.ANY); viewModel.setType(null) }) { Text(stringResource(R.string.clear)) }
+                        TextButton(onClick = { viewModel.setState(SearchState.ALL); viewModel.setSince(SearchSince.ANY); viewModel.setType(null); viewModel.setSortByMeaning(false) }) { Text(stringResource(R.string.clear)) }
                     }
                     Icon(if (filtersOpen) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = null, tint = scheme.onSurfaceVariant)
                 }
@@ -164,6 +166,17 @@ fun SearchScreen(
                                 FilterChip(selected = typeFilter == t, onClick = { viewModel.setType(if (typeFilter == t) null else t) }, label = { Text(typeLabel(t)) })
                             }
                         }
+                    }
+                    // Semantic re-rank: order matches by meaning (on-device TF-IDF), not just keyword.
+                    FlowRow(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        FilterChip(
+                            selected = sortByMeaning,
+                            onClick = { viewModel.setSortByMeaning(!sortByMeaning) },
+                            label = { Text(stringResource(R.string.sort_by_meaning)) },
+                        )
                     }
                 }
                 HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.4f))

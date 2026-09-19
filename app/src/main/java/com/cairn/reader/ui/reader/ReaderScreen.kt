@@ -76,6 +76,7 @@ import androidx.compose.material.icons.outlined.OfflinePin
 import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material.icons.outlined.PersonSearch
 import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -555,6 +556,14 @@ fun ReaderScreen(
                                     onClick = { showMenu = false; openFromArchive() },
                                 )
                             }
+                            // Follow this article's author (Content Engine P5) — a live archive stream.
+                            data?.author?.takeIf { it.isNotBlank() }?.let {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.follow_author)) },
+                                    leadingIcon = { Icon(Icons.Outlined.PersonSearch, contentDescription = null) },
+                                    onClick = { showMenu = false; viewModel.followAuthor() },
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text(if (highlights.isEmpty()) "Share article" else "Export highlights") },
                                 leadingIcon = { Icon(Icons.Outlined.IosShare, contentDescription = null) },
@@ -886,6 +895,9 @@ fun ReaderScreen(
             onCopy = { clipboard.setText(AnnotatedString(sel.quote.trim())); pending = null },
             onShare = { shareText(sel.quote.trim(), data?.title); pending = null },
             onDismiss = { pending = null },
+            // Follow a concise selected phrase (1–6 words) as a topic; hidden for long selections.
+            onFollow = sel.quote.trim().takeIf { it.isNotBlank() && it.split(Regex("\\s+")).size in 1..6 }
+                ?.let { q -> { viewModel.followTopic(q); pending = null } },
         )
     }
 
@@ -901,6 +913,8 @@ fun ReaderScreen(
             onCopy = { clipboard.setText(AnnotatedString(sel.quote.trim())); transcriptPending = null },
             onShare = { shareText(sel.quote.trim(), data?.title); transcriptPending = null },
             onDismiss = { transcriptPending = null },
+            onFollow = sel.quote.trim().takeIf { it.isNotBlank() && it.split(Regex("\\s+")).size in 1..6 }
+                ?.let { q -> { viewModel.followTopic(q); transcriptPending = null } },
         )
     }
 
