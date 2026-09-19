@@ -25,7 +25,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TranscriptEntity::class,
         CrawlFrontierEntity::class,
     ],
-    version = 23,
+    version = 24,
     exportSchema = true,
     autoMigrations = [
         // v14 → v15: drop the legacy items.collectionId column. The item_collections join table is
@@ -303,5 +303,13 @@ val MIGRATION_21_22 = object : Migration(21, 22) {
 val MIGRATION_22_23 = object : Migration(22, 23) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE items ADD COLUMN simHash INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** v24: media length in seconds for enriched VIDEO items (YouTube title/channel/date/duration/
+ *  description pulled from a privacy front-end). Nullable additive column only — no row rewrite. */
+val MIGRATION_23_24 = object : Migration(23, 24) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE items ADD COLUMN durationSeconds INTEGER")
     }
 }

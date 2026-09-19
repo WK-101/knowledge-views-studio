@@ -235,6 +235,7 @@
     <string name="new_folder">New folder…</string>
     <string name="new_rule">New rule</string>
     <string name="new_sub_collection">New sub-collection</string>
+    <string name="new_tag_2">New tag</string>
     <string name="next">Next</string>
     <string name="never">Never</string>
     <string name="no_account_no_lock_in_back">No account, no lock-in. Back up and export to Markdown, EPUB, or a full archive — any time.</string>
@@ -244,6 +245,7 @@
     <string name="no_collections_yet_create_one_below">No collections yet — create one below to start organising.</string>
     <string name="no_collections_yet_group_saved_items">No collections yet — group saved items into collections and sub-collections.</string>
     <string name="no_collections_yet_tap_to_create">No collections yet. Tap + to create one, then file saved items into it.</string>
+    <string name="no_tags_yet_tap_to_create">No tags yet. Tap + to create one — use \"parent/child\" to nest.</string>
     <string name="no_feeds_match">No feeds match.</string>
     <string name="no_feeds_yet">No feeds yet</string>
     <string name="no_feeds_yet_tap_add_feed">No feeds yet — tap Add feed to subscribe.</string>
@@ -517,6 +519,7 @@
     <string name="verify_now">Verify now</string>
     <string name="feed_checked_latest">Checked %1$s · latest post %2$s</string>
     <string name="no_results">No matches</string>
+    <string name="find_in_page">Find in page</string>
     <string name="try_a_different_search">Try a different search or clear the filters.</string>
 
     <!-- i18n sweep: section labels -->

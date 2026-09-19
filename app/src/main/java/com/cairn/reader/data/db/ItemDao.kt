@@ -476,6 +476,14 @@ interface ItemDao {
     @Query("UPDATE items SET title = :title, author = COALESCE(:author, author), siteName = COALESCE(:siteName, siteName) WHERE id = :id")
     suspend fun updateMeta(id: String, title: String, author: String?, siteName: String?)
 
+    /** Write enriched media metadata (YouTube video). Only non-null fields overwrite; setting a real
+     *  publish date also advances the indexed effectiveDate sort key so the item sorts by air date. */
+    @Query("UPDATE items SET title = COALESCE(:title, title), author = COALESCE(:author, author), publishedAt = COALESCE(:publishedAt, publishedAt), effectiveDate = COALESCE(:publishedAt, effectiveDate), durationSeconds = COALESCE(:durationSeconds, durationSeconds) WHERE id = :id")
+    suspend fun updateVideoMeta(id: String, title: String?, author: String?, publishedAt: Long?, durationSeconds: Int?)
+
+    @Query("UPDATE items SET contentSource = :source WHERE id = :id")
+    suspend fun setContentSource(id: String, source: String)
+
     @Query("UPDATE items SET blobPath = :blobPath, excerpt = :excerpt, wordCount = :wordCount, readingMinutes = :minutes, leadImage = COALESCE(:leadImage, leadImage), extractStatus = :status, contentSource = :contentSource WHERE id = :id")
     suspend fun setExtracted(
         id: String,

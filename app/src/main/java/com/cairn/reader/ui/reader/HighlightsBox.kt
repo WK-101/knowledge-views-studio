@@ -1,8 +1,11 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.cairn.reader.ui.reader
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,6 +68,7 @@ internal fun HighlightsBox(
     onCopy: (HighlightEntity) -> Unit,
     onShare: (HighlightEntity) -> Unit,
     onDelete: (HighlightEntity) -> Unit,
+    onScrollTo: (HighlightEntity) -> Unit = {},
 ) {
     if (highlights.isEmpty()) return
     var expanded by remember(defaultExpanded) { mutableStateOf(defaultExpanded) }
@@ -112,7 +116,7 @@ internal fun HighlightsBox(
             HorizontalDivider(color = hair)
             ordered.forEachIndexed { i, h ->
                 if (i > 0) HorizontalDivider(color = hair, modifier = Modifier.padding(start = 40.dp))
-                HighlightRow(h, palette, onManage, onSetColor, onCopy, onShare, onDelete)
+                HighlightRow(h, palette, onManage, onSetColor, onCopy, onShare, onDelete, onScrollTo)
             }
         }
     }
@@ -127,6 +131,7 @@ private fun HighlightRow(
     onCopy: (HighlightEntity) -> Unit,
     onShare: (HighlightEntity) -> Unit,
     onDelete: (HighlightEntity) -> Unit,
+    onScrollTo: (HighlightEntity) -> Unit,
 ) {
     var colorMenu by remember { mutableStateOf(false) }
     var overflow by remember { mutableStateOf(false) }
@@ -167,8 +172,9 @@ private fun HighlightRow(
                 }
             }
         }
-        // Quote (+ optional note/timestamp) — tap to manage (edit note / recolour / remove).
-        Column(Modifier.weight(1f).clickable { onManage(h) }) {
+        // Quote (+ optional note/timestamp) — tap jumps to the passage in the article; long-press
+        // opens the editor (edit note / recolour / remove).
+        Column(Modifier.weight(1f).combinedClickable(onClick = { onScrollTo(h) }, onLongClick = { onManage(h) })) {
             Text(
                 h.quote.trim(),
                 style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),

@@ -272,14 +272,26 @@ class ReaderViewModel @Inject constructor(
             _state.value = ReaderUiState(loading = false, data = data)
             if (data != null) {
                 itemRepository.setRead(itemId, true)
-                // Automatically fetch the full article the first time it's opened, so RSS
-                // items that only carry a summary read like the real thing — no button.
-                // Feed content is shown immediately and swapped when extraction returns;
-                // on failure the feed content stays and the status becomes FAILED.
-                if (data.extractStatus == ExtractStatus.NONE.raw) {
-                    _state.update { it.copy(extracting = true) }
-                    feedRepository.extractFull(itemId)
-                    _state.update { ReaderUiState(loading = false, extracting = false, data = itemRepository.reader(itemId)) }
+                val isYouTube = data.type == ItemType.VIDEO.name && captionFetcher.youtubeVideoId(data.url) != null
+                when {
+                    // YouTube videos: pull real metadata (title, channel, published date, duration and
+                    // the description as readable content) through the privacy front-ends, instead of
+                    // running Readability on a near-empty watch page. Idempotent, so it self-skips once
+                    // enriched. Shown behind the same "fetching…" affordance as article extraction.
+                    isYouTube -> {
+                        _state.update { it.copy(extracting = true) }
+                        coRunCatching { feedRepository.enrichVideoMetadata(itemId) }
+                        _state.update { ReaderUiState(loading = false, extracting = false, data = itemRepository.reader(itemId)) }
+                    }
+                    // Automatically fetch the full article the first time it's opened, so RSS
+                    // items that only carry a summary read like the real thing — no button.
+                    // Feed content is shown immediately and swapped when extraction returns;
+                    // on failure the feed content stays and the status becomes FAILED.
+                    data.extractStatus == ExtractStatus.NONE.raw -> {
+                        _state.update { it.copy(extracting = true) }
+                        feedRepository.extractFull(itemId)
+                        _state.update { ReaderUiState(loading = false, extracting = false, data = itemRepository.reader(itemId)) }
+                    }
                 }
                 // Auto-cache what you read so it stays readable offline later. Runs quietly in the
                 // background; saveOffline honours the image Wi-Fi-only policy (text always cached),

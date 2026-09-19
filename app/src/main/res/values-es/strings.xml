@@ -237,6 +237,7 @@
     <string name="new_folder">Nueva carpeta…</string>
     <string name="new_rule">Nueva regla</string>
     <string name="new_sub_collection">Nueva subcolección</string>
+    <string name="new_tag_2">Nueva etiqueta</string>
     <string name="next">Siguiente</string>
     <string name="never">Nunca</string>
     <string name="no_account_no_lock_in_back">Sin cuenta, sin ataduras. Haz copias de seguridad y exporta a Markdown, EPUB o un archivo completo, cuando quieras.</string>
@@ -246,6 +247,7 @@
     <string name="no_collections_yet_create_one_below">Aún no hay colecciones: crea una abajo para empezar a organizar.</string>
     <string name="no_collections_yet_group_saved_items">Aún no hay colecciones: agrupa los elementos guardados en colecciones y subcolecciones.</string>
     <string name="no_collections_yet_tap_to_create">Aún no hay colecciones. Toca + para crear una y luego archiva en ella los elementos guardados.</string>
+    <string name="no_tags_yet_tap_to_create">Aún no hay etiquetas. Toca + para crear una; usa \"padre/hijo\" para anidar.</string>
     <string name="no_feeds_match">No hay fuentes que coincidan.</string>
     <string name="no_feeds_yet">Aún no hay fuentes</string>
     <string name="no_feeds_yet_tap_add_feed">Aún no hay fuentes: toca Añadir fuente para suscribirte.</string>
@@ -519,6 +521,7 @@
     <string name="verify_now">Verificar ahora</string>
     <string name="feed_checked_latest">Comprobado %1$s · última entrada %2$s</string>
     <string name="no_results">Sin coincidencias</string>
+    <string name="find_in_page">Buscar en la página</string>
     <string name="try_a_different_search">Prueba otra búsqueda o borra los filtros.</string>
 
     <!-- i18n sweep: section labels -->

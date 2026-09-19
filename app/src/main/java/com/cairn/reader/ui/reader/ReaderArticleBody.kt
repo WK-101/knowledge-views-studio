@@ -16,6 +16,9 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +48,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
@@ -127,7 +132,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -218,6 +226,9 @@ internal fun ArticleBody(
     activeSelBlock: Int? = null,
     activeSelStart: Int = 0,
     activeSelEnd: Int = 0,
+    // Find-in-page: shown when true; the close button reports back so the reader can hide its bar.
+    findActive: Boolean = false,
+    onFindActiveChange: (Boolean) -> Unit = {},
 ) {
     val data = state.data ?: return
     val linkColor = MaterialTheme.colorScheme.primary
@@ -266,12 +277,52 @@ internal fun ArticleBody(
         val delta = (vp * 0.85f).coerceAtLeast(1f)
         pageScope.launch { listState.animateScrollBy(if (down) delta else -delta) }
     }
+
+    // Tapping a highlight in the box jumps the article to that passage. The re-anchored [byBlock] map
+    // gives its current block index; LazyColumn index = header items (title + the box itself) + block.
+    // A transcript excerpt (or one whose quote no longer resolves) isn't in the article, so fall back
+    // to opening its editor.
+    fun scrollToHighlight(h: HighlightEntity) {
+        val block = byBlock.entries.firstOrNull { (_, hs) -> hs.any { it.id == h.id } }?.key
+        if (block == null) { onManageHighlight(h); return }
+        val headerCount = 1 + if (boxHighlights.isNotEmpty()) 1 else 0
+        pageScope.launch { runCatching { listState.animateScrollToItem(headerCount + block) } }
+    }
     // Register the volume-key handler with the Activity only while volume paging is on and this
     // reader is composed; clear it on dispose so the volume keys behave normally elsewhere.
     if (volumeKeyPaging) {
         DisposableEffect(Unit) {
             ReaderPaging.handler = { down -> pageBy(down); true }
             onDispose { ReaderPaging.handler = null }
+        }
+    }
+
+    // ---- Find in page --------------------------------------------------------------------------
+    var findQuery by remember { mutableStateOf("") }
+    var currentMatch by remember { mutableStateOf(0) }
+    // Reset the query when the bar is dismissed so reopening starts fresh.
+    LaunchedEffect(findActive) { if (!findActive) { findQuery = ""; currentMatch = 0 } }
+    // Every occurrence of the query across the article, as (blockIndex, charOffset). Case-insensitive.
+    val findMatches = remember(findQuery, blocks) {
+        val q = findQuery.trim()
+        if (q.length < 2) emptyList() else buildList {
+            blocks.forEachIndexed { bi, b ->
+                val t = b.highlightText()
+                if (t.isNotEmpty()) {
+                    var i = t.indexOf(q, 0, ignoreCase = true)
+                    while (i >= 0) { add(bi to i); i = t.indexOf(q, i + q.length, ignoreCase = true) }
+                }
+            }
+        }
+    }
+    // Keep the current-match cursor in range as the query changes.
+    LaunchedEffect(findMatches.size) { if (currentMatch >= findMatches.size) currentMatch = 0 }
+    val activeMatch = findMatches.getOrNull(currentMatch)
+    // Scroll the article so the current match is in view (header items sit above block 0).
+    LaunchedEffect(currentMatch, findMatches) {
+        activeMatch?.let { (blockIndex, _) ->
+            val headerCount = 1 + if (boxHighlights.isNotEmpty()) 1 else 0
+            runCatching { listState.animateScrollToItem(headerCount + blockIndex) }
         }
     }
 
@@ -340,6 +391,8 @@ internal fun ArticleBody(
                         data.siteName?.let { add(it) }
                         data.author?.let { add(it) }
                         if (data.readingMinutes > 0) add("${data.readingMinutes} min read")
+                        // Video length (YouTube etc.), e.g. "12:34" or "1:02:03".
+                        data.durationSeconds?.takeIf { it > 0 }?.let { add(formatVideoDuration(it)) }
                         // Absolute published date + time, honoring the device's 12/24-hour clock.
                         formatDateTime(readerCtx, data.publishedAt).takeIf { it.isNotEmpty() }?.let { add(it) }
                         if (CacheStatus.isPermanent(data.cacheStatus)) add("Saved offline")
@@ -416,6 +469,7 @@ internal fun ArticleBody(
                         onCopy = onCopyHighlight,
                         onShare = onShareHighlight,
                         onDelete = onDeleteHighlight,
+                        onScrollTo = ::scrollToHighlight,
                     )
                     Spacer(Modifier.height(16.dp))
                 }
@@ -458,6 +512,8 @@ internal fun ArticleBody(
                     bionic = bionic,
                     selStart = if (activeSelBlock == index) activeSelStart else 0,
                     selEnd = if (activeSelBlock == index) activeSelEnd else 0,
+                    findQuery = if (findActive) findQuery.trim() else "",
+                    activeFindStart = if (activeMatch?.first == index) activeMatch.second else -1,
                 )
             }
             // Inline transcript — rendered right here in the article pane so it uses the very same
@@ -486,6 +542,81 @@ internal fun ArticleBody(
             }
         }
     }
+        // Find-in-page bar — floats at the top of the reader when active. A search field, a
+        // "current / total" count, up/down to step through matches (wrapping around), and close.
+        // Everything runs on the already-linearized blocks, so it works fully offline.
+        if (findActive) {
+            val findFocus = remember { FocusRequester() }
+            LaunchedEffect(Unit) { runCatching { findFocus.requestFocus() } }
+            fun step(forward: Boolean) {
+                if (findMatches.isEmpty()) return
+                currentMatch = (currentMatch + (if (forward) 1 else -1) + findMatches.size) % findMatches.size
+            }
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    // Sit just below the top app bar (or at the very top when the chrome is hidden).
+                    .padding(top = padding.calculateTopPadding())
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                tonalElevation = 3.dp,
+                shadowElevation = 8.dp,
+            ) {
+                Row(
+                    Modifier.padding(start = 14.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    BasicTextField(
+                        value = findQuery,
+                        onValueChange = { findQuery = it; currentMatch = 0 },
+                        modifier = Modifier.weight(1f).focusRequester(findFocus),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { step(forward = true) }),
+                        decorationBox = { inner ->
+                            Box {
+                                if (findQuery.isEmpty()) {
+                                    Text(
+                                        stringResource(R.string.find_in_page),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                inner()
+                            }
+                        },
+                    )
+                    // Match counter: "n / m", or "0" when the query has no hits.
+                    if (findQuery.trim().length >= 2) {
+                        Text(
+                            if (findMatches.isEmpty()) "0" else "${currentMatch + 1}/${findMatches.size}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(onClick = { step(forward = false) }, enabled = findMatches.isNotEmpty()) {
+                        Icon(Icons.Filled.KeyboardArrowUp, contentDescription = stringResource(R.string.previous), tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                    IconButton(onClick = { step(forward = true) }, enabled = findMatches.isNotEmpty()) {
+                        Icon(Icons.Filled.KeyboardArrowDown, contentDescription = stringResource(R.string.next), tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                    IconButton(onClick = { onFindActiveChange(false) }) {
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.close), tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+        }
         // Tap-zone paging (opt-in): narrow strips at the left/right edges page up/down on tap.
         if (tapZonePaging) {
             Box(
@@ -523,6 +654,14 @@ internal fun ArticleBody(
     }
 }
 
+/** Format a media length in seconds as a clock string: "M:SS", or "H:MM:SS" past an hour. */
+private fun formatVideoDuration(totalSeconds: Int): String {
+    val s = totalSeconds % 60
+    val m = (totalSeconds / 60) % 60
+    val h = totalSeconds / 3600
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+}
+
 /** Bold the leading ~40% of every word — a bionic-reading aid that guides the eye. Preserves the
  *  source string's existing spans (links, emphasis) and overlays bold on word prefixes. */
 private fun bionicize(text: androidx.compose.ui.text.AnnotatedString): androidx.compose.ui.text.AnnotatedString {
@@ -557,6 +696,8 @@ private fun BlockView(
     bionic: Boolean = false,
     selStart: Int = 0,
     selEnd: Int = 0,
+    findQuery: String = "",
+    activeFindStart: Int = -1,
 ) {
     when (block) {
         is ReaderBlock.Heading -> HighlightableText(
@@ -572,6 +713,8 @@ private fun BlockView(
             modifier = Modifier.padding(horizontal = ReaderHPad, vertical = 10.dp),
             selStart = selStart,
             selEnd = selEnd,
+            findQuery = findQuery,
+            activeFindStart = activeFindStart,
         )
         is ReaderBlock.Paragraph -> HighlightableText(
             base = if (bionic) bionicize(block.text) else block.text,
@@ -582,6 +725,8 @@ private fun BlockView(
             modifier = Modifier.padding(horizontal = ReaderHPad, vertical = paragraphSpacing.dp),
             selStart = selStart,
             selEnd = selEnd,
+            findQuery = findQuery,
+            activeFindStart = activeFindStart,
         )
         is ReaderBlock.Image -> Column(Modifier.padding(vertical = 10.dp)) {
             AsyncImage(
@@ -609,6 +754,8 @@ private fun BlockView(
                 onManage = onManageHighlight,
                 selStart = selStart,
                 selEnd = selEnd,
+                findQuery = findQuery,
+                activeFindStart = activeFindStart,
             )
         }
         is ReaderBlock.Code -> Box(
@@ -647,6 +794,10 @@ private fun HighlightableText(
     // words stay visibly highlighted while the action pill is open, until the pill is dismissed.
     selStart: Int = 0,
     selEnd: Int = 0,
+    // Find-in-page: every occurrence of [findQuery] in this block is tinted; the one starting at
+    // [activeFindStart] (the current match) gets a stronger tint. Blank query = no find tinting.
+    findQuery: String = "",
+    activeFindStart: Int = -1,
 ) {
     val plain = base.text
     val layoutState = remember { mutableStateOf<TextLayoutResult?>(null) }
@@ -661,10 +812,10 @@ private fun HighlightableText(
     var anchor by remember { mutableStateOf<Int?>(null) }
     var focus by remember { mutableStateOf<Int?>(null) }
 
-    val rendered = remember(base, highlights, anchor, focus, selStart, selEnd) {
+    val rendered = remember(base, highlights, anchor, focus, selStart, selEnd, findQuery, activeFindStart) {
         val withHl = applyHighlights(base, highlights)
         val a = anchor; val f = focus
-        when {
+        val selApplied = when {
             // Live drag in progress — track the finger.
             a != null && f != null && a != f -> buildAnnotatedString {
                 append(withHl)
@@ -676,6 +827,16 @@ private fun HighlightableText(
                 addStyle(SpanStyle(background = selColor.copy(alpha = 0.28f)), selStart, selEnd)
             }
             else -> withHl
+        }
+        // Find-in-page tint on top, so matches show through highlights/selection.
+        if (findQuery.isBlank()) selApplied else buildAnnotatedString {
+            append(selApplied)
+            var i = plain.indexOf(findQuery, 0, ignoreCase = true)
+            while (i >= 0 && i < plain.length) {
+                val end = (i + findQuery.length).coerceAtMost(plain.length)
+                addStyle(SpanStyle(background = selColor.copy(alpha = if (i == activeFindStart) 0.55f else 0.24f)), i, end)
+                i = plain.indexOf(findQuery, i + findQuery.length, ignoreCase = true)
+            }
         }
     }
 

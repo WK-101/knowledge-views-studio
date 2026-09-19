@@ -232,6 +232,8 @@ fun ReaderScreen(
     var showRsvp by remember { mutableStateOf(false) }
     var showRelated by remember { mutableStateOf(false) }
     var showSummary by remember { mutableStateOf(false) }
+    // Find-in-page bar (article/web reader only; PDFs have their own page model).
+    var findActive by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<PendingSelection?>(null) }
     var lookup by remember { mutableStateOf<String?>(null) }
     var lightbox by remember { mutableStateOf<String?>(null) }
@@ -374,6 +376,9 @@ fun ReaderScreen(
                 },
                 actions = {
                     if (data?.type != ItemType.PDF.name) {
+                        IconButton(onClick = { findActive = !findActive }) {
+                            Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.find_in_page), tint = if (findActive) MaterialTheme.colorScheme.primary else palette.text)
+                        }
                         IconButton(onClick = { showTypography = true }) {
                             Icon(Icons.Outlined.FormatSize, contentDescription = stringResource(R.string.text_options), tint = palette.text)
                         }
@@ -700,6 +705,8 @@ fun ReaderScreen(
                 onShareHighlight = { shareText(it.quote.trim(), data?.title) },
                 onDeleteHighlight = { viewModel.removeHighlight(it.id) },
                 onSetHighlightColor = { h, c -> viewModel.setHighlightColor(h.id, c) },
+                findActive = findActive,
+                onFindActiveChange = { findActive = it },
             )
         }
     }

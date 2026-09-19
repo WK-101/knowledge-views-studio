@@ -28,7 +28,7 @@ class MigrationTest {
         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
         MIGRATION_12_13, MIGRATION_13_14, MIGRATION_15_16, MIGRATION_16_17,
         MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22,
-        MIGRATION_22_23,
+        MIGRATION_22_23, MIGRATION_23_24,
     )
 
     @get:Rule
@@ -44,7 +44,7 @@ class MigrationTest {
         // Create the schema at v2, then apply every migration up to the current version and let
         // Room validate that the resulting schema exactly matches the compiled entities (v16).
         helper.createDatabase(dbName, 2).close()
-        val db = helper.runMigrationsAndValidate(dbName, 23, true, *allMigrations)
+        val db = helper.runMigrationsAndValidate(dbName, 24, true, *allMigrations)
         assertNotNull(db)
         db.close()
     }

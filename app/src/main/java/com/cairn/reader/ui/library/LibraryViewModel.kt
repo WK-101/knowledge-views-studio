@@ -226,6 +226,11 @@ class LibraryViewModel @Inject constructor(
         if (name.isNotBlank()) collectionRepository.create(name, parentId)
     }
 
+    /** Create a standalone tag by name (Library "New tag"); nest with a "parent/child" path. */
+    fun createTag(name: String) = viewModelScope.launch {
+        if (name.isNotBlank()) tagRepository.create(name)
+    }
+
     /** Re-parent a collection (drag-into / "Move under…"); null lifts it back to the top level. */
     fun setCollectionParent(id: String, parentId: String?) = viewModelScope.launch {
         if (id != parentId) collectionRepository.setParent(id, parentId)

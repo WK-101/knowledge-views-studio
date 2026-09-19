@@ -41,6 +41,17 @@ class TagRepository @Inject constructor(
         enqueue("removeTag", itemId, tagId)
     }
 
+    /** Create a standalone tag by name (Library "New tag"), if one with that normalized name doesn't
+     *  already exist. Nesting is via a "parent/child" path in the name, like the rest of the tag tree.
+     *  Returns the tag id (existing or newly created). */
+    suspend fun create(rawName: String): String? {
+        val name = rawName.trim()
+        if (name.isBlank()) return null
+        val normalized = name.lowercase()
+        tagDao.findByNormalized(normalized)?.let { return it.id }
+        return UUID.randomUUID().toString().also { tagDao.upsert(TagEntity(id = it, name = name, normalizedName = normalized)) }
+    }
+
     suspend fun rename(id: String, name: String) = tagDao.rename(id, name.trim(), name.trim().lowercase())
     suspend fun delete(id: String) = tagDao.delete(id)
 

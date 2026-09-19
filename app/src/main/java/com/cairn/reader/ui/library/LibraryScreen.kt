@@ -146,6 +146,7 @@ fun LibraryScreen(
     }
 
     var showCreate by remember { mutableStateOf<String?>(null) } // parentId (or "" for a top-level collection)
+    var showCreateTag by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<Pair<String, String>?>(null) }
     var showMove by remember { mutableStateOf(false) }
     var scopeMenu by remember { mutableStateOf(false) }
@@ -308,6 +309,7 @@ fun LibraryScreen(
                 onScope = { viewModel.setScope(it) },
                 onOpenHighlights = onOpenHighlights,
                 onNewCollection = { showCreate = "" },
+                onNewTag = { showCreateTag = true },
                 // Inline collection management (direct in the library view).
                 onNewSubCollection = { parentId -> showCreate = parentId },
                 onRenameCollection = { id, name -> renaming = id to name },
@@ -363,6 +365,14 @@ fun LibraryScreen(
             initial = "", confirmLabel = "Create",
             onConfirm = { viewModel.createCollection(it, parentId.ifBlank { null }); showCreate = null },
             onDismiss = { showCreate = null },
+        )
+    }
+    if (showCreateTag) {
+        NameDialog(
+            title = "New tag",
+            initial = "", confirmLabel = "Create",
+            onConfirm = { viewModel.createTag(it); showCreateTag = false },
+            onDismiss = { showCreateTag = false },
         )
     }
     renaming?.let { (id, name) ->
@@ -683,6 +693,7 @@ private fun LibraryHome(
     onScope: (LibraryScope) -> Unit,
     onOpenHighlights: () -> Unit,
     onNewCollection: () -> Unit,
+    onNewTag: () -> Unit,
     onNewSubCollection: (parentId: String) -> Unit,
     onRenameCollection: (id: String, name: String) -> Unit,
     onReparentCollection: (id: String, name: String) -> Unit,
@@ -778,9 +789,25 @@ private fun LibraryHome(
             }
         }
 
-        if (tagRows.isNotEmpty()) {
-            item { FoldableSectionHeader("TAGS", tagsOpen, onToggle = { onSetTagsOpen(!tagsOpen) }) }
-            if (tagsOpen) {
+        item {
+            FoldableSectionHeader(
+                "TAGS", tagsOpen, onToggle = { onSetTagsOpen(!tagsOpen) },
+                trailing = {
+                    IconButton(onClick = onNewTag, modifier = Modifier.size(44.dp)) {
+                        Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.new_tag_2), tint = scheme.primary)
+                    }
+                },
+            )
+        }
+        if (tagsOpen) {
+            if (tagRows.isEmpty()) {
+                item {
+                    Text(stringResource(R.string.no_tags_yet_tap_to_create),
+                        style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 4.dp),
+                    )
+                }
+            } else {
                 items(tagRows, key = { it.path }) { r ->
                     val isCollapsed = r.path in fold.collapsedTags
                     TagTreeItem(

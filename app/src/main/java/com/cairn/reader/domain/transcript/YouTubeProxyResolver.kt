@@ -31,6 +31,19 @@ import javax.inject.Singleton
  * sticking to whichever answered last. Every stage is logged to [AppLog] so a field failure is
  * diagnosable from Settings → Diagnostics.
  */
+/** Video metadata pulled from a privacy front-end (Piped/Invidious). All fields are best-effort;
+ *  any may be null when the instance didn't supply it. [descriptionIsHtml] says whether
+ *  [description] is HTML (Piped) or plain text with newlines (Invidious). */
+data class VideoMeta(
+    val title: String?,
+    val description: String?,
+    val descriptionIsHtml: Boolean,
+    val durationSeconds: Int?,
+    val publishedAtMs: Long?,
+    val uploader: String?,
+    val thumbnailUrl: String?,
+)
+
 @Singleton
 class YouTubeProxyResolver @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -81,6 +94,78 @@ class YouTubeProxyResolver @Inject constructor(
         }
         AppLog.w("yt-proxy: no audio stream from any instance for $videoId")
         null
+    }
+
+    /**
+     * Real metadata for [videoId] — title, channel/author, published date, duration and description —
+     * fetched through the same Piped/Invidious front-ends as captions (nothing hits YouTube directly).
+     * Piped `/streams` is tried first (it's already cached from a caption/audio fetch), then an
+     * Invidious `/api/v1/videos` lookup. Returns null when no instance answers.
+     */
+    suspend fun metadata(videoId: String): VideoMeta? = withContext(Dispatchers.IO) {
+        ensureInstances()
+        metadataViaPiped(videoId) ?: metadataViaInvidious(videoId)
+    }
+
+    private fun metadataViaPiped(videoId: String): VideoMeta? {
+        for (host in ordered(pipedHosts, lastGoodPiped)) {
+            val json = streamsFor(videoId, host) ?: continue
+            val title = json.optString("title").takeIf { it.isNotBlank() } ?: continue
+            lastGoodPiped = host
+            // Piped serves the description as HTML (it carries <br> and <a> tags).
+            val desc = json.optString("description").takeIf { it.isNotBlank() }
+            val ms = json.optLong("uploaded", 0L).takeIf { it > 0L }
+                ?: parseUploadDate(json.optString("uploadDate"))
+            val dur = json.optInt("duration", 0).takeIf { it > 0 }
+            AppLog.diag("yt-proxy(meta,piped): $host → \"${title.take(48)}\" dur=$dur")
+            return VideoMeta(
+                title = title,
+                description = desc,
+                descriptionIsHtml = true,
+                durationSeconds = dur,
+                publishedAtMs = ms,
+                uploader = json.optString("uploader").takeIf { it.isNotBlank() },
+                thumbnailUrl = json.optString("thumbnailUrl").takeIf { it.isNotBlank() },
+            )
+        }
+        return null
+    }
+
+    private fun metadataViaInvidious(videoId: String): VideoMeta? {
+        for (host in ordered(invidiousHosts, lastGoodInvidious)) {
+            val body = get("https://$host/api/v1/videos/$videoId?fields=title,description,lengthSeconds,author,published,videoThumbnails") ?: continue
+            val json = runCatching { JSONObject(body) }.getOrNull() ?: continue // Anubis-walled hosts return HTML
+            val title = json.optString("title").takeIf { it.isNotBlank() } ?: continue
+            lastGoodInvidious = host
+            val thumbs = json.optJSONArray("videoThumbnails")
+            val thumb = (0 until (thumbs?.length() ?: 0)).mapNotNull { thumbs?.optJSONObject(it) }
+                .firstOrNull { it.optString("quality") == "maxresdefault" }?.optString("url")
+                ?: thumbs?.optJSONObject(0)?.optString("url")
+            AppLog.diag("yt-proxy(meta,invidious): $host → \"${title.take(48)}\"")
+            return VideoMeta(
+                title = title,
+                description = json.optString("description").takeIf { it.isNotBlank() },
+                descriptionIsHtml = false, // Invidious serves plain text with newlines.
+                durationSeconds = json.optInt("lengthSeconds", 0).takeIf { it > 0 },
+                publishedAtMs = json.optLong("published", 0L).takeIf { it > 0L }?.let { it * 1000L },
+                uploader = json.optString("author").takeIf { it.isNotBlank() },
+                thumbnailUrl = thumb?.takeIf { it.isNotBlank() }
+                    ?.let { if (it.startsWith("http")) it else "https://$host$it" },
+            )
+        }
+        return null
+    }
+
+    /** Parse Piped's `uploadDate` — "YYYY-MM-DD" (current) or "YYYYMMDD" — to epoch millis (UTC). */
+    private fun parseUploadDate(raw: String?): Long? {
+        val s = raw?.trim().orEmpty()
+        val m = Regex("(\\d{4})-?(\\d{2})-?(\\d{2})").find(s) ?: return null
+        return runCatching {
+            val (y, mo, d) = m.destructured
+            java.util.GregorianCalendar(java.util.TimeZone.getTimeZone("UTC")).apply {
+                clear(); set(y.toInt(), mo.toInt() - 1, d.toInt())
+            }.timeInMillis
+        }.getOrNull()
     }
 
     // ── Piped ────────────────────────────────────────────────────────────────────────────────────

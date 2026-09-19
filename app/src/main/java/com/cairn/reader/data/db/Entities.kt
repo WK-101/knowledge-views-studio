@@ -139,6 +139,9 @@ data class ItemEntity(
     // view groups on this instead of the non-sargable LOWER(COALESCE(canonicalUrl, url)). Kept in sync
     // on write and by the canonicalUrl backfill. Migration 15→16 adds it and index_items_dedupeKey.
     val dedupeKey: String = "",
+    // v24: media length in whole seconds, for VIDEO items enriched from a privacy front-end
+    // (YouTube). Null = unknown / not a timed medium. Migration 23→24 adds the column.
+    val durationSeconds: Int? = null,
 )
 
 @Entity(

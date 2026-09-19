@@ -52,7 +52,10 @@ enum class ContentSource(val raw: String) {
     /** Recovered from a public archive snapshot (archive.today / Wayback) — e.g. a paywalled page. */
     ARCHIVE("ARCHIVE"),
     /** An imported PDF document. */
-    PDF("PDF");
+    PDF("PDF"),
+    /** Media metadata fetched from a privacy front-end (e.g. a YouTube video's title, channel,
+     *  published date, duration and description). Doubles as the "already enriched" marker. */
+    MEDIA("MEDIA");
 
     companion object {
         fun fromRaw(raw: String?): ContentSource? = raw?.let { r -> entries.firstOrNull { it.raw == r } }

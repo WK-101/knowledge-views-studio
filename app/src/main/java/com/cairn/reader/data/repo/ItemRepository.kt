@@ -53,6 +53,8 @@ data class ReaderData(
     val commentsUrl: String? = null,
     /** Saved reading progress (0..1) so the reader can resume where you left off. */
     val readProgress: Float = 0f,
+    /** Media length in seconds for enriched VIDEO items (YouTube); null when unknown. */
+    val durationSeconds: Int? = null,
 )
 
 @Singleton
@@ -92,6 +94,7 @@ class ItemRepository @Inject constructor(
             html = if (e.type == ItemType.PDF.name) null else blobStore.readArticle(e.blobPath),
             commentsUrl = e.commentsUrl,
             readProgress = state?.readProgress ?: 0f,
+            durationSeconds = e.durationSeconds,
         )
     }
 

@@ -78,6 +78,8 @@ class FeedRepository @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val sanitizer: com.cairn.reader.domain.privacy.ContentSanitizer,
     private val ruleEngine: com.cairn.reader.domain.rules.RuleEngine,
+    private val youtubeProxy: com.cairn.reader.domain.transcript.YouTubeProxyResolver,
+    private val captionFetcher: com.cairn.reader.domain.transcript.CaptionFetcher,
     @ApplicationContext private val context: Context,
 ) {
     private val whitespace = Regex("\\s+")
@@ -1018,6 +1020,65 @@ class FeedRepository @Inject constructor(
             itemDao.setType(itemId, ItemType.ARTICLE.name)
         }
     }
+
+    /**
+     * Enrich a saved YouTube [VIDEO][ItemType.VIDEO] item with real metadata — title, channel/author,
+     * published date, duration and the video description as readable body — fetched through the same
+     * Piped/Invidious privacy front-ends used for captions (nothing hits YouTube directly, no account
+     * or tracker involved). Idempotent: a already-enriched item ([ContentSource.MEDIA]) is skipped, so
+     * this is safe to call on every reader open. Returns true when it wrote anything.
+     */
+    suspend fun enrichVideoMetadata(itemId: String): Boolean = withContext(Dispatchers.IO) {
+        val item = itemDao.getItem(itemId) ?: return@withContext false
+        if (item.type != ItemType.VIDEO.name) return@withContext false
+        if (item.contentSource == ContentSource.MEDIA.raw) return@withContext false // already enriched
+        val videoId = captionFetcher.youtubeVideoId(item.url) ?: return@withContext false
+        val meta = coRunCatching { youtubeProxy.metadata(videoId) }.getOrNull() ?: return@withContext false
+
+        // Description → readable HTML body: Piped already serves HTML; Invidious serves plain text.
+        val descHtml: String? = meta.description?.let { d -> if (meta.descriptionIsHtml) d else plainTextToHtml(d) }
+        val plain: String = descHtml?.let { coRunCatching { Jsoup.parse(it).text() }.getOrDefault("") }.orEmpty()
+
+        meta.thumbnailUrl?.let { itemDao.setLeadImage(itemId, it) }
+        itemDao.updateVideoMeta(
+            id = itemId,
+            title = meta.title,
+            author = meta.uploader,
+            publishedAt = meta.publishedAtMs,
+            durationSeconds = meta.durationSeconds,
+        )
+        if (!descHtml.isNullOrBlank()) {
+            val blob = coRunCatching { blobStore.writeArticle(itemId, descHtml) }.getOrNull()
+            itemDao.setExtracted(
+                id = itemId,
+                blobPath = blob,
+                excerpt = plain.take(300).ifBlank { null },
+                wordCount = if (plain.isBlank()) 0 else plain.trim().split(whitespace).size,
+                minutes = 0,
+                leadImage = meta.thumbnailUrl,
+                status = ExtractStatus.OK.raw,
+                contentSource = ContentSource.MEDIA.raw,
+            )
+            coRunCatching {
+                itemDao.indexItem(ItemFtsEntity(itemId, meta.title ?: item.title, meta.uploader, plain.take(FTS_BODY_CHARS)))
+            }
+        } else {
+            // No description available, but we still learned title/channel/date/duration — mark the item
+            // enriched so a re-open doesn't refetch, without clobbering any body it already had.
+            itemDao.setContentSource(itemId, ContentSource.MEDIA.raw)
+        }
+        AppLog.diag("yt-meta: enriched $itemId dur=${meta.durationSeconds} pub=${meta.publishedAtMs}")
+        true
+    }
+
+    /** Turn a plain-text video description (Invidious) into simple, safe paragraph HTML: blank lines
+     *  split paragraphs, single newlines become <br>, and HTML metacharacters are escaped. */
+    private fun plainTextToHtml(text: String): String =
+        text.replace("\r\n", "\n").split(Regex("\\n{2,}")).map { it.trim() }.filter { it.isNotEmpty() }
+            .joinToString("") { p -> "<p>" + escapeHtml(p).replace("\n", "<br>") + "</p>" }
+
+    private fun escapeHtml(s: String): String =
+        s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
     /**
      * Paywall recovery (Content Engine P5): fetch a public-archive snapshot of the item's URL —
