@@ -15,6 +15,7 @@ import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import dagger.hilt.android.HiltAndroidApp
 import okhttp3.OkHttpClient
+import okio.Path.Companion.toPath
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -65,6 +66,14 @@ class CairnApplication : Application(), Configuration.Provider, SingletonImageLo
         AppLog.diag("Coil3 ImageLoader init (OkHttp network fetcher wired)")
         return ImageLoader.Builder(context)
             .components { add(OkHttpNetworkFetcherFactory(callFactory = { imageHttpClient.get() })) }
+            // Hard-cap the read-through image cache so it can't balloon (Coil's default is a % of free
+            // disk, which on a large device is huge). Same directory the storage dashboard accounts for.
+            .diskCache {
+                coil3.disk.DiskCache.Builder()
+                    .directory(cacheDir.resolve("image_cache").absolutePath.toPath())
+                    .maxSizeBytes(256L * 1024 * 1024)
+                    .build()
+            }
             .build()
     }
 

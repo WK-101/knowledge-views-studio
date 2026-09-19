@@ -22,6 +22,7 @@ class StorageManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val itemDao: ItemDao,
     private val database: CairnDatabase,
+    private val blobStore: BlobStore,
 ) {
     data class Breakdown(
         val articleBytes: Long, val articleCount: Int,
@@ -89,6 +90,9 @@ class StorageManager @Inject constructor(
                 }
             }
         }
+        // Recompress remaining article bodies (minify + max-level gzip) to reclaim space from copies
+        // saved before those optimizations, or from class-heavy pages.
+        freed += runCatching { blobStore.optimizeArticles() }.getOrDefault(0L)
         // Clear the image cache (Coil recreates it lazily).
         if (imageCacheDir.exists()) {
             imageCacheDir.walkTopDown().filter { it.isFile }.forEach { f ->

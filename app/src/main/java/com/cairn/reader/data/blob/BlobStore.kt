@@ -5,6 +5,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.OutputStream
+import java.util.zip.Deflater
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 import javax.inject.Inject
@@ -26,10 +28,46 @@ class BlobStore @Inject constructor(
 ) {
     private val dir: File by lazy { File(context.filesDir, "articles").apply { mkdirs() } }
 
+    /** gzip at max deflate level — the body is written once and read many times, so trade a little
+     *  background CPU for a smaller on-disk footprint. Output is standard gzip, so old level-6 blobs
+     *  still read back unchanged. */
+    private class MaxGzipOutputStream(out: OutputStream) : GZIPOutputStream(out) {
+        init { def.setLevel(Deflater.BEST_COMPRESSION) }
+    }
+
+    /** Minify then max-gzip [html] into [file]. Centralizes the write so every store path (feed body,
+     *  extraction, video description, archive, offline re-write) gets the same space savings. */
+    private fun gzipMinified(file: File, html: String) {
+        val minified = HtmlMinifier.minify(html)
+        MaxGzipOutputStream(file.outputStream().buffered()).bufferedWriter(Charsets.UTF_8).use { it.write(minified) }
+    }
+
     suspend fun writeArticle(itemId: String, html: String): String = withContext(Dispatchers.IO) {
         val file = File(dir, "$itemId.html.gz")
-        GZIPOutputStream(file.outputStream().buffered()).bufferedWriter(Charsets.UTF_8).use { it.write(html) }
+        gzipMinified(file, html)
         file.absolutePath
+    }
+
+    /**
+     * Recompress every stored article body: minify the HTML and re-gzip at max level. Reclaims space
+     * from bodies written before minification/level-9 (and from class-heavy pages). Each file is
+     * rewritten via a temp file and only swapped in when it is actually smaller, so a body is never
+     * lost or grown. Returns the total bytes reclaimed. Safe to run repeatedly (idempotent).
+     */
+    suspend fun optimizeArticles(): Long = withContext(Dispatchers.IO) {
+        var saved = 0L
+        val files = runCatching { dir.listFiles { f -> f.isFile && f.name.endsWith(".html.gz") } }.getOrNull().orEmpty()
+        for (f in files) {
+            val before = f.length()
+            val html = readArticle(f.absolutePath) ?: continue
+            val tmp = File(dir, f.name + ".tmp")
+            val ok = runCatching { gzipMinified(tmp, html); readArticle(tmp.absolutePath) != null }.getOrDefault(false)
+            if (ok && tmp.length() in 1 until before) {
+                if (runCatching { tmp.copyTo(f, overwrite = true) }.isSuccess) saved += before - tmp.length()
+            }
+            runCatching { tmp.delete() }
+        }
+        saved
     }
 
     suspend fun readArticle(path: String?): String? {
@@ -124,10 +162,7 @@ class BlobStore @Inject constructor(
             val html = readArticle(f.absolutePath) ?: return@forEach
             if (html.contains(oldBase)) {
                 withContext(Dispatchers.IO) {
-                    runCatching {
-                        GZIPOutputStream(f.outputStream().buffered()).bufferedWriter(Charsets.UTF_8)
-                            .use { it.write(html.replace(oldBase, newBase)) }
-                    }
+                    runCatching { gzipMinified(f, html.replace(oldBase, newBase)) }
                 }
             }
         }

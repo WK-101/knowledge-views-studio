@@ -760,7 +760,13 @@ fun ReaderScreen(
         val summary by viewModel.summary.collectAsStateWithLifecycle()
         androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showSummary = false }) {
             com.cairn.reader.ui.KeepImmersiveWhileOpen(hideSystemBars)
-            androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 32.dp)) {
+            // Scrollable so a long summary shows in full inside the sheet instead of clipping.
+            androidx.compose.foundation.layout.Column(
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
+            ) {
                 Text(stringResource(R.string.key_points),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
@@ -791,7 +797,9 @@ fun ReaderScreen(
         val related by viewModel.related.collectAsStateWithLifecycle()
         androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showRelated = false }) {
             com.cairn.reader.ui.KeepImmersiveWhileOpen(hideSystemBars)
-            androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            androidx.compose.foundation.layout.Column(
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
+            ) {
                 Text(stringResource(R.string.related_articles),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,

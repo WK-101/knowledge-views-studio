@@ -476,6 +476,12 @@ interface ItemDao {
     @Query("UPDATE items SET title = :title, author = COALESCE(:author, author), siteName = COALESCE(:siteName, siteName) WHERE id = :id")
     suspend fun updateMeta(id: String, title: String, author: String?, siteName: String?)
 
+    /** Fill the original publish date (and the indexed effectiveDate sort key) from extraction, but
+     *  only when the item has none yet — so a real feed date is never overwritten by a page-parsed one.
+     *  Fixes saved-from-web items that otherwise sort/show by their save time. */
+    @Query("UPDATE items SET publishedAt = :publishedAt, effectiveDate = :publishedAt WHERE id = :id AND publishedAt IS NULL")
+    suspend fun setPublishedIfMissing(id: String, publishedAt: Long)
+
     /** Write enriched media metadata (YouTube video). Only non-null fields overwrite; setting a real
      *  publish date also advances the indexed effectiveDate sort key so the item sorts by air date. */
     @Query("UPDATE items SET title = COALESCE(:title, title), author = COALESCE(:author, author), publishedAt = COALESCE(:publishedAt, publishedAt), effectiveDate = COALESCE(:publishedAt, effectiveDate), durationSeconds = COALESCE(:durationSeconds, durationSeconds) WHERE id = :id")

@@ -969,6 +969,7 @@ class FeedRepository @Inject constructor(
         val cleanHtml = if (sanitizeEnabled()) coRunCatching { sanitizer.sanitize(extracted.contentHtml, rendered.finalUrl).html }.getOrDefault(extracted.contentHtml) else extracted.contentHtml
         val blob = blobStore.writeArticle(itemId, cleanHtml)
         extracted.title?.let { itemDao.updateMeta(itemId, it, extracted.byline, hostOf(url)) }
+        extracted.publishedAt?.let { itemDao.setPublishedIfMissing(itemId, it) }
         itemDao.setExtracted(
             id = itemId,
             blobPath = blob,
@@ -1000,6 +1001,9 @@ class FeedRepository @Inject constructor(
         val cleanHtml = if (sanitizeEnabled()) coRunCatching { sanitizer.sanitize(extracted.contentHtml, res.finalUrl).html }.getOrDefault(extracted.contentHtml) else extracted.contentHtml
         val blob = blobStore.writeArticle(itemId, cleanHtml)
         extracted.title?.let { itemDao.updateMeta(itemId, it, extracted.byline, hostOf(url)) }
+        // Use the page's own publish date so a saved-from-web article shows its real date, not the
+        // save/sync time. Only fills when the item has no date yet (feed dates stay authoritative).
+        extracted.publishedAt?.let { itemDao.setPublishedIfMissing(itemId, it) }
         itemDao.setExtracted(
             id = itemId,
             blobPath = blob,
@@ -1189,7 +1193,12 @@ class FeedRepository @Inject constructor(
             seen[remote]?.let { return it }
             if (cached >= maxImages) return null
             val (bytes, contentType) = fetcher.fetchBytes(remote) ?: return null
-            val local = coRunCatching { blobStore.writeImage(itemId, index++, bytes, imageExtension(contentType, remote)) }
+            // Recompress to WebP + cap dimensions so an offline copy is a fraction of the site's
+            // originals (kept verbatim only for vectors/animations or when it wouldn't shrink).
+            val (storeBytes, ext) = withContext(Dispatchers.Default) {
+                com.cairn.reader.data.blob.ImageRecoder.recode(bytes, contentType, remote)
+            }
+            val local = coRunCatching { blobStore.writeImage(itemId, index++, storeBytes, ext) }
                 .getOrNull() ?: return null
             seen[remote] = local
             cached++
