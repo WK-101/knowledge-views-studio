@@ -19,12 +19,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -49,6 +52,7 @@ import com.todocompanion.app.ui.components.EmptyState
  * projections the ViewModel assembles ([NoteGarden] + the MinHash similarity in NoteSemantic); nothing
  * leaves the phone.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteGardenScreen(vm: AppViewModel, onOpenNote: (String) -> Unit, onClose: () -> Unit) {
     BackHandler(onBack = onClose)
@@ -61,18 +65,20 @@ fun NoteGardenScreen(vm: AppViewModel, onOpenNote: (String) -> Unit, onClose: ()
     val empty = report.orphans.isEmpty() && report.stale.isEmpty() && report.dropped.isEmpty() &&
         report.duplicates.isEmpty() && due.isEmpty()
 
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Close") }
-                Column(Modifier.weight(1f)) {
-                    Text("Note garden", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    if (report.scanned > 0) Text("Tended ${report.scanned} notes", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                if (loading) CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-                else IconButton(onClick = { vm.refreshNoteGarden() }) { Icon(Icons.Filled.Refresh, "Re-scan") }
-            }
-
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                expandedHeight = 52.dp,
+                title = { Text("Note garden" + if (report.scanned > 0) "  ·  ${report.scanned}" else "") },
+                navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                actions = {
+                    if (loading) CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                    else IconButton(onClick = { vm.refreshNoteGarden() }) { Icon(Icons.Filled.Refresh, "Re-scan") }
+                },
+            )
+        },
+    ) { pad ->
+        Column(Modifier.fillMaxSize().padding(pad)) {
             if (empty && !loading) {
                 EmptyState(emoji = "🌱", title = "A tidy garden", body = "Nothing to tend right now — no orphans, stale notes, dropped intentions or near-duplicates. Come back after you've written more.")
                 return@Column

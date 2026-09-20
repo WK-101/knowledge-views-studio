@@ -21,12 +21,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CenterFocusStrong
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -71,6 +74,7 @@ private const val CTX = 2
 private const val TIME = 3
 private const val MAX_NODES = 220   // cap the simulation so a huge vault stays smooth
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteGraphScreen(vm: AppViewModel, onOpenNote: (String) -> Unit, onClose: () -> Unit) {
     BackHandler(onBack = onClose)
@@ -226,13 +230,17 @@ fun NoteGraphScreen(vm: AppViewModel, onOpenNote: (String) -> Unit, onClose: () 
     fun toScreen(i: Int, f: Triple<Float, Offset, Offset>): Offset =
         Offset((px[i] - f.second.x) * f.first + f.third.x, (py[i] - f.second.y) * f.first + f.third.y)
 
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Close") }
-                Text("Life graph", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                IconButton(onClick = { scale = 1f; pan = Offset.Zero }) { Icon(Icons.Filled.CenterFocusStrong, "Reset view") }
-            }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                expandedHeight = 52.dp,
+                title = { Text("Life graph") },
+                navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                actions = { IconButton(onClick = { scale = 1f; pan = Offset.Zero }) { Icon(Icons.Filled.CenterFocusStrong, "Reset view") } },
+            )
+        },
+    ) { pad ->
+        Column(Modifier.fillMaxSize().padding(pad)) {
             if (nodes.isEmpty()) {
                 EmptyState(emoji = "🕸️", title = "No connections yet", body = "Link notes with [[wiki-links]], or share tags and contexts across notes — they'll appear here as a graph you can explore.")
                 return@Column

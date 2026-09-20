@@ -31,7 +31,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Archive
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CheckBox
@@ -393,7 +392,7 @@ fun NotesScreen(
                 // Note tools — the feature surfaces (Journal, Life graph, Note garden, Recall, Wrapped, Ask,
                 // Relevant now, Publish, Receive) as a separate popup, split out of the filter list.
                 Box {
-                    IconButton(onClick = { toolsMenu = true }) { Icon(Icons.Filled.AutoAwesome, "Note tools") }
+                    IconButton(onClick = { toolsMenu = true }) { Icon(Icons.Filled.Dashboard, "Note tools") }
                     DropdownMenu(expanded = toolsMenu, onDismissRequest = { toolsMenu = false }) {
                         DropdownMenuItem(text = { Text("🗓 Journal (daily · weekly · monthly · yearly)") }, onClick = { toolsMenu = false; onOpenJournal() })
                         DropdownMenuItem(text = { Text("◉ Life graph") }, onClick = { toolsMenu = false; onOpenGraph() })

@@ -21,9 +21,12 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -47,6 +50,7 @@ import com.todocompanion.app.ui.components.EmptyState
  * Fully offline, no account — the recall engine RemNote and Anki ship as separate apps, wired straight
  * into the notes you already keep.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecallScreen(vm: AppViewModel, onClose: () -> Unit) {
     BackHandler(onBack = onClose)
@@ -58,16 +62,16 @@ fun RecallScreen(vm: AppViewModel, onClose: () -> Unit) {
     // Collapse the answer whenever the front card changes.
     LaunchedEffect(card?.id) { revealed = false }
 
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Close") }
-                Column(Modifier.weight(1f)) {
-                    Text("Recall", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    Text(if (due.isEmpty()) "All caught up" else "${due.size} due", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                expandedHeight = 52.dp,
+                title = { Text("Recall" + if (due.isEmpty()) "" else "  ·  ${due.size} due") },
+                navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+            )
+        },
+    ) { pad ->
+        Column(Modifier.fillMaxSize().padding(pad)) {
             if (card == null) {
                 EmptyState(emoji = "🎉", title = "Nothing due", body = "You've reviewed every card that's due. Add cards to any note with `Q:: A`, `term :: definition`, or ==highlight== a word, and they'll come back here on a spaced schedule.")
                 return@Column

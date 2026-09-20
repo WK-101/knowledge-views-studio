@@ -257,8 +257,13 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     // change reads as "not saved." depsBump lights the Save button so adding/removing a blocker (or changing
     // its mode/delay) is acknowledged; the row is already committed so Back needs no discard prompt.
     var depsBump by remember(taskId) { mutableIntStateOf(0) }
+    // Subtasks, checklist steps and reminders are also written to the DB the instant you add/check/remove one
+    // (they're child rows / side tables, not staged in the draft), so they never moved the draft and the Save
+    // check stayed grey — the change read as "not saved." autoBump lights the Save button so every such edit is
+    // acknowledged; the rows are already committed so, like attachments, Back needs no discard prompt.
+    var autoBump by remember(taskId) { mutableIntStateOf(0) }
     val contentDirty = (draft != null && savedSnapshot != null && draft != savedSnapshot) || tagsDirty || ctxDirty
-    val dirty = contentDirty || attachBump > 0 || depsBump > 0
+    val dirty = contentDirty || attachBump > 0 || depsBump > 0 || autoBump > 0
 
     fun update(block: (TaskEntity) -> TaskEntity) {
         val d = draft ?: return; draft = block(d)
@@ -267,7 +272,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
         draft?.let { vm.save(it) }
         if (draftTags != null) vm.setTags(taskId, (draftTags ?: emptySet()).toList())
         if (draftCtx != null) vm.setContexts(taskId, (draftCtx ?: emptySet()).toList())
-        savedSnapshot = draft; draftTags = null; draftCtx = null; attachBump = 0; depsBump = 0; onBack()
+        savedSnapshot = draft; draftTags = null; draftCtx = null; attachBump = 0; depsBump = 0; autoBump = 0; onBack()
     }
     // Only real, still-unsaved content edits warrant a discard prompt; attachments are already on disk.
     fun attemptBack() { if (contentDirty) confirmDiscard = true else onBack() }
@@ -727,12 +732,12 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                      DetailSection("Checklist", if (myCheck.isEmpty()) null else "${myCheck.count { it.checked }}/${myCheck.size}", !fldFolded) {
                 myCheck.forEach { item ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = item.checked, onCheckedChange = { vm.toggleChecklist(item) })
+                        Checkbox(checked = item.checked, onCheckedChange = { vm.toggleChecklist(item); autoBump++ })
                         Text(item.text, Modifier.weight(1f), color = if (item.checked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
-                        IconButton(onClick = { vm.deleteChecklistItem(item.id) }) { Icon(Icons.Filled.Close, "Remove") }
+                        IconButton(onClick = { vm.deleteChecklistItem(item.id); autoBump++ }) { Icon(Icons.Filled.Close, "Remove") }
                     }
                 }
-                AddInline(newCheck, { newCheck = it }, "Add checklist item") { if (it.isNotBlank()) { vm.addChecklistItem(task.id, it.trim()); newCheck = "" } }
+                AddInline(newCheck, { newCheck = it }, "Add checklist item") { if (it.isNotBlank()) { vm.addChecklistItem(task.id, it.trim()); newCheck = ""; autoBump++ } }
                 // Break down (C2): paste several lines at once → one step per line.
                 var showBreakdown by remember { mutableStateOf(false) }
                 TextButton(onClick = { showBreakdown = true }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
@@ -742,7 +747,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     var bulk by remember { mutableStateOf("") }
                     AlertDialog(
                         onDismissRequest = { showBreakdown = false },
-                        confirmButton = { TextButton(onClick = { vm.addChecklistItems(task.id, bulk.lines()); showBreakdown = false }) { Text("Add steps") } },
+                        confirmButton = { TextButton(onClick = { vm.addChecklistItems(task.id, bulk.lines()); showBreakdown = false; autoBump++ }) { Text("Add steps") } },
                         dismissButton = { TextButton(onClick = { showBreakdown = false }) { Text("Cancel") } },
                         title = { Text("Break into steps") },
                         text = {
@@ -764,11 +769,14 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             children.forEach { child ->
                                 val cl = PriorityLevel.from(child.importance, child.urgency)
                                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                    com.todocompanion.app.ui.components.PriorityCheckbox(child.completed, cl, onCheckedChange = { vm.toggleComplete(child) }, onSetLevel = { lvl -> vm.setPriority(child, lvl) })
+                                    com.todocompanion.app.ui.components.PriorityCheckbox(child.completed, cl, onCheckedChange = { vm.toggleComplete(child); autoBump++ }, onSetLevel = { lvl -> vm.setPriority(child, lvl); autoBump++ })
                                     Text(child.title, Modifier.weight(1f).clickable { onOpenTask?.invoke(child.id) },
                                         color = if (child.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                                         maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                    if (onOpenTask != null) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Open subtask", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
+                                    // A clear tap target to open the subtask as its own task (tapping its title works too).
+                                    if (onOpenTask != null) IconButton(onClick = { onOpenTask?.invoke(child.id) }) {
+                                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Open subtask", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
                                 }
                             }
                             // F4 — a subtask is created immediately, so it must inherit the parent's SAVED
@@ -776,7 +784,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             // parent (which Back can discard) would strand the child on a list the parent
                             // never moved to. savedSnapshot is the persisted parent; fall back to draft only
                             // before the first load settles.
-                            AddInline(newSub, { newSub = it }, "Add subtask") { if (it.isNotBlank()) { vm.addSubtask(savedSnapshot ?: task, it.trim()); newSub = "" } }
+                            AddInline(newSub, { newSub = it }, "Add subtask") { if (it.isNotBlank()) { vm.addSubtask(savedSnapshot ?: task, it.trim()); newSub = ""; autoBump++ } }
                         }
                     }
 
@@ -805,7 +813,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 pendingDeleteAtt?.let { a ->
                     AlertDialog(onDismissRequest = { pendingDeleteAtt = null },
                         icon = { Icon(Icons.Filled.Close, null, tint = MaterialTheme.colorScheme.error) },
-                        confirmButton = { TextButton(onClick = { vm.removeAttachment(a.id); pendingDeleteAtt = null }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+                        confirmButton = { TextButton(onClick = { vm.removeAttachment(a.id); pendingDeleteAtt = null; attachBump++ }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
                         dismissButton = { TextButton(onClick = { pendingDeleteAtt = null }) { Text("Cancel") } },
                         title = { Text("Delete attachment?") },
                         text = { Text("“${a.fileName}” will be permanently removed from this task and your backups. This can't be undone.") })
@@ -1138,7 +1146,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                 showDue = false
             },
             // The full reminders manager lives inside the sheet (no separate section outside).
-            reminderSlot = t0?.let { tt -> { TaskReminderManager(vm, tt, reminders.filter { it.taskId == tt.id }, onPickTime = { showReminder = true }) } },
+            reminderSlot = t0?.let { tt -> { TaskReminderManager(vm, tt, reminders.filter { it.taskId == tt.id }, onPickTime = { showReminder = true }, onChanged = { autoBump++ }) } },
             showStart = true,
             initialStart = t0?.startDate,
             initialStartHasTime = startTimed0,
@@ -1179,7 +1187,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             onDelete = { vm.deleteTimeActivity(act.id); editActivity = null })
     }
     // In-app file browser fallback for attachments on ROMs with no system picker (R23). R30 #6 — multi-select.
-    if (showReminder) DateTimePickerDialog(task?.dueDate ?: System.currentTimeMillis(), { showReminder = false }) { m -> task?.let { vm.addAbsoluteReminder(it, m) }; showReminder = false }
+    if (showReminder) DateTimePickerDialog(task?.dueDate ?: System.currentTimeMillis(), { showReminder = false }) { m -> task?.let { vm.addAbsoluteReminder(it, m) }; showReminder = false; autoBump++ }
     if (showBlockPicker && task != null) {
         val existing = allDeps.filter { it.taskId == task.id }.map { it.dependsOnTaskId }.toSet()
         // A prerequisite must be something still OUTSTANDING — a completed or abandoned task can't block
@@ -1360,7 +1368,7 @@ private fun ActivityEditDialog(
  *  the unified Date sheet so all scheduling lives in one place (R19 #9). [onPickTime] opens the specific
  *  time picker (the sheet renders above it). */
 @Composable
-private fun TaskReminderManager(vm: AppViewModel, task: TaskEntity, myReminders: List<ReminderEntity>, onPickTime: () -> Unit) {
+private fun TaskReminderManager(vm: AppViewModel, task: TaskEntity, myReminders: List<ReminderEntity>, onPickTime: () -> Unit, onChanged: () -> Unit = {}) {
     Column {
         myReminders.forEach { r ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -1373,12 +1381,12 @@ private fun TaskReminderManager(vm: AppViewModel, task: TaskEntity, myReminders:
                     1 -> MaterialTheme.colorScheme.primary
                     else -> MaterialTheme.colorScheme.error
                 }
-                TextButton(onClick = { vm.setReminderTier(r, task, (tier + 1) % 3) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)) {
+                TextButton(onClick = { vm.setReminderTier(r, task, (tier + 1) % 3); onChanged() }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)) {
                     Icon(if (tier == 0) Icons.Filled.NotificationsNone else Icons.Filled.NotificationsActive, "Reminder intensity", tint = tint, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(4.dp))
                     Text(com.todocompanion.app.domain.reminders.ReminderPresets.TIER_LABELS[tier], style = MaterialTheme.typography.labelMedium, color = tint)
                 }
-                IconButton(onClick = { vm.deleteReminder(r, task) }) { Icon(Icons.Filled.Close, "Remove") }
+                IconButton(onClick = { vm.deleteReminder(r, task); onChanged() }) { Icon(Icons.Filled.Close, "Remove") }
             }
         }
         Box {
@@ -1393,14 +1401,14 @@ private fun TaskReminderManager(vm: AppViewModel, task: TaskEntity, myReminders:
                     HorizontalDivider()
                     com.todocompanion.app.domain.reminders.ReminderPresets.OFFSETS.forEach { off ->
                         val label = if (off == 0) "When due" else "${com.todocompanion.app.domain.reminders.ReminderPresets.beforeLabel(off)} due"
-                        DropdownMenuItem(text = { Text(label) }, onClick = { vm.addRelativeReminder(task, "relativeToDue", off); addMenu = false })
+                        DropdownMenuItem(text = { Text(label) }, onClick = { vm.addRelativeReminder(task, "relativeToDue", off); addMenu = false; onChanged() })
                     }
                 }
                 if (task.startDate != null) {
                     HorizontalDivider()
                     com.todocompanion.app.domain.reminders.ReminderPresets.OFFSETS.forEach { off ->
                         val label = if (off == 0) "When it starts" else "${com.todocompanion.app.domain.reminders.ReminderPresets.beforeLabel(off)} start"
-                        DropdownMenuItem(text = { Text(label) }, onClick = { vm.addRelativeReminder(task, "relativeToStart", off); addMenu = false })
+                        DropdownMenuItem(text = { Text(label) }, onClick = { vm.addRelativeReminder(task, "relativeToStart", off); addMenu = false; onChanged() })
                     }
                 }
                 // R59 (Wave 2) — expert reminder types on the unified model.
@@ -1409,26 +1417,26 @@ private fun TaskReminderManager(vm: AppViewModel, task: TaskEntity, myReminders:
                     DropdownMenuItem(enabled = false, text = { Text("Before deadline", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }, onClick = {})
                     listOf(0, 60, 1440, 4320).forEach { off ->
                         val label = if (off == 0) "At deadline" else "${com.todocompanion.app.domain.reminders.ReminderPresets.beforeLabel(off)} deadline"
-                        DropdownMenuItem(text = { Text(label) }, onClick = { vm.addExpertReminder(task, "relativeToDeadline", off); addMenu = false })
+                        DropdownMenuItem(text = { Text(label) }, onClick = { vm.addExpertReminder(task, "relativeToDeadline", off); addMenu = false; onChanged() })
                     }
                 }
                 if (task.dueDate != null) {
                     HorizontalDivider()
                     DropdownMenuItem(enabled = false, text = { Text("Expert", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }, onClick = {})
-                    DropdownMenuItem(text = { Text("When it becomes overdue") }, onClick = { vm.addExpertReminder(task, "whenOverdue"); addMenu = false })
+                    DropdownMenuItem(text = { Text("When it becomes overdue") }, onClick = { vm.addExpertReminder(task, "whenOverdue"); addMenu = false; onChanged() })
                     listOf(480 to "On the day at 08:00", 540 to "On the day at 09:00", 1080 to "On the day at 18:00").forEach { (m, l) ->
-                        DropdownMenuItem(text = { Text(l) }, onClick = { vm.addExpertReminder(task, "dueDayAt", m); addMenu = false })
+                        DropdownMenuItem(text = { Text(l) }, onClick = { vm.addExpertReminder(task, "dueDayAt", m); addMenu = false; onChanged() })
                     }
-                    DropdownMenuItem(text = { Text("Surprise me (random, before due)") }, onClick = { vm.addExpertReminder(task, "random", 120); addMenu = false })
-                    DropdownMenuItem(text = { Text("When due, then nag every 30m ×4") }, onClick = { vm.addExpertReminder(task, "relativeToDue", 0, 30, 4); addMenu = false })
-                    DropdownMenuItem(text = { Text("When overdue, nag every 1h ×3") }, onClick = { vm.addExpertReminder(task, "whenOverdue", 0, 60, 3); addMenu = false })
+                    DropdownMenuItem(text = { Text("Surprise me (random, before due)") }, onClick = { vm.addExpertReminder(task, "random", 120); addMenu = false; onChanged() })
+                    DropdownMenuItem(text = { Text("When due, then nag every 30m ×4") }, onClick = { vm.addExpertReminder(task, "relativeToDue", 0, 30, 4); addMenu = false; onChanged() })
+                    DropdownMenuItem(text = { Text("When overdue, nag every 1h ×3") }, onClick = { vm.addExpertReminder(task, "whenOverdue", 0, 60, 3); addMenu = false; onChanged() })
                 }
             }
             if (placeDialog) {
                 var place by remember { mutableStateOf("") }
                 AlertDialog(
                     onDismissRequest = { placeDialog = false },
-                    confirmButton = { TextButton(onClick = { if (place.isNotBlank()) vm.addPlaceReminder(task, place.trim()); placeDialog = false }) { Text("Arm reminder") } },
+                    confirmButton = { TextButton(onClick = { if (place.isNotBlank()) { vm.addPlaceReminder(task, place.trim()); onChanged() }; placeDialog = false }) { Text("Arm reminder") } },
                     dismissButton = { TextButton(onClick = { placeDialog = false }) { Text("Cancel") } },
                     title = { Text("Remind me at a place") },
                     text = {

@@ -23,13 +23,16 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -62,7 +65,7 @@ import java.util.Locale
  * (the moat). Navigate by the shared period switcher + prev/next, drill through the time-tree
  * (contains / rolls up to), and — for the day — a month calendar with a dot on every journalled day.
  */
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun PeriodicNotesScreen(
     vm: AppViewModel,
@@ -92,14 +95,17 @@ fun PeriodicNotesScreen(
 
     fun openThis() = vm.openPeriodicNote(period, anchor) { onOpenNote(it) }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        // ── Top bar ──
-        Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
-            Text("Journal", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-            TextButton(onClick = { anchor = today }) { Text(nowLabel(period)) }
-        }
-
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                expandedHeight = 52.dp,
+                title = { Text("Journal") },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                actions = { TextButton(onClick = { anchor = today }) { Text(nowLabel(period)) } },
+            )
+        },
+    ) { pad ->
+        Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState())) {
         // ── Granularity switcher (Day · Week · Month · Year) ──
         com.todocompanion.app.ui.components.PeriodSwitcher(
             selected = period,
@@ -213,6 +219,7 @@ fun PeriodicNotesScreen(
                 }
             }
             Spacer(Modifier.size(24.dp))
+        }
         }
     }
 }
