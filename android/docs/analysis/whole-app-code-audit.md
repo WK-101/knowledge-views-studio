@@ -4,6 +4,203 @@ _Comprehensive engineering audit across code quality, maintainability, scalabili
 storage, performance, UI reuse and cross-module consistency, with a phased plan to reach
 "top of the line."_
 
+---
+
+# Round 3 — Deep Re-Audit on the Revised Code + Pressure-Tested Forward Plan (2026-09-20)
+
+**Method.** This round does not re-read from memory. Three independent read-only
+evidence passes were run against the **actual current source tree** (289 Kotlin files,
+82,045 LOC) — one on the data/persistence layer, one on cross-module consistency, one on
+architecture & navigation — each required to return `file:line` citations and exact
+counts. The findings below are those measurements, not impressions. Everything claimed as
+"shipped" is **built green (`assembleRelease`, 4m52s), 0 forbidden permissions** (verified
+via `aapt2 dump permissions`: no INTERNET / LOCATION / storage / media / contacts / audio /
+camera), committed and pushed.
+
+## 3.1 Shipped since Round 2 (this round)
+
+| Item | Finding | Status | Evidence |
+|---|---|:---:|---|
+| **X1 — editor discard-confirm unified** | Silent-discard data loss | ✅ Done | Event, Goal, Habit, Occasion, Routine editors now snapshot editable fields on open, compute `dirty`, and route every back/close/cancel/scrim path through a `ConfirmDialog("Discard changes?")` when dirty. Save paths untouched. ModalBottomSheet editors re-expand the sheet under the dialog so it is never left hidden-but-composed. Auto-seeded / immediately-persisted fields excluded so the prompt never fires at rest. |
+| **U7 — QuickAdd dark-mode token hues** | Theme-correctness gap | ✅ Done | `QuickAddHighlight.kt` now carries a light **and** a dark hue per token and picks the set from `surface.luminance() < 0.5f`; fixed light-mode hexes no longer bleed onto dark/AMOLED. |
+
+X1 matters beyond polish: before this round, only Task and Notes editors confirmed
+unsaved edits. The other five editors silently discarded on back — a real, unbounded
+data-loss class for the user, now closed everywhere.
+
+## 3.2 Verified current-state ground truth (the numbers that cap the score)
+
+These are the measurements that decide how far the app still is from 9.5. They are
+**unchanged in kind** since Round 2 because the contained wins were correctness/consistency
+fixes, not the large structural workstreams — which were deliberately *not* rushed.
+
+**Architecture (still the dominant ceiling).**
+- `AppViewModel.kt` — **6,656 lines, 752 `fun`, 30 exposed `StateFlow`, 506
+  `viewModelScope.launch`**, still **one** `AndroidViewModel`. Grep for any other
+  `: ViewModel()` / `: AndroidViewModel()` in the whole module → **none**. No per-feature
+  ViewModels exist yet.
+- The repo **is** constructor-injected (`internal constructor(app, repo)` at
+  `AppViewModel.kt:114`; production path via secondary ctor) — the A2 seam from Round 2 is
+  real. **But `Context` is not injected:** `appCtx get() = getApplication<App>()`
+  (`AppViewModel.kt:124`) is used **155×**, plus `AlarmManager`/`NotificationManager`/
+  `SecurePrefs`/`ThemePrefs`/widget/Intent surface (74 fully-qualified `android.*` refs).
+  This — not the repo — is why **zero tests instantiate the VM** and why any VM test needs
+  Robolectric.
+- Three thin controllers already exist as delegation seams: `TimeTrackingController` (136),
+  `ReminderController` (118), `FocusController` (60). A large slice of pure logic is already
+  extracted to `domain/` and unit-tested. **The decomposition target has its seams cut.**
+- `AppRoot.kt` (2,330 lines) does **100% manual navigation**: ~**114** `remember`/
+  `rememberSaveable` nav flags, ~**21** sibling boolean/nullable overlay blocks, **73**
+  `BackHandler`s across 30 files. `androidx.navigation:navigation-compose:2.8.3` is
+  **declared but entirely unused** (`build.gradle.kts:148`; 0 `NavHost`/`NavController`
+  references anywhere).
+
+**Data pipeline & scalability (the #1 scale risk, internally coherent).**
+- The reactive pattern is fully intact: **41 bare `SELECT * FROM <table>` `Flow`s vs 6
+  WHERE-filtered** (7:1), and **0** `LIMIT`/`OFFSET`/`PagingSource` anywhere. All 6 WHERE
+  flows are per-parent detail queries (task/note children); **no** top-level list filters by
+  `workspaceId`/`listId`/`trashed`/`done`/`dueDate` in SQL.
+- All workspace/list/trash/calendar filtering is in-memory Kotlin: `scopedBy`
+  (`AppViewModel.kt:168`) is the single choke point for ~30 flows; **254** in-memory
+  `.filter{`/`.groupBy{`/`combine(` occurrences in the VM; ~40 `getAll().filter{}` in the repo.
+- **Indices were deliberately *dropped* to match this pattern.** `MIGRATION_81_82`
+  (`AppDatabase.kt:995`) DROPs `tasks.workspaceId/folderId/completed/someday/dueDate`,
+  `events.calendarId`, `time_entries.taskId`, `notes.updatedAt` — with the comment "the DAO
+  loads whole tables and filters in memory." The `habits` table has **zero** indices despite
+  heavy filtering. This is the key pressure-test insight: **it is not a bug to patch, it is a
+  design to reverse coherently** (SQL filters + matching indices + paging, together).
+- `flowOn` is centralized in the `state()` helper (`AppViewModel.kt:135`, 38 flows offloaded
+  to `Default`), but **8 direct-`stateIn` derivations bypass it** — most run on light
+  single-field reads, but `estimateBias` (`:5340`) recomputes over the full tasks +
+  time-entries lists **on Main**. Subtree ops (`setTrashed`, `deleteSubtree`, `emptyTrash`)
+  are N+1; several whole-table-scan-for-one-row remain where a `getById` already exists.
+
+**Cross-module consistency (the maintainability tax).**
+- **Goals and Routines are both settings-JSON, not Room** (`domain/Goals.kt:57`,
+  `domain/Routines.kt:17`; stored as `goalsJson`/`routinesJson` blobs). A second persistence
+  substrate with no schema, no indices, no migration story.
+- `AppSettings` is **one flat 215-field data class** (`Settings.kt:56–461`), **23** of them
+  opaque `…Json` blobs, mirrored to a key/value `settings` table via `toMap()`/`fromMap()`.
+- **6–7 distinct reminder shapes.** `ReminderEntity` is labelled "the unified reminder
+  abstraction" but is **task-only**; habits use a CSV of minutes, events a CSV of
+  minutes-before, notes four separate columns, routines a nullable-Int in JSON, occasions
+  lead-day ints. Only the *picker* presets are shared (`ReminderPresets`), never the storage
+  model.
+- **Two tag systems** (relational `TagEntity` M2M for tasks+notes; a separate CSV `tags`
+  string on time entries) plus a parallel `ContextEntity` M2M — no single cross-domain tag.
+- **Trash is universal on only 5 of 9 domains** (tasks/lists/folders/habits/notes; notes use
+  `deletedAt`, the rest `trashedAt` — naming drift). Events, occasions, goals, routines have
+  no trash/restore path.
+
+**Security & testing (unchanged this round).** Security stays strong (KeyStore-wrapped
+SQLCipher, per-blob FileVault, gzip'd AES-GCM backups, marker-versioned KDF). Tests: **73
+files / 520 `@Test` methods**, all JVM/Robolectric on *pure domain logic* — still **no VM,
+DAO-behaviour, or Compose-navigation coverage** of the orchestration layer.
+
+## 3.3 Revised scorecard (honest)
+
+| Dimension | R1 | R2 | **R3** | Why R3 sits here |
+|---|:---:|:---:|:---:|---|
+| Data storage & integrity | 5.0 | 7.0 | **7.0** | Integrity is genuinely good (atomic restore, full-store sync, gzip, indices where kept). Held, not raised: the whole-table-filter + stripped-index + no-paging design is a hard scale ceiling. |
+| Performance & efficiency | 4.5 | 7.0 | **7.0** | Fine at today's data (≈544 tasks); jank sources fixed. Not raised: `estimateBias`-on-Main, N+1 subtree ops, and whole-table scans mean it degrades with data, not gracefully. |
+| UI reuse & consistency | 5.5 | 6.5 | **7.0** | X1 unified discard-confirm across the 5 divergent editors; U7 closed a theme-token gap. Editors remain 5 structures; some dialog/shape/hex token debt remains. |
+| Architecture & maintainability | 4.5 | 5.5 | **5.5** | No structural change this round. One 6.6k-line VM, 100% manual nav, unused nav lib. The injection + controller seams exist but are unspent. |
+| Cross-module consistency | 4.5 | 5.0 | **5.5** | X1 made *editor behaviour* consistent. Substrates unchanged: JSON Goals/Routines, 6 reminder shapes, 2 tag systems, partial trash. |
+| Security & privacy | 8.5 | 8.5 | **8.5** | Unchanged; already the strongest dimension. |
+| Testing | 5.0 | 5.5 | **5.5** | 520 tests, but 0 exercise the VM / DAO behaviour / navigation. Context-coupling still blocks plain-JVM VM tests. |
+| **Overall** | **≈5.1** | **≈6.5** | **≈6.6** | Contained wins closed a data-loss class and a theme gap. The ceiling to 9.5 is unmoved and is entirely the four workstreams below. |
+
+**The honest read:** the app is a solid, secure, feature-complete ~6.6 that *works and
+ships*. Every remaining point to 9.5 is gated by the same three facts Round 1 found —
+now re-confirmed with fresh numbers — and no amount of further contained polish moves them.
+Reaching 9.5 requires the four structural workstreams in §3.4, each of which is multi-day,
+high-blast-radius, and (for the parts that claim a *user-felt* win like scroll smoothness or
+reliability) genuinely needs on-device validation this environment can't provide.
+
+## 3.4 Pressure-tested forward plan
+
+Each workstream is stress-tested on five axes: **blast radius** (how much code moves),
+**failure mode** (what breaks if done wrong), **verify-without-device** (the proof available
+here), **device-gated** (what only real hardware confirms), and **rollback**. They are
+ordered so each unlocks the next and so the cheapest confidence comes first.
+
+### W0 — Lock behaviour before refactoring (prerequisite, ~2 days, low risk)
+*The single highest-leverage cheap move, and it is available today.*
+- **Do:** write Robolectric characterization tests that construct `AppViewModel` via the
+  existing `(app, repo)` ctor with a fake repo and assert the current outputs of the hottest
+  flows (`tasks`, `groups`, `outlineRows`, smart-list membership, `estimateBias`). Robolectric
+  already runs here (7 suites). This does **not** need Context injection — the repo seam is
+  enough for the read-model flows.
+- **Blast radius:** additive only (new test files). **Failure mode:** none for prod.
+- **Verify-without-device:** the tests themselves, green. **Rollback:** delete files.
+- **Why first:** it turns the god-VM's current behaviour into an executable spec, so W1's
+  decomposition can be proven equivalent instead of hoped equivalent. Also directly lifts
+  the Testing score.
+
+### W1 — Architecture: inject Context, then carve the first feature VM (~1 wk, high blast, medium risk)
+- **Do, in order:** (1) inject an `AppContext`/`Application` abstraction so `appCtx`'s 155
+  call-sites and the `AlarmManager`/`NotificationManager`/`SecurePrefs` touchpoints go
+  through injected collaborators; (2) stand up the **unused `androidx.navigation`** as a real
+  `NavHost` and migrate the ~21 overlay blocks + 73 `BackHandler`s onto routes incrementally
+  (start with the leaf overlays: Stats, Done, Attachments); (3) extract the ~2.5k-line
+  time-tracking slice into a `TimeTrackingViewModel` behind the existing
+  `TimeTrackingController` seam.
+- **Failure mode:** a missed `getApplication<App>()` or a route that drops saved state on
+  rotation. **Verify-without-device:** W0's characterization tests stay green through each
+  extraction; `assembleRelease` green; `rememberSaveable`/`SavedStateHandle` unit checks.
+- **Device-gated:** rotation/state-restoration across the new NavHost, back-stack feel.
+- **Rollback:** each overlay→route and each VM extraction is an independent commit; revert
+  one without the others.
+
+### W2 — Scale the data path *coherently* (SQL filters + indices + paging together) (~1 wk, medium blast, medium risk)
+- **The pressure-test:** do **not** just re-add indices — the queries don't use them. Move
+  the workspace/list/trashed/dueDate filters that live in `scopedBy`/`wsTasks` **into SQL
+  WHERE**, re-add the `MIGRATION_81_82`-dropped indices to match *those exact predicates*, and
+  add a `PagingSource` for the task and note lists. All three or none: SQL filters without
+  indices are slower, indices without SQL filters are dead weight (which is why they were
+  dropped).
+- **Blast radius:** DAO queries + the ~30 `scopedBy` consumers + list composables' item
+  source. **Failure mode:** a WHERE that changes smart-list membership; a paging boundary
+  that drops the last item. **Verify-without-device:** `RoomDaoTest` asserting each new WHERE
+  returns exactly what the old in-memory filter did (run old-path vs new-path on the same
+  fixture); `EXPLAIN QUERY PLAN` shows index use; MigrationTest covers the index adds.
+- **Device-gated:** the actual jank/scroll win at 5k+ items.
+- **Rollback:** feature-flag the paged source; keep the in-memory path until the DAO path is
+  proven equal.
+
+### W3 — Cross-module unification (~1–2 wk, medium blast, **data-migration risk**)
+- **Do (each independently shippable):** promote **Goals & Routines to Room** entities +
+  DAOs (retire the `goalsJson`/`routinesJson` blobs) with a v→v migration that parses the
+  existing JSON into rows; introduce **one `ScheduledReminder`** table the six shapes fold
+  into; extend the `TagEntity` M2M to time entries (retire the CSV); add trash to events /
+  occasions / goals / routines and rename notes' `deletedAt`→`trashedAt` for one convention;
+  begin decomposing the 215-field `AppSettings` into feature sub-objects.
+- **Failure mode:** the real risk in the whole plan — a migration that loses a goal, a
+  reminder that stops firing, a backup that no longer round-trips. **Verify-without-device:**
+  every promotion must move with its **backup contract and round-trip test** in the same
+  commit (the app already has `BackupRoundTripTest`/`RepositoryTest` patterns); instrumented
+  `MigrationTest` for each schema bump; assert JSON→Room parity on a fixture.
+- **Device-gated:** that promoted reminders actually alarm on a real device across reboot.
+- **Rollback:** each domain is a separate migration + commit; Room's exported schemas make a
+  down-path reviewable before shipping.
+
+### Sequencing & realistic ceiling
+`W0 → W1 → (W2 ‖ W3)`. W0 is days and pure upside. W1 is the keystone (it unlocks testable,
+splittable code and real navigation). W2 and W3 are independent of each other and can run in
+parallel once W1's seams are in.
+
+**Definition of done for 9.5:** Architecture ≥9 needs W1 (no single file >~1.5k lines,
+real nav, ≥1 feature VM extracted with tests) **and** W0 (VM behaviour under test).
+Scalability/Perf ≥9 needs W2 (SQL-filtered, indexed, paged lists proven equal to the old
+path). Cross-module ≥9 needs W3 (one persistence substrate, one reminder model, one tag
+model, universal trash). Testing ≥9 needs W0 + a DAO-behaviour + navigation-restoration
+suite. Security is already there. **None of these is startable-and-shippable blind in one
+pass without device validation for the user-felt parts** — which is exactly why this round
+stopped at the verified contained wins and is handing back a sequenced, de-risked plan
+rather than a half-finished refactor.
+
+---
+
 > ## Round 2 — Progress & Re-Audit (2026-09-20)
 >
 > Implementation began against this plan. Everything below is **built green
