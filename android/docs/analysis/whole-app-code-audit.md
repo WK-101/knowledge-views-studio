@@ -6,6 +6,52 @@ storage, performance, UI reuse and cross-module consistency, with a phased plan 
 
 ---
 
+# Round 4 — Executing the Pressure-Tested Plan (W0–W3) (2026-09-20)
+
+The forward plan from Round 3 was executed in validated increments. Everything below is
+**built green** (`assembleRelease`, 0 forbidden permissions verified by `aapt2`), covered by
+**passing JVM/Robolectric unit tests**, committed and pushed. Where a step's *user-felt* win
+(scroll smoothness, alarm reliability, rotation/back-stack) or a data-carrying migration can
+only be proven on real hardware, that part is called out as **device-gated** rather than
+shipped blind — the honest reading of "meticulous rigor" under a no-device constraint.
+
+### Shipped this round
+| Step | What landed | Status | Evidence |
+|---|---|:---:|---|
+| **W0** | First-ever `AppViewModel` tests | ✅ Done | `AppViewModelCharacterizationTest` (3): VM constructs under the injected repo (executable proof the A2 seam works), workspace scoping of the task list, R64 inbox-ownership. Locks the read-models a decomposition is most likely to break. |
+| **W1** | Extracted-seam tests | ✅ Done | `TimeTrackingControllerTest` (6): start/stop/pause/resume, pin, reassign, delete-clears-paused. The R84/R88 controllers were extracted but untested; now the pattern is a **proven** seam. |
+| **W2** | Coherent data-path reversal (notes) | ✅ Done | `NoteDao.observeByWorkspace(ws, trashed)` + covering index `(workspaceId, trashed)` + `MIGRATION_83_84` (v84); VM `notes`/`trashedNotes` routed to SQL via `flatMapLatest`. `NoteScopeQueryTest` (2) proves `SQL == old in-memory filter` for every workspace×trashed and that the index exists. `84.json` exported. |
+| **W3** | One reminder MODEL | ✅ Done | `domain/reminders/UnifiedReminder.kt` normalizes all six shapes (task/habit/event/note/routine/occasion) into one type; VM `allReminders` aggregates them. `UnifiedReminderTest` (8) pins every normalizer. |
+
+**Test pyramid:** the VM went from **0 → 3** tests, the decomposition controllers from **0 → 6**,
+the data layer gained **2** DAO-parity tests and **8** reminder-model tests — **19 new tests**,
+all green alongside the pre-existing suite (RepositoryTest 11, BackupRoundTrip 2 re-run clean).
+
+### Explicitly device-gated (not shipped blind)
+- **W1 NavHost swap** (21 overlays + 73 `BackHandler`s → routes) — rotation/state-restoration and
+  back-stack feel can't be validated without a device; `androidx.navigation` stays on the classpath
+  as the intended host. The verifiable half (controller extraction under test) is done.
+- **W2 full adoption + paging** — the `tasks` inbox-rule filter and a `PagingSource` for 5k+ rows
+  need on-device jank measurement; notes proves the pattern end-to-end and the instrumented
+  `MigrationTest` (which replays `84.json`) is the migration's final on-device gate.
+- **W3 storage unification** — folding the six reminder shapes into one **table** is a data-carrying
+  migration whose safety net is the instrumented `MigrationTest`; the MODEL (normalizers + aggregate)
+  is unified and tested now, the storage is the device-gated next step.
+
+### Scorecard delta (R3 → R4)
+| Dimension | R3 | **R4** | Why |
+|---|:---:|:---:|---|
+| Architecture & maintainability | 5.5 | **6.0** | VM + controllers now under test; injection/controller seams are *proven*, not just present. |
+| Testing | 5.5 | **6.5** | 19 new tests reach the VM, the DAO behaviour, and the reminder model — the layers the 520 pure tests never touched. |
+| Data storage & integrity | 7.0 | **7.0** | index-backed SQL notes path proven equal to the old filter (correctness held; the scale win is device-gated). |
+| Cross-module consistency | 5.5 | **6.0** | one reminder MODEL over six shapes (storage still divergent, device-gated). |
+| Performance, UI, Security | 7.0 / 7.0 / 8.5 | **7.0 / 7.0 / 8.5** | unchanged this round. |
+| **Overall** | **≈6.6** | **≈6.9** | the plan's cheap, high-integrity half is banked; the remaining lift to 9.5 is the device-gated structural work (nav host, paging, storage unification, full VM split). |
+
+_The Round 3 re-audit and pressure-tested plan follow unchanged below._
+
+---
+
 # Round 3 — Deep Re-Audit on the Revised Code + Pressure-Tested Forward Plan (2026-09-20)
 
 **Method.** This round does not re-read from memory. Three independent read-only
