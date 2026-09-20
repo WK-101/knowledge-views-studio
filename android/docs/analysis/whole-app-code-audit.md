@@ -6,6 +6,51 @@ storage, performance, UI reuse and cross-module consistency, with a phased plan 
 
 ---
 
+# Round 5 — Retiring the Second Persistence Substrate (device-verified) (2026-09-20)
+
+Round 4 banked the *model* half of the plan and flagged the *storage* half as device-gated.
+Round 5 closes that gate. Each data-carrying step shipped as a **staged Room promotion**
+(Increment 1 = additive: create the table + migration that copies the parsed settings-JSON
+into rows while the app still reads/writes JSON, so behaviour is unchanged and the copy can be
+*proven exact on real data* before anything flips; Increment 2 = flip the runtime read/write
+path onto the table, keeping the settings-JSON only as a backward-compatible **backup
+transport** plus a one-time startup reconciliation safety net). Every increment was verified on
+the user's own device through an in-app copyable diagnostics dialog (no adb), then the next
+increment shipped. With all flips confirmed, the temporary diagnostics were removed.
+
+### Shipped this round
+| Step | What landed | Status | Evidence |
+|---|---|:---:|---|
+| **W2b** | Core task list → index-backed SQL | ✅ Done | `TaskDao.observeWorkspaceScoped(ws, inboxId)` replaces the in-memory workspace filter; VM `wsTasks` routed via `flatMapLatest`. The query mirrors the old inbox-ownership if/else exactly. `TaskScopeQueryTest` proves `SQL == old filter` **and** an Inbox-trap case (an Inbox task captured in a non-default workspace must not leak into `default`). Device log: `[tasks] SQL workspace tasks = 56` matched the on-screen count. |
+| **W3 Goals → Room** | Goals & reviews out of settings-JSON | ✅ Done | `GoalEntity`/`GoalReviewEntity` (+ `@Index(workspaceId)` / `@Index(goalId)`), `GoalDao`, `MIGRATION_85_86` (v86) copies parsed goals/reviews into rows; Increment 2 flips VM `goals()`/`goalReviews()` and every write onto the DAO. Nested `milestones`/`keyResults` ride as JSON columns via lossless entity↔domain mappers. `GoalRoomParityTest` pins mappers/DAO/workspace-isolation/indices. Device log confirmed the flip: `[goals] table goals=1 (live source) · legacy JSON goals=0`. `86.json` exported. |
+| **W3 Routines → Room** | Routines & runs out of settings-JSON | ✅ Done | `RoutineEntity`/`RoutineRunEntity` (rowId autoGen, `@Index` on `workspaceId`/`routineId`), `RoutineDao` (with `trimRunsTo(keep)` matching the 400-run backup cap), `MIGRATION_86_87` (v87); Increment 2 flips VM `routines()`/`routineRuns()`, the write paths, the `AlarmScheduler`/`Receivers` reminder reads, and repoints `allReminders` at `repo.observeRoutines()`. `RoutineRoomParityTest` pins mappers (incl. nested `steps`/`days`), cadence, DAO, indices. Device log confirmed: `[routines] table routines=2 runs=2 (live source) · legacy JSON routines=1`. `87.json` exported. |
+| **Backup stays lossless** | Transport ⇄ table | ✅ Done | `exportableSettings()` regenerates the goals/reviews/routines/runs k/v from the live tables at export; `importJsonReplace()` clears + repopulates the tables from the imported transport inside one `withTransaction`; folder-sync `applyMerged()` keeps its device-local replace-only semantics. `BackupRoundTripTest` seeds goals **and** routines in the tables and asserts they round-trip back into the destination **table** (not just the JSON). |
+| **Cleanup** | TEMP-DIAG scaffolding removed | ✅ Done | Once all flips were confirmed, the in-app `DiagDialog`, the startup diagnostic block, the four migration `Diag.log` lines and `util/Diag.kt` were deleted (166-line net removal). The permanent `reconcile*FromLegacyJson` startup safety nets and the `last_crash.txt` capture were kept. Release rebuilt green, 0 forbidden permissions. |
+
+**What this closes:** Round 4 named *"per-domain pattern divergence"* and a *"second persistence
+substrate"* (Goals + Routines living in `AppSettings` JSON blobs, invisible to Room's schema,
+migrations, indices and transactions) as a top structural fact. That substrate is now **fully
+retired** — every domain persists through Room, under one migration discipline, with real indices
+and transactional backup. This is Phase 4 item #18 ("Promote Goals & Routines to Room entities")
+shipped and verified, plus the task-list half of #21 (push list filters into SQL).
+
+**Test pyramid:** +3 parity suites (`TaskScopeQueryTest`, `GoalRoomParityTest`,
+`RoutineRoomParityTest`) and an extended `BackupRoundTripTest`, all green alongside the R4 suite.
+
+### Scorecard delta (R4 → R5)
+| Dimension | R4 | **R5** | Why |
+|---|:---:|:---:|---|
+| Data storage & integrity | 7.0 | **8.0** | Goals & Routines now in Room with indices, real migrations and transactional backup; the task list is index-backed SQL — the "second substrate" is gone. All proven on-device. |
+| Cross-module consistency | 6.0 | **7.0** | every domain persists the same way (Room + DAO Flows); the reminder read path is unified onto `repo.observeRoutines()` end-to-end, not just the model. |
+| Testing | 6.5 | **7.0** | 3 new DAO/parity suites reach the exact behaviours a JSON→table flip is most likely to break (workspace isolation, inbox-trap, nested sub-lists, backup round-trip through the table). |
+| Architecture & maintainability | 6.0 | **6.0** | unchanged — the god-VM split + NavHost (Phase 3) is the remaining structural lever and is genuinely device-gated (interactive rotation/back-stack), not skippable by log. |
+| Performance, UI, Security | 7.0 / 7.0 / 8.5 | **7.0 / 7.0 / 8.5** | unchanged this round (task-list SQL scale win is correctness-proven; felt-jank at 5k+ rows still wants on-device measurement + a `PagingSource`). |
+| **Overall** | **≈6.9** | **≈7.3** | the device-gated storage half of the plan is now banked and verified. The remaining lift to 9.5 is Phase 3: constructor-inject the repo (#12, gates the rest), carve the ~6.6k-line `AppViewModel` into per-feature VMs, and swap the flag/overlay navigation for a real NavHost — the one large lever the startup-log loop cannot verify. |
+
+_The Round 4 execution log and the Round 3 re-audit + pressure-tested plan follow unchanged below._
+
+---
+
 # Round 4 — Executing the Pressure-Tested Plan (W0–W3) (2026-09-20)
 
 The forward plan from Round 3 was executed in validated increments. Everything below is
