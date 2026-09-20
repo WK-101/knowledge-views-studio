@@ -57,7 +57,7 @@ import kotlin.math.roundToInt
 fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
     BackHandler { onBack() }
     val tasks by vm.tasks.collectAsState()
-    val timeEntries by vm.timeEntries.collectAsState()
+    val timeEntries by vm.timeVm.timeEntries.collectAsState()
     val legacyFocus by vm.focusSessions.collectAsState()
     // Focus stats derive from the one timeline (kind="focus" intervals), matching the Time reports.
     val focus = remember(timeEntries, legacyFocus) { vm.focusViews() }

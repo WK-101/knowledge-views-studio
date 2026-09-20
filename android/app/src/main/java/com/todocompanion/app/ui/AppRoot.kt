@@ -215,9 +215,9 @@ private fun CompactBottomBar(
  *  the single global timer surface (the Time screen no longer duplicates it with an in-screen card). */
 @Composable
 private fun RunningTimerBar(vm: AppViewModel, onOpen: () -> Unit) {
-    val entries by vm.timeEntries.collectAsState()
-    val activities by vm.timeActivities.collectAsState()
-    val paused by vm.pausedTrack.collectAsState()
+    val entries by vm.timeVm.timeEntries.collectAsState()
+    val activities by vm.timeVm.timeActivities.collectAsState()
+    val paused by vm.timeVm.pausedTrack.collectAsState()
     // Show EVERY running timer, not just the first — when overlapping timers are enabled each gets its
     // own row with its own live clock and stop button, so several parallel activities are all visible.
     val running = entries.filter { it.running }
@@ -242,15 +242,15 @@ private fun RunningTimerBar(vm: AppViewModel, onOpen: () -> Unit) {
                         }
                         DropdownMenu(expanded = reassignFor == r.id, onDismissRequest = { reassignFor = null }) {
                             activities.filter { !it.archived }.forEach { a ->
-                                DropdownMenuItem(text = { Text((a.emoji?.plus(" ") ?: "") + a.name) }, onClick = { reassignFor = null; vm.reassignTimeEntry(r.id, a.id) })
+                                DropdownMenuItem(text = { Text((a.emoji?.plus(" ") ?: "") + a.name) }, onClick = { reassignFor = null; vm.timeVm.reassignTimeEntry(r.id, a.id) })
                             }
                         }
                     }
                     Text("%d:%02d:%02d".format(secs / 3600, (secs % 3600) / 60, secs % 60), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = c)
                     // Pause is only unambiguous with a single running timer; with several overlapping,
                     // just offer stop per row.
-                    if (running.size == 1) IconButton(onClick = { vm.pauseTracking() }) { Icon(Icons.Filled.Pause, "Pause", tint = c) }
-                    IconButton(onClick = { vm.stopTimeEntry(r.id) }) { Icon(Icons.Filled.Stop, "Stop ${act?.name ?: "timer"}", tint = c) }
+                    if (running.size == 1) IconButton(onClick = { vm.timeVm.pauseTracking() }) { Icon(Icons.Filled.Pause, "Pause", tint = c) }
+                    IconButton(onClick = { vm.timeVm.stopTimeEntry(r.id) }) { Icon(Icons.Filled.Stop, "Stop ${act?.name ?: "timer"}", tint = c) }
                 }
             }
             if (i < running.lastIndex) androidx.compose.material3.HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
@@ -264,8 +264,8 @@ private fun RunningTimerBar(vm: AppViewModel, onOpen: () -> Unit) {
                 Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.Pause, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(8.dp))
                     Text("Paused · " + (pAct?.emoji?.plus(" ") ?: "") + (pAct?.name ?: "activity"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1)
-                    IconButton(onClick = { vm.clearPaused() }) { Icon(Icons.Filled.Close, "Dismiss", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    IconButton(onClick = { vm.resumeTracking() }) { Icon(Icons.Filled.PlayArrow, "Resume", tint = c) }
+                    IconButton(onClick = { vm.timeVm.clearPaused() }) { Icon(Icons.Filled.Close, "Dismiss", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    IconButton(onClick = { vm.timeVm.resumeTracking() }) { Icon(Icons.Filled.PlayArrow, "Resume", tint = c) }
                 }
             }
         }
@@ -572,7 +572,7 @@ fun AppRoot(
         // U2: (re)schedule today's timebox → track prompts whenever the toggle is on.
         LaunchedEffect(settings.autoTrackPrompt) { vm.rescheduleTrackPrompts() }
         // U13: keep the per-activity launcher shortcuts fresh.
-        LaunchedEffect(Unit) { vm.refreshTrackShortcuts() }
+        LaunchedEffect(Unit) { vm.timeVm.refreshTrackShortcuts() }
         // Account-free folder sync: reconcile once on launch when a sync folder is configured.
         LaunchedEffect(settings.syncEnabled, settings.syncFolder) {
             if (settings.syncEnabled && settings.syncFolder.isNotBlank()) vm.runSyncNow { _, _ -> }
@@ -629,11 +629,11 @@ fun AppRoot(
                 a == "open_journal" -> { periodicHub = com.todocompanion.app.domain.PeriodRange.DAY to java.time.LocalDate.now().toEpochDay(); launchAction.value = null }
                 a != null && a.startsWith(com.todocompanion.app.MainActivity.ACTION_TRACK_ACTIVITY) -> {
                     val id = a.removePrefix(com.todocompanion.app.MainActivity.ACTION_TRACK_ACTIVITY)
-                    vm.startTimeTracking(id); showTimeTracking = true; launchAction.value = null
+                    vm.timeVm.startTimeTracking(id); showTimeTracking = true; launchAction.value = null
                 }
                 a != null && a.startsWith(com.todocompanion.app.MainActivity.ACTION_TRACK_NAME) -> {
                     val nm = a.removePrefix(com.todocompanion.app.MainActivity.ACTION_TRACK_NAME)
-                    vm.startTimeTrackingByName(nm); showTimeTracking = true; launchAction.value = null
+                    vm.timeVm.startTimeTrackingByName(nm); showTimeTracking = true; launchAction.value = null
                 }
                 a != null && a.startsWith(com.todocompanion.app.MainActivity.ACTION_RUN_ROUTINE) -> {
                     val nm = a.removePrefix(com.todocompanion.app.MainActivity.ACTION_RUN_ROUTINE)
@@ -1231,7 +1231,7 @@ fun AppRoot(
             val td = now.toEpochDay()
             when (cmd) {
                 is OmegaCommand.Command.Track -> {
-                    vm.startTimeTrackingByName(cmd.activity)
+                    vm.timeVm.startTimeTrackingByName(cmd.activity)
                     if (Modules.isEnabled(settings, Modules.TIME)) tab = Tab.TIME
                     android.widget.Toast.makeText(context, "Tracking ${cmd.activity}", android.widget.Toast.LENGTH_SHORT).show()
                 }
@@ -1247,7 +1247,7 @@ fun AppRoot(
                     OmegaCommand.Action.RECAP_LAST_MONTH -> { val fm = now.withDayOfMonth(1).minusMonths(1); recapRange = Triple(fm.toEpochDay(), fm.plusMonths(1).minusDays(1).toEpochDay(), "Last month") }
                     OmegaCommand.Action.NEW_NOTE -> vm.createNote { id -> editingNote = id }
                     OmegaCommand.Action.NEW_TASK -> showQuickAdd = true
-                    OmegaCommand.Action.STOP_TIMER -> { vm.stopTimeTracking(); android.widget.Toast.makeText(context, "Timer stopped", android.widget.Toast.LENGTH_SHORT).show() }
+                    OmegaCommand.Action.STOP_TIMER -> { vm.timeVm.stopTimeTracking(); android.widget.Toast.makeText(context, "Timer stopped", android.widget.Toast.LENGTH_SHORT).show() }
                 }
                 is OmegaCommand.Command.Goto -> {
                     val t = cmd.target.trim()
@@ -1606,7 +1606,7 @@ fun AppRoot(
                         }
                         // Time-block a tracking activity right here (R19 #1): logs a 30-min entry at this
                         // slot for the chosen activity (drag/edit it afterwards). Time module only.
-                        val timeActs by vm.timeActivities.collectAsState()
+                        val timeActs by vm.timeVm.timeActivities.collectAsState()
                         val blockActs = if (Modules.isEnabled(settings, Modules.TIME)) timeActs.filter { !it.archived } else emptyList()
                         if (blockActs.isNotEmpty()) {
                             androidx.compose.material3.HorizontalDivider()

@@ -82,7 +82,7 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit, onOpenGoals: () -> Unit
     val tasks by vm.tasks.collectAsState()
     val reliability by vm.taskReliability.collectAsState()
     val settings by vm.settings.collectAsState()
-    val timeEntries by vm.timeEntries.collectAsState()
+    val timeEntries by vm.timeVm.timeEntries.collectAsState()
     val legacyFocus by vm.focusSessions.collectAsState()
     // Track 1.1 — the felt state over the trailing week, for the "How your week felt" readout and the
     // burnout card's felt line. Reads day logs the same way the Day Review does.

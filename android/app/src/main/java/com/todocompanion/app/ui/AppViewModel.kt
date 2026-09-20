@@ -178,6 +178,13 @@ class AppViewModel internal constructor(
      *  per-workspace feature flow funnels through this, so isolation is uniform and auditable. */
     private fun <T> Flow<List<T>>.scopedBy(wsOf: (T) -> String): StateFlow<List<T>> =
         combine(this, activeWs) { list, w -> list.filter { wsOf(it) == w } }.state(emptyList())
+
+    // Phase 3, Stage 3 — the time-tracking surface lives in TimeTrackingViewModel now: it owns the
+    // workspace-scoped time flows + the single controller's actions. Declared here (early, non-lazy) so this
+    // VM's own capacity/recap/coach logic reads the flows through `timeVm` without a forward reference, and
+    // every screen reaches the whole time surface through this one object.
+    val timeVm = TimeTrackingViewModel(this, viewModelScope, repo, timeCtl)
+
     // W2 (scale) — the active-workspace task set now comes from SQL (TaskDao.observeWorkspaceScoped, backed
     // by the restored workspaceId/folderId indices), re-subscribing when the workspace changes, instead of
     // loading the whole tasks table and filtering here. The SQL mirrors the old rule exactly — proven by
@@ -738,14 +745,14 @@ class AppViewModel internal constructor(
                     val nowMs = System.currentTimeMillis()
                     val days = when { "month" in flags -> 30L; "week" in flags -> 7L; else -> 1L }
                     val windowStart = todayStart - (days - 1) * 86_400_000L
-                    var entries = timeEntries.value.asSequence().filter { it.startMillis >= windowStart }
-                    kv["activity"]?.let { name -> val id = timeActivities.value.firstOrNull { it.name.equals(name, true) }?.id; entries = entries.filter { it.activityId == id } }
+                    var entries = timeVm.timeEntries.value.asSequence().filter { it.startMillis >= windowStart }
+                    kv["activity"]?.let { name -> val id = timeVm.timeActivities.value.firstOrNull { it.name.equals(name, true) }?.id; entries = entries.filter { it.activityId == id } }
                     val es = entries.toList()
                     val total = es.sumOf { it.minutes(nowMs) }
                     if (total <= 0) "_No time tracked_" else buildString {
                         val range = when { days == 30L -> "last 30 days"; days == 7L -> "last 7 days"; else -> "today" }
                         append("**${total / 60}h ${total % 60}m** tracked ($range)\n")
-                        val actName = timeActivities.value.associate { it.id to it.name }
+                        val actName = timeVm.timeActivities.value.associate { it.id to it.name }
                         es.groupBy { it.activityId }.mapValues { it.value.sumOf { e -> e.minutes(nowMs) } }
                             .entries.sortedByDescending { it.value }.take(6)
                             .forEach { (aid, min) -> append("- ${actName[aid] ?: "Untracked"}: ${min / 60}h ${min % 60}m\n") }
@@ -1602,7 +1609,7 @@ class AppViewModel internal constructor(
     // R78 — the pure computations now live in domain/LifeReadModels (independently unit-tested); these
     // accessors just pass in the current `.value` snapshots, so behaviour is unchanged.
     fun trackedHoursThisYear(today: java.time.LocalDate = java.time.LocalDate.now(zone)): Int =
-        com.todocompanion.app.domain.LifeReadModels.trackedHoursThisYear(timeEntries.value, today, zone)
+        com.todocompanion.app.domain.LifeReadModels.trackedHoursThisYear(timeVm.timeEntries.value, today, zone)
 
     fun weekDigest(today: java.time.LocalDate = java.time.LocalDate.now(zone)): com.todocompanion.app.domain.LifeReadModels.WeekDigest =
         com.todocompanion.app.domain.LifeReadModels.weekDigest(countdowns.value, allTasksLive.value, habits.value, today, zone)
@@ -1667,8 +1674,7 @@ class AppViewModel internal constructor(
         }
     }.state(null)
     // Tier S: time tracking.
-    val timeActivities = repo.allTimeActivities.scopedBy { it.workspaceId }
-    val timeEntries = repo.allTimeEntries.scopedBy { it.workspaceId }
+    // (time flows moved to TimeTrackingViewModel — read them via `timeVm.timeActivities` / `timeVm.timeEntries`)
     val taskTags = repo.taskTagRefs.state(emptyList())
     val taskContexts = repo.taskContextRefs.state(emptyList())
     val checklist = repo.allChecklist.state(emptyList())
@@ -2976,7 +2982,7 @@ class AppViewModel internal constructor(
         val questions = com.todocompanion.app.domain.DailyQuestions.parseQuestions(settings.value.dailyQuestionsJson)
         val rollup = com.todocompanion.app.domain.ReviewRollup.compute(
             startDay, endDay, dayLogs.value, questions, habits.value, habitCheckins.value,
-            timeEntries.value, timeActivities.value, zone, now, goals(), tasks.value, focusSessions.value)
+            timeVm.timeEntries.value, timeVm.timeActivities.value, zone, now, goals(), tasks.value, focusSessions.value)
         val exec = com.todocompanion.app.domain.ExecutionScore.fromRollup(rollup, tasks.value, zone)
         return periodDataFromRollup(label, rollup, exec, shareThemesFor(startDay, endDay), settings.value.accentArgb.takeIf { it != 0L })
     }
@@ -3091,7 +3097,7 @@ class AppViewModel internal constructor(
         val today = java.time.LocalDate.now(zone).toEpochDay()
         val now = System.currentTimeMillis()
         val timeOn = com.todocompanion.app.domain.Modules.isEnabled(settings.value, com.todocompanion.app.domain.Modules.TIME)
-        val te = if (timeOn) timeEntries.value else emptyList()
+        val te = if (timeOn) timeVm.timeEntries.value else emptyList()
         val RR = com.todocompanion.app.domain.ReviewRollup
         val cur = RR.compute(
             today - 6, today, emptyList(), emptyList(), habits.value, habitCheckins.value, te, emptyList(),
@@ -3137,54 +3143,25 @@ class AppViewModel internal constructor(
     }
 
     // ---------- Tier S: time tracking ----------
+    // The live timer + activity actions and the scoped flows now live in TimeTrackingViewModel (declared
+    // above as `timeVm`). Only helpers that touch broader VM state remain here (below); screens reach the
+    // whole surface through `timeVm`, which forwards those helpers back to this VM.
     private fun refreshTimeWidget() = com.todocompanion.app.widget.TimeWidget.refresh(appCtx)
-    /** Paused-timer memory (Triple<activityId, taskId?, habitId?>) — owned by the controller. */
-    val pausedTrack: StateFlow<Triple<String, String?, String?>?> get() = timeCtl.pausedTrack
 
-    /** Phase 3, Stage 1 — the dedicated Time screens' handle onto this VM's single time controller + scoped
-     *  flows (see TimeTrackingViewModel). Lazy so it never affects construction; it's a pure forwarding seam. */
-    val timeVm by lazy { TimeTrackingViewModel(this) }
-
-    fun createTimeActivity(name: String, emoji: String?, colorArgb: Long?, goalMinutesPerDay: Int = 0) =
-        viewModelScope.launch { timeCtl.createTimeActivity(name, emoji, colorArgb, goalMinutesPerDay) }
-    /** U13: start tracking by activity name (from an NFC/QR deep link), creating it if unknown. */
-    fun startTimeTrackingByName(name: String) = viewModelScope.launch { timeCtl.startTimeTrackingByName(name) }
-    /** Pin/unpin a time activity so it floats to the front of the one-tap tile grid. */
-    fun toggleActivityPin(id: String) = viewModelScope.launch { timeCtl.toggleActivityPin(id) }
-    /** Reassign the running (or any) time entry to a different activity — "start first, pick later". */
-    fun reassignTimeEntry(entryId: String, activityId: String) = viewModelScope.launch { timeCtl.reassignTimeEntry(entryId, activityId) }
-    /** U13: publish a launcher shortcut per activity ("Track: Deep work") that fires the track deep link. */
-    fun refreshTrackShortcuts() = viewModelScope.launch { timeCtl.refreshTrackShortcuts() }
-    fun updateTimeActivity(a: com.todocompanion.app.data.entity.TimeActivityEntity) = viewModelScope.launch { timeCtl.updateTimeActivity(a) }
-    fun deleteTimeActivity(id: String) = viewModelScope.launch { timeCtl.deleteTimeActivity(id) }
-    fun archiveTimeActivity(id: String) = viewModelScope.launch { timeCtl.archiveTimeActivity(id) }
-    /** Nested activities: set (or clear, with null) an activity's parent; rejects cycles (A→B→A). */
-    fun setActivityParent(childId: String, parentId: String?) = viewModelScope.launch { timeCtl.setActivityParent(childId, parentId) }
-    /** Start (or switch) tracking. U15: with multi-timer on, the running timer isn't stopped first. */
-    fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null) =
-        viewModelScope.launch { timeCtl.startTimeTracking(activityId, taskId, habitId) }
-    fun stopTimeTracking() = viewModelScope.launch { timeCtl.stopTimeTracking() }
     /**
      * One-tap "start now, decide later" — starts the clock against the most sensible activity
      * (last-used, else a pinned one, else the first). Returns false only when there is no activity at
      * all, so the caller can open the new-activity dialog.
      */
     fun startTimeTrackingSmart(): Boolean {
-        val acts = timeActivities.value.filter { !it.archived }
+        val acts = timeVm.timeActivities.value.filter { !it.archived }
         if (acts.isEmpty()) return false
-        val lastUsed = timeEntries.value.maxByOrNull { it.startMillis }?.activityId?.let { id -> acts.firstOrNull { it.id == id } }
+        val lastUsed = timeVm.timeEntries.value.maxByOrNull { it.startMillis }?.activityId?.let { id -> acts.firstOrNull { it.id == id } }
         val pinned = acts.firstOrNull { it.id in settings.value.pinnedActivities }
         val pick = lastUsed ?: pinned ?: acts.first()
-        startTimeTracking(pick.id)
+        timeVm.startTimeTracking(pick.id)
         return true
     }
-    /** U15: stop one specific running timer (when several overlap). */
-    fun stopTimeEntry(id: String) = viewModelScope.launch { timeCtl.stopTimeEntry(id) }
-
-    // ── U3 · pause / resume (finalize + remember, so Resume restarts the same activity) ──────────
-    fun pauseTracking() = viewModelScope.launch { timeCtl.pauseTracking() }
-    fun resumeTracking() = viewModelScope.launch { timeCtl.resumeTracking() }
-    fun clearPaused() = timeCtl.clearPaused()
 
     // ── U12 · automation rules ──────────────────────────────────────────────────────────────────
     fun automationRules(): List<com.todocompanion.app.domain.AutomationRule> =
@@ -3201,7 +3178,7 @@ class AppViewModel internal constructor(
     // ── U1 · untracked planned blocks + one-tap fill ────────────────────────────────────────────
     fun untrackedTodayBlocks(): List<com.todocompanion.app.domain.TimeInsights.PlannedBlock> =
         com.todocompanion.app.domain.TimeReports.untrackedTodayBlocks(
-            tasks.value, timeEntries.value, zone, System.currentTimeMillis())
+            tasks.value, timeVm.timeEntries.value, zone, System.currentTimeMillis())
     /** U1: backfill a planned block's time interval against its task, in one tap. */
     fun fillTrackedBlock(block: com.todocompanion.app.domain.TimeInsights.PlannedBlock) = viewModelScope.launch {
         val zone = this@AppViewModel.zone
@@ -3210,7 +3187,7 @@ class AppViewModel internal constructor(
         val end = (start + block.durMin * 60_000L).coerceAtMost(System.currentTimeMillis())
         if (end <= start) return@launch
         val task = repo.getTask(block.taskId)
-        val actId = task?.defaultActivityId?.takeIf { id -> timeActivities.value.any { it.id == id && !it.archived } }
+        val actId = task?.defaultActivityId?.takeIf { id -> timeVm.timeActivities.value.any { it.id == id && !it.archived } }
             ?: repo.ensureTaskActivity()
         repo.addManualTimeEntry(actId, start, end, note = "", taskId = block.taskId)
         refreshTimeWidget()
@@ -3219,18 +3196,18 @@ class AppViewModel internal constructor(
     // ── U6 · plan vs actual (this week) + calibration ───────────────────────────────────────────
     fun planVsActualWeek(): com.todocompanion.app.domain.TimeInsights.PlanActual =
         com.todocompanion.app.domain.TimeReports.planVsActualWeek(
-            tasks.value, timeEntries.value, zone, System.currentTimeMillis())
+            tasks.value, timeVm.timeEntries.value, zone, System.currentTimeMillis())
 
     // ── U7 · cross-type correlation ("what moves your momentum") ────────────────────────────────
     fun momentumLinks(windowDays: Int = 60): List<String> =
         com.todocompanion.app.domain.TimeReports.momentumLinks(
-            habits.value, habitCheckins.value, timeActivities.value, timeEntries.value,
+            habits.value, habitCheckins.value, timeVm.timeActivities.value, timeVm.timeEntries.value,
             zone, windowDays)
 
     // ── V6 · cross-type tag report — hours + tasks + habit-days grouped by one tag ──────────────
     fun crossTypeTagReport(windowDays: Int = 7): List<com.todocompanion.app.domain.TimeReports.TagLine> =
         com.todocompanion.app.domain.TimeReports.crossTypeTagReport(
-            tasks.value, timeEntries.value, habits.value, habitCheckins.value, tags.value, taskTags.value,
+            tasks.value, timeVm.timeEntries.value, habits.value, habitCheckins.value, tags.value, taskTags.value,
             zone, System.currentTimeMillis(), windowDays)
 
     // ── V12 · rewards store ─────────────────────────────────────────────────────────────────────
@@ -3260,7 +3237,7 @@ class AppViewModel internal constructor(
         val bareActivity = tok.activity != null && tok.text.isBlank()
         if ((verb != null || bareActivity) && com.todocompanion.app.domain.Modules.isEnabled(settings.value, com.todocompanion.app.domain.Modules.TIME)) {
             val actName = (tok.activity ?: verb!!.groupValues[1]).trim().removePrefix("@")
-            if (actName.isNotBlank()) { startTimeTrackingByName(actName); onDone("timer"); return }
+            if (actName.isNotBlank()) { timeVm.startTimeTrackingByName(actName); onDone("timer"); return }
         }
         smartCapture(raw) { k -> onDone(if (k == com.todocompanion.app.domain.nlp.SmartCapture.Kind.HABIT) "habit" else "task") }
     }
@@ -3302,7 +3279,7 @@ class AppViewModel internal constructor(
     // ── W4 · Balance — where the week actually went, by life area (cross-type tags) ───────────────
     fun balanceBreakdown(windowDays: Int = 7): List<com.todocompanion.app.domain.TimeReports.BalanceSlice> =
         com.todocompanion.app.domain.TimeReports.balanceBreakdown(
-            tasks.value, timeEntries.value, habits.value, habitCheckins.value, tags.value, taskTags.value,
+            tasks.value, timeVm.timeEntries.value, habits.value, habitCheckins.value, tags.value, taskTags.value,
             zone, System.currentTimeMillis(), windowDays)
 
     // ── W7 · Self-writing weekly review ─────────────────────────────────────────────────────────
@@ -3312,7 +3289,7 @@ class AppViewModel internal constructor(
         val today = java.time.LocalDate.now(zone)
         val weekStart = today.minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
         val startDay = today.minusDays(6).toEpochDay(); val endDay = today.toEpochDay()
-        val tracked = com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries.value, weekStart, now + 1, now)
+        val tracked = com.todocompanion.app.domain.TimeTracking.totalMinutes(timeVm.timeEntries.value, weekStart, now + 1, now)
         val tasksDone = tasks.value.count { t -> t.completedAt?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() in startDay..endDay } == true }
         val habitByIdWk = habits.value.associateBy { it.id }
         val habitDays = habitCheckins.value.count { c -> c.epochDay in startDay..endDay && habitByIdWk[c.habitId]?.let { com.todocompanion.app.domain.habit.HabitStats.isSuccessDay(it, c) } == true }
@@ -3367,13 +3344,13 @@ class AppViewModel internal constructor(
             repo.saveSettings(settings.value.copy(activeRoutineRunJson = ""))
     }
     fun runRoutine(r: com.todocompanion.app.domain.Routine) = viewModelScope.launch {
-        if (r.activityId.isNotBlank() && timeActivities.value.any { it.id == r.activityId && !it.archived }) {
+        if (r.activityId.isNotBlank() && timeVm.timeActivities.value.any { it.id == r.activityId && !it.archived }) {
             repo.startTimeTracking(r.activityId, stopFirst = !settings.value.multiTimer)
             com.todocompanion.app.reminders.AutomationRunner.onStart(appCtx, repo, r.activityId)
             // SEC (R2-B/M4) — only emit the activity name to another app when the automation API is on, and
             // only to the user's pinned package (blank target = no outgoing event).
             if (settings.value.automationApi)
-                com.todocompanion.app.reminders.TimeIntentApi.broadcastStarted(appCtx, timeActivities.value.firstOrNull { it.id == r.activityId }?.name ?: "", settings.value.automationTargetPackage)
+                com.todocompanion.app.reminders.TimeIntentApi.broadcastStarted(appCtx, timeVm.timeActivities.value.firstOrNull { it.id == r.activityId }?.name ?: "", settings.value.automationTargetPackage)
             refreshTimeWidget()
         }
         toast("Routine “${r.name}” started")
@@ -3521,7 +3498,7 @@ class AppViewModel internal constructor(
             strength = strengthOf(h)   // Z8: honours the graded-strength opt-in
         }
         var mins = 0
-        if (g.hasBudget) mins = timeEntries.value.filter { it.activityId == g.activityId }.sumOf { it.minutes(now) }
+        if (g.hasBudget) mins = timeVm.timeEntries.value.filter { it.activityId == g.activityId }.sumOf { it.minutes(now) }
         val fracs = ArrayList<Double>()
         if (g.hasTasks && tTotal > 0) fracs += tDone.toDouble() / tTotal
         if (g.hasHabit) fracs += strength / 100.0
@@ -3573,7 +3550,7 @@ class AppViewModel internal constructor(
             g.targetEpochDay > today -> (g.targetEpochDay - today).toDouble() / 7.0
             else -> 12.0
         }.coerceAtLeast(0.5)
-        val mins = timeEntries.value.filter { it.activityId == g.activityId }.sumOf { it.minutes(System.currentTimeMillis()) }
+        val mins = timeVm.timeEntries.value.filter { it.activityId == g.activityId }.sumOf { it.minutes(System.currentTimeMillis()) }
         val remainingMin = (g.budgetMinutes - mins).coerceAtLeast(0)
         val needH = (remainingMin / 60.0) / weeksLeft
         val haveH = trackedCapacityHours()?.let { it * 7.0 } ?: (settings.value.dailyCapacityHours * 7.0)
@@ -3613,7 +3590,7 @@ class AppViewModel internal constructor(
             val d = today.minusDays(i.toLong())
             val ds = d.atStartOfDay(zone).toInstant().toEpochMilli()
             val de = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-            val mins = com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries.value, ds, minOf(de, now + 1), now)
+            val mins = com.todocompanion.app.domain.TimeTracking.totalMinutes(timeVm.timeEntries.value, ds, minOf(de, now + 1), now)
             if (mins > 0) m[d.toEpochDay()] = mins
         }
         return m
@@ -3630,7 +3607,7 @@ class AppViewModel internal constructor(
             val d = today.minusDays(i.toLong())
             val ds = d.atStartOfDay(zone).toInstant().toEpochMilli()
             val de = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-            val bh = com.todocompanion.app.domain.TimeInsights.minutesByHour(timeEntries.value, ds, de, now)
+            val bh = com.todocompanion.app.domain.TimeInsights.minutesByHour(timeVm.timeEntries.value, ds, de, now)
             for (h in 0..23) agg[h] += bh[h]
         }
         return agg
@@ -3729,7 +3706,7 @@ class AppViewModel internal constructor(
             "Summed your tracked minutes by hour over the last 30 days; that two-hour window held ${w.minutes} minutes, the most of any.", null)) }
         val actCal = calibrationByActivity()
         if (actCal.size >= 2) actCal.maxByOrNull { kotlin.math.abs(it.value - 1.0) }?.let { (actId, ratio) ->
-            val name = timeActivities.value.firstOrNull { it.id == actId }?.name
+            val name = timeVm.timeActivities.value.firstOrNull { it.id == actId }?.name
             if (name != null && kotlin.math.abs(ratio - 1.0) >= 0.2) {
                 val pct = Math.round((ratio - 1.0) * 100).toInt()
                 add(Insight("actcal",
@@ -3773,7 +3750,7 @@ class AppViewModel internal constructor(
             com.todocompanion.app.domain.TimeInsights.PlannedBlock(t.id, t.title, startMin, dur)
         }
         val passed = blocks.filter { dayStart + (it.startMin + it.durMin) * 60_000L <= now }
-        return com.todocompanion.app.domain.TimeInsights.untrackedBlocks(passed, timeEntries.value, dayStart, now)
+        return com.todocompanion.app.domain.TimeInsights.untrackedBlocks(passed, timeVm.timeEntries.value, dayStart, now)
             .map { ReplayBlock(it.taskId, it.label, it.startMin, it.durMin) }
     }
     fun backfillBlock(b: ReplayBlock, activityId: String? = null) = viewModelScope.launch {
@@ -3820,7 +3797,7 @@ class AppViewModel internal constructor(
         return null
     }
     fun startActivityTimer(activityId: String) = viewModelScope.launch {
-        if (activityId.isNotBlank() && timeActivities.value.any { it.id == activityId && !it.archived }) {
+        if (activityId.isNotBlank() && timeVm.timeActivities.value.any { it.id == activityId && !it.archived }) {
             repo.startTimeTracking(activityId, stopFirst = !settings.value.multiTimer)
             com.todocompanion.app.reminders.AutomationRunner.onStart(appCtx, repo, activityId)
             refreshTimeWidget(); toast("Session started")
@@ -3830,7 +3807,7 @@ class AppViewModel internal constructor(
     // ── Y8 · goal contention — two goals drawing on the same hours ────────────────────────────────
     fun goalContention(): List<String> {
         val gs = goals().filter { it.hasBudget }
-        val actName = timeActivities.value.associate { it.id to ((it.emoji?.plus(" ") ?: "") + it.name) }
+        val actName = timeVm.timeActivities.value.associate { it.id to ((it.emoji?.plus(" ") ?: "") + it.name) }
         return gs.groupBy { it.activityId }.filter { it.value.size >= 2 }
             .map { (act, list) ->
                 val (label, verb) = if (list.size == 2) "‘${list[0].name}’ and ‘${list[1].name}’" to "both draw"
@@ -3863,7 +3840,7 @@ class AppViewModel internal constructor(
     private fun learnedHabitMinutes(): Map<String, Int> {
         val linked = habits.value.filter { !it.timeActivityId.isNullOrBlank() }
         if (linked.isEmpty()) return emptyMap()
-        val entries = timeEntries.value
+        val entries = timeVm.timeEntries.value
         if (entries.isEmpty()) return emptyMap()
         val byAct = HashMap<String, HashMap<Long, Int>>()   // activityId → (epochDay → minutes)
         for (e in entries) {
@@ -3928,8 +3905,8 @@ class AppViewModel internal constructor(
         val today = java.time.LocalDate.now(zone)
         val wkStartMs = today.minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
         val prevStartMs = today.minusDays(13).atStartOfDay(zone).toInstant().toEpochMilli()
-        val hoursThis = com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries.value, wkStartMs, now + 1, now) / 60.0
-        val hoursPrev = com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries.value, prevStartMs, wkStartMs, now) / 60.0
+        val hoursThis = com.todocompanion.app.domain.TimeTracking.totalMinutes(timeVm.timeEntries.value, wkStartMs, now + 1, now) / 60.0
+        val hoursPrev = com.todocompanion.app.domain.TimeTracking.totalMinutes(timeVm.timeEntries.value, prevStartMs, wkStartMs, now) / 60.0
         fun adherence(startDay: Long, endDay: Long): Double {
             var exp = 0; var done = 0
             habits.value.filter { !it.paused && !it.archived && it.habitType != "break" }.forEach { h ->
@@ -3950,7 +3927,7 @@ class AppViewModel internal constructor(
     fun calibrationByActivity(windowDays: Int = 28): Map<String, Double> {
         val now = System.currentTimeMillis()
         val winStart = java.time.LocalDate.now(zone).minusDays((windowDays - 1).toLong()).atStartOfDay(zone).toInstant().toEpochMilli()
-        val byTask = timeEntries.value.filter { it.taskId != null }.groupBy { it.taskId!! }
+        val byTask = timeVm.timeEntries.value.filter { it.taskId != null }.groupBy { it.taskId!! }
         val ratiosByAct = HashMap<String, MutableList<Double>>()
         byTask.forEach { (taskId, es) ->
             val t = tasks.value.firstOrNull { it.id == taskId } ?: return@forEach
@@ -3965,7 +3942,7 @@ class AppViewModel internal constructor(
     /** The activity a task's tracked time predominantly falls under (all history), or null. */
     private fun dominantActivityOf(taskId: String): String? {
         val now = System.currentTimeMillis()
-        return timeEntries.value.filter { it.taskId == taskId }
+        return timeVm.timeEntries.value.filter { it.taskId == taskId }
             .groupBy { it.activityId }.maxByOrNull { (_, v) -> v.sumOf { it.minutes(now) } }?.key
     }
 
@@ -3978,7 +3955,7 @@ class AppViewModel internal constructor(
             val d = today.minusDays(i.toLong())
             val ds = d.atStartOfDay(zone).toInstant().toEpochMilli()
             val de = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-            byWeekday[d.dayOfWeek.value - 1] += com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries.value, ds, minOf(de, now + 1), now).toDouble()
+            byWeekday[d.dayOfWeek.value - 1] += com.todocompanion.app.domain.TimeTracking.totalMinutes(timeVm.timeEntries.value, ds, minOf(de, now + 1), now).toDouble()
         }
         val hl = com.todocompanion.app.domain.Reasoning.heaviestLightestWeekday(byWeekday) ?: return null
         val names = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
@@ -4055,7 +4032,7 @@ class AppViewModel internal constructor(
 
     // ── Z7 · trust dashboard — the data that exists, all on this device ───────────────────────────
     data class DataCounts(val tasks: Int, val habits: Int, val checkins: Int, val timeEntries: Int, val activities: Int, val focus: Int)
-    fun dataCounts() = DataCounts(tasks.value.size, habits.value.size, habitCheckins.value.size, timeEntries.value.size, timeActivities.value.size, focusSessions.value.size + timeEntries.value.count { it.kind == "focus" })
+    fun dataCounts() = DataCounts(tasks.value.size, habits.value.size, habitCheckins.value.size, timeVm.timeEntries.value.size, timeVm.timeActivities.value.size, focusSessions.value.size + timeVm.timeEntries.value.count { it.kind == "focus" })
 
     /** R107 — the single authoritative "what's on this device" inventory, rendered identically in both the
      *  Privacy › Trust panel and the Backup › Maintenance panel so their numbers always agree. Ordered,
@@ -4068,9 +4045,9 @@ class AppViewModel internal constructor(
         "Occasions" to countdowns.value.size,
         "Habits" to habits.value.size,
         "Habit check-ins" to habitCheckins.value.size,
-        "Activities" to timeActivities.value.size,
-        "Time entries" to timeEntries.value.size,
-        "Focus sessions" to (focusSessions.value.size + timeEntries.value.count { it.kind == "focus" }),
+        "Activities" to timeVm.timeActivities.value.size,
+        "Time entries" to timeVm.timeEntries.value.size,
+        "Focus sessions" to (focusSessions.value.size + timeVm.timeEntries.value.count { it.kind == "focus" }),
     )
 
     // ── Plan A · at-rest database encryption (SQLCipher). State lives in SecureDb's own prefs (it must
@@ -4152,7 +4129,7 @@ class AppViewModel internal constructor(
 
     // T2: start tracking time against a task (its default activity, else the generic "Tasks" bucket).
     fun startTimeTrackingForTask(task: TaskEntity) = viewModelScope.launch {
-        val actId = task.defaultActivityId?.takeIf { id -> timeActivities.value.any { it.id == id && !it.archived } }
+        val actId = task.defaultActivityId?.takeIf { id -> timeVm.timeActivities.value.any { it.id == id && !it.archived } }
             ?: repo.ensureTaskActivity()
         repo.startTimeTracking(actId, taskId = task.id); refreshTimeWidget()
     }
@@ -4161,7 +4138,7 @@ class AppViewModel internal constructor(
     }
     // T3: start tracking time against a habit (its linked activity, else a generic bucket).
     fun startTimeTrackingForHabit(habit: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
-        val actId = habit.timeActivityId?.takeIf { id -> timeActivities.value.any { it.id == id && !it.archived } }
+        val actId = habit.timeActivityId?.takeIf { id -> timeVm.timeActivities.value.any { it.id == id && !it.archived } }
             ?: repo.ensureFocusActivity()
         repo.startTimeTracking(actId, habitId = habit.id); refreshTimeWidget()
     }
@@ -5357,7 +5334,7 @@ class AppViewModel internal constructor(
     /** Self-calibrating estimate signal: median actual/planned ratio across tasks you both estimated and
      *  tracked. Null until there are ≥3 samples. Surfaced in the task editor's estimate field. */
     val estimateBias: StateFlow<com.todocompanion.app.domain.calendar.CalendarPlanner.EstimateBias?> =
-        combine(tasks, timeEntries) { t, e -> com.todocompanion.app.domain.calendar.CalendarPlanner.estimateBias(t, e) }
+        combine(tasks, timeVm.timeEntries) { t, e -> com.todocompanion.app.domain.calendar.CalendarPlanner.estimateBias(t, e) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Remembered travel minutes per place (for the auto travel buffer). */
@@ -5477,7 +5454,7 @@ class AppViewModel internal constructor(
     fun logActualForBlock(eventId: String) = viewModelScope.launch {
         val e = repo.eventById(eventId) ?: return@launch
         val task = e.linkedTaskId?.let { repo.getTask(it) }
-        val actId = task?.defaultActivityId?.takeIf { id -> timeActivities.value.any { it.id == id && !it.archived } } ?: repo.ensureTaskActivity()
+        val actId = task?.defaultActivityId?.takeIf { id -> timeVm.timeActivities.value.any { it.id == id && !it.archived } } ?: repo.ensureTaskActivity()
         repo.addManualTimeEntry(actId, e.startMillis, minOf(e.endMillis, System.currentTimeMillis()), e.title, taskId = e.linkedTaskId)
         toast("Logged “${e.title}” as tracked time.")
     }
@@ -5712,17 +5689,17 @@ class AppViewModel internal constructor(
 
     /** The single running focus interval, if a focus session is live right now (drives the ring). */
     val runningFocus: StateFlow<com.todocompanion.app.data.entity.TimeEntryEntity?> =
-        timeEntries.map { list -> list.firstOrNull { it.running && it.kind == "focus" } }.state(null)
+        timeVm.timeEntries.map { list -> list.firstOrNull { it.running && it.kind == "focus" } }.state(null)
 
     /** Focus intervals as synthetic FocusSessionEntity rows (day, minutes, taskId) computed from the one
      *  timeline, so the stats / momentum / digest screens read the SAME source as the Time reports — never
      *  a second table. Legacy persisted FocusSessions (written before this unification, when Time was off)
      *  are unioned in so old history isn't lost. A running interval is clamped to now. */
     fun focusViews(): List<com.todocompanion.app.data.entity.FocusSessionEntity> =
-        com.todocompanion.app.domain.FocusStats.views(timeEntries.value, focusSessions.value, zone, System.currentTimeMillis())
+        com.todocompanion.app.domain.FocusStats.views(timeVm.timeEntries.value, focusSessions.value, zone, System.currentTimeMillis())
     /** Focused minutes per calendar day, from kind="focus" intervals (a running one clamped to now). */
     fun focusMinutesByDay(): Map<Long, Int> =
-        com.todocompanion.app.domain.FocusStats.minutesByDay(timeEntries.value, focusSessions.value, zone, System.currentTimeMillis())
+        com.todocompanion.app.domain.FocusStats.minutesByDay(timeVm.timeEntries.value, focusSessions.value, zone, System.currentTimeMillis())
 
     /** Start a focus session against [activityId] (or the task's / habit's linked activity, else a generic
      *  "Focus" activity). [remainingSec] lets Resume schedule the chime for exactly the time still left. */
@@ -5734,7 +5711,7 @@ class AppViewModel internal constructor(
     /** Stop the running focus interval (finalize + credit any linked habit) and cancel its chime. Only ever
      *  stops a kind="focus" entry, so a paused-focus Finish can never accidentally stop a manual timer. */
     fun stopFocus() = viewModelScope.launch {
-        focusCtl.stop(timeEntries.value.firstOrNull { it.running && it.kind == "focus" }?.id)
+        focusCtl.stop(timeVm.timeEntries.value.firstOrNull { it.running && it.kind == "focus" }?.id)
     }
 
     /** R81 — play the chosen focus/timer completion cue in-app (the background alarm plays it via the
@@ -6123,7 +6100,7 @@ class AppViewModel internal constructor(
     /** One immutable snapshot of the whole store for the Ω domain functions (all pure over it). */
     private fun omegaCtx(): com.todocompanion.app.domain.OmegaContext = com.todocompanion.app.domain.OmegaContext(
         tasks = tasks.value, habits = habits.value, checkins = habitCheckins.value,
-        focus = focusSessions.value, timeEntries = timeEntries.value, activities = timeActivities.value,
+        focus = focusSessions.value, timeEntries = timeVm.timeEntries.value, activities = timeVm.timeActivities.value,
         zone = zone, today = java.time.LocalDate.now(zone).toEpochDay(), now = System.currentTimeMillis(),
     )
 
@@ -6147,14 +6124,14 @@ class AppViewModel internal constructor(
         com.todocompanion.app.domain.ReviewInsights.compute(
             startDay, endDay, dayLogs.value,
             com.todocompanion.app.domain.DailyQuestions.parseQuestions(settings.value.dailyQuestionsJson),
-            habits.value, habitCheckins.value, timeEntries.value, timeActivities.value,
+            habits.value, habitCheckins.value, timeVm.timeEntries.value, timeVm.timeActivities.value,
             zone, System.currentTimeMillis())
 
     /** Track 1.3 — the unified year spine (felt state + achievement counts) over an inclusive window. */
     fun yearReviewed(startDay: Long, endDay: Long): com.todocompanion.app.domain.YearReviewed.Recap =
         com.todocompanion.app.domain.YearReviewed.compute(
             startDay, endDay, dayLogs.value, habits.value, habitCheckins.value,
-            timeEntries.value, timeActivities.value, zone, System.currentTimeMillis(), tasks.value)
+            timeVm.timeEntries.value, timeVm.timeActivities.value, zone, System.currentTimeMillis(), tasks.value)
 
     /** Ω3 — adaptive hints suggesting a module the user would benefit from turning on. */
     fun moduleHints(): List<com.todocompanion.app.domain.ModuleHints.Hint> =
@@ -6210,7 +6187,7 @@ class AppViewModel internal constructor(
 
     /** The whole accomplishment feed for the active workspace — the input to the integrity chain & impact graph. */
     fun doneFeed(): List<com.todocompanion.app.domain.done.Accomplishment> =
-        com.todocompanion.app.domain.done.DoneRecord.build(tasks.value, habits.value, habitCheckins.value, timeEntries.value, zone)
+        com.todocompanion.app.domain.done.DoneRecord.build(tasks.value, habits.value, habitCheckins.value, timeVm.timeEntries.value, zone)
 
     /** R29 Phase 7 — seal the record: store the current hash-chain head so a later back-date or edit of a
      *  sealed entry is detectable (the recomputed head no longer matches). Entirely local. */
@@ -6405,7 +6382,7 @@ class AppViewModel internal constructor(
     // Whole-app search now also reaches these first-class types (all already workspace-scoped flows).
     fun searchTimeActivities(query: String): List<com.todocompanion.app.data.entity.TimeActivityEntity> {
         val q = query.trim().lowercase(); if (q.isBlank()) return emptyList()
-        return timeActivities.value.filter { !it.archived && it.name.lowercase().contains(q) }.sortedBy { it.name.lowercase() }
+        return timeVm.timeActivities.value.filter { !it.archived && it.name.lowercase().contains(q) }.sortedBy { it.name.lowercase() }
     }
     fun searchNotebooks(query: String): List<com.todocompanion.app.data.entity.NotebookEntity> {
         val q = query.trim().lowercase(); if (q.isBlank()) return emptyList()

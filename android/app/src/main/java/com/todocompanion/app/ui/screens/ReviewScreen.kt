@@ -61,7 +61,7 @@ fun ReviewScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> U
     // R27 Done Record — the material for the "Today I did" highlights card.
     val reviewHabits by vm.habits.collectAsState()
     val reviewCheckins by vm.habitCheckins.collectAsState()
-    val reviewTimeEntries by vm.timeEntries.collectAsState()
+    val reviewTimeEntries by vm.timeVm.timeEntries.collectAsState()
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now()
     val startOfToday = today.atStartOfDay(zone).toInstant().toEpochMilli()

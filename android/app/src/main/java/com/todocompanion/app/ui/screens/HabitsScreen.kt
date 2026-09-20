@@ -927,7 +927,7 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     val ctx = LocalContext.current
     val isBreak = habitType == "break"
     val allHabits by vm.habits.collectAsState()
-    val timeActivities by vm.timeActivities.collectAsState()
+    val timeActivities by vm.timeVm.timeActivities.collectAsState()
     val editorSettings by vm.settings.collectAsState()
     val timeOn = com.todocompanion.app.domain.Modules.isEnabled(editorSettings, com.todocompanion.app.domain.Modules.TIME)
     // Habits that consume time — per-habit planning config (rides settings-JSON, keyed by habit id).

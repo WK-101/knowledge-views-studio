@@ -489,7 +489,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             // SEC-corr — derive the "Track: …" rows from the actual time activities (a live flow), not from
             // the launcher's registered dynamic shortcuts: those are capped at 4 and may be empty until a
             // refresh runs, which is why they weren't showing. This lists EVERY non-archived activity.
-            val allTimeActs by vm.timeActivities.collectAsState()
+            val allTimeActs by vm.timeVm.timeActivities.collectAsState()
             val trackActs = if (Modules.isEnabled(s, Modules.TIME)) allTimeActs.filter { !it.archived } else emptyList()
             Text("Your launcher's long-press menu only shows the first few. These are all of Kairo's shortcuts — tap “Add to home” to place any one directly on your home screen.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1008,7 +1008,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 if (Modules.isEnabled(s, Modules.TIME)) {
                     HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
                     Sub("Routines")
-                    val activities by vm.timeActivities.collectAsState()
+                    val activities by vm.timeVm.timeActivities.collectAsState()
                     Text("A routine starts an activity's timer and surfaces its habit group in one tap. Fire it from a home-screen tap, or write its link — todocompanion://routine?name=NAME — to an NFC tag or QR.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
                     val routines = com.todocompanion.app.domain.Routines.parse(s.routinesJson)

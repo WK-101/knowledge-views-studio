@@ -214,7 +214,7 @@ private fun PortfolioHeader(vm: AppViewModel, goals: List<Goal>, reviews: List<c
     // Live-key the portfolio % so a completed task / tracked minute refreshes it (matching GoalRow).
     val tasks by vm.tasks.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
-    val timeEntries by vm.timeEntries.collectAsState()
+    val timeEntries by vm.timeVm.timeEntries.collectAsState()
     val overall = remember(goals, tasks, checkins, timeEntries) { if (goals.isEmpty()) 0.0 else goals.map { vm.goalHealth(it).overall }.average() }
     val chain = remember(reviews) { GoalScore.integrityChain(reviews, 7, today, "") }
     val due = remember(reviews) { GoalScore.reviewDue(reviews, 7, today, "") }
@@ -267,7 +267,7 @@ private fun GoalRow(vm: AppViewModel, g: Goal, reviews: List<com.todocompanion.a
     // (keying on `g` alone left it stale until the goal JSON itself changed).
     val tasks by vm.tasks.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
-    val timeEntries by vm.timeEntries.collectAsState()
+    val timeEntries by vm.timeVm.timeEntries.collectAsState()
     val h = remember(g, tasks, checkins, timeEntries) { vm.goalHealth(g) }
     val cycle = remember(g, today) { GoalScore.cycle(g, today) }
     val cap = remember(g, timeEntries) { vm.goalCapacity(g) }
@@ -343,7 +343,7 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
     // Archived-inclusive so the lead-measure hint can tell an archived habit ("practice retired") apart from
     // a deleted one — vm.habits strips archived, which would mislabel every archived habit as "no longer exists".
     val habitsAll by vm.habitsWithArchived.collectAsState()
-    val timeEntries by vm.timeEntries.collectAsState()
+    val timeEntries by vm.timeVm.timeEntries.collectAsState()
     val reviews = vm.goalReviewsState.collectAsState().value   // W3 — from the Room-backed flow
     val h = remember(g, tasks, checkins, timeEntries) { vm.goalHealth(g) }
     val cycle = remember(g, today) { GoalScore.cycle(g, today) }
@@ -542,7 +542,7 @@ private fun MeasureLine(label: String, detail: String, fraction: Float) {
 private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, onDismiss: () -> Unit, onSave: (Goal) -> Unit, onDelete: () -> Unit) {
     val lists by vm.lists.collectAsState()
     val habits by vm.habits.collectAsState()
-    val activities by vm.timeActivities.collectAsState()
+    val activities by vm.timeVm.timeActivities.collectAsState()
     val liveHabits = remember(habits) { habits.filter { !it.archived } }
     val liveActs = remember(activities) { activities.filter { !it.archived } }
     val knownAreas = remember(lists) { Goals.areasOf(vm.goals()) }

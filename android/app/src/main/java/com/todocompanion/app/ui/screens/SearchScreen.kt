@@ -112,7 +112,7 @@ fun SearchScreen(
     val lists by vm.lists.collectAsState()
     val folders by vm.folders.collectAsState()
     val notebooksState by vm.notebooks.collectAsState()
-    val timeActivitiesState by vm.timeActivities.collectAsState()
+    val timeActivitiesState by vm.timeVm.timeActivities.collectAsState()
     // Whole-app coverage — the remaining findable objects, all shown only under the Everything scope so
     // each typed scope stays a clean single-type list. Goals & routines read the active workspace.
     val activityResults = remember(query, timeActivitiesState) { vm.searchTimeActivities(query) }

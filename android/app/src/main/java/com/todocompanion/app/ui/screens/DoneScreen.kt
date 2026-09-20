@@ -105,7 +105,7 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
     val tasks by vm.tasks.collectAsState()
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
-    val timeEntries by vm.timeEntries.collectAsState()
+    val timeEntries by vm.timeVm.timeEntries.collectAsState()
     val lists by vm.lists.collectAsState()
     val settings by vm.settings.collectAsState()
     val zone = ZoneId.systemDefault()

@@ -101,7 +101,7 @@ fun PlannerSheet(vm: AppViewModel, zone: ZoneId, initialDay: Long, initialTab: I
 private fun PlanTodayTab(vm: AppViewModel, zone: ZoneId, day: Long) {
     val events by vm.events.collectAsState()
     val tasks by vm.tasks.collectAsState()
-    val entries by vm.timeEntries.collectAsState()
+    val entries by vm.timeVm.timeEntries.collectAsState()
     val habits by vm.habits.collectAsState()
     val templates by vm.eventTemplates.collectAsState()
     val settings by vm.settings.collectAsState()
@@ -405,7 +405,7 @@ private fun WeeklyReviewTab(vm: AppViewModel, zone: ZoneId, day: Long) {
 private fun HorizonTab(vm: AppViewModel, zone: ZoneId, day: Long) {
     val events by vm.events.collectAsState()
     val tasks by vm.tasks.collectAsState()
-    val entries by vm.timeEntries.collectAsState()
+    val entries by vm.timeVm.timeEntries.collectAsState()
     val calendars by vm.eventCalendars.collectAsState()
     val settings by vm.settings.collectAsState()
     val ws = settings.workStartHour; val we = settings.workEndHour

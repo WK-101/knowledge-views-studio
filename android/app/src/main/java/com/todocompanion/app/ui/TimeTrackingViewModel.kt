@@ -1,42 +1,72 @@
 package com.todocompanion.app.ui
 
-import androidx.lifecycle.ViewModel
+import com.todocompanion.app.data.AppRepository
+import com.todocompanion.app.data.entity.TimeActivityEntity
+import com.todocompanion.app.data.entity.TimeEntryEntity
+import com.todocompanion.app.time.TimeTrackingController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
- * Phase 3, Stage 1 — a dedicated per-surface handle for the two dedicated Time screens
- * ([com.todocompanion.app.ui.screens.TimeTrackingScreen], [com.todocompanion.app.ui.screens.TimeStatsScreen]).
+ * Phase 3, Stage 3 — the dedicated home for the time-tracking surface, lifted out of the 6.6k-line
+ * AppViewModel. It OWNS the workspace-scoped `timeActivities` / `timeEntries` flows and the single time
+ * [controller]'s live actions (start / stop / pause / resume, activity CRUD, pin, reassign); it forwards the
+ * few time helpers that still live on the ViewModel because they touch broader state (manual-entry edits,
+ * automation rules, planned-block fill, habit↔activity linking).
  *
- * It forwards to [app]'s SINGLE `TimeTrackingController` and its workspace-scoped time flows, so there is
- * exactly one source of truth: no second controller, no diverged paused-timer state, no chance of a
- * cross-workspace read. Behaviour is identical to calling `vm.<x>` directly — this is a rename of the
- * access path, not a change to it.
- *
- * This is the seam, not the destination. The Time screens now depend on `TimeTrackingViewModel` instead of
- * reaching into the 6.6k-line god-VM's time surface. Stage 2 turns this into a standalone ViewModel that
- * OWNS the controller (decoupled from the VM's workspace-scoped flows), and Stage 3 deletes the VM's copies;
- * because the screens already talk to this type, those stages won't touch them again.
+ * It's a plain class (not a ViewModel): the AppViewModel constructs exactly one and drives it with its own
+ * `viewModelScope`, so there's no second lifecycle to manage and no chance of a second controller. Every
+ * screen — and AppViewModel's own capacity / recap / coach logic — reads the time surface through this one
+ * object, so the god-VM no longer carries the time flows and their ~30 actions inline.
  */
-class TimeTrackingViewModel(private val app: AppViewModel) : ViewModel() {
+class TimeTrackingViewModel(
+    private val app: AppViewModel,
+    private val scope: CoroutineScope,
+    repo: AppRepository,
+    private val controller: TimeTrackingController,
+) {
+    // Workspace-scoped, exactly as the ViewModel declared them (same combine + WhileSubscribed + Default).
+    private val activeWs: Flow<String> = app.settings.map { it.activeWorkspaceId }
+    private fun <T> Flow<List<T>>.scopedBy(wsOf: (T) -> String): StateFlow<List<T>> =
+        combine(this, activeWs) { list, w -> list.filter { wsOf(it) == w } }
+            .flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val timeActivities: StateFlow<List<TimeActivityEntity>> = repo.allTimeActivities.scopedBy { it.workspaceId }
+    val timeEntries: StateFlow<List<TimeEntryEntity>> = repo.allTimeEntries.scopedBy { it.workspaceId }
 
-    // ---- read surface: the very same workspace-scoped flows the VM exposes ----
-    val timeActivities get() = app.timeActivities
-    val timeEntries get() = app.timeEntries
-    val addTimeEntryRequests get() = app.addTimeEntryRequests
-    /** Today's planned-but-untracked blocks — a computed snapshot, not a flow. */
-    fun untrackedTodayBlocks() = app.untrackedTodayBlocks()
+    /** Paused-timer memory (Triple<activityId, taskId?, habitId?>) — owned by the controller. */
+    val pausedTrack: StateFlow<Triple<String, String?, String?>?> get() = controller.pausedTrack
 
-    // ---- actions: forwarded to the one controller (each is a thin viewModelScope.launch in the VM) ----
+    // ---- live timer + activity actions (the one controller) ----
     fun createTimeActivity(name: String, emoji: String?, colorArgb: Long?, goalMinutesPerDay: Int = 0) =
-        app.createTimeActivity(name, emoji, colorArgb, goalMinutesPerDay)
-    fun updateTimeActivity(a: com.todocompanion.app.data.entity.TimeActivityEntity) = app.updateTimeActivity(a)
-    fun deleteTimeActivity(id: String) = app.deleteTimeActivity(id)
-    fun archiveTimeActivity(id: String) = app.archiveTimeActivity(id)
-    fun setActivityParent(childId: String, parentId: String?) = app.setActivityParent(childId, parentId)
-    fun toggleActivityPin(id: String) = app.toggleActivityPin(id)
+        scope.launch { controller.createTimeActivity(name, emoji, colorArgb, goalMinutesPerDay) }
+    fun startTimeTrackingByName(name: String) = scope.launch { controller.startTimeTrackingByName(name) }
+    fun toggleActivityPin(id: String) = scope.launch { controller.toggleActivityPin(id) }
+    fun reassignTimeEntry(entryId: String, activityId: String) = scope.launch { controller.reassignTimeEntry(entryId, activityId) }
+    fun refreshTrackShortcuts() = scope.launch { controller.refreshTrackShortcuts() }
+    fun updateTimeActivity(a: TimeActivityEntity) = scope.launch { controller.updateTimeActivity(a) }
+    fun deleteTimeActivity(id: String) = scope.launch { controller.deleteTimeActivity(id) }
+    fun archiveTimeActivity(id: String) = scope.launch { controller.archiveTimeActivity(id) }
+    fun setActivityParent(childId: String, parentId: String?) = scope.launch { controller.setActivityParent(childId, parentId) }
     fun startTimeTracking(activityId: String, taskId: String? = null, habitId: String? = null) =
-        app.startTimeTracking(activityId, taskId, habitId)
-    fun stopTimeEntry(id: String) = app.stopTimeEntry(id)
-    fun updateTimeEntry(e: com.todocompanion.app.data.entity.TimeEntryEntity) = app.updateTimeEntry(e)
+        scope.launch { controller.startTimeTracking(activityId, taskId, habitId) }
+    fun stopTimeTracking() = scope.launch { controller.stopTimeTracking() }
+    fun stopTimeEntry(id: String) = scope.launch { controller.stopTimeEntry(id) }
+    fun pauseTracking() = scope.launch { controller.pauseTracking() }
+    fun resumeTracking() = scope.launch { controller.resumeTracking() }
+    fun clearPaused() = controller.clearPaused()
+
+    // ---- time helpers still owned by the ViewModel (touch broader state); forwarded so screens have one door ----
+    fun untrackedTodayBlocks() = app.untrackedTodayBlocks()
+    val addTimeEntryRequests get() = app.addTimeEntryRequests
+    fun updateTimeEntry(e: TimeEntryEntity) = app.updateTimeEntry(e)
     fun deleteTimeEntry(id: String) = app.deleteTimeEntry(id)
     fun splitTimeEntry(id: String, atMillis: Long) = app.splitTimeEntry(id, atMillis)
     fun addManualTimeEntry(activityId: String, startMillis: Long, endMillis: Long, note: String = "") =

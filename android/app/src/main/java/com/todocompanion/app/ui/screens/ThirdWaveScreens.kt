@@ -170,7 +170,7 @@ private fun ExperimentsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit:
 private fun ValuesTimeScreen(vm: AppViewModel, onBack: () -> Unit) {
     val values by vm.coreValues.collectAsState()
     val habits by vm.habits.collectAsState()
-    val entries by vm.timeEntries.collectAsState()
+    val entries by vm.timeVm.timeEntries.collectAsState()
     val today = vm.today()
     val audit = remember(values, habits, entries, today) { ThirdWave.valuesTimeAudit(values, habits, entries, today - 27) }
     val total = audit.sumOf { it.minutes }.coerceAtLeast(1)

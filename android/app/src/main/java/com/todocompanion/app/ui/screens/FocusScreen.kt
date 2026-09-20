@@ -65,7 +65,7 @@ import java.time.LocalDate
 fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifier = Modifier) {
     val tasks by vm.tasks.collectAsState()
     val habits by vm.habits.collectAsState()
-    val timeEntries by vm.timeEntries.collectAsState()
+    val timeEntries by vm.timeVm.timeEntries.collectAsState()
     val runningEntry by vm.runningFocus.collectAsState()
     val today = LocalDate.now().toEpochDay()
 

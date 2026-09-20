@@ -278,7 +278,7 @@ fun HabitDetailScreen(
             // focus on days you keep this habit. Now that Focus is unified into the one timeline, this joins
             // check-ins with kind="focus" minutes directly. Shown only with enough of both kinds of days.
             val settingsSnap by vm.settings.collectAsState()
-            val timeEntries by vm.timeEntries.collectAsState()
+            val timeEntries by vm.timeVm.timeEntries.collectAsState()
             if (!isBreak && com.todocompanion.app.domain.Modules.isEnabled(settingsSnap, com.todocompanion.app.domain.Modules.TIME)) {
                 val lift = remember(timeEntries, doneDays, today) {
                     HabitStats.focusLift(doneDays, vm.focusMinutesByDay(), today, h.startEpochDay())

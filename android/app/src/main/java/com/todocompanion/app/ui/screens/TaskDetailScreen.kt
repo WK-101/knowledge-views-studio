@@ -218,8 +218,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     val listTask = allTasks.firstOrNull { it.id == taskId }
     if (draft == null && listTask != null) draft = listTask
     val allNotes by vm.notes.collectAsState()   // Phase 2 — the note linked to this task, if any
-    val timeEntries by vm.timeEntries.collectAsState()   // T2
-    val timeActivities by vm.timeActivities.collectAsState()
+    val timeEntries by vm.timeVm.timeEntries.collectAsState()   // T2
+    val timeActivities by vm.timeVm.timeActivities.collectAsState()
 
     var showDue by remember { mutableStateOf(false) }
     var showStart by remember { mutableStateOf(false) }
@@ -616,7 +616,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                             // One unified tracking control (R21 #4): Stop while running; otherwise a single Start
                             // that offers both plain time tracking and a focus session.
                             if (running != null) {
-                                androidx.compose.material3.FilledTonalButton(onClick = { vm.stopTimeTracking() }) {
+                                androidx.compose.material3.FilledTonalButton(onClick = { vm.timeVm.stopTimeTracking() }) {
                                     Icon(Icons.Filled.Stop, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Stop")
                                 }
                             } else {
@@ -1247,8 +1247,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     }
     editActivity?.let { act ->
         ActivityEditDialog(act, onDismiss = { editActivity = null },
-            onSave = { updated -> vm.updateTimeActivity(updated); editActivity = null },
-            onDelete = { vm.deleteTimeActivity(act.id); editActivity = null })
+            onSave = { updated -> vm.timeVm.updateTimeActivity(updated); editActivity = null },
+            onDelete = { vm.timeVm.deleteTimeActivity(act.id); editActivity = null })
     }
     // In-app file browser fallback for attachments on ROMs with no system picker (R23). R30 #6 — multi-select.
     if (showReminder) DateTimePickerDialog(task?.dueDate ?: System.currentTimeMillis(), { showReminder = false }) { m -> task?.let { vm.addAbsoluteReminder(it, m) }; showReminder = false; autoBump++ }

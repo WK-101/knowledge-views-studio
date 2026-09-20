@@ -383,8 +383,8 @@ fun CalendarScreen(
 
     // Round 14: the "actual" spine — tracked time intervals drawn as a thin read-only rail beside the
     // planned task/habit blocks (planned vs actual), gated by the Time module being on.
-    val timeEntries by vm.timeEntries.collectAsState()
-    val timeActivities by vm.timeActivities.collectAsState()
+    val timeEntries by vm.timeVm.timeEntries.collectAsState()
+    val timeActivities by vm.timeVm.timeActivities.collectAsState()
     val timeOn = com.todocompanion.app.domain.Modules.isEnabled(s, com.todocompanion.app.domain.Modules.TIME)
     // Precompute per-day tracked blocks ONCE (epochDay → blocks) instead of scanning every entry per
     // calendar cell / day column — the month grid and pinch-zoom were O(cells × entries) before (audit #4/#5).

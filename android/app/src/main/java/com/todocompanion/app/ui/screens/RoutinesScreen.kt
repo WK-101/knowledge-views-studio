@@ -361,7 +361,7 @@ private fun RoutineRunner(vm: AppViewModel, routine: Routine, onExit: () -> Unit
 
     // Entering a step whose startActivityId is set starts the time-tracker for it.
     LaunchedEffect(idx, started) {
-        if (started && !finished) steps.getOrNull(idx)?.startActivityId?.takeIf { it.isNotBlank() }?.let { vm.startTimeTracking(it) }
+        if (started && !finished) steps.getOrNull(idx)?.startActivityId?.takeIf { it.isNotBlank() }?.let { vm.timeVm.startTimeTracking(it) }
     }
     // Wall-clock countdown for a timed step; auto-advances at the stored end time (survives doze/background,
     // resumes correctly after a kill). Untimed steps just wait for a Done tap.
@@ -568,7 +568,7 @@ private fun RoutineEditor(
 ) {
     val habits by vm.habits.collectAsState()
     val tasks by vm.tasks.collectAsState()
-    val activities by vm.timeActivities.collectAsState()
+    val activities by vm.timeVm.timeActivities.collectAsState()
     val openTasks = remember(tasks) { tasks.filter { !it.completed && !it.trashed && !it.isNote } }
     val liveActivities = remember(activities) { activities.filter { !it.archived } }
 
