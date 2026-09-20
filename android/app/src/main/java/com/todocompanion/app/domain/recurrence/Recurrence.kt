@@ -200,4 +200,15 @@ object Recurrence {
         }
         return nextMs to rule
     }
+
+    /**
+     * Q5 — ease a recurrence one step, for a chronically-missed task: every weekday → every other day;
+     * daily → every 2 days (or a longer interval if already spaced); anything else → one longer interval.
+     * A pure rule→rule transform so the adaptive-cadence step is unit-tested without a ViewModel.
+     */
+    fun ease(r: Recur): Recur = when (r.freq) {
+        Freq.WEEKDAYS -> r.copy(freq = Freq.DAILY, interval = 2, byDays = emptySet())
+        Freq.DAILY -> if (r.interval < 2) r.copy(freq = Freq.WEEKLY, interval = 1) else r.copy(interval = r.interval + 1)
+        else -> r.copy(interval = r.interval + 1)
+    }
 }

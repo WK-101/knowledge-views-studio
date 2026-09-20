@@ -89,4 +89,19 @@ class RecurringRollForwardTest {
         assertEquals("allDone fires once all are done", listOf("a", "b"), RecurringRollForward.subtasksToReset("allDone", allDoneKids).map { it.id })
         assertEquals("no children → nothing to reset", emptyList<TaskEntity>(), RecurringRollForward.subtasksToReset("allDone", emptyList()))
     }
+
+    @Test fun `ease relaxes the cadence one step`() {
+        // Every weekday → every other day (drops the weekday mask).
+        val fromWeekdays = Recurrence.ease(Recur(Freq.WEEKDAYS))
+        assertEquals(Freq.DAILY, fromWeekdays.freq)
+        assertEquals(2, fromWeekdays.interval)
+        assertTrue(fromWeekdays.byDays.isEmpty())
+        // Daily (every 1) → weekly.
+        assertEquals(Freq.WEEKLY, Recurrence.ease(Recur(Freq.DAILY)).freq)
+        // Already-spaced daily → one longer interval.
+        assertEquals(3, Recurrence.ease(Recur(Freq.DAILY, interval = 2)).interval)
+        // Anything else → one longer interval, same frequency.
+        assertEquals(Freq.WEEKLY, Recurrence.ease(Recur(Freq.WEEKLY)).freq)
+        assertEquals(2, Recurrence.ease(Recur(Freq.WEEKLY)).interval)
+    }
 }

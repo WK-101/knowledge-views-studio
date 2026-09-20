@@ -2279,12 +2279,7 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
             val kids = tasks.value.filter { it.parentId == t.id && !it.trashed }
             com.todocompanion.app.domain.task.RecurringRollForward.subtasksToReset(roll.subtaskReset, kids)
                 .forEach { repo.setCompleted(it, false) }
-            val updated = repo.getTask(t.id)
-            reminders.value.filter { it.taskId == t.id && it.atTime != null }.forEach { r ->
-                val nr = r.copy(atTime = r.atTime!! + roll.delta)
-                repo.upsertReminder(nr)
-                updated?.let { AlarmScheduler.schedule(appCtx, nr, it) }
-            }
+            shiftAbsoluteReminders(t.id, roll.delta)
             // The shift above moves absolute reminders with the occurrence; relative reminders
             // (relativeToDue/…) re-arm automatically — repo.saveTask above emitted remindersDirty because
             // the due date moved, and the init collector re-arms this task against the new occurrence (F1).
@@ -2319,6 +2314,18 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
         tg.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 120)
         viewModelScope.launch { kotlinx.coroutines.delay(600); tg.release() }
     }
+
+    /** When a repeat rolls (complete or skip), move every ABSOLUTE reminder on the task forward by the same
+     *  [delta] the dates moved and re-arm its alarm. Relative reminders re-arm themselves off remindersDirty.
+     *  Shared by toggleComplete and skipOccurrence so the shift is written once. */
+    private suspend fun shiftAbsoluteReminders(taskId: String, delta: Long) {
+        val updated = repo.getTask(taskId)
+        reminders.value.filter { it.taskId == taskId && it.atTime != null }.forEach { r ->
+            val nr = r.copy(atTime = r.atTime!! + delta)
+            repo.upsertReminder(nr)
+            updated?.let { AlarmScheduler.schedule(appCtx, nr, it) }
+        }
+    }
     /**
      * Q5 — adaptive cadence: make a chronically-missed recurring task less demanding by easing it one
      * step (daily→less often, or a longer interval), the task analogue of the habit adaptive-goal ease.
@@ -2328,14 +2335,7 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
         val rec = com.todocompanion.app.domain.recurrence.Recurrence
         val r = t.rrule?.let { rec.parse(it) }
         if (r == null) { onDone(null); return@launch }
-        val eased = when (r.freq) {
-            com.todocompanion.app.domain.recurrence.Freq.WEEKDAYS ->
-                r.copy(freq = com.todocompanion.app.domain.recurrence.Freq.DAILY, interval = 2, byDays = emptySet())
-            com.todocompanion.app.domain.recurrence.Freq.DAILY ->
-                if (r.interval < 2) r.copy(freq = com.todocompanion.app.domain.recurrence.Freq.WEEKLY, interval = 1) else r.copy(interval = r.interval + 1)
-            else -> r.copy(interval = r.interval + 1)
-        }
-        val rule = rec.encode(eased)
+        val rule = rec.encode(rec.ease(r))
         repo.saveTask(t.copy(rrule = rule))
         onDone(rec.label(rule))
     }
@@ -2351,10 +2351,7 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
         }
         val (next, delta) = rolled
         repo.saveTask(next)
-        val updated = repo.getTask(t.id)
-        reminders.value.filter { it.taskId == t.id && it.atTime != null }.forEach { r ->
-            val nr = r.copy(atTime = r.atTime!! + delta); repo.upsertReminder(nr); updated?.let { AlarmScheduler.schedule(appCtx, nr, it) }
-        }
+        shiftAbsoluteReminders(t.id, delta)
         // Relative reminders re-arm automatically: repo.saveTask above emitted remindersDirty (F1).
     }
     fun setAbandoned(t: TaskEntity, v: Boolean) = viewModelScope.launch {
