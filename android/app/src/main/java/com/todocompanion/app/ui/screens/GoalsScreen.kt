@@ -127,8 +127,10 @@ private fun Sparkline(values: List<Int>, modifier: Modifier = Modifier) {
 fun GoalsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenNote: (String) -> Unit = {}) {
     BackHandler(onBack = onBack)
     val settings by vm.settings.collectAsState()
-    val goals = remember(settings.goalsJson, settings.activeWorkspaceId) { vm.goals().filter { !it.archived } }
-    val reviews = remember(settings.goalReviewsJson) { vm.goalReviews() }
+    // W3 — goals/reviews now come from their Room tables (workspace-scoped in the VM), so collect the flows
+    // rather than deriving from settings.goalsJson (which no longer changes).
+    val goals = vm.goalsState.collectAsState().value.filter { !it.archived }
+    val reviews = vm.goalReviewsState.collectAsState().value
     val today = goalToday()
 
     var editing by remember { mutableStateOf<Goal?>(null) }
@@ -342,7 +344,7 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
     // a deleted one — vm.habits strips archived, which would mislabel every archived habit as "no longer exists".
     val habitsAll by vm.habitsWithArchived.collectAsState()
     val timeEntries by vm.timeEntries.collectAsState()
-    val reviews = remember(settings.goalReviewsJson) { vm.goalReviews() }
+    val reviews = vm.goalReviewsState.collectAsState().value   // W3 — from the Room-backed flow
     val h = remember(g, tasks, checkins, timeEntries) { vm.goalHealth(g) }
     val cycle = remember(g, today) { GoalScore.cycle(g, today) }
     val cap = remember(g, timeEntries) { vm.goalCapacity(g) }

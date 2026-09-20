@@ -91,6 +91,25 @@ class GoalRoomParityTest {
         assertEquals(1, repo.goalReviewsFromTableOnce().size)
     }
 
+    @Test fun replaceWorkspaceGoals_replacesOnlyTheGivenWorkspace_leavingOthersIntact() = runBlocking {
+        // Mirrors the old saveGoals semantics: saving ws1's goals must not touch ws2's.
+        db.goalDao().upsertAll(listOf(
+            Goal(id = "a", name = "ws1-A", workspaceId = "ws1").toEntity(),
+            Goal(id = "b", name = "ws1-B", workspaceId = "ws1").toEntity(),
+            Goal(id = "z", name = "ws2-Z", workspaceId = "ws2").toEntity(),
+        ))
+        // Replace ws1 with a set that drops "b" and adds "c"; ws2's "z" must remain.
+        repo.replaceWorkspaceGoals("ws1", listOf(
+            Goal(id = "a", name = "ws1-A2", workspaceId = "ws1"),
+            Goal(id = "c", name = "ws1-C", workspaceId = "ws1"),
+        ))
+        val all = repo.goalsFromTableOnce().associate { it.id to it.name }
+        assertEquals(setOf("a", "c", "z"), all.keys)
+        assertEquals("ws1-A2", all["a"])   // updated
+        assertEquals("ws2-Z", all["z"])    // untouched
+        assertEquals(null, all["b"])       // dropped
+    }
+
     @Test fun goalsTables_haveTheCoveringIndices() {
         fun indices(table: String): Set<String> {
             val c = db.openHelper.writableDatabase.query("PRAGMA index_list(`$table`)")

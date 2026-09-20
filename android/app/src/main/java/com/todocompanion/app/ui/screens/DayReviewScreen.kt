@@ -280,7 +280,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     // Per-workspace: the align picker and every rollup below see only the active workspace's goals
     // (goals are workspace-scoped, like the day log itself). Keyed on the active workspace too so a
     // switch re-resolves. Ids are unique, so resolving a recorded alignment stays correct.
-    val goals = remember(settings.goalsJson, settings.activeWorkspaceId) { vm.goals() }
+    val goals = vm.goalsState.collectAsState().value   // W3 — Room-backed, already workspace-scoped in the VM
     val topValues = remember(coreValues) { coreValues.sortedBy { it.orderIndex }.take(TOP_VALUES) }
     val alignment = remember(bookend?.alignmentJson) { DayAlignments.parse(bookend?.alignmentJson ?: "") }
     val movedGoals = remember(goals, alignment) { goals.filter { it.id in alignment.movedGoalIds } }

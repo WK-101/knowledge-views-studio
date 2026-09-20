@@ -1,6 +1,8 @@
 package com.todocompanion.app.data
 
 import com.todocompanion.app.data.entity.ChecklistItemEntity
+import com.todocompanion.app.data.entity.toDomain
+import com.todocompanion.app.data.entity.toEntity
 import com.todocompanion.app.data.entity.ContextEntity
 import com.todocompanion.app.data.entity.DependencyEntity
 import com.todocompanion.app.data.entity.FilterEntity
@@ -27,6 +29,7 @@ import com.todocompanion.app.domain.port.BackupFile
 import com.todocompanion.app.data.security.SecurePrefs
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import java.util.UUID
 
@@ -812,11 +815,39 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     fun observeTasksByWorkspace(ws: String): Flow<List<TaskEntity>> =
         tasks.observeWorkspaceScoped(ws, ListEntity.INBOX_ID)
     fun observeNotebooks(): Flow<List<com.todocompanion.app.data.entity.NotebookEntity>> = notebooks.observeAll()
-    // W3 (cross-module unification) — read the promoted goals/goal_reviews tables. Increment 1 exposes these
-    // read-only helpers so the startup Diag probe and GoalRoomParityTest can compare the migrated rows against
-    // the settings-JSON that remains the source of truth, before Increment 2 flips the read/write path here.
+    // W3 (cross-module unification) — Goals & their review log now live in Room (Increment 2). The table is the
+    // runtime source of truth; the settings `goals`/`goal_reviews` k/v entries are kept only as the backward-
+    // compatible BACKUP transport (regenerated from the table at export, consumed into the table at import).
+    fun observeGoals(): Flow<List<com.todocompanion.app.domain.Goal>> = goals.observeAll().map { it.map { e -> e.toDomain() } }
+    fun observeGoalReviews(): Flow<List<com.todocompanion.app.domain.GoalReview>> = goals.observeReviews().map { it.map { e -> e.toDomain() } }
     suspend fun goalsFromTableOnce(): List<com.todocompanion.app.data.entity.GoalEntity> = goals.getAll()
     suspend fun goalReviewsFromTableOnce(): List<com.todocompanion.app.data.entity.GoalReviewEntity> = goals.getAllReviews()
+    private fun goalWsOf(ws: String) = ws.ifBlank { com.todocompanion.app.data.entity.WorkspaceEntity.DEFAULT_ID }
+    /** Replace the ACTIVE workspace's goals with [list] (leaving other workspaces' goals intact) — mirrors the
+     *  old settings-JSON saveGoals semantics exactly, but against the table, in one transaction. */
+    suspend fun replaceWorkspaceGoals(ws: String, list: List<com.todocompanion.app.domain.Goal>) {
+        db.withTransaction {
+            val keepIds = list.map { it.id }.toSet()
+            goals.getAll().filter { goalWsOf(it.workspaceId) == ws && it.id !in keepIds }.forEach { goals.deleteById(it.id) }
+            goals.upsertAll(list.map { it.toEntity() })
+        }
+    }
+    suspend fun deleteGoal(id: String) = goals.deleteById(id)
+    /** Replace the whole review log (reviews are global, not workspace-scoped — as in the old blob). */
+    suspend fun replaceGoalReviews(list: List<com.todocompanion.app.domain.GoalReview>) {
+        db.withTransaction { goals.clearReviews(); goals.upsertReviews(list.takeLast(500).map { it.toEntity() }) }
+    }
+    /** One-time, idempotent safety net for the JSON→table flip: adopt into the table any goal/review that
+     *  still exists only in the legacy settings-JSON (e.g. one created on an Increment-1 build before the flip).
+     *  Additive — never deletes — so it can run every startup harmlessly. */
+    suspend fun reconcileGoalsFromLegacyJson(goalsJson: String, reviewsJson: String) {
+        val haveGoalIds = goals.getAll().map { it.id }.toSet()
+        val missingGoals = com.todocompanion.app.domain.Goals.parse(goalsJson).filter { it.id !in haveGoalIds }
+        if (missingGoals.isNotEmpty()) goals.upsertAll(missingGoals.map { it.toEntity() })
+        val haveRevIds = goals.getAllReviews().map { it.id }.toSet()
+        val missingRev = com.todocompanion.app.domain.GoalReviews.parse(reviewsJson).filter { it.id !in haveRevIds }
+        if (missingRev.isNotEmpty()) goals.upsertReviews(missingRev.map { it.toEntity() })
+    }
     suspend fun getNotesOnce(): List<com.todocompanion.app.data.entity.NoteEntity> = notes.getAll()
     suspend fun getNote(id: String): com.todocompanion.app.data.entity.NoteEntity? = notes.getById(id)
     // Wave F/H — set/clear a note's reminder (metadata-only; leaves updatedAt/FTS/links alone).
@@ -1957,8 +1988,18 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     // ============ export / import ============
     /** Settings for export/sync, minus device-secret keys (the encryption passphrase never leaves, and the
      *  reactive-refresh rev token is device-local noise). */
-    private suspend fun exportableSettings(): List<SettingEntity> =
-        settings.getAll().filterNot { it.key == com.todocompanion.app.domain.AppSettings.Keys.SYNC_PASS || it.key == SYNC_PASS_REV }
+    private suspend fun exportableSettings(): List<SettingEntity> {
+        val K = com.todocompanion.app.domain.AppSettings.Keys
+        // W3 — goals/goal_reviews are runtime-owned by the Room table now, so regenerate their transport k/v
+        // from the live table (the settings-table copy is frozen at the Increment-1 migration value). This keeps
+        // the backup format byte-identical and backward-compatible while always reflecting the current goals.
+        val base = settings.getAll().filterNot {
+            it.key == K.SYNC_PASS || it.key == SYNC_PASS_REV || it.key == K.GOALS || it.key == K.GOAL_REVIEWS
+        }
+        val goalsJson = com.todocompanion.app.domain.Goals.encode(goals.getAll().map { it.toDomain() })
+        val reviewsJson = com.todocompanion.app.domain.GoalReviews.encode(goals.getAllReviews().map { it.toDomain() })
+        return base + SettingEntity(K.GOALS, goalsJson) + SettingEntity(K.GOAL_REVIEWS, reviewsJson)
+    }
 
     suspend fun exportJson(): String = Backup.encode(
         BackupFile(
@@ -2079,6 +2120,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
         escrows.clear(); nudgeEvents.clear(); eventCalendars.clear(); events.clear()
         notes.clear(); notes.clearTagCrossRefs(); notes.clearContextCrossRefs(); notebooks.clear(); noteRevisions.clear(); noteLinks.clear(); smartViews.clear()
         noteCards.clear()   // replace-restore must reset flashcards too, else stale SM-2 schedules survive
+        goals.clear(); goals.clearReviews()   // W3 — goals live in Room now; replace them from the imported transport below
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -2090,6 +2132,16 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
         settings.putAll(b.settings)
         // Restore the preserved device passphrase unless the backup itself carried one (it never does today).
         if (keepPass != null && b.settings.none { it.key == com.todocompanion.app.domain.AppSettings.Keys.SYNC_PASS }) settings.putAll(listOf(keepPass))
+        // W3 — populate the goals table from the imported transport k/v (goals ride in `settings` for backward
+        // compatibility; the table is the runtime source of truth). Old backups carry the same keys, so this
+        // restores goals from any backup, new or old.
+        run {
+            val K = com.todocompanion.app.domain.AppSettings.Keys
+            val gj = b.settings.firstOrNull { it.key == K.GOALS }?.value ?: ""
+            val rj = b.settings.firstOrNull { it.key == K.GOAL_REVIEWS }?.value ?: ""
+            goals.upsertAll(com.todocompanion.app.domain.Goals.parse(gj).map { it.toEntity() })
+            goals.upsertReviews(com.todocompanion.app.domain.GoalReviews.parse(rj).map { it.toEntity() })
+        }
         workspaces.upsertAll(b.workspaces)
         filters.upsertAll(b.filters)
         habits.upsertAll(b.habits); habits.upsertCheckins(b.habitCheckins)

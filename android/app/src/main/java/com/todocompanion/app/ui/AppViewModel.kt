@@ -3476,17 +3476,21 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
     // ── X1 · Unified Goals ────────────────────────────────────────────────────────────────────────
     // Goals are per-workspace: a blank workspaceId is legacy data, treated as the default workspace.
     private fun goalWs(g: com.todocompanion.app.domain.Goal) = g.workspaceId.ifBlank { com.todocompanion.app.data.entity.WorkspaceEntity.DEFAULT_ID }
-    fun goals(): List<com.todocompanion.app.domain.Goal> {
-        val ws = activeWorkspace()
-        return com.todocompanion.app.domain.Goals.parse(settings.value.goalsJson).filter { goalWs(it) == ws }
-    }
-    /** [list] is the ACTIVE workspace's goals; merge with other workspaces' so a save here never wipes
-     *  another workspace's goals. Blank ids are stamped with the active workspace. */
+    // W3 (cross-module unification) — Goals now live in a Room table, not the settings-JSON blob. These flows
+    // drive the goal screens (the settings `goalsJson` no longer changes, so a `remember(goalsJson)` would go
+    // stale). `goalsState` is the active-workspace set the UI collects; `goals()` returns its value so the many
+    // synchronous internal callers (goalHealth/goalCapacity/search/note-embed/upsert) are unchanged.
+    private val allGoals: StateFlow<List<com.todocompanion.app.domain.Goal>> = repo.observeGoals().state(emptyList())
+    val goalsState: StateFlow<List<com.todocompanion.app.domain.Goal>> =
+        combine(allGoals, activeWs) { all, ws -> all.filter { goalWs(it) == ws } }.state(emptyList())
+    val goalReviewsState: StateFlow<List<com.todocompanion.app.domain.GoalReview>> = repo.observeGoalReviews().state(emptyList())
+    fun goals(): List<com.todocompanion.app.domain.Goal> = goalsState.value
+    /** [list] is the ACTIVE workspace's goals; other workspaces' goals are left intact so a save here never
+     *  wipes them. Blank ids are stamped with the active workspace. */
     fun saveGoals(list: List<com.todocompanion.app.domain.Goal>) = viewModelScope.launch {
         val ws = activeWorkspace()
-        val others = com.todocompanion.app.domain.Goals.parse(settings.value.goalsJson).filter { goalWs(it) != ws }
         val mine = list.map { if (it.workspaceId.isBlank()) it.copy(workspaceId = ws) else it }
-        repo.saveSettings(settings.value.copy(goalsJson = com.todocompanion.app.domain.Goals.encode(others + mine)))
+        repo.replaceWorkspaceGoals(ws, mine)
     }
     data class GoalHealth(
         val goal: com.todocompanion.app.domain.Goal,
@@ -3532,13 +3536,12 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
         val cur = goals()
         saveGoals(if (cur.any { it.id == g.id }) cur.map { if (it.id == g.id) g else it } else cur + g)
     }
-    fun deleteGoal(id: String) = saveGoals(goals().filterNot { it.id == id })
+    fun deleteGoal(id: String) = viewModelScope.launch { repo.deleteGoal(id) }
 
     /** The weekly-review log (newest last). Drives the scoreboard trend + the integrity chain. */
-    fun goalReviews(): List<com.todocompanion.app.domain.GoalReview> =
-        com.todocompanion.app.domain.GoalReviews.parse(settings.value.goalReviewsJson)
+    fun goalReviews(): List<com.todocompanion.app.domain.GoalReview> = goalReviewsState.value
     fun saveGoalReviews(list: List<com.todocompanion.app.domain.GoalReview>) = viewModelScope.launch {
-        repo.saveSettings(settings.value.copy(goalReviewsJson = com.todocompanion.app.domain.GoalReviews.encode(list)))
+        repo.replaceGoalReviews(list)
     }
     /** Record one review sitting (portfolio when goalId is blank). */
     fun logGoalReview(goalId: String, executionPct: Int, commitmentsKept: Int, commitmentsTotal: Int, note: String) {

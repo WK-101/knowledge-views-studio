@@ -10,6 +10,7 @@ import com.todocompanion.app.data.entity.EventEntity
 import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.data.entity.SealedNoteEntity
 import com.todocompanion.app.data.entity.TimeEntryEntity
+import com.todocompanion.app.data.entity.toDomain
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -48,19 +49,19 @@ class BackupRoundTripTest {
         val habitId = srcRepo.createHabit(HabitEntity(id = "h1", name = "Meditate", createdAt = 0L))
         srcRepo.setCheckinValue(habitId, 20_000L, 1)
         // Settings (the whole key/value map — theme, review config, share config, daily questions, …).
-        // Phase B goals ride goalsJson (with milestones + key results) and goalReviewsJson (the review log).
+        srcRepo.saveSettings(srcRepo.settingsSnapshot().copy(weekStart = 3, dailyQuestionsJson = "SEED-Q"))
+        // W3 — Phase B goals now live in a Room table (with milestones + key results), not the settings blob;
+        // the review log likewise. Seed the TABLE — export regenerates the transport goalsJson/goalReviewsJson
+        // from it, and import populates a fresh table back from that transport.
         val seedGoal = com.todocompanion.app.domain.Goal(
             id = "g1", name = "Ship it", emoji = "🚀", area = "Work", identity = "a builder who ships",
             milestones = listOf(com.todocompanion.app.domain.GoalMilestone(id = "m1", title = "MVP", done = true)),
             keyResults = listOf(com.todocompanion.app.domain.KeyResult(id = "k1", title = "Users", current = 5.0, target = 100.0)),
-            cycleStartEpochDay = 19_000L, cycleWeeks = 12, reviewCadenceDays = 7,
+            cycleStartEpochDay = 19_000L, cycleWeeks = 12, reviewCadenceDays = 7, workspaceId = "default",
         )
         val seedReview = com.todocompanion.app.domain.GoalReview(id = "r1", goalId = "", epochDay = 19_500L, executionPct = 80, commitmentsKept = 3, commitmentsTotal = 4, note = "seed-review")
-        srcRepo.saveSettings(srcRepo.settingsSnapshot().copy(
-            weekStart = 3, dailyQuestionsJson = "SEED-Q",
-            goalsJson = com.todocompanion.app.domain.Goals.encode(listOf(seedGoal)),
-            goalReviewsJson = com.todocompanion.app.domain.GoalReviews.encode(listOf(seedReview)),
-        ))
+        srcRepo.replaceWorkspaceGoals("default", listOf(seedGoal))
+        srcRepo.replaceGoalReviews(listOf(seedReview))
         // Daily-review data (the felt-state / close-the-day store).
         srcRepo.upsertDayLog(DayLogEntity(epochDay = 20_000L, pmReflection = "seed-reflection", dayRating = 4))
         // Time tracking (activity + a logged interval).
@@ -102,13 +103,15 @@ class BackupRoundTripTest {
         val restored = dstRepo.settingsSnapshot()
         assertEquals("settings survive (weekStart)", 3, restored.weekStart)
         assertEquals("settings survive (daily questions)", "SEED-Q", restored.dailyQuestionsJson)
-        // Phase B goals: the goal with its milestones + key results, and the review log, round-trip.
-        val restoredGoal = com.todocompanion.app.domain.Goals.parse(restored.goalsJson).firstOrNull { it.id == "g1" }
+        // Phase B goals (W3 — now Room-backed): the goal with its milestones + key results, and the review log,
+        // must round-trip into the destination TABLE (not just the transport JSON). This proves both halves:
+        // export regenerated the transport from the src table, and import repopulated the dst table from it.
+        val restoredGoal = dstRepo.goalsFromTableOnce().map { it.toDomain() }.firstOrNull { it.id == "g1" }
         assertEquals("goal survives with area", "Work", restoredGoal?.area)
         assertEquals("goal milestone survives", 1, restoredGoal?.milestones?.count { it.done })
         assertEquals("goal key result survives", 5.0, restoredGoal?.keyResults?.firstOrNull()?.current)
         assertEquals("goal cycle survives", 12, restoredGoal?.cycleWeeks)
-        assertTrue("goal review survives", com.todocompanion.app.domain.GoalReviews.parse(restored.goalReviewsJson).any { it.id == "r1" && it.executionPct == 80 })
+        assertTrue("goal review survives", dstRepo.goalReviewsFromTableOnce().map { it.toDomain() }.any { it.id == "r1" && it.executionPct == 80 })
         // Day-log.
         assertTrue("day-log survives", dstRepo.dayLogsOnce().any { it.epochDay == 20_000L && it.pmReflection == "seed-reflection" && it.dayRating == 4 })
         // Time tracking.
