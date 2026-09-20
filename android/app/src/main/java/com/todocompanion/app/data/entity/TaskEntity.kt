@@ -16,14 +16,14 @@ import kotlinx.serialization.Serializable
     tableName = "tasks",
     // R52 — indices on the columns the app filters/sorts by most, so queries stay fast as the table grows
     // into the tens of thousands over years of use (see the scale plan). All additive.
-    // R108 audit B8 — indices trimmed to the ones queries actually use. The DAO loads tasks with
-    // observeAll/getAll and filters in memory, so folderId/workspaceId/someday/dueDate and the single
-    // `completed`/`(workspaceId,trashed)` indices were never chosen by any query — dropped to shrink the
-    // DB and speed up writes. `sortOrder` is added because the main list orders by it; `trashed` and
-    // `(completed,trashed)` are kept because the database-health row counts filter on them.
+    // R108 audit B8 — indices trimmed to the ones queries actually use. `sortOrder` orders the main list;
+    // `trashed` and `(completed,trashed)` back the database-health row counts.
+    // W2 (scale) — workspaceId + folderId are restored: TaskDao.observeWorkspaceScoped now filters the
+    // active-workspace task set IN SQL (the shared-Inbox workspaceId branch + the folder-membership branch),
+    // so these are again chosen by a query rather than dead weight.
     indices = [
         Index("parentId"), Index("listId"), Index("trashed"),
-        Index("sortOrder"),
+        Index("sortOrder"), Index("workspaceId"), Index("folderId"),
         Index("completed", "trashed"),
     ],
 )

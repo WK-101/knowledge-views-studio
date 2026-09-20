@@ -63,14 +63,30 @@ class App : Application() {
                 // W2 — the index-backed SQL notes query the VM now uses for the live list.
                 val liveNotes = repository.observeNotesByWorkspace(ws, false).first()
                 com.todocompanion.app.util.Diag.log("notes", "SQL live notes in active workspace = ${liveNotes.size}")
-                // W3 — the unified reminder model over real data across all six domains.
+                // W2b — the index-backed SQL active-workspace task set the VM now uses for the main list.
+                val wsTasks = repository.observeTasksByWorkspace(ws).first()
+                com.todocompanion.app.util.Diag.log("tasks", "SQL workspace tasks = ${wsTasks.size}")
+                // W3 — the unified reminder model over real data. Raw counts too, so a 0 total is confirmed as
+                // "no reminders configured" rather than a parse miss.
                 val R = com.todocompanion.app.domain.reminders.UnifiedReminders
+                val habits = repository.allHabits.first()
+                val events = repository.allEvents.first()
+                val countdowns = repository.allCountdowns.first()
+                val routines = com.todocompanion.app.domain.Routines.parse(s0.routinesJson)
+                com.todocompanion.app.util.Diag.log(
+                    "reminders-raw",
+                    "habits=${habits.size}(withTimes=${habits.count { it.reminderTimes.isNotBlank() }}) " +
+                        "events=${events.size}(withAlerts=${events.count { it.alertsMinutes.isNotBlank() }}) " +
+                        "notes=${liveNotes.size}(withReminder=${liveNotes.count { it.reminderAt != null || it.reminderExtra.isNotBlank() }}) " +
+                        "countdowns=${countdowns.size}(prep/keep=${countdowns.count { it.prepLeadDays > 0 || it.keepInTouchDays > 0 }}) " +
+                        "routines=${routines.size}(withReminder=${routines.count { it.whenReminderMin != null }})",
+                )
                 val unified = R.ordered(
-                    repository.allHabits.first().flatMap { R.fromHabit(it.id, it.name, it.reminderTimes) },
-                    repository.allEvents.first().flatMap { R.fromEvent(it.id, it.title, it.alertsMinutes) },
+                    habits.flatMap { R.fromHabit(it.id, it.name, it.reminderTimes) },
+                    events.flatMap { R.fromEvent(it.id, it.title, it.alertsMinutes) },
                     liveNotes.flatMap { R.fromNote(it.id, it.title, it.reminderAt, it.reminderExtra, it.reminderRrule) },
-                    repository.allCountdowns.first().flatMap { R.fromOccasion(it.id, it.title, it.prepLeadDays, it.keepInTouchDays) },
-                    com.todocompanion.app.domain.Routines.parse(s0.routinesJson).flatMap { R.fromRoutine(it.id, it.name, it.whenReminderMin) },
+                    countdowns.flatMap { R.fromOccasion(it.id, it.title, it.prepLeadDays, it.keepInTouchDays) },
+                    routines.flatMap { R.fromRoutine(it.id, it.name, it.whenReminderMin) },
                 )
                 com.todocompanion.app.util.Diag.log("reminders", "unified reminders = ${unified.size}, by source = ${unified.groupingBy { it.source }.eachCount()}")
             }

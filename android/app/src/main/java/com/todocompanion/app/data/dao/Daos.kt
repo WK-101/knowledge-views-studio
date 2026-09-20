@@ -40,6 +40,23 @@ interface TaskDao {
     @Query("SELECT * FROM tasks ORDER BY sortOrder ASC")
     fun observeAll(): Flow<List<TaskEntity>>
 
+    // W2 (scale) — the active-workspace task set, filtered IN SQL against the restored workspaceId/folderId
+    // indices, replacing the VM's whole-table load + in-memory scopedBy/wsTasks filter. Mirrors the old
+    // wsTasks rule EXACTLY (proven by TaskScopeQueryTest): it's an if/else, not an OR, and the else branch is
+    // guarded by `listId <> :inboxId`. That guard matters — the Inbox LIST row itself lives in `lists` with
+    // workspaceId "default", so without it an Inbox task captured in a non-default workspace would leak into
+    // the default workspace via the list-membership branch. Rule: a shared-Inbox task belongs to the
+    // workspace it was captured in ([workspaceId]); every other task belongs via its list's / folder's workspace.
+    @Query(
+        "SELECT * FROM tasks WHERE (listId = :inboxId AND workspaceId = :ws) " +
+            "OR (listId <> :inboxId AND (" +
+            "listId IN (SELECT id FROM lists WHERE workspaceId = :ws) " +
+            "OR (folderId IS NOT NULL AND folderId IN (SELECT id FROM folders WHERE workspaceId = :ws))" +
+            ")) " +
+            "ORDER BY sortOrder ASC",
+    )
+    fun observeWorkspaceScoped(ws: String, inboxId: String): Flow<List<TaskEntity>>
+
     @Query("SELECT * FROM tasks")
     suspend fun getAll(): List<TaskEntity>
 

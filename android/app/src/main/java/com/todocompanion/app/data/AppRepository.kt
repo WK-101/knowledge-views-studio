@@ -807,6 +807,9 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     /** W2 (scale) — DB-side workspace+trashed filter (index-backed), replacing the in-memory VM filter. */
     fun observeNotesByWorkspace(ws: String, trashed: Boolean): Flow<List<com.todocompanion.app.data.entity.NoteEntity>> =
         notes.observeByWorkspace(ws, trashed)
+    /** W2 (scale) — DB-side active-workspace task set (index-backed), replacing the in-memory wsTasks filter. */
+    fun observeTasksByWorkspace(ws: String): Flow<List<TaskEntity>> =
+        tasks.observeWorkspaceScoped(ws, ListEntity.INBOX_ID)
     fun observeNotebooks(): Flow<List<com.todocompanion.app.data.entity.NotebookEntity>> = notebooks.observeAll()
     suspend fun getNotesOnce(): List<com.todocompanion.app.data.entity.NoteEntity> = notes.getAll()
     suspend fun getNote(id: String): com.todocompanion.app.data.entity.NoteEntity? = notes.getById(id)

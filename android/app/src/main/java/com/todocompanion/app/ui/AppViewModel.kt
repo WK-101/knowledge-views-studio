@@ -168,25 +168,15 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
      *  per-workspace feature flow funnels through this, so isolation is uniform and auditable. */
     private fun <T> Flow<List<T>>.scopedBy(wsOf: (T) -> String): StateFlow<List<T>> =
         combine(this, activeWs) { list, w -> list.filter { wsOf(it) == w } }.state(emptyList())
-    /** The single isolation choke point: list ids belonging to the active workspace (+ the shared Inbox). */
-    private val activeListIds: Flow<Set<String>> =
-        combine(repo.allLists, activeWs) { all, ws -> all.filter { it.workspaceId == ws }.map { it.id }.toSet() + ListEntity.INBOX_ID }
-    /** Folders in the active workspace — the route into the set for tasks captured directly into a
-     *  folder with no list (listId == ""), which otherwise belong to no list and would be dropped. */
-    private val activeFolderIds: Flow<Set<String>> =
-        combine(repo.allFolders, activeWs) { all, ws -> all.filter { it.workspaceId == ws }.map { it.id }.toSet() }
+    // W2 (scale) — the active-workspace task set now comes from SQL (TaskDao.observeWorkspaceScoped, backed
+    // by the restored workspaceId/folderId indices), re-subscribing when the workspace changes, instead of
+    // loading the whole tasks table and filtering here. The SQL mirrors the old rule exactly — proven by
+    // TaskScopeQueryTest, guarded by AppViewModelCharacterizationTest — so what the user sees is unchanged:
+    // R64 keeps a shared-Inbox task in the workspace it was captured in; non-Inbox tasks belong via their
+    // list's or folder's workspace; the Inbox LIST view stays the one shared surface (it reads inboxTasksAll).
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private val wsTasks: Flow<List<TaskEntity>> =
-        combine(repo.allTasks, activeListIds, activeFolderIds, activeWs) { all, listIds, folderIds, ws ->
-            all.filter {
-                // R64 — the shared Inbox is workspace-owned per task: an Inbox task belongs to the workspace
-                // it was captured in (its [workspaceId]), so it appears in THAT workspace's smart lists only,
-                // not every workspace's. This closes the leak where Someday/Today/… showed shared-Inbox tasks
-                // in every space. Non-Inbox tasks stay scoped by list/folder membership as before. The Inbox
-                // LIST view itself is the single shared surface — it reads [inboxTasksAll], not this flow.
-                if (it.listId == ListEntity.INBOX_ID) it.workspaceId == ws
-                else it.listId in listIds || (it.folderId != null && it.folderId in folderIds)
-            }
-        }
+        activeWs.flatMapLatest { ws -> repo.observeTasksByWorkspace(ws) }
 
     /** The one shared surface: every Inbox task across all workspaces. The Inbox list view (and its count)
      *  read this so the Inbox stays the single cross-workspace zone; nothing else does. */
