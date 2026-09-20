@@ -43,6 +43,7 @@ import com.todocompanion.app.domain.habit.HabitInsights
 import com.todocompanion.app.domain.habit.HabitStats
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.KairoScreenScaffold
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -63,12 +64,7 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
     val today = vm.today()
     val active = habits.filter { !it.archived }
 
-    Scaffold(topBar = {
-        TopAppBar(expandedHeight = 52.dp, 
-            title = { Text("Trends & correlations") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-        )
-    }) { padding ->
+    KairoScreenScaffold(title = "Trends & correlations", onBack = onBack) { padding ->
         if (active.isEmpty()) {
             Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
                 EmptyState(
@@ -77,7 +73,7 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
                     body = "Track a few habits for a couple of weeks — their strength, weekday patterns and correlations appear here.",
                 )
             }
-            return@Scaffold
+            return@KairoScreenScaffold
         }
 
         // Per-habit day sets + strength.

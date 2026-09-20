@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.NoteCards
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.EmptyState
+import com.todocompanion.app.ui.components.KairoScreenScaffold
 
 /**
  * Wave 3 · Active Recall — the daily review. Quizzes the flashcards authored inline in your own notes
@@ -62,14 +63,9 @@ fun RecallScreen(vm: AppViewModel, onClose: () -> Unit) {
     // Collapse the answer whenever the front card changes.
     LaunchedEffect(card?.id) { revealed = false }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                expandedHeight = 52.dp,
-                title = { Text("Recall" + if (due.isEmpty()) "" else "  ·  ${due.size} due") },
-                navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-            )
-        },
+    KairoScreenScaffold(
+        title = "Recall" + if (due.isEmpty()) "" else "  ·  ${due.size} due",
+        onBack = onClose,
     ) { pad ->
         Column(Modifier.fillMaxSize().padding(pad)) {
             if (card == null) {

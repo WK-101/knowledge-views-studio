@@ -53,6 +53,7 @@ import com.todocompanion.app.domain.weekStartOf
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.appCardColor
+import com.todocompanion.app.ui.components.KairoScreenScaffold
 import com.todocompanion.app.ui.theme.LocalKairoColors
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -95,15 +96,10 @@ fun PeriodicNotesScreen(
 
     fun openThis() = vm.openPeriodicNote(period, anchor) { onOpenNote(it) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                expandedHeight = 52.dp,
-                title = { Text("Journal") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                actions = { TextButton(onClick = { anchor = today }) { Text(nowLabel(period)) } },
-            )
-        },
+    KairoScreenScaffold(
+        title = "Journal",
+        onBack = onBack,
+        actions = { TextButton(onClick = { anchor = today }) { Text(nowLabel(period)) } },
     ) { pad ->
         Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState())) {
         // ── Granularity switcher (Day · Week · Month · Year) ──

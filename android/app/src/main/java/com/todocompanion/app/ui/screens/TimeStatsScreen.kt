@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.TimeStats
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.KairoScreenScaffold
 import com.todocompanion.app.ui.components.OptionChips
 import com.todocompanion.app.ui.components.StatTile
 import kotlinx.coroutines.delay
@@ -97,10 +98,7 @@ fun TimeStatsScreen(vm: AppViewModel, onBack: () -> Unit) {
     val today = LocalDate.now(zone)
     val canNext = TimeStats.window(range, anchor).second.isBefore(today)
 
-    Scaffold(topBar = {
-        TopAppBar(expandedHeight = 52.dp, title = { Text("Time stats") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } })
-    }) { padding ->
+    KairoScreenScaffold(title = "Time stats", onBack = onBack) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             // Range selector — the app-wide single-choice chip row, single line that scrolls if it doesn't fit.

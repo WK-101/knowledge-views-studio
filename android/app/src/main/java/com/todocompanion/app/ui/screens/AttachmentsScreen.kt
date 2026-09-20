@@ -1,6 +1,7 @@
 package com.todocompanion.app.ui.screens
 import com.todocompanion.app.ui.components.AppTextField
 import com.todocompanion.app.ui.components.EmptyState
+import com.todocompanion.app.ui.components.KairoScreenScaffold
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
@@ -159,41 +160,37 @@ fun AttachmentsScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
     }
     val totalBytes = items.sumOf { it.sizeBytes }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(expandedHeight = 52.dp,
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                title = { Text("Attachments") },
-                actions = {
-                    IconButton(onClick = { view = when (view) { AttView.LIST -> AttView.GRID_L; AttView.GRID_L -> AttView.GRID_S; AttView.GRID_S -> AttView.LIST } }) {
-                        Icon(
-                            when (view) { AttView.LIST -> Icons.Filled.GridView; AttView.GRID_L -> Icons.Filled.Apps; AttView.GRID_S -> Icons.AutoMirrored.Filled.ViewList },
-                            "Change view",
+    KairoScreenScaffold(
+        title = "Attachments",
+        onBack = onBack,
+        actions = {
+            IconButton(onClick = { view = when (view) { AttView.LIST -> AttView.GRID_L; AttView.GRID_L -> AttView.GRID_S; AttView.GRID_S -> AttView.LIST } }) {
+                Icon(
+                    when (view) { AttView.LIST -> Icons.Filled.GridView; AttView.GRID_L -> Icons.Filled.Apps; AttView.GRID_S -> Icons.AutoMirrored.Filled.ViewList },
+                    "Change view",
+                )
+            }
+            Box {
+                IconButton(onClick = { sortMenu = true }) { Icon(Icons.AutoMirrored.Filled.Sort, "Sort") }
+                DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                    Text("SORT BY", Modifier.padding(14.dp, 8.dp, 14.dp, 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    AttSort.entries.forEach { s ->
+                        DropdownMenuItem(
+                            text = { Text(s.label) },
+                            trailingIcon = { if (s == filter.sort) Icon(Icons.AutoMirrored.Filled.Sort, null, modifier = Modifier.size(16.dp)) },
+                            onClick = { filter = filter.copy(sort = s); sortMenu = false },
                         )
                     }
-                    Box {
-                        IconButton(onClick = { sortMenu = true }) { Icon(Icons.AutoMirrored.Filled.Sort, "Sort") }
-                        DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
-                            Text("SORT BY", Modifier.padding(14.dp, 8.dp, 14.dp, 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            AttSort.entries.forEach { s ->
-                                DropdownMenuItem(
-                                    text = { Text(s.label) },
-                                    trailingIcon = { if (s == filter.sort) Icon(Icons.AutoMirrored.Filled.Sort, null, modifier = Modifier.size(16.dp)) },
-                                    onClick = { filter = filter.copy(sort = s); sortMenu = false },
-                                )
-                            }
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text(if (filter.asc) "Ascending ↑" else "Descending ↓") },
-                                onClick = { filter = filter.copy(asc = !filter.asc); sortMenu = false },
-                            )
-                        }
-                    }
-                    IconButton(onClick = { filterOpen = true }) {
-                        Icon(Icons.Filled.FilterList, "Filters", tint = if (filter.active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                },
-            )
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text(if (filter.asc) "Ascending ↑" else "Descending ↓") },
+                        onClick = { filter = filter.copy(asc = !filter.asc); sortMenu = false },
+                    )
+                }
+            }
+            IconButton(onClick = { filterOpen = true }) {
+                Icon(Icons.Filled.FilterList, "Filters", tint = if (filter.active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {

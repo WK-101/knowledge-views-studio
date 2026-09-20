@@ -43,6 +43,7 @@ import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.CardLabel
 import com.todocompanion.app.ui.components.EmptyState
+import com.todocompanion.app.ui.components.KairoScreenScaffold
 
 /**
  * Wave 2 · The Note-Garden review — a weekly ten-minute tending surface that only a local app with the
@@ -65,17 +66,12 @@ fun NoteGardenScreen(vm: AppViewModel, onOpenNote: (String) -> Unit, onClose: ()
     val empty = report.orphans.isEmpty() && report.stale.isEmpty() && report.dropped.isEmpty() &&
         report.duplicates.isEmpty() && due.isEmpty()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                expandedHeight = 52.dp,
-                title = { Text("Note garden" + if (report.scanned > 0) "  ·  ${report.scanned}" else "") },
-                navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                actions = {
-                    if (loading) CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-                    else IconButton(onClick = { vm.refreshNoteGarden() }) { Icon(Icons.Filled.Refresh, "Re-scan") }
-                },
-            )
+    KairoScreenScaffold(
+        title = "Note garden" + if (report.scanned > 0) "  ·  ${report.scanned}" else "",
+        onBack = onClose,
+        actions = {
+            if (loading) CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+            else IconButton(onClick = { vm.refreshNoteGarden() }) { Icon(Icons.Filled.Refresh, "Re-scan") }
         },
     ) { pad ->
         Column(Modifier.fillMaxSize().padding(pad)) {

@@ -53,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.EmptyState
+import com.todocompanion.app.ui.components.KairoScreenScaffold
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
@@ -230,15 +231,10 @@ fun NoteGraphScreen(vm: AppViewModel, onOpenNote: (String) -> Unit, onClose: () 
     fun toScreen(i: Int, f: Triple<Float, Offset, Offset>): Offset =
         Offset((px[i] - f.second.x) * f.first + f.third.x, (py[i] - f.second.y) * f.first + f.third.y)
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                expandedHeight = 52.dp,
-                title = { Text("Life graph") },
-                navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                actions = { IconButton(onClick = { scale = 1f; pan = Offset.Zero }) { Icon(Icons.Filled.CenterFocusStrong, "Reset view") } },
-            )
-        },
+    KairoScreenScaffold(
+        title = "Life graph",
+        onBack = onClose,
+        actions = { IconButton(onClick = { scale = 1f; pan = Offset.Zero }) { Icon(Icons.Filled.CenterFocusStrong, "Reset view") } },
     ) { pad ->
         Column(Modifier.fillMaxSize().padding(pad)) {
             if (nodes.isEmpty()) {

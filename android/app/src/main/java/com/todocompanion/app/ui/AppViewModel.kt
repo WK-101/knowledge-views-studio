@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.todocompanion.app.App
+import com.todocompanion.app.data.AppRepository
 import com.todocompanion.app.data.entity.ChecklistItemEntity
 import com.todocompanion.app.data.entity.ContextEntity
 import com.todocompanion.app.data.entity.DependencyEntity
@@ -110,10 +111,17 @@ data class UndoEvent(
     val taskSnapshots: List<TaskEntity> = emptyList(),
 )
 
-class AppViewModel(app: Application) : AndroidViewModel(app) {
+class AppViewModel internal constructor(app: Application, private val repo: AppRepository) : AndroidViewModel(app) {
+
+    // A2 — constructor-inject the repository so the VM is unit-testable. Production code obtains the VM via
+    // viewModel(), which uses the default AndroidViewModel factory and this (Application) constructor; it
+    // resolves the repo from the App service-locator exactly as before. Tests construct the VM directly via
+    // the internal (app, repo) constructor with a fake repository — previously impossible, since the VM
+    // hard-referenced App.repository through a getter, leaving the largest, most logic-dense class at 0%
+    // coverage. The Android-framework couplings (appCtx below) remain, so VM tests run under Robolectric.
+    constructor(app: Application) : this(app, (app as App).repository)
 
     private val appCtx get() = getApplication<App>()
-    private val repo get() = appCtx.repository
 
     /** One-shot events for the "Undo" snackbar after a completion / won't-do / trash. */
     val undoEvents = kotlinx.coroutines.flow.MutableSharedFlow<UndoEvent>(extraBufferCapacity = 4)

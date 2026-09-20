@@ -43,6 +43,7 @@ import com.todocompanion.app.data.entity.ListEntity
 import com.todocompanion.app.data.entity.TaskEntity
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.KairoScreenScaffold
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -83,12 +84,7 @@ fun ReviewScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> U
     val doneThisWeek = allTasks.count { it.completed && it.completedAt != null && !dayOf(it.completedAt!!).isBefore(today.minusDays(6)) }
     val openCount = active.count { !it.isNote }
 
-    Scaffold(topBar = {
-        TopAppBar(expandedHeight = 52.dp, 
-            title = { Text("Weekly cleanup") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-        )
-    }) { padding ->
+    KairoScreenScaffold(title = "Weekly cleanup", onBack = onBack) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             AppCard {
                 Text("Take five minutes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

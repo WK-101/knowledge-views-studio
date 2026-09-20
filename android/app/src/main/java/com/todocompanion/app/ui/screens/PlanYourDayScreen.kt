@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.KairoScreenScaffold
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -81,14 +82,7 @@ fun PlanYourDayScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
     val current = remaining.firstOrNull()
     val listName = current?.let { c -> lists.firstOrNull { it.id == c.listId }?.name }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(expandedHeight = 52.dp, 
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                title = { Text("Plan your day") },
-            )
-        },
-    ) { padding ->
+    KairoScreenScaffold(title = "Plan your day", onBack = onBack) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             // M3: the daily coach brief — the flagship. One proactive card at the start of the day:
             // where today stands, your keystone, the streak most at risk, and the next best move.

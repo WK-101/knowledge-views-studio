@@ -43,6 +43,7 @@ import com.todocompanion.app.domain.WeekChanges
 import com.todocompanion.app.domain.habit.HabitStats
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.KairoScreenScaffold
 import com.todocompanion.app.ui.components.PeriodSwitcher
 import com.todocompanion.app.ui.components.StatTile
 import java.time.Instant
@@ -149,9 +150,7 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
         5 -> "Focused"; 6 -> "Productive"; 7 -> "Relentless"; else -> "Master"
     }
 
-    Scaffold(topBar = {
-        TopAppBar(expandedHeight = 52.dp, title = { Text("Statistics") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } })
-    }) { padding ->
+    KairoScreenScaffold(title = "Statistics", onBack = onBack) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             AchievementsCard(score, level, levelTitle, intoLevel, streak, totalDone, totalFocusMin)
             // Track 2.3 — the story first: what changed this week, so the user reads it instead of scanning tiles.
