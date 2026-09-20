@@ -6,6 +6,44 @@ storage, performance, UI reuse and cross-module consistency, with a phased plan 
 
 ---
 
+# Round 6 — Phase 3 groundwork: composition root + testable write-path use-cases (2026-09-20)
+
+Phase 3 (architecture decomposition) is the ceiling-raiser and its felt half — rotation,
+back-stack, state restoration under a real NavHost — is genuinely device-gated. This round banks
+the half that is **not**: the dependency seam and the first write-path use-cases, each
+behavior-preserving and covered by JVM/Robolectric tests that need no device.
+
+### Shipped this round
+| Step | What landed | Status | Evidence |
+|---|---|:---:|---|
+| **A2 — composition root** | VM dependency wiring moved out of the god-VM | ✅ Done | `AppViewModelFactory` (a `ViewModelProvider.Factory`) is now the single place the repository is resolved from the `App` locator; both `viewModel()` sites (`AppRoot`, `QuickCaptureActivity`) pass it. The VM's service-locator secondary constructor is gone — it has exactly one ctor, `(app, repo)`, and never looks up its own dependencies. `AppViewModelFactoryTest` wires an in-memory repo through the production path and asserts the guard rejects a foreign VM class. |
+| **A3 — roll-forward use-case** | Recurring-completion rules pulled into a pure class | ✅ Done | `domain/task/RecurringRollForward` (`onComplete` / `onSkip` / `subtasksToReset`) owns the date-bundle advance (due/start/deadline shift by the SAME delta), the "recurrence ended?" guard, and the subtask-reset policy. `toggleComplete` and `skipOccurrence` had **two copies** of that shift; now both call the one source of truth and keep only side effects. `RecurringRollForwardTest` (pure JVM) pins the same-delta invariant — the exact regression that once left the deadline frozen and permanently overdue — plus the guards, skip-preserves-completed, and the three reset modes. |
+| **A3 — cadence ease + reminder dedup** | Two more inline blocks moved | ✅ Done | `Recurrence.ease(Recur)` is the pure Q5 adaptive-cadence step, unit-tested beside `advance`; `easeCadence` is now parse→ease→encode→label. The identical "shift each absolute reminder by delta and re-arm" loop in both roll-forward paths is one private VM helper, `shiftAbsoluteReminders`. |
+
+**Test pyramid:** +9 tests (`AppViewModelFactoryTest` ×2, `RecurringRollForwardTest` ×7) reaching the
+production construction path and the most correctness-critical write-path rules — recurring roll-forward
+— that the pre-existing 520 pure tests never touched. All green with the R4/R5 suites.
+
+### Explicitly not shipped this round (needs a device, not skippable by log)
+- **Parallel per-feature ViewModels** (audit #13/#15). Time-tracking looked "self-contained" but its
+  entry flows are read cross-surface (calendar tracked stripe, coherent Today, capacity, reports); splitting
+  them into a second VM risks breaking those readers, and the failure mode (a surface reading a stale/empty
+  flow) is a rotation/recomposition behaviour only a device shows. Deferred rather than done blind.
+- **Real NavHost** (audit #16) replacing the flag/overlay navigation + 28 `BackHandler`s — rotation and
+  back-stack restoration can only be validated interactively.
+
+### Scorecard delta (R5 → R6)
+| Dimension | R5 | **R6** | Why |
+|---|:---:|:---:|---|
+| Architecture & maintainability | 6.0 | **6.5** | the VM no longer resolves its own dependencies (one composition root), and the first write-path rules are out of the VM in pure, tested classes — the seam the sub-VM split builds on is proven, not just present. |
+| Testing | 7.0 | **7.5** | 9 new tests reach the production VM-construction path and the recurring roll-forward rules (same-delta invariant, ended-recurrence guards, subtask-reset modes, cadence ease). |
+| Data storage / Cross-module / Performance / UI / Security | 8.0 / 7.0 / 7.0 / 7.0 / 8.5 | **8.0 / 7.0 / 7.0 / 7.0 / 8.5** | unchanged this round. |
+| **Overall** | **≈7.3** | **≈7.5** | the verifiable Phase-3 groundwork is banked. The remaining lift to 9.5 is the device-gated structural work: parallel per-feature ViewModels over the cross-cutting flows, and a real NavHost — both needing on-device rotation/back-stack verification. |
+
+_The Round 5 and earlier logs follow unchanged below._
+
+---
+
 # Round 5 — Retiring the Second Persistence Substrate (device-verified) (2026-09-20)
 
 Round 4 banked the *model* half of the plan and flagged the *storage* half as device-gated.
