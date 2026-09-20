@@ -89,6 +89,21 @@ class App : Application() {
                     routines.flatMap { R.fromRoutine(it.id, it.name, it.whenReminderMin) },
                 )
                 com.todocompanion.app.util.Diag.log("reminders", "unified reminders = ${unified.size}, by source = ${unified.groupingBy { it.source }.eachCount()}")
+                // W3 (goals→Room, Increment 1) — prove the additive MIGRATION_85_86 copied the settings-JSON
+                // goals/goal_reviews into rows EXACTLY. The JSON is still the source of truth, so the counts (and
+                // the id sets) must match; any mismatch means the migration lost/added something and the flip must
+                // wait. Compare parsed-JSON vs table rows on the user's real data.
+                val jsonGoals = com.todocompanion.app.domain.Goals.parse(s0.goalsJson)
+                val jsonReviews = com.todocompanion.app.domain.GoalReviews.parse(s0.goalReviewsJson)
+                val tableGoals = repository.goalsFromTableOnce()
+                val tableReviews = repository.goalReviewsFromTableOnce()
+                val goalsMatch = jsonGoals.map { it.id }.toSet() == tableGoals.map { it.id }.toSet()
+                val reviewsMatch = jsonReviews.map { it.id }.toSet() == tableReviews.map { it.id }.toSet()
+                com.todocompanion.app.util.Diag.log(
+                    "goals",
+                    "JSON goals=${jsonGoals.size} table=${tableGoals.size} idsMatch=$goalsMatch · " +
+                        "JSON reviews=${jsonReviews.size} table=${tableReviews.size} idsMatch=$reviewsMatch",
+                )
             }
             // Seed the lock-screen-privacy flag so background notifications honour it even before any UI.
             Notifications.lockscreenPrivate = s0.lockscreenPrivacy

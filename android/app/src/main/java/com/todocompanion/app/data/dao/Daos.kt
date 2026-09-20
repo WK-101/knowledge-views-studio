@@ -304,6 +304,26 @@ interface DayLogDao {
     @Query("DELETE FROM day_logs") suspend fun clear()
 }
 
+// W3 (cross-module unification) — Goals & their review log promoted out of the settings-JSON blob into
+// their own tables (see GoalEntities.kt). observeByWorkspace lets the goal list filter IN SQL against the
+// workspaceId index, the same index-backed pattern W2 established for notes and tasks.
+@Dao
+interface GoalDao {
+    @Query("SELECT * FROM goals") fun observeAll(): Flow<List<com.todocompanion.app.data.entity.GoalEntity>>
+    @Query("SELECT * FROM goals") suspend fun getAll(): List<com.todocompanion.app.data.entity.GoalEntity>
+    @Query("SELECT * FROM goals WHERE workspaceId = :ws") fun observeByWorkspace(ws: String): Flow<List<com.todocompanion.app.data.entity.GoalEntity>>
+    @Upsert suspend fun upsert(g: com.todocompanion.app.data.entity.GoalEntity)
+    @Upsert suspend fun upsertAll(g: List<com.todocompanion.app.data.entity.GoalEntity>)
+    @Query("DELETE FROM goals WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM goals") suspend fun clear()
+
+    @Query("SELECT * FROM goal_reviews") fun observeReviews(): Flow<List<com.todocompanion.app.data.entity.GoalReviewEntity>>
+    @Query("SELECT * FROM goal_reviews") suspend fun getAllReviews(): List<com.todocompanion.app.data.entity.GoalReviewEntity>
+    @Upsert suspend fun upsertReview(r: com.todocompanion.app.data.entity.GoalReviewEntity)
+    @Upsert suspend fun upsertReviews(r: List<com.todocompanion.app.data.entity.GoalReviewEntity>)
+    @Query("DELETE FROM goal_reviews") suspend fun clearReviews()
+}
+
 // R36 — the FOURTH-WAVE layer's tables.
 @Dao
 interface EscrowDao {

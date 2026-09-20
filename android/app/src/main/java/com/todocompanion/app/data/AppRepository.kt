@@ -300,6 +300,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     private val events = db.eventDao()
     private val notes = db.noteDao()
     private val notebooks = db.notebookDao()
+    private val goals = db.goalDao()
     private val templateJson = com.todocompanion.app.util.AppJson
 
     // ----- task time-travel: sparse revision history (H5) -----
@@ -811,6 +812,11 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     fun observeTasksByWorkspace(ws: String): Flow<List<TaskEntity>> =
         tasks.observeWorkspaceScoped(ws, ListEntity.INBOX_ID)
     fun observeNotebooks(): Flow<List<com.todocompanion.app.data.entity.NotebookEntity>> = notebooks.observeAll()
+    // W3 (cross-module unification) — read the promoted goals/goal_reviews tables. Increment 1 exposes these
+    // read-only helpers so the startup Diag probe and GoalRoomParityTest can compare the migrated rows against
+    // the settings-JSON that remains the source of truth, before Increment 2 flips the read/write path here.
+    suspend fun goalsFromTableOnce(): List<com.todocompanion.app.data.entity.GoalEntity> = goals.getAll()
+    suspend fun goalReviewsFromTableOnce(): List<com.todocompanion.app.data.entity.GoalReviewEntity> = goals.getAllReviews()
     suspend fun getNotesOnce(): List<com.todocompanion.app.data.entity.NoteEntity> = notes.getAll()
     suspend fun getNote(id: String): com.todocompanion.app.data.entity.NoteEntity? = notes.getById(id)
     // Wave F/H — set/clear a note's reminder (metadata-only; leaves updatedAt/FTS/links alone).

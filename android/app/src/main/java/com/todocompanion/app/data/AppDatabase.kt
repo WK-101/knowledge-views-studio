@@ -39,6 +39,7 @@ import com.todocompanion.app.data.entity.TemplateEntity
 import com.todocompanion.app.data.entity.TaskTagCrossRef
 import com.todocompanion.app.data.entity.WorkspaceEntity
 import com.todocompanion.app.data.entity.AttachmentEntity
+import com.todocompanion.app.data.entity.toEntity
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
@@ -90,8 +91,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.NoteLinkEntity::class,
         com.todocompanion.app.data.entity.SmartViewEntity::class,
         com.todocompanion.app.data.entity.NoteCardEntity::class,
+        com.todocompanion.app.data.entity.GoalEntity::class,
+        com.todocompanion.app.data.entity.GoalReviewEntity::class,
     ],
-    version = 85,
+    version = 86,
     // R73 — export the schema JSON (to app/schemas/) on every build. With 54 hand-written migrations
     // this is the safety net: it lets an instrumented MigrationTest replay the whole chain in CI and
     // fail the build the moment a migration drifts from the entity definitions. Turned on from v59;
@@ -139,6 +142,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun noteLinkDao(): com.todocompanion.app.data.dao.NoteLinkDao
     abstract fun smartViewDao(): com.todocompanion.app.data.dao.SmartViewDao
     abstract fun noteCardDao(): com.todocompanion.app.data.dao.NoteCardDao
+    abstract fun goalDao(): com.todocompanion.app.data.dao.GoalDao
 
     companion object {
         @Volatile
@@ -1040,6 +1044,75 @@ abstract class AppDatabase : RoomDatabase() {
                 com.todocompanion.app.util.Diag.log("migrate", "v84->v85 applied: created index_tasks_workspaceId, index_tasks_folderId") // TEMP-DIAG
             }
         }
+        // W3 (cross-module unification) — promote Goals & their review log out of the settings-JSON blobs
+        // (`goals` / `goal_reviews` k/v rows) into their own Room tables. Increment 1 is ADDITIVE: create the
+        // tables and COPY the parsed JSON into rows, but leave the JSON in place as the source of truth the app
+        // still reads/writes. So this migration cannot change any behaviour; it only stands the tables up and
+        // proves — via the device Diag `[goals]` probe on the user's real data — that the copy is exact before
+        // Increment 2 flips the read/write path. The CREATE statements match Room's generated 86.json exactly so
+        // the on-open schema check passes.
+        private val MIGRATION_85_86 = object : Migration(85, 86) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `goals` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`emoji` TEXT NOT NULL, `listId` TEXT NOT NULL, `habitId` TEXT NOT NULL, " +
+                        "`activityId` TEXT NOT NULL, `budgetMinutes` INTEGER NOT NULL, `targetEpochDay` INTEGER NOT NULL, " +
+                        "`note` TEXT NOT NULL, `area` TEXT NOT NULL, `identity` TEXT NOT NULL, " +
+                        "`milestonesJson` TEXT NOT NULL, `keyResultsJson` TEXT NOT NULL, " +
+                        "`cycleStartEpochDay` INTEGER NOT NULL, `cycleWeeks` INTEGER NOT NULL, " +
+                        "`reviewCadenceDays` INTEGER NOT NULL, `archived` INTEGER NOT NULL, `workspaceId` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_goals_workspaceId` ON `goals` (`workspaceId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `goal_reviews` (`id` TEXT NOT NULL, `goalId` TEXT NOT NULL, " +
+                        "`epochDay` INTEGER NOT NULL, `executionPct` INTEGER NOT NULL, `commitmentsKept` INTEGER NOT NULL, " +
+                        "`commitmentsTotal` INTEGER NOT NULL, `note` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_goal_reviews_goalId` ON `goal_reviews` (`goalId`)")
+                // Copy the existing settings-JSON (the pre-flip source of truth) into rows. Read the k/v rows,
+                // parse with the same domain codec, insert. Idempotent (INSERT OR REPLACE on the PK).
+                var goalsJson = ""; var reviewsJson = ""
+                runCatching {
+                    db.query("SELECT `key`, `value` FROM `settings` WHERE `key` IN ('goals','goal_reviews')").use { c ->
+                        val ki = c.getColumnIndexOrThrow("key"); val vi = c.getColumnIndexOrThrow("value")
+                        while (c.moveToNext()) {
+                            when (c.getString(ki)) {
+                                "goals" -> goalsJson = c.getString(vi) ?: ""
+                                "goal_reviews" -> reviewsJson = c.getString(vi) ?: ""
+                            }
+                        }
+                    }
+                }
+                var goalRows = 0
+                com.todocompanion.app.domain.Goals.parse(goalsJson).forEach { g ->
+                    val e = g.toEntity()
+                    db.execSQL(
+                        "INSERT OR REPLACE INTO `goals` VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        arrayOf<Any?>(
+                            e.id, e.name, e.emoji, e.listId, e.habitId, e.activityId, e.budgetMinutes,
+                            e.targetEpochDay, e.note, e.area, e.identity, e.milestonesJson, e.keyResultsJson,
+                            e.cycleStartEpochDay, e.cycleWeeks, e.reviewCadenceDays, if (e.archived) 1 else 0, e.workspaceId,
+                        ),
+                    )
+                    goalRows++
+                }
+                var reviewRows = 0
+                com.todocompanion.app.domain.GoalReviews.parse(reviewsJson).forEach { r ->
+                    val e = r.toEntity()
+                    db.execSQL(
+                        "INSERT OR REPLACE INTO `goal_reviews` VALUES (?,?,?,?,?,?,?,?)",
+                        arrayOf<Any?>(
+                            e.id, e.goalId, e.epochDay, e.executionPct, e.commitmentsKept,
+                            e.commitmentsTotal, e.note, e.createdAt,
+                        ),
+                    )
+                    reviewRows++
+                }
+                com.todocompanion.app.util.Diag.log("migrate", "v85->v86 applied: goals +$goalRows rows, goal_reviews +$reviewRows rows (JSON kept as source of truth)") // TEMP-DIAG
+            }
+        }
 
         /**
          * The complete, ordered v5→v63 migration chain. Exposed (and used by the builder below) so an
@@ -1060,7 +1133,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_64_65, MIGRATION_65_66, MIGRATION_66_67, MIGRATION_67_68, MIGRATION_68_69, MIGRATION_69_70,
             MIGRATION_70_71, MIGRATION_71_72, MIGRATION_72_73, MIGRATION_73_74, MIGRATION_74_75, MIGRATION_75_76,
             MIGRATION_76_77, MIGRATION_77_78, MIGRATION_78_79, MIGRATION_79_80, MIGRATION_80_81,
-            MIGRATION_81_82, MIGRATION_82_83, MIGRATION_83_84, MIGRATION_84_85,
+            MIGRATION_81_82, MIGRATION_82_83, MIGRATION_83_84, MIGRATION_84_85, MIGRATION_85_86,
         )
 
         fun get(context: Context): AppDatabase =
