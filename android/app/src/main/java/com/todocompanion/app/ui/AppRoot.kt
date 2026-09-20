@@ -327,7 +327,15 @@ fun AppRoot(
     launchAction: MutableState<String?> = mutableStateOf(null),
     importUri: MutableState<android.net.Uri?> = mutableStateOf(null),
 ) {
-    val vm: AppViewModel = viewModel()
+    // A2 — construct the VM at the composition root via the explicit factory, not the reflective default
+    // factory. The factory reads the repository from the App service-locator here, so the VM itself no
+    // longer knows how to find its dependencies (see AppViewModelFactory). A fresh factory per recomposition
+    // is harmless: viewModel() only invokes it on first creation and returns the cached instance after.
+    val vm: AppViewModel = viewModel(
+        factory = AppViewModelFactory(
+            androidx.compose.ui.platform.LocalContext.current.applicationContext as com.todocompanion.app.App,
+        ),
+    )
     val settings by vm.settings.collectAsState()
     // N7 — resolve the 12/24-hour clock app-wide, so any surface's time formatter reads a current value
     // (not just the calendar). Explicit and always up to date; the calendar re-affirms it on its own too.

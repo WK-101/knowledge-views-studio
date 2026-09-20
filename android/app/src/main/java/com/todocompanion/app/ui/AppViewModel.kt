@@ -114,13 +114,14 @@ data class UndoEvent(
 
 class AppViewModel internal constructor(app: Application, private val repo: AppRepository) : AndroidViewModel(app) {
 
-    // A2 — constructor-inject the repository so the VM is unit-testable. Production code obtains the VM via
-    // viewModel(), which uses the default AndroidViewModel factory and this (Application) constructor; it
-    // resolves the repo from the App service-locator exactly as before. Tests construct the VM directly via
-    // the internal (app, repo) constructor with a fake repository — previously impossible, since the VM
-    // hard-referenced App.repository through a getter, leaving the largest, most logic-dense class at 0%
-    // coverage. The Android-framework couplings (appCtx below) remain, so VM tests run under Robolectric.
-    constructor(app: Application) : this(app, (app as App).repository)
+    // A2 (Phase 3, decomposition) — the repository is *received*, never looked up. The VM has exactly one
+    // constructor: (app, repo). Production wires it at the composition root through [AppViewModelFactory]
+    // (which reads the repo from the App service-locator once, outside the VM), and both `viewModel()` call
+    // sites pass that factory. Tests construct the VM directly with an isolated in-memory-backed repository.
+    // Previously the VM carried a secondary `(app)` ctor that reached into `(app as App).repository` itself;
+    // that self-lookup is exactly the coupling that kept the largest, most logic-dense class at 0% coverage
+    // and blocks carving per-feature ViewModels out of it. The Android-framework couplings (appCtx below)
+    // remain, so VM tests run under Robolectric.
 
     private val appCtx get() = getApplication<App>()
 

@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.todocompanion.app.App
 import com.todocompanion.app.ui.AppViewModel
+import com.todocompanion.app.ui.AppViewModelFactory
 import com.todocompanion.app.ui.screens.QuickCapturePanel
 import com.todocompanion.app.ui.theme.AppTheme
 
@@ -35,7 +36,7 @@ class QuickCaptureActivity : ComponentActivity() {
                 value = app.repository.settingsSnapshot()
             }
             AppTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor, accentArgb = settings.accentArgb) {
-                val vm: AppViewModel = viewModel()
+                val vm: AppViewModel = viewModel(factory = AppViewModelFactory(app))
                 // Dismissing the panel (tap-away or after adding) keeps the task widgets current, then
                 // closes the floating window — the app itself never comes forward.
                 QuickCapturePanel(vm, initialText = prefill, onDismiss = {

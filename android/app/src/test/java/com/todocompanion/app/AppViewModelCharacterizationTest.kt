@@ -32,11 +32,13 @@ import org.robolectric.annotation.Config
  * the VM's current observable behaviour so the W1 decomposition (splitting per-feature ViewModels out of the
  * 6.6k-line god object) can be proven equivalent instead of hoped equivalent.
  *
- * The A2 seam makes this possible: the VM's `internal constructor(app, repo)` lets a test inject an isolated
- * in-memory-backed repository (the same real [AppRepository] the app uses, over a fresh Room DB) while the
- * production `(app)` ctor keeps resolving the repo from the [App] service-locator. Robolectric supplies the
- * Application (the framework couplings — ThemePrefs/SecurePrefs/widgets — are read through `appCtx`, which is
- * SharedPreferences-safe or runCatching-guarded, so construction and the read-model flows run on the JVM).
+ * The A2 seam makes this possible: the VM's `internal constructor(app, repo)` — now its ONLY constructor —
+ * lets a test inject an isolated in-memory-backed repository (the same real [AppRepository] the app uses,
+ * over a fresh Room DB). Production wires the same constructor at the composition root through
+ * [com.todocompanion.app.ui.AppViewModelFactory], which resolves the repo from the [App] service-locator
+ * outside the VM. Robolectric supplies the Application (the framework couplings — ThemePrefs/SecurePrefs/
+ * widgets — are read through `appCtx`, which is SharedPreferences-safe or runCatching-guarded, so
+ * construction and the read-model flows run on the JVM).
  *
  * The VM's derived flows go through `.state()` = `flowOn(Dispatchers.Default).stateIn(WhileSubscribed)`, so
  * their upstream runs on real background threads and is *lazy* until collected. [await] therefore subscribes
