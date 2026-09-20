@@ -25,6 +25,7 @@ import com.todocompanion.app.domain.AppSettings
 import com.todocompanion.app.domain.port.Backup
 import com.todocompanion.app.domain.port.BackupFile
 import com.todocompanion.app.data.security.SecurePrefs
+import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import java.util.UUID
@@ -488,13 +489,13 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     suspend fun deleteHabit(id: String) { habits.clearHabit(id); habits.deleteById(id) }
     /** Soft-delete: move a habit to Trash (recoverable) or restore it. Check-ins are preserved either way. */
     suspend fun setHabitTrashed(id: String, trashed: Boolean) {
-        habits.getAll().firstOrNull { it.id == id }?.let {
+        habits.getById(id)?.let {
             habits.upsert(it.copy(trashed = trashed, trashedAt = if (trashed) now() else null))
         }
     }
     /** Archive / unarchive a whole habit — kept out of the active list & analysis but never deleted. */
     suspend fun setHabitArchived(id: String, archived: Boolean) {
-        habits.getAll().firstOrNull { it.id == id }?.let { habits.upsert(it.copy(archived = archived)) }
+        habits.getById(id)?.let { habits.upsert(it.copy(archived = archived)) }
     }
     /** Permanently erase every trashed habit in a workspace (the Trash "empty" action). */
     suspend fun emptyHabitTrash(workspaceId: String) {
@@ -524,13 +525,13 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     }
     /** K2: grant one streak-freeze token, capped at 5, for overachieving. */
     suspend fun awardFreeze(habitId: String) {
-        habits.getAll().firstOrNull { it.id == habitId }?.let { h ->
+        habits.getById(habitId)?.let { h ->
             if (h.freezeTokens < 5) habits.upsert(h.copy(freezeTokens = h.freezeTokens + 1))
         }
     }
     /** K2: spend one freeze to protect a missed day — records it as a neutral skip. No-op if none left. */
     suspend fun spendFreeze(habitId: String, epochDay: Long): Boolean {
-        val h = habits.getAll().firstOrNull { it.id == habitId } ?: return false
+        val h = habits.getById(habitId) ?: return false
         if (h.freezeTokens <= 0) return false
         habits.upsert(h.copy(freezeTokens = h.freezeTokens - 1))
         habits.upsertCheckin(HabitCheckinEntity(habitId, epochDay, 0, status = "skip", reason = "❄️ Streak freeze"))
@@ -574,7 +575,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     }
     /** Pause / resume a whole habit (vacation) without touching its history. */
     suspend fun setHabitPaused(habitId: String, paused: Boolean) {
-        habits.getAll().firstOrNull { it.id == habitId }?.let { habits.upsert(it.copy(paused = paused)) }
+        habits.getById(habitId)?.let { habits.upsert(it.copy(paused = paused)) }
     }
     /** Pause or resume every habit in a workspace at once. */
     suspend fun pauseAllHabits(workspaceId: String, paused: Boolean) {
@@ -2053,6 +2054,9 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
         // restore doesn't silently blank it — otherwise encrypted-folder users would suddenly write
         // plaintext backups and fail to read their encrypted sync folder until they re-entered it.
         val keepPass = settings.getAll().firstOrNull { it.key == com.todocompanion.app.domain.AppSettings.Keys.SYNC_PASS }
+        // D1 — the whole clear-then-reinsert runs in ONE transaction: a process kill (or any thrown DAO
+        // call) mid-restore now rolls back to the pre-restore state instead of leaving a half-wiped DB.
+        db.withTransaction {
         tasks.clear(); folders.clear(); lists.clear(); checklist.clear()
         tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
         reminders.clear(); deps.clear(); settings.clear(); workspaces.clear(); filters.clear()
@@ -2097,13 +2101,15 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
         noteLinks.insertAll(b.noteLinks)
         smartViews.upsertAll(b.smartViews)
         if (b.noteCards.isNotEmpty()) noteCards.insertAll(b.noteCards)   // Wave 3 — restore review schedules
-        // Reset the FTS indices to match the freshly-replaced rows. The count-freshness heuristic can't
-        // catch a same-cardinality replacement (restoring N notes over a different N), so rebuild eagerly
-        // or search would return stale, pre-restore ids.
-        runCatching { val sdb = ftsDb(); rebuildTaskFtsBlocking(sdb); rebuildNoteFtsBlocking(sdb) }
         ensureDefaultWorkspace()
         ensureInbox()
         ensureDefaultFlags()
+        }   // end withTransaction — the destructive replace is now atomic
+        // Reset the FTS indices to match the freshly-replaced rows, AFTER the replace commits so the index
+        // reflects the committed rows. The count-freshness heuristic can't catch a same-cardinality
+        // replacement (restoring N notes over a different N), so rebuild eagerly or search would return
+        // stale, pre-restore ids.
+        runCatching { val sdb = ftsDb(); rebuildTaskFtsBlocking(sdb); rebuildNoteFtsBlocking(sdb) }
     }
 
     /**
@@ -2122,9 +2128,11 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
         ensureDefaultWorkspace(); ensureInbox(); ensureDefaultFlags()
     }
 
-    /** Additive, lossless union of the tables outside the sync snapshot: keep every local row, add any
-     *  incoming row whose id (or natural key) isn't already present. Used only by merge-import. */
-    private suspend fun mergeNewerTables(b: com.todocompanion.app.domain.port.BackupFile) {
+    /** Additive, lossless union of the tables outside the core sync snapshot: keep every local row, add any
+     *  incoming row whose id (or natural key) isn't already present. Used by merge-import (with attachment
+     *  bytes) and by folder-sync via applyMerged ([includeAttachments] = false, since attachment bytes stay
+     *  local and syncing metadata-only rows would create un-openable phantom attachments on the peer). */
+    private suspend fun mergeNewerTables(b: com.todocompanion.app.domain.port.BackupFile, includeAttachments: Boolean = true) {
         fun <T> missing(local: List<T>, incoming: List<T>, key: (T) -> Any?): List<T> {
             val have = local.map(key).toHashSet(); return incoming.filter { key(it) !in have }
         }
@@ -2145,7 +2153,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
         revisions.upsertAll(missing(revisions.getAll(), b.revisions) { it.id })
         eventCalendars.upsertAll(missing(eventCalendars.getAll(), b.eventCalendars) { it.id })
         events.upsertAll(missing(events.getAll(), b.events) { it.id })
-        attachments.upsertAll(missing(attachments.getAll(), b.attachments) { it.id })
+        if (includeAttachments) attachments.upsertAll(missing(attachments.getAll(), b.attachments) { it.id })
         notebooks.upsertAll(missing(notebooks.getAll(), b.notebooks) { it.id })
         notes.upsertAll(missing(notes.getAll(), b.notes) { it.id })
         notes.linkTags(missing(notes.getTagCrossRefs(), b.noteTags) { it.noteId to it.tagId })
@@ -2156,7 +2164,11 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
         noteCards.insertAll(missing(noteCards.getAll(), b.noteCards) { it.id })   // Wave 3 — union card schedules
     }
 
-    /** Full snapshot of the current data as a BackupFile (for sync merges). */
+    /** Full snapshot of the current data as a BackupFile (for sync merges). R110 — now carries the FULL
+     *  table set (notes, events, time-tracking, life-systems, revisions, smart-views, cards, …), not just
+     *  the core 19, so every domain propagates across devices through folder-sync. Attachment bytes stay
+     *  local (blanked) since syncing megabytes through the folder isn't worth it; noBackup notes are omitted
+     *  for privacy exactly as exportJson does. */
     suspend fun snapshot(): com.todocompanion.app.domain.port.BackupFile =
         com.todocompanion.app.domain.port.BackupFile(
             exportedAt = now(),
@@ -2168,25 +2180,46 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
             // Attachment bytes stay local — syncing megabytes through the folder isn't worth it.
             settings = exportableSettings(), attachments = attachments.getAll().map { it.copy(contentBase64 = "") }, flags = flags.getAll(),
             templates = templates.getAll(), countdowns = countdowns.getAll(), activities = activity.getAll(),
+            timeActivities = timeTrack.getActivities(), timeEntries = timeTrack.getEntries(),
+            sealedNotes = sealedNotes.getAll(), cravingEvents = cravings.getAll(),
+            coreValues = coreValues.getAll(), witnessEvents = witnesses.getAll(), scorecardItems = scorecard.getAll(),
+            buddySnapshots = buddies.getAll(), integrityReviews = integrityReviews.getAll(),
+            experiments = experiments.getAll(), activationItems = activation.getAll(), dayLogs = dayLogs.getAll(),
+            escrows = escrows.getAll(), nudgeEvents = nudgeEvents.getAll(), revisions = revisions.getAll(),
+            eventCalendars = eventCalendars.getAll(), events = events.getAll(),
+            notes = notes.getAll().filter { !it.noBackup }, notebooks = notebooks.getAll(),
+            noteTags = notes.getTagCrossRefs(), noteContexts = notes.getContextCrossRefs(),
+            noteRevisions = noteRevisions.getAll(), noteLinks = noteLinks.getAll(), smartViews = smartViews.getAll(),
+            noteCards = notes.getAll().filter { it.noBackup }.map { it.id }.toHashSet().let { skip ->
+                noteCards.getAll().filter { it.noteId !in skip }
+            },
         )
 
     /** Apply a merged snapshot to the local DB, preserving this device's own settings (sync/backup
      *  folder URIs, device id, theme). Used by the folder-sync engine. */
     suspend fun applyMerged(b: com.todocompanion.app.domain.port.BackupFile) {
-        // Attachments are intentionally NOT synced (their bytes live locally in files), so they're
-        // left untouched here — only structural + task data is reconciled.
-        tasks.clear(); folders.clear(); lists.clear(); checklist.clear()
-        tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
-        reminders.clear(); deps.clear(); workspaces.clear(); filters.clear()
-        habits.clear(); habits.clearCheckins(); focus.clear(); flags.clear(); templates.clear(); countdowns.clear(); activity.clear()
-        folders.upsertAll(b.folders); lists.upsertAll(b.lists); tasks.upsertAll(b.tasks); checklist.upsertAll(b.checklist)
-        tags.upsertAll(b.tags); tags.linkAll(b.taskTags); contexts.upsertAll(b.contexts); contexts.linkAll(b.taskContexts)
-        reminders.upsertAll(b.reminders); deps.addAll(b.dependencies)
-        workspaces.upsertAll(b.workspaces); filters.upsertAll(b.filters)
-        habits.upsertAll(b.habits); habits.upsertCheckins(b.habitCheckins); focus.upsertAll(b.focusSessions)
-        flags.upsertAll(b.flags); templates.upsertAll(b.templates)
-        countdowns.upsertAll(b.countdowns); activity.insertAll(b.activities)
-        ensureDefaultWorkspace(); ensureInbox(); ensureDefaultFlags()
+        // D1 — one transaction: a kill mid-apply rolls back to the pre-merge state, never a half-wiped DB.
+        db.withTransaction {
+            // Attachments are intentionally NOT synced (their bytes live locally in files), so they're
+            // left untouched here — only structural + task data is reconciled by clear+replace.
+            tasks.clear(); folders.clear(); lists.clear(); checklist.clear()
+            tags.clear(); tags.clearCrossRefs(); contexts.clear(); contexts.clearCrossRefs()
+            reminders.clear(); deps.clear(); workspaces.clear(); filters.clear()
+            habits.clear(); habits.clearCheckins(); focus.clear(); flags.clear(); templates.clear(); countdowns.clear(); activity.clear()
+            folders.upsertAll(b.folders); lists.upsertAll(b.lists); tasks.upsertAll(b.tasks); checklist.upsertAll(b.checklist)
+            tags.upsertAll(b.tags); tags.linkAll(b.taskTags); contexts.upsertAll(b.contexts); contexts.linkAll(b.taskContexts)
+            reminders.upsertAll(b.reminders); deps.addAll(b.dependencies)
+            workspaces.upsertAll(b.workspaces); filters.upsertAll(b.filters)
+            habits.upsertAll(b.habits); habits.upsertCheckins(b.habitCheckins); focus.upsertAll(b.focusSessions)
+            flags.upsertAll(b.flags); templates.upsertAll(b.templates)
+            countdowns.upsertAll(b.countdowns); activity.insertAll(b.activities)
+            // R110 — additively union the non-core tables (notes/events/time/life-systems/revisions/…) so
+            // folder-sync reconciles the FULL store, not just the core 19. Additive (never clears) so a
+            // delete on the other device can't wipe local rows, and noBackup notes (excluded from snapshots)
+            // are never deleted by a peer's snapshot. Attachments excluded — their bytes stay local.
+            mergeNewerTables(b, includeAttachments = false)
+            ensureDefaultWorkspace(); ensureInbox(); ensureDefaultFlags()
+        }
     }
 
     // ============ first-run seed ============

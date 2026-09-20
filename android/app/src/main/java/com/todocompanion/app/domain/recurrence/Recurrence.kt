@@ -138,6 +138,15 @@ object Recurrence {
     /** Next occurrence strictly after [fromMillis], preserving time-of-day. Ignores end conditions. */
     fun next(rule: String, fromMillis: Long, zone: ZoneId): Long {
         val r = parse(rule) ?: return fromMillis
+        return next(r, fromMillis, zone)
+    }
+
+    /**
+     * P3 — overload taking an already-parsed [Recur] so hot loops (e.g. CalendarEngine.expand) can parse
+     * the rrule once and reuse it, instead of re-parsing the raw string on every iteration. The string
+     * [next] above delegates here after parsing, so both entry points behave identically.
+     */
+    fun next(r: Recur, fromMillis: Long, zone: ZoneId): Long {
         val dt = Instant.ofEpochMilli(fromMillis).atZone(zone)
         val nd = when (r.freq) {
             Freq.DAILY -> dt.plusDays(r.interval.toLong())

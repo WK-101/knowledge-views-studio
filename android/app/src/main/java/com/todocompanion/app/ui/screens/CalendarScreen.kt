@@ -567,16 +567,54 @@ fun CalendarScreen(
         // R59 (Wave 4) — dual-timezone ruler in the day/week grid, using the pinned secondary zone.
         val secZone = s.secondaryZoneId.takeIf { it.isNotBlank() }?.let { runCatching { java.time.ZoneId.of(it) }.getOrNull() }
         when (mode) {
-            "month" -> MonthView(anchor, selected, dueByDate, firstDow, onSelect = { onSelected(it) }, onPrev = prev, onNext = next, onOpenTask = onOpenTask, swipe = swipe, onCloseDay = onCloseDay,
-                collapsed = monthCollapsed, onCollapsedChange = { monthCollapsed = it; if (s.calendarMonthCollapsed != it) vm.saveSettings(s.copy(calendarMonthCollapsed = it)) },
-                habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, countdownsFor = countdownsFor, trackedDayInfo = trackedDayInfo,
-                eventOccForDay = eventOccForDay, onOpenEvent = openEvent, onOpenOccasion = onOpenOccasion, onOccasionDetails = { detailsOccasion = it }, lunar = s.lunarOverlay,
-                eventColorOf = { colorOf(it.event, eventCalById) },
-                onMoveToDay = { d, id ->
-                    // Preserve the task's time-of-day when dropping it on another day; default 9am.
-                    val min = tasks.firstOrNull { it.id == id }?.dueDate?.let { Instant.ofEpochMilli(it).atZone(zone).let { z -> z.hour * 60 + z.minute } } ?: 540
-                    vm.rescheduleToMinute(id, d, min)
-                })
+            "month" -> {
+                // P2 — precompute the month grid's per-day data ONCE (memoized on the real inputs) so the
+                // ~42 grid cells index into maps instead of each cell rescanning the full source lists on
+                // every recomposition (previously eventOccForDay/habitBlocksFor/countdownsFor/trackedDayInfo
+                // were invoked per-cell, per-recomposition). The selected-day pills BELOW the grid keep
+                // calling the lambdas directly, because `selected` may sit outside the visible month range.
+                val mYm = YearMonth.from(anchor)
+                val mFirst = mYm.atDay(1); val mLast = mYm.atEndOfMonth()
+                val mStart = mFirst.atStartOfDay(zone).toInstant().toEpochMilli()
+                val mEndExcl = mFirst.plusMonths(1).atStartOfDay(zone).toInstant().toEpochMilli()
+                val mDays = remember(mStart, mEndExcl) { (0 until mYm.lengthOfMonth()).map { mFirst.plusDays(it.toLong()) } }
+                // Events: expand the whole month ONCE, then place each occurrence on every in-month day it
+                // spans — exactly replicating CalendarEngine.onDay (an event shows on each day it intersects)
+                // but without one expand() per cell. Keyed on visEvents + the month window + zone, which are
+                // the only inputs eventOccForDay reads, so the map can never go stale.
+                val eventOccByDay = remember(visEvents, mStart, mEndExcl, zone) {
+                    val map = HashMap<LocalDate, MutableList<com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence>>()
+                    com.todocompanion.app.domain.calendar.CalendarEngine.expand(visEvents, mStart, mEndExcl - 1, zone).forEach { o ->
+                        val startD = Instant.ofEpochMilli(o.startMillis).atZone(zone).toLocalDate()
+                        val endD = Instant.ofEpochMilli(o.endMillis).atZone(zone).toLocalDate()
+                        var d = if (startD.isBefore(mFirst)) mFirst else startD
+                        val last = if (endD.isAfter(mLast)) mLast else endD
+                        while (!d.isAfter(last)) { map.getOrPut(d) { ArrayList() }.add(o); d = d.plusDays(1) }
+                    }
+                    map
+                }
+                // Habits/countdowns/tracked are strictly per-day (no cross-day span), so memoize them by
+                // calling the SAME lambdas once per in-month day. Each remember lists every source the lambda
+                // reads so results never go stale: habitBlocksFor reads habits, check-ins, settings (s) and
+                // today's epoch-day; countdownsFor reads countdowns; trackedDayInfo reads the already-memoized
+                // trackedByDay map. (Keying on the whole `s` over-invalidates on unrelated setting changes but
+                // is always correct — habitBlocksFor reads many settings incl. per-habit config.)
+                val habitBlocksByDay = remember(mDays, habits, habitCheckins, s, todayEd) { mDays.associateWith { habitBlocksFor(it) } }
+                val countdownsByDay = remember(mDays, countdowns) { mDays.associateWith { countdownsFor(it) } }
+                val trackedInfoByDay = remember(mDays, trackedByDay) { mDays.associateWith { trackedDayInfo(it) } }
+                MonthView(anchor, selected, dueByDate, firstDow, onSelect = { onSelected(it) }, onPrev = prev, onNext = next, onOpenTask = onOpenTask, swipe = swipe, onCloseDay = onCloseDay,
+                    collapsed = monthCollapsed, onCollapsedChange = { monthCollapsed = it; if (s.calendarMonthCollapsed != it) vm.saveSettings(s.copy(calendarMonthCollapsed = it)) },
+                    habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, countdownsFor = countdownsFor, trackedDayInfo = trackedDayInfo,
+                    eventOccForDay = eventOccForDay, onOpenEvent = openEvent, onOpenOccasion = onOpenOccasion, onOccasionDetails = { detailsOccasion = it }, lunar = s.lunarOverlay,
+                    eventColorOf = { colorOf(it.event, eventCalById) },
+                    // P2 — precomputed per-day maps the grid indexes into (see grid loop in MonthView).
+                    eventOccByDay = eventOccByDay, habitBlocksByDay = habitBlocksByDay, countdownsByDay = countdownsByDay, trackedInfoByDay = trackedInfoByDay,
+                    onMoveToDay = { d, id ->
+                        // Preserve the task's time-of-day when dropping it on another day; default 9am.
+                        val min = tasks.firstOrNull { it.id == id }?.dueDate?.let { Instant.ofEpochMilli(it).atZone(zone).let { z -> z.hour * 60 + z.minute } } ?: 540
+                        vm.rescheduleToMinute(id, d, min)
+                    })
+            }
             "week" -> {
                 val start = startOfWeek(anchor, firstDow)
                 TimelineView((0..6).map { start.plusDays(it.toLong()) }, dueByDate, zone, onPrev = prev, onNext = next, onOpenTask = onOpenTask, onAddOnDate = onAddOnDate, onAddAt = onAddAt, onResize = onResize, onMoveAt = onMoveTaskTo, habitBlocksFor = habitBlocksFor, onOpenHabit = onOpenHabit, onMoveHabitAt = { hid, min -> vm.setHabitBlockMinute(hid, min) }, trackedBlocksFor = trackedBlocksFor, revealUntracked = revealUntrackedFlag, onOpenTracked = { editTrackedId = it }, eventBlocksFor = eventBlocksFor, onOpenEvent = openEvent, secZone = secZone, onDrawRange = openRange, energyByHour = energyByHour, daylightFor = daylightFor, protectedFor = protectedFor, ghostFor = ghostFor)
@@ -1270,7 +1308,15 @@ private fun MonthYearPicker(current: YearMonth, onDismiss: () -> Unit, onPick: (
 }
 
 @Composable
-private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onCloseDay: (LocalDate) -> Unit, collapsed: Boolean, onCollapsedChange: (Boolean) -> Unit, habitBlocksFor: (LocalDate) -> List<HabitBlock>, onOpenHabit: (String) -> Unit, countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity>, trackedDayInfo: (LocalDate) -> Pair<Int, androidx.compose.ui.graphics.Color?> = { 0 to null }, eventOccForDay: (LocalDate) -> List<com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence> = { emptyList() }, onOpenEvent: (String) -> Unit = {}, onOpenOccasion: (String?) -> Unit = {}, onOccasionDetails: (com.todocompanion.app.data.entity.CountdownEntity) -> Unit = {}, lunar: Boolean = false, eventColorOf: (com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence) -> Color = { Color(it.event.colorArgb ?: 0xFF7C3AED) }, onMoveToDay: (LocalDate, String) -> Unit) {
+private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<LocalDate, List<TaskEntity>>, firstDow: DayOfWeek, onSelect: (LocalDate) -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onOpenTask: (String) -> Unit, swipe: CalSwipe, onCloseDay: (LocalDate) -> Unit, collapsed: Boolean, onCollapsedChange: (Boolean) -> Unit, habitBlocksFor: (LocalDate) -> List<HabitBlock>, onOpenHabit: (String) -> Unit, countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity>, trackedDayInfo: (LocalDate) -> Pair<Int, androidx.compose.ui.graphics.Color?> = { 0 to null }, eventOccForDay: (LocalDate) -> List<com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence> = { emptyList() }, onOpenEvent: (String) -> Unit = {}, onOpenOccasion: (String?) -> Unit = {}, onOccasionDetails: (com.todocompanion.app.data.entity.CountdownEntity) -> Unit = {}, lunar: Boolean = false, eventColorOf: (com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence) -> Color = { Color(it.event.colorArgb ?: 0xFF7C3AED) },
+    // P2 — per-day data for the month grid, precomputed ONCE by the caller (memoized on the real inputs)
+    // so each of the ~42 cells is an O(1) map lookup instead of rescanning full source lists every
+    // recomposition. Default to empty maps to keep the signature backward-compatible.
+    eventOccByDay: Map<LocalDate, List<com.todocompanion.app.domain.calendar.CalendarEngine.Occurrence>> = emptyMap(),
+    habitBlocksByDay: Map<LocalDate, List<HabitBlock>> = emptyMap(),
+    countdownsByDay: Map<LocalDate, List<com.todocompanion.app.data.entity.CountdownEntity>> = emptyMap(),
+    trackedInfoByDay: Map<LocalDate, Pair<Int, androidx.compose.ui.graphics.Color?>> = emptyMap(),
+    onMoveToDay: (LocalDate, String) -> Unit) {
     val ym = YearMonth.from(anchor)
     val labels = (0..6).map { firstDow.plus(it.toLong()) }
     val first = ym.atDay(1)
@@ -1357,10 +1403,13 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                                     Spacer(Modifier.size(2.dp))
                                     // A day can carry a task dot (primary) and/or a habit dot (tertiary). Adjacent-month
                                     // days stay clean (no dots) so the current month clearly stands out.
+                                    // P2 — index the precomputed per-day maps rather than calling the
+                                    // per-day lambdas here (which each rescanned full source lists for
+                                    // every one of the ~42 cells on every recomposition). Same values shown.
                                     val hasTask = inMonth && dueByDate.containsKey(date)
-                                    val hasHabit = inMonth && habitBlocksFor(date).isNotEmpty()
-                                    val hasCountdown = inMonth && countdownsFor(date).isNotEmpty()
-                                    val dayEvts = if (inMonth) eventOccForDay(date) else emptyList()
+                                    val hasHabit = inMonth && habitBlocksByDay[date]?.isNotEmpty() == true
+                                    val hasCountdown = inMonth && countdownsByDay[date]?.isNotEmpty() == true
+                                    val dayEvts = if (inMonth) eventOccByDay[date].orEmpty() else emptyList()
                                     val hasEvent = dayEvts.isNotEmpty()
                                     // Phase 1 C4 — the event dot carries its calendar's colour (was a hard-coded purple),
                                     // so colour means one thing: which calendar an event belongs to.
@@ -1371,7 +1420,7 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                                         if (hasHabit) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.tertiary))
                                         if (hasCountdown) Box(Modifier.size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.secondary))
                                     } else Spacer(Modifier.size(5.dp))
-                                    val (trkMin, trkColor) = if (inMonth) trackedDayInfo(date) else (0 to null)
+                                    val (trkMin, trkColor) = if (inMonth) (trackedInfoByDay[date] ?: (0 to null)) else (0 to null)   // P2 — map lookup, was trackedDayInfo(date) per cell
                                     if (trkMin > 0) {
                                         val frac = (trkMin / 480f).coerceIn(0.12f, 1f)
                                         Box(Modifier.padding(top = 2.dp).fillMaxWidth(0.62f).height(3.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {

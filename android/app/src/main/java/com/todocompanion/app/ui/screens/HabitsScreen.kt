@@ -626,15 +626,18 @@ private fun HabitRow(
         checkins.filter { it.habitId == h.id && it.status == "done" && !HabitStats.meetsGoal(h, it.count) && it.count > 0 }
             .associate { it.epochDay to (it.count.toDouble() / target).coerceIn(0.0, 0.99) }
     } else emptyMap()
-    val strength = HabitStats.strength(h, d.done, d.skip, d.relapse, today, gradedCredit = gradedCredit)
-    val streak = HabitStats.displayStreak(h, d.done, d.skip, d.relapse, today, forgiving)
+    // P4: memoize the per-habit stat derivations (each scans the whole checkins list via `d`) so a
+    // recomposition that doesn't change this habit's inputs reuses the value. Keys cover every input read.
+    val strength = remember(h, d, today, gradedCredit) { HabitStats.strength(h, d.done, d.skip, d.relapse, today, gradedCredit = gradedCredit) }
+    val streak = remember(h, d, today, forgiving) { HabitStats.displayStreak(h, d.done, d.skip, d.relapse, today, forgiving) }
     val done = if (isBreak) !HabitStats.isRelapse(h, todayCount) else HabitStats.meetsGoal(h, todayCount)
     val skippedToday = today in d.skip
     val scheduledToday = HabitStats.isExpectedDay(h, today) || h.freqType == HabitStats.FREQ_TIMES_WEEK || h.freqType == HabitStats.FREQ_TIMES_MONTH
     var rowMenu by remember { mutableStateOf(false) }
     // K4: habit-stacking anchor — surface "after <anchor>" and highlight once the anchor is done today.
     val anchor = h.anchorHabitId?.let { aid -> allHabits.firstOrNull { it.id == aid } }
-    val anchorDoneToday = anchor?.let { a -> val ad = daysFor(a, checkins); HabitStats.meetsGoal(a, ad.counts[today] ?: 0) } ?: false
+    // P4: memoize the anchor's daysFor(...) scan over the whole checkins list.
+    val anchorDoneToday = remember(anchor, checkins, today) { anchor?.let { a -> val ad = daysFor(a, checkins); HabitStats.meetsGoal(a, ad.counts[today] ?: 0) } ?: false }
 
     Surface(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),

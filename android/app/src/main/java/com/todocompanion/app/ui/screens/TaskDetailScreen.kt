@@ -186,7 +186,9 @@ private fun detectSmartActions(text: String): List<SmartAction> {
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJustStart: ((String) -> Unit)? = null, onOpenTask: ((String) -> Unit)? = null, onOpenNote: ((String) -> Unit)? = null) {
-    val loaded by vm.observeTask(taskId).collectAsState(initial = null)
+    // P5 — remember the flow per taskId so a recomposition (e.g. every keystroke in the title) reuses the
+    // same DB subscription instead of tearing it down and re-running the query each frame.
+    val loaded by remember(taskId) { vm.observeTask(taskId) }.collectAsState(initial = null)
     var draft by remember(taskId) { mutableStateOf<TaskEntity?>(null) }
     // Seed the draft ONLY from a load that matches the current taskId. observeTask's backing state is retained
     // across a taskId switch (produceState keeps its value until the new flow emits), so without the id guard a
@@ -713,7 +715,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                         // recurrence insight (reliability) for tasks that already repeat.
                         val reliability by vm.taskReliability.collectAsState()
                         reliability[task.id]?.let { rel ->
-                            val acts by vm.taskActivity(task.id).collectAsState(initial = emptyList())
+                            val acts by remember(task.id) { vm.taskActivity(task.id) }.collectAsState(initial = emptyList())
                             val trend = remember(acts, task.rrule) { com.todocompanion.app.domain.task.TaskReliability.trend(task, acts, System.currentTimeMillis()) }
                             val hours = remember(acts, task.rrule) { com.todocompanion.app.domain.task.TaskReliability.completionHours(task, acts) }
                             Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 4.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1777,7 +1779,7 @@ private fun TaskCoachCard(vm: AppViewModel, task: com.todocompanion.app.data.ent
     val tasks by vm.tasks.collectAsState()
     val values by vm.coreValues.collectAsState()
     val escrows by vm.escrows.collectAsState()
-    val revisions by vm.taskRevisions(task.id).collectAsState(initial = emptyList())
+    val revisions by remember(task.id) { vm.taskRevisions(task.id) }.collectAsState(initial = emptyList())
     val subtaskCount = remember(tasks, task.id) { tasks.count { it.parentId == task.id } }
     val now = System.currentTimeMillis()
     val hour = java.time.LocalTime.now().hour

@@ -113,6 +113,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -346,16 +347,20 @@ fun AppRoot(
         LastCrashDialog()
         val scope = rememberCoroutineScope()
         val drawerState = rememberDrawerState(DrawerValue.Closed)
-        var tab by remember { mutableStateOf(Tab.TASKS) }
+        // A5 — nav state is rememberSaveable so rotation / dark-mode toggle / font-scale change / process
+        // death restores where the user was (tab, open overlay, editing target, search, calendar position)
+        // instead of dropping them back on the Tasks tab with everything closed.
+        var tab by rememberSaveable { mutableStateOf(Tab.TASKS) }
         // Focus is now a MODE of the Time hub, not a separate view — both are just "time". This flag
         // flips the Time tab between Track (activity timers) and Focus (the Pomodoro ring).
-        var timeFocus by remember { mutableStateOf(false) }
+        var timeFocus by rememberSaveable { mutableStateOf(false) }
         // Any legacy "go to Focus" navigation (FAB, habit focus, just-start, deep links) lands on the
         // Time hub in Focus mode, so there's one destination for time — never a stranded Focus tab.
         LaunchedEffect(tab) { if (tab == Tab.FOCUS) { timeFocus = true; tab = Tab.TIME } }
         // T0: land on the primary module's home once settings load (unless a default view / resume is set),
         // and never leave the user stranded on a disabled module's tab.
-        var landedInitial by remember { mutableStateOf(false) }
+        // Saveable so a rotation doesn't re-trigger the initial-landing effect and clobber the restored tab.
+        var landedInitial by rememberSaveable { mutableStateOf(false) }
         LaunchedEffect(settings.primaryModule, settings.disabledModules) {
             val primaryHomeTab = when (Modules.primary(settings)) {
                 Modules.HABITS -> Tab.HABITS; Modules.TIME -> Tab.TIME; Modules.NOTES -> Tab.NOTES; else -> Tab.TASKS
@@ -367,17 +372,17 @@ fun AppRoot(
             val m = Modules.moduleOfTab(tab.name)
             if (m != null && !Modules.isEnabled(settings, m)) tab = primaryHomeTab
         }
-        var editing by remember { mutableStateOf<String?>(null) }
+        var editing by rememberSaveable { mutableStateOf<String?>(null) }
         // Ancestor task ids to return to when Back is pressed inside the task editor — so drilling from a task
         // into one of its subtasks (or a linked task) and pressing Back returns to the parent, not the list.
         var editStack by remember { mutableStateOf<List<String>>(emptyList()) }
-        var editingNote by remember { mutableStateOf<String?>(null) }
-        var showNotesGraph by remember { mutableStateOf(false) }   // Life Graph — a top-level overlay (single header)
-        var showNotesGarden by remember { mutableStateOf(false) }  // Note-Garden review — a top-level overlay
-        var showRecall by remember { mutableStateOf(false) }       // Wave 3 · Active Recall — a top-level overlay
-        var notesSearchOpen by remember { mutableStateOf(false) }
-        var notesQuery by remember { mutableStateOf("") }
-        var showQuickAdd by remember { mutableStateOf(false) }
+        var editingNote by rememberSaveable { mutableStateOf<String?>(null) }
+        var showNotesGraph by rememberSaveable { mutableStateOf(false) }   // Life Graph — a top-level overlay (single header)
+        var showNotesGarden by rememberSaveable { mutableStateOf(false) }  // Note-Garden review — a top-level overlay
+        var showRecall by rememberSaveable { mutableStateOf(false) }       // Wave 3 · Active Recall — a top-level overlay
+        var notesSearchOpen by rememberSaveable { mutableStateOf(false) }
+        var notesQuery by rememberSaveable { mutableStateOf("") }
+        var showQuickAdd by rememberSaveable { mutableStateOf(false) }
         // Where to return when Back is pressed inside an archive view (Trash / Completed / Won't-do): the
         // (tab, view) you opened it from — so Back goes back there instead of exiting the app (R19).
         var navReturn by remember { mutableStateOf<Pair<Tab, ViewRef>?>(null) }
@@ -404,25 +409,25 @@ fun AppRoot(
         var newWs by remember { mutableStateOf(false) }
         var manageWs by remember { mutableStateOf<com.todocompanion.app.data.entity.WorkspaceEntity?>(null) }
         var filterEdit by remember { mutableStateOf<com.todocompanion.app.data.entity.FilterEntity?>(null) }
-        var showStats by remember { mutableStateOf(false) }
-        var showReview by remember { mutableStateOf(false) }
-        var showMomentum by remember { mutableStateOf(false) }   // Q1
-        var showRoutines by remember { mutableStateOf(false) }   // Routines (press-play sequences)
-        var showGoals by remember { mutableStateOf(false) }   // Goals (WIGs · lead/lag · OKR · 12-week)
-        var showTimeTracking by remember { mutableStateOf(false) }   // Tier S
+        var showStats by rememberSaveable { mutableStateOf(false) }
+        var showReview by rememberSaveable { mutableStateOf(false) }
+        var showMomentum by rememberSaveable { mutableStateOf(false) }   // Q1
+        var showRoutines by rememberSaveable { mutableStateOf(false) }   // Routines (press-play sequences)
+        var showGoals by rememberSaveable { mutableStateOf(false) }   // Goals (WIGs · lead/lag · OKR · 12-week)
+        var showTimeTracking by rememberSaveable { mutableStateOf(false) }   // Tier S
         // E9: a backup file handed in by the file manager ("Open with"), awaiting a restore confirm.
         var pendingImport by remember { mutableStateOf<android.net.Uri?>(null) }
         var importResult by remember { mutableStateOf<String?>(null) }
         var saveTab by remember { mutableStateOf(false) }
         var templatePicker by remember { mutableStateOf(false) }
-        var showAttachments by remember { mutableStateOf(false) }
-        var showCountdowns by remember { mutableStateOf(false) }
+        var showAttachments by rememberSaveable { mutableStateOf(false) }
+        var showCountdowns by rememberSaveable { mutableStateOf(false) }
         // R48 — deep-link into Occasions (optionally opening a specific entry) from the calendar / lists.
         var countdownOpenId by remember { mutableStateOf<String?>(null) }
         val openOccasion: (String?) -> Unit = { id -> countdownOpenId = id; showCountdowns = true }
-        var showDone by remember { mutableStateOf(false) }   // R27 The Done Record
-        var showPlan by remember { mutableStateOf(false) }
-        var showDayReview by remember { mutableStateOf<Long?>(null) }   // R66 end-of-day review (holds the epoch-day, null = closed)
+        var showDone by rememberSaveable { mutableStateOf(false) }   // R27 The Done Record
+        var showPlan by rememberSaveable { mutableStateOf(false) }
+        var showDayReview by rememberSaveable { mutableStateOf<Long?>(null) }   // R66 end-of-day review (holds the epoch-day, null = closed)
         // Phase F — when opened via the "Close your day" shortcut / evening nudge, land straight in the close flow.
         var dayReviewStartClose by remember { mutableStateOf(false) }
         // Opened via the drawer's "Weekly review": land straight in the guided weekly ritual.
@@ -432,13 +437,13 @@ fun AppRoot(
         var recapRange by remember { mutableStateOf<Triple<Long, Long, String>?>(null) }
         // Periodic Notes — the Journal hub overlay: (granularity, anchor epoch-day).
         var periodicHub by remember { mutableStateOf<Pair<com.todocompanion.app.domain.PeriodRange, Long>?>(null) }
-        var showAnnual by remember { mutableStateOf(false) }
-        var showTimeStats by remember { mutableStateOf(false) }   // Time tab → Statistics overlay
+        var showAnnual by rememberSaveable { mutableStateOf(false) }
+        var showTimeStats by rememberSaveable { mutableStateOf(false) }   // Time tab → Statistics overlay
         // G4 interactive time-blocking: which (day, minute) slot the user tapped on the calendar.
         var blockAt by remember { mutableStateOf<Pair<java.time.LocalDate, Int>?>(null) }
         var menu by remember { mutableStateOf(false) }
         // Hoisted per-tab controls, surfaced in the shared top bar to free screen space.
-        var calMode by remember { mutableStateOf(settings.calendarDefaultMode) }
+        var calMode by rememberSaveable { mutableStateOf(settings.calendarDefaultMode) }
         // Honor the chosen default view. On first load, sync calMode to the persisted default (the raw
         // `remember` above can capture a stale default while settings are still loading). After that, when
         // "remember my last view" is OFF, snap back to the chosen default every time the Calendar tab is
@@ -446,18 +451,18 @@ fun AppRoot(
         // each time, not the last view used this session. (calMode lives at AppRoot level and survives tab
         // switches, so without the `tab` key it would otherwise keep whatever view was last shown.) With
         // "remember last" ON, onModeChange persists the last view and we leave calMode alone.
-        var calModeSynced by remember { mutableStateOf(false) }
+        var calModeSynced by rememberSaveable { mutableStateOf(false) }
         LaunchedEffect(tab, settings.calendarDefaultMode, settings.calendarRememberLast) {
             if (!calModeSynced) { calMode = settings.calendarDefaultMode; calModeSynced = true }
             else if (!settings.calendarRememberLast && tab == Tab.CALENDAR) calMode = settings.calendarDefaultMode
         }
         // Calendar navigation state, hoisted so the combined header can live in the app-bar slot.
-        var calAnchor by remember { mutableStateOf(java.time.LocalDate.now()) }
-        var calSelected by remember { mutableStateOf(java.time.LocalDate.now()) }
+        var calAnchor by rememberSaveable { mutableStateOf(java.time.LocalDate.now()) }
+        var calSelected by rememberSaveable { mutableStateOf(java.time.LocalDate.now()) }
         // R39 — the calendar header's events menu passes its choice to CalendarScreen, which owns the dialogs.
         var calEventAction by remember { mutableStateOf<String?>(null) }
         var matrixSettings by remember { mutableStateOf(false) }
-        var searchQuery by remember { mutableStateOf("") }
+        var searchQuery by rememberSaveable { mutableStateOf("") }
         var calFilter by remember { mutableStateOf(false) }
         // Timeline filter, surfaced as a compact top-bar dropdown (no space-hungry chip row).
         var timelineLists by remember { mutableStateOf(setOf<String>()) }

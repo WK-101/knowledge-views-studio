@@ -186,7 +186,13 @@ data class EscrowEntity(
  *  message variant and logs it; a daily reconcile marks whether the habit was then done, so per-variant
  *  effectiveness can be read out. Single-case science, offline. One row per (habit, day) impression. */
 @Serializable
-@Entity(tableName = "nudge_events")
+@Entity(
+    tableName = "nudge_events",
+    // D5 — both DAO queries filter this table: WHERE habitId=? AND epochDay=? (dedupe a day's impression)
+    // and WHERE acted=0 AND epochDay>=? (the reconcile sweep). Without indices those were full scans on a
+    // table that grows one row per (target, day). These cover both.
+    indices = [Index("habitId", "epochDay"), Index("epochDay")],
+)
 data class NudgeEventEntity(
     @PrimaryKey val id: String,
     val habitId: String,          // the target id — a habit id, or a task id when targetKind = "task"

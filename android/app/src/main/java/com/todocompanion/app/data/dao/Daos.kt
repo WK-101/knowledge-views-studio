@@ -87,6 +87,9 @@ interface HabitDao {
     fun observeAll(): Flow<List<HabitEntity>>
     @Query("SELECT * FROM habits")
     suspend fun getAll(): List<HabitEntity>
+    // D6 — fetch one habit by id (served from the PK index) instead of the repo loading and deserializing
+    // the whole ~90-column habits table just to find one row on every single-habit mutation.
+    @Query("SELECT * FROM habits WHERE id = :id") suspend fun getById(id: String): HabitEntity?
     @Upsert suspend fun upsert(h: HabitEntity)
     @Upsert suspend fun upsertAll(h: List<HabitEntity>)
     @Query("DELETE FROM habits WHERE id = :id") suspend fun deleteById(id: String)

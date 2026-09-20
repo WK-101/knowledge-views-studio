@@ -170,9 +170,13 @@ object ListPipeline {
             cfg.sort == SortMode.SCORE -> {
                 val byId = all.associateBy { it.id }
                 val boosts = PriorityEngine.dependencyBoosts(deps, byId, cfg.prio)
+                // P7: compute the sort key ONCE per task with the allocation-free score() (was
+                // explain().total, which builds ~7 String.format lines per call and ran O(n log n)
+                // times during the sort). score() + depBoost == explain().total, so ordering is identical.
                 val scoreRank = filtered
-                    .sortedByDescending { PriorityEngine.explain(it, now, byId, cfg.prio, boosts[it.id] ?: 0.0).total }
-                    .mapIndexed { i, t -> t.id to i }.toMap()
+                    .map { it to (PriorityEngine.score(it, now, byId, cfg.prio) + (boosts[it.id] ?: 0.0)) }
+                    .sortedByDescending { it.second }
+                    .mapIndexed { i, (t, _) -> t.id to i }.toMap()
                 TaskViews.sort(filtered, cfg.sort, flagRank, scoreRank)
             }
             else -> TaskViews.sort(filtered, cfg.sort, flagRank)

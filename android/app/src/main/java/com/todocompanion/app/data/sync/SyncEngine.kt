@@ -56,6 +56,36 @@ object SyncEngine {
             templates = unionById(a.templates, b.templates, { it.id }, ::pref),
             countdowns = unionById(a.countdowns, b.countdowns, { it.id }, ::pref),
             activities = unionById(a.activities, b.activities, { it.id }, ::pref),
+            // R110 — folder-sync now reconciles the FULL table set, not just the core 19, so a note / event /
+            // time-entry / life-systems row created on one device propagates to the others (previously these
+            // were silently dropped from snapshot()/merge()/applyMerged(), so cross-device continuity lost them).
+            // These have no per-row timestamp either, so the newer snapshot wins; unionById keeps every id from
+            // both sides, so a merge is purely additive and never drops the other device's rows.
+            timeActivities = unionById(a.timeActivities, b.timeActivities, { it.id }, ::pref),
+            timeEntries = unionById(a.timeEntries, b.timeEntries, { it.id }, ::pref),
+            sealedNotes = unionById(a.sealedNotes, b.sealedNotes, { it.id }, ::pref),
+            cravingEvents = unionById(a.cravingEvents, b.cravingEvents, { it.id }, ::pref),
+            coreValues = unionById(a.coreValues, b.coreValues, { it.id }, ::pref),
+            witnessEvents = unionById(a.witnessEvents, b.witnessEvents, { it.id }, ::pref),
+            scorecardItems = unionById(a.scorecardItems, b.scorecardItems, { it.id }, ::pref),
+            buddySnapshots = unionById(a.buddySnapshots, b.buddySnapshots, { it.id }, ::pref),
+            integrityReviews = unionById(a.integrityReviews, b.integrityReviews, { it.id }, ::pref),
+            experiments = unionById(a.experiments, b.experiments, { it.id }, ::pref),
+            activationItems = unionById(a.activationItems, b.activationItems, { it.id }, ::pref),
+            dayLogs = unionById(a.dayLogs, b.dayLogs, { "${it.epochDay}|${it.workspaceId}" }, ::pref),
+            escrows = unionById(a.escrows, b.escrows, { it.id }, ::pref),
+            nudgeEvents = unionById(a.nudgeEvents, b.nudgeEvents, { it.id }, ::pref),
+            revisions = unionById(a.revisions, b.revisions, { it.id }, ::pref),
+            eventCalendars = unionById(a.eventCalendars, b.eventCalendars, { it.id }, ::pref),
+            events = unionById(a.events, b.events, { it.id }, ::pref),
+            notes = unionById(a.notes, b.notes, { it.id }, ::pref),
+            notebooks = unionById(a.notebooks, b.notebooks, { it.id }, ::pref),
+            noteTags = unionById(a.noteTags, b.noteTags, { "${it.noteId}|${it.tagId}" }, ::pref),
+            noteContexts = unionById(a.noteContexts, b.noteContexts, { "${it.noteId}|${it.contextId}" }, ::pref),
+            noteRevisions = unionById(a.noteRevisions, b.noteRevisions, { it.id }, ::pref),
+            noteLinks = unionById(a.noteLinks, b.noteLinks, { "${it.noteId}|${it.targetTitle}" }, ::pref),
+            smartViews = unionById(a.smartViews, b.smartViews, { it.id }, ::pref),
+            noteCards = unionById(a.noteCards, b.noteCards, { it.id }, ::pref),
             // Settings never sync — they hold device-specific folder URIs and the device id.
             settings = a.settings,
         )

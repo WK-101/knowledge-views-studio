@@ -930,10 +930,13 @@ private fun HabitsDueStrip(vm: AppViewModel) {
     val habits by vm.habits.collectAsState()
     val checkins by vm.habitCheckins.collectAsState()
     val today = java.time.LocalDate.now().toEpochDay()
-    val due = habits.filter { h ->
-        val hc = checkins.filter { it.habitId == h.id }
-        val doneDays = hc.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-        HabitStats.dueToday(h, today, doneDays, hc.firstOrNull { it.epochDay == today }?.count ?: 0)
+    // P6b: memoize the "due today" scan (O(habits×checkins)), mirroring the 7-day WorkloadStrip below.
+    val due = remember(habits, checkins, today) {
+        habits.filter { h ->
+            val hc = checkins.filter { it.habitId == h.id }
+            val doneDays = hc.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+            HabitStats.dueToday(h, today, doneDays, hc.firstOrNull { it.epochDay == today }?.count ?: 0)
+        }
     }
     if (due.isEmpty()) return
     // R34: the habits card is foldable. Folded by default now (persisted in settings), so Today/Do-Next

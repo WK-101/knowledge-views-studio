@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -117,8 +118,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** One-shot events for the "Undo" snackbar after a completion / won't-do / trash. */
     val undoEvents = kotlinx.coroutines.flow.MutableSharedFlow<UndoEvent>(extraBufferCapacity = 4)
 
+    // P1 — every derived StateFlow flows through here, so one flowOn(Default) moves ALL of the reactive
+    // pipeline (workspace scoping, task grouping over 500+ rows, smart counts, reliability scoring, period
+    // recaps) off the main thread. Previously each combine{}.filter/groupBy/sort ran on Dispatchers.Main
+    // (viewModelScope), janking the UI on every task edit/complete/reorder. The produced StateFlow still
+    // publishes on the main thread for Compose collectors; only the upstream computation is offloaded.
     private fun <T> Flow<T>.state(initial: T): StateFlow<T> =
-        stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)
+        flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)
 
     val settings: StateFlow<AppSettings> =
         repo.allSettings.map { rows ->

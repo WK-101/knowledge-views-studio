@@ -149,8 +149,10 @@ fun NoteEditorScreen(
     val noteTagRefs by vm.noteTagRefs.collectAsState()
     val contexts by vm.contexts.collectAsState()
     val noteContextRefs by vm.noteContextRefs.collectAsState()
-    val revisions by vm.observeNoteRevisions(noteId).collectAsState(initial = emptyList())
-    val links by vm.observeNoteLinks(noteId).collectAsState(initial = emptyList())
+    // P5 — remember the per-note flows so a recomposition (every keystroke) reuses the DB subscription
+    // instead of re-running the query each frame.
+    val revisions by remember(noteId) { vm.observeNoteRevisions(noteId) }.collectAsState(initial = emptyList())
+    val links by remember(noteId) { vm.observeNoteLinks(noteId) }.collectAsState(initial = emptyList())
 
     val useNotebooks = settings.notesNotebookMode == "notebooks"
     val note = notes.firstOrNull { it.id == noteId }

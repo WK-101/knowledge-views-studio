@@ -213,35 +213,45 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     val feed = remember(tasks, habits, checkins, timeEntries, day) {
         DoneRecord.build(tasks, habits, checkins, timeEntries, zone).filter { it.epochDay == day }
     }
-    val tasksDone = tasks.filter { it.completed && it.completedAt != null && it.completedAt!! in dayStart until dayEnd && !it.trashed }
-        .sortedByDescending { it.completedAt }
-    val wins = feed.filter { it.isWin && it.isTaskLike }
-    val focusMin = feed.filter { it.kind == DoneKind.FOCUS }.sumOf { it.durationMin }
+    // P6a: memoize the heavy per-day aggregates (were recomputed on every dialog toggle / recomposition).
+    // Keys mirror the neighboring already-remembered values and cover every input each block reads.
+    val tasksDone = remember(tasks, day) {
+        tasks.filter { it.completed && it.completedAt != null && it.completedAt!! in dayStart until dayEnd && !it.trashed }
+            .sortedByDescending { it.completedAt }
+    }
+    val wins = remember(feed) { feed.filter { it.isWin && it.isTaskLike } }
+    val focusMin = remember(feed) { feed.filter { it.kind == DoneKind.FOCUS }.sumOf { it.durationMin } }
 
     // Break/quit habits have no positive daily action (success is passively staying under the limit), so
     // they're never "expected" or "missed" here; paused habits are on vacation. isSuccessDay excludes slips.
-    val expected = habits.filter { !it.archived && !it.paused && it.habitType != "break" && HabitStats.isExpectedDay(it, day) }
-    val habitsKept = expected.mapNotNull { h ->
-        val c = checkins.firstOrNull { it.habitId == h.id && it.epochDay == day }
-        if (c != null && HabitStats.isSuccessDay(h, c)) h to c.count else null
+    // P6a: memoize expected/kept/missed (missed is O(n²)); keyed on the derived values + raw inputs read.
+    val expected = remember(habits, day) { habits.filter { !it.archived && !it.paused && it.habitType != "break" && HabitStats.isExpectedDay(it, day) } }
+    val habitsKept = remember(expected, checkins, day) {
+        expected.mapNotNull { h ->
+            val c = checkins.firstOrNull { it.habitId == h.id && it.epochDay == day }
+            if (c != null && HabitStats.isSuccessDay(h, c)) h to c.count else null
+        }
     }
     val habitsExpected = expected.size
-    val missedHabits = expected.filter { h -> habitsKept.none { it.first.id == h.id } }
+    val missedHabits = remember(expected, habitsKept) { expected.filter { h -> habitsKept.none { it.first.id == h.id } } }
 
     // Quit/bad habits ARE habits and belong in the review — their win is passive (a clean day, no relapse),
     // so they can't ride the "kept vs expected" tally above (which is for positive daily actions). Surface
     // them on their own so "stayed clean today" is celebrated and a slip is visible, with the current
     // clean-streak for encouragement. (R108 — they were previously dropped entirely and never shown.)
-    val quitToday = habits.filter { !it.archived && !it.paused && it.habitType == "break" && day >= it.startEpochDay() }
-        .map { h ->
-            val mine = checkins.filter { it.habitId == h.id }
-            val c = mine.firstOrNull { it.epochDay == day }
-            val clean = HabitStats.isWinDay(h, day, c)
-            val relapseDays = mine.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
-            val streak = HabitStats.currentStreak(h, emptySet(), emptySet(), relapseDays, day)
-            QuitDay(h, clean, streak)
-        }
-    val quitClean = quitToday.count { it.clean }
+    // P6a: memoize the break/quit-habit roll-up (scans checkins per habit) and its clean count.
+    val quitToday = remember(habits, checkins, day) {
+        habits.filter { !it.archived && !it.paused && it.habitType == "break" && day >= it.startEpochDay() }
+            .map { h ->
+                val mine = checkins.filter { it.habitId == h.id }
+                val c = mine.firstOrNull { it.epochDay == day }
+                val clean = HabitStats.isWinDay(h, day, c)
+                val relapseDays = mine.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+                val streak = HabitStats.currentStreak(h, emptySet(), emptySet(), relapseDays, day)
+                QuitDay(h, clean, streak)
+            }
+    }
+    val quitClean = remember(quitToday) { quitToday.count { it.clean } }
 
     val occ = remember(events, day) { CalendarEngine.expand(events, dayStart, dayEnd, zone).sortedBy { it.startMillis } }
 
@@ -308,7 +318,8 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     val tmr = day + 1
     val tStart = LocalDate.ofEpochDay(tmr).atStartOfDay(zone).toInstant().toEpochMilli()
     val tEnd = LocalDate.ofEpochDay(tmr + 1).atStartOfDay(zone).toInstant().toEpochMilli()
-    val tmrTasks = if (isToday) tasks.filter { !it.completed && !it.trashed && !it.abandoned && it.dueDate != null && it.dueDate!! in tStart until tEnd }.sortedBy { it.dueDate } else emptyList()
+    // P6a: memoize tomorrow's due-task list, mirroring the neighboring tmrOcc remember(events, tmr).
+    val tmrTasks = if (isToday) remember(tasks, tmr) { tasks.filter { !it.completed && !it.trashed && !it.abandoned && it.dueDate != null && it.dueDate!! in tStart until tEnd }.sortedBy { it.dueDate } } else emptyList()
     val tmrOcc = if (isToday) remember(events, tmr) { CalendarEngine.expand(events, tStart, tEnd, zone).sortedBy { it.startMillis } } else emptyList()
 
     val nothing = tasksDone.isEmpty() && habitsKept.isEmpty() && occ.isEmpty() && tracked.isEmpty() && focusMin == 0

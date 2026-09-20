@@ -53,7 +53,12 @@ object CalendarEngine {
                     if (cur + dur >= windowStart) out += Occurrence(ev, cur, cur + dur)
                 }
                 emitted++
-                val nxt = Recurrence.next(ev.rrule, cur, zone)
+                // P3 — reuse the already-parsed recurrence `r` instead of re-parsing ev.rrule every
+                // iteration (was Recurrence.next(ev.rrule, cur, zone), which re-parsed the rrule up to
+                // 2000× per event). A non-blank rule that failed to parse (r == null) keeps the old
+                // behaviour exactly: the string next() returned `cur` for it, so the loop emitted once
+                // then broke — `else break` preserves that.
+                val nxt = if (r != null) Recurrence.next(r, cur, zone) else break
                 if (nxt <= cur) break
                 cur = nxt
             }
