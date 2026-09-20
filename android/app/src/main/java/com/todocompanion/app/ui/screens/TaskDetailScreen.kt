@@ -227,6 +227,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     var newContext by remember { mutableStateOf("") }
     var newCheck by remember { mutableStateOf("") }
     var newSub by remember { mutableStateOf("") }
+    var renameSubId by remember(taskId) { mutableStateOf<String?>(null) }   // the subtask whose name is being edited inline
+    var renameSubText by remember(taskId) { mutableStateOf("") }
     var listMenu by remember { mutableStateOf(false) }
     var prioSheet by remember { mutableStateOf(false) }
     var flagMenu by remember { mutableStateOf(false) }
@@ -784,12 +786,29 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                                 val cl = PriorityLevel.from(child.importance, child.urgency)
                                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                     com.todocompanion.app.ui.components.PriorityCheckbox(child.completed, cl, onCheckedChange = { vm.toggleComplete(child); autoBump++ }, onSetLevel = { lvl -> vm.setPriority(child, lvl); autoBump++ })
-                                    Text(child.title, Modifier.weight(1f).clickable { onOpenTask?.invoke(child.id) },
-                                        color = if (child.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                    // A clear tap target to open the subtask as its own task (tapping its title works too).
-                                    if (onOpenTask != null) IconButton(onClick = { onOpenTask?.invoke(child.id) }) {
-                                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Open subtask", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    if (renameSubId == child.id) {
+                                        // Inline rename: tapping the name opens this field; the check saves.
+                                        fun saveRename() {
+                                            val t = renameSubText.trim()
+                                            if (t.isNotEmpty() && t != child.title) { vm.save(child.copy(title = t)); autoBump++ }
+                                            renameSubId = null
+                                        }
+                                        com.todocompanion.app.ui.components.AppTextField(
+                                            value = renameSubText, onValueChange = { renameSubText = it },
+                                            singleLine = true, modifier = Modifier.weight(1f),
+                                            placeholder = { Text("Subtask name") },
+                                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { saveRename() }),
+                                        )
+                                        IconButton(onClick = { saveRename() }) { Icon(Icons.Filled.Check, "Save name", tint = MaterialTheme.colorScheme.primary) }
+                                    } else {
+                                        // Tap the name to rename it in place; tap the chevron to open it as its own task.
+                                        Text(child.title, Modifier.weight(1f).clickable { renameSubId = child.id; renameSubText = child.title },
+                                            color = if (child.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                        if (onOpenTask != null) IconButton(onClick = { onOpenTask?.invoke(child.id) }) {
+                                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Open subtask", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
                                     }
                                 }
                             }

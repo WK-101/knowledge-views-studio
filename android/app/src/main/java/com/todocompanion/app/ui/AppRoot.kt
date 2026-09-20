@@ -362,6 +362,9 @@ fun AppRoot(
             if (m != null && !Modules.isEnabled(settings, m)) tab = primaryHomeTab
         }
         var editing by remember { mutableStateOf<String?>(null) }
+        // Ancestor task ids to return to when Back is pressed inside the task editor — so drilling from a task
+        // into one of its subtasks (or a linked task) and pressing Back returns to the parent, not the list.
+        var editStack by remember { mutableStateOf<List<String>>(emptyList()) }
         var editingNote by remember { mutableStateOf<String?>(null) }
         var showNotesGraph by remember { mutableStateOf(false) }   // Life Graph — a top-level overlay (single header)
         var showNotesGarden by remember { mutableStateOf(false) }  // Note-Garden review — a top-level overlay
@@ -567,7 +570,7 @@ fun AppRoot(
             }
         }
 
-        fun openTask(id: String) { editing = id }
+        fun openTask(id: String) { editStack = emptyList(); editing = id }   // fresh open from a list resets the drill-in stack
         fun openNote(id: String) { editingNote = id }
         fun goTasks() { tab = Tab.TASKS }
         fun openQuickAdd(due: Long?, withTime: Boolean = false) { quickAddDue = due; quickAddWithTime = withTime; quickAddText = ""; showQuickAdd = true }
@@ -1119,15 +1122,18 @@ fun AppRoot(
           }
         }
 
-        editing?.let { id -> TaskDetailScreen(vm, id, onBack = { editing = null },
-            onJustStart = { tid -> vm.pendingFocusTaskId.value = tid; editing = null; tab = Tab.FOCUS },
-            onOpenTask = { tid -> editing = tid },
+        editing?.let { id -> TaskDetailScreen(vm, id,
+            // Back pops the drill-in stack: return to the parent task if we came from one, else close to the list.
+            onBack = { if (editStack.isNotEmpty()) { editing = editStack.last(); editStack = editStack.dropLast(1) } else editing = null },
+            onJustStart = { tid -> vm.pendingFocusTaskId.value = tid; editStack = emptyList(); editing = null; tab = Tab.FOCUS },
+            // Drill into a subtask / linked task: remember the current task so Back returns here.
+            onOpenTask = { tid -> editStack = editStack + id; editing = tid },
             onOpenNote = { nid -> editingNote = nid }) }
 
         // Notes module (v66) — the full-screen note editor overlay (same pattern as the task editor).
         // A note can jump back to its linked task (Phase 2 woven link).
         editingNote?.let { id -> com.todocompanion.app.ui.screens.NoteEditorScreen(vm, id,
-            onBack = { editingNote = null }, onOpenTask = { tid -> editingNote = null; editing = tid },
+            onBack = { editingNote = null }, onOpenTask = { tid -> editingNote = null; editStack = emptyList(); editing = tid },
             onOpenNote = { nid -> editingNote = nid }) }
 
         // Life Graph — full-screen screen with the app's standard TopAppBar chrome (like Statistics/Recap).
