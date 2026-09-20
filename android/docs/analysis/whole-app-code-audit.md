@@ -4,6 +4,66 @@ _Comprehensive engineering audit across code quality, maintainability, scalabili
 storage, performance, UI reuse and cross-module consistency, with a phased plan to reach
 "top of the line."_
 
+> ## Round 2 — Progress & Re-Audit (2026-09-20)
+>
+> Implementation began against this plan. Everything below is **built green
+> (`assembleRelease`), 0 forbidden permissions, and — for the data-layer changes — covered
+> by passing unit tests** (`CryptoGzipTest`, `RepositoryTest`, `BackupRoundTripTest`,
+> `PortableCryptoTest`), then committed and pushed.
+>
+> ### Shipped this round
+> | Item | Finding | Status | Evidence |
+> |---|---|:---:|---|
+> | Atomic restore/merge (`withTransaction`) | D1 (Critical) | ✅ Done | RepositoryTest 11/11 green |
+> | Folder-sync covers ALL tables | D2 (High) | ✅ Done | snapshot/merge/applyMerged extended; BackupRoundTrip green |
+> | `rememberSaveable` nav state | A5 (High) | ✅ Done | tab/overlay/editing/search/calendar survive rotation |
+> | `flowOn(Default)` on reactive pipeline | P1 (Critical) | ✅ Done | one-line-in-`state()`; whole pipeline off main thread |
+> | Calendar per-day memo + reuse parsed rrule | P2/P3 (Critical/High) | ✅ Done | per-cell recompute removed |
+> | `remember(id)` on `observe*(id)` flows | P5 (High) | ✅ Done | 5 sites in Task/Note detail |
+> | SCORE sort → `score()` once per task | P7 (High) | ✅ Done | no per-comparison `String.format` |
+> | Per-habit / DayReview / Tasks-strip memo | P4/P6 (High) | ✅ Done | keyed `remember` on real inputs |
+> | `nudge_events` index + migration v82→v83 | D5 (High) | ✅ Done | schema 83.json exported & verified |
+> | `HabitDao.getById` (drop whole-table scans) | D6 (Medium) | ✅ Done | 5 hot paths |
+> | `KairoScreenScaffold` + 10 screens migrated | U1 (High) | ✅ Done | Scaffold+TopAppBar duplication removed from 10 |
+> | `Spacing` tokens + `KairoTopBar` | U3 (High, partial) | ◑ Partial | tokens exist; adoption ongoing |
+> | Constructor-inject repo into VM | A2 (Critical) | ✅ Done | `internal (app, repo)` ctor; VM now unit-testable |
+> | gzip encrypted backup/sync (TCENC4) | D4 / #525 (High) | ✅ Done | CryptoGzip 3/3; backward-compatible |
+>
+> ### Revised scorecard (was → now)
+> | Dimension | Was | Now | Why |
+> |---|:---:|:---:|---|
+> | Data storage & integrity | 5.0 | **7.0** | 2 data-loss bugs fixed (D1/D2) + index + gzip + getById |
+> | Performance & efficiency | 4.5 | **7.0** | main-thread pipeline offloaded (P1) + calendar + memo + sort |
+> | UI reuse & consistency | 5.5 | **6.5** | shared scaffold adopted + spacing tokens |
+> | Architecture & maintainability | 4.5 | **5.5** | VM injectable (A2) + scaffold; god-VM/nav still open |
+> | Cross-module consistency | 4.5 | **5.0** | folder-sync now whole-store; editor/tag/reminder divergence open |
+> | Security & privacy | 8.5 | **8.5** | gzip neutral-positive; threat model unchanged |
+> | Testing | 5.0 | **5.5** | +CryptoGzipTest; VM now testable (tests still to write) |
+> | **Overall** | **≈5.1** | **≈6.5** | two critical data-loss bugs + the #1 jank source + a rotation bug fixed and verified |
+>
+> ### Remaining path to 9.5 (the large architectural workstreams)
+> These are the high-value items that still separate the app from 9.5. Each is a
+> multi-day, high-blast-radius refactor touching critical paths, best done as its **own
+> validated workstream with device testing** rather than rushed in one pass — they are
+> deliberately **not** attempted blindly here, to keep the app shippable:
+> - **Decompose the 6,642-line `AppViewModel`** into per-feature ViewModels (start with the
+>   self-contained ~2,494-line time-tracking block) + per-feature `UiState` (A1/A3/F11). The
+>   injection unlock (A2, done) is the prerequisite and is in place.
+> - **Real navigation host + route table** replacing the ~60 `remember` flags and 20 sibling
+>   `if`-overlays in AppRoot, centralising the 28 duplicated `BackHandler`s (A4/F6).
+> - **One editor contract + unified back-button semantics** across the 5 divergent editors
+>   (X1) — fixes silent-discard data loss outside Tasks/Notes.
+> - **Promote Goals & Routines to Room** with `scopedBy` flows (X4) — removes the second
+>   (settings-JSON) persistence substrate.
+> - **Push list filters into SQL + restore indices + add `PagingSource`** (D3/X2) — the core
+>   scalability item; needs the v82-dropped indices back and a paged task/note list.
+> - **Universal `TagEntity` cross-refs + soft-delete Trash across all domains** (X5);
+>   **one `ScheduledReminder` abstraction** (X3); **decompose the 215-field `AppSettings`**
+>   (A8); pay down the remaining shape/hex token debt and route dialogs through `ConfirmDialog`
+>   (U2/U3/U7); fill VM/use-case tests now that the VM is injectable.
+>
+> _The full original audit and phased plan follow unchanged below._
+
 **Date:** 2026-09-20 · **Scope:** `android/app/src/main/java/com/todocompanion/app/`
 · **Method:** static read-only audit of the whole source tree (287 Kotlin files, ~81,745
 LOC) across five parallel dimensions, cross-referenced.
