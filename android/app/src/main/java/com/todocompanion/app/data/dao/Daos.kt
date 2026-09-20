@@ -324,6 +324,25 @@ interface GoalDao {
     @Query("DELETE FROM goal_reviews") suspend fun clearReviews()
 }
 
+// W3 (cross-module unification) — Routines (press-play rituals) + their run history promoted out of the
+// settings-JSON blobs into their own tables (see RoutineEntities.kt). observeByWorkspace filters IN SQL against
+// the workspaceId index, the same index-backed pattern W2 established for notes and tasks.
+@Dao
+interface RoutineDao {
+    @Query("SELECT * FROM routines") fun observeAll(): Flow<List<com.todocompanion.app.data.entity.RoutineEntity>>
+    @Query("SELECT * FROM routines") suspend fun getAll(): List<com.todocompanion.app.data.entity.RoutineEntity>
+    @Query("SELECT * FROM routines WHERE workspaceId = :ws") fun observeByWorkspace(ws: String): Flow<List<com.todocompanion.app.data.entity.RoutineEntity>>
+    @Upsert suspend fun upsert(r: com.todocompanion.app.data.entity.RoutineEntity)
+    @Upsert suspend fun upsertAll(r: List<com.todocompanion.app.data.entity.RoutineEntity>)
+    @Query("DELETE FROM routines WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM routines") suspend fun clear()
+
+    @Query("SELECT * FROM routine_runs ORDER BY startedAtMillis ASC") fun observeRuns(): Flow<List<com.todocompanion.app.data.entity.RoutineRunEntity>>
+    @Query("SELECT * FROM routine_runs ORDER BY startedAtMillis ASC") suspend fun getAllRuns(): List<com.todocompanion.app.data.entity.RoutineRunEntity>
+    @Upsert suspend fun upsertRuns(r: List<com.todocompanion.app.data.entity.RoutineRunEntity>)
+    @Query("DELETE FROM routine_runs") suspend fun clearRuns()
+}
+
 // R36 — the FOURTH-WAVE layer's tables.
 @Dao
 interface EscrowDao {

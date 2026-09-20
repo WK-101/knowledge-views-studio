@@ -104,6 +104,19 @@ class App : Application() {
                     "table goals=${tableGoals.size} reviews=${tableReviews.size} (live source) · " +
                         "legacy JSON goals=${com.todocompanion.app.domain.Goals.parse(s0.goalsJson).size}",
                 )
+                // W3 (routines→Room, Increment 1) — additive migration; the JSON is still the source of truth, so
+                // the table counts (and ids) must equal the parsed JSON. Any mismatch means the migration lost/added
+                // something and the flip must wait. Proven on the user's real routine + run history.
+                val jsonRoutines = com.todocompanion.app.domain.Routines.parse(s0.routinesJson)
+                val jsonRuns = com.todocompanion.app.domain.RoutineRuns.parse(s0.routineRunsJson)
+                val tableRoutines = repository.routinesFromTableOnce()
+                val tableRuns = repository.routineRunsFromTableOnce()
+                val routinesMatch = jsonRoutines.map { it.id }.toSet() == tableRoutines.map { it.id }.toSet()
+                com.todocompanion.app.util.Diag.log(
+                    "routines",
+                    "JSON routines=${jsonRoutines.size} table=${tableRoutines.size} idsMatch=$routinesMatch · " +
+                        "JSON runs=${jsonRuns.size} table=${tableRuns.size}",
+                )
             }
             // Seed the lock-screen-privacy flag so background notifications honour it even before any UI.
             Notifications.lockscreenPrivate = s0.lockscreenPrivacy

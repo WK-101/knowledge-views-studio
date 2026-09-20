@@ -304,6 +304,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     private val notes = db.noteDao()
     private val notebooks = db.notebookDao()
     private val goals = db.goalDao()
+    private val routines = db.routineDao()
     private val templateJson = com.todocompanion.app.util.AppJson
 
     // ----- task time-travel: sparse revision history (H5) -----
@@ -822,6 +823,10 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     fun observeGoalReviews(): Flow<List<com.todocompanion.app.domain.GoalReview>> = goals.observeReviews().map { it.map { e -> e.toDomain() } }
     suspend fun goalsFromTableOnce(): List<com.todocompanion.app.data.entity.GoalEntity> = goals.getAll()
     suspend fun goalReviewsFromTableOnce(): List<com.todocompanion.app.data.entity.GoalReviewEntity> = goals.getAllReviews()
+    // W3 (routines→Room, Increment 1) — read-only helpers so the Diag `[routines]` probe and RoutineRoomParityTest
+    // can compare the migrated rows against the settings-JSON that remains the source of truth, before Increment 2.
+    suspend fun routinesFromTableOnce(): List<com.todocompanion.app.data.entity.RoutineEntity> = routines.getAll()
+    suspend fun routineRunsFromTableOnce(): List<com.todocompanion.app.data.entity.RoutineRunEntity> = routines.getAllRuns()
     private fun goalWsOf(ws: String) = ws.ifBlank { com.todocompanion.app.data.entity.WorkspaceEntity.DEFAULT_ID }
     /** Replace the ACTIVE workspace's goals with [list] (leaving other workspaces' goals intact) — mirrors the
      *  old settings-JSON saveGoals semantics exactly, but against the table, in one transaction. */

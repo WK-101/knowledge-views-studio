@@ -93,8 +93,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.NoteCardEntity::class,
         com.todocompanion.app.data.entity.GoalEntity::class,
         com.todocompanion.app.data.entity.GoalReviewEntity::class,
+        com.todocompanion.app.data.entity.RoutineEntity::class,
+        com.todocompanion.app.data.entity.RoutineRunEntity::class,
     ],
-    version = 86,
+    version = 87,
     // R73 — export the schema JSON (to app/schemas/) on every build. With 54 hand-written migrations
     // this is the safety net: it lets an instrumented MigrationTest replay the whole chain in CI and
     // fail the build the moment a migration drifts from the entity definitions. Turned on from v59;
@@ -143,6 +145,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun smartViewDao(): com.todocompanion.app.data.dao.SmartViewDao
     abstract fun noteCardDao(): com.todocompanion.app.data.dao.NoteCardDao
     abstract fun goalDao(): com.todocompanion.app.data.dao.GoalDao
+    abstract fun routineDao(): com.todocompanion.app.data.dao.RoutineDao
 
     companion object {
         @Volatile
@@ -1113,6 +1116,68 @@ abstract class AppDatabase : RoomDatabase() {
                 com.todocompanion.app.util.Diag.log("migrate", "v85->v86 applied: goals +$goalRows rows, goal_reviews +$reviewRows rows (JSON kept as source of truth)") // TEMP-DIAG
             }
         }
+        // W3 (cross-module unification) — promote Routines & their run history out of the settings-JSON blobs
+        // (`routines` / `routine_runs` k/v rows) into their own Room tables (the transient in-progress
+        // `active_routine_run` stays in settings). Increment 1 is ADDITIVE, exactly like the goals promotion:
+        // create the tables and COPY the parsed JSON into rows, but leave the JSON as the source of truth the app
+        // still reads/writes — so no behaviour changes and the copy is proven on-device before Increment 2 flips
+        // the read/write path (and the alarm scheduler). CREATE statements match Room's generated 87.json.
+        private val MIGRATION_86_87 = object : Migration(86, 87) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `routines` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`emoji` TEXT NOT NULL, `activityId` TEXT NOT NULL, `habitCategory` TEXT NOT NULL, " +
+                        "`note` TEXT NOT NULL, `stepsJson` TEXT NOT NULL, `whenReminderMin` INTEGER, " +
+                        "`daysJson` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `workspaceId` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_routines_workspaceId` ON `routines` (`workspaceId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `routine_runs` (`rowId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`routineId` TEXT NOT NULL, `epochDay` INTEGER NOT NULL, `startedAtMillis` INTEGER NOT NULL, " +
+                        "`completedStepIdsJson` TEXT NOT NULL, `skippedStepIdsJson` TEXT NOT NULL, " +
+                        "`totalSec` INTEGER NOT NULL, `lite` INTEGER NOT NULL, `finished` INTEGER NOT NULL)",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_routine_runs_routineId` ON `routine_runs` (`routineId`)")
+                var routinesJson = ""; var runsJson = ""
+                runCatching {
+                    db.query("SELECT `key`, `value` FROM `settings` WHERE `key` IN ('routines','routine_runs')").use { c ->
+                        val ki = c.getColumnIndexOrThrow("key"); val vi = c.getColumnIndexOrThrow("value")
+                        while (c.moveToNext()) {
+                            when (c.getString(ki)) {
+                                "routines" -> routinesJson = c.getString(vi) ?: ""
+                                "routine_runs" -> runsJson = c.getString(vi) ?: ""
+                            }
+                        }
+                    }
+                }
+                var routineRows = 0
+                com.todocompanion.app.domain.Routines.parse(routinesJson).forEach { r ->
+                    val e = r.toEntity()
+                    db.execSQL(
+                        "INSERT OR REPLACE INTO `routines` VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                        arrayOf<Any?>(
+                            e.id, e.name, e.emoji, e.activityId, e.habitCategory, e.note, e.stepsJson,
+                            e.whenReminderMin, e.daysJson, e.createdAt, e.workspaceId,
+                        ),
+                    )
+                    routineRows++
+                }
+                var runRows = 0
+                com.todocompanion.app.domain.RoutineRuns.parse(runsJson).forEach { run ->
+                    val e = run.toEntity()
+                    db.execSQL(
+                        "INSERT INTO `routine_runs` (`routineId`,`epochDay`,`startedAtMillis`,`completedStepIdsJson`,`skippedStepIdsJson`,`totalSec`,`lite`,`finished`) VALUES (?,?,?,?,?,?,?,?)",
+                        arrayOf<Any?>(
+                            e.routineId, e.epochDay, e.startedAtMillis, e.completedStepIdsJson,
+                            e.skippedStepIdsJson, e.totalSec, if (e.lite) 1 else 0, if (e.finished) 1 else 0,
+                        ),
+                    )
+                    runRows++
+                }
+                com.todocompanion.app.util.Diag.log("migrate", "v86->v87 applied: routines +$routineRows rows, routine_runs +$runRows rows (JSON kept as source of truth)") // TEMP-DIAG
+            }
+        }
 
         /**
          * The complete, ordered v5→v63 migration chain. Exposed (and used by the builder below) so an
@@ -1134,6 +1199,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_70_71, MIGRATION_71_72, MIGRATION_72_73, MIGRATION_73_74, MIGRATION_74_75, MIGRATION_75_76,
             MIGRATION_76_77, MIGRATION_77_78, MIGRATION_78_79, MIGRATION_79_80, MIGRATION_80_81,
             MIGRATION_81_82, MIGRATION_82_83, MIGRATION_83_84, MIGRATION_84_85, MIGRATION_85_86,
+            MIGRATION_86_87,
         )
 
         fun get(context: Context): AppDatabase =
