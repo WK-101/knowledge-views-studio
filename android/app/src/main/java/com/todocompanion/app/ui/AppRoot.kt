@@ -3,7 +3,13 @@ package com.todocompanion.app.ui
 import android.annotation.SuppressLint
 import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -1122,13 +1128,33 @@ fun AppRoot(
           }
         }
 
-        editing?.let { id -> TaskDetailScreen(vm, id,
-            // Back pops the drill-in stack: return to the parent task if we came from one, else close to the list.
-            onBack = { if (editStack.isNotEmpty()) { editing = editStack.last(); editStack = editStack.dropLast(1) } else editing = null },
-            onJustStart = { tid -> vm.pendingFocusTaskId.value = tid; editStack = emptyList(); editing = null; tab = Tab.FOCUS },
-            // Drill into a subtask / linked task: remember the current task so Back returns here.
-            onOpenTask = { tid -> editStack = editStack + id; editing = tid },
-            onOpenNote = { nid -> editingNote = nid }) }
+        // Task editor overlay. It's only in the composition while open (instant open/close, no stray overlay),
+        // and AnimatedContent inside gives the drill-in (parent → subtask) and Back (subtask → parent) the app's
+        // standard directional slide — mirrors CalendarScreen's period transition: deeper = slide in from the
+        // right, shallower = slide back to the right; reduce-motion falls back to a fade.
+        editing?.let {
+            AnimatedContent(
+                targetState = it to editStack.size,
+                transitionSpec = {
+                    if (settings.reduceMotion) {
+                        fadeIn(tween(180)) togetherWith fadeOut(tween(150))
+                    } else {
+                        val dir = if (targetState.second >= initialState.second) 1 else -1
+                        (slideInHorizontally(tween(260)) { w -> dir * w } + fadeIn(tween(220))) togetherWith
+                            (slideOutHorizontally(tween(260)) { w -> -dir * w } + fadeOut(tween(180)))
+                    }
+                },
+                label = "taskEditor",
+            ) { (id, _) ->
+                TaskDetailScreen(vm, id,
+                    // Back pops the drill-in stack: return to the parent task if we came from one, else close.
+                    onBack = { if (editStack.isNotEmpty()) { editing = editStack.last(); editStack = editStack.dropLast(1) } else editing = null },
+                    onJustStart = { tid -> vm.pendingFocusTaskId.value = tid; editStack = emptyList(); editing = null; tab = Tab.FOCUS },
+                    // Drill into a subtask / linked task: remember this task so Back returns here.
+                    onOpenTask = { tid -> editStack = editStack + id; editing = tid },
+                    onOpenNote = { nid -> editingNote = nid })
+            }
+        }
 
         // Notes module (v66) — the full-screen note editor overlay (same pattern as the task editor).
         // A note can jump back to its linked task (Phase 2 woven link).

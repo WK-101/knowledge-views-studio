@@ -229,6 +229,8 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     var newSub by remember { mutableStateOf("") }
     var renameSubId by remember(taskId) { mutableStateOf<String?>(null) }   // the subtask whose name is being edited inline
     var renameSubText by remember(taskId) { mutableStateOf("") }
+    var pendingOpenTaskId by remember(taskId) { mutableStateOf<String?>(null) }   // subtask to open once unsaved edits are resolved
+    var pendingDeleteSub by remember(taskId) { mutableStateOf<TaskEntity?>(null) }  // subtask awaiting a remove confirm
     var listMenu by remember { mutableStateOf(false) }
     var prioSheet by remember { mutableStateOf(false) }
     var flagMenu by remember { mutableStateOf(false) }
@@ -284,14 +286,18 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     fun update(block: (TaskEntity) -> TaskEntity) {
         val d = draft ?: return; draft = block(d)
     }
-    fun commit() {
+    // Persist the staged draft (title/notes/dates/priority/tags/contexts) without navigating away.
+    fun persist() {
         draft?.let { vm.save(it) }
         if (draftTags != null) vm.setTags(taskId, (draftTags ?: emptySet()).toList())
         if (draftCtx != null) vm.setContexts(taskId, (draftCtx ?: emptySet()).toList())
-        savedSnapshot = draft; draftTags = null; draftCtx = null; attachBump = 0; depsBump = 0; autoBump = 0; onBack()
+        savedSnapshot = draft; draftTags = null; draftCtx = null; attachBump = 0; depsBump = 0; autoBump = 0
     }
+    fun commit() { persist(); onBack() }
     // Only real, still-unsaved content edits warrant a discard prompt; attachments are already on disk.
     fun attemptBack() { if (contentDirty) confirmDiscard = true else onBack() }
+    // Opening a subtask leaves this task's staged edits behind, so warn first when there are unsaved ones.
+    fun requestOpenTask(id: String) { if (contentDirty) pendingOpenTaskId = id else onOpenTask?.invoke(id) }
 
     BackHandler { attemptBack() }
 
@@ -802,11 +808,14 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                                         )
                                         IconButton(onClick = { saveRename() }) { Icon(Icons.Filled.Check, "Save name", tint = MaterialTheme.colorScheme.primary) }
                                     } else {
-                                        // Tap the name to rename it in place; tap the chevron to open it as its own task.
+                                        // Tap the name to rename it in place; the chevron opens it as its own task; the × removes it.
                                         Text(child.title, Modifier.weight(1f).clickable { renameSubId = child.id; renameSubText = child.title },
                                             color = if (child.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                                             maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                        if (onOpenTask != null) IconButton(onClick = { onOpenTask?.invoke(child.id) }) {
+                                        IconButton(onClick = { pendingDeleteSub = child }) {
+                                            Icon(Icons.Filled.Close, "Remove subtask", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        if (onOpenTask != null) IconButton(onClick = { requestOpenTask(child.id) }) {
                                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Open subtask", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
@@ -1158,6 +1167,26 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             text = { Text("You've made changes that haven't been saved. Save them before leaving?") },
             confirmButton = { TextButton(onClick = { confirmDiscard = false; commit() }) { Text("Save") } },
             dismissButton = { TextButton(onClick = { confirmDiscard = false; onBack() }) { Text("Discard", color = MaterialTheme.colorScheme.error) } },
+        )
+    }
+    // Opening a subtask leaves this task; warn when there are unsaved edits so they're not silently lost.
+    pendingOpenTaskId?.let { pid ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pendingOpenTaskId = null },
+            title = { Text("Unsaved changes") },
+            text = { Text("This task has changes that aren't saved yet. Opening the subtask will leave them unsaved.") },
+            confirmButton = { TextButton(onClick = { pendingOpenTaskId = null; persist(); onOpenTask?.invoke(pid) }) { Text("Save & open") } },
+            dismissButton = { TextButton(onClick = { pendingOpenTaskId = null; onOpenTask?.invoke(pid) }) { Text("Open without saving", color = MaterialTheme.colorScheme.error) } },
+        )
+    }
+    // Confirm removing a subtask (moves the child task to Trash, recoverable).
+    pendingDeleteSub?.let { sub ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pendingDeleteSub = null },
+            title = { Text("Remove subtask?") },
+            text = { Text("\"${sub.title.ifBlank { "Untitled" }}\" will be moved to Trash. You can restore it from there.") },
+            confirmButton = { TextButton(onClick = { vm.trash(sub); autoBump++; pendingDeleteSub = null }) { Text("Remove", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { pendingDeleteSub = null }) { Text("Cancel") } },
         )
     }
     if (showDue) {
