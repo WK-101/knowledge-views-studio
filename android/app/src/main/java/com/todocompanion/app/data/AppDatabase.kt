@@ -1026,6 +1026,7 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("DROP INDEX IF EXISTS `index_notes_workspaceId`")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_workspaceId_trashed` ON `notes` (`workspaceId`, `trashed`)")
+                com.todocompanion.app.util.Diag.log("migrate", "v83->v84 applied: dropped index_notes_workspaceId, created index_notes_workspaceId_trashed") // TEMP-DIAG
             }
         }
 

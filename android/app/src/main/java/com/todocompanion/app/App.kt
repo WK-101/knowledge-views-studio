@@ -48,6 +48,15 @@ class App : Application() {
             // table into the KeyStore-wrapped SecurePrefs, before the first snapshot reads it.
             runCatching { repository.migrateSyncPassToSecurePrefs() }
             val s0 = repository.settingsSnapshot(); repository.ensureSeed()
+            // TEMP-DIAG — confirm the v84 schema on-device (covers both the migrated and fresh-install paths).
+            runCatching {
+                val rdb = database.openHelper.readableDatabase
+                fun idx(t: String): List<String> {
+                    val c = rdb.query("PRAGMA index_list(`$t`)")
+                    return buildList { while (c.moveToNext()) add(c.getString(c.getColumnIndexOrThrow("name"))) }.also { c.close() }
+                }
+                com.todocompanion.app.util.Diag.log("schema", "dbVersion=${rdb.version} notes_indices=${idx("notes")}")
+            }
             // Seed the lock-screen-privacy flag so background notifications honour it even before any UI.
             Notifications.lockscreenPrivate = s0.lockscreenPrivacy
             // R59 — seed the snooze duration every notification's Snooze action uses.
