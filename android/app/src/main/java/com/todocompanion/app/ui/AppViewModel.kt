@@ -2264,29 +2264,24 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
     // ---------- task actions ----------
     fun toggleComplete(t: TaskEntity) = viewModelScope.launch {
         // Completing a repeating task rolls it forward to the next occurrence instead of closing it
-        // — unless its recurrence has ended (until-date reached or count exhausted).
-        val (nextDue, newRule) = if (!t.completed && !t.rrule.isNullOrBlank() && t.dueDate != null)
-            com.todocompanion.app.domain.recurrence.Recurrence.advance(t.rrule!!, t.dueDate!!, zone, System.currentTimeMillis()) else null to null
-        if (nextDue != null) {
-            val delta = nextDue - t.dueDate!!
-            // Roll the whole date bundle forward by the same delta so a repeating task keeps its shape:
-            // the start→due lead time AND the hard deadline both move to the next occurrence. (Previously
-            // the deadline stayed frozen on the first occurrence and then read as permanently overdue.)
-            repo.saveTask(t.copy(dueDate = nextDue, startDate = t.startDate?.plus(delta),
-                deadlineDate = t.deadlineDate?.plus(delta), rrule = newRule, completed = false, completedAt = null))
+        // — unless its recurrence has ended (until-date reached or count exhausted). The pure decision
+        // (does it roll, the shifted date bundle, and the subtask-reset mode) lives in RecurringRollForward
+        // so it's JVM-unit-tested; the VM keeps the side effects (persist, log, sound, reminders, undo).
+        val roll = com.todocompanion.app.domain.task.RecurringRollForward.onComplete(t, zone, System.currentTimeMillis())
+        if (roll != null) {
+            // The roll moves the start→due lead time AND the hard deadline forward by the same delta, so a
+            // repeating task keeps its shape (previously the deadline froze on the first occurrence and then
+            // read as permanently overdue).
+            repo.saveTask(roll.next)
             repo.logRecurringCompletion(t.id)   // P1: record this occurrence so reliability can be scored
             if (settings.value.completionSound) playCompletionChime()
             // Reset the subtasks of a recurring task per its chosen mode (all / only-if-all-done / keep).
             val kids = tasks.value.filter { it.parentId == t.id && !it.trashed }
-            val doneKids = kids.filter { it.completed }
-            when (com.todocompanion.app.domain.recurrence.Recurrence.parse(t.rrule)?.subtaskReset ?: "all") {
-                "keep" -> {}
-                "allDone" -> if (kids.isNotEmpty() && doneKids.size == kids.size) doneKids.forEach { repo.setCompleted(it, false) }
-                else -> doneKids.forEach { repo.setCompleted(it, false) }
-            }
+            com.todocompanion.app.domain.task.RecurringRollForward.subtasksToReset(roll.subtaskReset, kids)
+                .forEach { repo.setCompleted(it, false) }
             val updated = repo.getTask(t.id)
             reminders.value.filter { it.taskId == t.id && it.atTime != null }.forEach { r ->
-                val nr = r.copy(atTime = r.atTime!! + delta)
+                val nr = r.copy(atTime = r.atTime!! + roll.delta)
                 repo.upsertReminder(nr)
                 updated?.let { AlarmScheduler.schedule(appCtx, nr, it) }
             }
@@ -2347,12 +2342,15 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
 
     /** Advance a repeating task to its next occurrence without logging a completion (MLO "skip"). */
     fun skipOccurrence(t: TaskEntity) = viewModelScope.launch {
-        if (t.rrule.isNullOrBlank() || t.dueDate == null) return@launch
-        val (nextDue, newRule) = com.todocompanion.app.domain.recurrence.Recurrence.advance(t.rrule!!, t.dueDate!!, zone, System.currentTimeMillis())
-        if (nextDue == null) { repo.setCompleted(t, true); return@launch }
-        val delta = nextDue - t.dueDate!!
-        repo.saveTask(t.copy(dueDate = nextDue, startDate = t.startDate?.plus(delta),
-            deadlineDate = t.deadlineDate?.plus(delta), rrule = newRule))
+        val rolled = com.todocompanion.app.domain.task.RecurringRollForward.onSkip(t, zone, System.currentTimeMillis())
+        if (rolled == null) {
+            // No advance: either not a repeat (no rule / no due — do nothing) or the recurrence has ended
+            // (rule + due present) — close it, exactly as before.
+            if (!t.rrule.isNullOrBlank() && t.dueDate != null) repo.setCompleted(t, true)
+            return@launch
+        }
+        val (next, delta) = rolled
+        repo.saveTask(next)
         val updated = repo.getTask(t.id)
         reminders.value.filter { it.taskId == t.id && it.atTime != null }.forEach { r ->
             val nr = r.copy(atTime = r.atTime!! + delta); repo.upsertReminder(nr); updated?.let { AlarmScheduler.schedule(appCtx, nr, it) }
