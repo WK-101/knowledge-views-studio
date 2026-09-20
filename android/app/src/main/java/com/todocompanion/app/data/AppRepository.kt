@@ -804,6 +804,9 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     private val smartViews = db.smartViewDao()
     private val noteCards = db.noteCardDao()
     fun observeNotes(): Flow<List<com.todocompanion.app.data.entity.NoteEntity>> = notes.observeAll()
+    /** W2 (scale) — DB-side workspace+trashed filter (index-backed), replacing the in-memory VM filter. */
+    fun observeNotesByWorkspace(ws: String, trashed: Boolean): Flow<List<com.todocompanion.app.data.entity.NoteEntity>> =
+        notes.observeByWorkspace(ws, trashed)
     fun observeNotebooks(): Flow<List<com.todocompanion.app.data.entity.NotebookEntity>> = notebooks.observeAll()
     suspend fun getNotesOnce(): List<com.todocompanion.app.data.entity.NoteEntity> = notes.getAll()
     suspend fun getNote(id: String): com.todocompanion.app.data.entity.NoteEntity? = notes.getById(id)

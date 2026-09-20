@@ -34,8 +34,11 @@ import kotlinx.serialization.Serializable
     tableName = "notes",
     // R108 audit B8 — dropped the updatedAt index: notes are read via observeAll ORDER BY sortOrder and
     // filtered/grouped in memory, so no query ever ordered or filtered by updatedAt. sortOrder stays (the
-    // list sort); the notebook/folder/workspace/linkedTask indices are kept as cheap FK-lookup insurance.
-    indices = [Index("notebookId"), Index("folderId"), Index("workspaceId"), Index("linkedTaskId"),
+    // list sort); the notebook/folder/linkedTask indices are kept as cheap FK-lookup insurance.
+    // W2 (scale) — the plain workspaceId index is promoted to the composite (workspaceId, trashed): the
+    // live-notes and Trash lists now filter in SQL via NoteDao.observeByWorkspace(ws, trashed), and this
+    // covering index serves both that query and any workspaceId-prefix lookup.
+    indices = [Index("notebookId"), Index("folderId"), Index("workspaceId", "trashed"), Index("linkedTaskId"),
         Index("sortOrder")],
 )
 @androidx.compose.runtime.Immutable

@@ -776,6 +776,13 @@ interface NoteDao {
     @Query("SELECT * FROM notes ORDER BY sortOrder")
     fun observeAll(): Flow<List<NoteEntity>>
 
+    // W2 (scale) — workspace + trashed filtered IN SQL, backed by index_notes_workspaceId_trashed, so the
+    // live-notes and Trash lists no longer load the whole notes table and filter in memory in the ViewModel.
+    // Behaviour is identical to `observeAll().filter { it.workspaceId == ws && it.trashed == trashed }`
+    // (proven by NoteScopeQueryTest); the win is that SQLite does the filter against an index.
+    @Query("SELECT * FROM notes WHERE workspaceId = :ws AND trashed = :trashed ORDER BY sortOrder")
+    fun observeByWorkspace(ws: String, trashed: Boolean): Flow<List<NoteEntity>>
+
     @Query("SELECT * FROM notes")
     suspend fun getAll(): List<NoteEntity>
 

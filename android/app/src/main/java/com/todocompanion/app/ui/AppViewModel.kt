@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -209,9 +210,14 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
     val sealedNotes = repo.allSealedNotes.scopedBy { it.workspaceId }
     val cravings = repo.allCravings.scopedBy { it.workspaceId }
     // Notes module (v66) — workspace-scoped, non-trashed notes + the optional dedicated notebook tree.
-    val notes = combine(repo.observeNotes(), activeWs) { n, ws -> n.filter { it.workspaceId == ws && !it.trashed } }.state(emptyList())
+    // W2 (scale) — the live-notes and Trash lists now filter workspace+trashed IN SQL (index-backed via
+    // NoteDao.observeByWorkspace), re-subscribing when the active workspace changes, instead of loading the
+    // whole notes table and filtering in memory here. Behaviour is identical (proven by NoteScopeQueryTest).
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val notes = activeWs.flatMapLatest { ws -> repo.observeNotesByWorkspace(ws, trashed = false) }.state(emptyList())
     /** The Trash — workspace-scoped notes the user has trashed but not yet permanently deleted. */
-    val trashedNotes = combine(repo.observeNotes(), activeWs) { n, ws -> n.filter { it.workspaceId == ws && it.trashed } }.state(emptyList())
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val trashedNotes = activeWs.flatMapLatest { ws -> repo.observeNotesByWorkspace(ws, trashed = true) }.state(emptyList())
     val notebooks = repo.observeNotebooks().scopedBy { it.workspaceId }
     // Note ↔ tag cross-refs (for chips on cards / editor). Observe the note_tags table directly so a tag
     // toggle reflects immediately — writing note_tags doesn't touch the notes table, so deriving this from
@@ -1628,6 +1634,23 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
     val habitsWithArchived = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.trashed } }.state(emptyList())
     /** Trashed habits in the active workspace, newest-deleted first — the source for the habits Trash. */
     val trashedHabits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && it.trashed }.sortedByDescending { it.trashedAt ?: 0L } }.state(emptyList())
+
+    // W3 (cross-module) — ONE read-model over every domain's reminders through the shared UnifiedReminder
+    // lens (task ReminderEntity, habit/event CSV, note fields, routine JSON-int, occasion lead-days), so any
+    // surface can list/count "all reminders" uniformly instead of re-parsing five different storage shapes.
+    // The mapping is pure (UnifiedReminders, covered by UnifiedReminderTest); unifying the STORAGE into one
+    // table is a separate, migration-bearing step. Declared after `habits` so all five source flows exist.
+    val allReminders: StateFlow<List<com.todocompanion.app.domain.reminders.UnifiedReminder>> =
+        combine(habits, events, notes, countdowns, settings) { hs, es, ns, cs, s ->
+            val R = com.todocompanion.app.domain.reminders.UnifiedReminders
+            R.ordered(
+                hs.flatMap { R.fromHabit(it.id, it.name, it.reminderTimes) },
+                es.flatMap { R.fromEvent(it.id, it.title, it.alertsMinutes) },
+                ns.flatMap { R.fromNote(it.id, it.title, it.reminderAt, it.reminderExtra, it.reminderRrule) },
+                cs.flatMap { R.fromOccasion(it.id, it.title, it.prepLeadDays, it.keepInTouchDays) },
+                com.todocompanion.app.domain.Routines.parse(s.routinesJson).flatMap { R.fromRoutine(it.id, it.name, it.whenReminderMin) },
+            )
+        }.state(emptyList())
     val habitCheckins = repo.allCheckins.state(emptyList())
     val focusSessions = repo.allFocusSessions.scopedBy { it.workspaceId }
     // R37 · Port 5 — the receptive hour (0..23) learned from when you actually finish habits & tasks, or

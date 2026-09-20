@@ -91,7 +91,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.SmartViewEntity::class,
         com.todocompanion.app.data.entity.NoteCardEntity::class,
     ],
-    version = 83,
+    version = 84,
     // R73 — export the schema JSON (to app/schemas/) on every build. With 54 hand-written migrations
     // this is the safety net: it lets an instrumented MigrationTest replay the whole chain in CI and
     // fail the build the moment a migration drifts from the entity definitions. Turned on from v59;
@@ -1016,6 +1016,18 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_nudge_events_epochDay` ON `nudge_events` (`epochDay`)")
             }
         }
+        // W2 (scale) — the live-notes list and the Trash now filter workspace+trashed IN SQL
+        // (NoteDao.observeByWorkspace), so promote the plain `workspaceId` note index to the covering
+        // composite `(workspaceId, trashed)`. Drop the old single index, add the composite. Index names
+        // MUST equal Room's generated `index_<table>_<cols>` so the schema-validation check on next open
+        // passes — `index_notes_workspaceId` is the exact name the v66 entity generated (and matches the
+        // name style the v82 migration dropped by).
+        private val MIGRATION_83_84 = object : Migration(83, 84) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP INDEX IF EXISTS `index_notes_workspaceId`")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_workspaceId_trashed` ON `notes` (`workspaceId`, `trashed`)")
+            }
+        }
 
         /**
          * The complete, ordered v5→v63 migration chain. Exposed (and used by the builder below) so an
@@ -1036,7 +1048,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_64_65, MIGRATION_65_66, MIGRATION_66_67, MIGRATION_67_68, MIGRATION_68_69, MIGRATION_69_70,
             MIGRATION_70_71, MIGRATION_71_72, MIGRATION_72_73, MIGRATION_73_74, MIGRATION_74_75, MIGRATION_75_76,
             MIGRATION_76_77, MIGRATION_77_78, MIGRATION_78_79, MIGRATION_79_80, MIGRATION_80_81,
-            MIGRATION_81_82, MIGRATION_82_83,
+            MIGRATION_81_82, MIGRATION_82_83, MIGRATION_83_84,
         )
 
         fun get(context: Context): AppDatabase =
