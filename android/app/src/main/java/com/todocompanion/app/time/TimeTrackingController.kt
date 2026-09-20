@@ -20,20 +20,36 @@ import kotlinx.coroutines.flow.StateFlow
  * time-widget + launcher-shortcut refresh, on-start automation, the time-intent broadcast, and the
  * paused-timer memory it owns.
  *
- * It takes the ambient reads as lambdas (`settings()`, `activities()`, `entries()`) and one callback
- * (`onRefreshHabits`) for the habit widgets the ViewModel owns; the time widget it refreshes directly.
- * The ViewModel keeps thin `viewModelScope.launch { … }` wrappers, its StateFlows, and re-exposes
- * [pausedTrack]. Behaviour is identical to the previous in-ViewModel implementation.
+ * Stage 2 (Phase 3): the controller is now SELF-CONTAINED — it reads the current settings and the
+ * active-workspace time activities / entries straight from the repo (replicating the VM's
+ * `.scopedBy { workspaceId }`), and refreshes the habit widgets itself. No ViewModel closures, so the
+ * factory / VM constructor builds exactly ONE instance without threading VM state through it. The
+ * ViewModel keeps thin `viewModelScope.launch { … }` wrappers and re-exposes [pausedTrack]; behaviour is
+ * identical to the previous in-ViewModel implementation.
  */
 class TimeTrackingController(
     private val context: Context,
     private val repo: AppRepository,
-    private val settings: () -> AppSettings,
-    private val activities: () -> List<TimeActivityEntity>,
-    private val entries: () -> List<TimeEntryEntity>,
-    private val onRefreshHabits: () -> Unit,
 ) {
     private fun refreshTimeWidget() = TimeWidget.refresh(context)
+
+    // The ambient reads, now self-contained. `activities()`/`entries()` scope to the ACTIVE workspace
+    // exactly as the ViewModel's `.scopedBy { it.workspaceId }` did, so nothing leaks across workspaces.
+    private suspend fun settings(): AppSettings = repo.settingsSnapshot()
+    private suspend fun activities(): List<TimeActivityEntity> {
+        val ws = repo.settingsSnapshot().activeWorkspaceId
+        return repo.timeActivitiesOnce().filter { it.workspaceId == ws }
+    }
+    private suspend fun entries(): List<TimeEntryEntity> {
+        val ws = repo.settingsSnapshot().activeWorkspaceId
+        return repo.timeEntriesOnce().filter { it.workspaceId == ws }
+    }
+    /** Keep the habit-facing widgets live when a tracked interval credits a linked habit (was onRefreshHabits). */
+    private fun refreshHabitWidgets() {
+        com.todocompanion.app.widget.HabitsWidget.refresh(context)
+        com.todocompanion.app.widget.HabitStatsWidget.refresh(context)
+        com.todocompanion.app.widget.MomentumWidget.refresh(context)
+    }
 
     // U3 — pause finalizes the running interval (crediting any linked habit) and remembers what it was
     // (activityId, taskId?, habitId?), so Resume can start it again; the gap between is honestly untracked.
@@ -109,21 +125,21 @@ class TimeTrackingController(
 
     suspend fun stopTimeTracking() {
         val nm = entries().firstOrNull { it.running }?.let { r -> activities().firstOrNull { it.id == r.activityId }?.name }
-        repo.stopTimeTracking(); onRefreshHabits(); refreshTimeWidget()
+        repo.stopTimeTracking(); refreshHabitWidgets(); refreshTimeWidget()
         if (settings().automationApi) nm?.let { TimeIntentApi.broadcastStopped(context, it, settings().automationTargetPackage) }
     }
 
     /** U15: stop one specific running timer (when several overlap). */
     suspend fun stopTimeEntry(id: String) {
         val nm = entries().firstOrNull { it.id == id }?.let { r -> activities().firstOrNull { it.id == r.activityId }?.name }
-        repo.stopTimeEntry(id); onRefreshHabits(); refreshTimeWidget()
+        repo.stopTimeEntry(id); refreshHabitWidgets(); refreshTimeWidget()
         if (settings().automationApi) nm?.let { TimeIntentApi.broadcastStopped(context, it, settings().automationTargetPackage) }
     }
 
     suspend fun pauseTracking() {
         val running = repo.runningTimeEntry() ?: return
         _pausedTrack.value = Triple(running.activityId, running.taskId, running.habitId)
-        repo.stopTimeTracking(); onRefreshHabits(); refreshTimeWidget()
+        repo.stopTimeTracking(); refreshHabitWidgets(); refreshTimeWidget()
     }
 
     suspend fun resumeTracking() {

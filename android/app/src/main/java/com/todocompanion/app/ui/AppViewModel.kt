@@ -112,7 +112,16 @@ data class UndoEvent(
     val taskSnapshots: List<TaskEntity> = emptyList(),
 )
 
-class AppViewModel internal constructor(app: Application, private val repo: AppRepository) : AndroidViewModel(app) {
+class AppViewModel internal constructor(
+    app: Application,
+    private val repo: AppRepository,
+    // Stage 2 (Phase 3) — the time controller is now SELF-CONTAINED (reads workspace-scoped data from the
+    // repo, no VM closures), so it's constructed once here at the composition root instead of lazily
+    // reaching back into VM state. Defaulted so the sole (app, repo) constructor the factory and tests use
+    // keeps building exactly one instance; a test may inject one over the same in-memory repo.
+    private val timeCtl: com.todocompanion.app.time.TimeTrackingController =
+        com.todocompanion.app.time.TimeTrackingController(app, repo),
+) : AndroidViewModel(app) {
 
     // A2 (Phase 3, decomposition) — the repository is *received*, never looked up. The VM has exactly one
     // constructor: (app, repo). Production wires it at the composition root through [AppViewModelFactory]
@@ -3129,16 +3138,6 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
 
     // ---------- Tier S: time tracking ----------
     private fun refreshTimeWidget() = com.todocompanion.app.widget.TimeWidget.refresh(appCtx)
-    private val timeCtl by lazy {
-        com.todocompanion.app.time.TimeTrackingController(
-            context = appCtx,
-            repo = repo,
-            settings = { settings.value },
-            activities = { timeActivities.value },
-            entries = { timeEntries.value },
-            onRefreshHabits = { refreshHabitWidgets() },
-        )
-    }
     /** Paused-timer memory (Triple<activityId, taskId?, habitId?>) — owned by the controller. */
     val pausedTrack: StateFlow<Triple<String, String?, String?>?> get() = timeCtl.pausedTrack
 
