@@ -188,7 +188,12 @@ private fun detectSmartActions(text: String): List<SmartAction> {
 fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJustStart: ((String) -> Unit)? = null, onOpenTask: ((String) -> Unit)? = null, onOpenNote: ((String) -> Unit)? = null) {
     val loaded by vm.observeTask(taskId).collectAsState(initial = null)
     var draft by remember(taskId) { mutableStateOf<TaskEntity?>(null) }
-    if (draft == null && loaded != null) draft = loaded
+    // Seed the draft ONLY from a load that matches the current taskId. observeTask's backing state is retained
+    // across a taskId switch (produceState keeps its value until the new flow emits), so without the id guard a
+    // freshly-opened subtask would be seeded with the PREVIOUS task's data — the editor would show the parent
+    // again, or blank. (The instant, list-backed seed for the common case is a few lines below, once allTasks
+    // is available.)
+    if (draft == null && loaded?.id == taskId) draft = loaded
 
     val settings by vm.settings.collectAsState()
     val allTags by vm.tags.collectAsState()
@@ -203,6 +208,13 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     val activityLog by remember(taskId) { vm.taskActivity(taskId) }.collectAsState(initial = emptyList())
     val allDeps by vm.dependencies.collectAsState()
     val allTasks by vm.tasks.collectAsState()
+    // Instant, correct seed for the task just navigated into — above all, opening a subtask via its row. The
+    // task list already holds it, so seed straight from there the moment taskId changes, before observeTask's
+    // own flow re-emits, instead of briefly showing the previous task or a blank screen. observeTask (guarded
+    // above) still backs trashed/completed tasks the active list omits. (savedSnapshot gets the same seed at
+    // its own declaration below.)
+    val listTask = allTasks.firstOrNull { it.id == taskId }
+    if (draft == null && listTask != null) draft = listTask
     val allNotes by vm.notes.collectAsState()   // Phase 2 — the note linked to this task, if any
     val timeEntries by vm.timeEntries.collectAsState()   // T2
     val timeActivities by vm.timeActivities.collectAsState()
@@ -232,7 +244,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
 
     // Staged editing: edits mutate the local draft only and are persisted on Save — never on Back.
     var savedSnapshot by remember(taskId) { mutableStateOf<TaskEntity?>(null) }
-    if (savedSnapshot == null && loaded != null) savedSnapshot = loaded
+    // Same id-matched seed as the draft: prefer the in-memory list task, else a load that matches this taskId —
+    // never the retained previous task, so contentDirty isn't spuriously true when opening a subtask.
+    if (savedSnapshot == null) (listTask ?: loaded?.takeIf { it.id == taskId })?.let { savedSnapshot = it }
     var confirmDiscard by remember { mutableStateOf(false) }
 
     // Tags & contexts are staged like the rest of the editor (R21 #2): pending edits live in these drafts and
