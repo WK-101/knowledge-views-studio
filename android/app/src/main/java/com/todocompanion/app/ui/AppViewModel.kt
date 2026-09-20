@@ -3142,6 +3142,10 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
     /** Paused-timer memory (Triple<activityId, taskId?, habitId?>) — owned by the controller. */
     val pausedTrack: StateFlow<Triple<String, String?, String?>?> get() = timeCtl.pausedTrack
 
+    /** Phase 3, Stage 1 — the dedicated Time screens' handle onto this VM's single time controller + scoped
+     *  flows (see TimeTrackingViewModel). Lazy so it never affects construction; it's a pure forwarding seam. */
+    val timeVm by lazy { TimeTrackingViewModel(this) }
+
     fun createTimeActivity(name: String, emoji: String?, colorArgb: Long?, goalMinutesPerDay: Int = 0) =
         viewModelScope.launch { timeCtl.createTimeActivity(name, emoji, colorArgb, goalMinutesPerDay) }
     /** U13: start tracking by activity name (from an NFC/QR deep link), creating it if unknown. */

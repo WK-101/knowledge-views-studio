@@ -117,8 +117,8 @@ private fun fmtEntryDur(startMillis: Long, endMillis: Long?, now: Long): String 
 fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean = false) {
     // T0: as a bottom-nav tab (embedded), there is no back — the tab bar handles navigation.
     if (!embedded) BackHandler(onBack = onBack)
-    val activities by vm.timeActivities.collectAsState()
-    val entries by vm.timeEntries.collectAsState()
+    val activities by vm.timeVm.timeActivities.collectAsState()
+    val entries by vm.timeVm.timeEntries.collectAsState()
     val habits by vm.habits.collectAsState()   // T3: link an activity to a habit
     val zone = ZoneId.systemDefault()
     val timeFmt = remember { DateTimeFormatter.ofPattern("HH:mm") }
@@ -171,25 +171,25 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     var gapInit by remember { mutableStateOf<Pair<Int, Int>?>(null) } // start/end minutes to prefill the manual dialog with
 
     if (showNewActivity) ActivityDialog(null, onDismiss = { showNewActivity = false }) { name, emoji, color, goal ->
-        vm.createTimeActivity(name, emoji, color, goal); showNewActivity = false
+        vm.timeVm.createTimeActivity(name, emoji, color, goal); showNewActivity = false
     }
     editActivity?.let { a ->
         ActivityDialog(
             a, onDismiss = { editActivity = null },
-            onDelete = { vm.deleteTimeActivity(a.id); editActivity = null },
-            onArchive = { vm.archiveTimeActivity(a.id); editActivity = null },
+            onDelete = { vm.timeVm.deleteTimeActivity(a.id); editActivity = null },
+            onArchive = { vm.timeVm.archiveTimeActivity(a.id); editActivity = null },
             habitLinks = habits.filter { !it.archived }.map { it.id to it.name },
             linkedHabitId = habits.firstOrNull { it.timeActivityId == a.id }?.id,
             onLinkHabit = { hid ->
-                habits.filter { it.timeActivityId == a.id }.forEach { vm.setHabitTimeActivity(it.id, null) }
-                hid?.let { vm.setHabitTimeActivity(it, a.id) }
+                habits.filter { it.timeActivityId == a.id }.forEach { vm.timeVm.setHabitTimeActivity(it.id, null) }
+                hid?.let { vm.timeVm.setHabitTimeActivity(it, a.id) }
             },
             // A parent can be any other non-archived activity that isn't already a child of this one.
             parentCandidates = activities.filter { !it.archived && it.id != a.id && settings.timeActivityParents[it.id] != a.id }.map { it.id to it.name },
             parentId = settings.timeActivityParents[a.id],
-            onSetParent = { pid -> vm.setActivityParent(a.id, pid) },
+            onSetParent = { pid -> vm.timeVm.setActivityParent(a.id, pid) },
         ) { name, emoji, color, goal ->
-            vm.updateTimeActivity(a.copy(name = name, emoji = emoji, colorArgb = color, goalMinutesPerDay = goal)); editActivity = null
+            vm.timeVm.updateTimeActivity(a.copy(name = name, emoji = emoji, colorArgb = color, goalMinutesPerDay = goal)); editActivity = null
         }
     }
     nestFor?.let { cid ->
@@ -201,12 +201,12 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
             title = { Text("Nest “${child?.name ?: "activity"}” under") },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    Surface(onClick = { vm.setActivityParent(cid, null); nestFor = null }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
+                    Surface(onClick = { vm.timeVm.setActivityParent(cid, null); nestFor = null }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
                         color = if (cur == null) MaterialTheme.colorScheme.primary.copy(alpha = .14f) else Color.Transparent) {
                         Text("↥ Top level", Modifier.padding(horizontal = 12.dp, vertical = 12.dp))
                     }
                     candidates.forEach { p ->
-                        Surface(onClick = { vm.setActivityParent(cid, p.id); nestFor = null }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
+                        Surface(onClick = { vm.timeVm.setActivityParent(cid, p.id); nestFor = null }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
                             color = if (cur == p.id) MaterialTheme.colorScheme.primary.copy(alpha = .14f) else Color.Transparent) {
                             Text((p.emoji?.plus(" ") ?: "") + p.name, Modifier.padding(horizontal = 12.dp, vertical = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
@@ -219,7 +219,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     if (showManual) ManualEntryDialog(activities, day, zone,
         initialStartMin = gapInit?.first ?: 9 * 60, initialEndMin = gapInit?.second ?: 10 * 60,
         onDismiss = { showManual = false; gapInit = null }) { actId, start, end ->
-        vm.addManualTimeEntry(actId, start, end); showManual = false; gapInit = null
+        vm.timeVm.addManualTimeEntry(actId, start, end); showManual = false; gapInit = null
     }
     // Per-activity history: every tracked interval for one activity, newest first — tap to edit (R18).
     historyFor?.let { aid ->
@@ -272,15 +272,15 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     }
     editEntry?.let { e ->
         EditEntryDialog(e, activities.filter { !it.archived }, zone, onDismiss = { editEntry = null },
-            onDelete = { vm.deleteTimeEntry(e.id); editEntry = null },
-            onSplit = { at -> vm.splitTimeEntry(e.id, at); editEntry = null },
-            onSave = { updated -> vm.updateTimeEntry(updated); editEntry = null })
+            onDelete = { vm.timeVm.deleteTimeEntry(e.id); editEntry = null },
+            onSplit = { at -> vm.timeVm.splitTimeEntry(e.id, at); editEntry = null },
+            onSave = { updated -> vm.timeVm.updateTimeEntry(updated); editEntry = null })
     }
 
     // One "add a time entry" action, surfaced as a floating button that matches the app's quick-add
     // FAB. As the Time tab (embedded) the FAB lives in the shared scaffold and pokes us through the
     // view-model, so the tab shows a single top header like every other tab; standalone we host both.
-    val addReq by vm.addTimeEntryRequests.collectAsState()
+    val addReq by vm.timeVm.addTimeEntryRequests.collectAsState()
     var lastAddReq by remember { mutableIntStateOf(addReq) }
     fun onAddEntry() { if (activities.none { !it.archived }) showNewActivity = true else showManual = true }
     LaunchedEffect(addReq) { if (addReq != lastAddReq) { lastAddReq = addReq; onAddEntry() } }
@@ -294,14 +294,14 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
 
             // U1 · "forgot to track?" — planned time-blocks today with little/no tracked time.
             if (day == LocalDate.now(zone)) {
-                val untracked = remember(entries, now) { vm.untrackedTodayBlocks() }
+                val untracked = remember(entries, now) { vm.timeVm.untrackedTodayBlocks() }
                 if (untracked.isNotEmpty()) AppCard {
                     Text("Forgot to track?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Text("These planned blocks have no time logged. Tap to fill.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(6.dp))
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         untracked.take(6).forEach { b ->
-                            AssistChip(onClick = { vm.fillTrackedBlock(b) },
+                            AssistChip(onClick = { vm.timeVm.fillTrackedBlock(b) },
                                 label = { Text(b.label.take(18) + " · " + fmtDur(b.durMin), maxLines = 1) },
                                 leadingIcon = { Icon(Icons.Filled.Add, null, Modifier.size(16.dp)) })
                         }
@@ -335,7 +335,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                             Box(
                                 Modifier.size(26.dp).clip(RoundedCornerShape(8.dp))
                                     .background(if (sel) MaterialTheme.colorScheme.primary.copy(alpha = .16f) else Color.Transparent)
-                                    .clickable { vm.setTimeGridColumns(n) },
+                                    .clickable { vm.timeVm.setTimeGridColumns(n) },
                                 contentAlignment = Alignment.Center,
                             ) { Text("$n", style = MaterialTheme.typography.labelMedium, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, color = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
                         }
@@ -401,7 +401,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                                             .background(if (isRun) c.copy(alpha = .22f) else c.copy(alpha = .12f))
                                             .then(if (isRun) Modifier.border(1.5.dp, c, RoundedCornerShape(16.dp)) else Modifier)
                                             .combinedClickable(
-                                                onClick = { if (isRun) runningList.filter { it.activityId == a.id }.forEach { vm.stopTimeEntry(it.id) } else vm.startTimeTracking(a.id) },
+                                                onClick = { if (isRun) runningList.filter { it.activityId == a.id }.forEach { vm.timeVm.stopTimeEntry(it.id) } else vm.timeVm.startTimeTracking(a.id) },
                                                 onLongClick = { tileMenu = a.id },
                                             ).padding(horizontal = 6.dp, vertical = 6.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
@@ -418,7 +418,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                                             color = if (isRun) c else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                                     }
                                     DropdownMenu(expanded = tileMenu == a.id, onDismissRequest = { tileMenu = null }) {
-                                        DropdownMenuItem(text = { Text(if (pinned) "Unpin" else "Pin to front") }, onClick = { tileMenu = null; vm.toggleActivityPin(a.id) })
+                                        DropdownMenuItem(text = { Text(if (pinned) "Unpin" else "Pin to front") }, onClick = { tileMenu = null; vm.timeVm.toggleActivityPin(a.id) })
                                         DropdownMenuItem(text = { Text("History") }, onClick = { tileMenu = null; historyFor = a.id })
                                         if (liveActs.size > 1) DropdownMenuItem(text = { Text("Nest under…") }, onClick = { tileMenu = null; nestFor = a.id })
                                         DropdownMenuItem(text = { Text("Edit") }, onClick = { tileMenu = null; editActivity = a })
@@ -642,13 +642,13 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
                             "start ${actById[r.startActivityId]?.name ?: "?"}" else "notify “${r.notifyText}”"
                         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text("When $whenA starts → $doTxt", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                            IconButton(onClick = { vm.saveAutomationRules(rules.filter { it.id != r.id }) }) { Icon(Icons.Filled.Close, "Delete", Modifier.size(18.dp)) }
+                            IconButton(onClick = { vm.timeVm.saveAutomationRules(rules.filter { it.id != r.id }) }) { Icon(Icons.Filled.Close, "Delete", Modifier.size(18.dp)) }
                         }
                     }
                     TextButton(onClick = { addRule = true }) { Text("＋ Add automation") }
                 }
                 if (addRule) AutomationRuleDialog(activities.filter { !it.archived }, onDismiss = { addRule = false }) { rule ->
-                    vm.saveAutomationRules(rules + rule); addRule = false
+                    vm.timeVm.saveAutomationRules(rules + rule); addRule = false
                 }
             }
             Spacer(Modifier.height(96.dp))   // FAB clearance
