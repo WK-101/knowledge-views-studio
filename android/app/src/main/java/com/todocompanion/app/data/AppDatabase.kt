@@ -1033,7 +1033,6 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("DROP INDEX IF EXISTS `index_notes_workspaceId`")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_workspaceId_trashed` ON `notes` (`workspaceId`, `trashed`)")
-                com.todocompanion.app.util.Diag.log("migrate", "v83->v84 applied: dropped index_notes_workspaceId, created index_notes_workspaceId_trashed") // TEMP-DIAG
             }
         }
         // W2 (scale) — restore the tasks(workspaceId) and tasks(folderId) indices (dropped in v82) now that
@@ -1044,7 +1043,6 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_workspaceId` ON `tasks` (`workspaceId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_folderId` ON `tasks` (`folderId`)")
-                com.todocompanion.app.util.Diag.log("migrate", "v84->v85 applied: created index_tasks_workspaceId, index_tasks_folderId") // TEMP-DIAG
             }
         }
         // W3 (cross-module unification) — promote Goals & their review log out of the settings-JSON blobs
@@ -1113,7 +1111,6 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     reviewRows++
                 }
-                com.todocompanion.app.util.Diag.log("migrate", "v85->v86 applied: goals +$goalRows rows, goal_reviews +$reviewRows rows (JSON kept as source of truth)") // TEMP-DIAG
             }
         }
         // W3 (cross-module unification) — promote Routines & their run history out of the settings-JSON blobs
@@ -1175,7 +1172,6 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     runRows++
                 }
-                com.todocompanion.app.util.Diag.log("migrate", "v86->v87 applied: routines +$routineRows rows, routine_runs +$runRows rows (JSON kept as source of truth)") // TEMP-DIAG
             }
         }
 

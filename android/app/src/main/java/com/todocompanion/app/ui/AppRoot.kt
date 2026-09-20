@@ -345,7 +345,6 @@ fun AppRoot(
         // lives under Android/data/… which modern Android hides from file managers, so show it in-app: the
         // user can read/copy the exact stack trace instead of the crash vanishing into a system dialog.
         LastCrashDialog()
-        DiagDialog() // TEMP-DIAG — copyable in-app diagnostics for the W0–W3 device verification
         val scope = rememberCoroutineScope()
         val drawerState = rememberDrawerState(DrawerValue.Closed)
         // A5 — nav state is rememberSaveable so rotation / dark-mode toggle / font-scale change / process
@@ -2314,57 +2313,6 @@ private fun LastCrashDialog() {
             ) {
                 androidx.compose.material3.Text(
                     "Copy this and send it over so the exact cause can be fixed:",
-                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
-                androidx.compose.material3.Text(
-                    text,
-                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 11.sp,
-                    ),
-                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
-                )
-            }
-        },
-    )
-}
-
-// TEMP-DIAG — in-app copyable diagnostics, mirroring LastCrashDialog. App.kt gathers W2/W3 verification
-// data at startup into diag.txt; this surfaces it so the user can Copy it directly (no adb). Remove with
-// the rest of the TEMP-DIAG scaffolding once the device run confirms the changes.
-@androidx.compose.runtime.Composable
-private fun DiagDialog() {
-    val ctx = androidx.compose.ui.platform.LocalContext.current
-    var text by remember { mutableStateOf(com.todocompanion.app.util.Diag.read(ctx)) }
-    // The startup diagnostics are gathered asynchronously, so re-read for a few seconds as they land.
-    LaunchedEffect(Unit) { repeat(10) { kotlinx.coroutines.delay(700); text = com.todocompanion.app.util.Diag.read(ctx) } }
-    if (text.isBlank()) return
-    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = { },
-        confirmButton = {
-            androidx.compose.material3.TextButton(onClick = { com.todocompanion.app.util.Diag.clear(ctx); text = "" }) {
-                androidx.compose.material3.Text("Dismiss")
-            }
-        },
-        dismissButton = {
-            androidx.compose.foundation.layout.Row {
-                androidx.compose.material3.TextButton(onClick = { text = com.todocompanion.app.util.Diag.read(ctx) }) {
-                    androidx.compose.material3.Text("Refresh")
-                }
-                androidx.compose.material3.TextButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(text)) }) {
-                    androidx.compose.material3.Text("Copy")
-                }
-            }
-        },
-        title = { androidx.compose.material3.Text("Kairo diagnostics (temporary)") },
-        text = {
-            androidx.compose.foundation.layout.Column(
-                Modifier.heightIn(max = 420.dp).verticalScroll(androidx.compose.foundation.rememberScrollState()),
-            ) {
-                androidx.compose.material3.Text(
-                    "Wait a second, tap Refresh to pick up the last startup line, then Copy and send it over. Dismiss clears it.",
                     style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
                     color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
                 )

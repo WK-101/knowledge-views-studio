@@ -10,7 +10,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /** Application-scoped singletons. Doubles as a tiny service locator (no DI framework yet). */
@@ -22,7 +21,6 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        com.todocompanion.app.util.Diag.attach(this) // TEMP-DIAG — set up the copyable diag log before the DB opens
         // R71 — capture ANY uncaught crash to a file, then defer to the normal handler.
         // SEC (R2-C) — write it to INTERNAL app-private storage (filesDir/last_crash.txt), not the
         // app-EXTERNAL dir it used to use: the external files dir is reachable by other apps that hold
@@ -56,67 +54,6 @@ class App : Application() {
             runCatching { repository.reconcileGoalsFromLegacyJson(s0.goalsJson, s0.goalReviewsJson) }
             // W3 (routines→Room, Increment 2) — same idempotent safety net for the routines flip.
             runCatching { repository.reconcileRoutinesFromLegacyJson(s0.routinesJson, s0.routineRunsJson) }
-            // TEMP-DIAG — confirm the shipped W2/W3 work on-device, all gathered at startup so the in-app
-            // DiagDialog shows the full picture with no navigation. Covers migrated + fresh-install schema.
-            runCatching {
-                val rdb = database.openHelper.readableDatabase
-                fun idx(t: String): List<String> {
-                    val c = rdb.query("PRAGMA index_list(`$t`)")
-                    return buildList { while (c.moveToNext()) add(c.getString(c.getColumnIndexOrThrow("name"))) }.also { c.close() }
-                }
-                com.todocompanion.app.util.Diag.log("schema", "dbVersion=${rdb.version} notes_indices=${idx("notes")}")
-                val ws = s0.activeWorkspaceId
-                // W2 — the index-backed SQL notes query the VM now uses for the live list.
-                val liveNotes = repository.observeNotesByWorkspace(ws, false).first()
-                com.todocompanion.app.util.Diag.log("notes", "SQL live notes in active workspace = ${liveNotes.size}")
-                // W2b — the index-backed SQL active-workspace task set the VM now uses for the main list.
-                val wsTasks = repository.observeTasksByWorkspace(ws).first()
-                com.todocompanion.app.util.Diag.log("tasks", "SQL workspace tasks = ${wsTasks.size}")
-                // W3 — the unified reminder model over real data. Raw counts too, so a 0 total is confirmed as
-                // "no reminders configured" rather than a parse miss.
-                val R = com.todocompanion.app.domain.reminders.UnifiedReminders
-                val habits = repository.allHabits.first()
-                val events = repository.allEvents.first()
-                val countdowns = repository.allCountdowns.first()
-                val routines = com.todocompanion.app.domain.Routines.parse(s0.routinesJson)
-                com.todocompanion.app.util.Diag.log(
-                    "reminders-raw",
-                    "habits=${habits.size}(withTimes=${habits.count { it.reminderTimes.isNotBlank() }}) " +
-                        "events=${events.size}(withAlerts=${events.count { it.alertsMinutes.isNotBlank() }}) " +
-                        "notes=${liveNotes.size}(withReminder=${liveNotes.count { it.reminderAt != null || it.reminderExtra.isNotBlank() }}) " +
-                        "countdowns=${countdowns.size}(prep/keep=${countdowns.count { it.prepLeadDays > 0 || it.keepInTouchDays > 0 }}) " +
-                        "routines=${routines.size}(withReminder=${routines.count { it.whenReminderMin != null }})",
-                )
-                val unified = R.ordered(
-                    habits.flatMap { R.fromHabit(it.id, it.name, it.reminderTimes) },
-                    events.flatMap { R.fromEvent(it.id, it.title, it.alertsMinutes) },
-                    liveNotes.flatMap { R.fromNote(it.id, it.title, it.reminderAt, it.reminderExtra, it.reminderRrule) },
-                    countdowns.flatMap { R.fromOccasion(it.id, it.title, it.prepLeadDays, it.keepInTouchDays) },
-                    routines.flatMap { R.fromRoutine(it.id, it.name, it.whenReminderMin) },
-                )
-                com.todocompanion.app.util.Diag.log("reminders", "unified reminders = ${unified.size}, by source = ${unified.groupingBy { it.source }.eachCount()}")
-                // W3 (goals→Room, Increment 2) — the table is now the runtime source of truth; the legacy JSON is
-                // frozen at the Increment-1 migration value and used only as backup transport + the reconciliation
-                // fallback above. Report the live table counts (what the UI now reads) alongside the legacy JSON so
-                // a create-a-goal-on-device spot-check shows the table growing.
-                val tableGoals = repository.goalsFromTableOnce()
-                val tableReviews = repository.goalReviewsFromTableOnce()
-                com.todocompanion.app.util.Diag.log(
-                    "goals",
-                    "table goals=${tableGoals.size} reviews=${tableReviews.size} (live source) · " +
-                        "legacy JSON goals=${com.todocompanion.app.domain.Goals.parse(s0.goalsJson).size}",
-                )
-                // W3 (routines→Room, Increment 2) — the tables are the runtime source of truth now (the legacy JSON
-                // is frozen + used only as backup transport / reconciliation fallback). Report the live table counts
-                // so a create-a-routine spot-check shows the table growing.
-                val tableRoutines = repository.routinesFromTableOnce()
-                val tableRuns = repository.routineRunsFromTableOnce()
-                com.todocompanion.app.util.Diag.log(
-                    "routines",
-                    "table routines=${tableRoutines.size} runs=${tableRuns.size} (live source) · " +
-                        "legacy JSON routines=${com.todocompanion.app.domain.Routines.parse(s0.routinesJson).size}",
-                )
-            }
             // Seed the lock-screen-privacy flag so background notifications honour it even before any UI.
             Notifications.lockscreenPrivate = s0.lockscreenPrivacy
             // R59 — seed the snooze duration every notification's Snooze action uses.
