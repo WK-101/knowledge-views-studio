@@ -104,6 +104,7 @@ import com.todocompanion.app.data.entity.HabitEntity
 import com.todocompanion.app.domain.habit.HabitStats
 import com.todocompanion.app.domain.habit.HabitTime
 import com.todocompanion.app.ui.AppViewModel
+import com.todocompanion.app.ui.components.ConfirmDialog
 import com.todocompanion.app.ui.components.MiniCheck
 import com.todocompanion.app.ui.components.StepperRow
 import java.time.LocalDate
@@ -935,6 +936,10 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     var timeCostManual by remember { mutableStateOf(existingTimeCfg.costMode == HabitTime.CostMode.MANUAL) }
     var timeManualMin by remember { mutableIntStateOf(existingTimeCfg.manualMin.takeIf { it > 0 } ?: 15) }
     var timeShowBlock by remember { mutableStateOf(existingTimeCfg.showAsBlock) }
+    // Discard-guard: snapshot every user-editable field once at open (all inputs read by buildHabit()/save()),
+    // to detect unsaved edits on back/close.
+    val initialFields = remember { listOf(name, emoji, unit, color, target, days, reminders, freqType, freqParam, habitType, increment, extra, description, notes, money, identity, anchorId, rewardText, rewardAt, encouragements, linkMode, category, startDate, cueContext, rampFinal, quitMinutes, woopOutcome, woopObstacle, woopCoping, valueId, competingResponse, contractText, refereeName, forfeitText, frictionSteps, cueToDisrupt, cueDisruptionPlan, futureScene, timeActivityId, timeClassChoice, timeCostManual, timeManualMin, timeShowBlock) }
+    var confirmDiscard by remember { mutableStateOf(false) }
 
     fun buildHabit(): HabitEntity {
         val base = existing ?: HabitEntity(id = "", name = "", createdAt = 0L)
@@ -978,14 +983,16 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
         ))
         onClose()
     }
-    BackHandler { onClose() }
+    val dirty = listOf(name, emoji, unit, color, target, days, reminders, freqType, freqParam, habitType, increment, extra, description, notes, money, identity, anchorId, rewardText, rewardAt, encouragements, linkMode, category, startDate, cueContext, rampFinal, quitMinutes, woopOutcome, woopObstacle, woopCoping, valueId, competingResponse, contractText, refereeName, forfeitText, frictionSteps, cueToDisrupt, cueDisruptionPlan, futureScene, timeActivityId, timeClassChoice, timeCostManual, timeManualMin, timeShowBlock) != initialFields
+    fun requestClose() { if (dirty) confirmDiscard = true else onClose() }
+    BackHandler { requestClose() }
 
     Scaffold(topBar = {
         TopAppBar(
             windowInsets = TopAppBarDefaults.windowInsets,
             expandedHeight = 52.dp,
             title = { Text(if (existing == null) "New habit" else "Edit habit", maxLines = 1) },
-            navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+            navigationIcon = { IconButton(onClick = { requestClose() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
             actions = {
                 // R64 — the colour selector lives up here with delete/save, freeing the form for content.
                 com.todocompanion.app.ui.components.AppColorPicker(current = color, onPick = { color = it ?: color })
@@ -1386,6 +1393,14 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
         val initial = startDate ?: existing?.createdAt ?: System.currentTimeMillis()
         com.todocompanion.app.ui.components.DateOnlyPickerDialog(initial, onDismiss = { showStartPicker = false }) { m -> startDate = m; showStartPicker = false }
     }
+    if (confirmDiscard) ConfirmDialog(
+        title = "Discard changes?",
+        body = "Your unsaved edits will be lost.",
+        confirmLabel = "Discard",
+        dismissLabel = "Keep editing",
+        destructive = true,
+        onConfirm = { confirmDiscard = false; onClose() },
+        onDismiss = { confirmDiscard = false })
 }
 
 /** The habit editor's card — now the app's one card grammar (canonical AppCard), so it matches

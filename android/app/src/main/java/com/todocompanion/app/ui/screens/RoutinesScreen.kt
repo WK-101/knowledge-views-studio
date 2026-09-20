@@ -566,7 +566,6 @@ private fun RoutineEditor(
     vm: AppViewModel, routine: Routine, existing: Boolean,
     onDismiss: () -> Unit, onSave: (Routine) -> Unit, onDelete: () -> Unit,
 ) {
-    BackHandler(onBack = onDismiss)
     val habits by vm.habits.collectAsState()
     val tasks by vm.tasks.collectAsState()
     val activities by vm.timeActivities.collectAsState()
@@ -582,17 +581,23 @@ private fun RoutineEditor(
     var activityId by remember { mutableStateOf(routine.activityId) }
     var habitCategory by remember { mutableStateOf(routine.habitCategory) }
     val steps = remember { mutableStateListOf<RoutineStep>().apply { addAll(routine.steps) } }
+    // Discard-guard: snapshot the user-editable fields (all inputs read by onSave) once at open, to detect unsaved edits on back.
+    val initial = remember { listOf(name, emoji, note, reminderOn, reminderHour, days, activityId, habitCategory, steps.toList()) }
 
     var pickRoutineEmoji by remember { mutableStateOf(false) }
     var pickStepEmoji by remember { mutableStateOf<Int?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var confirmDiscard by remember { mutableStateOf(false) }
+    val dirty = listOf(name, emoji, note, reminderOn, reminderHour, days, activityId, habitCategory, steps.toList()) != initial
+    fun requestDismiss() { if (dirty) confirmDiscard = true else onDismiss() }
+    BackHandler(onBack = { requestDismiss() })
 
     val totalMin = steps.sumOf { it.durationSec ?: 0 } / 60
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxSize().systemBarsPadding()) {
             TopAppBar(expandedHeight = 52.dp,
-                navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = { requestDismiss() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 title = { Text(if (existing) "Edit routine" else "New routine", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 actions = {
                     AssistChip(onClick = {}, label = { Text("Total $totalMin min") }, modifier = Modifier.padding(end = 8.dp))
@@ -707,6 +712,14 @@ private fun RoutineEditor(
         confirmLabel = "Delete",
         onConfirm = { confirmDelete = false; onDelete() },
         onDismiss = { confirmDelete = false })
+    if (confirmDiscard) ConfirmDialog(
+        title = "Discard changes?",
+        body = "Your unsaved edits will be lost.",
+        confirmLabel = "Discard",
+        dismissLabel = "Keep editing",
+        destructive = true,
+        onConfirm = { confirmDiscard = false; onDismiss() },
+        onDismiss = { confirmDiscard = false })
 }
 
 @Composable

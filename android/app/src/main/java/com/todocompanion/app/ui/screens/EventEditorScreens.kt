@@ -1,5 +1,6 @@
 package com.todocompanion.app.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -54,6 +55,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import com.todocompanion.app.ui.components.AppCard
 import com.todocompanion.app.ui.components.AppTextField
+import com.todocompanion.app.ui.components.ConfirmDialog
 import com.todocompanion.app.ui.components.ToggleRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -65,6 +67,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,6 +85,7 @@ import com.todocompanion.app.domain.recurrence.Recur
 import com.todocompanion.app.domain.recurrence.Recurrence
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.DateTimePickerDialog
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -280,6 +284,9 @@ internal fun EventEditor(
     // R59 (Wave 1) — a per-event colour override (null = inherit the calendar's colour), via the unified picker.
     var color by remember { mutableStateOf(existing?.colorArgb) }
     var alerts by remember { mutableStateOf((existing?.alertsMinutes ?: "").split(",").mapNotNull { it.trim().toIntOrNull() }.toSet()) }
+    // Discard-guard: snapshot the user-editable fields once at open, to detect unsaved edits on back/close.
+    val initial = remember { listOf(title, calId, allDay, start, end, location, notes, url, organizer, attendees, rsvp, busy, rrule, color, alerts) }
+    var confirmDiscard by remember { mutableStateOf(false) }
     var showStart by remember { mutableStateOf(false) }
     var showEnd by remember { mutableStateOf(false) }
     var calMenu by remember { mutableStateOf(false) }
@@ -306,6 +313,7 @@ internal fun EventEditor(
     // R42 — the event editor is now a ModalBottomSheet built from the app's own components (AppTextField,
     // AppCard, the shared rows) so it matches the task editor and quick-add rather than a bare AlertDialog.
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetScope = rememberCoroutineScope()
     var actionMenu by remember { mutableStateOf(false) }
     fun persist() {
         var s = start; var e = end
@@ -320,7 +328,11 @@ internal fun EventEditor(
         if (travelOn && travelMin > 0 && !allDay) vm.addTravelBuffer(s, travelMin, location, calId)
         onClose()
     }
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = sheetState) {
+    val dirty = listOf(title, calId, allDay, start, end, location, notes, url, organizer, attendees, rsvp, busy, rrule, color, alerts) != initial
+    // On a drag/scrim dismiss the sheet has already animated to hidden by the time onDismissRequest fires,
+    // so when there are unsaved edits we re-show it and raise the confirm dialog instead of closing.
+    ModalBottomSheet(onDismissRequest = { if (dirty) { confirmDiscard = true; sheetScope.launch { sheetState.show() } } else onClose() }, sheetState = sheetState) {
+        BackHandler { if (dirty) confirmDiscard = true else onClose() }
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
             // Header: title, overflow (edit only), Save.
             Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -576,6 +588,14 @@ internal fun EventEditor(
             },
         )
     }
+    if (confirmDiscard) ConfirmDialog(
+        title = "Discard changes?",
+        body = "Your unsaved edits will be lost.",
+        confirmLabel = "Discard",
+        dismissLabel = "Keep editing",
+        destructive = true,
+        onConfirm = { confirmDiscard = false; onClose() },
+        onDismiss = { confirmDiscard = false })
 }
 
 @Composable

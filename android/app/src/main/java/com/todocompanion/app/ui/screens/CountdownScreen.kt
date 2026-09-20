@@ -66,6 +66,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,8 +83,10 @@ import androidx.compose.ui.unit.dp
 import com.todocompanion.app.data.entity.CountdownEntity
 import com.todocompanion.app.domain.LifeEvent
 import com.todocompanion.app.ui.AppViewModel
+import com.todocompanion.app.ui.components.ConfirmDialog
 import com.todocompanion.app.ui.components.DateOnlyPickerDialog
 import com.todocompanion.app.ui.components.ToggleRow
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -562,6 +565,7 @@ private fun OccasionCard(c: CountdownEntity, today: LocalDate, onOpen: () -> Uni
 private fun OccasionEditorSheet(vm: AppViewModel, existing: CountdownEntity?, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetScope = rememberCoroutineScope()
     var type by remember { mutableStateOf(LifeEvent.EventType.from(existing?.eventType ?: "BIRTHDAY")) }
     var title by remember { mutableStateOf(existing?.title ?: "") }
     var person by remember { mutableStateOf(existing?.personName ?: "") }
@@ -592,6 +596,10 @@ private fun OccasionEditorSheet(vm: AppViewModel, existing: CountdownEntity?, on
     var millis by remember { mutableLongStateOf(existing?.targetMillis ?: LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()) }
     var showDate by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    // Discard-guard: snapshot the user-editable occasion fields once at open (the inputs build() persists;
+    // moments persist immediately on their own row, so they are excluded), to detect unsaved edits on back/close.
+    val initial = remember { listOf(type, title, person, emoji, color, yearly, yearKnown, countUp, unit, category, favorite, locked, photoB64, notes, leadDays, keepInTouch, recurCal, chainNext, letter, sealedUntil, millis) }
+    var confirmDiscard by remember { mutableStateOf(false) }
     val d = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
 
     fun build(): CountdownEntity = (existing ?: CountdownEntity(id = java.util.UUID.randomUUID().toString(), title = title, targetMillis = millis, createdAt = System.currentTimeMillis()))
@@ -601,7 +609,12 @@ private fun OccasionEditorSheet(vm: AppViewModel, existing: CountdownEntity?, on
             keepInTouchDays = keepInTouch, recurCalendar = recurCal, momentsJson = com.todocompanion.app.domain.Moments.encode(momentsLocal),
             chainNextId = chainNext, sealedLetter = letter, sealedUntil = sealedUntil)
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet) {
+    val dirty = listOf(type, title, person, emoji, color, yearly, yearKnown, countUp, unit, category, favorite, locked, photoB64, notes, leadDays, keepInTouch, recurCal, chainNext, letter, sealedUntil, millis) != initial
+    // On a drag/scrim dismiss the sheet has already animated to hidden by the time onDismissRequest fires,
+    // so when there are unsaved edits we re-show it and raise the confirm dialog instead of closing.
+    fun requestDismiss() { if (dirty) { confirmDiscard = true; sheetScope.launch { sheet.show() } } else onDismiss() }
+    ModalBottomSheet(onDismissRequest = { requestDismiss() }, sheetState = sheet) {
+        BackHandler { requestDismiss() }
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 28.dp).verticalScroll(rememberScrollState())) {
             Text(if (existing == null) "New occasion" else "Occasion", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(12.dp))
@@ -787,7 +800,7 @@ private fun OccasionEditorSheet(vm: AppViewModel, existing: CountdownEntity?, on
                     TextButton(onClick = { shareOccasion(ctx, build()) }) { Text("Share") }
                 }
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = { requestDismiss() }) { Text("Cancel") }
                 TextButton(onClick = { vm.saveOccasionRow(build()); onDismiss() }) { Text("Save", fontWeight = FontWeight.SemiBold) }
             }
         }
@@ -800,6 +813,14 @@ private fun OccasionEditorSheet(vm: AppViewModel, existing: CountdownEntity?, on
         dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
         title = { Text("Delete this occasion?") },
     )
+    if (confirmDiscard) ConfirmDialog(
+        title = "Discard changes?",
+        body = "Your unsaved edits will be lost.",
+        confirmLabel = "Discard",
+        dismissLabel = "Keep editing",
+        destructive = true,
+        onConfirm = { confirmDiscard = false; onDismiss() },
+        onDismiss = { confirmDiscard = false })
 }
 
 @Composable

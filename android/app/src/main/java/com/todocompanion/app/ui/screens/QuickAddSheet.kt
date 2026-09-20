@@ -67,6 +67,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.priority.PriorityLevel
@@ -231,7 +232,9 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { submit() }),
                 // Plain-text mode stops highlighting recognised words — nothing is being extracted.
-                visualTransformation = if (plainText) androidx.compose.ui.text.input.VisualTransformation.None else QuickAddTransformation,
+                // U7 — pick light/dark token hues from the current surface so highlights adapt to dark/AMOLED.
+                visualTransformation = if (plainText) androidx.compose.ui.text.input.VisualTransformation.None
+                    else quickAddTransformation(MaterialTheme.colorScheme.surface.luminance() < 0.5f),
             )
         }
         // ---------- Bulk paste → many tasks (Wave B): a multi-line paste becomes one task per line ----------

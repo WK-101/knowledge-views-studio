@@ -538,7 +538,6 @@ private fun MeasureLine(label: String, detail: String, fraction: Float) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, onDismiss: () -> Unit, onSave: (Goal) -> Unit, onDelete: () -> Unit) {
-    BackHandler(onBack = onDismiss)
     val lists by vm.lists.collectAsState()
     val habits by vm.habits.collectAsState()
     val activities by vm.timeActivities.collectAsState()
@@ -562,18 +561,24 @@ private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, on
     var cadence by remember { mutableIntStateOf(goal.reviewCadenceDays) }
     val milestones = remember { mutableStateListOf<GoalMilestone>().apply { addAll(goal.milestones) } }
     val keyResults = remember { mutableStateListOf<KeyResult>().apply { addAll(goal.keyResults) } }
+    // Discard-guard: snapshot the user-editable fields once at open, to detect unsaved edits on back.
+    val initial = remember { listOf(name, emoji, note, identity, area, listId, habitId, activityId, budgetH, deadline, cycleOn, cycleStart, cycleWeeks, cadence, milestones.toList(), keyResults.toList()) }
 
     var pickEmoji by remember { mutableStateOf(false) }
     var pickDeadline by remember { mutableStateOf(false) }
     var pickCycleStart by remember { mutableStateOf(false) }
     var pickMilestoneDate by remember { mutableStateOf<Int?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var confirmDiscard by remember { mutableStateOf(false) }
+    val dirty = listOf(name, emoji, note, identity, area, listId, habitId, activityId, budgetH, deadline, cycleOn, cycleStart, cycleWeeks, cadence, milestones.toList(), keyResults.toList()) != initial
+    fun requestDismiss() { if (dirty) confirmDiscard = true else onDismiss() }
+    BackHandler(onBack = { requestDismiss() })
     val faint = MaterialTheme.colorScheme.onSurfaceVariant
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxSize().systemBarsPadding()) {
             TopAppBar(expandedHeight = 52.dp,
-                navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = { requestDismiss() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 title = { Text(if (existing) "Edit goal" else "New goal", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 actions = { if (existing) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.error) } })
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -724,6 +729,14 @@ private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, on
         confirmLabel = "Delete",
         onConfirm = { confirmDelete = false; onDelete() },
         onDismiss = { confirmDelete = false })
+    if (confirmDiscard) ConfirmDialog(
+        title = "Discard changes?",
+        body = "Your unsaved edits will be lost.",
+        confirmLabel = "Discard",
+        dismissLabel = "Keep editing",
+        destructive = true,
+        onConfirm = { confirmDiscard = false; onDismiss() },
+        onDismiss = { confirmDiscard = false })
 }
 
 // ── The weekly review dialog — log execution + commitments, feeding the scoreboard & integrity chain ─
