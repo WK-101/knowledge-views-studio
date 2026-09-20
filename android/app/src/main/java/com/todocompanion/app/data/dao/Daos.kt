@@ -340,6 +340,9 @@ interface RoutineDao {
     @Query("SELECT * FROM routine_runs ORDER BY startedAtMillis ASC") fun observeRuns(): Flow<List<com.todocompanion.app.data.entity.RoutineRunEntity>>
     @Query("SELECT * FROM routine_runs ORDER BY startedAtMillis ASC") suspend fun getAllRuns(): List<com.todocompanion.app.data.entity.RoutineRunEntity>
     @Upsert suspend fun upsertRuns(r: List<com.todocompanion.app.data.entity.RoutineRunEntity>)
+    /** Keep only the newest [keep] runs (matches the old JSON 400-cap + the backup transport cap). */
+    @Query("DELETE FROM routine_runs WHERE rowId NOT IN (SELECT rowId FROM routine_runs ORDER BY rowId DESC LIMIT :keep)")
+    suspend fun trimRunsTo(keep: Int)
     @Query("DELETE FROM routine_runs") suspend fun clearRuns()
 }
 

@@ -429,7 +429,7 @@ object AlarmScheduler {
      *  Call after any routine change, at startup, and on boot. Routines live in the settings JSON. */
     suspend fun scheduleRoutineReminders(context: Context, repo: AppRepository, zone: ZoneId = ZoneId.systemDefault()) {
         val now = System.currentTimeMillis()
-        val routines = com.todocompanion.app.domain.Routines.parse(repo.settingsSnapshot().routinesJson)
+        val routines = repo.routinesOnce()   // W3 — routines are Room-backed now, not the settings-JSON blob
         routines.forEach { r ->
             val min = r.whenReminderMin ?: return@forEach
             if (min !in 0..1439) return@forEach

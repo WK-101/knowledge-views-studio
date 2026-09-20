@@ -1630,15 +1630,16 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
     // surface can list/count "all reminders" uniformly instead of re-parsing five different storage shapes.
     // The mapping is pure (UnifiedReminders, covered by UnifiedReminderTest); unifying the STORAGE into one
     // table is a separate, migration-bearing step. Declared after `habits` so all five source flows exist.
+    // W3 — routines now come from their Room table (repo.observeRoutines()) instead of the frozen routinesJson.
     val allReminders: StateFlow<List<com.todocompanion.app.domain.reminders.UnifiedReminder>> =
-        combine(habits, events, notes, countdowns, settings) { hs, es, ns, cs, s ->
+        combine(habits, events, notes, countdowns, repo.observeRoutines()) { hs, es, ns, cs, rs ->
             val R = com.todocompanion.app.domain.reminders.UnifiedReminders
             R.ordered(
                 hs.flatMap { R.fromHabit(it.id, it.name, it.reminderTimes) },
                 es.flatMap { R.fromEvent(it.id, it.title, it.alertsMinutes) },
                 ns.flatMap { R.fromNote(it.id, it.title, it.reminderAt, it.reminderExtra, it.reminderRrule) },
                 cs.flatMap { R.fromOccasion(it.id, it.title, it.prepLeadDays, it.keepInTouchDays) },
-                com.todocompanion.app.domain.Routines.parse(s.routinesJson).flatMap { R.fromRoutine(it.id, it.name, it.whenReminderMin) },
+                rs.flatMap { R.fromRoutine(it.id, it.name, it.whenReminderMin) },
             )
         }.state(emptyList())
     val habitCheckins = repo.allCheckins.state(emptyList())
@@ -3335,18 +3336,21 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
     // ── W6 · Routine tags ───────────────────────────────────────────────────────────────────────
     // Routines are per-workspace: a blank workspaceId is legacy data, treated as the default workspace.
     private fun routineWs(r: com.todocompanion.app.domain.Routine) = r.workspaceId.ifBlank { com.todocompanion.app.data.entity.WorkspaceEntity.DEFAULT_ID }
-    fun routines(): List<com.todocompanion.app.domain.Routine> {
-        val ws = activeWorkspace()
-        return com.todocompanion.app.domain.Routines.parse(settings.value.routinesJson).filter { routineWs(it) == ws }
-    }
-    /** [list] is the ACTIVE workspace's routines; merge with the other workspaces' so a save here never
-     *  wipes another workspace's routines. Blank ids are stamped with the active workspace. */
+    // W3 (cross-module unification) — Routines now live in a Room table, not the settings-JSON blob. These flows
+    // drive the routine screens (the settings `routinesJson` no longer changes); `routines()` returns the active-
+    // workspace value so the many synchronous internal callers (routinesDueToday/logRoutineRun/runRoutineByName)
+    // are unchanged.
+    private val allRoutines: StateFlow<List<com.todocompanion.app.domain.Routine>> = repo.observeRoutines().state(emptyList())
+    val routinesState: StateFlow<List<com.todocompanion.app.domain.Routine>> =
+        combine(allRoutines, activeWs) { all, ws -> all.filter { routineWs(it) == ws } }.state(emptyList())
+    val routineRunsState: StateFlow<List<com.todocompanion.app.domain.RoutineRun>> = repo.observeRoutineRuns().state(emptyList())
+    fun routines(): List<com.todocompanion.app.domain.Routine> = routinesState.value
+    /** [list] is the ACTIVE workspace's routines; other workspaces' are left intact. Blank ids are stamped with
+     *  the active workspace. Re-arms the daily routine nudges whenever the set/times change (self-healing). */
     fun saveRoutines(list: List<com.todocompanion.app.domain.Routine>) = viewModelScope.launch {
         val ws = activeWorkspace()
-        val others = com.todocompanion.app.domain.Routines.parse(settings.value.routinesJson).filter { routineWs(it) != ws }
         val mine = list.map { if (it.workspaceId.isBlank()) it.copy(workspaceId = ws) else it }
-        repo.saveSettings(settings.value.copy(routinesJson = com.todocompanion.app.domain.Routines.encode(others + mine)))
-        // Re-arm the daily routine nudges whenever the set/times change (self-healing, like habits).
+        repo.replaceWorkspaceRoutines(ws, mine)
         com.todocompanion.app.reminders.AlarmScheduler.scheduleRoutineReminders(appCtx, repo)
     }
     /** A routine to auto-open in the runner (set by the reminder deep-link; RoutinesScreen consumes it). */
@@ -3385,10 +3389,12 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
         val idx = list.indexOfFirst { it.id == r.id }
         saveRoutines(if (idx >= 0) list.toMutableList().also { it[idx] = r } else list + r)
     }
-    fun deleteRoutine(id: String) = saveRoutines(routines().filterNot { it.id == id })
-    /** Capped press-play run history (adherence, keystone, on-this-day). */
-    fun routineRuns(): List<com.todocompanion.app.domain.RoutineRun> =
-        com.todocompanion.app.domain.RoutineRuns.parse(settings.value.routineRunsJson)
+    fun deleteRoutine(id: String) = viewModelScope.launch {
+        repo.deleteRoutine(id)
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleRoutineReminders(appCtx, repo)
+    }
+    /** Capped press-play run history (adherence, keystone, on-this-day) — W3: Room-backed. */
+    fun routineRuns(): List<com.todocompanion.app.domain.RoutineRun> = routineRunsState.value
     /** Runnable routines scheduled today (by cadence) that recur — reminder-set or with explicit days — and
      *  aren't yet FINISHED today. The "press play" set the Today screen surfaces, so a scheduled ritual is
      *  reachable from the daily plan, not only the drawer. */
@@ -3416,9 +3422,7 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
                 step.linkedHabitId?.let { completeHabitToday(it) }
                 step.linkedTaskId?.let { tid -> repo.getTask(tid)?.let { if (!it.completed) toggleComplete(it) } }
             }
-        repo.saveSettings(settings.value.copy(
-            routineRunsJson = com.todocompanion.app.domain.RoutineRuns.encode(
-                com.todocompanion.app.domain.RoutineRuns.append(routineRuns(), run))))
+        repo.appendRoutineRun(run)   // W3 — Room-backed, capped to the newest 400 (matches the old JSON cap)
     }
 
     // ── W3 · Plan my day — auto-block, then measure the loop ────────────────────────────────────

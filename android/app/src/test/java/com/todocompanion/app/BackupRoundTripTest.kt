@@ -62,6 +62,15 @@ class BackupRoundTripTest {
         val seedReview = com.todocompanion.app.domain.GoalReview(id = "r1", goalId = "", epochDay = 19_500L, executionPct = 80, commitmentsKept = 3, commitmentsTotal = 4, note = "seed-review")
         srcRepo.replaceWorkspaceGoals("default", listOf(seedGoal))
         srcRepo.replaceGoalReviews(listOf(seedReview))
+        // W3 — Routines & their run history are Room-backed too; seed the tables (export regenerates the transport
+        // routines/routine_runs JSON from them, import repopulates fresh tables).
+        val seedRoutine = com.todocompanion.app.domain.Routine(
+            id = "rt1", name = "Morning primer", emoji = "☀️", activityId = "act1",
+            steps = listOf(com.todocompanion.app.domain.RoutineStep(id = "st1", title = "Water", durationSec = 60, essential = true)),
+            whenReminderMin = 420, days = listOf(1, 2, 3, 4, 5), workspaceId = "default",
+        )
+        srcRepo.replaceWorkspaceRoutines("default", listOf(seedRoutine))
+        srcRepo.appendRoutineRun(com.todocompanion.app.domain.RoutineRun(routineId = "rt1", epochDay = 19_500L, startedAtMillis = 5_000L, completedStepIds = listOf("st1"), totalSec = 60))
         // Daily-review data (the felt-state / close-the-day store).
         srcRepo.upsertDayLog(DayLogEntity(epochDay = 20_000L, pmReflection = "seed-reflection", dayRating = 4))
         // Time tracking (activity + a logged interval).
@@ -112,6 +121,12 @@ class BackupRoundTripTest {
         assertEquals("goal key result survives", 5.0, restoredGoal?.keyResults?.firstOrNull()?.current)
         assertEquals("goal cycle survives", 12, restoredGoal?.cycleWeeks)
         assertTrue("goal review survives", dstRepo.goalReviewsFromTableOnce().map { it.toDomain() }.any { it.id == "r1" && it.executionPct == 80 })
+        // Routines (W3 — Room-backed): the routine with its step + cadence, and a run, round-trip into the table.
+        val restoredRoutine = dstRepo.routinesFromTableOnce().map { it.toDomain() }.firstOrNull { it.id == "rt1" }
+        assertEquals("routine survives with reminder", 420, restoredRoutine?.whenReminderMin)
+        assertEquals("routine step survives", "Water", restoredRoutine?.steps?.firstOrNull()?.title)
+        assertEquals("routine cadence survives", listOf(1, 2, 3, 4, 5), restoredRoutine?.days)
+        assertTrue("routine run survives", dstRepo.routineRunsFromTableOnce().map { it.toDomain() }.any { it.routineId == "rt1" && it.completedStepIds == listOf("st1") })
         // Day-log.
         assertTrue("day-log survives", dstRepo.dayLogsOnce().any { it.epochDay == 20_000L && it.pmReflection == "seed-reflection" && it.dayRating == 4 })
         // Time tracking.

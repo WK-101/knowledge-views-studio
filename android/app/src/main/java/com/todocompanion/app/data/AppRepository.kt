@@ -823,10 +823,40 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     fun observeGoalReviews(): Flow<List<com.todocompanion.app.domain.GoalReview>> = goals.observeReviews().map { it.map { e -> e.toDomain() } }
     suspend fun goalsFromTableOnce(): List<com.todocompanion.app.data.entity.GoalEntity> = goals.getAll()
     suspend fun goalReviewsFromTableOnce(): List<com.todocompanion.app.data.entity.GoalReviewEntity> = goals.getAllReviews()
-    // W3 (routines→Room, Increment 1) — read-only helpers so the Diag `[routines]` probe and RoutineRoomParityTest
-    // can compare the migrated rows against the settings-JSON that remains the source of truth, before Increment 2.
+    // W3 (routines→Room, Increment 2) — Routines & their run history now live in Room. The table is the runtime
+    // source of truth; the settings `routines`/`routine_runs` k/v entries are kept only as the backward-compatible
+    // BACKUP transport (regenerated from the table at export, consumed into the table at import).
+    fun observeRoutines(): Flow<List<com.todocompanion.app.domain.Routine>> = routines.observeAll().map { it.map { e -> e.toDomain() } }
+    fun observeRoutineRuns(): Flow<List<com.todocompanion.app.domain.RoutineRun>> = routines.observeRuns().map { it.map { e -> e.toDomain() } }
+    suspend fun routinesOnce(): List<com.todocompanion.app.domain.Routine> = routines.getAll().map { it.toDomain() }
+    suspend fun routineRunsOnce(): List<com.todocompanion.app.domain.RoutineRun> = routines.getAllRuns().map { it.toDomain() }
     suspend fun routinesFromTableOnce(): List<com.todocompanion.app.data.entity.RoutineEntity> = routines.getAll()
     suspend fun routineRunsFromTableOnce(): List<com.todocompanion.app.data.entity.RoutineRunEntity> = routines.getAllRuns()
+    private fun routineWsOf(ws: String) = ws.ifBlank { com.todocompanion.app.data.entity.WorkspaceEntity.DEFAULT_ID }
+    /** Replace the ACTIVE workspace's routines with [list] (leaving other workspaces' intact) — mirrors the old
+     *  settings-JSON saveRoutines semantics exactly, against the table, in one transaction. */
+    suspend fun replaceWorkspaceRoutines(ws: String, list: List<com.todocompanion.app.domain.Routine>) {
+        db.withTransaction {
+            val keepIds = list.map { it.id }.toSet()
+            routines.getAll().filter { routineWsOf(it.workspaceId) == ws && it.id !in keepIds }.forEach { routines.deleteById(it.id) }
+            routines.upsertAll(list.map { it.toEntity() })
+        }
+    }
+    suspend fun deleteRoutine(id: String) = routines.deleteById(id)
+    /** Append a press-play run, keeping the newest 400 (matches the old JSON cap + the backup transport cap). */
+    suspend fun appendRoutineRun(run: com.todocompanion.app.domain.RoutineRun) {
+        db.withTransaction { routines.upsertRuns(listOf(run.toEntity())); routines.trimRunsTo(400) }
+    }
+    /** One-time, idempotent safety net for the JSON→table flip: adopt into the tables any routine (by id) or run
+     *  (by routineId+startedAtMillis) that still exists only in the legacy settings-JSON. Additive; never deletes. */
+    suspend fun reconcileRoutinesFromLegacyJson(routinesJson: String, runsJson: String) {
+        val haveRoutineIds = routines.getAll().map { it.id }.toSet()
+        val missingRoutines = com.todocompanion.app.domain.Routines.parse(routinesJson).filter { it.id !in haveRoutineIds }
+        if (missingRoutines.isNotEmpty()) routines.upsertAll(missingRoutines.map { it.toEntity() })
+        val haveRunKeys = routines.getAllRuns().map { it.routineId to it.startedAtMillis }.toSet()
+        val missingRuns = com.todocompanion.app.domain.RoutineRuns.parse(runsJson).filter { (it.routineId to it.startedAtMillis) !in haveRunKeys }
+        if (missingRuns.isNotEmpty()) { routines.upsertRuns(missingRuns.map { it.toEntity() }); routines.trimRunsTo(400) }
+    }
     private fun goalWsOf(ws: String) = ws.ifBlank { com.todocompanion.app.data.entity.WorkspaceEntity.DEFAULT_ID }
     /** Replace the ACTIVE workspace's goals with [list] (leaving other workspaces' goals intact) — mirrors the
      *  old settings-JSON saveGoals semantics exactly, but against the table, in one transaction. */
@@ -1999,11 +2029,17 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
         // from the live table (the settings-table copy is frozen at the Increment-1 migration value). This keeps
         // the backup format byte-identical and backward-compatible while always reflecting the current goals.
         val base = settings.getAll().filterNot {
-            it.key == K.SYNC_PASS || it.key == SYNC_PASS_REV || it.key == K.GOALS || it.key == K.GOAL_REVIEWS
+            it.key == K.SYNC_PASS || it.key == SYNC_PASS_REV || it.key == K.GOALS || it.key == K.GOAL_REVIEWS ||
+                it.key == K.ROUTINES || it.key == K.ROUTINE_RUNS
         }
         val goalsJson = com.todocompanion.app.domain.Goals.encode(goals.getAll().map { it.toDomain() })
         val reviewsJson = com.todocompanion.app.domain.GoalReviews.encode(goals.getAllReviews().map { it.toDomain() })
-        return base + SettingEntity(K.GOALS, goalsJson) + SettingEntity(K.GOAL_REVIEWS, reviewsJson)
+        // W3 — routines/routine_runs are runtime-owned by their tables now; regenerate their transport k/v from
+        // the live tables so backups stay byte-compatible and always current. (active_routine_run stays in settings.)
+        val routinesJson = com.todocompanion.app.domain.Routines.encode(routines.getAll().map { it.toDomain() })
+        val runsJson = com.todocompanion.app.domain.RoutineRuns.encode(routines.getAllRuns().map { it.toDomain() })
+        return base + SettingEntity(K.GOALS, goalsJson) + SettingEntity(K.GOAL_REVIEWS, reviewsJson) +
+            SettingEntity(K.ROUTINES, routinesJson) + SettingEntity(K.ROUTINE_RUNS, runsJson)
     }
 
     suspend fun exportJson(): String = Backup.encode(
@@ -2126,6 +2162,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
         notes.clear(); notes.clearTagCrossRefs(); notes.clearContextCrossRefs(); notebooks.clear(); noteRevisions.clear(); noteLinks.clear(); smartViews.clear()
         noteCards.clear()   // replace-restore must reset flashcards too, else stale SM-2 schedules survive
         goals.clear(); goals.clearReviews()   // W3 — goals live in Room now; replace them from the imported transport below
+        routines.clear(); routines.clearRuns()   // W3 — routines live in Room now; replace them from the imported transport below
         folders.upsertAll(b.folders)
         lists.upsertAll(b.lists)
         tasks.upsertAll(b.tasks)
@@ -2146,6 +2183,11 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
             val rj = b.settings.firstOrNull { it.key == K.GOAL_REVIEWS }?.value ?: ""
             goals.upsertAll(com.todocompanion.app.domain.Goals.parse(gj).map { it.toEntity() })
             goals.upsertReviews(com.todocompanion.app.domain.GoalReviews.parse(rj).map { it.toEntity() })
+            // W3 — routines/routine_runs ride in `settings` transport too; repopulate their tables from any backup.
+            val roj = b.settings.firstOrNull { it.key == K.ROUTINES }?.value ?: ""
+            val ruj = b.settings.firstOrNull { it.key == K.ROUTINE_RUNS }?.value ?: ""
+            routines.upsertAll(com.todocompanion.app.domain.Routines.parse(roj).map { it.toEntity() })
+            routines.upsertRuns(com.todocompanion.app.domain.RoutineRuns.parse(ruj).map { it.toEntity() })
         }
         workspaces.upsertAll(b.workspaces)
         filters.upsertAll(b.filters)

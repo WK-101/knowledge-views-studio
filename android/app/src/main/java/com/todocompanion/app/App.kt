@@ -54,6 +54,8 @@ class App : Application() {
             // goal/review still living only in the legacy settings-JSON into the table (e.g. one created on an
             // Increment-1 build before the flip). Additive; a no-op once everything's in the table.
             runCatching { repository.reconcileGoalsFromLegacyJson(s0.goalsJson, s0.goalReviewsJson) }
+            // W3 (routines→Room, Increment 2) — same idempotent safety net for the routines flip.
+            runCatching { repository.reconcileRoutinesFromLegacyJson(s0.routinesJson, s0.routineRunsJson) }
             // TEMP-DIAG — confirm the shipped W2/W3 work on-device, all gathered at startup so the in-app
             // DiagDialog shows the full picture with no navigation. Covers migrated + fresh-install schema.
             runCatching {
@@ -104,18 +106,15 @@ class App : Application() {
                     "table goals=${tableGoals.size} reviews=${tableReviews.size} (live source) · " +
                         "legacy JSON goals=${com.todocompanion.app.domain.Goals.parse(s0.goalsJson).size}",
                 )
-                // W3 (routines→Room, Increment 1) — additive migration; the JSON is still the source of truth, so
-                // the table counts (and ids) must equal the parsed JSON. Any mismatch means the migration lost/added
-                // something and the flip must wait. Proven on the user's real routine + run history.
-                val jsonRoutines = com.todocompanion.app.domain.Routines.parse(s0.routinesJson)
-                val jsonRuns = com.todocompanion.app.domain.RoutineRuns.parse(s0.routineRunsJson)
+                // W3 (routines→Room, Increment 2) — the tables are the runtime source of truth now (the legacy JSON
+                // is frozen + used only as backup transport / reconciliation fallback). Report the live table counts
+                // so a create-a-routine spot-check shows the table growing.
                 val tableRoutines = repository.routinesFromTableOnce()
                 val tableRuns = repository.routineRunsFromTableOnce()
-                val routinesMatch = jsonRoutines.map { it.id }.toSet() == tableRoutines.map { it.id }.toSet()
                 com.todocompanion.app.util.Diag.log(
                     "routines",
-                    "JSON routines=${jsonRoutines.size} table=${tableRoutines.size} idsMatch=$routinesMatch · " +
-                        "JSON runs=${jsonRuns.size} table=${tableRuns.size}",
+                    "table routines=${tableRoutines.size} runs=${tableRuns.size} (live source) · " +
+                        "legacy JSON routines=${com.todocompanion.app.domain.Routines.parse(s0.routinesJson).size}",
                 )
             }
             // Seed the lock-screen-privacy flag so background notifications honour it even before any UI.

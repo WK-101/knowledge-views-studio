@@ -112,15 +112,15 @@ private fun templateToRoutine(t: RoutineCatalog.Template): Routine = Routine(
 fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     val settings by vm.settings.collectAsState()
-    // Re-parse whenever the persisted JSON changes so add/edit/delete reflect immediately.
-    val routines = remember(settings.routinesJson, settings.activeWorkspaceId) { vm.routines() }
-    val runs = remember(settings.routineRunsJson) { vm.routineRuns() }
+    // W3 — routines/runs come from their Room-backed flows now (add/edit/delete reflect immediately).
+    val routines = vm.routinesState.collectAsState().value
+    val runs = vm.routineRunsState.collectAsState().value
     val dayLogs by vm.dayLogs.collectAsState()
     val today = vm.today()
-    val onThisDay = remember(settings.routineRunsJson, settings.routinesJson, today) {
+    val onThisDay = remember(routines, runs, today) {
         com.todocompanion.app.domain.RoutineInsights.onThisDay(routines, runs, today, vm.zoneId)
     }
-    val capacity = remember(settings.routinesJson, settings.routineRunsJson, today) {
+    val capacity = remember(routines, runs, today) {
         com.todocompanion.app.domain.RoutineInsights.capacity(routines, runs, today)
     }
 

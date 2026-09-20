@@ -358,7 +358,7 @@ class ReminderReceiver : BroadcastReceiver() {
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
                         // Self-heal: only fire + re-arm while a routine with this id still asks for this minute.
-                        val routines = com.todocompanion.app.domain.Routines.parse(app.repository.settingsSnapshot().routinesJson)
+                        val routines = app.repository.routinesOnce()   // W3 — routines are Room-backed now
                         val r = routines.firstOrNull { it.id == routineId }
                         if (r != null && r.whenReminderMin == min && r.steps.isNotEmpty()) {
                             // Cadence gate: the alarm re-arms daily, but only notify on the ritual's scheduled
