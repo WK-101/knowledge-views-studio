@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /** Application-scoped singletons. Doubles as a tiny service locator (no DI framework yet). */
@@ -21,6 +22,7 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        com.todocompanion.app.util.Diag.attach(this) // TEMP-DIAG — set up the copyable diag log before the DB opens
         // R71 — capture ANY uncaught crash to a file, then defer to the normal handler.
         // SEC (R2-C) — write it to INTERNAL app-private storage (filesDir/last_crash.txt), not the
         // app-EXTERNAL dir it used to use: the external files dir is reachable by other apps that hold
@@ -48,7 +50,8 @@ class App : Application() {
             // table into the KeyStore-wrapped SecurePrefs, before the first snapshot reads it.
             runCatching { repository.migrateSyncPassToSecurePrefs() }
             val s0 = repository.settingsSnapshot(); repository.ensureSeed()
-            // TEMP-DIAG — confirm the v84 schema on-device (covers both the migrated and fresh-install paths).
+            // TEMP-DIAG — confirm the shipped W2/W3 work on-device, all gathered at startup so the in-app
+            // DiagDialog shows the full picture with no navigation. Covers migrated + fresh-install schema.
             runCatching {
                 val rdb = database.openHelper.readableDatabase
                 fun idx(t: String): List<String> {
@@ -56,6 +59,20 @@ class App : Application() {
                     return buildList { while (c.moveToNext()) add(c.getString(c.getColumnIndexOrThrow("name"))) }.also { c.close() }
                 }
                 com.todocompanion.app.util.Diag.log("schema", "dbVersion=${rdb.version} notes_indices=${idx("notes")}")
+                val ws = s0.activeWorkspaceId
+                // W2 — the index-backed SQL notes query the VM now uses for the live list.
+                val liveNotes = repository.observeNotesByWorkspace(ws, false).first()
+                com.todocompanion.app.util.Diag.log("notes", "SQL live notes in active workspace = ${liveNotes.size}")
+                // W3 — the unified reminder model over real data across all six domains.
+                val R = com.todocompanion.app.domain.reminders.UnifiedReminders
+                val unified = R.ordered(
+                    repository.allHabits.first().flatMap { R.fromHabit(it.id, it.name, it.reminderTimes) },
+                    repository.allEvents.first().flatMap { R.fromEvent(it.id, it.title, it.alertsMinutes) },
+                    liveNotes.flatMap { R.fromNote(it.id, it.title, it.reminderAt, it.reminderExtra, it.reminderRrule) },
+                    repository.allCountdowns.first().flatMap { R.fromOccasion(it.id, it.title, it.prepLeadDays, it.keepInTouchDays) },
+                    com.todocompanion.app.domain.Routines.parse(s0.routinesJson).flatMap { R.fromRoutine(it.id, it.name, it.whenReminderMin) },
+                )
+                com.todocompanion.app.util.Diag.log("reminders", "unified reminders = ${unified.size}, by source = ${unified.groupingBy { it.source }.eachCount()}")
             }
             // Seed the lock-screen-privacy flag so background notifications honour it even before any UI.
             Notifications.lockscreenPrivate = s0.lockscreenPrivacy

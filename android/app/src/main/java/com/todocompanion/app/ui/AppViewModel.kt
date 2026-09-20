@@ -214,9 +214,7 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
     // NoteDao.observeByWorkspace), re-subscribing when the active workspace changes, instead of loading the
     // whole notes table and filtering in memory here. Behaviour is identical (proven by NoteScopeQueryTest).
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val notes = activeWs.flatMapLatest { ws -> repo.observeNotesByWorkspace(ws, trashed = false) }
-        .onEach { com.todocompanion.app.util.Diag.log("notes", "SQL live notes = ${it.size}") } // TEMP-DIAG
-        .state(emptyList())
+    val notes = activeWs.flatMapLatest { ws -> repo.observeNotesByWorkspace(ws, trashed = false) }.state(emptyList())
     /** The Trash — workspace-scoped notes the user has trashed but not yet permanently deleted. */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val trashedNotes = activeWs.flatMapLatest { ws -> repo.observeNotesByWorkspace(ws, trashed = true) }.state(emptyList())
@@ -1652,8 +1650,7 @@ class AppViewModel internal constructor(app: Application, private val repo: AppR
                 cs.flatMap { R.fromOccasion(it.id, it.title, it.prepLeadDays, it.keepInTouchDays) },
                 com.todocompanion.app.domain.Routines.parse(s.routinesJson).flatMap { R.fromRoutine(it.id, it.name, it.whenReminderMin) },
             )
-        }.onEach { com.todocompanion.app.util.Diag.log("reminders", "unified = ${it.size}, sources = ${it.map { r -> r.source }.distinct()}") } // TEMP-DIAG
-            .state(emptyList())
+        }.state(emptyList())
     val habitCheckins = repo.allCheckins.state(emptyList())
     val focusSessions = repo.allFocusSessions.scopedBy { it.workspaceId }
     // R37 · Port 5 — the receptive hour (0..23) learned from when you actually finish habits & tasks, or
