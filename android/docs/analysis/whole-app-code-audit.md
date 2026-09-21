@@ -6,6 +6,43 @@ storage, performance, UI reuse and cross-module consistency, with a phased plan 
 
 ---
 
+# Characterization widening — pin the god-VM's cross-feature read models before the split (2026-09-21)
+
+The agreed sequence toward the sub-ViewModel split is **widen the characterization net first, then split**. This
+round pins the three highest-risk cross-feature seams a per-feature-VM decomposition is most likely to break —
+each drives the **real** `AppViewModel` + real `AppRepository` (in-memory Room) end to end on the existing
+headless Robolectric harness, then asserts observable behaviour:
+
+- **`groups` re-derives for each selected smart list.**
+  `groups_reDeriveForEachSelectedSmartList` seeds four tasks — dated-today, completed, flagged, and a plain
+  open one — then flips `currentView` through **Today → Completed → Flagged** and asserts `vm.groups` (the
+  view-filtered/grouped list behind every task screen, computed by `ListPipeline.compute`) surfaces exactly the
+  one task that belongs in each, and none of the others. This pins the single most load-bearing read model in
+  the VM — the one a split is most likely to silently break.
+- **Blocked-by → Waiting-on, end to end.**
+  `aTaskBlockedByAnOpenPrerequisite_waits_untilTheBlockerCompletes` adds a real dependency
+  (`repo.addDependency`), asserts the blocked task appears in WAITING's "Blocked by your task" group while its
+  prerequisite is open, then completes the prerequisite and asserts it leaves Waiting. This is a GTD seam that
+  has regressed before ("Waiting empty despite a blocked-by").
+- **Subtasks nest under their parent.**
+  `subtasks_nestUnderTheirParentInTheListOutline` creates a parent + child (`parentId`) and asserts
+  `vm.outlineRows` for that list renders the parent at depth 0 with `hasChildren`, and the child at depth 1 —
+  pinning the outline builder wiring.
+
+**+3 characterization tests (8 on the VM now); `AppViewModelCharacterizationTest` green (8/8, 0 failures).**
+Test-only — no main source touched, so the release APK and its 0 forbidden permissions are unchanged.
+
+### Scorecard delta (NavHost round → characterization widening)
+| Dimension | Prev | **Now** | Why |
+|---|:---:|:---:|---|
+| Testing | 7.8 | **8.0** | the three cross-feature read models a per-feature-VM split most endangers — the `groups` pipeline, blocked→Waiting, and the subtask outline — are now pinned end-to-end, so the split can be proven equivalent, not hoped equivalent. |
+| Architecture / Data / Cross-module / Perf / UI / Security | 7.4 / 8.1 / 7.5 / 7.0 / 7.5 / 8.5 | **7.4 / 8.1 / 7.5 / 7.0 / 7.5 / 8.5** | unchanged this round. |
+| **Overall** | **≈7.8** | **≈7.8** | incremental test-depth that de-risks the next (large) lever — the sub-ViewModel decomposition — rather than moving the ceiling itself. |
+
+_The NavHost round and earlier logs follow unchanged below._
+
+---
+
 # NavHost round — hand-rolled overlay flags → three coherent saveable back-stacks (2026-09-21)
 
 `AppRoot.kt` (the ~2.3k-line composition root) drove every full-screen overlay off a loose pile of ~25

@@ -7,6 +7,8 @@ import com.todocompanion.app.data.AppRepository
 import com.todocompanion.app.data.entity.ListEntity
 import com.todocompanion.app.data.entity.WorkspaceEntity
 import com.todocompanion.app.domain.AppSettings
+import com.todocompanion.app.domain.view.SmartKind
+import com.todocompanion.app.domain.view.ViewRef
 import com.todocompanion.app.ui.AppViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -166,5 +168,87 @@ class AppViewModelCharacterizationTest {
         assertEquals("the 60-min dated task is counted as committed", 60, snap.committedMin)
         assertTrue("a 14-day window has some capacity", snap.capacityMin > 0)
         assertEquals("free = capacity − committed", (snap.capacityMin - 60).coerceAtLeast(0), snap.freeMin)
+    }
+
+    @Test fun groups_reDeriveForEachSelectedSmartList() = runBlocking {
+        // The single highest-risk read model a per-feature-VM split must preserve: `groups` is the
+        // view-filtered/grouped/sorted list behind every task screen, driven by `currentView` through
+        // ListPipeline.compute. This drives the REAL pipeline across the three most-used smart lists —
+        // Today (dated), Completed, Flagged — proving `select(...)` re-derives `groups` correctly for each,
+        // and that the same four tasks partition cleanly (each shows in exactly the one list it belongs to).
+        val ws = repo.createWorkspace("W")
+        val list = repo.createList("L", workspaceId = ws)
+        repo.saveSettings(AppSettings(activeWorkspaceId = ws))
+        val zone = java.time.ZoneId.systemDefault()
+        val todayDue = java.time.LocalDate.now(zone).atTime(9, 0).atZone(zone).toInstant().toEpochMilli()
+
+        val dated = repo.createTask(list, "due today", dueDate = todayDue)
+        val done = repo.createTask(list, "already done")
+        repo.getTask(done)!!.let { repo.saveTask(it.copy(completed = true, completedAt = System.currentTimeMillis())) }
+        val flagged = repo.createTask(list, "flagged")
+        repo.getTask(flagged)!!.let { repo.saveTask(it.copy(flagId = "f1")) }
+        val plain = repo.createTask(list, "open, undated, unflagged")
+
+        // Today: only the dated-today task; the completed, flagged-undated, and plain tasks are excluded.
+        vm.select(ViewRef.Smart(SmartKind.TODAY))
+        val today = await(vm.groups) { g -> g.flatMap { it.tasks }.any { it.id == dated } }
+            .flatMap { it.tasks }.map { it.id }.toSet()
+        assertTrue("due-today task is in Today", dated in today)
+        assertTrue("completed / flagged-undated / plain are NOT in Today", done !in today && flagged !in today && plain !in today)
+
+        // Completed: only the completed task.
+        vm.select(ViewRef.Smart(SmartKind.COMPLETED))
+        val completed = await(vm.groups) { g -> g.flatMap { it.tasks }.any { it.id == done } }
+            .flatMap { it.tasks }.map { it.id }.toSet()
+        assertTrue("completed task is in Completed", done in completed)
+        assertTrue("open tasks are NOT in Completed", dated !in completed && flagged !in completed && plain !in completed)
+
+        // Flagged: only the flagged open task.
+        vm.select(ViewRef.Smart(SmartKind.FLAGGED))
+        val flaggedView = await(vm.groups) { g -> g.flatMap { it.tasks }.any { it.id == flagged } }
+            .flatMap { it.tasks }.map { it.id }.toSet()
+        assertTrue("flagged task is in Flagged", flagged in flaggedView)
+        assertTrue("unflagged / completed are NOT in Flagged", dated !in flaggedView && done !in flaggedView && plain !in flaggedView)
+    }
+
+    @Test fun aTaskBlockedByAnOpenPrerequisite_waits_untilTheBlockerCompletes() = runBlocking {
+        // Blocked-by → Waiting-on: a GTD seam that has regressed before (Waiting showing empty despite a
+        // real blocked-by). Pins the VM wiring end to end — an incomplete prerequisite surfaces the blocked
+        // task in WAITING's "Blocked by your task" group; completing the prerequisite releases it.
+        val ws = repo.createWorkspace("W")
+        val list = repo.createList("L", workspaceId = ws)
+        repo.saveSettings(AppSettings(activeWorkspaceId = ws))
+        val blocker = repo.createTask(list, "do first")
+        val blocked = repo.createTask(list, "waits on the first")
+        repo.addDependency(taskId = blocked, dependsOn = blocker)   // "blocked is blocked by blocker"
+
+        vm.select(ViewRef.Smart(SmartKind.WAITING))
+        val waiting = await(vm.groups) { g -> g.flatMap { it.tasks }.any { it.id == blocked } }
+        assertTrue("the blocked task waits in the Blocked group",
+            waiting.firstOrNull { it.key == "waiting:blocked" }?.tasks?.any { it.id == blocked } == true)
+
+        // Completing the prerequisite releases it — it leaves Waiting on the next recompute.
+        repo.getTask(blocker)!!.let { repo.saveTask(it.copy(completed = true, completedAt = System.currentTimeMillis())) }
+        val cleared = await(vm.groups) { g -> g.flatMap { it.tasks }.none { it.id == blocked } }
+        assertTrue("once the blocker is done, the task is no longer waiting",
+            cleared.flatMap { it.tasks }.none { it.id == blocked })
+    }
+
+    @Test fun subtasks_nestUnderTheirParentInTheListOutline() = runBlocking {
+        // Subtask hierarchy: `outlineRows` walks parentId depth-first for a ListView. Pins the wiring that
+        // renders a parent with its children indented beneath it — a seam a task-focused VM split would move.
+        val ws = repo.createWorkspace("W")
+        val list = repo.createList("L", workspaceId = ws)
+        repo.saveSettings(AppSettings(activeWorkspaceId = ws))
+        val parent = repo.createTask(list, "parent")
+        val child = repo.createTask(list, "child", parentId = parent)
+
+        vm.select(ViewRef.ListView(list))
+        val rows = await(vm.outlineRows) { r -> r.any { it.task.id == child } && r.any { it.task.id == parent } }
+        val parentRow = rows.first { it.task.id == parent }
+        val childRow = rows.first { it.task.id == child }
+        assertEquals("parent sits at the outline root", 0, parentRow.depth)
+        assertTrue("the parent is shown as having children", parentRow.hasChildren)
+        assertEquals("the child is nested one level under its parent", 1, childRow.depth)
     }
 }
