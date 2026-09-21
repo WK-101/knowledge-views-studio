@@ -110,9 +110,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -380,10 +383,17 @@ fun AppRoot(
             val m = Modules.moduleOfTab(tab.name)
             if (m != null && !Modules.isEnabled(settings, m)) tab = primaryHomeTab
         }
-        var editing by rememberSaveable { mutableStateOf<String?>(null) }
-        // Ancestor task ids to return to when Back is pressed inside the task editor — so drilling from a task
-        // into one of its subtasks (or a linked task) and pressing Back returns to the parent, not the list.
-        var editStack by remember { mutableStateOf<List<String>>(emptyList()) }
+        // R109 (NavHost round · stage 1) — the task drill-in is ONE rememberSaveable back-stack: the top entry
+        // is the task on screen; the entries beneath are the ancestors Back walks up (list → task → subtask →
+        // sub-subtask). This replaces the old split `editing` + `editStack`, where `editStack` was a plain
+        // `remember`, so the drill-in chain was silently lost on process death (the top survived, its ancestry
+        // did not — Back then jumped to the list instead of the parent). Now the whole chain survives both
+        // config-change and process death. `editing` stays a derived read (the top) so every existing
+        // guard/read below is untouched; pushes/pops are ordinary list mutations.
+        val taskStack = rememberSaveable(
+            saver = listSaver(save = { it.toList() }, restore = { it.toMutableStateList() }),
+        ) { mutableStateListOf<String>() }
+        val editing: String? = taskStack.lastOrNull()
         var editingNote by rememberSaveable { mutableStateOf<String?>(null) }
         var showNotesGraph by rememberSaveable { mutableStateOf(false) }   // Life Graph — a top-level overlay (single header)
         var showNotesGarden by rememberSaveable { mutableStateOf(false) }  // Note-Garden review — a top-level overlay
@@ -589,7 +599,7 @@ fun AppRoot(
             }
         }
 
-        fun openTask(id: String) { editStack = emptyList(); editing = id }   // fresh open from a list resets the drill-in stack
+        fun openTask(id: String) { taskStack.clear(); taskStack.add(id) }   // fresh open from a list resets the drill-in stack
         fun openNote(id: String) { editingNote = id }
         fun goTasks() { tab = Tab.TASKS }
         fun openQuickAdd(due: Long?, withTime: Boolean = false) { quickAddDue = due; quickAddWithTime = withTime; quickAddText = ""; showQuickAdd = true }
@@ -1147,7 +1157,7 @@ fun AppRoot(
         // right, shallower = slide back to the right; reduce-motion falls back to a fade.
         editing?.let {
             AnimatedContent(
-                targetState = it to editStack.size,
+                targetState = it to taskStack.size,
                 transitionSpec = {
                     if (settings.reduceMotion) {
                         fadeIn(tween(180)) togetherWith fadeOut(tween(150))
@@ -1160,11 +1170,12 @@ fun AppRoot(
                 label = "taskEditor",
             ) { (id, _) ->
                 TaskDetailScreen(vm, id,
-                    // Back pops the drill-in stack: return to the parent task if we came from one, else close.
-                    onBack = { if (editStack.isNotEmpty()) { editing = editStack.last(); editStack = editStack.dropLast(1) } else editing = null },
-                    onJustStart = { tid -> vm.pendingFocusTaskId.value = tid; editStack = emptyList(); editing = null; tab = Tab.FOCUS },
-                    // Drill into a subtask / linked task: remember this task so Back returns here.
-                    onOpenTask = { tid -> editStack = editStack + id; editing = tid },
+                    // Back pops the drill-in stack: the top task leaves, revealing the parent it drilled from
+                    // (or closing the editor when it was the only one).
+                    onBack = { if (taskStack.isNotEmpty()) taskStack.removeAt(taskStack.lastIndex) },
+                    onJustStart = { tid -> vm.pendingFocusTaskId.value = tid; taskStack.clear(); tab = Tab.FOCUS },
+                    // Drill into a subtask / linked task: push it so Back returns to this task.
+                    onOpenTask = { tid -> taskStack.add(tid) },
                     onOpenNote = { nid -> editingNote = nid })
             }
         }
@@ -1172,7 +1183,7 @@ fun AppRoot(
         // Notes module (v66) — the full-screen note editor overlay (same pattern as the task editor).
         // A note can jump back to its linked task (Phase 2 woven link).
         editingNote?.let { id -> com.todocompanion.app.ui.screens.NoteEditorScreen(vm, id,
-            onBack = { editingNote = null }, onOpenTask = { tid -> editingNote = null; editStack = emptyList(); editing = tid },
+            onBack = { editingNote = null }, onOpenTask = { tid -> editingNote = null; taskStack.clear(); taskStack.add(tid) },
             onOpenNote = { nid -> editingNote = nid }) }
 
         // Life Graph — full-screen screen with the app's standard TopAppBar chrome (like Statistics/Recap).
