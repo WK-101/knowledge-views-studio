@@ -29,7 +29,22 @@ object Widgets {
         runCatching { CountdownWidget.refresh(context) }
         runCatching { HabitsWidget.refresh(context) }
         runCatching { HabitStatsWidget.refresh(context) }
+        runCatching { HabitGridWidget.refresh(context) }
+        runCatching { StrengthLineWidget.refresh(context) }
+        runCatching { WeekRowWidget.refresh(context) }
+        runCatching { StreaksWidget.refresh(context) }
         runCatching { TimeWidget.refresh(context) }
+    }
+
+    /** Re-render every habit widget after a check-in / habit change. Safe from any thread. */
+    fun refreshHabitWidgets(context: Context) {
+        runCatching { HabitsWidget.refresh(context) }
+        runCatching { HabitStatsWidget.refresh(context) }
+        runCatching { HabitGridWidget.refresh(context) }
+        runCatching { StrengthLineWidget.refresh(context) }
+        runCatching { WeekRowWidget.refresh(context) }
+        runCatching { StreaksWidget.refresh(context) }
+        runCatching { MomentumWidget.refresh(context) }
     }
 
     /** (Re)arm the next local-midnight refresh. Idempotent — safe to call on every app start. */

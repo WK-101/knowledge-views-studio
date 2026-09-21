@@ -144,7 +144,7 @@ class WeekRowReceiver : BroadcastReceiver() {
                 val h = app.repository.getHabitsOnce().firstOrNull { it.id == habitId } ?: return@launch
                 val current = app.repository.getHabitCheckinsOnce().firstOrNull { it.habitId == habitId && it.epochDay == day }?.count ?: 0
                 app.repository.cycleCheckin(habitId, day, h.targetPerDay, current)
-                WeekRowWidget.refresh(context)
+                Widgets.refreshHabitWidgets(context)
             } finally { pending.finish() }
         }
     }

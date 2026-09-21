@@ -127,7 +127,7 @@ class HabitCheckReceiver : BroadcastReceiver() {
                 val h = app.repository.getHabitsOnce().firstOrNull { it.id == habitId } ?: return@launch
                 val current = app.repository.getHabitCheckinsOnce().firstOrNull { it.habitId == habitId && it.epochDay == today }?.count ?: 0
                 app.repository.cycleCheckin(habitId, today, h.targetPerDay, current)
-                HabitsWidget.refresh(context)
+                Widgets.refreshHabitWidgets(context)
             } finally { pending.finish() }
         }
     }
