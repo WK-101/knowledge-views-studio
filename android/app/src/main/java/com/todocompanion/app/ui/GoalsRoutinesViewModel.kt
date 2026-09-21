@@ -33,19 +33,13 @@ import kotlinx.coroutines.withContext
  * Goals half (read-models, the nested health/capacity/coach types, and the goal actions + analytics).
  */
 class GoalsRoutinesViewModel(
-    private val app: AppViewModel,
-    private val scope: CoroutineScope,
+    app: AppViewModel,
+    scope: CoroutineScope,
     private val repo: AppRepository,
-) {
-    // Re-declared locally, exactly as the other feature collaborators do (same combine + WhileSubscribed +
-    // Default), so this collaborator owns its scoping instead of reaching into AppViewModel's private helpers.
-    private val activeWs: Flow<String> = app.settings.map { it.activeWorkspaceId }
-    /** The active workspace id, read synchronously — used to STAMP new rows (mirrors AppViewModel's helper). */
-    private fun activeWorkspace(): String = app.settings.value.activeWorkspaceId
+) : FeatureViewModel(app, scope) {
+    // activeWs / activeWorkspace() / state() / scopedBy() are inherited from FeatureViewModel now (#16).
     private val zone: java.time.ZoneId get() = app.zoneId
     private fun today(): Long = app.today()
-    private fun <T> Flow<T>.state(initial: T): StateFlow<T> =
-        flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), initial)
 
     // ══ Routines · press-play sequences (Stage 6-A) ══════════════════════════════════════════════════════
     // Routines are per-workspace: a blank workspaceId is legacy data, treated as the default workspace.

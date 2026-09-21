@@ -32,23 +32,15 @@ import kotlinx.coroutines.withContext
  * habit actions (CRUD, check-ins, coach/builder, reminders, stats, reserve/time) follow in the next stages.
  */
 class HabitsViewModel(
-    private val app: AppViewModel,
-    private val scope: CoroutineScope,
+    app: AppViewModel,
+    scope: CoroutineScope,
     private val repo: AppRepository,
-) {
-    // Re-declared locally, exactly as TimeTrackingViewModel/NotesViewModel do (same combine + WhileSubscribed
-    // + Default), so this collaborator owns its scoping instead of reaching into AppViewModel's private helpers.
-    private val activeWs: Flow<String> = app.settings.map { it.activeWorkspaceId }
-    /** The active workspace id, read synchronously — used to STAMP new rows (mirrors AppViewModel's helper). */
-    private fun activeWorkspace(): String = app.settings.value.activeWorkspaceId
+) : FeatureViewModel(app, scope) {
+    // activeWs / activeWorkspace() / state() / scopedBy() are inherited from FeatureViewModel now (#16).
     // Day-rollover zone + "today" epoch-day forward to the parent's settings-aware helpers, so a check-in
     // recorded here honours the same "day starts at" rollover as everywhere else.
     private val zone: java.time.ZoneId get() = app.zoneId
     private fun today(): Long = app.today()
-    private fun <T> Flow<T>.state(initial: T): StateFlow<T> =
-        flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), initial)
-    private fun <T> Flow<List<T>>.scopedBy(wsOf: (T) -> String): StateFlow<List<T>> =
-        combine(this, activeWs) { list, w -> list.filter { wsOf(it) == w } }.state(emptyList())
 
     // ── Habit read-model flows (Stage 5-A) — active-workspace scoped off repo observe queries ──────────────
     val habits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.archived && !it.trashed } }.state(emptyList())

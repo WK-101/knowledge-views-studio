@@ -31,19 +31,11 @@ import kotlinx.coroutines.withContext
  * export/import, daily/periodic, recall, vault) follow in the next stages.
  */
 class NotesViewModel(
-    private val app: AppViewModel,
-    private val scope: CoroutineScope,
+    app: AppViewModel,
+    scope: CoroutineScope,
     private val repo: AppRepository,
-) {
-    // Re-declared locally, exactly as TimeTrackingViewModel does (same combine + WhileSubscribed + Default),
-    // so this collaborator owns its scoping instead of reaching into AppViewModel's private helpers.
-    private val activeWs: Flow<String> = app.settings.map { it.activeWorkspaceId }
-    /** The active workspace id, read synchronously — used to STAMP new rows (mirrors AppViewModel's helper). */
-    private fun activeWorkspace(): String = app.settings.value.activeWorkspaceId
-    private fun <T> Flow<T>.state(initial: T): StateFlow<T> =
-        flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), initial)
-    private fun <T> Flow<List<T>>.scopedBy(wsOf: (T) -> String): StateFlow<List<T>> =
-        combine(this, activeWs) { list, w -> list.filter { wsOf(it) == w } }.state(emptyList())
+) : FeatureViewModel(app, scope) {
+    // activeWs / activeWorkspace() / state() / scopedBy() are inherited from FeatureViewModel now (#16).
 
     // Notes module (v66) — workspace-scoped, non-trashed notes + the optional dedicated notebook tree.
     // The live-notes and Trash lists filter workspace+trashed IN SQL (index-backed via NoteDao.observeByWorkspace),

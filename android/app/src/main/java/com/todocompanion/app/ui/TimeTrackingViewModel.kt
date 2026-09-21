@@ -28,16 +28,12 @@ import kotlinx.coroutines.launch
  * object, so the god-VM no longer carries the time flows and their ~30 actions inline.
  */
 class TimeTrackingViewModel(
-    private val app: AppViewModel,
-    private val scope: CoroutineScope,
+    app: AppViewModel,
+    scope: CoroutineScope,
     repo: AppRepository,
     private val controller: TimeTrackingController,
-) {
-    // Workspace-scoped, exactly as the ViewModel declared them (same combine + WhileSubscribed + Default).
-    private val activeWs: Flow<String> = app.settings.map { it.activeWorkspaceId }
-    private fun <T> Flow<List<T>>.scopedBy(wsOf: (T) -> String): StateFlow<List<T>> =
-        combine(this, activeWs) { list, w -> list.filter { wsOf(it) == w } }
-            .flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
+) : FeatureViewModel(app, scope) {
+    // Workspace-scoped read models — activeWs + scopedBy are inherited from FeatureViewModel now (#16).
     val timeActivities: StateFlow<List<TimeActivityEntity>> = repo.allTimeActivities.scopedBy { it.workspaceId }
     val timeEntries: StateFlow<List<TimeEntryEntity>> = repo.allTimeEntries.scopedBy { it.workspaceId }
 
