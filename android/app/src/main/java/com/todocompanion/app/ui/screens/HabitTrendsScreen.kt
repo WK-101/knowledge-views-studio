@@ -36,9 +36,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.todocompanion.app.domain.habit.HabitInsights
 import com.todocompanion.app.domain.habit.HabitStats
 import com.todocompanion.app.ui.AppViewModel
@@ -262,6 +265,22 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }
             }
 
+            // By area — a radar across time, tasks and habits (the cross-module balance, by tag/area).
+            val areaReport = remember(checkins, tasks) { vm.crossTypeTagReport(30) }
+            if (areaReport.size >= 3) AppCard {
+                Text("By area — last 30 days", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("Where your time, tasks and habits land across areas — one shape per module.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                RadarByArea(areaReport)
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    RadarLegendDot(MaterialTheme.colorScheme.primary, "Time")
+                    RadarLegendDot(MaterialTheme.colorScheme.tertiary, "Tasks")
+                    RadarLegendDot(Color(0xFF12A05C), "Habits")
+                }
+            }
+
             // Correlations from the insight engine.
             AppCard {
                 Text("Correlations the coach found", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -315,3 +334,63 @@ private class HabitTrend(
 )
 
 // StatTile now comes from the shared ui/components/ReviewComponents.kt.
+
+/** Item 9 — a radar of your areas (top tags) with one polygon per module: time, tasks, habits,
+ *  each normalised to its own peak so you see which areas each module leans into. */
+@Composable
+private fun RadarByArea(report: List<com.todocompanion.app.domain.TimeReports.TagLine>) {
+    val areas = report.sortedByDescending { it.minutes + it.tasksDone * 30 + it.habitDays * 30 }.take(6)
+    val n = areas.size
+    if (n < 3) return
+    val timeColor = MaterialTheme.colorScheme.primary
+    val taskColor = MaterialTheme.colorScheme.tertiary
+    val habitColor = Color(0xFF12A05C)
+    val grid = MaterialTheme.colorScheme.outlineVariant
+    val labelArgb = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
+    val maxTime = (areas.maxOfOrNull { it.minutes } ?: 0).coerceAtLeast(1)
+    val maxTask = (areas.maxOfOrNull { it.tasksDone } ?: 0).coerceAtLeast(1)
+    val maxHabit = (areas.maxOfOrNull { it.habitDays } ?: 0).coerceAtLeast(1)
+    androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(240.dp)) {
+        val cx = size.width / 2f; val cy = size.height / 2f
+        val radius = kotlin.math.min(size.width, size.height) / 2f * 0.66f
+        fun pt(i: Int, frac: Float): androidx.compose.ui.geometry.Offset {
+            val ang = (-Math.PI / 2 + 2 * Math.PI * i / n).toFloat()
+            return androidx.compose.ui.geometry.Offset(cx + radius * frac * kotlin.math.cos(ang), cy + radius * frac * kotlin.math.sin(ang))
+        }
+        listOf(0.25f, 0.5f, 0.75f, 1f).forEach { r ->
+            val path = androidx.compose.ui.graphics.Path()
+            for (i in 0 until n) { val p = pt(i, r); if (i == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y) }
+            path.close()
+            drawPath(path, grid, style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
+        }
+        for (i in 0 until n) drawLine(grid, androidx.compose.ui.geometry.Offset(cx, cy), pt(i, 1f), 1.dp.toPx())
+        fun series(values: List<Float>, color: Color) {
+            if (values.all { it <= 0f }) return
+            val path = androidx.compose.ui.graphics.Path()
+            for (i in 0 until n) { val p = pt(i, values[i].coerceIn(0f, 1f)); if (i == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y) }
+            path.close()
+            drawPath(path, color.copy(alpha = 0.15f))
+            drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
+        }
+        series(areas.map { it.minutes.toFloat() / maxTime }, timeColor)
+        series(areas.map { it.tasksDone.toFloat() / maxTask }, taskColor)
+        series(areas.map { it.habitDays.toFloat() / maxHabit }, habitColor)
+        val paint = android.graphics.Paint().apply {
+            isAntiAlias = true; textSize = 11.sp.toPx(); color = labelArgb
+            textAlign = android.graphics.Paint.Align.CENTER
+        }
+        for (i in 0 until n) {
+            val p = pt(i, 1.14f)
+            drawContext.canvas.nativeCanvas.drawText(areas[i].tag.take(10), p.x, p.y + paint.textSize / 3f, paint)
+        }
+    }
+}
+
+@Composable
+private fun RadarLegendDot(color: Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(9.dp).clip(RoundedCornerShape(5.dp)).background(color))
+        Spacer(Modifier.width(5.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}

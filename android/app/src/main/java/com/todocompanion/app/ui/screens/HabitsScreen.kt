@@ -922,6 +922,7 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     var showStartPicker by remember { mutableStateOf(false) }
     // R33 builder fields: implementation-intention cue, two-minute ramp goal, and quit time-per-use.
     var cueContext by remember { mutableStateOf(existing?.cueContext ?: "") }
+    var cueTime by remember { mutableStateOf(existing?.cueTime) }   // F1 implementation-intention clock time
     var rampFinal by remember { mutableStateOf(existing?.rampFinalTarget?.toString() ?: "") }
     var quitMinutes by remember { mutableStateOf(existing?.minutesPerUnit?.takeIf { it > 0 }?.toString() ?: "") }
     // R34 life-systems editor fields: WOOP back-half, value link, competing response, commitment + forfeit.
@@ -987,6 +988,7 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
             encouragements = encouragements.trim(), linkMode = linkMode,
             timeActivityId = timeActivityId,
             cueContext = cueContext.trim(),
+            cueTime = cueTime,
             rampFinalTarget = rampFinal.trim().toIntOrNull()?.takeIf { it > target },
             minutesPerUnit = quitMinutes.trim().toIntOrNull()?.coerceAtLeast(0) ?: 0,
             woopOutcome = woopOutcome.trim(), woopObstacle = woopObstacle.trim(), woopCoping = woopCoping.trim(),
@@ -1241,6 +1243,30 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
                 // (quit) time reclaimed per use. (Identity lives in the "Identity & stacking" card below.)
                 com.todocompanion.app.ui.components.AppTextField(cueContext, { cueContext = it }, singleLine = true,
                     label = { Text("I'll do it… (place or after what — e.g. “after coffee”)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                // Item 9 — the "at [time]" half of the implementation intention, wiring the previously
+                // uneditable cueTime, plus a live "When X, I'll Y at Z" preview of the whole plan.
+                run {
+                    val iiCtx = androidx.compose.ui.platform.LocalContext.current
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("…at a time (optional)", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                        Surface(onClick = {
+                            val cur = cueTime ?: 420
+                            android.app.TimePickerDialog(iiCtx, { _, hh, mm -> cueTime = hh * 60 + mm }, cur / 60, cur % 60, false).show()
+                        }, shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)) {
+                            Text(cueTime?.let { "%02d:%02d".format(it / 60, it % 60) } ?: "Set time",
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium)
+                        }
+                        if (cueTime != null) TextButton(onClick = { cueTime = null }) { Text("Clear") }
+                    }
+                    val plan = buildString {
+                        append("When "); append(cueContext.trim().ifBlank { "the time comes" })
+                        append(", I'll "); append(name.trim().ifBlank { "do this" })
+                        cueTime?.let { append(" at %02d:%02d".format(it / 60, it % 60)) }
+                        append(".")
+                    }
+                    Text("🎯 $plan", style = MaterialTheme.typography.bodySmall, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                        color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
+                }
                 if (!isBreak) com.todocompanion.app.ui.components.AppTextField(rampFinal, { rampFinal = it.filter { c -> c.isDigit() }.take(5) }, singleLine = true,
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
                     label = { Text("Ramp up to (start tiny; grows as you stay consistent)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
