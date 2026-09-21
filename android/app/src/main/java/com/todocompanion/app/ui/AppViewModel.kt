@@ -198,6 +198,12 @@ class AppViewModel internal constructor(
     // a forward reference.
     val habitsVm = HabitsViewModel(this, viewModelScope, repo)
 
+    // Phase 3, Stage 6 — the Goals (Unified Goals + review/accountability) and Routines (press-play) surfaces
+    // live in GoalsRoutinesViewModel now, same collaborator pattern. Declared here so the shims below and this
+    // VM's own goal/routine bridges (allReminders, note-embeds, the goal journal, runRoutine, logRoutineRun,
+    // the day-review rollup) reach it without a forward reference.
+    val goalsRoutinesVm = GoalsRoutinesViewModel(this, viewModelScope, repo)
+
     // W2 (scale) — the active-workspace task set now comes from SQL (TaskDao.observeWorkspaceScoped, backed
     // by the restored workspaceId/folderId indices), re-subscribing when the workspace changes, instead of
     // loading the whole tasks table and filtering here. The SQL mirrors the old rule exactly — proven by
@@ -2802,40 +2808,19 @@ class AppViewModel internal constructor(
         }.trim()
     }
 
-    // ── W6 · Routine tags ───────────────────────────────────────────────────────────────────────
-    // Routines are per-workspace: a blank workspaceId is legacy data, treated as the default workspace.
-    private fun routineWs(r: com.todocompanion.app.domain.Routine) = r.workspaceId.ifBlank { com.todocompanion.app.data.entity.WorkspaceEntity.DEFAULT_ID }
-    // W3 (cross-module unification) — Routines now live in a Room table, not the settings-JSON blob. These flows
-    // drive the routine screens (the settings `routinesJson` no longer changes); `routines()` returns the active-
-    // workspace value so the many synchronous internal callers (routinesDueToday/logRoutineRun/runRoutineByName)
-    // are unchanged.
-    private val allRoutines: StateFlow<List<com.todocompanion.app.domain.Routine>> = repo.observeRoutines().state(emptyList())
-    val routinesState: StateFlow<List<com.todocompanion.app.domain.Routine>> =
-        combine(allRoutines, activeWs) { all, ws -> all.filter { routineWs(it) == ws } }.state(emptyList())
-    val routineRunsState: StateFlow<List<com.todocompanion.app.domain.RoutineRun>> = repo.observeRoutineRuns().state(emptyList())
-    fun routines(): List<com.todocompanion.app.domain.Routine> = routinesState.value
-    /** [list] is the ACTIVE workspace's routines; other workspaces' are left intact. Blank ids are stamped with
-     *  the active workspace. Re-arms the daily routine nudges whenever the set/times change (self-healing). */
-    fun saveRoutines(list: List<com.todocompanion.app.domain.Routine>) = viewModelScope.launch {
-        val ws = activeWorkspace()
-        val mine = list.map { if (it.workspaceId.isBlank()) it.copy(workspaceId = ws) else it }
-        repo.replaceWorkspaceRoutines(ws, mine)
-        com.todocompanion.app.reminders.AlarmScheduler.scheduleRoutineReminders(appCtx, repo)
-    }
-    /** A routine to auto-open in the runner (set by the reminder deep-link; RoutinesScreen consumes it). */
-    val pendingRoutineRun = MutableStateFlow<String?>(null)
-    fun requestRoutineRun(id: String) { pendingRoutineRun.value = id }
-
-    /** The single in-progress run persisted so a routine survives the app being killed mid-run. */
-    fun activeRoutineRun(): com.todocompanion.app.domain.ActiveRoutineRun? =
-        com.todocompanion.app.domain.ActiveRoutineRuns.parse(settings.value.activeRoutineRunJson)
-    fun saveActiveRoutineRun(run: com.todocompanion.app.domain.ActiveRoutineRun) = viewModelScope.launch {
-        repo.saveSettings(settings.value.copy(activeRoutineRunJson = com.todocompanion.app.domain.ActiveRoutineRuns.encode(run)))
-    }
-    fun clearActiveRoutineRun() = viewModelScope.launch {
-        if (settings.value.activeRoutineRunJson.isNotBlank())
-            repo.saveSettings(settings.value.copy(activeRoutineRunJson = ""))
-    }
+    // ── W6 · Routines · press-play sequences — moved to GoalsRoutinesViewModel (Stage 6-A) ────────────────
+    // Read-models + view-state + the press-play data actions live on GoalsRoutinesViewModel now; the parent keeps
+    // thin forwarding shims (so screens and the runRoutine/logRoutineRun bridges just below need no edits).
+    val routinesState get() = goalsRoutinesVm.routinesState
+    val routineRunsState get() = goalsRoutinesVm.routineRunsState
+    fun routines() = goalsRoutinesVm.routines()
+    fun saveRoutines(list: List<com.todocompanion.app.domain.Routine>) = goalsRoutinesVm.saveRoutines(list)
+    val pendingRoutineRun get() = goalsRoutinesVm.pendingRoutineRun
+    fun requestRoutineRun(id: String) = goalsRoutinesVm.requestRoutineRun(id)
+    fun activeRoutineRun() = goalsRoutinesVm.activeRoutineRun()
+    fun saveActiveRoutineRun(run: com.todocompanion.app.domain.ActiveRoutineRun) = goalsRoutinesVm.saveActiveRoutineRun(run)
+    fun clearActiveRoutineRun() = goalsRoutinesVm.clearActiveRoutineRun()
+    /** Cross-feature bridge kept on the parent — starts the routine's linked activity timer + automation. */
     fun runRoutine(r: com.todocompanion.app.domain.Routine) = viewModelScope.launch {
         if (r.activityId.isNotBlank() && timeVm.timeActivities.value.any { it.id == r.activityId && !it.archived }) {
             repo.startTimeTracking(r.activityId, stopFirst = !settings.value.multiTimer)
@@ -2848,35 +2833,12 @@ class AppViewModel internal constructor(
         }
         toast("Routine “${r.name}” started")
     }
-    fun runRoutineByName(name: String) = viewModelScope.launch {
-        com.todocompanion.app.domain.Routines.byName(routines(), name)?.let { runRoutine(it) }
-    }
-    // ── Routines · press-play sequences (add/edit/delete, run history, cross-module tick) ────────────
-    /** Insert or replace a routine by id, then persist. */
-    fun upsertRoutine(r: com.todocompanion.app.domain.Routine) {
-        val list = routines()
-        val idx = list.indexOfFirst { it.id == r.id }
-        saveRoutines(if (idx >= 0) list.toMutableList().also { it[idx] = r } else list + r)
-    }
-    fun deleteRoutine(id: String) = viewModelScope.launch {
-        repo.deleteRoutine(id)
-        com.todocompanion.app.reminders.AlarmScheduler.scheduleRoutineReminders(appCtx, repo)
-    }
-    /** Capped press-play run history (adherence, keystone, on-this-day) — W3: Room-backed. */
-    fun routineRuns(): List<com.todocompanion.app.domain.RoutineRun> = routineRunsState.value
-    /** Runnable routines scheduled today (by cadence) that recur — reminder-set or with explicit days — and
-     *  aren't yet FINISHED today. The "press play" set the Today screen surfaces, so a scheduled ritual is
-     *  reachable from the daily plan, not only the drawer. */
-    fun routinesDueToday(): List<com.todocompanion.app.domain.Routine> {
-        val t = today()
-        // Only a FINISHED run clears the ritual from Today — a partial/abandoned run (finished=false) shouldn't
-        // make it disappear as if kept. Surface a ritual that's scheduled today and is either reminder-set OR
-        // has an explicit day cadence, so a cadenced routine reaches the daily plan even without a reminder.
-        val ranToday = routineRuns().filter { it.epochDay == t && it.finished }.map { it.routineId }.toSet()
-        return routines().filter {
-            it.isRunnable && it.scheduledOn(t) && it.id !in ranToday && (it.whenReminderMin != null || it.days.isNotEmpty())
-        }
-    }
+    fun runRoutineByName(name: String) = goalsRoutinesVm.runRoutineByName(name)   // → GoalsRoutinesViewModel (Stage 6-A)
+    // ── Routines · press-play sequences (add/edit/delete, run history, cross-module tick) → GoalsRoutinesViewModel ──
+    fun upsertRoutine(r: com.todocompanion.app.domain.Routine) = goalsRoutinesVm.upsertRoutine(r)
+    fun deleteRoutine(id: String) = goalsRoutinesVm.deleteRoutine(id)
+    fun routineRuns() = goalsRoutinesVm.routineRuns()
+    fun routinesDueToday() = goalsRoutinesVm.routinesDueToday()
     /** Tick a habit for today — the same check-off path the Habits screen uses (setHabitValue). */
     fun completeHabitToday(habitId: String) = habitsVm.completeHabitToday(habitId)
     /** Log a run and, for every completed step, tick its linked habit (today) / complete its linked
@@ -2936,112 +2898,22 @@ class AppViewModel internal constructor(
         return m
     }
 
-    // ── X1 · Unified Goals ────────────────────────────────────────────────────────────────────────
-    // Goals are per-workspace: a blank workspaceId is legacy data, treated as the default workspace.
-    private fun goalWs(g: com.todocompanion.app.domain.Goal) = g.workspaceId.ifBlank { com.todocompanion.app.data.entity.WorkspaceEntity.DEFAULT_ID }
-    // W3 (cross-module unification) — Goals now live in a Room table, not the settings-JSON blob. These flows
-    // drive the goal screens (the settings `goalsJson` no longer changes, so a `remember(goalsJson)` would go
-    // stale). `goalsState` is the active-workspace set the UI collects; `goals()` returns its value so the many
-    // synchronous internal callers (goalHealth/goalCapacity/search/note-embed/upsert) are unchanged.
-    private val allGoals: StateFlow<List<com.todocompanion.app.domain.Goal>> = repo.observeGoals().state(emptyList())
-    val goalsState: StateFlow<List<com.todocompanion.app.domain.Goal>> =
-        combine(allGoals, activeWs) { all, ws -> all.filter { goalWs(it) == ws } }.state(emptyList())
-    val goalReviewsState: StateFlow<List<com.todocompanion.app.domain.GoalReview>> = repo.observeGoalReviews().state(emptyList())
-    fun goals(): List<com.todocompanion.app.domain.Goal> = goalsState.value
-    /** [list] is the ACTIVE workspace's goals; other workspaces' goals are left intact so a save here never
-     *  wipes them. Blank ids are stamped with the active workspace. */
-    fun saveGoals(list: List<com.todocompanion.app.domain.Goal>) = viewModelScope.launch {
-        val ws = activeWorkspace()
-        val mine = list.map { if (it.workspaceId.isBlank()) it.copy(workspaceId = ws) else it }
-        repo.replaceWorkspaceGoals(ws, mine)
-    }
-    data class GoalHealth(
-        val goal: com.todocompanion.app.domain.Goal,
-        val taskDone: Int, val taskTotal: Int,
-        val habitStreak: Int, val habitStrength: Int,
-        val minutesTracked: Int, val budgetMin: Int,
-        val overall: Double, val daysLeft: Int?,
-    )
-    fun goalHealth(g: com.todocompanion.app.domain.Goal): GoalHealth {
-        val hs = com.todocompanion.app.domain.habit.HabitStats
-        val now = System.currentTimeMillis()
-        var tDone = 0; var tTotal = 0
-        if (g.hasTasks) {
-            val inList = tasks.value.filter { it.listId == g.listId && !it.trashed && !it.isNote && !it.abandoned }
-            tTotal = inList.size; tDone = inList.count { it.completed }
-        }
-        var streak = 0; var strength = 0
-        // Archived-inclusive: an archived lead habit's strength/streak should freeze at its last value (its
-        // check-ins simply stop growing), not drop to 0 — otherwise the goal reads as failing the moment the
-        // supporting practice is retired. habits.value strips archived, so use the archived-inclusive flow.
-        if (g.hasHabit) habitsWithArchived.value.firstOrNull { it.id == g.habitId }?.let { h ->
-            val (done, skip, relapse) = hs.daySets(h, habitCheckins.value)   // R108 audit C2
-            val today = java.time.LocalDate.now(zone).toEpochDay()
-            streak = hs.displayStreak(h, done, skip, relapse, today, settings.value.forgivingStreaks)
-            strength = strengthOf(h)   // Z8: honours the graded-strength opt-in
-        }
-        var mins = 0
-        if (g.hasBudget) mins = timeVm.timeEntries.value.filter { it.activityId == g.activityId }.sumOf { it.minutes(now) }
-        val fracs = ArrayList<Double>()
-        if (g.hasTasks && tTotal > 0) fracs += tDone.toDouble() / tTotal
-        if (g.hasHabit) fracs += strength / 100.0
-        if (g.hasBudget && g.budgetMinutes > 0) fracs += (mins.toDouble() / g.budgetMinutes).coerceAtMost(1.0)
-        // A goal's outcomes count toward its health too — a KR-only or milestone-only goal must not read 0%.
-        g.keyResultFraction?.let { fracs += it }
-        if (g.milestones.isNotEmpty()) fracs += g.milestonesDone.toDouble() / g.milestones.size
-        val overall = if (fracs.isEmpty()) 0.0 else fracs.average()
-        val daysLeft = if (g.targetEpochDay > 0) (g.targetEpochDay - java.time.LocalDate.now(zone).toEpochDay()).toInt() else null
-        return GoalHealth(g, tDone, tTotal, streak, strength, mins, g.budgetMinutes, overall, daysLeft)
-    }
-
-    // ── Phase B · goal editing + the review/accountability layer ─────────────────────────────────
-    fun upsertGoal(g: com.todocompanion.app.domain.Goal) {
-        val cur = goals()
-        saveGoals(if (cur.any { it.id == g.id }) cur.map { if (it.id == g.id) g else it } else cur + g)
-    }
-    fun deleteGoal(id: String) = viewModelScope.launch { repo.deleteGoal(id) }
-
-    /** The weekly-review log (newest last). Drives the scoreboard trend + the integrity chain. */
-    fun goalReviews(): List<com.todocompanion.app.domain.GoalReview> = goalReviewsState.value
-    fun saveGoalReviews(list: List<com.todocompanion.app.domain.GoalReview>) = viewModelScope.launch {
-        repo.replaceGoalReviews(list)
-    }
-    /** Record one review sitting (portfolio when goalId is blank). */
-    fun logGoalReview(goalId: String, executionPct: Int, commitmentsKept: Int, commitmentsTotal: Int, note: String) {
-        val today = java.time.LocalDate.now(zone).toEpochDay()
-        val total = commitmentsTotal.coerceAtLeast(0)
-        val r = com.todocompanion.app.domain.GoalReview(
-            id = java.util.UUID.randomUUID().toString(), goalId = goalId, epochDay = today,
-            executionPct = executionPct.coerceIn(0, 100), commitmentsKept = commitmentsKept.coerceIn(0, total),
-            commitmentsTotal = total, note = note.trim(), createdAt = System.currentTimeMillis(),
-        )
-        saveGoalReviews(com.todocompanion.app.domain.GoalReviews.append(goalReviews(), r))
-    }
-
-    /**
-     * moat #4 — capacity-honest check for a single goal: the weekly hours its time budget implies vs
-     * the honest tracked-focus capacity a week actually holds. Returns null when the goal has no time
-     * arm or no deadline to spread the budget across.
-     */
-    data class GoalCapacity(val weeklyNeedH: Double, val weeklyHaveH: Double, val overcommitted: Boolean)
-    fun goalCapacity(g: com.todocompanion.app.domain.Goal): GoalCapacity? {
-        if (!g.hasBudget) return null
-        val today = java.time.LocalDate.now(zone).toEpochDay()
-        // Weeks remaining: from the cycle window, else the deadline, else assume a 12-week horizon.
-        val weeksLeft: Double = when {
-            g.hasCycle -> (com.todocompanion.app.domain.GoalScore.cycle(g, today)?.daysLeft ?: (g.cycleWeeks * 7)).toDouble() / 7.0
-            g.targetEpochDay > today -> (g.targetEpochDay - today).toDouble() / 7.0
-            else -> 12.0
-        }.coerceAtLeast(0.5)
-        val mins = timeVm.timeEntries.value.filter { it.activityId == g.activityId }.sumOf { it.minutes(System.currentTimeMillis()) }
-        val remainingMin = (g.budgetMinutes - mins).coerceAtLeast(0)
-        val needH = (remainingMin / 60.0) / weeksLeft
-        val haveH = trackedCapacityHours()?.let { it * 7.0 } ?: (settings.value.dailyCapacityHours * 7.0)
-        // Flag when this one goal's weekly demand exceeds your whole weekly focus budget — the number
-        // shown (haveH) is the same one the threshold tests, so the warning never contradicts its own text.
-        // (Competition *between* goals for the same hours is caught separately by goalContention.)
-        return GoalCapacity(needH, haveH, overcommitted = needH > haveH)
-    }
+    // ── X1 · Unified Goals + review/accountability + analytics → GoalsRoutinesViewModel (Stage 6-B) ──────
+    // Read-models + the goal actions/analytics (health/capacity/coach/contention/search/share) live on
+    // GoalsRoutinesViewModel now; the parent keeps thin forwarding shims so screens and the goal↔X bridges kept
+    // below (note-embed, goal journal, day-review rollup, task `isGoal` celebration) need no edits.
+    val goalsState get() = goalsRoutinesVm.goalsState
+    val goalReviewsState get() = goalsRoutinesVm.goalReviewsState
+    fun goals() = goalsRoutinesVm.goals()
+    fun saveGoals(list: List<com.todocompanion.app.domain.Goal>) = goalsRoutinesVm.saveGoals(list)
+    fun goalHealth(g: com.todocompanion.app.domain.Goal) = goalsRoutinesVm.goalHealth(g)
+    fun upsertGoal(g: com.todocompanion.app.domain.Goal) = goalsRoutinesVm.upsertGoal(g)
+    fun deleteGoal(id: String) = goalsRoutinesVm.deleteGoal(id)
+    fun goalReviews() = goalsRoutinesVm.goalReviews()
+    fun saveGoalReviews(list: List<com.todocompanion.app.domain.GoalReview>) = goalsRoutinesVm.saveGoalReviews(list)
+    fun logGoalReview(goalId: String, executionPct: Int, commitmentsKept: Int, commitmentsTotal: Int, note: String) =
+        goalsRoutinesVm.logGoalReview(goalId, executionPct, commitmentsKept, commitmentsTotal, note)
+    fun goalCapacity(g: com.todocompanion.app.domain.Goal) = goalsRoutinesVm.goalCapacity(g)
 
     // ── X2 · keystone insight — the habit that lifts your output ─────────────────────────────────
     private fun bestKeystone(windowDays: Int = 60): Pair<com.todocompanion.app.data.entity.HabitEntity, com.todocompanion.app.domain.Reasoning.Keystone>? {
@@ -3250,35 +3122,14 @@ class AppViewModel internal constructor(
 
     // ══ Tier Y · the assistant acts on what it knows ═════════════════════════════════════════════
 
-    private fun hm(min: Int): String = if (min >= 60) "${min / 60}h ${min % 60}m" else "${min}m"
     private fun medianOf(xs: List<Double>): Double {
         val s = xs.sorted(); val n = s.size
         return if (n == 0) 0.0 else if (n % 2 == 1) s[n / 2] else (s[n / 2 - 1] + s[n / 2]) / 2.0
     }
 
-    // ── Y1 · self-coaching Goals ──────────────────────────────────────────────────────────────────
-    data class GoalCoach(val text: String, val startActivityId: String?)
-    /** For a goal that's behind pace or has a slipping arm, the single most useful nudge — plus the
-     *  activity to start a catch-up session on, when the time arm is the one behind. */
-    fun goalCoaching(g: com.todocompanion.app.domain.Goal): GoalCoach? {
-        val gh = goalHealth(g)
-        // Time arm: required run-rate to hit the target date.
-        if (g.hasBudget && gh.daysLeft != null) {
-            val remaining = (g.budgetMinutes - gh.minutesTracked).coerceAtLeast(0)
-            if (remaining > 0) {
-                val text = if (gh.daysLeft <= 0) "Past the target date with ${hm(remaining)} of the budget left — a session still counts."
-                    else "To hit the target, about ${hm(remaining / gh.daysLeft.coerceAtLeast(1))}/day for ${gh.daysLeft} more day${if (gh.daysLeft == 1) "" else "s"}."
-                return GoalCoach(text, g.activityId)
-            }
-        }
-        // Habit arm slipping.
-        if (g.hasHabit && gh.habitStrength in 1..39)
-            return GoalCoach("Its habit is slipping (${gh.habitStrength}%) — a check-in today is the highest-leverage move.", null)
-        // Task arm with a near deadline.
-        if (g.hasTasks && gh.taskTotal > 0 && gh.taskDone < gh.taskTotal && gh.daysLeft != null && gh.daysLeft in 0..3)
-            return GoalCoach("${gh.taskTotal - gh.taskDone} task${if (gh.taskTotal - gh.taskDone == 1) "" else "s"} left with the deadline near.", null)
-        return null
-    }
+    // ── Y1 · self-coaching Goals → GoalsRoutinesViewModel (Stage 6-B) ─────────────────────────────
+    fun goalCoaching(g: com.todocompanion.app.domain.Goal) = goalsRoutinesVm.goalCoaching(g)
+    /** Cross-feature bridge kept on the parent — starts a time-tracking session (called from goal coaching UI). */
     fun startActivityTimer(activityId: String) = viewModelScope.launch {
         if (activityId.isNotBlank() && timeVm.timeActivities.value.any { it.id == activityId && !it.archived }) {
             repo.startTimeTracking(activityId, stopFirst = !settings.value.multiTimer)
@@ -3287,18 +3138,8 @@ class AppViewModel internal constructor(
         }
     }
 
-    // ── Y8 · goal contention — two goals drawing on the same hours ────────────────────────────────
-    fun goalContention(): List<String> {
-        val gs = goals().filter { it.hasBudget }
-        val actName = timeVm.timeActivities.value.associate { it.id to ((it.emoji?.plus(" ") ?: "") + it.name) }
-        return gs.groupBy { it.activityId }.filter { it.value.size >= 2 }
-            .map { (act, list) ->
-                val (label, verb) = if (list.size == 2) "‘${list[0].name}’ and ‘${list[1].name}’" to "both draw"
-                    else list.joinToString(", ") { "‘${it.name}’" } to "all draw"
-                "$label $verb on ${actName[act] ?: "the same activity"} — they compete for the same hours."
-            }
-            .take(2)
-    }
+    // ── Y8 · goal contention — two goals drawing on the same hours → GoalsRoutinesViewModel (Stage 6-B) ──
+    fun goalContention() = goalsRoutinesVm.goalContention()
 
     // ── Y3 · what-if capacity — will new work fit your real hours? ─────────────────────────────────
     data class CapacitySnapshot(val committedMin: Int, val capacityMin: Int, val tracked: Boolean) {
@@ -5515,15 +5356,8 @@ class AppViewModel internal constructor(
         val l = lists.value.filter { it.id != ListEntity.INBOX_ID && it.name.lowercase().contains(q) }.map { Triple(it.id, it.name, false) }
         return f + l
     }
-    fun searchGoals(query: String): List<com.todocompanion.app.domain.Goal> {
-        val q = query.trim().lowercase(); if (q.isBlank()) return emptyList()
-        return goals().filter { !it.archived && (it.name.lowercase().contains(q) || it.note.lowercase().contains(q) ||
-            it.area.lowercase().contains(q) || it.identity.lowercase().contains(q)) }
-    }
-    fun searchRoutines(query: String): List<com.todocompanion.app.domain.Routine> {
-        val q = query.trim().lowercase(); if (q.isBlank()) return emptyList()
-        return routines().filter { it.name.lowercase().contains(q) || it.note.lowercase().contains(q) }
-    }
+    fun searchGoals(query: String): List<com.todocompanion.app.domain.Goal> = goalsRoutinesVm.searchGoals(query)   // → GoalsRoutinesViewModel (Stage 6-B)
+    fun searchRoutines(query: String): List<com.todocompanion.app.domain.Routine> = goalsRoutinesVm.searchRoutines(query)   // → GoalsRoutinesViewModel (Stage 6-A)
 
     /** R57 — calendar events matching the query (title/place/notes), one row per series, newest first. */
     fun searchEvents(query: String): List<com.todocompanion.app.data.entity.EventEntity> {
@@ -5631,22 +5465,8 @@ class AppViewModel internal constructor(
         onDone(true)
     }
 
-    // ── CU5 · accountability snapshot — share a goal's progress as an image card (0 permission) ────
-    fun shareGoalSnapshot(g: com.todocompanion.app.domain.Goal, onDone: (String?) -> Unit = {}) = viewModelScope.launch {
-        val h = goalHealth(g)
-        val stats = buildList {
-            add("progress" to "${(h.overall * 100).toInt()}%")
-            if (g.hasTasks) add("tasks" to "${h.taskDone}/${h.taskTotal}")
-            if (g.hasHabit) add("streak" to "${h.habitStreak}d")
-            if (g.hasBudget) add("time" to "${"%.1f".format(h.minutesTracked / 60.0)}h/${h.budgetMin / 60}h")
-        }.take(4)
-        val res = withContext(Dispatchers.IO) {
-            val bmp = com.todocompanion.app.util.ProgressCard.renderStatsCard("${g.emoji} ${g.name}", "Goal progress", stats)
-            com.todocompanion.app.util.ProgressCard.saveAndShareUri(appCtx, bmp, "modular-goal.png")
-        }
-        res.shareUri?.let { com.todocompanion.app.util.ProgressCard.share(appCtx, it) }
-        onDone(res.savedLocation)
-    }
+    // ── CU5 · accountability snapshot — share a goal's progress as an image card → GoalsRoutinesViewModel ──
+    fun shareGoalSnapshot(g: com.todocompanion.app.domain.Goal, onDone: (String?) -> Unit = {}) = goalsRoutinesVm.shareGoalSnapshot(g, onDone)
 
     // ---------- Tier D: folder backup & account-free sync ----------
     // R84 — sync + every restore/import path lives in data.backup/RestoreManager (the most data-sensitive
