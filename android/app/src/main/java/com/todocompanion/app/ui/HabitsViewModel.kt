@@ -66,6 +66,9 @@ class HabitsViewModel(
     // ── Habits-tab view-state + settings-backed setters + overlay flags (Stage 5-B) ───────────────────────
     /** Fusion F2: a habit pre-selected to Focus on; the Focus screen consumes it and auto-logs. */
     val pendingFocusHabitId = MutableStateFlow<String?>(null)
+    /** T1: a custom timer duration (minutes) chosen in the inline timer sheet; the Focus screen reads it
+     *  once alongside [pendingFocusHabitId] instead of defaulting to the habit's target, then clears it. */
+    val pendingFocusHabitMinutes = MutableStateFlow<Int?>(null)
     // Matrix mode and density are persisted in settings, so the choice survives an app restart.
     // Pure UI projections (only the Habits tab collects them; no imperative .value read), so WhileSubscribed
     // lets them stop when that tab is off-screen instead of staying warm for the app's whole lifetime.

@@ -2045,6 +2045,7 @@ class AppViewModel internal constructor(
     // `.value =` writes (overlay open/close from many screens) keep working unchanged.
     /** Fusion F2: a habit pre-selected to Focus on; the Focus screen consumes it and auto-logs. */
     val pendingFocusHabitId get() = habitsVm.pendingFocusHabitId
+    val pendingFocusHabitMinutes get() = habitsVm.pendingFocusHabitMinutes
     val habitMatrixMode get() = habitsVm.habitMatrixMode
     val habitDensity get() = habitsVm.habitDensity
     fun setHabitMatrixMode(on: Boolean) = habitsVm.setHabitMatrixMode(on)

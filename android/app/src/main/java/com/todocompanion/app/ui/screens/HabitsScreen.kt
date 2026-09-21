@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.ModalBottomSheet
@@ -207,6 +208,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
     val quickAddOpen by vm.habitQuickAddOpen.collectAsStateWithLifecycle()
     val tasks by vm.tasks.collectAsStateWithLifecycle()
     var valueFor by remember { mutableStateOf<HabitEntity?>(null) }
+    var timerFor by remember { mutableStateOf<HabitEntity?>(null) }        // T1 inline timer sheet (timed habits)
     var skipReasonFor by remember { mutableStateOf<HabitEntity?>(null) }   // R56 skip-with-reason
     // K1/R56: on-device insights over the shared habit/task/calendar store (incl. the habit × meeting-load edge).
     val calEvents by vm.events.collectAsStateWithLifecycle()
@@ -379,6 +381,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                                 onSkip = { skipReasonFor = h },
                                 onClear = { vm.clearHabitDay(h, today) },
                                 onSetValue = { valueFor = h },
+                                onTimer = { timerFor = h },
                                 onPause = { vm.setHabitPaused(h, !h.paused) },
                                 onEdit = { vm.habitEditor.value = com.todocompanion.app.ui.HabitEditRequest(h) },
                                 onFocus = { onFocusHabit(h.id) },
@@ -417,6 +420,14 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
         NumericEntryDialog(h, daysFor(h, checkins).counts[today] ?: 0, onDismiss = { valueFor = null }) { v ->
             vm.setHabitValue(h, today, v); valueFor = null
         }
+    }
+    timerFor?.let { h ->
+        HabitTimerDialog(
+            h,
+            onDismiss = { timerFor = null },
+            onStart = { m -> vm.pendingFocusHabitMinutes.value = m; timerFor = null; onFocusHabit(h.id) },
+            onLog = { m -> val cur = daysFor(h, checkins).counts[today] ?: 0; vm.setHabitValue(h, today, (cur + m).coerceAtLeast(0)); timerFor = null },
+        )
     }
     skipReasonFor?.let { h ->
         SkipReasonDialog(h.name, onDismiss = { skipReasonFor = null }) { reason ->
@@ -640,6 +651,7 @@ private fun HabitRow(
     onCycle: () -> Unit, onOpen: () -> Unit, onSkip: () -> Unit, onClear: () -> Unit,
     onSetValue: () -> Unit, onPause: () -> Unit, onEdit: () -> Unit, onFocus: () -> Unit,
     onAddValue: (Int) -> Unit = {}, onArchive: () -> Unit = {}, onTrash: () -> Unit = {},
+    onTimer: () -> Unit = {},
 ) {
     val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
     val emptyCell = MaterialTheme.colorScheme.surfaceVariant
@@ -740,6 +752,14 @@ private fun HabitRow(
             // R34 · calm mode hides the streak count; R35 · strength meter shows the forgiving % instead.
             if (strengthMeter && !calm) Text("$strength%", style = MaterialTheme.typography.labelLarge, color = color)
             else if (streak > 0 && !calm) Text((if (isBreak) "✨ " else "🔥 ") + streak, style = MaterialTheme.typography.labelLarge, color = color)
+            // T2: a one-tap ▶ on timed (minutes-unit) habits — opens the inline timer sheet, so a duration
+            // habit feels like a Streaks-style timer while still auto-logging through Focus.
+            val isTimed = !isBreak && h.unit?.startsWith("min") == true
+            if (isTimed && scheduledToday && !skippedToday && !done) {
+                IconButton(onClick = onTimer) {
+                    Icon(Icons.Filled.PlayArrow, "Start timer for ${h.name}", tint = color)
+                }
+            }
             Box {
                 // R4: full 48dp touch target for accessibility; the icon stays visually compact.
                 IconButton(onClick = { rowMenu = true }) {
@@ -747,6 +767,8 @@ private fun HabitRow(
                 }
                 DropdownMenu(expanded = rowMenu, onDismissRequest = { rowMenu = false }) {
                     DropdownMenuItem(text = { Text("Open analytics") }, onClick = { rowMenu = false; onOpen() })
+                    if (!isBreak && h.unit?.startsWith("min") == true)
+                        DropdownMenuItem(text = { Text("Start timer…") }, onClick = { rowMenu = false; onTimer() })
                     DropdownMenuItem(text = { Text("Focus on this") }, onClick = { rowMenu = false; onFocus() })
                     if (h.targetPerDay > 1 || h.unit != null || h.clickIncrement > 1 || isBreak) DropdownMenuItem(text = { Text("Set today's value…") }, onClick = { rowMenu = false; onSetValue() })
                     DropdownMenuItem(text = { Text(if (skippedToday) "Clear skip" else "Skip today") }, onClick = { rowMenu = false; if (skippedToday) onClear() else onSkip() })
@@ -838,6 +860,45 @@ private fun ConfettiOverlay(onDone: () -> Unit) {
             drawRect(colors[i % colors.size].copy(alpha = alpha), topLeft = Offset(cx, cy), size = Size(7f, 11f))
         }
     }
+}
+
+/** T1 — the inline timer for a duration (minutes-unit) habit: pick a length, then Start runs the durable
+ *  Focus session (minutes auto-log on finish) without hunting through the Focus tab, or log it manually. */
+@Composable
+internal fun HabitTimerDialog(h: HabitEntity, onDismiss: () -> Unit, onStart: (Int) -> Unit, onLog: (Int) -> Unit) {
+    var min by remember(h.id) { mutableStateOf(h.targetPerDay.coerceIn(1, 180)) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(onClick = { onStart(min) }) {
+                Icon(Icons.Filled.PlayArrow, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Start timer")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text((h.emoji?.plus(" ") ?: "") + h.name) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Text("Timer · target " + (h.extraTarget?.let { "${h.targetPerDay}/${it}" } ?: "${h.targetPerDay}") + " min",
+                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.size(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    IconButton(onClick = { min = (min - 1).coerceAtLeast(1) }) {
+                        Text("–", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                    Text(String.format("%d:00", min), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
+                    IconButton(onClick = { min = (min + 1).coerceAtMost(180) }) {
+                        Text("+", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    TextButton(onClick = { min = (min - 5).coerceAtLeast(1) }) { Text("−5") }
+                    TextButton(onClick = { min = h.targetPerDay.coerceIn(1, 180) }) { Text("Target") }
+                    TextButton(onClick = { min = (min + 5).coerceAtMost(180) }) { Text("+5 min") }
+                }
+                TextButton(onClick = { onLog(min) }) { Text("Log $min min without a timer") }
+            }
+        },
+    )
 }
 
 @Composable

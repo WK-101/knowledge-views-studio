@@ -123,7 +123,14 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
         pendingHabit?.let { id ->
             focusHabitId = id; focusTaskId = null
             vm.pendingFocusHabitId.value = null
-            habits.firstOrNull { it.id == id }?.let { h -> if (h.unit?.startsWith("min") == true) pomoMin = h.targetPerDay.coerceIn(5, 90) }
+            // T1: honour a duration chosen in the habit's inline timer sheet; otherwise fall back to the
+            // habit's own target (min-unit habits) or the current picker value.
+            val custom = vm.pendingFocusHabitMinutes.value
+            vm.pendingFocusHabitMinutes.value = null
+            habits.firstOrNull { it.id == id }?.let { h ->
+                val m = custom ?: (if (h.unit?.startsWith("min") == true) h.targetPerDay else pomoMin)
+                pomoMin = m.coerceIn(1, 180)
+            }
             if (!running) { bankedSec = 0; start(true) }
         }
     }
