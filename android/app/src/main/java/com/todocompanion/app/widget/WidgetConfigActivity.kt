@@ -76,6 +76,7 @@ class WidgetConfigActivity : ComponentActivity() {
             providerClass.endsWith("RecordWidget") -> "Record widget"
             providerClass.endsWith("HabitsWidget") -> "Habits widget"
             providerClass.endsWith("HabitStatsWidget") -> "Today-ring widget"
+            providerClass.endsWith("HabitZeroWidget") -> "Habit Zero widget"
             else -> "Widget settings"
         }
 
@@ -168,6 +169,7 @@ class WidgetConfigActivity : ComponentActivity() {
             providerClass.endsWith("RecordWidget") -> RecordWidget.refresh(this)
             providerClass.endsWith("HabitsWidget") -> HabitsWidget.updateOne(this, widgetId)
             providerClass.endsWith("HabitStatsWidget") -> HabitStatsWidget.refresh(this)
+            providerClass.endsWith("HabitZeroWidget") -> HabitZeroWidget.updateOne(this, widgetId)
             providerClass.endsWith("WeekRowWidget") -> WeekRowWidget.updateOne(this, widgetId)
             else -> {
                 // Generic: broadcast an update to that provider so it re-renders with the new prefs.

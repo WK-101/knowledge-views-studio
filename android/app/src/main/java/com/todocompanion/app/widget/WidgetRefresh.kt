@@ -29,6 +29,7 @@ object Widgets {
         runCatching { CountdownWidget.refresh(context) }
         runCatching { HabitsWidget.refresh(context) }
         runCatching { HabitStatsWidget.refresh(context) }
+        runCatching { HabitZeroWidget.refresh(context) }
         runCatching { HabitGridWidget.refresh(context) }
         runCatching { StrengthLineWidget.refresh(context) }
         runCatching { WeekRowWidget.refresh(context) }
@@ -42,6 +43,7 @@ object Widgets {
     fun refreshHabitWidgets(context: Context) {
         runCatching { HabitsWidget.refresh(context) }
         runCatching { HabitStatsWidget.refresh(context) }
+        runCatching { HabitZeroWidget.refresh(context) }
         runCatching { HabitGridWidget.refresh(context) }
         runCatching { StrengthLineWidget.refresh(context) }
         runCatching { WeekRowWidget.refresh(context) }

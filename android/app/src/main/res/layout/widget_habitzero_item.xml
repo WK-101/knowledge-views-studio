@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One remaining habit in the Habit Zero list. Tapping it resolves the habit (build → done in place,
+     numeric → amount popup, timed → timer) and the row vanishes on the next draw. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/hz_i_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingTop="7dp"
+    android:paddingBottom="7dp"
+    android:paddingStart="2dp"
+    android:paddingEnd="2dp"
+    android:background="?android:attr/selectableItemBackground">
+
+    <TextView
+        android:id="@+id/hz_i_emoji"
+        android:layout_width="26dp"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:textSize="19sp"
+        android:text="•" />
+
+    <TextView
+        android:id="@+id/hz_i_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="9dp"
+        android:layout_marginEnd="8dp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="@color/w_text_primary"
+        android:textSize="15sp"
+        android:text="Habit" />
+
+    <TextView
+        android:id="@+id/hz_i_meta"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/w_text_secondary"
+        android:textSize="12sp"
+        android:text="" />
+</LinearLayout>

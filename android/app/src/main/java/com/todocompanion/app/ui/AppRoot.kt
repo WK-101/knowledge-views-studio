@@ -667,6 +667,14 @@ fun AppRoot(
                 a != null && a.startsWith("arrive:") -> { vm.fireArrivalReminders(a.removePrefix("arrive:")); launchAction.value = null }
                 a == "open_focus" -> { tab = Tab.FOCUS; launchAction.value = null }
                 a == "open_habits" -> { tab = Tab.HABITS; launchAction.value = null }
+                // Habit Zero widget tapped a timed habit — hand off to the durable focus timer, same as an in-app ▶.
+                a != null && a.startsWith("focus_habit:") -> {
+                    vm.pendingFocusHabitId.value = a.removePrefix("focus_habit:"); timeFocus = true; tab = Tab.TIME; launchAction.value = null
+                }
+                // Habit Zero widget tapped a count/amount habit — open the same amount-entry popup as the in-app ring.
+                a != null && a.startsWith("habit_value:") -> {
+                    vm.pendingValueHabitId.value = a.removePrefix("habit_value:"); tab = Tab.HABITS; launchAction.value = null
+                }
                 // Habits widget "＋" / empty-state CTA — land on Habits with the new-habit editor open.
                 a == "open_habit_add" -> { tab = Tab.HABITS; vm.habitEditor.value = com.todocompanion.app.ui.HabitEditRequest(); launchAction.value = null }
                 a == "open_countdowns" -> { argOverlay = OverlayArg.Occasions(null); launchAction.value = null }

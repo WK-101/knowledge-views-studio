@@ -69,6 +69,9 @@ class HabitsViewModel(
     /** T1: a custom timer duration (minutes) chosen in the inline timer sheet; the Focus screen reads it
      *  once alongside [pendingFocusHabitId] instead of defaulting to the habit's target, then clears it. */
     val pendingFocusHabitMinutes = MutableStateFlow<Int?>(null)
+    /** W2: a habit whose amount-entry popup should open (e.g. from a Habit Zero widget tap on a numeric
+     *  habit). The Habits screen consumes it to show the same NumericEntryDialog the ring tap uses. */
+    val pendingValueHabitId = MutableStateFlow<String?>(null)
     // Matrix mode and density are persisted in settings, so the choice survives an app restart.
     // Pure UI projections (only the Habits tab collects them; no imperative .value read), so WhileSubscribed
     // lets them stop when that tab is off-screen instead of staying warm for the app's whole lifetime.

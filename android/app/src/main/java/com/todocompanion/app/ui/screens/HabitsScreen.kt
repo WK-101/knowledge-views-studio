@@ -415,6 +415,13 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
         onAddRoutine = { r -> vm.addHabits(r.habits.map { it.toEntity(r.name) }) },
         onStartJourney = { j -> vm.startJourney(j); vm.habitPresetOpen.value = false },
     )
+    // W2: a Habit Zero widget tapped a numeric habit → open the same amount-entry popup as the ring tap.
+    val pendingValue by vm.pendingValueHabitId.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingValue) {
+        val id = pendingValue ?: return@LaunchedEffect
+        habits.firstOrNull { it.id == id }?.let { valueFor = it }
+        vm.pendingValueHabitId.value = null
+    }
     if (batchOpen) BatchCheckinDialog(vm, habits, checkins, today, onDismiss = { vm.habitBatchOpen.value = false })
     valueFor?.let { h ->
         NumericEntryDialog(h, daysFor(h, checkins).counts[today] ?: 0, onDismiss = { valueFor = null }) { v ->

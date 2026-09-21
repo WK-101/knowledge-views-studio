@@ -351,6 +351,19 @@
             android:exported="false" />
         <receiver android:name=".widget.HabitCheckReceiver" android:exported="false" />
 
+        <!-- Habit Zero: the vanishing habits widget — remaining habits + a growing meter. Offline. -->
+        <receiver android:name=".widget.HabitZeroWidget" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_habitzero_info" />
+        </receiver>
+        <service
+            android:name=".widget.HabitZeroService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+        <receiver android:name=".widget.HabitZeroReceiver" android:exported="false" />
+
         <!-- R104 — check a task off / open it straight from a task-list widget. -->
         <receiver android:name=".widget.TaskWidgetReceiver" android:exported="false" />
 
