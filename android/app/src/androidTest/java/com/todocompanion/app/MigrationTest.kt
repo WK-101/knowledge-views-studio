@@ -57,15 +57,18 @@ class MigrationTest {
         for (i in 0 until steps.size - 1) {
             assertEquals("gap between ${steps[i]} and ${steps[i + 1]}", steps[i].second, steps[i + 1].first)
         }
-        // The chain ends on the DB's declared version. Bumping the version without adding a
-        // migration — or vice-versa — trips this.
-        assertEquals("chain must end at the current schema version", 82, steps.last().second)
+        // The "chain ends at the current @Database version" invariant is now owned — dynamically, and in the
+        // headless unit suite — by MigrationChainTest, so it can't go stale or sit unrun on a device-less CI.
+        // Here we only assert the chain is internally consistent (above) and non-empty.
+        assertTrue("there should be migrations registered", steps.isNotEmpty())
     }
 
-    /** The exported latest schema JSON must describe a database SQLite can actually create. */
+    /** The exported latest schema JSON must describe a database SQLite can actually create. Derives the latest
+     *  version from the chain itself so it never needs a hand-edit on a version bump. */
     @Test
     fun exportedLatestSchemaIsBuildable() {
-        helper.createDatabase(TEST_DB, 82).close()
+        val latest = AppDatabase.ALL_MIGRATIONS.maxOf { it.endVersion }
+        helper.createDatabase(TEST_DB, latest).close()
     }
 
     /**

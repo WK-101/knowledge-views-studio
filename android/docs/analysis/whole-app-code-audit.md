@@ -6,6 +6,73 @@ storage, performance, UI reuse and cross-module consistency, with a phased plan 
 
 ---
 
+# Round 9 — Fresh scored re-audit; top pick executed (migration-chain safety net) (2026-09-21)
+
+A ground-up re-scan of the codebase (not a re-statement of prior numbers), measured against the actual
+source, to re-rank the highest-value levers left to 9.5 — then act on the top pick.
+
+### Measured state (this scan)
+| Signal | Value | Reading |
+|---|---|---|
+| Source size | 295 main `.kt`, ~83k lines | large but modular; screens dominate |
+| **God-object** | `AppViewModel.kt` = **6,652 lines, 676 funcs, 77 flows** | still the #1 architecture debt despite the time-carve |
+| Next-largest | DayReviewScreen 3.2k · CalendarScreen 2.6k · AppRepository 2.4k · AppRoot 2.3k · SettingsScreen 2.2k | big Compose screens (typical), one repo facade |
+| **Navigation** | **30 `BackHandler`s, no `NavHost` / compose-navigation** | hand-rolled flag/overlay nav (audit #16); device/interactive-verification territory |
+| Unit tests | **560 `@Test` across 82 files** | strong pure/Robolectric pyramid |
+| Instrumented tests | **1 file** (`MigrationTest`) | the pyramid's top is thin; and it doesn't run in the headless suite |
+| Schema | **82 migrations, DB v87**, schemas exported through `87.json` | one migration discipline, real SQLite validation on device |
+| Backups | compact JSON + encrypted-gzip (TCENC4), lossless round-trip tested | strong (R8) |
+| Security | 0 forbidden perms (verified), AES-256-GCM / PBKDF2-600k, FileVault, renderer sanitize+escape+nofollow | strong |
+| Perf infra | `baseline-prof.txt` present; **no macrobenchmark module**; `@Immutable`/`@Stable` sparse | startup profiled, but regressions are unmeasurable |
+| A11y | ~65 semantics/`contentDescription` refs across 14 files, concentrated in shared components | present but thin per-screen |
+
+### The finding that set the top pick
+The migration safety net had **silently decayed into a no-op on this CI**. `MigrationTest` (a) is an
+*instrumented* test, so it never runs in `:app:testDebugUnitTest` (the suite that actually runs here), and
+(b) had a **stale hard-coded assertion** — it pinned the chain end to version **82** while the DB has since
+advanced to **87** (the Goals→Room v86 and Routines→Room v87 promotions among them). Net: the single most
+destructive Room mistake — bumping `@Database(version)` without adding the matching migration, which **wipes
+the user's data on update** — was guarded by nothing that runs. That is the highest value-per-effort,
+fully-unit-verifiable lever on the board, so it is this round's pick.
+
+### Shipped this round (the top pick)
+- **`MigrationChainTest` (new, Robolectric, headless).** Runs in the normal unit suite and is **dynamic**: it
+  reads the current schema version back from a freshly-built DB's `PRAGMA user_version` (what Room stamps to
+  the `@Database` version) rather than hard-coding it, then asserts the migration chain is one-step,
+  gap-free, dup-free, and **ends exactly at that version**. Forget a migration on the next bump and this goes
+  red — on every build, forever, without a hand-edit.
+- **De-staled the instrumented `MigrationTest`.** Dropped its stale `== 82` assertion (that invariant now
+  lives, dynamic, in the headless test) and made `exportedLatestSchemaIsBuildable` derive the latest version
+  from the chain (`ALL_MIGRATIONS.maxOf { endVersion }`) so it can't rot on a version bump either. Its
+  real-SQLite replay value is kept for device/emulator CI.
+
+### Re-ranked levers to 9.5 (value × verifiability)
+1. **[done, this round]** Migration-chain headless guard — data-safety, self-verifiable.
+2. **Deepen the test pyramid's top** — more Robolectric-runnable DB / semantics / render tests (only 1
+   instrumented file today). Self-verifiable, high value.
+3. **Continue god-VM decomposition via pure use-cases** (the `RecurringRollForward` pattern) — lift more pure
+   logic (capacity/workload, recap aggregation) out of the 6.6k-line VM into tested classes. Self-verifiable;
+   the cross-cutting-flow *sub-VM* split remains device-gated.
+4. **Real `NavHost`** (#16, 30 BackHandlers) — highest ceiling, but rotation/back-stack can only be validated
+   interactively on-device.
+5. **Performance measurement** — a macrobenchmark module + a Compose-stability pass; partly device-gated
+   (running the benchmark needs a device).
+6. **Accessibility** — a per-screen semantic sweep + a Robolectric semantics test. Self-verifiable, medium.
+
+### Scorecard delta (R8 → R9)
+| Dimension | R8 | **R9** | Why |
+|---|:---:|:---:|---|
+| Data storage | 8.0 | **8.0** | unchanged in capability, but the migration guard that *protects* this score is no longer dormant — a latent data-loss risk is closed. |
+| Testing | 7.5 | **7.7** | the migration invariant now runs headlessly and dynamically; the biggest silent gap in the suite is closed. |
+| Cross-module | 7.0 | **7.5** | shared period engine / share system / Markdown grammar, and the habit day-parser unified in #527. |
+| UI/UX | 7.0 | **7.5** | M3 Expressive + shared tokens/components from the design-system rounds. |
+| Architecture / Performance / Security | 7.0 / 7.0 / 8.5 | **7.0 / 7.0 / 8.5** | god-VM + hand-rolled nav still dominate architecture; perf is profiled but unmeasured; security stays strong. |
+| **Overall** | **≈7.6** | **≈7.7** | a data-safety + measurement round. The ceiling to 9.5 is still the two device-gated structural items (NavHost, sub-VM split) plus test-pyramid depth. |
+
+_The Round 8 and earlier logs follow unchanged below._
+
+---
+
 # Round 8 — Data-compaction lever verified & closed; the last failing test cleared (2026-09-21)
 
 Round 7 picked _"Performance & Data compaction (backup + revisions gzip, #525/#526)"_ as the next lever.
