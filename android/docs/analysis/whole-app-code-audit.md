@@ -6,6 +6,61 @@ storage, performance, UI reuse and cross-module consistency, with a phased plan 
 
 ---
 
+# Post-fix confirmation re-audit — all 20 fixes verified against actual code (2026-09-21)
+
+The 20-fix plan from the re-audit below (Tier 1 quick wins · Tier 2 high-leverage · Tier 3 structural) is
+**fully implemented, verified, committed and pushed**. This section re-runs the **same** four-dimension deep-dive
+(performance · architecture/maintainability/cross-module · UI/a11y · data/security/testing) against the **actual
+committed code** — every score here is grounded in files read at `file:line`, not in the plan's projections. Each
+of the 20 fixes was independently confirmed **PRESENT** (none a stub). Dashboard artifact:
+<https://claude.ai/artifact/RWzXNRXNu1P5o2hVtn93Zv>.
+
+**Verify gate for the change round:** `compileReleaseKotlin` green → `testDebugUnitTest` all-pass (573 `@Test`
+across 85 JVM files) → `assembleRelease` (19.8 MB) → aapt2 `dump permissions` re-confirmed **0 forbidden
+permissions** (only `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED`,
+`VIBRATE`, `USE_FULL_SCREEN_INTENT`, `ACCESS_NOTIFICATION_POLICY`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, plus
+library-injected `USE_BIOMETRIC`/`USE_FINGERPRINT` and the auto-generated `DYNAMIC_RECEIVER_NOT_EXPORTED`). Merged
+release manifest re-checked: still **no** INTERNET/NETWORK/LOCATION/MEDIA/STORAGE/CAMERA/RECORD_AUDIO/CONTACTS.
+
+### Confirmed post-fix scorecard (grounded in read code)
+
+| Dimension | Pre-fix (plan) | **Post-fix (confirmed)** | One-line evidence |
+|---|:---:|:---:|---|
+| Security | 9.0 | **9.0** | zero-network confirmed at source + merged manifest; sole exported IPC receiver opt-in + 128-bit token-gated w/ pinned egress (`TimeIntentApi.kt:50-100`); no fix regressed it. |
+| Performance | 7.5 | **9.0 ↑** | `shareIn` on hot flows (`AppRepository.kt:391-394,478`); change-gated settings KeyStore/disk (`AppViewModel.kt:158-189`); 7 `Eagerly`→`WhileSubscribed` w/ `*Now()` reads; 479 `collectAsStateWithLifecycle`, 0 bare; O(C) pre-grouped checkins (`HabitsScreen.kt:314`). |
+| Architecture | 8.2 | **8.6 ↑** | shared `FeatureViewModel` base (39 L) invoked by all 5 collaborators; `TasksViewModel` view-state carve behind shims; render pipeline kept as a documented boundary. |
+| Data | 8.0 | **8.5 ↑** | 82 contiguous documented migrations v5→v87, `exportSchema=true`, destructive fallback **downgrade-only**; backup round-trip now exhaustive over the relational model (flags/tags/contexts/deps + all 50 entities). |
+| Maintainability | 6.5 | **7.2 ↑** | read-models single-sourced (edit-one-place); `DayReviewScreen` 3247→1937 + 4 focused siblings; one canonical `formatMinutes` (`util/Format.kt:12-19`) for 10 sites. |
+| UI | 7.0 | **7.8 ↑** | `KairoTopBar` across 20 files; `KairoShapes` single-sources Pill/Card radii; dark/AMOLED-aware `LocalKairoColors` on chips + swipe (`TaskRow.kt:64-78`, `Common.kt` 0 hex literals). |
+| Testing | 7.0 | **7.8 ↑** | 3 real non-stub JVM tests added (feature-VM characterization, exhaustive backup round-trip, headless migration-chain guard) atop 573 `@Test`. |
+| Cross-module | 6.5 | **7.0 ↑** | one shared cross-cutting base abstraction; collaborators well-scoped (caveat: bidirectional AppVM↔collaborator refs — bounded, intentional). |
+| Accessibility | (folded 7.0) | **6.5 (broken out)** | `Role.Button`/`onClickLabel` on nav+task rows via `clickableRow` (`ClickableRow.kt:16-20`); 48dp touch targets; checkbox role/state semantics. |
+| **Overall** | **≈7.5** | **≈8.0 ↑** | a genuine, honest **+0.5**; the gap to 9.5 is now concentrated in three named ceilings (below), not diffuse. |
+
+### The 20 fixes — all confirmed PRESENT
+
+- **Tier 1 (quick wins):** #1 `shareIn` hot repo flows · #2 one `formatMinutes` (10 callers) · #3 dead code deleted (`AppViewModel.search`, `keepTan`; 0 `@Suppress("unused")` remain) · #4 migration comments corrected (header now "82 migrations v5→v87") · #5 `KairoTopBar` migration (20 files) · #6 48dp tap targets · #7 shared `ProgressCard` (share-image renderer, reused 8+ sites) · #11 pre-grouped habit checkins.
+- **Tier 2 (high-leverage):** #8 `lifecycle-runtime-compose` dep · #9 gated `settings` KeyStore-decrypt + disk-write · #10 7 `Eagerly`→`WhileSubscribed` with `*Now()` imperative reads · #12 dark-aware chip/swipe colors (`LightKairoColors`/`DarkKairoColors`) · #13 `FeatureViewModelCharacterizationTest` (5 real tests, workspace-scope + non-leak) · #14 exhaustive `BackupRoundTripTest`.
+- **Tier 3 (structural):** #15 `TasksViewModel` extraction · #16 shared `FeatureViewModel` base (4 duplicated infra copies → 1) · #17 `DayReviewScreen` split (3247→1937 + 4 siblings) · #18 `Role.Button`/`clickableRow` on core rows · #19 `KairoShapes`/`NotesTokens` single-sourced radii · #20 `MigrationChainGuardTest` headless guard + documented no-unused-index decision.
+
+### The three named ceilings to 9.5 (honest — not reached)
+
+1. **AppViewModel is still a 5480-line god object** (net −14 after the Tasks carve). The view-state moved out
+   but the heavy `groups`/`outlineRows`/`hierarchyRows` render pipeline (`AppViewModel.kt:1364,1381,1400`) stayed,
+   woven into zone/day-start/priority-config internals — the actual bulk and coupling. *(Architecture/Maintainability ceiling.)*
+2. **Swipe-only destructive actions on the primary list have no TalkBack path.** `TaskRow.kt:60-73`
+   `SwipeToDismissBox` triggers complete/delete purely by gesture with no `CustomAccessibilityAction` fallback
+   (custom a11y actions exist in only 1 file); a 30dp collapse chevron (`TaskRow.kt:86`) also stays sub-48. *(Accessibility ceiling.)*
+3. **Migration *correctness* is never exercised headlessly.** Both JVM guards build a fresh DB *directly at v87*
+   and assert only the migration array's integer shape; the SQL bodies (incl. the JSON→row copies in
+   `MIGRATION_85_86`/`_86_87`, `AppDatabase.kt:1055-1176`) are replayed only by the device-only instrumented
+   `MigrationTest`, excluded from `./gradlew test`. For an offline app whose Room DB is the user's only copy,
+   that is the sharpest unmitigated data-loss exposure. *(Testing/Data ceiling.)*
+
+_The original pre-fix re-audit + plan that these 20 fixes executed against follows unchanged below._
+
+---
+
 # Whole-app re-audit — grounded post-decomposition re-score + plan to 9.5 (2026-09-21)
 
 A fresh, evidence-led re-audit run after the Phase 3 decomposition, via four parallel read-only deep-dives
