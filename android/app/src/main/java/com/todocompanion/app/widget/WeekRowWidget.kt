@@ -39,8 +39,10 @@ class WeekRowWidget : AppWidgetProvider() {
             try {
                 val style = WidgetStyle.resolve(context, id)
                 val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
-                val habit = app.repository.wsHabitsOnce()
-                    .firstOrNull { !it.archived && !it.paused && it.habitType != "break" }
+                // Honour a pinned habit from the config screen; fall back to the first build habit.
+                val eligible = app.repository.wsHabitsOnce().filter { !it.archived && !it.paused && it.habitType != "break" }
+                val pinned = WidgetPrefs.habitId(context, id)
+                val habit = pinned?.let { p -> eligible.firstOrNull { it.id == p } } ?: eligible.firstOrNull()
                 val views = RemoteViews(context.packageName, R.layout.widget_weekrow)
                 WidgetStyle.applyListCard(views, R.id.wr_card, context, id)
 

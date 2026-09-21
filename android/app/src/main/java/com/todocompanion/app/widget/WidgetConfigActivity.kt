@@ -70,13 +70,33 @@ class WidgetConfigActivity : ComponentActivity() {
         val isAgenda = providerClass.endsWith("AgendaWidget")
         val isList = isAgenda || providerClass.endsWith("DoNextWidget") || providerClass.endsWith("RecordWidget") ||
             providerClass.endsWith("HabitsWidget")
+        // Widgets that render one chosen habit — they get a habit picker.
+        val isSingleHabit = providerClass.endsWith("WeekRowWidget") || providerClass.endsWith("KeystoneWidget")
+        fun suffix(name: String) = providerClass.endsWith(name)
         val widgetLabel = when {
             isAgenda -> "Agenda widget"
-            providerClass.endsWith("DoNextWidget") -> "Do-Next widget"
-            providerClass.endsWith("RecordWidget") -> "Record widget"
-            providerClass.endsWith("HabitsWidget") -> "Habits widget"
-            providerClass.endsWith("HabitStatsWidget") -> "Today-ring widget"
-            providerClass.endsWith("HabitZeroWidget") -> "Habit Zero widget"
+            suffix("DoNextWidget") -> "Do Next widget"
+            suffix("RecordWidget") -> "The Record widget"
+            suffix("HabitsWidget") -> "Habits widget"
+            suffix("HabitStatsWidget") -> "Habit Ring widget"
+            suffix("HabitZeroWidget") -> "Habit Zero widget"
+            suffix("HabitGridWidget") -> "Habit Year widget"
+            suffix("StrengthLineWidget") -> "Habit Strength widget"
+            suffix("WeekRowWidget") -> "Habit Week widget"
+            suffix("StreaksWidget") -> "Streaks widget"
+            suffix("KeystoneWidget") -> "Keystone Habit widget"
+            suffix("CorrelationWidget") -> "Habit Insight widget"
+            suffix("DayWidget") -> "Day widget"
+            suffix("TodayWidget") -> "Tasks Today widget"
+            suffix("StatsWidget") -> "Task Stats widget"
+            suffix("MatrixWidget") -> "Priority Matrix widget"
+            suffix("Next7Widget") -> "Next 7 Days widget"
+            suffix("MomentumWidget") -> "Momentum widget"
+            suffix("TimeWidget") -> "Time Tracker widget"
+            suffix("CountdownWidget") -> "Countdown widget"
+            suffix("PomodoroWidget") -> "Focus Timer widget"
+            suffix("QuickAddWidget") -> "Quick Add widget"
+            suffix("NoteWidget") -> "New Note widget"
             else -> "Widget settings"
         }
 
@@ -87,6 +107,11 @@ class WidgetConfigActivity : ComponentActivity() {
             AppTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor, accentArgb = settings.accentArgb) {
                 var lists by remember { mutableStateOf<List<ListEntity>>(emptyList()) }
                 androidx.compose.runtime.LaunchedEffect(Unit) { lists = app.repository.allListsOnce().filter { !it.archived } }
+                // Build habits, for the single-habit picker (Habit Week / Keystone).
+                var habits by remember { mutableStateOf<List<com.todocompanion.app.data.entity.HabitEntity>>(emptyList()) }
+                androidx.compose.runtime.LaunchedEffect(isSingleHabit) {
+                    if (isSingleHabit) habits = app.repository.wsHabitsOnce().filter { !it.archived && !it.paused && it.habitType != "break" }
+                }
 
                 var scope by remember { mutableStateOf(WidgetPrefs.scope(this, widgetId)) }
                 var title by remember { mutableStateOf(WidgetPrefs.title(this, widgetId)) }
@@ -94,6 +119,7 @@ class WidgetConfigActivity : ComponentActivity() {
                 var opacity by remember { mutableIntStateOf(WidgetPrefs.opacity(this, widgetId)) }
                 var fontPct by remember { mutableIntStateOf((WidgetPrefs.fontScale(this, widgetId) * 100).roundToInt()) }
                 var compact by remember { mutableStateOf(WidgetPrefs.compact(this, widgetId)) }
+                var habitPin by remember { mutableStateOf(WidgetPrefs.habitId(this, widgetId)) }
 
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     Scaffold { padding ->
@@ -120,6 +146,16 @@ class WidgetConfigActivity : ComponentActivity() {
                                 SectionLabel("Title")
                                 OutlinedTextField(title, { title = it }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                                     placeholder = { Text(WidgetPrefs.defaultTitle(scope)) })
+                                Spacer(Modifier.size(18.dp))
+                            }
+
+                            if (isSingleHabit) {
+                                SectionLabel("Habit")
+                                ChoiceRow(if (suffix("KeystoneWidget")) "Auto — your keystone habit" else "Auto — first habit", habitPin == null) { habitPin = null }
+                                habits.forEach { h ->
+                                    ChoiceRow((h.emoji?.plus(" ") ?: "") + h.name, habitPin == h.id) { habitPin = h.id }
+                                }
+                                if (habits.isEmpty()) Text("No habits yet — add one first.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(Modifier.size(18.dp))
                             }
 
@@ -150,6 +186,7 @@ class WidgetConfigActivity : ComponentActivity() {
                             Button(onClick = {
                                 if (isAgenda) WidgetPrefs.save(this@WidgetConfigActivity, widgetId, scope, title.trim(), theme)
                                 else WidgetPrefs.saveTheme(this@WidgetConfigActivity, widgetId, theme)
+                                if (isSingleHabit) WidgetPrefs.saveHabit(this@WidgetConfigActivity, widgetId, habitPin)
                                 WidgetPrefs.saveAppearance(this@WidgetConfigActivity, widgetId, opacity, fontPct, compact, true)
                                 refreshWidget(providerClass, widgetId)
                                 setResult(Activity.RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
@@ -171,6 +208,7 @@ class WidgetConfigActivity : ComponentActivity() {
             providerClass.endsWith("HabitStatsWidget") -> HabitStatsWidget.refresh(this)
             providerClass.endsWith("HabitZeroWidget") -> HabitZeroWidget.updateOne(this, widgetId)
             providerClass.endsWith("WeekRowWidget") -> WeekRowWidget.updateOne(this, widgetId)
+            providerClass.endsWith("KeystoneWidget") -> KeystoneWidget.refresh(this)
             else -> {
                 // Generic: broadcast an update to that provider so it re-renders with the new prefs.
                 runCatching {

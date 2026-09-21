@@ -225,6 +225,7 @@
         <!-- Home-screen "Today" widget: task count + quick-add. Offline, reads local DB. -->
         <receiver
             android:name=".widget.TodayWidget"
+            android:label="@string/widget_today_name"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -237,6 +238,7 @@
         <!-- Home-screen "Agenda" list widget: today's + overdue tasks. Offline, reads local DB. -->
         <receiver
             android:name=".widget.AgendaWidget"
+            android:label="@string/widget_agenda_name"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -281,6 +283,7 @@
         <!-- Countdown widget: days remaining to a pinned date. Offline. -->
         <receiver
             android:name=".widget.CountdownWidget"
+            android:label="@string/widget_countdown_name"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -293,6 +296,7 @@
         <!-- Compact quick-add button widget. -->
         <receiver
             android:name=".widget.QuickAddWidget"
+            android:label="@string/widget_quickadd_name"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -305,6 +309,7 @@
         <!-- Notes widget: new note + today's daily note, both deep-linking into the editor. Offline. -->
         <receiver
             android:name=".widget.NoteWidget"
+            android:label="@string/widget_note_name"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -315,7 +320,7 @@
         </receiver>
 
         <!-- Stats widget: tasks done today + still due. Offline. -->
-        <receiver android:name=".widget.StatsWidget" android:exported="false">
+        <receiver android:name=".widget.StatsWidget" android:label="@string/widget_stats_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -323,7 +328,7 @@
         </receiver>
 
         <!-- Matrix widget: quadrant counts. Offline. -->
-        <receiver android:name=".widget.MatrixWidget" android:exported="false">
+        <receiver android:name=".widget.MatrixWidget" android:label="@string/widget_matrix_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -331,7 +336,7 @@
         </receiver>
 
         <!-- Pomodoro launcher widget. Offline. -->
-        <receiver android:name=".widget.PomodoroWidget" android:exported="false">
+        <receiver android:name=".widget.PomodoroWidget" android:label="@string/widget_pomodoro_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -339,7 +344,7 @@
         </receiver>
 
         <!-- Habits check-in widget: today's habits, tap to check. Offline. -->
-        <receiver android:name=".widget.HabitsWidget" android:exported="false">
+        <receiver android:name=".widget.HabitsWidget" android:label="@string/widget_habits_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -352,7 +357,7 @@
         <receiver android:name=".widget.HabitCheckReceiver" android:exported="false" />
 
         <!-- Habit Zero: the vanishing habits widget — remaining habits + a growing meter. Offline. -->
-        <receiver android:name=".widget.HabitZeroWidget" android:exported="false">
+        <receiver android:name=".widget.HabitZeroWidget" android:label="@string/widget_habitzero_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -368,7 +373,7 @@
         <receiver android:name=".widget.TaskWidgetReceiver" android:exported="false" />
 
         <!-- R104 — the Day widget: one day's events + tasks, day navigation, dual add. Offline. -->
-        <receiver android:name=".widget.DayWidget" android:exported="false">
+        <receiver android:name=".widget.DayWidget" android:label="@string/widget_day_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -390,7 +395,7 @@
             </intent-filter>
         </receiver>
 
-        <receiver android:name=".widget.DoNextWidget" android:exported="false">
+        <receiver android:name=".widget.DoNextWidget" android:label="@string/widget_donext_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -402,14 +407,14 @@
             android:exported="false" />
         <receiver android:name=".widget.DoNextFilterReceiver" android:exported="false" />
 
-        <receiver android:name=".widget.Next7Widget" android:exported="false">
+        <receiver android:name=".widget.Next7Widget" android:label="@string/widget_next7_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_next7_info" />
         </receiver>
 
-        <receiver android:name=".widget.HabitStatsWidget" android:exported="false">
+        <receiver android:name=".widget.HabitStatsWidget" android:label="@string/widget_habitstats_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -417,7 +422,7 @@
         </receiver>
 
         <!-- Full-year contribution grid of your whole practice, drawn as a bitmap. Offline. -->
-        <receiver android:name=".widget.HabitGridWidget" android:exported="false">
+        <receiver android:name=".widget.HabitGridWidget" android:label="@string/widget_habitgrid_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -425,7 +430,7 @@
         </receiver>
 
         <!-- Loop-style habit-strength trend line, drawn as a bitmap. Offline. -->
-        <receiver android:name=".widget.StrengthLineWidget" android:exported="false">
+        <receiver android:name=".widget.StrengthLineWidget" android:label="@string/widget_habitline_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -433,7 +438,7 @@
         </receiver>
 
         <!-- One habit's week as 7 tappable day cells. Offline. -->
-        <receiver android:name=".widget.WeekRowWidget" android:exported="false">
+        <receiver android:name=".widget.WeekRowWidget" android:label="@string/widget_weekrow_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -442,7 +447,7 @@
         <receiver android:name=".widget.WeekRowReceiver" android:exported="false" />
 
         <!-- Your live streaks, longest first. Offline. -->
-        <receiver android:name=".widget.StreaksWidget" android:exported="false">
+        <receiver android:name=".widget.StreaksWidget" android:label="@string/widget_streaks_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -450,13 +455,13 @@
         </receiver>
 
         <!-- The moat: keystone habit (tap to check) + a cross-module correlation. Offline. -->
-        <receiver android:name=".widget.KeystoneWidget" android:exported="false">
+        <receiver android:name=".widget.KeystoneWidget" android:label="@string/widget_keystone_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_keystone_info" />
         </receiver>
-        <receiver android:name=".widget.CorrelationWidget" android:exported="false">
+        <receiver android:name=".widget.CorrelationWidget" android:label="@string/widget_correlation_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -464,7 +469,7 @@
         </receiver>
 
         <!-- R1: Momentum widget — the unified habit+task+focus score. Offline. -->
-        <receiver android:name=".widget.MomentumWidget" android:exported="false">
+        <receiver android:name=".widget.MomentumWidget" android:label="@string/widget_momentum_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -472,7 +477,7 @@
         </receiver>
 
         <!-- R66: The Record widget — a scrolling list of recently finished tasks, wins first. Offline. -->
-        <receiver android:name=".widget.RecordWidget" android:exported="false">
+        <receiver android:name=".widget.RecordWidget" android:label="@string/widget_record_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -484,7 +489,7 @@
             android:exported="false" />
 
         <!-- Round 13: Time tracker widget — the running timer + one-tap start/stop of your activities. Offline. -->
-        <receiver android:name=".widget.TimeWidget" android:exported="false">
+        <receiver android:name=".widget.TimeWidget" android:label="@string/widget_time_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

@@ -59,12 +59,21 @@ object WidgetPrefs {
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putString("theme_$id", theme).apply()
     }
 
+    /** The habit a single-habit widget (Habit Week / Keystone / Habit Strength) is pinned to, or null to
+     *  auto-pick. Content, not style — read it directly like [scope]. */
+    fun habitId(ctx: Context, id: Int): String? =
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getString("habit_$id", null)?.ifBlank { null }
+
+    fun saveHabit(ctx: Context, id: Int, habitId: String?) {
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putString("habit_$id", habitId ?: "").apply()
+    }
+
     fun clear(ctx: Context, id: Int) {
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
             .remove("scope_$id").remove("title_$id").remove("theme_$id")
             .remove("energy_$id").remove("time_$id")
             .remove("opacity_$id").remove("font_$id").remove("compact_$id").remove("toolbar_$id")
-            .remove("dayoff_$id")
+            .remove("dayoff_$id").remove("habit_$id")
             .apply()
     }
 

@@ -2,6 +2,30 @@
 <resources>
     <string name="app_name">Kairo</string>
     <string name="share_to_note_label">Kairo note</string>
+    <!-- Widget picker names — one per widget so the launcher shows a distinct name, not just "Kairo". -->
+    <string name="widget_today_name">Tasks Today</string>
+    <string name="widget_agenda_name">Agenda</string>
+    <string name="widget_day_name">Day</string>
+    <string name="widget_record_name">The Record</string>
+    <string name="widget_countdown_name">Countdown</string>
+    <string name="widget_quickadd_name">Quick Add</string>
+    <string name="widget_stats_name">Task Stats</string>
+    <string name="widget_matrix_name">Priority Matrix</string>
+    <string name="widget_pomodoro_name">Focus Timer</string>
+    <string name="widget_habits_name">Habits</string>
+    <string name="widget_donext_name">Do Next</string>
+    <string name="widget_next7_name">Next 7 Days</string>
+    <string name="widget_habitstats_name">Habit Ring</string>
+    <string name="widget_habitgrid_name">Habit Year</string>
+    <string name="widget_habitline_name">Habit Strength</string>
+    <string name="widget_weekrow_name">Habit Week</string>
+    <string name="widget_streaks_name">Streaks</string>
+    <string name="widget_keystone_name">Keystone Habit</string>
+    <string name="widget_correlation_name">Habit Insight</string>
+    <string name="widget_momentum_name">Momentum</string>
+    <string name="widget_habitzero_name">Habit Zero</string>
+    <string name="widget_time_name">Time Tracker</string>
+    <string name="widget_note_name">New Note</string>
     <string name="widget_today_desc">Today\'s task count with a quick-add button</string>
     <string name="widget_agenda_desc">A scrolling list of today\'s and overdue tasks</string>
     <string name="widget_day_desc">One day\'s events and tasks together — swipe days, check off, add either</string>

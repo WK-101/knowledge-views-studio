@@ -49,11 +49,13 @@ class KeystoneWidget : AppWidgetProvider() {
                                 hc.filter { it.status == "skip" }.map { it.epochDay }.toSet(),
                                 hc.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet(), today)
                         }?.id
-                val habit = habits.firstOrNull { it.id == ksId }
-                val doneToday = habit != null && (checkins.firstOrNull { it.habitId == habit.id && it.epochDay == today }?.let { HabitStats.meetsGoal(habit, it.count) } == true)
+                val autoHabit = habits.firstOrNull { it.id == ksId }
 
                 ids.forEach { id ->
                     val style = WidgetStyle.resolve(context, id)
+                    // A config-pinned habit overrides the auto keystone for this specific widget.
+                    val habit = WidgetPrefs.habitId(context, id)?.let { p -> habits.firstOrNull { it.id == p } } ?: autoHabit
+                    val doneToday = habit != null && (checkins.firstOrNull { it.habitId == habit.id && it.epochDay == today }?.let { HabitStats.meetsGoal(habit, it.count) } == true)
                     val views = RemoteViews(context.packageName, R.layout.widget_keystone)
                     WidgetStyle.applyListCard(views, R.id.ks_card, context, id)
                     views.setTextColor(R.id.ks_label, style.accentText)
@@ -66,7 +68,8 @@ class KeystoneWidget : AppWidgetProvider() {
                         views.setOnClickPendingIntent(R.id.ks_root, openHabits(context, "open_habit_add"))
                     } else {
                         views.setTextViewText(R.id.ks_name, (habit.emoji?.plus(" ") ?: "") + habit.name)
-                        views.setTextViewText(R.id.ks_body, ksInsight?.text ?: "Start your day with this one — it sets the tone for the rest.")
+                        // The keystone verdict text only applies to the auto-picked keystone, not a pinned override.
+                        views.setTextViewText(R.id.ks_body, (if (habit.id == autoHabit?.id) ksInsight?.text else null) ?: "Start your day with this one — it sets the tone for the rest.")
                         val color = habit.colorArgb?.toInt() ?: style.accent
                         views.setImageViewBitmap(R.id.ks_check, WidgetBitmaps.checkCircle((WidgetBitmaps.dp(context, 30f) * 2f).toInt(), color, doneToday))
                         views.setOnClickPendingIntent(R.id.ks_check, checkIntent(context, id, habit.id))
