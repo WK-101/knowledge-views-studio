@@ -6,6 +6,39 @@ storage, performance, UI reuse and cross-module consistency, with a phased plan 
 
 ---
 
+# Round 10 — Characterization coverage on the god-VM's write + read paths (2026-09-21)
+
+Round 9's re-audit re-ranked _"deepen the pyramid's top"_ and _"lock the god-VM's behaviour"_ as the top
+self-verifiable levers. This round banks two behaviour characterizations that drive the VM through its real
+orchestration — not just the pure kernels the domain suites already cover — on the two seams a per-feature-VM
+split is most likely to break:
+
+- **Recurring completion rolls forward, never closes.**
+  `AppViewModelCharacterizationTest.completingARepeatingTask_rollsItForwardInsteadOfClosingIt` seeds a
+  daily-recurring dated task and drives `vm.toggleComplete` end to end: it must re-surface **open**, its due
+  date advanced and its rule intact. The pure decision is already unit-tested (`RecurringRollForwardTest`);
+  this pins the VM **wiring** around it — persist + re-arm + re-surface — the exact seam that once left a
+  deadline frozen and permanently overdue.
+- **Capacity counts a dated task's estimate as committed.**
+  `capacitySnapshot_countsADatedTaskEstimateAsCommitted` seeds a 60-minute dated task and asserts the
+  "will it fit?" read path reports committed = 60 and free = capacity − committed — pinning the
+  workload / over-commit orchestration.
+
+Both run headlessly on the existing Robolectric harness (real in-memory repo, lazy-flow `await`), through
+the production A2 constructor. **+2 characterization tests (5 on the VM now); suite green.** Test-only — no
+main source touched, so the release APK and its 0 forbidden permissions are unchanged.
+
+### Scorecard delta (R9 → R10)
+| Dimension | R9 | **R10** | Why |
+|---|:---:|:---:|---|
+| Testing | 7.7 | **7.8** | the two least-covered VM seams — the recurring write-path wiring and the capacity read-path — are now characterized end-to-end, de-risking the eventual sub-VM split. |
+| Architecture / Data / Cross-module / Perf / UI / Security | 7.0 / 8.0 / 7.5 / 7.0 / 7.5 / 8.5 | **7.0 / 8.0 / 7.5 / 7.0 / 7.5 / 8.5** | unchanged this round. |
+| **Overall** | **≈7.7** | **≈7.7** | incremental test-depth; the ceiling remains the device-gated NavHost + sub-VM split. |
+
+_The Round 9 and earlier logs follow unchanged below._
+
+---
+
 # Round 9 — Fresh scored re-audit; top pick executed (migration-chain safety net) (2026-09-21)
 
 A ground-up re-scan of the codebase (not a re-statement of prior numbers), measured against the actual

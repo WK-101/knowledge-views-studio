@@ -121,4 +121,50 @@ class AppViewModelCharacterizationTest {
         val workView = await(vm.tasks) { list -> list.none { it.title == "captured in personal" } }
         assertTrue("does not leak into another workspace", workView.none { it.title == "captured in personal" })
     }
+
+    @Test fun completingARepeatingTask_rollsItForwardInsteadOfClosingIt() = runBlocking {
+        // The single most correctness-critical write path: toggleComplete on a repeating task must advance it
+        // to the next occurrence (dates shifted, still open), not mark it done. The pure decision is unit-tested
+        // in RecurringRollForwardTest; this pins the VM WIRING around it — the persist + re-surface — end to end,
+        // exactly the seam a per-feature-VM split would put at risk.
+        val zone = java.time.ZoneId.systemDefault()
+        val ws = repo.createWorkspace("W")
+        val list = repo.createList("L", workspaceId = ws)
+        repo.saveSettings(AppSettings(activeWorkspaceId = ws))
+        val due0 = java.time.LocalDate.now(zone).atTime(9, 0).atZone(zone).toInstant().toEpochMilli()
+        val id = repo.createTask(list, "water the plants", dueDate = due0)
+        val daily = com.todocompanion.app.domain.recurrence.Recurrence.encode(
+            com.todocompanion.app.domain.recurrence.Recur(com.todocompanion.app.domain.recurrence.Freq.DAILY))
+        repo.getTask(id)!!.let { repo.saveTask(it.copy(rrule = daily)) }
+
+        val before = await(vm.tasks) { l -> l.any { it.id == id && it.rrule == daily } }
+        assertEquals("seeded at the original due date", due0, before.first { it.id == id }.dueDate)
+
+        vm.toggleComplete(before.first { it.id == id })
+
+        // It rolls forward: still open, due date advanced past the original occurrence — never closed.
+        val after = await(vm.tasks) { l -> l.any { it.id == id && (it.dueDate ?: 0) > due0 } }
+        val rolled = after.first { it.id == id }
+        assertEquals("a repeating task stays open after completion", false, rolled.completed)
+        assertTrue("its due date moved to the next occurrence", (rolled.dueDate ?: 0) > due0)
+        assertEquals("and it keeps repeating", daily, rolled.rrule)
+    }
+
+    @Test fun capacitySnapshot_countsADatedTaskEstimateAsCommitted() = runBlocking {
+        // The workload / over-commit read path behind the "will it fit?" surface: a dated task's estimate
+        // becomes committed minutes, and free time is capacity minus commitment. Pins the VM orchestration.
+        val zone = java.time.ZoneId.systemDefault()
+        val ws = repo.createWorkspace("W")
+        val list = repo.createList("L", workspaceId = ws)
+        repo.saveSettings(AppSettings(activeWorkspaceId = ws))
+        val due = java.time.LocalDate.now(zone).plusDays(3).atTime(9, 0).atZone(zone).toInstant().toEpochMilli()
+        val id = repo.createTask(list, "deep work block", dueDate = due)
+        repo.getTask(id)!!.let { repo.saveTask(it.copy(estimateMin = 60)) }
+
+        await(vm.tasks) { l -> l.any { it.id == id && it.estimateMin == 60 } }
+        val snap = vm.capacitySnapshot(days = 14)
+        assertEquals("the 60-min dated task is counted as committed", 60, snap.committedMin)
+        assertTrue("a 14-day window has some capacity", snap.capacityMin > 0)
+        assertEquals("free = capacity − committed", (snap.capacityMin - 60).coerceAtLeast(0), snap.freeMin)
+    }
 }
