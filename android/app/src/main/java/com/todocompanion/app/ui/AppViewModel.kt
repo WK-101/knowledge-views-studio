@@ -235,6 +235,13 @@ class AppViewModel internal constructor(
     // same collaborator pattern. Declared here so the shims below reach it without a forward reference.
     val backupSyncVm = BackupSyncViewModel(this, viewModelScope, repo)
 
+    // Re-audit #15 — the task-list VIEW STATE (which view is selected, group/sort/outline/board mode,
+    // multi-select, filter-hierarchy, outline zoom, the time/energy planners) + the view-navigation actions
+    // live in TasksViewModel now, same collaborator pattern. Declared here (before the read-model pipeline
+    // that reads its flows via the shims below) so `groups`/`outlineRows` and the init seeding reach it
+    // without a forward reference. The derived render pipeline stays in this VM (see TasksViewModel's KDoc).
+    val tasksVm = TasksViewModel(this, viewModelScope, repo)
+
     // W2 (scale) — the active-workspace task set now comes from SQL (TaskDao.observeWorkspaceScoped, backed
     // by the restored workspaceId/folderId indices), re-subscribing when the workspace changes, instead of
     // loading the whole tasks table and filtering here. The SQL mirrors the old rule exactly — proven by
@@ -1257,16 +1264,15 @@ class AppViewModel internal constructor(
     val reminders = repo.allReminders.state(emptyList())
     val dependencies = repo.allDependencies.state(emptyList())
 
-    val currentView = MutableStateFlow<ViewRef>(ViewRef.Smart(SmartKind.TODAY))
-    val groupMode = MutableStateFlow(GroupMode.DATE)
-    val sortMode = MutableStateFlow(SortMode.MANUAL)
-    val outlineMode = MutableStateFlow(false)
-    val boardMode = MutableStateFlow(false)
-    /** True while the task list is in multi-select mode — used to hide the add FAB so its
-     *  action bar (cancel/complete/flag/move/delete) doesn't overlap the button. */
-    val selectionActive = MutableStateFlow(false)
-    /** MLO-style "show matches in the tree" for filter/tag/context views. */
-    val filterHierarchy = MutableStateFlow(false)
+    // #15 — the task-list view-state lives in tasksVm now; these are thin forwarding shims so every screen
+    // call site and this VM's own read-model pipeline read the same MutableStateFlows unchanged.
+    val currentView get() = tasksVm.currentView
+    val groupMode get() = tasksVm.groupMode
+    val sortMode get() = tasksVm.sortMode
+    val outlineMode get() = tasksVm.outlineMode
+    val boardMode get() = tasksVm.boardMode
+    val selectionActive get() = tasksVm.selectionActive
+    val filterHierarchy get() = tasksVm.filterHierarchy
 
     // Honour the configured time zone (Settings) for all date math; fall back to the device zone.
     private val zone: ZoneId get() = settings.value.timeZone.takeIf { it.isNotBlank() }
@@ -1330,16 +1336,15 @@ class AppViewModel internal constructor(
                 .toMap()
         }.state(emptyMap())
 
-    /** "I have N minutes" planner: when set, Do-Next hides tasks whose estimate exceeds N. null = off. */
-    val timeAvailableMin = MutableStateFlow<Int?>(null)
+    /** "I have N minutes" planner (#15 — lives in tasksVm; shim keeps the read/write API unchanged). */
+    val timeAvailableMin get() = tasksVm.timeAvailableMin
 
     /** A counter the shared scaffold's FAB bumps to ask the Time tab to add a new entry — so the Time
      *  screen keeps its own dialog logic while its add button lives with every other tab's FAB. */
     val addTimeEntryRequests = MutableStateFlow(0)
 
-    /** "Right now I have X energy" planner: when set (1/2/3), Do-Next keeps tasks needing at most that
-     *  much energy (plus untagged). null = off. */
-    val energyAvailable = MutableStateFlow<Int?>(null)
+    /** "Right now I have X energy" planner (#15 — lives in tasksVm; shim keeps the read/write API unchanged). */
+    val energyAvailable get() = tasksVm.energyAvailable
 
     /** All ids in the subtree rooted at [rootId] — root plus every descendant. Cycle-safe. Delegates to
      *  the pure ListPipeline copy (shared with the extracted rendering pipeline). */
@@ -1369,9 +1374,9 @@ class AppViewModel internal constructor(
             ListPipeline.compute(wsTriple.first, wsTriple.second, cfg, ttRefs, vc, deps, zone, dayStartMin, System.currentTimeMillis(), wsTriple.third)
         }.state(emptyList())
 
-    /** When set, the outline is zoomed into this task's subtree (MLO-style focus). */
-    val outlineZoom = MutableStateFlow<String?>(null)
-    fun zoomInto(taskId: String?) { outlineZoom.value = taskId }
+    /** #15 — outline zoom + its action live in tasksVm; shims keep the API unchanged. */
+    val outlineZoom get() = tasksVm.outlineZoom
+    fun zoomInto(taskId: String?) = tasksVm.zoomInto(taskId)
 
     val outlineRows: StateFlow<List<OutlineRow>> =
         combine(wsTasks, currentView, outlineZoom) { all, v, zoom ->
@@ -1382,11 +1387,11 @@ class AppViewModel internal constructor(
             buildOutline(listTasks, start)
         }.state(emptyList())
 
-    /** Title of the current zoom root, for the breadcrumb, or null when not zoomed. */
-    fun zoomTitle(): String? = outlineZoom.value?.let { z -> tasks.value.firstOrNull { it.id == z }?.title }
+    /** Title of the current zoom root, for the breadcrumb, or null when not zoomed. (#15 — see tasksVm.) */
+    fun zoomTitle(): String? = tasksVm.zoomTitle()
 
     /** True when the current view can render as a hierarchy-preserving filter (filter/tag/context). */
-    fun canHierarchy(): Boolean = currentView.value.let { it is ViewRef.FilterView || it is ViewRef.TagView || it is ViewRef.ContextView }
+    fun canHierarchy(): Boolean = tasksVm.canHierarchy()
 
     /**
      * MLO "outline filtering": the matched tasks of a filter/tag/context view rendered in their real
@@ -1602,28 +1607,9 @@ class AppViewModel internal constructor(
         repo.getActivitiesOnce().filter { it.type == "rescheduled" }.groupingBy { it.taskId }.eachCount()
 
     // ---------- navigation ----------
-    fun select(view: ViewRef) {
-        currentView.value = view
-        groupMode.value = if (view is ViewRef.ListView) GroupMode.NONE else GroupMode.DATE
-        // R28 #2 — the Completed / Won't-Do views open sorted by when things were finished (newest first).
-        val doneKind = (view as? ViewRef.Smart)?.kind.let { it == SmartKind.COMPLETED || it == SmartKind.WONT_DO }
-        if (doneKind) sortMode.value = SortMode.COMPLETED
-        else if (sortMode.value == SortMode.COMPLETED) sortMode.value = SortMode.MANUAL
-        // Seed outline mode from the list's own persisted viewMode so a list remembers nested vs flat.
-        outlineMode.value = (view as? ViewRef.ListView)?.let { lv -> lists.value.firstOrNull { it.id == lv.listId }?.viewMode == "outline" } ?: false
-        // Remember the last place, when the user opted into resuming there.
-        val s = settings.value
-        if (s.resumeLastView) viewModelScope.launch { repo.saveSettings(repo.settingsSnapshot().copy(lastViewRef = com.todocompanion.app.domain.view.ViewTabs.refOf(view))) }
-    }
-
-    /** Flip the current list's outline (nested) vs flat view and persist it on the ListEntity so it sticks. */
-    fun toggleOutline() {
-        val on = !outlineMode.value
-        outlineMode.value = on
-        (currentView.value as? ViewRef.ListView)?.let { lv ->
-            viewModelScope.launch { lists.value.firstOrNull { it.id == lv.listId }?.let { repo.saveList(it.copy(viewMode = if (on) "outline" else "list")) } }
-        }
-    }
+    /** #15 — view selection + outline toggle live in tasksVm now; shims keep the API unchanged. */
+    fun select(view: ViewRef) = tasksVm.select(view)
+    fun toggleOutline() = tasksVm.toggleOutline()
 
     /** On launch, open the resume-last view (if enabled) or the configured default view. */
     init {
