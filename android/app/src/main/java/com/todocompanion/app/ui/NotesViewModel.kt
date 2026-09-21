@@ -108,4 +108,62 @@ class NotesViewModel(
     fun setNotesLineHeight(v: String) = scope.launch { repo.saveSettings(app.settings.value.copy(notesLineHeight = v)) }
     fun setNotesMeasure(v: Boolean) = scope.launch { repo.saveSettings(app.settings.value.copy(notesMeasure = v)) }
     fun setNotesFocusMode(v: Boolean) = scope.launch { repo.saveSettings(app.settings.value.copy(notesFocusMode = v)) }
+
+    // ── Note CRUD + lifecycle + smart-views + revisions (Stage 4c) ──
+    /** Create a brand-new note (stamped with the active workspace) and return its id via [onCreated]. */
+    fun createNote(
+        title: String = "",
+        body: String = "",
+        notebookId: String? = null,
+        folderId: String? = null,
+        kind: String = "note",
+        onCreated: (String) -> Unit = {},
+    ) = scope.launch {
+        val id = repo.upsertNote(
+            com.todocompanion.app.data.entity.NoteEntity(
+                id = "", title = title, body = body, notebookId = notebookId, folderId = folderId,
+                kind = kind, workspaceId = activeWorkspace(),
+            )
+        )
+        onCreated(id)
+    }
+    fun trashNote(id: String) = scope.launch {
+        val prev = repo.getNote(id)   // exact pre-trash snapshot for a full undo
+        repo.trashNote(id, true)
+        if (prev != null) app.undoEvents.tryEmit(UndoEvent(UndoKind.NOTE_TRASHED, id, "Moved to Trash", noteRestore = prev))
+    }
+    fun deleteNote(id: String) = scope.launch { repo.deleteNote(id) }
+    /** Bring a note back out of the Trash. */
+    fun restoreNoteFromTrash(id: String) = scope.launch { repo.trashNote(id, false) }
+    /** Permanently delete every trashed note in the active workspace ("Empty Trash"). */
+    fun emptyNoteTrash() = scope.launch {
+        val ws = activeWorkspace()
+        repo.getNotesOnce().filter { it.trashed && it.workspaceId == ws }.forEach { repo.deleteNote(it.id) }
+    }
+    fun setNoteTags(noteId: String, tagIds: List<String>) = scope.launch { repo.setNoteTags(noteId, tagIds) }
+    fun setNoteContexts(noteId: String, contextIds: List<String>) = scope.launch { repo.setNoteContexts(noteId, contextIds) }
+    // ── Wave B: archive · duplicate · version history · auto-empty-trash ──
+    fun archiveNote(id: String, archived: Boolean = true) = scope.launch {
+        val prev = repo.getNote(id)
+        repo.archiveNote(id, archived)
+        if (archived && prev != null) app.undoEvents.tryEmit(UndoEvent(UndoKind.NOTE_ARCHIVED, id, "Archived", noteRestore = prev))
+    }
+    fun duplicateNote(id: String, onDone: (String) -> Unit = {}) = scope.launch { repo.duplicateNote(id)?.let { onDone(it) } }
+    /** Capture a version snapshot (bounded to the user's "keep versions" setting). Call on editor close. */
+    fun saveNoteRevision(id: String) = scope.launch { repo.saveNoteRevision(id, app.settings.value.notesMaxRevisions) }
+    fun observeNoteRevisions(id: String) = repo.observeNoteRevisions(id)
+    fun observeNoteLinks(id: String) = repo.observeNoteLinks(id)
+    suspend fun unlinkedMentions(body: String, excludeNoteId: String) = repo.unlinkedMentions(body, excludeNoteId)
+    suspend fun noteLinksSnapshot() = repo.getNoteLinksOnce()
+    fun saveSmartView(id: String?, title: String, icon: String?, predicate: com.todocompanion.app.domain.NotePredicate) = scope.launch {
+        val existing = id?.let { vid -> smartViews.value.firstOrNull { it.id == vid } }
+        repo.upsertSmartView(
+            (existing ?: com.todocompanion.app.data.entity.SmartViewEntity(id = "", title = title, predicateJson = "", workspaceId = activeWorkspace()))
+                .copy(title = title.trim().ifBlank { "View" }, icon = icon, predicateJson = com.todocompanion.app.domain.NoteSmartViews.encode(predicate)),
+        )
+    }
+    fun deleteSmartView(id: String) = scope.launch { repo.deleteSmartView(id) }
+    fun restoreNoteRevision(noteId: String, title: String, body: String) = scope.launch {
+        repo.getNote(noteId)?.let { repo.upsertNote(it.copy(title = title, body = body)) }
+    }
 }

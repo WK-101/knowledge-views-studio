@@ -284,7 +284,9 @@ class AppViewModel internal constructor(
     }
 
     // ── Notes module (v66) ───────────────────────────────────────────────────────────────────────
-    /** Create a brand-new note (stamped with the active workspace) and return its id via [onCreated]. */
+    // Note CRUD + smart-views + revisions live on NotesViewModel now (Phase 3, Stage 4c) — forwarding shims
+    // below. saveNote stays here for now (it seals a vaulted body; the vault helpers fold in at Stage 4e),
+    // and dayDigestMarkdown stays because it is a generic day-recap passthrough, not a note action.
     fun createNote(
         title: String = "",
         body: String = "",
@@ -292,62 +294,29 @@ class AppViewModel internal constructor(
         folderId: String? = null,
         kind: String = "note",
         onCreated: (String) -> Unit = {},
-    ) = viewModelScope.launch {
-        val id = repo.upsertNote(
-            com.todocompanion.app.data.entity.NoteEntity(
-                id = "", title = title, body = body, notebookId = notebookId, folderId = folderId,
-                kind = kind, workspaceId = activeWorkspace(),
-            )
-        )
-        onCreated(id)
-    }
-
+    ) = notesVm.createNote(title, body, notebookId, folderId, kind, onCreated)
     /** Persist an edited note; stamps the active workspace if the row arrives without one. */
     fun saveNote(n: com.todocompanion.app.data.entity.NoteEntity) = viewModelScope.launch {
         // L11 — encrypt a vaulted note's body before it reaches the DB (no-op if already ciphertext / not vaulted).
         repo.upsertNote(sealForVault(n.copy(workspaceId = n.workspaceId.ifBlank { activeWorkspace() })))
     }
-    fun trashNote(id: String) = viewModelScope.launch {
-        val prev = repo.getNote(id)   // exact pre-trash snapshot for a full undo
-        repo.trashNote(id, true)
-        if (prev != null) undoEvents.tryEmit(UndoEvent(UndoKind.NOTE_TRASHED, id, "Moved to Trash", noteRestore = prev))
-    }
-    fun deleteNote(id: String) = viewModelScope.launch { repo.deleteNote(id) }
-    /** Bring a note back out of the Trash. */
-    fun restoreNoteFromTrash(id: String) = viewModelScope.launch { repo.trashNote(id, false) }
-    /** Permanently delete every trashed note in the active workspace ("Empty Trash"). */
-    fun emptyNoteTrash() = viewModelScope.launch {
-        val ws = activeWorkspace()
-        repo.getNotesOnce().filter { it.trashed && it.workspaceId == ws }.forEach { repo.deleteNote(it.id) }
-    }
-    fun setNoteTags(noteId: String, tagIds: List<String>) = viewModelScope.launch { repo.setNoteTags(noteId, tagIds) }
-    fun setNoteContexts(noteId: String, contextIds: List<String>) = viewModelScope.launch { repo.setNoteContexts(noteId, contextIds) }
-
-    // ── Wave B: archive · duplicate · version history · auto-empty-trash ──
-    fun archiveNote(id: String, archived: Boolean = true) = viewModelScope.launch {
-        val prev = repo.getNote(id)
-        repo.archiveNote(id, archived)
-        if (archived && prev != null) undoEvents.tryEmit(UndoEvent(UndoKind.NOTE_ARCHIVED, id, "Archived", noteRestore = prev))
-    }
-    fun duplicateNote(id: String, onDone: (String) -> Unit = {}) = viewModelScope.launch { repo.duplicateNote(id)?.let { onDone(it) } }
-    /** Capture a version snapshot (bounded to the user's "keep versions" setting). Call on editor close. */
-    fun saveNoteRevision(id: String) = viewModelScope.launch { repo.saveNoteRevision(id, settings.value.notesMaxRevisions) }
-    fun observeNoteRevisions(id: String) = repo.observeNoteRevisions(id)
-    fun observeNoteLinks(id: String) = repo.observeNoteLinks(id)
-    suspend fun unlinkedMentions(body: String, excludeNoteId: String) = repo.unlinkedMentions(body, excludeNoteId)
-    suspend fun noteLinksSnapshot() = repo.getNoteLinksOnce()
+    fun trashNote(id: String) = notesVm.trashNote(id)
+    fun deleteNote(id: String) = notesVm.deleteNote(id)
+    fun restoreNoteFromTrash(id: String) = notesVm.restoreNoteFromTrash(id)
+    fun emptyNoteTrash() = notesVm.emptyNoteTrash()
+    fun setNoteTags(noteId: String, tagIds: List<String>) = notesVm.setNoteTags(noteId, tagIds)
+    fun setNoteContexts(noteId: String, contextIds: List<String>) = notesVm.setNoteContexts(noteId, contextIds)
+    fun archiveNote(id: String, archived: Boolean = true) = notesVm.archiveNote(id, archived)
+    fun duplicateNote(id: String, onDone: (String) -> Unit = {}) = notesVm.duplicateNote(id, onDone)
+    fun saveNoteRevision(id: String) = notesVm.saveNoteRevision(id)
+    fun observeNoteRevisions(id: String) = notesVm.observeNoteRevisions(id)
+    fun observeNoteLinks(id: String) = notesVm.observeNoteLinks(id)
+    suspend fun unlinkedMentions(body: String, excludeNoteId: String) = notesVm.unlinkedMentions(body, excludeNoteId)
+    suspend fun noteLinksSnapshot() = notesVm.noteLinksSnapshot()
     suspend fun dayDigestMarkdown(epochDay: Long) = repo.dayDigestMarkdown(epochDay)
-    fun saveSmartView(id: String?, title: String, icon: String?, predicate: com.todocompanion.app.domain.NotePredicate) = viewModelScope.launch {
-        val existing = id?.let { vid -> smartViews.value.firstOrNull { it.id == vid } }
-        repo.upsertSmartView(
-            (existing ?: com.todocompanion.app.data.entity.SmartViewEntity(id = "", title = title, predicateJson = "", workspaceId = activeWorkspace()))
-                .copy(title = title.trim().ifBlank { "View" }, icon = icon, predicateJson = com.todocompanion.app.domain.NoteSmartViews.encode(predicate)),
-        )
-    }
-    fun deleteSmartView(id: String) = viewModelScope.launch { repo.deleteSmartView(id) }
-    fun restoreNoteRevision(noteId: String, title: String, body: String) = viewModelScope.launch {
-        repo.getNote(noteId)?.let { repo.upsertNote(it.copy(title = title, body = body)) }
-    }
+    fun saveSmartView(id: String?, title: String, icon: String?, predicate: com.todocompanion.app.domain.NotePredicate) = notesVm.saveSmartView(id, title, icon, predicate)
+    fun deleteSmartView(id: String) = notesVm.deleteSmartView(id)
+    fun restoreNoteRevision(noteId: String, title: String, body: String) = notesVm.restoreNoteRevision(noteId, title, body)
     // ── Wave F/H: a note's own local reminder(s) (reuses the existing AlarmScheduler — no new permission).
     /** Set a note's whole reminder set: a primary [atMillis] with an optional recurrence [rrule], any
      *  [extra] one-shot times, and "keep reminding until opened" ([keep]). Passing a null primary and no
