@@ -1229,6 +1229,10 @@ fun AppRoot(
 
         // Notes module (v66) — the full-screen note editor overlay (same pattern as the task editor).
         // A note can jump back to its linked task (Phase 2 woven link).
+        // NavHost round — deliberately NOT folded into `overlayStack`/`argOverlay`: `editingNote` interleaves
+        // with the task stack (a task's onOpenNote opens a note ON TOP of the task, and Back reveals the task
+        // again), so it renders as its own saveable slot between the task editor and the overlay stacks. It is
+        // already `rememberSaveable`, so it survives process death like the unified stacks do.
         editingNote?.let { id -> com.todocompanion.app.ui.screens.NoteEditorScreen(vm, id,
             onBack = { editingNote = null }, onOpenTask = { tid -> editingNote = null; taskStack.clear(); taskStack.add(tid) },
             onOpenNote = { nid -> editingNote = nid }) }
@@ -1236,8 +1240,13 @@ fun AppRoot(
         // NoteGraph / NoteGarden / Recall are argument-free full-screen overlays; they now live in the
         // unified `overlayStack` back-stack rendered further below (NavHost round · Stage 2).
 
-        // Habit analytics + editor: full-screen overlays (like the task editor) so each shows a single
-        // top bar and Back returns to the Habits list, never the inbox.
+        // Habit analytics + editor + Life-Systems: full-screen overlays (like the task editor) so each shows
+        // a single top bar and Back returns to the Habits list, never the inbox.
+        // NavHost round — this family stays VM-held (StateFlow) BY DESIGN, not for lack of time: these routes
+        // are opened from 6+ decoupled feature screens (Habits/Calendar/Tasks/PlanYourDay/LifeSystems…) and
+        // from HabitDetail's own onEdit, none of which have AppRoot's local lambdas. A ViewModel-held
+        // destination is the correct home for navigation triggered from many places; pulling it into
+        // AppRoot-local state would be an architectural regression and would need every call site rewired.
         val habitDetail by vm.habitDetailId.collectAsState()
         habitDetail?.let { hid ->
             com.todocompanion.app.ui.screens.HabitDetailScreen(vm, hid,

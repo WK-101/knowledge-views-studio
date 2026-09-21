@@ -6,6 +6,53 @@ storage, performance, UI reuse and cross-module consistency, with a phased plan 
 
 ---
 
+# NavHost round — hand-rolled overlay flags → three coherent saveable back-stacks (2026-09-21)
+
+`AppRoot.kt` (the ~2.3k-line composition root) drove every full-screen overlay off a loose pile of ~25
+`show*` booleans plus two hand-rolled `remember` stacks. Nothing was a real back-stack, several nav flags
+were **not** saveable (so an open overlay silently lost its arguments on process death), and Back-handling
+was spread across 45 sites. This round replaced that with **three coherent, saveable navigation surfaces**,
+in device-verified stages (the user ran an interactive checklist after each — "All N checks pass"), each
+behaviour-preserving, built green (`assembleRelease -x lint`), and re-verified at 0 forbidden permissions.
+
+- **Stage 1 — task drill-in → `taskStack`.** The parent→subtask→linked-task drill-in became one
+  `rememberSaveable` list (`listSaver` over `mutableStateListOf<String>()`), with `editing` derived as its
+  top. This also **fixed a real bug**: the old `editStack` was plain `remember`, so a drill-in was lost on
+  process death.
+- **Stage 2 — 13 argument-free overlays → `overlayStack`.** Stats, Attachments, The Record, Plan, Review,
+  Momentum, Routines, Goals, Time-tracking, Time-stats, Notes-Graph, Notes-Garden and Recall fold into one
+  saveable stack over an `Overlay` enum; one `when(overlayStack.lastOrNull())` renders the top, each screen's
+  own Back calls `closeOverlay()`. Momentum→Goals stacks naturally (push Goals, Back returns to Momentum).
+- **Stage 3 — 4 argument-carrying overlays → `argOverlay`.** Occasions, Day/Week review, the any-period
+  Recap and the Journal hub — seven ad-hoc flags, five of them non-saveable — collapse into a single nullable
+  slot over a sealed `OverlayArg`, whose custom `Saver` round-trips each destination's **arguments** through a
+  Bundle-safe string. This **fixes** the process-death argument loss (which occasion, which recap range, which
+  journal period) on all four.
+
+**Deliberately left as-is, and now documented in-code as intentional** (not deferred work):
+- The **note editor** (`editingNote`) stays its own saveable slot because it interleaves with the task stack
+  (a task opens a note *on top of itself*; Back reveals the task) — folding it would risk that stacking for
+  no correctness gain, and it is already process-death-safe.
+- The **habit / life-systems** overlays stay VM-held `StateFlow`s because they are opened from 6+ decoupled
+  feature screens; a ViewModel-held destination is the correct pattern for nav triggered from many places, and
+  moving them into AppRoot-local state would be an architectural regression.
+
+Net: two hand-rolled stacks and ~20 nav flags in the app's largest file became three saveable back-stacks with
+a single render site each and compiler-guarded call sites (deleting the flags forced every open site to be
+converted). Three latent process-death bugs closed along the way. Main-source change confined to `AppRoot.kt`.
+
+### Scorecard delta (R10 → NavHost round)
+| Dimension | R10 | **Now** | Why |
+|---|:---:|:---:|---|
+| Architecture | 7.0 | **7.4** | the single largest UI file's navigation went from ~25 scattered flags + 2 ad-hoc stacks + 45 Back sites to three coherent saveable surfaces with one render site each; the two families that *should* stay outside are now documented as deliberate, not accidental. |
+| Data (correctness) | 8.0 | **8.1** | three latent process-death bugs closed — a drill-in and four arg-carrying overlays now restore their arguments after the process is killed. |
+| Cross-module / Perf / UI / Security / Testing | 7.5 / 7.0 / 7.5 / 8.5 / 7.8 | **7.5 / 7.0 / 7.5 / 8.5 / 7.8** | unchanged this round. |
+| **Overall** | **≈7.7** | **≈7.8** | the top-ranked device-gated lever (the NavHost migration) is now banked and verified; the remaining ceiling is the sub-VM split. |
+
+_The Round 10 and earlier logs follow unchanged below._
+
+---
+
 # Round 10 — Characterization coverage on the god-VM's write + read paths (2026-09-21)
 
 Round 9's re-audit re-ranked _"deepen the pyramid's top"_ and _"lock the god-VM's behaviour"_ as the top
