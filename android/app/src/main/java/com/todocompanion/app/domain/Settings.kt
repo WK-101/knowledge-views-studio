@@ -268,7 +268,9 @@ data class AppSettings(
     val notesSort: String = "updated",         // updated | created | titleAsc | titleDesc — home sort order
     // Wave B — auto-empty Trash after N days (0 = Never) and how many version snapshots to keep per note.
     val notesTrashRetentionDays: Int = 0,
-    val notesMaxRevisions: Int = 50,
+    // Default aligned with the task-revision cap (REV_KEEP = 25): 25 snapshots is ample undo depth while
+    // bounding per-note history growth. Existing users keep whatever they set; only new installs get 25.
+    val notesMaxRevisions: Int = 25,
     // Wave Q — the reading experience. Inline live-styling in the editor, a curated reading theme, and
     // typography (font / size / line-height / measure). All local; they drive both the native editor and
     // the offline rich WebView. notesFocusMode persists the last-used immersive editor state.
@@ -998,7 +1000,7 @@ data class AppSettings(
             notesNotebookMode = m[Keys.NOTES_NOTEBOOK_MODE]?.takeIf { it.isNotBlank() } ?: "folderTree",
             notesSort = m[Keys.NOTES_SORT]?.takeIf { it.isNotBlank() } ?: "updated",
             notesTrashRetentionDays = m[Keys.NOTES_TRASH_RETENTION_DAYS]?.toIntOrNull() ?: 0,
-            notesMaxRevisions = m[Keys.NOTES_MAX_REVISIONS]?.toIntOrNull() ?: 50,
+            notesMaxRevisions = m[Keys.NOTES_MAX_REVISIONS]?.toIntOrNull() ?: 25,
             notesLiveStyle = m[Keys.NOTES_LIVE_STYLE]?.toBooleanStrictOrNull() ?: true,
             notesReadingTheme = m[Keys.NOTES_READING_THEME]?.takeIf { it.isNotBlank() } ?: "match",
             notesFont = m[Keys.NOTES_FONT]?.takeIf { it.isNotBlank() } ?: "system",

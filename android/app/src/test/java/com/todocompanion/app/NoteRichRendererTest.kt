@@ -56,7 +56,13 @@ class NoteRichRendererTest {
         // an outer <ul> containing an inner <ul>
         assertTrue("nested list", nested.indexOf("<ul>") != nested.lastIndexOf("<ul>"))
         assertTrue(html("---").contains("<hr"))
-        assertTrue(html("[t](https://x.dev)").contains("<a href=\"https://x.dev\">"))
+        // The renderer runs with sanitizeUrls(true), so a link from imported/shared Markdown is emitted as
+        // `<a rel="nofollow" href="…">` — the href is present but not necessarily the first attribute. Assert
+        // it order-independently, and pin the rel="nofollow" hardening so a config change that drops it (and
+        // starts passing link equity to an attacker's URL) is caught here.
+        val link = html("[t](https://x.dev)")
+        assertTrue(link, link.contains("href=\"https://x.dev\""))
+        assertTrue("links from untrusted Markdown must carry rel=nofollow", link.contains("rel=\"nofollow\""))
     }
 
     @Test fun malformedMarkdownNeverThrows() {

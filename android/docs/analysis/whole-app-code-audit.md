@@ -6,6 +6,49 @@ storage, performance, UI reuse and cross-module consistency, with a phased plan 
 
 ---
 
+# Round 8 — Data-compaction lever verified & closed; the last failing test cleared (2026-09-21)
+
+Round 7 picked _"Performance & Data compaction (backup + revisions gzip, #525/#526)"_ as the next lever.
+Tracing the backup byte-path end-to-end showed most of it is **already shipped — and shipped as a
+deliberate design decision**. So this round banks the one genuinely-remaining safe win, records honestly
+why the rest is done-by-design (rather than force-changing sound code to tick a task title), and clears
+the pre-existing failing test that R7 flagged.
+
+### Honest status of #525 / #526 after tracing the byte path
+| Piece | Status | Evidence |
+|---|:---:|---|
+| **#525 compact JSON** (`encodeDefaults=false`, no pretty-print) | ✅ already shipped | `domain/port/Backup.kt` encoder = `Json { ignoreUnknownKeys=true; encodeDefaults=false }`, no `prettyPrint`. Drops well over half the bytes on a real store (whitespace + the many at-default columns); the reader stays tolerant of both the old pretty shape and the new compact one, so old backups still import. |
+| **#525 gzip** | ✅ already shipped (encrypted); plaintext plain **by design** | `data/sync/Crypto.kt` `TCENC4` gzips the plaintext *before* AES-GCM (typically ⅓ the size); `CryptoGzipTest` pins the lossless round-trip, the size drop, and wrong-passphrase detection. The **unencrypted** path is intentionally left as plain JSON so a backup stays human-readable and importable by any tool (documented in Crypto.kt). Gzipping it would trade that interop property for a marginal win across 5+ read paths in the app's most data-sensitive corner (restore overwrites the whole store) — a deliberate non-goal, not a gap. |
+| **#526 caps** (bound revision growth) | ✅ tasks already 25; notes lowered 50→25 | Task revisions were already capped at `REV_KEEP = 25` (`AppRepository`); note revisions defaulted to 50. Lowered `notesMaxRevisions` default to **25** to match — ample undo depth while halving worst-case per-note history. Existing users keep their setting; only new installs pick up 25. |
+| **#526 gzip snapshots** | ⏹ deliberate non-goal | The snapshot/body blobs are already bounded by the caps above **and** they ride the backup — compressing them would push opaque gzip+base64 into the very backup #525 keeps deliberately human-readable. Not worth the surface + inconsistency for an already-bounded blob. |
+
+**Net:** #525 is complete (compact + encrypted-gzip, both already tested); #526's valuable half (bounded
+growth) is complete and now consistent across tasks and notes; the two gzip halves are deliberate
+non-goals that would have degraded the readable-backup property the codebase already chose. A lever that
+turned out **already banked** — recorded honestly rather than churned.
+
+### Also cleared: the pre-existing failing test flagged in R7
+`NoteRichRendererTest.blockquoteAndNestedListsAndRuleAndLink` was red on the R7 baseline (and every
+baseline before it). Root cause: the renderer runs commonmark with `sanitizeUrls(true)`, which emits
+`<a rel="nofollow" href="…">` — the href is present but not the first attribute, so the test's exact
+`<a href="…">` literal never matched. The renderer behaviour is **correct and desirable** (a link from
+imported/shared Markdown must not pass link equity to an attacker's URL), so the fix corrects the *test*:
+it now asserts the href order-independently **and** pins the `rel="nofollow"` hardening, so a future
+config change that silently drops it is caught here. **The unit suite is fully green again — no known
+failing tests remain.**
+
+### Scorecard delta (R7 → R8)
+| Dimension | R7 | **R8** | Why |
+|---|:---:|:---:|---|
+| Data storage | 8.0 | **8.0** | compaction confirmed already-optimal (compact JSON + encrypted-gzip, both tested); note-revision growth now bounded to match tasks. |
+| Testing | 7.5 | **7.5** | the suite is fully green again — the last failing test is fixed and a security property (`rel=nofollow` on untrusted-Markdown links) is now pinned; no net-new suites. |
+| Architecture / Cross-module / Performance / UI / Security | 7.0 / 7.0 / 7.0 / 7.0 / 8.5 | **7.0 / 7.0 / 7.0 / 7.0 / 8.5** | unchanged this round. |
+| **Overall** | **≈7.6** | **≈7.6** | a verification/hygiene round: the data-compaction lever is banked and the last red test is cleared. The lift to 9.5 stays the structural Architecture work (NavHost + further VM decomposition); the next unit-verifiable slice is #527 — pure habit day-set / frequency helpers. |
+
+_The Round 7 and earlier logs follow unchanged below._
+
+---
+
 # Round 7 — Phase 3: the time-tracking slice carved out of the god-VM (device-verified) (2026-09-21)
 
 The single largest self-contained slice of the 6.6k-line `AppViewModel` — time tracking, read by ~16
