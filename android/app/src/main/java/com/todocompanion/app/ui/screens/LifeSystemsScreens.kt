@@ -39,7 +39,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -68,6 +67,7 @@ import com.todocompanion.app.domain.habit.LifeSystems
 import com.todocompanion.app.ui.AppViewModel
 import java.time.LocalDate
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.KairoTopBar
 import com.todocompanion.app.ui.components.AppTextField
 import com.todocompanion.app.ui.components.appCardColor
 
@@ -123,10 +123,7 @@ fun LifeSystemsScreen(vm: AppViewModel, route: String, onBack: () -> Unit, onOpe
 @Composable
 private fun LSScaffold(title: String, onBack: () -> Unit, actions: @Composable () -> Unit = {}, content: @Composable (androidx.compose.foundation.layout.PaddingValues) -> Unit) {
     Scaffold(topBar = {
-        TopAppBar(expandedHeight = 52.dp,
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-            title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            actions = { actions() })
+        KairoTopBar(title = title, onBack = onBack, actions = { actions() })
     }, content = content)
 }
 

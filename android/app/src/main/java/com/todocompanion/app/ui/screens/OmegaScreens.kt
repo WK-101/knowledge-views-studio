@@ -37,7 +37,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,6 +59,7 @@ import com.todocompanion.app.domain.PeriodRecap
 import com.todocompanion.app.domain.weekStartOf
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.KairoTopBar
 import com.todocompanion.app.ui.components.PeriodSwitcher
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -351,15 +351,13 @@ fun RecapScreen(vm: AppViewModel, initialStartDay: Long, initialEndDay: Long, in
     }
 
     Scaffold(topBar = {
-        TopAppBar(expandedHeight = 52.dp, title = { Text("Recap") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-            actions = {
-                // Periodic Notes — open/create this period's note (its recap folds in automatically).
-                if (period != PeriodRange.ALL) IconButton(onClick = { vm.openPeriodicNote(period, anchor) { onOpenNote(it) } }) {
-                    Icon(Icons.Filled.EditNote, "Open this period's note")
-                }
-                if (recap.hasData) IconButton(onClick = { shareRecap() }) { Icon(Icons.Filled.Share, "Share recap") }
-            })
+        KairoTopBar(title = "Recap", onBack = onBack, actions = {
+            // Periodic Notes — open/create this period's note (its recap folds in automatically).
+            if (period != PeriodRange.ALL) IconButton(onClick = { vm.openPeriodicNote(period, anchor) { onOpenNote(it) } }) {
+                Icon(Icons.Filled.EditNote, "Open this period's note")
+            }
+            if (recap.hasData) IconButton(onClick = { shareRecap() }) { Icon(Icons.Filled.Share, "Share recap") }
+        })
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {

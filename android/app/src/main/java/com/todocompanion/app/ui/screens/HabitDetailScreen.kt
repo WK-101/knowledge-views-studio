@@ -59,7 +59,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
@@ -85,6 +84,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.todocompanion.app.domain.habit.HabitStats
+import com.todocompanion.app.ui.components.KairoTopBar
 import com.todocompanion.app.ui.components.MiniCheck
 import com.todocompanion.app.ui.components.StatTile
 import kotlin.math.roundToInt
@@ -118,10 +118,7 @@ fun HabitDetailScreen(
 
     if (h == null) {
         Scaffold(topBar = {
-            TopAppBar(expandedHeight = 52.dp, 
-                title = { Text("Habit") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-            )
+            KairoTopBar(title = "Habit", onBack = onBack)
         }) { padding ->
             Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -201,29 +198,25 @@ fun HabitDetailScreen(
 
     val shareCtx = LocalContext.current
     Scaffold(topBar = {
-        TopAppBar(expandedHeight = 52.dp, 
-            title = { Text(h.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-            actions = {
-                // M4: share an on-device progress image (strength ring + heatmap). Offline by construction.
-                IconButton(onClick = {
-                    vm.shareHabitProgress(h) { loc ->
-                        if (loc != null) android.widget.Toast.makeText(shareCtx, "Saved a copy to $loc", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                }) { Icon(Icons.Filled.Share, "Share progress") }
-                // W8: mute/unmute this habit's reminders.
-                val muted = h.id in vm.settings.collectAsStateWithLifecycle().value.mutedHabits
-                IconButton(onClick = { vm.toggleMutedHabit(h.id) }) {
-                    Icon(if (muted) Icons.Filled.NotificationsOff else Icons.Filled.Notifications, if (muted) "Unmute reminders" else "Mute reminders")
+        KairoTopBar(title = h.name, onBack = onBack, actions = {
+            // M4: share an on-device progress image (strength ring + heatmap). Offline by construction.
+            IconButton(onClick = {
+                vm.shareHabitProgress(h) { loc ->
+                    if (loc != null) android.widget.Toast.makeText(shareCtx, "Saved a copy to $loc", android.widget.Toast.LENGTH_SHORT).show()
                 }
-                // Wave 2 · Habit Practice Journal — open (creating if needed) the reflective note bound to
-                // this habit; check-ins append a dated line automatically.
-                IconButton(onClick = { vm.openHabitJournal(h.id, h.name) { nid -> onOpenNote(nid) } }) {
-                    Icon(Icons.AutoMirrored.Filled.MenuBook, "Practice journal")
-                }
-                IconButton(onClick = { onEdit(h) }) { Icon(Icons.Filled.Edit, "Edit") }
-            },
-        )
+            }) { Icon(Icons.Filled.Share, "Share progress") }
+            // W8: mute/unmute this habit's reminders.
+            val muted = h.id in vm.settings.collectAsStateWithLifecycle().value.mutedHabits
+            IconButton(onClick = { vm.toggleMutedHabit(h.id) }) {
+                Icon(if (muted) Icons.Filled.NotificationsOff else Icons.Filled.Notifications, if (muted) "Unmute reminders" else "Mute reminders")
+            }
+            // Wave 2 · Habit Practice Journal — open (creating if needed) the reflective note bound to
+            // this habit; check-ins append a dated line automatically.
+            IconButton(onClick = { vm.openHabitJournal(h.id, h.name) { nid -> onOpenNote(nid) } }) {
+                Icon(Icons.AutoMirrored.Filled.MenuBook, "Practice journal")
+            }
+            IconButton(onClick = { onEdit(h) }) { Icon(Icons.Filled.Edit, "Edit") }
+        })
     }) { padding ->
         Column(
             Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())

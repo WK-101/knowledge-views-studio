@@ -73,6 +73,7 @@ import com.todocompanion.app.ui.components.ConfirmDialog
 import com.todocompanion.app.ui.components.DateOnlyPickerDialog
 import com.todocompanion.app.ui.components.DoneTick
 import com.todocompanion.app.ui.components.EmojiGridPicker
+import com.todocompanion.app.ui.components.KairoTopBar
 import com.todocompanion.app.ui.components.OptionChips
 import com.todocompanion.app.ui.components.Stepper
 import java.time.Instant
@@ -149,10 +150,7 @@ fun GoalsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenNote: (String) -> Un
     }
 
     Scaffold(topBar = {
-        TopAppBar(expandedHeight = 52.dp,
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-            title = { Text("Goals", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            actions = { IconButton(onClick = { editing = blankGoal() }) { Icon(Icons.Filled.Add, "New goal") } })
+        KairoTopBar(title = "Goals", onBack = onBack, actions = { IconButton(onClick = { editing = blankGoal() }) { Icon(Icons.Filled.Add, "New goal") } })
     }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
@@ -352,17 +350,14 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxSize().systemBarsPadding()) {
-            TopAppBar(expandedHeight = 52.dp,
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                title = { Text("${g.emoji} ${g.name}", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                actions = {
-                    // Wave 3 · Notes ⇄ Goals — open (creating if needed) the reflective evidence journal.
-                    IconButton(onClick = { vm.openGoalJournal(g.id, g.name) { onOpenNote(it) } }) {
-                        Icon(Icons.AutoMirrored.Filled.MenuBook, "Journal & evidence")
-                    }
-                    IconButton(onClick = { vm.shareGoalSnapshot(g) }) { Icon(Icons.Filled.Share, "Share progress") }
-                    IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, "Edit goal") }
-                })
+            KairoTopBar(title = "${g.emoji} ${g.name}", onBack = onBack, actions = {
+                // Wave 3 · Notes ⇄ Goals — open (creating if needed) the reflective evidence journal.
+                IconButton(onClick = { vm.openGoalJournal(g.id, g.name) { onOpenNote(it) } }) {
+                    Icon(Icons.AutoMirrored.Filled.MenuBook, "Journal & evidence")
+                }
+                IconButton(onClick = { vm.shareGoalSnapshot(g) }) { Icon(Icons.Filled.Share, "Share progress") }
+                IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, "Edit goal") }
+            })
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Spacer(Modifier.height(2.dp))
                 if (g.note.isNotBlank()) AppCard { Text("Why", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(g.note, style = MaterialTheme.typography.bodyMedium) }

@@ -81,6 +81,7 @@ import com.todocompanion.app.ui.components.ConfirmDialog
 import com.todocompanion.app.ui.components.appCardColor
 import com.todocompanion.app.ui.components.DoneTick
 import com.todocompanion.app.ui.components.EmojiGridPicker
+import com.todocompanion.app.ui.components.KairoTopBar
 import com.todocompanion.app.ui.components.MiniCheck
 import com.todocompanion.app.ui.components.OptionChips
 import com.todocompanion.app.ui.components.Stepper
@@ -139,10 +140,7 @@ fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
     }
 
     Scaffold(topBar = {
-        TopAppBar(expandedHeight = 52.dp,
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-            title = { Text("Routines", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            actions = { IconButton(onClick = { editing = blankRoutine() }) { Icon(Icons.Filled.Add, "New routine") } })
+        KairoTopBar(title = "Routines", onBack = onBack, actions = { IconButton(onClick = { editing = blankRoutine() }) { Icon(Icons.Filled.Add, "New routine") } })
     }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {

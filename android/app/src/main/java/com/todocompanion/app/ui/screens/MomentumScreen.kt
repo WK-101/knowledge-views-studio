@@ -37,7 +37,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
@@ -62,6 +61,7 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.KairoTopBar
 import com.todocompanion.app.ui.components.ExpandableSection
 import com.todocompanion.app.ui.components.StatTile
 import com.todocompanion.app.ui.components.TipBanner
@@ -100,20 +100,16 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit, onOpenGoals: () -> Unit
     var showCapture by remember { mutableStateOf(false) }
     if (showCapture) SmartCaptureDialog(vm) { showCapture = false }
     Scaffold(topBar = {
-        TopAppBar(expandedHeight = 52.dp, 
-            title = { Text("Momentum") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-            actions = {
-                // R3: one capture box that sorts itself into a habit or a task.
-                IconButton(onClick = { showCapture = true }) {
-                    Icon(Icons.Filled.Add, "Capture a habit or task")
-                }
-                // R1: share the unified momentum snapshot as an on-device PNG. Offline by construction.
-                IconButton(onClick = { vm.shareMomentum { loc -> if (loc != null) android.widget.Toast.makeText(shareCtx, "Saved a copy to $loc", android.widget.Toast.LENGTH_SHORT).show() } }) {
-                    Icon(Icons.Filled.Share, "Share momentum")
-                }
-            },
-        )
+        KairoTopBar(title = "Momentum", onBack = onBack, actions = {
+            // R3: one capture box that sorts itself into a habit or a task.
+            IconButton(onClick = { showCapture = true }) {
+                Icon(Icons.Filled.Add, "Capture a habit or task")
+            }
+            // R1: share the unified momentum snapshot as an on-device PNG. Offline by construction.
+            IconButton(onClick = { vm.shareMomentum { loc -> if (loc != null) android.widget.Toast.makeText(shareCtx, "Saved a copy to $loc", android.widget.Toast.LENGTH_SHORT).show() } }) {
+                Icon(Icons.Filled.Share, "Share momentum")
+            }
+        })
     }) { padding ->
         // Habit strength (avg over active habits — BUILD and QUIT alike; a quit habit's strength is its
         // clean-streak resilience, which is real momentum). Paused habits are on vacation, so they don't

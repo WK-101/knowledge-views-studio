@@ -49,7 +49,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
@@ -74,6 +73,7 @@ import com.todocompanion.app.domain.done.DoneKind
 import com.todocompanion.app.domain.done.DoneRecord
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.DoneTick
+import com.todocompanion.app.ui.components.KairoTopBar
 import com.todocompanion.app.ui.components.PeriodSwitcher
 import java.time.LocalDate
 import java.time.ZoneId
@@ -245,45 +245,40 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
     val anyFilterActive = query.isNotBlank() || winsOnly || typeFilter.isNotEmpty() || listFilter != null
 
     Scaffold(topBar = {
-        TopAppBar(
-            expandedHeight = 52.dp,
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-            title = { Text("The Record") },
-            actions = {
-                Box {
-                    IconButton(onClick = { exportMenu = true }) { Icon(Icons.Filled.EmojiEvents, "Export the record") }
-                    androidx.compose.material3.DropdownMenu(expanded = exportMenu, onDismissRequest = { exportMenu = false }) {
-                        androidx.compose.material3.DropdownMenuItem(text = { Text("Brag document…") }, onClick = { exportMenu = false; showBrag = true })
-                        // Track 2.6 — the Julia-Evans-structured brag doc over the current range, shared as Markdown.
-                        androidx.compose.material3.DropdownMenuItem(text = { Text("Brag document (structured)…") }, onClick = {
-                            exportMenu = false
-                            val md = DoneRecord.bragDocMarkdown(feed, listNameById, bounds.first, bounds.last, today)
-                            vm.exportBragDoc(md, "brag-document-structured.md") { loc -> android.widget.Toast.makeText(ctx, if (loc != null) "Brag document saved to $loc" else "Save failed", android.widget.Toast.LENGTH_LONG).show() }
-                        })
-                        androidx.compose.material3.DropdownMenuItem(text = { Text("Résumé lines") }, onClick = {
-                            exportMenu = false
-                            val md = DoneRecord.resumeMarkdown(rangedFeed, listNameById)
-                            vm.exportBragDoc(md, "resume-lines.md") { loc -> android.widget.Toast.makeText(ctx, if (loc != null) "Résumé lines saved to $loc" else "Save failed", android.widget.Toast.LENGTH_LONG).show() }
-                        })
-                        androidx.compose.material3.DropdownMenuItem(text = { Text("Living archive (everything)") }, onClick = {
-                            exportMenu = false
-                            val md = DoneRecord.archiveMarkdown(feed, listNameById, today)
-                            vm.exportBragDoc(md, "the-record-archive.md") { loc -> android.widget.Toast.makeText(ctx, if (loc != null) "Archive saved to $loc" else "Save failed", android.widget.Toast.LENGTH_LONG).show() }
-                        })
-                        // F5 — redacted archive: the shape of your work, private titles hidden.
-                        androidx.compose.material3.DropdownMenuItem(text = { Text("Redacted archive") }, onClick = {
-                            exportMenu = false
-                            val md = DoneRecord.archiveMarkdown(feed, listNameById, today, redact = true)
-                            vm.exportBragDoc(md, "the-record-redacted.md") { loc -> android.widget.Toast.makeText(ctx, if (loc != null) "Redacted archive saved to $loc" else "Save failed", android.widget.Toast.LENGTH_LONG).show() }
-                        })
-                        // F2 — sealed-year certificate (shareable image for the current year).
-                        androidx.compose.material3.DropdownMenuItem(text = { Text("Sealed-year certificate") }, onClick = {
-                            exportMenu = false; vm.shareYearCertificate(today.year)
-                        })
-                    }
+        KairoTopBar(title = "The Record", onBack = onBack, actions = {
+            Box {
+                IconButton(onClick = { exportMenu = true }) { Icon(Icons.Filled.EmojiEvents, "Export the record") }
+                androidx.compose.material3.DropdownMenu(expanded = exportMenu, onDismissRequest = { exportMenu = false }) {
+                    androidx.compose.material3.DropdownMenuItem(text = { Text("Brag document…") }, onClick = { exportMenu = false; showBrag = true })
+                    // Track 2.6 — the Julia-Evans-structured brag doc over the current range, shared as Markdown.
+                    androidx.compose.material3.DropdownMenuItem(text = { Text("Brag document (structured)…") }, onClick = {
+                        exportMenu = false
+                        val md = DoneRecord.bragDocMarkdown(feed, listNameById, bounds.first, bounds.last, today)
+                        vm.exportBragDoc(md, "brag-document-structured.md") { loc -> android.widget.Toast.makeText(ctx, if (loc != null) "Brag document saved to $loc" else "Save failed", android.widget.Toast.LENGTH_LONG).show() }
+                    })
+                    androidx.compose.material3.DropdownMenuItem(text = { Text("Résumé lines") }, onClick = {
+                        exportMenu = false
+                        val md = DoneRecord.resumeMarkdown(rangedFeed, listNameById)
+                        vm.exportBragDoc(md, "resume-lines.md") { loc -> android.widget.Toast.makeText(ctx, if (loc != null) "Résumé lines saved to $loc" else "Save failed", android.widget.Toast.LENGTH_LONG).show() }
+                    })
+                    androidx.compose.material3.DropdownMenuItem(text = { Text("Living archive (everything)") }, onClick = {
+                        exportMenu = false
+                        val md = DoneRecord.archiveMarkdown(feed, listNameById, today)
+                        vm.exportBragDoc(md, "the-record-archive.md") { loc -> android.widget.Toast.makeText(ctx, if (loc != null) "Archive saved to $loc" else "Save failed", android.widget.Toast.LENGTH_LONG).show() }
+                    })
+                    // F5 — redacted archive: the shape of your work, private titles hidden.
+                    androidx.compose.material3.DropdownMenuItem(text = { Text("Redacted archive") }, onClick = {
+                        exportMenu = false
+                        val md = DoneRecord.archiveMarkdown(feed, listNameById, today, redact = true)
+                        vm.exportBragDoc(md, "the-record-redacted.md") { loc -> android.widget.Toast.makeText(ctx, if (loc != null) "Redacted archive saved to $loc" else "Save failed", android.widget.Toast.LENGTH_LONG).show() }
+                    })
+                    // F2 — sealed-year certificate (shareable image for the current year).
+                    androidx.compose.material3.DropdownMenuItem(text = { Text("Sealed-year certificate") }, onClick = {
+                        exportMenu = false; vm.shareYearCertificate(today.year)
+                    })
                 }
-            },
-        )
+            }
+        })
     }) { padding ->
         if (feed.isEmpty()) {
             Column(Modifier.padding(padding).fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -800,9 +795,7 @@ private fun ImpactScreen(
     val bounds = range.window(today.toEpochDay(), weekStart, today.toEpochDay()).range
     val g = remember(feed, tasks, range) { com.todocompanion.app.domain.done.Impact.build(feed.filter { it.epochDay in bounds }, tasks) }
     Scaffold(topBar = {
-        TopAppBar(expandedHeight = 52.dp,
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-            title = { Text("Impact map") })
+        KairoTopBar(title = "Impact map", onBack = onBack)
     }) { padding ->
         LazyColumn(Modifier.padding(padding).fillMaxSize(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
@@ -914,9 +907,7 @@ private fun CoSignScreen(vm: AppViewModel, onBack: () -> Unit) {
     var verifyResult by remember { mutableStateOf<String?>(null) }
 
     Scaffold(topBar = {
-        TopAppBar(expandedHeight = 52.dp,
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-            title = { Text("Peer co-sign") })
+        KairoTopBar(title = "Peer co-sign", onBack = onBack)
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1274,9 +1265,7 @@ private fun WrappedScreen(feed: List<Accomplishment>, today: LocalDate, recap: c
             add(Slide("✨", "A highlight", recap.highlightText, primary))
     }
     Scaffold(topBar = {
-        TopAppBar(expandedHeight = 52.dp, title = { Text("$year, wrapped") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-            actions = { if (ofYear.isNotEmpty()) IconButton(onClick = onShare) { Icon(Icons.Filled.Share, "Share your year") } })
+        KairoTopBar(title = "$year, wrapped", onBack = onBack, actions = { if (ofYear.isNotEmpty()) IconButton(onClick = onShare) { Icon(Icons.Filled.Share, "Share your year") } })
     }) { padding ->
         if (ofYear.isEmpty()) {
             Column(Modifier.padding(padding).fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {

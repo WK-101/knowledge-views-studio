@@ -63,7 +63,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -85,6 +84,7 @@ import com.todocompanion.app.data.entity.TimeEntryEntity
 import com.todocompanion.app.domain.TimeTracking
 import com.todocompanion.app.ui.AppViewModel
 import com.todocompanion.app.ui.components.AppCard
+import com.todocompanion.app.ui.components.KairoTopBar
 import com.todocompanion.app.ui.components.MiniCheck
 import kotlinx.coroutines.delay
 import java.time.Instant
@@ -663,10 +663,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
         // Standalone (opened from the drawer or a widget): our own single header + matching FAB.
         Scaffold(
             topBar = {
-                TopAppBar(expandedHeight = 52.dp, 
-                    title = { Text("Time") },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                )
+                KairoTopBar(title = "Time", onBack = onBack)
             },
             floatingActionButton = {
                 FloatingActionButton(onClick = { onAddEntry() }) { Icon(Icons.Filled.Add, "Add time entry") }
