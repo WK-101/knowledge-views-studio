@@ -15,7 +15,9 @@
     <string name="widget_donext_desc">Your computed Do-Next list — filter by energy and time you have</string>
     <string name="widget_next7_desc">A workload bar per day for the next week vs your capacity</string>
     <string name="tile_capture_label">Add task</string>
-    <string name="widget_habitstats_desc">Habits done today and your best current streak</string>
+    <string name="widget_habitstats_desc">Today\'s practice as a ring — done, left and your streak</string>
+    <string name="widget_habitgrid_desc">A full-year contribution grid of every day you showed up</string>
+    <string name="widget_habitline_desc">Your habit-strength trend — the Loop-style consistency line</string>
     <string name="widget_momentum_desc">Your unified momentum — habits, task reliability and focus in one score</string>
     <string name="widget_time_desc">Start, switch and stop time tracking from the home screen — a live timer for the running activity</string>
     <string name="widget_note_desc">Two taps — a new note, or today\'s daily note</string>

@@ -232,6 +232,23 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
             (quota && HabitStats.dueToday(it, today, d.done, d.counts[today] ?: 0))
     }
     val perfectDay = scheduledCount > 0 && stillDue == 0
+    // Today at a glance — done / skipped / remaining across everything scheduled for today, for the ring.
+    val todayTally = remember(habits, checkins, today) {
+        var done = 0; var skip = 0; var due = 0
+        habits.forEach { h ->
+            if (h.paused || h.habitType == "break") return@forEach
+            val d = daysFor(h, checkins)
+            val doneToday = today in d.done
+            val quota = h.freqType == HabitStats.FREQ_TIMES_WEEK || h.freqType == HabitStats.FREQ_TIMES_MONTH
+            val scheduled = HabitStats.isExpectedDay(h, today) || doneToday ||
+                (quota && HabitStats.dueToday(h, today, d.done, d.counts[today] ?: 0))
+            if (!scheduled) return@forEach
+            due++
+            val met = doneToday || !HabitStats.dueToday(h, today, d.done, d.counts[today] ?: 0)
+            when { met -> done++; today in d.skip -> skip++ }
+        }
+        Triple(done, skip, due)
+    }
     var celebrated by remember { mutableStateOf(false) }
     var showConfetti by remember { mutableStateOf(false) }
     LaunchedEffect(perfectDay) {
@@ -322,6 +339,10 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                 vm.setHabitOrder(global)
             }
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 4.dp, bottom = 100.dp)) {
+                // Today ring — done / left / skipped across everything scheduled today, at the top of the list.
+                if (todayTally.third > 0) item(key = "today-ring") {
+                    HabitTodaySummary(done = todayTally.first, skipped = todayTally.second, due = todayTally.third)
+                }
                 // R35 · TW-D — the companion garden, a calm consistency visual, when opted in.
                 if (appSettings.companionEnabled) item(key = "companion") {
                     val comp = remember(habits, checkins, today) { com.todocompanion.app.domain.habit.ThirdWave.companion(habits, checkins, today) }
@@ -1546,4 +1567,48 @@ private fun HabitPresetDialog(onDismiss: () -> Unit, onPick: (HabitPreset) -> Un
             }
         },
     )
+}
+
+/** Today at a glance on the Habits home — a completion ring with a done / left / skipped read. */
+@Composable
+private fun HabitTodaySummary(done: Int, skipped: Int, due: Int) {
+    val remaining = (due - done - skipped).coerceAtLeast(0)
+    val progress = if (due > 0) done.toFloat() / due else 0f
+    val accent = MaterialTheme.colorScheme.primary
+    val track = MaterialTheme.colorScheme.surfaceVariant
+    val allDone = due > 0 && done >= due
+    Surface(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(16.dp), color = appCardColor(),
+    ) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(66.dp), contentAlignment = Alignment.Center) {
+                Canvas(Modifier.size(66.dp)) {
+                    val sw = 8.dp.toPx()
+                    drawArc(track, 0f, 360f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(sw, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+                    if (progress > 0f) drawArc(accent, -90f, progress * 360f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(sw, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+                }
+                Text(if (due == 0) "—" else "$done/$due", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(if (allDone) "Today — all done 🎉" else "Today", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    HabitTallyChip(MaterialTheme.colorScheme.primary, "$done done")
+                    if (remaining > 0) HabitTallyChip(MaterialTheme.colorScheme.onSurfaceVariant, "$remaining left")
+                    if (skipped > 0) HabitTallyChip(MaterialTheme.colorScheme.tertiary, "$skipped skipped")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HabitTallyChip(color: Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+        Spacer(Modifier.width(5.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+    }
 }

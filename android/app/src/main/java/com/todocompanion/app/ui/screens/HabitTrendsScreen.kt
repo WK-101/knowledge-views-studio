@@ -115,7 +115,7 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
         val heat = remember(perHabit, today) {
             val buildHabits = perHabit.filter { it.habit.habitType != "break" }
             val n = buildHabits.size.coerceAtLeast(1)
-            (0 until 182).associate { back ->
+            (0 until 364).associate { back ->
                 val d = today - back
                 val kept = buildHabits.count { d in it.done }
                 d to kept.toFloat() / n
@@ -143,6 +143,20 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 StatTile(value = "$avgStrength", label = "Avg strength", modifier = Modifier.weight(1f))
                 StatTile(value = "$checkinsThisMonth", label = "Done (30d)", modifier = Modifier.weight(1f))
                 StatTile(value = "$bestStreakOverall", label = "Best streak", modifier = Modifier.weight(1f))
+            }
+            // Second tile row — best weekday, average per day, all-time total (the "surface the numbers" pass).
+            run {
+                val bestDayIdx = weekday.indices.filter { weekday[it] > 0f }.maxByOrNull { weekday[it] }
+                val bestDayLabel = bestDayIdx?.let {
+                    java.time.DayOfWeek.of(it + 1).getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault())
+                } ?: "—"
+                val allTimeDone = checkins.count { c -> habitById[c.habitId]?.let { HabitStats.isSuccessDay(it, c) } == true }
+                val perDay = String.format(java.util.Locale.getDefault(), "%.1f", checkinsThisMonth / 30f)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    StatTile(value = bestDayLabel, label = "Best day", modifier = Modifier.weight(1f))
+                    StatTile(value = perDay, label = "Per day", modifier = Modifier.weight(1f))
+                    StatTile(value = "$allTimeDone", label = "All-time", modifier = Modifier.weight(1f))
+                }
             }
 
             // Strength by habit.
@@ -185,9 +199,9 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
             }
 
-            // F5: consistency heatmap (26 weeks).
+            // F5: consistency heatmap (a full year).
             AppCard {
-                Text("Consistency — last 26 weeks", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("Consistency — last 52 weeks", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
                 ConsistencyHeatmap(heat, today)
                 Spacer(Modifier.height(6.dp))
@@ -257,7 +271,7 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
     }
 }
 
-/** F5: GitHub-style consistency calendar — 26 week-columns × 7 day-rows, shaded by each day's kept-share. */
+/** F5: GitHub-style consistency calendar — 52 week-columns × 7 day-rows, shaded by each day's kept-share. */
 @Composable
 private fun ConsistencyHeatmap(heat: Map<Long, Float>, today: Long) {
     val base = MaterialTheme.colorScheme.primary
@@ -265,7 +279,7 @@ private fun ConsistencyHeatmap(heat: Map<Long, Float>, today: Long) {
     val todayDow = LocalDate.ofEpochDay(today).dayOfWeek.value  // 1=Mon..7=Sun
     val monday = today - (todayDow - 1)
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-        for (w in 25 downTo 0) {
+        for (w in 51 downTo 0) {
             val weekMonday = monday - w * 7L
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 for (offset in 0..6) {

@@ -2341,6 +2341,7 @@ class AppViewModel internal constructor(
     fun addHabit(h: com.todocompanion.app.data.entity.HabitEntity) = habitsVm.addHabit(h)
     /** M4: render a habit's progress to a PNG on-device and open the share sheet. onDone gets the saved location. */
     fun shareHabitProgress(h: com.todocompanion.app.data.entity.HabitEntity, onDone: (String?) -> Unit) = habitsVm.shareHabitProgress(h, onDone)   // → HabitsViewModel (Stage 5-F)
+    fun shareHabitCard(h: com.todocompanion.app.data.entity.HabitEntity, variant: String, onDone: (String?) -> Unit) = habitsVm.shareHabitCard(h, variant, onDone)   // → HabitsViewModel
     /** N4: render a shareable "your week" recap card (habits + tasks) on-device. */
     fun shareWeeklyRecap(onDone: (String?) -> Unit) = viewModelScope.launch {
         val hs = com.todocompanion.app.domain.habit.HabitStats

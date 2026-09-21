@@ -199,12 +199,19 @@ fun HabitDetailScreen(
     val shareCtx = LocalContext.current
     Scaffold(topBar = {
         KairoTopBar(title = h.name, onBack = onBack, actions = {
-            // M4: share an on-device progress image (strength ring + heatmap). Offline by construction.
-            IconButton(onClick = {
-                vm.shareHabitProgress(h) { loc ->
-                    if (loc != null) android.widget.Toast.makeText(shareCtx, "Saved a copy to $loc", android.widget.Toast.LENGTH_SHORT).show()
+            // M4: share an on-device card (all offline by construction) — pick which one.
+            var shareMenu by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { shareMenu = true }) { Icon(Icons.Filled.Share, "Share progress") }
+                androidx.compose.material3.DropdownMenu(expanded = shareMenu, onDismissRequest = { shareMenu = false }) {
+                    val onLoc: (String?) -> Unit = { loc ->
+                        if (loc != null) android.widget.Toast.makeText(shareCtx, "Saved a copy to $loc", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                    androidx.compose.material3.DropdownMenuItem(text = { Text("Progress card") }, onClick = { shareMenu = false; vm.shareHabitCard(h, "progress", onLoc) })
+                    androidx.compose.material3.DropdownMenuItem(text = { Text("Stat grid") }, onClick = { shareMenu = false; vm.shareHabitCard(h, "stats", onLoc) })
+                    androidx.compose.material3.DropdownMenuItem(text = { Text("This week") }, onClick = { shareMenu = false; vm.shareHabitCard(h, "week", onLoc) })
                 }
-            }) { Icon(Icons.Filled.Share, "Share progress") }
+            }
             // W8: mute/unmute this habit's reminders.
             val muted = h.id in vm.settings.collectAsStateWithLifecycle().value.mutedHabits
             IconButton(onClick = { vm.toggleMutedHabit(h.id) }) {
@@ -469,7 +476,7 @@ fun HabitDetailScreen(
             }
 
             // 8. Year heatmap
-            SectionCard(title = "Last 26 weeks") {
+            SectionCard(title = "Last 52 weeks") {
                 YearHeatmap(today, color, doneDays, skipDays, countsByDay)
             }
 
@@ -894,7 +901,7 @@ private fun YearHeatmap(
     val empty = MaterialTheme.colorScheme.surfaceVariant
     val todayDate = LocalDate.ofEpochDay(today)   // the zone-aware today the cells are keyed on, not the system clock
     val currentMonday = todayDate.minusDays((todayDate.dayOfWeek.value - 1).toLong())
-    val weeks = 26
+    val weeks = 52
     val startMonday = currentMonday.minusWeeks((weeks - 1).toLong())
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         for (c in 0 until weeks) {

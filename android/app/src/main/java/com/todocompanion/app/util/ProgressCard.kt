@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import androidx.core.content.FileProvider
@@ -68,13 +69,13 @@ object ProgressCard {
         val totalLabel = if (unit != null) "$totalDone $unit logged" else "$totalDone days done"
         c.drawText(totalLabel, rx, 520f, reg)
 
-        // Heatmap: last 26 weeks × 7 days.
-        val weeks = 26
-        val cell = 30f; val gap = 8f
+        // Heatmap: last 52 weeks × 7 days (cell/gap sized so a full year fits the fixed canvas).
+        val weeks = 52
+        val cell = 14f; val gap = 4f
         val gridW = weeks * (cell + gap) - gap
         val startX = (W - gridW) / 2f
         val startY = 620f
-        reg.textSize = 34f; c.drawText("Last ${weeks * 7 / 7} weeks", startX, startY - 24f, reg)
+        reg.textSize = 34f; c.drawText("Last $weeks weeks", startX, startY - 24f, reg)
         // today is at the bottom-right; walk back weeks*7 days.
         val totalDays = weeks * 7
         for (i in 0 until totalDays) {
@@ -89,10 +90,64 @@ object ProgressCard {
                 day in skipDays -> 0x55FFFFFF
                 else -> 0x1AFFFFFF
             }
-            c.drawRoundRect(RectF(x, y, x + cell, y + cell), 7f, 7f, p)
+            c.drawRoundRect(RectF(x, y, x + cell, y + cell), 3f, 3f, p)
         }
 
         // Footer.
+        reg.textSize = 32f; reg.color = muted
+        c.drawText("Kairo · 100% offline", 72f, (H - 60).toFloat(), reg)
+        return bmp
+    }
+
+    /**
+     * A "this week" card: Mon–Sun as check circles (filled+tick = done, faint = skip, hollow = missed/
+     * pending), plus the week's count and streak. [marks] is 7 ints (0 missed/pending, 1 done, 2 skip).
+     */
+    fun renderHabitWeek(
+        emoji: String?, name: String, accentArgb: Long?,
+        marks: IntArray, weekCount: Int, weeklyLabel: String, streak: Int,
+    ): Bitmap {
+        val accent = accentArgb?.toInt() ?: 0xFF6650A4.toInt()
+        val bg = 0xFF16121F.toInt(); val onBg = 0xFFEDE8F5.toInt(); val muted = 0xFF9B93AC.toInt()
+        val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp); c.drawColor(bg)
+        val bold = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = onBg; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) }
+        val reg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = muted; typeface = Typeface.DEFAULT }
+        bold.textSize = 60f
+        c.drawText(ellipsize(((emoji?.plus("  ")) ?: "") + name, bold, (W - 144).toFloat()), 72f, 150f, bold)
+        reg.textSize = 38f; c.drawText("This week", 72f, 214f, reg)
+        val labels = arrayOf("M", "T", "W", "T", "F", "S", "S")
+        val n = 7; val cell = 118f; val gap = 20f
+        val gridW = n * cell + (n - 1) * gap; val sx = (W - gridW) / 2f; val cy = 540f
+        for (i in 0 until 7) {
+            val cx = sx + i * (cell + gap) + cell / 2f
+            reg.textSize = 34f; reg.color = muted
+            val lw = reg.measureText(labels[i]); c.drawText(labels[i], cx - lw / 2f, cy - cell / 2f - 24f, reg)
+            val r = cell / 2f - 6f
+            val p = Paint(Paint.ANTI_ALIAS_FLAG)
+            when (marks.getOrElse(i) { 0 }) {
+                1 -> {
+                    p.color = accent; p.style = Paint.Style.FILL; c.drawCircle(cx, cy, r, p)
+                    val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = 0xFFFFFFFF.toInt(); style = Paint.Style.STROKE; strokeWidth = 11f
+                        strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
+                    }
+                    val path = Path().apply {
+                        moveTo(cx - r * 0.42f, cy + r * 0.02f); lineTo(cx - r * 0.08f, cy + r * 0.36f); lineTo(cx + r * 0.46f, cy - r * 0.34f)
+                    }
+                    c.drawPath(path, tp)
+                }
+                2 -> { p.color = 0x55FFFFFF; p.style = Paint.Style.FILL; c.drawCircle(cx, cy, r, p) }
+                else -> { p.color = accent; p.style = Paint.Style.STROKE; p.strokeWidth = 8f; c.drawCircle(cx, cy, r, p) }
+            }
+        }
+        bold.textSize = 74f; bold.color = onBg
+        val summary = "$weekCount $weeklyLabel"
+        c.drawText(summary, (W - bold.measureText(summary)) / 2f, 800f, bold)
+        if (streak > 0) {
+            reg.textSize = 42f; reg.color = accent
+            val s = "🔥 $streak streak"; c.drawText(s, (W - reg.measureText(s)) / 2f, 870f, reg)
+        }
         reg.textSize = 32f; reg.color = muted
         c.drawText("Kairo · 100% offline", 72f, (H - 60).toFloat(), reg)
         return bmp

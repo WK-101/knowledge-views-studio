@@ -512,6 +512,70 @@ class HabitsViewModel(
         onDone(res.savedLocation)
     }
 
+    /**
+     * Render + share one of a set of on-device habit cards — "progress" (strength ring + full-year
+     * heatmap), "stats" (a stat grid that also surfaces the weekly-target streak and banked freezes),
+     * or "week" (this week's Mon–Sun check row). All 0-network, 0-permission.
+     */
+    fun shareHabitCard(h: com.todocompanion.app.data.entity.HabitEntity, variant: String, onDone: (String?) -> Unit) = scope.launch {
+        val hs = com.todocompanion.app.domain.habit.HabitStats
+        val cks = habitCheckins.value.filter { it.habitId == h.id }
+        val (done, skip, relapse) = hs.daySets(h, cks)
+        val today = today()
+        val safe = h.name.filter { it.isLetterOrDigit() }.take(20).ifBlank { "habit" }
+        val res = withContext(Dispatchers.IO) {
+            val bmp = when (variant) {
+                "stats" -> {
+                    val strength = hs.strength(h, done, skip, relapse, today)
+                    val cur = hs.currentStreak(h, done, skip, relapse, today)
+                    val best = hs.bestStreak(h, done, skip, relapse, today)
+                    val rate = Math.round(hs.rate(h, done, skip, today, 30) * 100f)
+                    val total = if (h.unit != null) cks.sumOf { it.count } else done.size
+                    val weekly = h.freqType == com.todocompanion.app.domain.habit.HabitStats.FREQ_TIMES_WEEK
+                    val stats = buildList {
+                        add("Strength" to "$strength")
+                        add((if (weekly) "Weekly streak" else "Streak") to "$cur")
+                        add("Best streak" to "$best")
+                        add("Consistency" to "$rate%")
+                        add("All-time" to "$total")
+                        if (h.freezeTokens > 0) add("Freezes" to "❄️ ${h.freezeTokens}")
+                        else {
+                            val wr = hs.weekdayRates(done, skip, today, 180)
+                            val bi = wr.indices.filter { wr[it] > 0f }.maxByOrNull { wr[it] }
+                            val bd = bi?.let { java.time.DayOfWeek.of(it + 1).getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault()) } ?: "—"
+                            add("Best day" to bd)
+                        }
+                    }
+                    com.todocompanion.app.util.ProgressCard.renderStatsCard(
+                        ((h.emoji?.plus(" ")) ?: "") + h.name, hs.frequencyLabel(h), stats, h.colorArgb)
+                }
+                "week" -> {
+                    val dow = java.time.LocalDate.ofEpochDay(today).dayOfWeek.value // 1..7 (Mon..Sun)
+                    val monday = today - (dow - 1)
+                    val marks = IntArray(7) { i ->
+                        val d = monday + i
+                        when { d > today -> 0; d in done -> 1; d in skip -> 2; else -> 0 }
+                    }
+                    val weekCount = (0..6).count { (monday + it) in done }
+                    val weekly = h.freqType == com.todocompanion.app.domain.habit.HabitStats.FREQ_TIMES_WEEK
+                    val label = if (weekly) "of ${h.freqParam} this week" else "days this week"
+                    val cur = hs.currentStreak(h, done, skip, relapse, today)
+                    com.todocompanion.app.util.ProgressCard.renderHabitWeek(h.emoji, h.name, h.colorArgb, marks, weekCount, label, cur)
+                }
+                else -> {
+                    val strength = hs.strength(h, done, skip, relapse, today)
+                    val cur = hs.currentStreak(h, done, skip, relapse, today)
+                    val best = hs.bestStreak(h, done, skip, relapse, today)
+                    val total = if (h.unit != null) cks.sumOf { it.count } else done.size
+                    com.todocompanion.app.util.ProgressCard.render(h.emoji, h.name, h.colorArgb, strength, cur, best, h.unit, total, done, skip, today)
+                }
+            }
+            com.todocompanion.app.util.ProgressCard.saveAndShareUri(app.appCtx, bmp, "todo-companion-$safe-$variant.png")
+        }
+        res.shareUri?.let { com.todocompanion.app.util.ProgressCard.share(app.appCtx, it) }
+        onDone(res.savedLocation)
+    }
+
     fun toggleMutedHabit(id: String) = scope.launch {
         val cur = app.settings.value.mutedHabits
         val muting = id !in cur
