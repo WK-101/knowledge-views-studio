@@ -261,4 +261,57 @@ class NotesViewModel(
             !it.trashed && !it.archived && it.id in ids && (it.sealedUntil == null || it.sealedUntil!! <= now)
         }.sortedByDescending { it.updatedAt }
     }
+
+    // ── L11 Vault — passphrase-based encryption of a note's BODY at rest (Stage 4e) ──
+    // The passphrase lives only in memory for the session; it is never persisted. A note stays vaulted
+    // (ciphertext) until unlocked; the editor decrypts for editing and re-encrypts on save. The security-side
+    // helpers (cache-wipe, panic-wipe, key readouts) stay on AppViewModel; lockVault forwards to them.
+    @Volatile private var vaultPass: CharArray? = null
+    val vaultUnlocked = MutableStateFlow(false)
+    /** True once the user has chosen a vault passphrase (a verifier is stored). */
+    fun vaultConfigured(): Boolean = app.settings.value.notesVaultCheck.isNotBlank()
+    /** First-time setup: choose the vault passphrase and store only a verifier (never the passphrase). */
+    fun setUpVault(pass: String) = scope.launch {
+        if (pass.isBlank()) return@launch
+        repo.saveSettings(app.settings.value.copy(notesVaultCheck = com.todocompanion.app.domain.NoteVault.makeCheck(pass.toCharArray())))
+        vaultPass = pass.toCharArray(); vaultUnlocked.value = true
+    }
+    /** Unlock the vault for this session; true if the passphrase is correct. */
+    fun unlockVault(pass: String): Boolean {
+        val ok = com.todocompanion.app.domain.NoteVault.verify(app.settings.value.notesVaultCheck, pass.toCharArray())
+        if (ok) { vaultPass = pass.toCharArray(); vaultUnlocked.value = true }
+        return ok
+    }
+    /** Re-lock the vault (clears the in-memory passphrase) and wipe any decrypted image / share copies. */
+    fun lockVault() {
+        vaultPass?.fill(' ')   // SEC: zeroize the in-memory passphrase before dropping the reference
+        vaultPass = null
+        vaultUnlocked.value = false
+        scope.launch(Dispatchers.IO) { runCatching { app.purgeRichImgCache() }; runCatching { app.purgeSharedCache() } }
+    }
+    /** Decrypt a vaulted note's body for display/editing (unchanged when not vaulted / locked; never throws). */
+    fun decryptNoteBody(n: com.todocompanion.app.data.entity.NoteEntity): String {
+        val p = vaultPass
+        return if (n.vault && com.todocompanion.app.domain.NoteVault.isLocked(n.body) && p != null)
+            com.todocompanion.app.domain.NoteVault.unlock(n.body, p) ?: n.body else n.body
+    }
+    /** Encrypt a note's plaintext body if it is vaulted and unlocked; leaves an already-encrypted body untouched. */
+    private fun sealForVault(n: com.todocompanion.app.data.entity.NoteEntity): com.todocompanion.app.data.entity.NoteEntity {
+        val p = vaultPass
+        return if (n.vault && p != null && !com.todocompanion.app.domain.NoteVault.isLocked(n.body))
+            n.copy(body = com.todocompanion.app.domain.NoteVault.lock(n.body, p)) else n
+    }
+    /** Persist an edited note; stamps the active workspace if the row arrives without one, sealing a vaulted body. */
+    fun saveNote(n: com.todocompanion.app.data.entity.NoteEntity) = scope.launch {
+        repo.upsertNote(sealForVault(n.copy(workspaceId = n.workspaceId.ifBlank { activeWorkspace() })))
+    }
+    /** Save the note + capture a version snapshot in one ordered coroutine (used on editor close). A note in
+     *  an auto-vault notebook is encrypted as the editor closes (only when the vault is set up + unlocked). */
+    fun closeNoteEditor(n: com.todocompanion.app.data.entity.NoteEntity) = scope.launch {
+        val autoVault = n.notebookId != null && !n.vault && vaultConfigured() && vaultUnlocked.value &&
+            notebooks.value.firstOrNull { it.id == n.notebookId }?.autoVault == true
+        val toSave = if (autoVault) n.copy(vault = true) else n
+        repo.upsertNote(sealForVault(toSave.copy(workspaceId = toSave.workspaceId.ifBlank { activeWorkspace() })))
+        repo.saveNoteRevision(n.id, app.settings.value.notesMaxRevisions)
+    }
 }
