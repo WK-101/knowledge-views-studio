@@ -137,26 +137,36 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
             Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // Overview tiles.
+            // Insights hub — a Week / Month / Year / All lens over the headline numbers.
+            val periodState = androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(1) }
+            val period = periodState.intValue
+            val winDays = when (period) { 0 -> 7; 1 -> 30; 2 -> 365; else -> Int.MAX_VALUE / 2 }
+            val fromDay = today - winDays + 1
+            val doneWin = checkins.count { c -> c.epochDay <= today && (period == 3 || c.epochDay >= fromDay) && habitById[c.habitId]?.let { HabitStats.isSuccessDay(it, c) } == true }
+            val allTimeDone = checkins.count { c -> habitById[c.habitId]?.let { HabitStats.isSuccessDay(it, c) } == true }
+            val bestDayIdx = weekday.indices.filter { weekday[it] > 0f }.maxByOrNull { weekday[it] }
+            val bestDayLabel = bestDayIdx?.let {
+                java.time.DayOfWeek.of(it + 1).getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault())
+            } ?: "—"
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                listOf("Week", "Month", "Year", "All").forEachIndexed { i, lbl ->
+                    androidx.compose.material3.FilterChip(selected = period == i, onClick = { periodState.intValue = i },
+                        label = { Text(lbl, style = MaterialTheme.typography.labelMedium) }, modifier = Modifier.weight(1f))
+                }
+            }
+            // Headline tiles — the all-time identity of your practice.
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 StatTile(value = active.size.toString(), label = "Habits", modifier = Modifier.weight(1f))
                 StatTile(value = "$avgStrength", label = "Avg strength", modifier = Modifier.weight(1f))
-                StatTile(value = "$checkinsThisMonth", label = "Done (30d)", modifier = Modifier.weight(1f))
                 StatTile(value = "$bestStreakOverall", label = "Best streak", modifier = Modifier.weight(1f))
+                StatTile(value = "$allTimeDone", label = "All-time", modifier = Modifier.weight(1f))
             }
-            // Second tile row — best weekday, average per day, all-time total (the "surface the numbers" pass).
-            run {
-                val bestDayIdx = weekday.indices.filter { weekday[it] > 0f }.maxByOrNull { weekday[it] }
-                val bestDayLabel = bestDayIdx?.let {
-                    java.time.DayOfWeek.of(it + 1).getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault())
-                } ?: "—"
-                val allTimeDone = checkins.count { c -> habitById[c.habitId]?.let { HabitStats.isSuccessDay(it, c) } == true }
-                val perDay = String.format(java.util.Locale.getDefault(), "%.1f", checkinsThisMonth / 30f)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    StatTile(value = bestDayLabel, label = "Best day", modifier = Modifier.weight(1f))
-                    StatTile(value = perDay, label = "Per day", modifier = Modifier.weight(1f))
-                    StatTile(value = "$allTimeDone", label = "All-time", modifier = Modifier.weight(1f))
-                }
+            // Period-scoped tiles — recompute for the chosen lens.
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatTile(value = "$doneWin", label = "Done", modifier = Modifier.weight(1f))
+                StatTile(value = if (period == 3) "—" else String.format(java.util.Locale.getDefault(), "%.1f", doneWin.toFloat() / winDays), label = "Per day", modifier = Modifier.weight(1f))
+                StatTile(value = bestDayLabel, label = "Best day", modifier = Modifier.weight(1f))
             }
 
             // Strength by habit.
