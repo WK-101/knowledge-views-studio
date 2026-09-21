@@ -6,6 +6,37 @@ storage, performance, UI reuse and cross-module consistency, with a phased plan 
 
 ---
 
+# Whole-app re-audit — grounded post-decomposition re-score + plan to 9.5 (2026-09-21)
+
+A fresh, evidence-led re-audit run after the Phase 3 decomposition, via four parallel read-only deep-dives
+(performance · maintainability & cross-module · UI/design-system/a11y · data/security/testing), each cited to
+`file:line`, then key claims re-verified directly. Dashboard artifact: <https://claude.ai/artifact/RWzXNRXNu1P5o2hVtn93Zv>.
+
+**Recalibration.** This pass is grounded in the code rather than optimistic self-scoring, so several dimensions
+move **down** to honest numbers and two move **up** (the code is better than assumed there). Prior "Overall ≈8.0"
+→ **≈7.5**.
+
+| Dimension | Prior | **Now** | One-line why |
+|---|:---:|:---:|---|
+| Security | 8.5 | **9.0 ↑** | truly offline (no INTERNET/network code), minimal perms, SQLCipher default-on + StrongBox-wrapped key, PBKDF2-600k, FileVault, panic-wipe, gated exports. |
+| Architecture | 8.4 | **8.2 ↓** | 5 collaborators extracted on a proven pattern; held back by the un-extracted twin `AppRepository` (2359 LOC, 282 methods) + the whole Tasks feature still on the parent. |
+| Data / scalability | 8.1 | **8.0** | DB v87, 82 contiguous migrations (no gaps, forward-destructive refused), backup lossless over all 50 entities; a few growable FK columns unindexed. |
+| Performance | 7.0 | **7.5 ↑** | strong-skipping on; off-main `WhileSubscribed` reactive layer; keyed/memoized lists. Cost is systemic one-liners (no repo `shareIn`; flows never quiesce backgrounded). |
+| Testing | 8.0 | **7.0 ↓** | 566 headless tests cover backup/migrations/recurrence/crypto/streaks — but the 5 feature VMs (~1800 LOC) have **zero** direct coverage; pre-v59 migrations unvalidated headlessly. |
+| UI / design-system | 7.5 | **7.0 ↓** | `AppCard` 30 uses / 0 raw Cards, M3 hygiene clean; but spacing+shape token layers are defined-and-unused (0 uses vs ~4200 raw dp), 29 hand-rolled top bars, drifting non-dark-aware color maps. |
+| Cross-module | 7.5 | **6.5 ↓** | disciplined collaborator template, but helpers copy-pasted not factored; `timeVm` breaks the shim convention, Goals breaks flow-naming; minute/week/search logic re-implemented per feature with divergent edge cases. |
+| Maintainability | (folded) | **6.5 (new)** | excellent comment hygiene + centralized core math, but two mega-objects remain (`AppViewModel` 5493, `AppRepository` 2359), the biggest screen (`DayReviewScreen` 3247) is a grab-bag, small-helper duplication ripples. |
+| **Overall** | **≈8.0** | **≈7.5** | the gap to 9.5 is concentrated in Maintainability / Cross-module / Testing / UI, not diffuse. |
+
+**Prioritized plan (impact ÷ effort).**
+- *Tier 1 — quick wins:* `shareIn` the hot repo flows (`allTasks` first); one `formatMinutes()` for the 6 copies + 33 raw idioms; delete dead `AppViewModel.search` + `keepTan`; fix the stale migration-count comments; migrate the 29 hand-rolled `TopAppBar(52.dp)` → `KairoTopBar`; fix the sub-48dp tap targets; route the 3 share flows through `ProgressCard`.
+- *Tier 2 — high-leverage:* adopt `collectAsStateWithLifecycle` (436 sites); gate the per-emit `settings` KeyStore-decrypt + disk-write; move the 7 `Eagerly` flows to `WhileSubscribed`; pre-group checkins for the habits list (O(H×C)→O(C)); dark-aware `captureChipColor` + collapse drifting color maps; characterization tests for the 5 feature VMs; make `BackupRoundTripTest` table-exhaustive.
+- *Tier 3 — structural:* extract a `TasksViewModel`; lift the copy-pasted VM infra into a shared base; split `DayReviewScreen`; `Role.Button` on ~200 clickable rows via one helper; adopt (or retire) the spacing/shape tokens; headless v5–v58 migration schema check + index `time_entries.workspaceId`/`events.calendarId`; (ceiling) decompose `AppRepository`.
+
+_The Phase-3 decomposition round and earlier logs follow unchanged below._
+
+---
+
 # Sub-ViewModel split — carve backup/export/import/sync into `BackupSyncViewModel` (Phase 3 complete) (2026-09-21)
 
 The **fifth and final** feature collaborator completes the Phase 3 decomposition: the whole backup /
