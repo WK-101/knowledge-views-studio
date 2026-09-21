@@ -198,6 +198,44 @@ class ReminderReceiver : BroadcastReceiver() {
                 }
             }
 
+            AlarmScheduler.ACTION_GOAL_REVIEW -> {
+                if (app == null) return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val s = app.repository.settingsSnapshot()
+                        if (s.goalReviewReminder) {
+                            val today = java.time.LocalDate.now().toEpochDay()
+                            val goals = app.repository.wsGoalsOnce().filter { !it.archived }
+                            // Fire only on the days a review is actually due: the whole-portfolio cadence (weekly),
+                            // or any single goal past its own cadence. A quiet week stays silent.
+                            if (goals.isNotEmpty()) {
+                                val reviews = app.repository.goalReviewsOnce()
+                                val portfolioDue = com.todocompanion.app.domain.GoalScore.reviewDue(reviews, 7, today, "")
+                                val dueGoals = goals.filter {
+                                    com.todocompanion.app.domain.GoalScore.reviewDue(reviews, it.reviewCadenceDays, today, it.id)
+                                }
+                                if (portfolioDue || dueGoals.isNotEmpty()) {
+                                    val chain = com.todocompanion.app.domain.GoalScore.integrityChain(reviews, 7, today, "")
+                                    val title = if (portfolioDue) "Your weekly goal review is due" else "A goal is ready for review"
+                                    val text = buildString {
+                                        when {
+                                            dueGoals.size == 1 -> append("“${dueGoals.first().name}” is past its review cadence. ")
+                                            dueGoals.size > 1 -> append("${dueGoals.size} goals are past their review cadence. ")
+                                            else -> append("Sit with your ${goals.size} goal${if (goals.size == 1) "" else "s"} and score the week. ")
+                                        }
+                                        if (chain > 0) append("Keep your $chain-review chain going.")
+                                        else append("Score how you executed and set the next commitments.")
+                                    }
+                                    Notifications.showGoalReview(context, title, text)
+                                }
+                            }
+                            AlarmScheduler.scheduleGoalReview(context, s.goalReviewHour)
+                        }
+                    } finally { pending.finish() }
+                }
+            }
+
             AlarmScheduler.ACTION_AUTO_BACKUP -> {
                 if (app == null) return
                 val pending = goAsync()
@@ -478,6 +516,7 @@ class BootReceiver : BroadcastReceiver() {
                 if (s.eveningReviewEnabled) AlarmScheduler.scheduleEveningReviewSmart(context, app.repository)
                 if (s.morningBriefEnabled) AlarmScheduler.scheduleMorningBrief(context, s.morningBriefHour)
                 if (s.occasionNudge) AlarmScheduler.scheduleOccasionNudge(context, s.occasionNudgeHour)
+                if (s.goalReviewReminder) AlarmScheduler.scheduleGoalReview(context, s.goalReviewHour)
                 if (s.autoBackupEnabled && s.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour, s.autoBackupIntervalDays, s.lastBackupAt, s.autoBackupDow, s.autoBackupDom)
                 if (s.autoTrackPrompt) AlarmScheduler.scheduleTrackPrompts(context, app.repository)
                 AlarmScheduler.rescheduleEventAlerts(context, app.repository)

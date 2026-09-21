@@ -1295,6 +1295,14 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+            // Item 13 — the goal-review nudge. Fires only on the days a review is actually due.
+            Toggle("Goal review reminder", s.goalReviewReminder) { vm.setGoalReviewReminder(it, s.goalReviewHour) }
+            if (s.goalReviewReminder) {
+                TimeSettingRow("Review time", s.goalReviewHour * 60) { m -> vm.setGoalReviewReminder(true, ((m + 30) / 60).coerceIn(0, 23)) }
+                Text("Nudges you only on the days a goal review comes due — your weekly portfolio review, or any goal past its own cadence.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Text("Reminder reliability", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp, bottom = 2.dp))
             // PC6: a live self-check — surface exactly what the OS is set to throttle, in plain words.
             val health = remember(s) { vm.reminderHealth() }

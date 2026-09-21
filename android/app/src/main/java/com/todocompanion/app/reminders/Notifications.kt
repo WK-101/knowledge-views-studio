@@ -181,6 +181,22 @@ object Notifications {
 
     const val OCCASION_LIVE_ID = 424246
     const val OCCASION_NUDGE_ID = 424247
+    const val GOAL_REVIEW_ID = 424248
+
+    /** Item 13 — a gentle nudge on the days a goal review is due; opens the Goals hub straight to the scoreboard. */
+    fun showGoalReview(context: Context, title: String, text: String) {
+        ensureChannel(context)
+        val n = builder(context)
+            .setSmallIcon(android.R.drawable.ic_menu_agenda)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(openAppRoute(context, "open_goals", 918_281))
+            .build()
+        post(context, GOAL_REVIEW_ID, n)
+    }
 
     /** #9 — an ongoing, low-key notification pinning the single most imminent occasion. Posted on demand
      *  (app open / occasion saved), never by a background worker, so it needs no new permission. An empty

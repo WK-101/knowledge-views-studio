@@ -3248,6 +3248,12 @@ class AppViewModel internal constructor(
         if (enabled) com.todocompanion.app.reminders.AlarmScheduler.scheduleMorningBrief(appCtx, hour.coerceIn(0, 23))
         else com.todocompanion.app.reminders.AlarmScheduler.cancelMorningBrief(appCtx)
     }
+    /** Item 13 — the goal-review nudge: fires only on the days a review is actually due (portfolio or per-goal cadence). */
+    fun setGoalReviewReminder(enabled: Boolean, hour: Int) = viewModelScope.launch {
+        repo.saveSettings(settings.value.copy(goalReviewReminder = enabled, goalReviewHour = hour.coerceIn(0, 23)))
+        if (enabled) com.todocompanion.app.reminders.AlarmScheduler.scheduleGoalReview(appCtx, hour.coerceIn(0, 23))
+        else com.todocompanion.app.reminders.AlarmScheduler.cancelGoalReview(appCtx)
+    }
     /** The full in-app brief — richer than the notification: next action + forecast + one insight. */
     fun morningBriefLines(): List<String> {
         val out = ArrayList<String>()

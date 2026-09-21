@@ -32,6 +32,7 @@ object AlarmScheduler {
     const val ACTION_MORNING = "com.todocompanion.app.action.MORNING"
     const val ACTION_EVENT_ALERT = "com.todocompanion.app.action.EVENT_ALERT"
     const val ACTION_OCCASION_NUDGE = "com.todocompanion.app.action.OCCASION_NUDGE"
+    const val ACTION_GOAL_REVIEW = "com.todocompanion.app.action.GOAL_REVIEW"
     const val ACTION_SEALED_LETTER = "com.todocompanion.app.action.SEALED_LETTER"   // Track 3.4
 
     const val EXTRA_TASK_ID = "taskId"
@@ -74,6 +75,7 @@ object AlarmScheduler {
     private const val AUTOBACKUP_REQ = 918_277
     private const val MORNING_REQ = 918_278
     private const val OCCASION_NUDGE_REQ = 918_279
+    private const val GOAL_REVIEW_REQ = 918_280
 
     fun triggerTimeFor(reminder: ReminderEntity, task: TaskEntity, zone: ZoneId = ZoneId.systemDefault()): Long? {
         val offset = (reminder.offsetMin ?: 0) * 60_000L
@@ -271,6 +273,20 @@ object AlarmScheduler {
     fun cancelOccasionNudge(context: Context) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
         am.cancel(broadcast(context, ACTION_OCCASION_NUDGE, OCCASION_NUDGE_REQ, emptyMap()))
+    }
+
+    // ---------- goal review nudge (Item 13) ----------
+    // A once-daily alarm at [hour]; the receiver decides on the day whether a review is actually due (portfolio
+    // cadence or any single goal past its own cadence) and only notifies then, so a quiet week stays silent.
+    fun scheduleGoalReview(context: Context, hour: Int, zone: ZoneId = ZoneId.systemDefault()) {
+        val now = System.currentTimeMillis()
+        var next = LocalDate.now(zone).atTime(LocalTime.of(hour.coerceIn(0, 23), 0)).atZone(zone).toInstant().toEpochMilli()
+        if (next <= now) next += 86_400_000L
+        setAlarm(context, next, broadcast(context, ACTION_GOAL_REVIEW, GOAL_REVIEW_REQ, emptyMap()))
+    }
+    fun cancelGoalReview(context: Context) {
+        val am = context.getSystemService(AlarmManager::class.java) ?: return
+        am.cancel(broadcast(context, ACTION_GOAL_REVIEW, GOAL_REVIEW_REQ, emptyMap()))
     }
 
     // ---------- Track 3.4 · sealed letter reveal notification ----------

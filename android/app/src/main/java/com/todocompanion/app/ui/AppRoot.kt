@@ -676,6 +676,7 @@ fun AppRoot(
                 a == "open_next7" -> { vm.select(ViewRef.Smart(SmartKind.NEXT7)); tab = Tab.TASKS; launchAction.value = null }
                 a == "open_plan" -> { openOverlay(Overlay.PLAN); launchAction.value = null }
                 a == "open_momentum" -> { openOverlay(Overlay.MOMENTUM); launchAction.value = null }
+                a == "open_goals" -> { openOverlay(Overlay.GOALS); launchAction.value = null }
                 a == "open_record" -> { openOverlay(Overlay.DONE); launchAction.value = null }
                 a == "open_dayreview" -> { argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = false, startWeekly = false); launchAction.value = null }
                 // Phase F — the "Close your day" shortcut / evening nudge opens today's review in the close flow.

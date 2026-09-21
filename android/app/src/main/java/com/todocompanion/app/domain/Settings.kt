@@ -186,6 +186,10 @@ data class AppSettings(
     val occasionLiveNotif: Boolean = false,
     val occasionNudge: Boolean = false,
     val occasionNudgeHour: Int = 9,
+    // Goal review nudge — a once-daily check that fires a notification only on the days a goal review is
+    // actually due (portfolio cadence, or any single goal past its own cadence). Off by default, no new perm.
+    val goalReviewReminder: Boolean = false,
+    val goalReviewHour: Int = 9,
     // Whether the user has dismissed the Android reliability onboarding (battery + exact-alarm).
     val reliabilityOnboarded: Boolean = false,
     // Completion sound on checking a task off.
@@ -704,6 +708,8 @@ data class AppSettings(
         Keys.OCCASION_LIVE_NOTIF to occasionLiveNotif.toString(),
         Keys.OCCASION_NUDGE to occasionNudge.toString(),
         Keys.OCCASION_NUDGE_HOUR to occasionNudgeHour.toString(),
+        Keys.GOAL_REVIEW_REMINDER to goalReviewReminder.toString(),
+        Keys.GOAL_REVIEW_HOUR to goalReviewHour.toString(),
         Keys.COMPANION to companionEnabled.toString(),
         Keys.STRENGTH_METER to strengthMeter.toString(),
         Keys.DAYLIGHT_LAT to daylightLatitude.toString(),
@@ -923,6 +929,8 @@ data class AppSettings(
         const val OCCASION_LIVE_NOTIF = "occasion_live_notif"
         const val OCCASION_NUDGE = "occasion_nudge"
         const val OCCASION_NUDGE_HOUR = "occasion_nudge_hour"
+        const val GOAL_REVIEW_REMINDER = "goal_review_reminder"
+        const val GOAL_REVIEW_HOUR = "goal_review_hour"
         const val COMPANION = "companion_enabled"
         const val DAYLIGHT_LAT = "daylight_latitude"
         const val NORTH_STAR = "north_star_targets"
@@ -1168,6 +1176,8 @@ data class AppSettings(
             occasionLiveNotif = m[Keys.OCCASION_LIVE_NOTIF]?.toBooleanStrictOrNull() ?: false,
             occasionNudge = m[Keys.OCCASION_NUDGE]?.toBooleanStrictOrNull() ?: false,
             occasionNudgeHour = m[Keys.OCCASION_NUDGE_HOUR]?.toIntOrNull()?.coerceIn(0, 23) ?: 9,
+            goalReviewReminder = m[Keys.GOAL_REVIEW_REMINDER]?.toBooleanStrictOrNull() ?: false,
+            goalReviewHour = m[Keys.GOAL_REVIEW_HOUR]?.toIntOrNull()?.coerceIn(0, 23) ?: 9,
             companionEnabled = m[Keys.COMPANION]?.toBooleanStrictOrNull() ?: false,
             strengthMeter = m[Keys.STRENGTH_METER]?.toBooleanStrictOrNull() ?: false,
             daylightLatitude = m[Keys.DAYLIGHT_LAT]?.toDoubleOrNull() ?: 999.0,

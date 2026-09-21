@@ -839,6 +839,15 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     fun observeGoalReviews() = goalsRoutines.observeGoalReviews()
     suspend fun goalsFromTableOnce() = goalsRoutines.goalsFromTableOnce()
     suspend fun goalReviewsFromTableOnce() = goalsRoutines.goalReviewsFromTableOnce()
+    /** Item 13 — the active workspace's goals as domain objects (for the goal-review reminder). */
+    suspend fun wsGoalsOnce(): List<com.todocompanion.app.domain.Goal> {
+        val ws = activeWs()
+        return goalsFromTableOnce().map { it.toDomain() }
+            .filter { it.workspaceId.ifBlank { com.todocompanion.app.data.entity.WorkspaceEntity.DEFAULT_ID } == ws }
+    }
+    /** Item 13 — every goal review as a domain object (portfolio reviews are workspace-agnostic). */
+    suspend fun goalReviewsOnce(): List<com.todocompanion.app.domain.GoalReview> =
+        goalReviewsFromTableOnce().map { it.toDomain() }
     fun observeRoutines() = goalsRoutines.observeRoutines()
     fun observeRoutineRuns() = goalsRoutines.observeRoutineRuns()
     suspend fun routinesOnce() = goalsRoutines.routinesOnce()
