@@ -808,51 +808,26 @@ class AppViewModel internal constructor(
         repo.saveNoteRevision(n.id, settings.value.notesMaxRevisions)
     }
 
-    /** Wave 2 · Privacy Dial — toggle auto-vault-on-close for a whole notebook. */
-    fun setNotebookAutoVault(notebookId: String, on: Boolean) = viewModelScope.launch {
-        notebooks.value.firstOrNull { it.id == notebookId }?.let { repo.upsertNotebook(it.copy(autoVault = on)) }
-    }
-    fun saveNotebook(id: String?, name: String, icon: String?, colorArgb: Long?) = viewModelScope.launch {
-        val existing = id?.let { nid -> notebooks.value.firstOrNull { it.id == nid } }
-        repo.upsertNotebook(
-            (existing ?: com.todocompanion.app.data.entity.NotebookEntity(id = "", name = name, workspaceId = activeWorkspace()))
-                .copy(name = name.trim().ifBlank { "Notebook" }, icon = icon, colorArgb = colorArgb)
-        )
-    }
-    fun deleteNotebook(id: String) = viewModelScope.launch { repo.deleteNotebook(id) }
-    /** Create a notebook and hand back its new id (so the caller can assign the current note to it). */
-    fun createNotebook(name: String, icon: String? = null, onCreated: (String) -> Unit = {}) = viewModelScope.launch {
-        val id = repo.upsertNotebook(
-            com.todocompanion.app.data.entity.NotebookEntity(
-                id = "", name = name.trim().ifBlank { "Notebook" }, icon = icon, workspaceId = activeWorkspace(),
-            )
-        )
-        onCreated(id)
-    }
-
-    fun setNoteDefaultView(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(noteDefaultView = v)) }
-    fun setNotesViewMode(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesViewMode = v)) }
-    // Custom note templates (user-created) — stored as JSON in settings; sit beside the built-in starters.
-    fun saveNoteTemplate(name: String, emoji: String, body: String) = viewModelScope.launch {
-        val list = com.todocompanion.app.domain.NoteTemplates.parseCustom(settings.value.notesTemplatesJson) +
-            com.todocompanion.app.domain.NoteTemplates.newCustom(name, emoji, body)
-        repo.saveSettings(settings.value.copy(notesTemplatesJson = com.todocompanion.app.domain.NoteTemplates.encodeCustom(list)))
-    }
-    fun deleteNoteTemplate(id: String) = viewModelScope.launch {
-        val list = com.todocompanion.app.domain.NoteTemplates.parseCustom(settings.value.notesTemplatesJson).filterNot { it.id == id }
-        repo.saveSettings(settings.value.copy(notesTemplatesJson = com.todocompanion.app.domain.NoteTemplates.encodeCustom(list)))
-    }
-    fun setNotesSort(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesSort = v)) }
-    fun setNotesNotebookMode(mode: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesNotebookMode = mode)) }
-    fun setPeriodicRecapEmbed(v: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(periodicRecapEmbed = v)) }
-    // Wave Q — the reading experience: live-styling, reading theme, and typography setters.
-    fun setNotesLiveStyle(v: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesLiveStyle = v)) }
-    fun setNotesReadingTheme(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesReadingTheme = v)) }
-    fun setNotesFont(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesFont = v)) }
-    fun setNotesFontScale(v: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesFontScale = v)) }
-    fun setNotesLineHeight(v: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesLineHeight = v)) }
-    fun setNotesMeasure(v: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesMeasure = v)) }
-    fun setNotesFocusMode(v: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(notesFocusMode = v)) }
+    // Notebooks + the notes-settings one-liners live on NotesViewModel now (Phase 3, Stage 4b). Thin
+    // forwarding shims keep the ~30 notebook/settings call sites across the screens working unchanged.
+    fun setNotebookAutoVault(notebookId: String, on: Boolean) = notesVm.setNotebookAutoVault(notebookId, on)
+    fun saveNotebook(id: String?, name: String, icon: String?, colorArgb: Long?) = notesVm.saveNotebook(id, name, icon, colorArgb)
+    fun deleteNotebook(id: String) = notesVm.deleteNotebook(id)
+    fun createNotebook(name: String, icon: String? = null, onCreated: (String) -> Unit = {}) = notesVm.createNotebook(name, icon, onCreated)
+    fun setNoteDefaultView(v: String) = notesVm.setNoteDefaultView(v)
+    fun setNotesViewMode(v: String) = notesVm.setNotesViewMode(v)
+    fun saveNoteTemplate(name: String, emoji: String, body: String) = notesVm.saveNoteTemplate(name, emoji, body)
+    fun deleteNoteTemplate(id: String) = notesVm.deleteNoteTemplate(id)
+    fun setNotesSort(v: String) = notesVm.setNotesSort(v)
+    fun setNotesNotebookMode(mode: String) = notesVm.setNotesNotebookMode(mode)
+    fun setPeriodicRecapEmbed(v: Boolean) = notesVm.setPeriodicRecapEmbed(v)
+    fun setNotesLiveStyle(v: Boolean) = notesVm.setNotesLiveStyle(v)
+    fun setNotesReadingTheme(v: String) = notesVm.setNotesReadingTheme(v)
+    fun setNotesFont(v: String) = notesVm.setNotesFont(v)
+    fun setNotesFontScale(v: Int) = notesVm.setNotesFontScale(v)
+    fun setNotesLineHeight(v: String) = notesVm.setNotesLineHeight(v)
+    fun setNotesMeasure(v: Boolean) = notesVm.setNotesMeasure(v)
+    fun setNotesFocusMode(v: Boolean) = notesVm.setNotesFocusMode(v)
 
     /** Note-search results (ids), driven by [searchNotes]; empty when the query is blank. */
     val noteSearchIds = MutableStateFlow<List<String>>(emptyList())

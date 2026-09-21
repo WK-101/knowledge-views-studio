@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * Phase 3, Stage 4 — the dedicated home for the Notes surface, lifted out of the 6.6k-line [AppViewModel]
@@ -30,11 +31,13 @@ import kotlinx.coroutines.flow.stateIn
 class NotesViewModel(
     private val app: AppViewModel,
     private val scope: CoroutineScope,
-    repo: AppRepository,
+    private val repo: AppRepository,
 ) {
     // Re-declared locally, exactly as TimeTrackingViewModel does (same combine + WhileSubscribed + Default),
     // so this collaborator owns its scoping instead of reaching into AppViewModel's private helpers.
     private val activeWs: Flow<String> = app.settings.map { it.activeWorkspaceId }
+    /** The active workspace id, read synchronously — used to STAMP new rows (mirrors AppViewModel's helper). */
+    private fun activeWorkspace(): String = app.settings.value.activeWorkspaceId
     private fun <T> Flow<T>.state(initial: T): StateFlow<T> =
         flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), initial)
     private fun <T> Flow<List<T>>.scopedBy(wsOf: (T) -> String): StateFlow<List<T>> =
@@ -57,4 +60,52 @@ class NotesViewModel(
     val noteContextRefs: StateFlow<List<com.todocompanion.app.data.entity.NoteContextCrossRef>> =
         repo.observeNoteContextCrossRefs().state(emptyList())
     val smartViews = repo.observeSmartViews().scopedBy { it.workspaceId }
+
+    // ── Notebooks — the optional dedicated notebook tree (Stage 4b) ──
+    /** Wave 2 · Privacy Dial — toggle auto-vault-on-close for a whole notebook. */
+    fun setNotebookAutoVault(notebookId: String, on: Boolean) = scope.launch {
+        notebooks.value.firstOrNull { it.id == notebookId }?.let { repo.upsertNotebook(it.copy(autoVault = on)) }
+    }
+    fun saveNotebook(id: String?, name: String, icon: String?, colorArgb: Long?) = scope.launch {
+        val existing = id?.let { nid -> notebooks.value.firstOrNull { it.id == nid } }
+        repo.upsertNotebook(
+            (existing ?: com.todocompanion.app.data.entity.NotebookEntity(id = "", name = name, workspaceId = activeWorkspace()))
+                .copy(name = name.trim().ifBlank { "Notebook" }, icon = icon, colorArgb = colorArgb)
+        )
+    }
+    fun deleteNotebook(id: String) = scope.launch { repo.deleteNotebook(id) }
+    /** Create a notebook and hand back its new id (so the caller can assign the current note to it). */
+    fun createNotebook(name: String, icon: String? = null, onCreated: (String) -> Unit = {}) = scope.launch {
+        val id = repo.upsertNotebook(
+            com.todocompanion.app.data.entity.NotebookEntity(
+                id = "", name = name.trim().ifBlank { "Notebook" }, icon = icon, workspaceId = activeWorkspace(),
+            )
+        )
+        onCreated(id)
+    }
+
+    // ── Notes settings — all pure repo.saveSettings(app.settings.value.copy(...)) (Stage 4b) ──
+    fun setNoteDefaultView(v: String) = scope.launch { repo.saveSettings(app.settings.value.copy(noteDefaultView = v)) }
+    fun setNotesViewMode(v: String) = scope.launch { repo.saveSettings(app.settings.value.copy(notesViewMode = v)) }
+    // Custom note templates (user-created) — stored as JSON in settings; sit beside the built-in starters.
+    fun saveNoteTemplate(name: String, emoji: String, body: String) = scope.launch {
+        val list = com.todocompanion.app.domain.NoteTemplates.parseCustom(app.settings.value.notesTemplatesJson) +
+            com.todocompanion.app.domain.NoteTemplates.newCustom(name, emoji, body)
+        repo.saveSettings(app.settings.value.copy(notesTemplatesJson = com.todocompanion.app.domain.NoteTemplates.encodeCustom(list)))
+    }
+    fun deleteNoteTemplate(id: String) = scope.launch {
+        val list = com.todocompanion.app.domain.NoteTemplates.parseCustom(app.settings.value.notesTemplatesJson).filterNot { it.id == id }
+        repo.saveSettings(app.settings.value.copy(notesTemplatesJson = com.todocompanion.app.domain.NoteTemplates.encodeCustom(list)))
+    }
+    fun setNotesSort(v: String) = scope.launch { repo.saveSettings(app.settings.value.copy(notesSort = v)) }
+    fun setNotesNotebookMode(mode: String) = scope.launch { repo.saveSettings(app.settings.value.copy(notesNotebookMode = mode)) }
+    fun setPeriodicRecapEmbed(v: Boolean) = scope.launch { repo.saveSettings(app.settings.value.copy(periodicRecapEmbed = v)) }
+    // Wave Q — the reading experience: live-styling, reading theme, and typography setters.
+    fun setNotesLiveStyle(v: Boolean) = scope.launch { repo.saveSettings(app.settings.value.copy(notesLiveStyle = v)) }
+    fun setNotesReadingTheme(v: String) = scope.launch { repo.saveSettings(app.settings.value.copy(notesReadingTheme = v)) }
+    fun setNotesFont(v: String) = scope.launch { repo.saveSettings(app.settings.value.copy(notesFont = v)) }
+    fun setNotesFontScale(v: Int) = scope.launch { repo.saveSettings(app.settings.value.copy(notesFontScale = v)) }
+    fun setNotesLineHeight(v: String) = scope.launch { repo.saveSettings(app.settings.value.copy(notesLineHeight = v)) }
+    fun setNotesMeasure(v: Boolean) = scope.launch { repo.saveSettings(app.settings.value.copy(notesMeasure = v)) }
+    fun setNotesFocusMode(v: Boolean) = scope.launch { repo.saveSettings(app.settings.value.copy(notesFocusMode = v)) }
 }
