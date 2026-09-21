@@ -3675,135 +3675,30 @@ class AppViewModel internal constructor(
     data class HabitShine(val name: String, val emoji: String?, val phrase: String, val colorArgb: Long?)
     val habitShine get() = habitsVm.habitShine
 
-    // ── R33 · habit-builder actions ─────────────────────────────────────────────────────────────
-    /** F9 — spend a streak-freeze token to protect a specific missed day (logged as a neutral skip). */
-    fun useFreeze(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long) = viewModelScope.launch {
-        if (h.freezeTokens <= 0) { toast("No streak freezes left — earn one with an overachieving day."); return@launch }
-        repo.setDay(h.id, epochDay, 0, "skip", "❄ streak freeze")
-        repo.upsertHabit(h.copy(freezeTokens = h.freezeTokens - 1))
-        toast("Streak protected ❄")
-    }
-    /** F12 — tap a daily pledge on a quit habit (a tiny recommitment ritual). */
-    fun pledgeToday(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
-        val today = java.time.LocalDate.now(zone).toEpochDay()
-        repo.upsertHabit(h.copy(lastPledgeDay = today))
-        toast("Pledged for today. One day at a time.")
-    }
-    /** F12 — (re)start the clean-time clock for a quit habit from now. */
-    fun startQuitClock(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
-        repo.upsertHabit(h.copy(quitSinceMillis = System.currentTimeMillis()))
-        toast("Clean-time started. Day one.")
-    }
-    /** F13 / LS10 — log an urge/craving after surfing it (or slipping), with optional HALT state and how
-     *  long the urge lasted (the duration curve). A slip also records a relapse day. */
-    fun logCraving(h: com.todocompanion.app.data.entity.HabitEntity, intensity: Int, trigger: String, surfed: Boolean, halt: String = "", durationSec: Int = 0) = viewModelScope.launch {
-        val now = System.currentTimeMillis()
-        val d = java.time.Instant.ofEpochMilli(now).atZone(zone)
-        repo.upsertCraving(com.todocompanion.app.data.entity.CravingEventEntity(
-            id = java.util.UUID.randomUUID().toString(), habitId = h.id, atMillis = now,
-            epochDay = d.toLocalDate().toEpochDay(), minuteOfDay = d.hour * 60 + d.minute,
-            intensity = intensity.coerceIn(1, 5), trigger = trigger.trim(), surfed = surfed,
-            halt = halt, durationSec = durationSec.coerceAtLeast(0), workspaceId = activeWorkspace(),
-        ))
-        if (!surfed) logSlip(h, trigger.ifBlank { "urge" })
-        toast(if (surfed) "You rode it out 🌊 Nicely done." else "Logged. A slip isn't a relapse — back on it.")
-    }
-    fun deleteCraving(id: String) = viewModelScope.launch { repo.deleteCraving(id) }
-    /** F16 — start a guided journey: create its habits with staggered start dates so each unlocks on its day. */
-    fun startJourney(j: com.todocompanion.app.domain.habit.HabitJourneys.Journey) = viewModelScope.launch {
-        if (repo.getHabitsOnce().any { it.journeyKey == j.key && !it.archived }) { toast("You're already on “${j.name}”."); return@launch }
-        val today = java.time.LocalDate.now(zone)
-        var order = (repo.getHabitsOnce().maxOfOrNull { it.sortOrder } ?: 0.0)
-        j.steps.forEach { s ->
-            order += 1.0
-            val start = today.plusDays(s.dayOffset.toLong()).atStartOfDay(zone).toInstant().toEpochMilli()
-            repo.upsertHabit(com.todocompanion.app.data.entity.HabitEntity(
-                id = java.util.UUID.randomUUID().toString(), name = s.name, emoji = s.emoji,
-                targetPerDay = s.target.coerceAtLeast(1), unit = s.unit, createdAt = System.currentTimeMillis(),
-                startDate = start, sortOrder = order, description = s.why, journeyKey = j.key,
-                workspaceId = settings.value.activeWorkspaceId,
-            ))
-        }
-        toast("Started “${j.name}” — step one is ready today.")
-        refreshHabitWidgets()
-    }
-
-    // ── R34 · life-systems actions ────────────────────────────────────────────────────────────────
-    fun setChronotype(i: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(chronotype = i.coerceIn(0, 2))) }
-    fun setCalmMode(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(calmMode = on)) }
-    fun addReward(text: String) = viewModelScope.launch {
-        val t = text.trim(); if (t.isBlank()) return@launch
-        if (t !in settings.value.rewardMenu) repo.saveSettings(settings.value.copy(rewardMenu = settings.value.rewardMenu + t))
-    }
-    fun removeReward(text: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(rewardMenu = settings.value.rewardMenu - text)) }
-
-    // LS5 values → systems → habits
-    fun saveValue(id: String?, name: String, emoji: String?, colorArgb: Long?, statement: String) = viewModelScope.launch {
-        val existing = id?.let { vid -> coreValues.value.firstOrNull { it.id == vid } }
-        val order = existing?.orderIndex ?: ((coreValues.value.maxOfOrNull { it.orderIndex } ?: 0) + 1)
-        repo.upsertCoreValue(
-            (existing ?: com.todocompanion.app.data.entity.CoreValueEntity(id = java.util.UUID.randomUUID().toString(), name = name, orderIndex = order, createdAt = System.currentTimeMillis(), workspaceId = activeWorkspace()))
-                .copy(name = name.trim().ifBlank { "Value" }, emoji = emoji, colorArgb = colorArgb, statement = statement.trim())
-        )
-    }
-    fun deleteValue(id: String) = viewModelScope.launch {
-        repo.deleteCoreValue(id)
-        // Detach any habits pointing at it, so no dangling reference remains.
-        repo.getHabitsOnce().filter { it.valueId == id }.forEach { repo.upsertHabit(it.copy(valueId = null)) }
-    }
-    fun assignHabitValue(h: com.todocompanion.app.data.entity.HabitEntity, valueId: String?) = viewModelScope.launch { repo.upsertHabit(h.copy(valueId = valueId)) }
-
-    // LS · habit scorecard
-    fun addScorecardItem(text: String, sign: Int) = viewModelScope.launch {
-        val t = text.trim(); if (t.isBlank()) return@launch
-        val order = (scorecardItems.value.maxOfOrNull { it.orderIndex } ?: 0) + 1
-        repo.upsertScorecardItem(com.todocompanion.app.data.entity.ScorecardItemEntity(java.util.UUID.randomUUID().toString(), t, sign.coerceIn(-1, 1), order, System.currentTimeMillis(), workspaceId = activeWorkspace()))
-    }
-    fun setScorecardSign(item: com.todocompanion.app.data.entity.ScorecardItemEntity, sign: Int) = viewModelScope.launch { repo.upsertScorecardItem(item.copy(sign = sign.coerceIn(-1, 1))) }
-    fun deleteScorecardItem(id: String) = viewModelScope.launch { repo.deleteScorecardItem(id) }
-    /** Turn a scorecard behaviour into a habit: a "+" becomes one to build, a "−" one to break. */
-    fun scorecardToHabit(item: com.todocompanion.app.data.entity.ScorecardItemEntity) = viewModelScope.launch {
-        if (item.sign == 0) { toast("Tag it good (+) or bad (−) first."); return@launch }
-        val order = (repo.getHabitsOnce().maxOfOrNull { it.sortOrder } ?: 0.0) + 1
-        repo.upsertHabit(com.todocompanion.app.data.entity.HabitEntity(
-            id = java.util.UUID.randomUUID().toString(), name = item.text.trim(),
-            habitType = if (item.sign > 0) "build" else "break",
-            targetComparison = if (item.sign > 0) "atleast" else "atmost",
-            targetPerDay = if (item.sign > 0) 1 else 0, sortOrder = order,
-            createdAt = System.currentTimeMillis(), workspaceId = settings.value.activeWorkspaceId,
-        ))
-        toast(if (item.sign > 0) "Added “${item.text}” as a habit to build." else "Added “${item.text}” as a habit to break.")
-        refreshHabitWidgets()
-    }
-
-    // LS7 commitment contract + witness sign-off
-    fun addWitness(h: com.todocompanion.app.data.entity.HabitEntity, milestoneLabel: String, note: String) = viewModelScope.launch {
-        val ref = h.refereeName.trim(); if (ref.isBlank()) { toast("Name a referee in the habit's editor first."); return@launch }
-        repo.upsertWitness(com.todocompanion.app.data.entity.WitnessEventEntity(
-            java.util.UUID.randomUUID().toString(), h.id, ref, milestoneLabel.trim().ifBlank { "Milestone" }, System.currentTimeMillis(), note.trim(), workspaceId = activeWorkspace()))
-        toast("$ref witnessed it ✍️")
-    }
-    fun deleteWitness(id: String) = viewModelScope.launch { repo.deleteWitness(id) }
-
-    // LS7 self-forfeit + akrasia horizon
-    /** A derail happened — escalate the forfeit level (each repeat raises the stake). */
-    fun escalateForfeit(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
-        repo.upsertHabit(h.copy(forfeitLevel = h.forfeitLevel + 1))
-        toast("Forfeit owed" + (h.forfeitText.takeIf { it.isNotBlank() }?.let { ": $it" } ?: "") + ". Level ${h.forfeitLevel + 1}.")
-    }
-    /** Queue a "make it easier" change — it only takes effect after a one-week akrasia horizon. */
-    fun queueEase(h: com.todocompanion.app.data.entity.HabitEntity, newTarget: Int) = viewModelScope.launch {
-        val applyAt = System.currentTimeMillis() + 7L * 24 * 3600 * 1000
-        repo.upsertHabit(h.copy(pendingEaseMillis = applyAt, pendingEaseTarget = newTarget.coerceAtLeast(0)))
-        toast("Change queued — it applies in 7 days. No easing in the heat of the moment.")
-    }
-    fun cancelEase(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch { repo.upsertHabit(h.copy(pendingEaseMillis = 0, pendingEaseTarget = 0)) }
-    /** Apply a queued easing whose horizon has passed (called when the detail screen opens). */
-    fun applyPendingEaseIfDue(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
-        if (h.pendingEaseMillis in 1..System.currentTimeMillis()) {
-            repo.upsertHabit(h.copy(targetPerDay = h.pendingEaseTarget.coerceAtLeast(if (h.habitType == "break") 0 else 1), pendingEaseMillis = 0, pendingEaseTarget = 0))
-        }
-    }
+    // ── R33/R34 habit-builder + life-systems coach actions live on HabitsViewModel now (Stage 5-E1) ──
+    fun useFreeze(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long) = habitsVm.useFreeze(h, epochDay)
+    fun pledgeToday(h: com.todocompanion.app.data.entity.HabitEntity) = habitsVm.pledgeToday(h)
+    fun startQuitClock(h: com.todocompanion.app.data.entity.HabitEntity) = habitsVm.startQuitClock(h)
+    fun logCraving(h: com.todocompanion.app.data.entity.HabitEntity, intensity: Int, trigger: String, surfed: Boolean, halt: String = "", durationSec: Int = 0) = habitsVm.logCraving(h, intensity, trigger, surfed, halt, durationSec)
+    fun deleteCraving(id: String) = habitsVm.deleteCraving(id)
+    fun startJourney(j: com.todocompanion.app.domain.habit.HabitJourneys.Journey) = habitsVm.startJourney(j)
+    fun setChronotype(i: Int) = habitsVm.setChronotype(i)
+    fun setCalmMode(on: Boolean) = habitsVm.setCalmMode(on)
+    fun addReward(text: String) = habitsVm.addReward(text)
+    fun removeReward(text: String) = habitsVm.removeReward(text)
+    fun saveValue(id: String?, name: String, emoji: String?, colorArgb: Long?, statement: String) = habitsVm.saveValue(id, name, emoji, colorArgb, statement)
+    fun deleteValue(id: String) = habitsVm.deleteValue(id)
+    fun assignHabitValue(h: com.todocompanion.app.data.entity.HabitEntity, valueId: String?) = habitsVm.assignHabitValue(h, valueId)
+    fun addScorecardItem(text: String, sign: Int) = habitsVm.addScorecardItem(text, sign)
+    fun setScorecardSign(item: com.todocompanion.app.data.entity.ScorecardItemEntity, sign: Int) = habitsVm.setScorecardSign(item, sign)
+    fun deleteScorecardItem(id: String) = habitsVm.deleteScorecardItem(id)
+    fun scorecardToHabit(item: com.todocompanion.app.data.entity.ScorecardItemEntity) = habitsVm.scorecardToHabit(item)
+    fun addWitness(h: com.todocompanion.app.data.entity.HabitEntity, milestoneLabel: String, note: String) = habitsVm.addWitness(h, milestoneLabel, note)
+    fun deleteWitness(id: String) = habitsVm.deleteWitness(id)
+    fun escalateForfeit(h: com.todocompanion.app.data.entity.HabitEntity) = habitsVm.escalateForfeit(h)
+    fun queueEase(h: com.todocompanion.app.data.entity.HabitEntity, newTarget: Int) = habitsVm.queueEase(h, newTarget)
+    fun cancelEase(h: com.todocompanion.app.data.entity.HabitEntity) = habitsVm.cancelEase(h)
+    fun applyPendingEaseIfDue(h: com.todocompanion.app.data.entity.HabitEntity) = habitsVm.applyPendingEaseIfDue(h)
 
     // LS2 context capture at check-in — lives on HabitsViewModel now (Stage 5-D).
     fun setCheckinContext(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, energy: Int, mood: Int, place: String) = habitsVm.setCheckinContext(h, epochDay, energy, mood, place)
