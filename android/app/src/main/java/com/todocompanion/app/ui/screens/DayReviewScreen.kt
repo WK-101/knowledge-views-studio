@@ -54,7 +54,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -184,16 +184,16 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     // close-the-day screen; every other period rolls the reviewed span up into read-only aggregate cards.
     var mode by remember { mutableStateOf(PeriodRange.DAY) }
 
-    val tasks by vm.tasks.collectAsState()
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val timeEntries by vm.timeVm.timeEntries.collectAsState()
-    val activities by vm.timeVm.timeActivities.collectAsState()
-    val events by vm.events.collectAsState()
-    val dayLogs by vm.dayLogs.collectAsState()
-    val settings by vm.settings.collectAsState()
-    val coreValues by vm.coreValues.collectAsState()
-    val sealedNotes by vm.sealedNotes.collectAsState()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val timeEntries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
+    val activities by vm.timeVm.timeActivities.collectAsStateWithLifecycle()
+    val events by vm.events.collectAsStateWithLifecycle()
+    val dayLogs by vm.dayLogs.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val coreValues by vm.coreValues.collectAsStateWithLifecycle()
+    val sealedNotes by vm.sealedNotes.collectAsStateWithLifecycle()
 
     val date = LocalDate.ofEpochDay(day)
     // Surfaced from the drawer's "Weekly review": land straight in the guided weekly ritual for the shown
@@ -280,7 +280,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
     // Per-workspace: the align picker and every rollup below see only the active workspace's goals
     // (goals are workspace-scoped, like the day log itself). Keyed on the active workspace too so a
     // switch re-resolves. Ids are unique, so resolving a recorded alignment stays correct.
-    val goals = vm.goalsState.collectAsState().value   // W3 — Room-backed, already workspace-scoped in the VM
+    val goals = vm.goalsState.collectAsStateWithLifecycle().value   // W3 — Room-backed, already workspace-scoped in the VM
     val topValues = remember(coreValues) { coreValues.sortedBy { it.orderIndex }.take(TOP_VALUES) }
     val alignment = remember(bookend?.alignmentJson) { DayAlignments.parse(bookend?.alignmentJson ?: "") }
     val movedGoals = remember(goals, alignment) { goals.filter { it.id in alignment.movedGoalIds } }

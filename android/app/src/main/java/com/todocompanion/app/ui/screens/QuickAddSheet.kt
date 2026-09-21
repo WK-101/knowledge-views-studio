@@ -17,7 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -134,11 +134,11 @@ fun QuickCapturePanel(vm: AppViewModel, initialText: String = "", onDismiss: () 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasTime: Boolean = false, initialText: String = "", onDismiss: () -> Unit) {
-    val lists by vm.lists.collectAsState()
-    val folders by vm.folders.collectAsState()
-    val tags by vm.tags.collectAsState()
-    val contexts by vm.contexts.collectAsState()
-    val settings by vm.settings.collectAsState()
+    val lists by vm.lists.collectAsStateWithLifecycle()
+    val folders by vm.folders.collectAsStateWithLifecycle()
+    val tags by vm.tags.collectAsStateWithLifecycle()
+    val contexts by vm.contexts.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
 
     // Title is held as a TextFieldValue so we know the caret position (needed for D3 backspace-clears-chip).
     // `text` is the read alias the rest of the body uses; setText(...) writes it and parks the caret at end.
@@ -164,7 +164,7 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
     // Wave B (F3) — the capture reminder's anchor (due/start/deadline) and optional place, set in the sheet.
     var reminderAnchor by remember { mutableStateOf("due") }
     var reminderPlace by remember { mutableStateOf<String?>(null) }
-    val templates by vm.templates.collectAsState()
+    val templates by vm.templates.collectAsStateWithLifecycle()
 
     var showDue by remember { mutableStateOf(false) }
     var showPrio by remember { mutableStateOf(false) }
@@ -356,7 +356,7 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
         }
 
         // Destination cue + (when set) the chosen date / recurrence — one calm, light line.
-        val destView by vm.currentView.collectAsState()
+        val destView by vm.currentView.collectAsStateWithLifecycle()
         val destText = when {
             folderId != null -> "📁 " + (folders.firstOrNull { it.id == folderId }?.name ?: "Folder")
             listId != null -> lists.firstOrNull { it.id == listId }?.name ?: "List"

@@ -41,7 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,10 +66,10 @@ import java.time.ZoneId
 @Composable
 fun PlanYourDayScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
-    val tasks by vm.tasks.collectAsState()
-    val lists by vm.lists.collectAsState()
-    val allHabits by vm.habits.collectAsState()
-    val allCheckins by vm.habitCheckins.collectAsState()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val lists by vm.lists.collectAsStateWithLifecycle()
+    val allHabits by vm.habits.collectAsStateWithLifecycle()
+    val allCheckins by vm.habitCheckins.collectAsStateWithLifecycle()
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
     val endToday = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()

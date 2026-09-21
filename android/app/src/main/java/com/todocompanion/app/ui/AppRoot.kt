@@ -106,7 +106,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
@@ -272,9 +272,9 @@ private fun CompactBottomBar(
  *  the single global timer surface (the Time screen no longer duplicates it with an in-screen card). */
 @Composable
 private fun RunningTimerBar(vm: AppViewModel, onOpen: () -> Unit) {
-    val entries by vm.timeVm.timeEntries.collectAsState()
-    val activities by vm.timeVm.timeActivities.collectAsState()
-    val paused by vm.timeVm.pausedTrack.collectAsState()
+    val entries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
+    val activities by vm.timeVm.timeActivities.collectAsStateWithLifecycle()
+    val paused by vm.timeVm.pausedTrack.collectAsStateWithLifecycle()
     // Show EVERY running timer, not just the first — when overlapping timers are enabled each gets its
     // own row with its own live clock and stop button, so several parallel activities are all visible.
     val running = entries.filter { it.running }
@@ -393,7 +393,7 @@ fun AppRoot(
             androidx.compose.ui.platform.LocalContext.current.applicationContext as com.todocompanion.app.App,
         ),
     )
-    val settings by vm.settings.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     // N7 — resolve the 12/24-hour clock app-wide, so any surface's time formatter reads a current value
     // (not just the calendar). Explicit and always up to date; the calendar re-affirms it on its own too.
     com.todocompanion.app.domain.AppClock.use24 = com.todocompanion.app.domain.AppClock.is24(
@@ -534,15 +534,15 @@ fun AppRoot(
         var timelineShowDone by remember { mutableStateOf(false) }
         var timelineMenu by remember { mutableStateOf(false) }
 
-        val currentView by vm.currentView.collectAsState()
-        val lists by vm.lists.collectAsState()
-        val folders by vm.folders.collectAsState()
-        val tags by vm.tags.collectAsState()
-        val contexts by vm.contexts.collectAsState()
-        val flagsList by vm.flags.collectAsState()
-        val filtersList by vm.filters.collectAsState()
-        val outlineMode by vm.outlineMode.collectAsState()
-        val boardModeTransient by vm.boardMode.collectAsState()
+        val currentView by vm.currentView.collectAsStateWithLifecycle()
+        val lists by vm.lists.collectAsStateWithLifecycle()
+        val folders by vm.folders.collectAsStateWithLifecycle()
+        val tags by vm.tags.collectAsStateWithLifecycle()
+        val contexts by vm.contexts.collectAsStateWithLifecycle()
+        val flagsList by vm.flags.collectAsStateWithLifecycle()
+        val filtersList by vm.filters.collectAsStateWithLifecycle()
+        val outlineMode by vm.outlineMode.collectAsStateWithLifecycle()
+        val boardModeTransient by vm.boardMode.collectAsStateWithLifecycle()
         // Per-list layout (A3): a real list remembers its Board/List choice; other views use the
         // transient toggle. The current list id, when the active view is a plain list.
         val currentListId = (currentView as? ViewRef.ListView)?.listId
@@ -568,9 +568,9 @@ fun AppRoot(
             // a launcher/registry hiccup can never take the app down.)
             val notifCtx = LocalContext.current
             val perm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-            val taskReminders by vm.reminders.collectAsState()
-            val habitsForNotif by vm.habits.collectAsState()
-            val eventsForNotif by vm.events.collectAsState()
+            val taskReminders by vm.reminders.collectAsStateWithLifecycle()
+            val habitsForNotif by vm.habits.collectAsStateWithLifecycle()
+            val eventsForNotif by vm.events.collectAsStateWithLifecycle()
             val needsNotif = settings.dailySummaryEnabled || settings.eveningReviewEnabled ||
                 settings.morningBriefEnabled || settings.occasionLiveNotif || settings.occasionNudge ||
                 taskReminders.isNotEmpty() ||
@@ -596,7 +596,7 @@ fun AppRoot(
         }
         // R37 · Port 5 — when "time reminders to my peak" is on, aim the daily brief at the learned
         // receptive hour instead of the fixed time.
-        val receptiveHour by vm.receptiveHour.collectAsState()
+        val receptiveHour by vm.receptiveHour.collectAsStateWithLifecycle()
         LaunchedEffect(settings.dailySummaryEnabled, settings.dailySummaryHour, settings.dailySummaryMinute, settings.receptivityTiming, receptiveHour) {
             if (settings.dailySummaryEnabled) {
                 val hour = if (settings.receptivityTiming && receptiveHour != null) receptiveHour!! else settings.dailySummaryHour
@@ -614,7 +614,7 @@ fun AppRoot(
             if (settings.occasionNudge) AlarmScheduler.scheduleOccasionNudge(context, settings.occasionNudgeHour)
             else AlarmScheduler.cancelOccasionNudge(context)
         }
-        val occasionsForNotif by vm.countdowns.collectAsState()
+        val occasionsForNotif by vm.countdowns.collectAsStateWithLifecycle()
         LaunchedEffect(settings.occasionLiveNotif, occasionsForNotif) { vm.refreshOccasionNotification() }
         // Re-arm the auto-backup alarm on launch and whenever the schedule changes. Must pass the chosen
         // interval (and weekday/day-of-month + last-backup time) — omitting them made every launch fall back
@@ -892,7 +892,7 @@ fun AppRoot(
                             // Hierarchy-preserving output for filter/tag/context views (MLO outline filtering).
                             val canHierarchy = tab == Tab.TASKS && (currentView is ViewRef.FilterView || currentView is ViewRef.TagView || currentView is ViewRef.ContextView)
                             if (canHierarchy && !boardMode) {
-                                val hier by vm.filterHierarchy.collectAsState()
+                                val hier by vm.filterHierarchy.collectAsStateWithLifecycle()
                                 IconButton(onClick = { vm.filterHierarchy.value = !hier }) {
                                     Icon(if (hier) Icons.AutoMirrored.Filled.FormatListBulleted else Icons.Filled.AccountTree, if (hier) "Flat list" else "Show in outline",
                                         tint = if (hier) MaterialTheme.colorScheme.primary else LocalContentColor.current)
@@ -900,7 +900,7 @@ fun AppRoot(
                             }
                             // "Time available" planner — only on the Do-Next list.
                             if (tab == Tab.TASKS && (currentView as? ViewRef.Smart)?.kind == SmartKind.DO_NEXT && !boardMode) {
-                                val avail by vm.timeAvailableMin.collectAsState()
+                                val avail by vm.timeAvailableMin.collectAsStateWithLifecycle()
                                 var timeMenu by remember { mutableStateOf(false) }
                                 Box {
                                     IconButton(onClick = { timeMenu = true }) {
@@ -918,7 +918,7 @@ fun AppRoot(
                                     }
                                 }
                                 // "Energy right now" planner — pairs with time-available on the Do-Next list.
-                                val energy by vm.energyAvailable.collectAsState()
+                                val energy by vm.energyAvailable.collectAsStateWithLifecycle()
                                 var energyMenu by remember { mutableStateOf(false) }
                                 Box {
                                     IconButton(onClick = { energyMenu = true }) {
@@ -947,7 +947,7 @@ fun AppRoot(
                                         Text("Sort by", Modifier.padding(12.dp, 8.dp, 12.dp, 2.dp), style = MaterialTheme.typography.labelSmall)
                                         // R28 #2 — "Completed date" is offered in the Completed / Won't-Do views (sort finished
                                         // work by when it was actually done).
-                                        val curView by vm.currentView.collectAsState()
+                                        val curView by vm.currentView.collectAsStateWithLifecycle()
                                         val doneView = (curView as? com.todocompanion.app.domain.view.ViewRef.Smart)?.kind.let {
                                             it == com.todocompanion.app.domain.view.SmartKind.COMPLETED || it == com.todocompanion.app.domain.view.SmartKind.WONT_DO
                                         }
@@ -1011,7 +1011,7 @@ fun AppRoot(
                 bottomBar = {
                     // While multi-selecting tasks, drop the nav bar entirely so the selection action bar can
                     // sit at the very bottom and cover that space (TickTick-style), rather than stacking above it.
-                    val selecting by vm.selectionActive.collectAsState()
+                    val selecting by vm.selectionActive.collectAsStateWithLifecycle()
                     if (!(selecting && tab == Tab.TASKS)) {
                         // T0: gate tabs by module. A tab shows only if its module is enabled; the primary
                         // module's home tab is always shown (relaxing the old "Tasks always shown"); the rest
@@ -1051,7 +1051,7 @@ fun AppRoot(
                     else -> androidx.compose.material3.FabPosition.End
                 },
                 floatingActionButton = {
-                    val selecting by vm.selectionActive.collectAsState()
+                    val selecting by vm.selectionActive.collectAsStateWithLifecycle()
                     if ((tab == Tab.TASKS || tab == Tab.CALENDAR || tab == Tab.MATRIX) && !(tab == Tab.TASKS && selecting)) {
                         if (tab == Tab.TASKS && currentContainerArchived) {
                             // R-archive — an archived list/folder is read-only reference: capturing a new task
@@ -1247,23 +1247,23 @@ fun AppRoot(
         // from HabitDetail's own onEdit, none of which have AppRoot's local lambdas. A ViewModel-held
         // destination is the correct home for navigation triggered from many places; pulling it into
         // AppRoot-local state would be an architectural regression and would need every call site rewired.
-        val habitDetail by vm.habitDetailId.collectAsState()
+        val habitDetail by vm.habitDetailId.collectAsStateWithLifecycle()
         habitDetail?.let { hid ->
             com.todocompanion.app.ui.screens.HabitDetailScreen(vm, hid,
                 onBack = { vm.habitDetailId.value = null },
                 onEdit = { h -> vm.habitEditor.value = HabitEditRequest(h); vm.habitDetailId.value = null },
                 onOpenNote = { nid -> vm.habitDetailId.value = null; editingNote = nid })
         }
-        val habitEdit by vm.habitEditor.collectAsState()
+        val habitEdit by vm.habitEditor.collectAsStateWithLifecycle()
         habitEdit?.let { req ->
             com.todocompanion.app.ui.screens.HabitEditorScreen(vm, req.habit, onClose = { vm.habitEditor.value = null })
         }
-        val habitTrends by vm.habitTrendsOpen.collectAsState()
+        val habitTrends by vm.habitTrendsOpen.collectAsStateWithLifecycle()
         if (habitTrends) com.todocompanion.app.ui.screens.HabitTrendsScreen(vm, onBack = { vm.habitTrendsOpen.value = false })
-        val habitArchive by vm.habitArchiveOpen.collectAsState()
+        val habitArchive by vm.habitArchiveOpen.collectAsStateWithLifecycle()
         if (habitArchive) com.todocompanion.app.ui.screens.HabitArchiveScreen(vm, onClose = { vm.habitArchiveOpen.value = false })
         // R34 — the Life-Systems hub + its screens (values, scorecard, correlations, reviews, ledger, buddies).
-        val lifeRoute by vm.lifeSystemsRoute.collectAsState()
+        val lifeRoute by vm.lifeSystemsRoute.collectAsStateWithLifecycle()
         lifeRoute?.let { route ->
             com.todocompanion.app.ui.screens.LifeSystemsScreen(vm, route,
                 onBack = { if (route == "hub") vm.lifeSystemsRoute.value = null else vm.lifeSystemsRoute.value = "hub" },
@@ -1465,7 +1465,7 @@ fun AppRoot(
         }
         // T0: one-time "what's your main use?" picker sets the primary module. All modules stay on.
         // R28 #4: wait for real settings to load first, else it flashes for a frame on every launch.
-        val settingsLoaded by vm.settingsLoaded.collectAsState()
+        val settingsLoaded by vm.settingsLoaded.collectAsStateWithLifecycle()
         if (settingsLoaded && !settings.onboardedModules) com.todocompanion.app.ui.screens.ModulePickerDialog(
             // CU2: start with only the chosen modules — the rest stay off until the user wants them.
             onPick = { primary, enabled -> vm.applyModulePreset(primary, enabled - primary) },
@@ -1482,7 +1482,7 @@ fun AppRoot(
             )
         }
         if (templatePicker) {
-            val templates by vm.templates.collectAsState()
+            val templates by vm.templates.collectAsStateWithLifecycle()
             var renaming by remember { mutableStateOf<com.todocompanion.app.data.entity.TemplateEntity?>(null) }
             AlertDialog(
                 onDismissRequest = { templatePicker = false },
@@ -1681,7 +1681,7 @@ fun AppRoot(
                         }
                         // Time-block a tracking activity right here (R19 #1): logs a 30-min entry at this
                         // slot for the chosen activity (drag/edit it afterwards). Time module only.
-                        val timeActs by vm.timeVm.timeActivities.collectAsState()
+                        val timeActs by vm.timeVm.timeActivities.collectAsStateWithLifecycle()
                         val blockActs = if (Modules.isEnabled(settings, Modules.TIME)) timeActs.filter { !it.archived } else emptyList()
                         if (blockActs.isNotEmpty()) {
                             androidx.compose.material3.HorizontalDivider()
@@ -1869,8 +1869,8 @@ private fun appBackgroundBrush(name: String): androidx.compose.ui.graphics.Brush
 /** Faint per-list background image, drawn behind the task list when a list with one is open. */
 @Composable
 private fun ListBackgroundLayer(vm: AppViewModel) {
-    val view by vm.currentView.collectAsState()
-    val lists by vm.lists.collectAsState()
+    val view by vm.currentView.collectAsStateWithLifecycle()
+    val lists by vm.lists.collectAsStateWithLifecycle()
     val listId = (view as? ViewRef.ListView)?.listId ?: return
     val b64 = lists.firstOrNull { it.id == listId }?.backgroundBase64 ?: return
     val img = remember(b64) {
@@ -1891,8 +1891,8 @@ private fun ListBackgroundLayer(vm: AppViewModel) {
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun ViewTabStrip(vm: AppViewModel) {
-    val tabs by vm.viewTabs.collectAsState()
-    val current by vm.currentView.collectAsState()
+    val tabs by vm.viewTabs.collectAsStateWithLifecycle()
+    val current by vm.currentView.collectAsStateWithLifecycle()
     if (tabs.isEmpty()) return
     var menuFor by remember { mutableStateOf<String?>(null) }
     var renaming by remember { mutableStateOf<com.todocompanion.app.domain.view.ViewTab?>(null) }

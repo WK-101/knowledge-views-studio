@@ -89,7 +89,7 @@ import com.todocompanion.app.domain.Modules
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -126,8 +126,8 @@ private val LocalSettingsQuery = androidx.compose.runtime.compositionLocalOf { "
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
-    val s by vm.settings.collectAsState()
-    val flags by vm.flags.collectAsState()
+    val s by vm.settings.collectAsStateWithLifecycle()
+    val flags by vm.flags.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showZone by remember { mutableStateOf(false) }
     var showTime by remember { mutableStateOf(false) }
@@ -162,7 +162,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val notesFolderImportLauncher: () -> Unit = { com.todocompanion.app.util.SystemPicker.openTree(onError = err) { uri -> persist(uri); vm.importNotesFromFolder(uri.toString()) } }
     // Wave N — two-way "living mirror": reconcile the folder with in-app notes (push/pull/conflict).
     val notesFolderSyncLauncher: () -> Unit = { com.todocompanion.app.util.SystemPicker.openTree(onError = err) { uri -> persist(uri); vm.syncNotesFolder(uri.toString()) } }
-    val syncConflicts = vm.noteSyncConflicts.collectAsState().value
+    val syncConflicts = vm.noteSyncConflicts.collectAsStateWithLifecycle().value
     if (syncConflicts.isNotEmpty()) {
         val c = syncConflicts.first()
         AlertDialog(
@@ -284,7 +284,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     // R28 #7 — settings search. The query is provided to every group via a CompositionLocal; a match from
     // the command palette (#5) pre-fills it through vm.settingsSearchQuery.
     var settingsQuery by remember { mutableStateOf("") }
-    val seededQuery by vm.settingsSearchQuery.collectAsState()
+    val seededQuery by vm.settingsSearchQuery.collectAsStateWithLifecycle()
     LaunchedEffect(seededQuery) { if (seededQuery.isNotBlank()) { settingsQuery = seededQuery; vm.settingsSearchQuery.value = "" } }
 
     androidx.compose.runtime.CompositionLocalProvider(LocalSettingsQuery provides settingsQuery.trim()) {
@@ -489,7 +489,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             // SEC-corr — derive the "Track: …" rows from the actual time activities (a live flow), not from
             // the launcher's registered dynamic shortcuts: those are capped at 4 and may be empty until a
             // refresh runs, which is why they weren't showing. This lists EVERY non-archived activity.
-            val allTimeActs by vm.timeVm.timeActivities.collectAsState()
+            val allTimeActs by vm.timeVm.timeActivities.collectAsStateWithLifecycle()
             val trackActs = if (Modules.isEnabled(s, Modules.TIME)) allTimeActs.filter { !it.archived } else emptyList()
             Text("Your launcher's long-press menu only shows the first few. These are all of Kairo's shortcuts — tap “Add to home” to place any one directly on your home screen.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -576,11 +576,11 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Spacer(Modifier.height(14.dp)); Sub("Home shortcut")
             Text("Long-press the first bottom-bar tab to jump straight to this view.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
-            val navLists by vm.lists.collectAsState()
-            val navFolders by vm.folders.collectAsState()
-            val navTags by vm.tags.collectAsState()
-            val navContexts by vm.contexts.collectAsState()
-            val navFilters by vm.filters.collectAsState()
+            val navLists by vm.lists.collectAsStateWithLifecycle()
+            val navFolders by vm.folders.collectAsStateWithLifecycle()
+            val navTags by vm.tags.collectAsStateWithLifecycle()
+            val navContexts by vm.contexts.collectAsStateWithLifecycle()
+            val navFilters by vm.filters.collectAsStateWithLifecycle()
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(
                     "smart:INBOX" to "Inbox", "smart:TODAY" to "Today", "smart:DO_NEXT" to "Do Next",
@@ -769,7 +769,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             // Protected windows — inviolable life-blocks the auto-scheduler treats as walls.
-            val protectedWindows by vm.protectedWindows.collectAsState()
+            val protectedWindows by vm.protectedWindows.collectAsStateWithLifecycle()
             Spacer(Modifier.height(10.dp)); Sub("Protected windows")
             Text("The planner never schedules into these. e.g. family dinner 19:00–20:00.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
@@ -798,8 +798,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             TextButton(onClick = { vm.importHolidayPack(holPack, holYear, holYear + 1) }) { Text("＋ Import $holYear–${holYear + 1}") }
 
             // Context modes — a saved set of calendars to show; the rest hide.
-            val contexts by vm.calContexts.collectAsState()
-            val eCals by vm.eventCalendars.collectAsState()
+            val contexts by vm.calContexts.collectAsStateWithLifecycle()
+            val eCals by vm.eventCalendars.collectAsStateWithLifecycle()
             Spacer(Modifier.height(10.dp)); Sub("Context modes")
             Text("Save the calendars currently shown as a mode (Work / Personal). Activating one hides the rest.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
@@ -816,7 +816,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             TextButton(onClick = { if (ctxName.isNotBlank()) { vm.saveContext(ctxName, eCals.filter { it.visible }.map { it.id }); ctxName = "" } }, enabled = ctxName.isNotBlank()) { Text("Save shown calendars as “${ctxName.ifBlank { "…" }}”") }
 
             // Day routines — created in the Planner; managed here.
-            val routines by vm.dayRoutines.collectAsState()
+            val routines by vm.dayRoutines.collectAsStateWithLifecycle()
             if (routines.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp)); Sub("Day routines")
                 routines.forEach { r ->
@@ -1008,7 +1008,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 if (Modules.isEnabled(s, Modules.TIME)) {
                     HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
                     Sub("Routines")
-                    val activities by vm.timeVm.timeActivities.collectAsState()
+                    val activities by vm.timeVm.timeActivities.collectAsStateWithLifecycle()
                     Text("A routine starts an activity's timer and surfaces its habit group in one tap. Fire it from a home-screen tap, or write its link — todocompanion://routine?name=NAME — to an NFC tag or QR.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
                     val routines = com.todocompanion.app.domain.Routines.parse(s.routinesJson)
@@ -1239,8 +1239,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
             Toggle("Daily summary notification", s.dailySummaryEnabled) { vm.saveSettings(s.copy(dailySummaryEnabled = it)) }
             // W8: per-list/folder mute — a searchable multi-select (R108), like the "Move to" surface.
-            val lists by vm.lists.collectAsState()
-            val muteFolders by vm.folders.collectAsState()
+            val lists by vm.lists.collectAsStateWithLifecycle()
+            val muteFolders by vm.folders.collectAsStateWithLifecycle()
             if (lists.any { !it.archived } || muteFolders.isNotEmpty()) {
                 HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
                 val activeLists = lists.filter { !it.archived }
@@ -1673,8 +1673,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         vm.saveSettings(s.copy(defaultSnoozeMin = m.coerceIn(1, 720))); showSnoozeCustom = false
     }
     if (showMute) MuteTargetsDialog(
-        folders = vm.folders.collectAsState().value,
-        lists = vm.lists.collectAsState().value.filter { !it.archived },
+        folders = vm.folders.collectAsStateWithLifecycle().value,
+        lists = vm.lists.collectAsStateWithLifecycle().value.filter { !it.archived },
         mutedFolders = s.mutedFolders,
         mutedLists = s.mutedLists,
         onToggleFolder = { vm.toggleMutedFolder(it) },

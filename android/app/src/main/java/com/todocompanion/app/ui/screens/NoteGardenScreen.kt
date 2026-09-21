@@ -29,7 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -57,9 +57,9 @@ import com.todocompanion.app.ui.components.KairoScreenScaffold
 @Composable
 fun NoteGardenScreen(vm: AppViewModel, onOpenNote: (String) -> Unit, onClose: () -> Unit) {
     BackHandler(onBack = onClose)
-    val report by vm.noteGarden.collectAsState()
-    val loading by vm.noteGardenLoading.collectAsState()
-    val due by vm.notesDueForReview.collectAsState()
+    val report by vm.noteGarden.collectAsStateWithLifecycle()
+    val loading by vm.noteGardenLoading.collectAsStateWithLifecycle()
+    val due by vm.notesDueForReview.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) { vm.refreshNoteGarden() }
 

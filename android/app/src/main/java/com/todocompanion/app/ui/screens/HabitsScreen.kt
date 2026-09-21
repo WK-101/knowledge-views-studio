@@ -81,7 +81,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -194,22 +194,22 @@ private val HABIT_PRESETS = listOf(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: (String) -> Unit = {}) {
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val appSettings by vm.settings.collectAsState()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val appSettings by vm.settings.collectAsStateWithLifecycle()
     val today = vm.today()
     // View-state now lives in the ViewModel so the app's single top bar drives it (see HabitsHeader);
     // the detail screen and the editor are full-screen overlays rendered by AppRoot.
-    val matrixMode by vm.habitMatrixMode.collectAsState()
-    val density by vm.habitDensity.collectAsState()
-    val batchOpen by vm.habitBatchOpen.collectAsState()
-    val presetOpen by vm.habitPresetOpen.collectAsState()
-    val quickAddOpen by vm.habitQuickAddOpen.collectAsState()
-    val tasks by vm.tasks.collectAsState()
+    val matrixMode by vm.habitMatrixMode.collectAsStateWithLifecycle()
+    val density by vm.habitDensity.collectAsStateWithLifecycle()
+    val batchOpen by vm.habitBatchOpen.collectAsStateWithLifecycle()
+    val presetOpen by vm.habitPresetOpen.collectAsStateWithLifecycle()
+    val quickAddOpen by vm.habitQuickAddOpen.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
     var valueFor by remember { mutableStateOf<HabitEntity?>(null) }
     var skipReasonFor by remember { mutableStateOf<HabitEntity?>(null) }   // R56 skip-with-reason
     // K1/R56: on-device insights over the shared habit/task/calendar store (incl. the habit × meeting-load edge).
-    val calEvents by vm.events.collectAsState()
+    val calEvents by vm.events.collectAsStateWithLifecycle()
     val insights = remember(habits, checkins, tasks, today, calEvents) {
         com.todocompanion.app.domain.habit.HabitInsights.compute(habits, checkins, tasks, today, events = calEvents)
     }
@@ -239,7 +239,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
         if (!perfectDay) celebrated = false
     }
     // N2: a reward-unlock celebration when a habit reaches its self-chosen reward streak.
-    val reward by vm.rewardCelebration.collectAsState()
+    val reward by vm.rewardCelebration.collectAsStateWithLifecycle()
     val rewardCtx = LocalContext.current
     LaunchedEffect(reward) {
         reward?.let { r ->
@@ -254,7 +254,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
     // haptic pulse plus an animated affirmation card the moment a habit is completed. Fogg's finding is
     // that the *emotion* right after the behaviour is what creates the habit — so we make it a felt beat,
     // not a fleeting toast. Calm mode silences it entirely to protect intrinsic motivation.
-    val shine by vm.habitShine.collectAsState()
+    val shine by vm.habitShine.collectAsStateWithLifecycle()
     val shineHaptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     var shineShown by remember { mutableStateOf<AppViewModel.HabitShine?>(null) }
     LaunchedEffect(shine) {
@@ -443,10 +443,10 @@ private fun SkipReasonDialog(habitName: String, onDismiss: () -> Unit, onSkip: (
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HabitsHeader(vm: AppViewModel, onOpenDrawer: () -> Unit) {
-    val matrixMode by vm.habitMatrixMode.collectAsState()
-    val density by vm.habitDensity.collectAsState()
-    val habits by vm.habits.collectAsState()
-    val appSettings by vm.settings.collectAsState()
+    val matrixMode by vm.habitMatrixMode.collectAsStateWithLifecycle()
+    val density by vm.habitDensity.collectAsStateWithLifecycle()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val appSettings by vm.settings.collectAsStateWithLifecycle()
     TopAppBar(
         windowInsets = TopAppBarDefaults.windowInsets,
         expandedHeight = 52.dp,
@@ -912,7 +912,7 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     var contractText by remember { mutableStateOf(existing?.contractText ?: "") }
     var refereeName by remember { mutableStateOf(existing?.refereeName ?: "") }
     var forfeitText by remember { mutableStateOf(existing?.forfeitText ?: "") }
-    val coreValues by vm.coreValues.collectAsState()
+    val coreValues by vm.coreValues.collectAsStateWithLifecycle()
     // R35 third-wave editor fields.
     var frictionSteps by remember { mutableStateOf(existing?.frictionSteps ?: "") }
     var cueToDisrupt by remember { mutableStateOf(existing?.cueToDisrupt ?: "") }
@@ -933,9 +933,9 @@ fun HabitEditorScreen(vm: AppViewModel, existing: HabitEntity?, onClose: () -> U
     ) }
     val ctx = LocalContext.current
     val isBreak = habitType == "break"
-    val allHabits by vm.habits.collectAsState()
-    val timeActivities by vm.timeVm.timeActivities.collectAsState()
-    val editorSettings by vm.settings.collectAsState()
+    val allHabits by vm.habits.collectAsStateWithLifecycle()
+    val timeActivities by vm.timeVm.timeActivities.collectAsStateWithLifecycle()
+    val editorSettings by vm.settings.collectAsStateWithLifecycle()
     val timeOn = com.todocompanion.app.domain.Modules.isEnabled(editorSettings, com.todocompanion.app.domain.Modules.TIME)
     // Habits that consume time — per-habit planning config (rides settings-JSON, keyed by habit id).
     val existingTimeCfg = remember(existing?.id) { HabitTime.cfgFor(editorSettings, existing?.id ?: "") }

@@ -34,7 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -85,11 +85,11 @@ fun SearchScreen(
     onOpenListFolder: (String, Boolean) -> Unit = { _, _ -> },
     onOpenGoal: () -> Unit = {}, onOpenRoutine: () -> Unit = {},
 ) {
-    val tasks by vm.tasks.collectAsState()
-    val habits by vm.habits.collectAsState()
-    val eventsState by vm.events.collectAsState()
-    val occasionsState by vm.countdowns.collectAsState()
-    val notesState by vm.notes.collectAsState()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val eventsState by vm.events.collectAsStateWithLifecycle()
+    val occasionsState by vm.countdowns.collectAsStateWithLifecycle()
+    val notesState by vm.notes.collectAsStateWithLifecycle()
     // R54 — FTS-accelerated for large histories, instant in-memory for small sets (see vm.searchAsync).
     val results by androidx.compose.runtime.produceState(initialValue = emptyList<TaskEntity>(), query, tasks) {
         value = vm.searchAsync(query)
@@ -102,17 +102,17 @@ fun SearchScreen(
     // NOTES — the whole-app search now reaches note titles AND bodies via the on-device note_fts index,
     // so "Search everything" is honest about notes. Driven by vm.searchNotes (async FTS) → noteSearchIds.
     androidx.compose.runtime.LaunchedEffect(query) { vm.searchNotes(query) }
-    val noteIds by vm.noteSearchIds.collectAsState()
+    val noteIds by vm.noteSearchIds.collectAsStateWithLifecycle()
     val noteResults = remember(noteIds, notesState) {
         val byId = notesState.associateBy { it.id }   // active-workspace, non-trashed notes only
         noteIds.mapNotNull { byId[it] }
     }
     // R56 — attachment names are searchable; map taskId → the matched file name for the "📎 …" hint.
     val attachHits = remember(query) { vm.searchAttachmentNames(query).associate { it.taskId to it.fileName } }
-    val lists by vm.lists.collectAsState()
-    val folders by vm.folders.collectAsState()
-    val notebooksState by vm.notebooks.collectAsState()
-    val timeActivitiesState by vm.timeVm.timeActivities.collectAsState()
+    val lists by vm.lists.collectAsStateWithLifecycle()
+    val folders by vm.folders.collectAsStateWithLifecycle()
+    val notebooksState by vm.notebooks.collectAsStateWithLifecycle()
+    val timeActivitiesState by vm.timeVm.timeActivities.collectAsStateWithLifecycle()
     // Whole-app coverage — the remaining findable objects, all shown only under the Everything scope so
     // each typed scope stays a clean single-type list. Goals & routines read the active workspace.
     val activityResults = remember(query, timeActivitiesState) { vm.searchTimeActivities(query) }

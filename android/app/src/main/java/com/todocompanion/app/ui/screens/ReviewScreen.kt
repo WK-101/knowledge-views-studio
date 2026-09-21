@@ -29,7 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,11 +57,11 @@ import java.time.ZoneId
 @Composable
 fun ReviewScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Unit) {
     BackHandler { onBack() }
-    val allTasks by vm.tasks.collectAsState()
+    val allTasks by vm.tasks.collectAsStateWithLifecycle()
     // R27 Done Record — the material for the "Today I did" highlights card.
-    val reviewHabits by vm.habits.collectAsState()
-    val reviewCheckins by vm.habitCheckins.collectAsState()
-    val reviewTimeEntries by vm.timeVm.timeEntries.collectAsState()
+    val reviewHabits by vm.habits.collectAsStateWithLifecycle()
+    val reviewCheckins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val reviewTimeEntries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now()
     val startOfToday = today.atStartOfDay(zone).toInstant().toEpochMilli()
@@ -231,8 +231,8 @@ private fun ReviewSection(
 /** L3: a weekly habit snapshot for the review — today's completion, week's check-ins, the slipping one. */
 @Composable
 private fun HabitsReviewCard(vm: AppViewModel) {
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
     if (habits.isEmpty()) return
     val stats = com.todocompanion.app.domain.habit.HabitStats
     val today = LocalDate.now().toEpochDay()

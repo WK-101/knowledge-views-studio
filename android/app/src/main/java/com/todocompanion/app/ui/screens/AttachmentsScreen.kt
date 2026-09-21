@@ -62,7 +62,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -126,8 +126,8 @@ private fun categoryOf(mime: String, isImage: Boolean): AttCat = when {
 @Composable
 fun AttachmentsScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
-    val all by vm.allAttachments.collectAsState()
-    val tasks by vm.tasks.collectAsState()
+    val all by vm.allAttachments.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
     val titleById = remember(tasks) { tasks.associate { it.id to it.title } }
     val doneIds = remember(tasks) { tasks.filter { it.completed || it.abandoned || it.trashed }.map { it.id }.toSet() }
 

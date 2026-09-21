@@ -31,7 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -79,9 +79,9 @@ private const val MAX_NODES = 220   // cap the simulation so a huge vault stays 
 @Composable
 fun NoteGraphScreen(vm: AppViewModel, onOpenNote: (String) -> Unit, onClose: () -> Unit) {
     BackHandler(onBack = onClose)
-    val notes by vm.notes.collectAsState()
-    val tagRefs by vm.noteTagRefs.collectAsState()
-    val ctxRefs by vm.noteContextRefs.collectAsState()
+    val notes by vm.notes.collectAsStateWithLifecycle()
+    val tagRefs by vm.noteTagRefs.collectAsStateWithLifecycle()
+    val ctxRefs by vm.noteContextRefs.collectAsStateWithLifecycle()
     val links by produceState(initialValue = emptyList<com.todocompanion.app.data.entity.NoteLinkEntity>(), notes) {
         value = runCatching { vm.noteLinksSnapshot() }.getOrDefault(emptyList())
     }

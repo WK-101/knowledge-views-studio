@@ -39,7 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -77,16 +77,16 @@ import java.time.ZoneId
 @Composable
 fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit, onOpenGoals: () -> Unit = {}) {
     BackHandler(onBack = onBack)
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val tasks by vm.tasks.collectAsState()
-    val reliability by vm.taskReliability.collectAsState()
-    val settings by vm.settings.collectAsState()
-    val timeEntries by vm.timeVm.timeEntries.collectAsState()
-    val legacyFocus by vm.focusSessions.collectAsState()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val reliability by vm.taskReliability.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val timeEntries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
+    val legacyFocus by vm.focusSessions.collectAsStateWithLifecycle()
     // Track 1.1 — the felt state over the trailing week, for the "How your week felt" readout and the
     // burnout card's felt line. Reads day logs the same way the Day Review does.
-    val dayLogs by vm.dayLogs.collectAsState()
+    val dayLogs by vm.dayLogs.collectAsStateWithLifecycle()
     // Focus is derived from the one timeline (kind="focus" intervals), so momentum reads the same source
     // as the time reports — never a divergent second statistic.
     val focus = remember(timeEntries, legacyFocus) { vm.focusViews() }

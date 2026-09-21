@@ -17,7 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,7 +37,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun AskNotesDialog(vm: AppViewModel, onOpen: (String) -> Unit, onDismiss: () -> Unit) {
     var q by remember { mutableStateOf("") }
-    val answers by vm.noteAnswers.collectAsState()
+    val answers by vm.noteAnswers.collectAsStateWithLifecycle()
     // Debounced query so we don't re-scan on every keystroke.
     LaunchedEffect(q) { delay(180); vm.askNotes(q) }
 
@@ -86,7 +86,7 @@ fun AskNotesDialog(vm: AppViewModel, onOpen: (String) -> Unit, onDismiss: () -> 
  */
 @Composable
 fun RightNowDialog(vm: AppViewModel, onOpen: (String) -> Unit, onDismiss: () -> Unit) {
-    val notes by vm.notesNow.collectAsState()
+    val notes by vm.notesNow.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.refreshNotesForNow() }
     AlertDialog(
         onDismissRequest = onDismiss,

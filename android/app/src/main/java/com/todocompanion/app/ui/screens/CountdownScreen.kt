@@ -60,7 +60,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -115,7 +115,7 @@ private fun rememberFace(b64: String?) = remember(b64) {
 @Composable
 fun CountdownScreen(vm: AppViewModel, onBack: () -> Unit, initialOpenId: String? = null) {
     BackHandler(onBack = onBack)
-    val items by vm.countdowns.collectAsState()
+    val items by vm.countdowns.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<CountdownEntity?>(null) }
     var detailsFor by remember { mutableStateOf<CountdownEntity?>(null) }   // long-press → per-entry details
     var addOpen by remember { mutableStateOf(false) }
@@ -588,7 +588,7 @@ private fun OccasionEditorSheet(vm: AppViewModel, existing: CountdownEntity?, on
     var letter by remember { mutableStateOf(existing?.sealedLetter ?: "") }
     var sealedUntil by remember { mutableLongStateOf(existing?.sealedUntil ?: 0L) }
     var showSealDate by remember { mutableStateOf(false) }
-    val allOccasions by vm.countdowns.collectAsState()
+    val allOccasions by vm.countdowns.collectAsStateWithLifecycle()
     // Moments (relationship loop / know-them). Persisted immediately on the row; mirrored here so the list
     // in the sheet updates optimistically without re-observing.
     var momentsLocal by remember { mutableStateOf(existing?.let { com.todocompanion.app.domain.Moments.parse(it) } ?: emptyList()) }

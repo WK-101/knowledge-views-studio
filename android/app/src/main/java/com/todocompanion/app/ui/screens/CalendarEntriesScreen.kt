@@ -35,7 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -80,7 +80,7 @@ fun CalendarEntriesSheet(
     onDismiss: () -> Unit,
 ) {
     val zone = ZoneId.systemDefault()
-    val allEvents by vm.events.collectAsState()
+    val allEvents by vm.events.collectAsStateWithLifecycle()
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val calById = remember(calendars) { calendars.associateBy { it.id } }
     val now = System.currentTimeMillis()

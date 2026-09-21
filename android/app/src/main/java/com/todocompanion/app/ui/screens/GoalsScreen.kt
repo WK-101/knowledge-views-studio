@@ -46,7 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -126,11 +126,11 @@ private fun Sparkline(values: List<Int>, modifier: Modifier = Modifier) {
 @Composable
 fun GoalsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenNote: (String) -> Unit = {}) {
     BackHandler(onBack = onBack)
-    val settings by vm.settings.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     // W3 — goals/reviews now come from their Room tables (workspace-scoped in the VM), so collect the flows
     // rather than deriving from settings.goalsJson (which no longer changes).
-    val goals = vm.goalsState.collectAsState().value.filter { !it.archived }
-    val reviews = vm.goalReviewsState.collectAsState().value
+    val goals = vm.goalsState.collectAsStateWithLifecycle().value.filter { !it.archived }
+    val reviews = vm.goalReviewsState.collectAsStateWithLifecycle().value
     val today = goalToday()
 
     var editing by remember { mutableStateOf<Goal?>(null) }
@@ -212,9 +212,9 @@ fun GoalsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenNote: (String) -> Un
 @Composable
 private fun PortfolioHeader(vm: AppViewModel, goals: List<Goal>, reviews: List<com.todocompanion.app.domain.GoalReview>, today: Long, onReview: () -> Unit) {
     // Live-key the portfolio % so a completed task / tracked minute refreshes it (matching GoalRow).
-    val tasks by vm.tasks.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val timeEntries by vm.timeVm.timeEntries.collectAsState()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val timeEntries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
     val overall = remember(goals, tasks, checkins, timeEntries) { if (goals.isEmpty()) 0.0 else goals.map { vm.goalHealth(it).overall }.average() }
     val chain = remember(reviews) { GoalScore.integrityChain(reviews, 7, today, "") }
     val due = remember(reviews) { GoalScore.reviewDue(reviews, 7, today, "") }
@@ -265,9 +265,9 @@ private fun PortfolioHeader(vm: AppViewModel, goals: List<Goal>, reviews: List<c
 private fun GoalRow(vm: AppViewModel, g: Goal, reviews: List<com.todocompanion.app.domain.GoalReview>, today: Long, onOpen: () -> Unit) {
     // Key health/capacity on the live stores so completing a task or tracking time refreshes the card
     // (keying on `g` alone left it stale until the goal JSON itself changed).
-    val tasks by vm.tasks.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val timeEntries by vm.timeVm.timeEntries.collectAsState()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val timeEntries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
     val h = remember(g, tasks, checkins, timeEntries) { vm.goalHealth(g) }
     val cycle = remember(g, today) { GoalScore.cycle(g, today) }
     val cap = remember(g, timeEntries) { vm.goalCapacity(g) }
@@ -335,16 +335,16 @@ private fun GoalRow(vm: AppViewModel, g: Goal, reviews: List<com.todocompanion.a
 private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEdit: () -> Unit, onReview: () -> Unit, onOpenNote: (String) -> Unit = {}) {
     BackHandler(onBack = onBack)
     val today = goalToday()
-    val settings by vm.settings.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     // Key health/capacity on the live stores (like GoalRow) so completing a task or tracking time
     // refreshes the detail card too — keying on `settings` alone left both stale.
-    val tasks by vm.tasks.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
     // Archived-inclusive so the lead-measure hint can tell an archived habit ("practice retired") apart from
     // a deleted one — vm.habits strips archived, which would mislabel every archived habit as "no longer exists".
-    val habitsAll by vm.habitsWithArchived.collectAsState()
-    val timeEntries by vm.timeVm.timeEntries.collectAsState()
-    val reviews = vm.goalReviewsState.collectAsState().value   // W3 — from the Room-backed flow
+    val habitsAll by vm.habitsWithArchived.collectAsStateWithLifecycle()
+    val timeEntries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
+    val reviews = vm.goalReviewsState.collectAsStateWithLifecycle().value   // W3 — from the Room-backed flow
     val h = remember(g, tasks, checkins, timeEntries) { vm.goalHealth(g) }
     val cycle = remember(g, today) { GoalScore.cycle(g, today) }
     val cap = remember(g, timeEntries) { vm.goalCapacity(g) }
@@ -540,9 +540,9 @@ private fun MeasureLine(label: String, detail: String, fraction: Float) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, onDismiss: () -> Unit, onSave: (Goal) -> Unit, onDelete: () -> Unit) {
-    val lists by vm.lists.collectAsState()
-    val habits by vm.habits.collectAsState()
-    val activities by vm.timeVm.timeActivities.collectAsState()
+    val lists by vm.lists.collectAsStateWithLifecycle()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val activities by vm.timeVm.timeActivities.collectAsStateWithLifecycle()
     val liveHabits = remember(habits) { habits.filter { !it.archived } }
     val liveActs = remember(activities) { activities.filter { !it.archived } }
     val knownAreas = remember(lists) { Goals.areasOf(vm.goals()) }

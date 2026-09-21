@@ -31,7 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -118,10 +118,10 @@ private val MATRIX_SORT_OPTS = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, showSettings: Boolean, onDismissSettings: () -> Unit, modifier: Modifier = Modifier) {
-    val s by vm.settings.collectAsState()
-    val tasks by vm.tasks.collectAsState()
-    val lists by vm.lists.collectAsState()
-    val folders by vm.folders.collectAsState()
+    val s by vm.settings.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val lists by vm.lists.collectAsStateWithLifecycle()
+    val folders by vm.folders.collectAsStateWithLifecycle()
 
     val now = System.currentTimeMillis()
     // Container filter: lists OR folders (empty on both = all). A folder selection also covers its nested
@@ -294,8 +294,8 @@ private fun QuadrantCard(q: Int, title: String, tasks: List<TaskEntity>, onOpenT
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun MatrixSettings(vm: AppViewModel, s: com.todocompanion.app.domain.AppSettings) {
-    val lists by vm.lists.collectAsState()
-    val folders by vm.folders.collectAsState()
+    val lists by vm.lists.collectAsStateWithLifecycle()
+    val folders by vm.folders.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 4.dp)) {
         Text("Matrix settings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(14.dp))

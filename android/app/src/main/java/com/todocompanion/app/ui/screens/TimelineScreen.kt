@@ -25,7 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -61,8 +61,8 @@ fun TimelineScreen(
     selectedLists: Set<String> = emptySet(), showDone: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val tasks by vm.tasks.collectAsState()
-    val lists by vm.lists.collectAsState()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val lists by vm.lists.collectAsStateWithLifecycle()
     val zone = ZoneId.systemDefault()
     val today = remember { LocalDate.now(zone) }
 

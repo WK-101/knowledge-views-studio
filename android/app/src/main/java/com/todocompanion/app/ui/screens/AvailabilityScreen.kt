@@ -33,7 +33,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -72,11 +72,11 @@ import java.util.Locale
 @Composable
 fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) {
     val zone = ZoneId.systemDefault()
-    val events by vm.events.collectAsState()
-    val tasks by vm.tasks.collectAsState()
-    val s by vm.settings.collectAsState()
-    val habitsForTime by vm.habits.collectAsState()
-    val checkinsForTime by vm.habitCheckins.collectAsState()
+    val events by vm.events.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val s by vm.settings.collectAsStateWithLifecycle()
+    val habitsForTime by vm.habits.collectAsStateWithLifecycle()
+    val checkinsForTime by vm.habitCheckins.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val today = LocalDate.now(zone)
@@ -96,7 +96,7 @@ fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) 
     // R59 (Wave 3) — the two protected-time systems are now ONE: the availability engine and the planner
     // both read the canonical ProtectedWindow list (edited here and in Settings). Legacy protectedBlocks are
     // migrated into windows the first time this screen opens, then honoured as a union until they're gone.
-    val protectedWindows by vm.protectedWindows.collectAsState()
+    val protectedWindows by vm.protectedWindows.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { if (s.protectedBlocks.isNotBlank()) vm.migrateProtectedBlocksToWindows() }
     val protectedList = remember(protectedWindows, s.protectedBlocks) {
         protectedWindows.map { Availability.Protected(it.days.toSet().ifEmpty { (1..7).toSet() }, it.startMin, it.endMin) } +

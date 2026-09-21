@@ -35,7 +35,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -102,11 +102,11 @@ private fun MoodChips(label: String, value: Int, onPick: (Int) -> Unit) {
 // ── TW-C · Causal Life Lab (n-of-1 experiments) ───────────────────────────────────────────────────
 @Composable
 private fun ExperimentsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit: (String) -> Unit) {
-    val exps by vm.experiments.collectAsState()
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val tasks by vm.tasks.collectAsState()
-    val dayLogs by vm.dayLogs.collectAsState()   // felt-state outcome for the experiment, de-biased from the habit itself
+    val exps by vm.experiments.collectAsStateWithLifecycle()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val dayLogs by vm.dayLogs.collectAsStateWithLifecycle()   // felt-state outcome for the experiment, de-biased from the habit itself
     val today = vm.today()
     var addOpen by remember { mutableStateOf(false) }
     TWScaffold("Causal Life Lab", onBack, actions = { IconButton(onClick = { addOpen = true }) { Icon(Icons.Filled.Add, "New experiment") } }) { pad ->
@@ -168,9 +168,9 @@ private fun ExperimentsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit:
 // ── TW-C · values-time mirror ─────────────────────────────────────────────────────────────────────
 @Composable
 private fun ValuesTimeScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val values by vm.coreValues.collectAsState()
-    val habits by vm.habits.collectAsState()
-    val entries by vm.timeVm.timeEntries.collectAsState()
+    val values by vm.coreValues.collectAsStateWithLifecycle()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val entries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
     val today = vm.today()
     val audit = remember(values, habits, entries, today) { ThirdWave.valuesTimeAudit(values, habits, entries, today - 27) }
     val total = audit.sumOf { it.minutes }.coerceAtLeast(1)
@@ -206,8 +206,8 @@ private fun ValuesTimeScreen(vm: AppViewModel, onBack: () -> Unit) {
 // ── TW-D · behavioral activation ──────────────────────────────────────────────────────────────────
 @Composable
 private fun ActivationScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val items by vm.activationItems.collectAsState()
-    val values by vm.coreValues.collectAsState()
+    val items by vm.activationItems.collectAsStateWithLifecycle()
+    val values by vm.coreValues.collectAsStateWithLifecycle()
     val today = vm.today()
     var text by remember { mutableStateOf("") }
     var valueId by remember { mutableStateOf<String?>(null) }
@@ -305,8 +305,8 @@ private fun FocusLockScreen(vm: AppViewModel, onBack: () -> Unit) {
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun LifeHeatmapScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
     val today = vm.today()
     val grid = remember(habits, checkins, today) { ThirdWave.compositeHeatmap(habits, checkins, today, 182) }
     // Count only genuine successes for the "on this day" nostalgia — a quit habit's slip isn't a completion.
@@ -349,9 +349,9 @@ private fun LifeHeatmapScreen(vm: AppViewModel, onBack: () -> Unit) {
 // ── TW-D · companion garden ───────────────────────────────────────────────────────────────────────
 @Composable
 private fun CompanionScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val settings by vm.settings.collectAsState()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     val today = vm.today()
     val c = remember(habits, checkins, today) { ThirdWave.companion(habits, checkins, today) }
     TWScaffold("Your garden", onBack) { pad ->

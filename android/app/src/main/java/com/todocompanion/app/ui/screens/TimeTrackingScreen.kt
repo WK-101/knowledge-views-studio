@@ -66,7 +66,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -117,13 +117,13 @@ private fun fmtEntryDur(startMillis: Long, endMillis: Long?, now: Long): String 
 fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean = false) {
     // T0: as a bottom-nav tab (embedded), there is no back — the tab bar handles navigation.
     if (!embedded) BackHandler(onBack = onBack)
-    val activities by vm.timeVm.timeActivities.collectAsState()
-    val entries by vm.timeVm.timeEntries.collectAsState()
-    val habits by vm.habits.collectAsState()   // T3: link an activity to a habit
+    val activities by vm.timeVm.timeActivities.collectAsStateWithLifecycle()
+    val entries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
+    val habits by vm.habits.collectAsStateWithLifecycle()   // T3: link an activity to a habit
     val zone = ZoneId.systemDefault()
     val timeFmt = remember { DateTimeFormatter.ofPattern("HH:mm") }
 
-    val settings by vm.settings.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     // (paused/running timer UI now lives in the persistent bar; see AppRoot.RunningTimerBar)
     // A live clock so the running timer counts up AND the untracked-time / "since your last entry" gaps
     // keep advancing even when nothing is running (previously `now` froze whenever no timer was live, so
@@ -280,7 +280,7 @@ fun TimeTrackingScreen(vm: AppViewModel, onBack: () -> Unit, embedded: Boolean =
     // One "add a time entry" action, surfaced as a floating button that matches the app's quick-add
     // FAB. As the Time tab (embedded) the FAB lives in the shared scaffold and pokes us through the
     // view-model, so the tab shows a single top header like every other tab; standalone we host both.
-    val addReq by vm.timeVm.addTimeEntryRequests.collectAsState()
+    val addReq by vm.timeVm.addTimeEntryRequests.collectAsStateWithLifecycle()
     var lastAddReq by remember { mutableIntStateOf(addReq) }
     fun onAddEntry() { if (activities.none { !it.archived }) showNewActivity = true else showManual = true }
     LaunchedEffect(addReq) { if (addReq != lastAddReq) { lastAddReq = addReq; onAddEntry() } }

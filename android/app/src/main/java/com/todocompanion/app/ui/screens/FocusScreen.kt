@@ -36,7 +36,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -63,10 +63,10 @@ import java.time.LocalDate
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifier = Modifier) {
-    val tasks by vm.tasks.collectAsState()
-    val habits by vm.habits.collectAsState()
-    val timeEntries by vm.timeVm.timeEntries.collectAsState()
-    val runningEntry by vm.runningFocus.collectAsState()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val timeEntries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
+    val runningEntry by vm.runningFocus.collectAsStateWithLifecycle()
     val today = LocalDate.now().toEpochDay()
 
     // A running focus interval is the single source of truth for "am I focusing right now".
@@ -109,7 +109,7 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
     fun finish() { if (running) { vm.stopFocus(); vm.playFocusDoneSound() }; bankedSec = 0 }
 
     // "Just start" hand-off: a task pre-selected from its detail screen lands here and auto-starts a session.
-    val pendingFocus by vm.pendingFocusTaskId.collectAsState()
+    val pendingFocus by vm.pendingFocusTaskId.collectAsStateWithLifecycle()
     LaunchedEffect(pendingFocus) {
         pendingFocus?.let { id ->
             focusTaskId = id; focusHabitId = null
@@ -118,7 +118,7 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
         }
     }
     // A habit pre-selected to Focus on — auto-starts, its minutes auto-log on finish via the linked activity.
-    val pendingHabit by vm.pendingFocusHabitId.collectAsState()
+    val pendingHabit by vm.pendingFocusHabitId.collectAsStateWithLifecycle()
     LaunchedEffect(pendingHabit) {
         pendingHabit?.let { id ->
             focusHabitId = id; focusTaskId = null
@@ -169,7 +169,7 @@ fun FocusScreen(vm: AppViewModel, onOpenStats: () -> Unit = {}, modifier: Modifi
             androidx.compose.material3.IconButton(onClick = onOpenStats) { androidx.compose.material3.Icon(Icons.Filled.BarChart, "Time stats") }
         }
         // ---- Deep-work coach: today's focused minutes vs goal, streak, and a one-tap next block ----
-        val dwSettings by vm.settings.collectAsState()
+        val dwSettings by vm.settings.collectAsStateWithLifecycle()
         val coach = remember(timeEntries, dwSettings, tasks) { vm.deepWorkStatus() }
         if (!running && bankedSec == 0) {
             Spacer(Modifier.size(10.dp))

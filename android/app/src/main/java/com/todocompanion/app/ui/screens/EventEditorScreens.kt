@@ -61,7 +61,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -103,7 +103,7 @@ private val ALERT_CHOICES = com.todocompanion.app.domain.reminders.ReminderPrese
 // ── Block a task as a calendar time-block (the task ⇄ calendar moat) ───────────────────────────────
 @Composable
 internal fun BlockTaskDialog(vm: AppViewModel, day: Long, zone: ZoneId, workStart: Int, events: List<EventEntity>, onDismiss: () -> Unit) {
-    val tasks by vm.tasks.collectAsState()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
     val open = remember(tasks) { tasks.filter { !it.completed && !it.trashed && !it.abandoned && !it.isNote }.take(60) }
     // Default to the first free slot in working hours, else 9am. R60 — scheduled tasks are busy too, so
     // "block time for a task" never suggests a slot that already holds another timed task.
@@ -296,9 +296,9 @@ internal fun EventEditor(
     val isRecurring = existing != null && existing.rrule.isNotBlank()
 
     // R41 — templates, remembered travel time, and a pinned secondary time-zone.
-    val templates by vm.eventTemplates.collectAsState()
-    val travelMap by vm.travelTimes.collectAsState()
-    val settings by vm.settings.collectAsState()
+    val templates by vm.eventTemplates.collectAsStateWithLifecycle()
+    val travelMap by vm.travelTimes.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     var travelOn by remember { mutableStateOf(false) }
     var travelMin by remember { mutableIntStateOf(0) }
     androidx.compose.runtime.LaunchedEffect(location) {
@@ -491,7 +491,7 @@ internal fun EventEditor(
                             leadingIcon = { Icon(Icons.Filled.Group, null) }, modifier = Modifier.fillMaxWidth())
                         // D2 — meeting memory: names you've invited before, offered as one-tap chips. Gathered
                         // on-device from your own past events — no address book, no network, ever.
-                        val allEvents by vm.events.collectAsState()
+                        val allEvents by vm.events.collectAsStateWithLifecycle()
                         val attendeeHistory = remember(allEvents) {
                             allEvents.asSequence().map { it.attendees }.filter { it.isNotBlank() }
                                 .flatMap { it.split(",").asSequence() }.map { it.trim() }.filter { it.isNotBlank() }

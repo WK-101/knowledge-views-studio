@@ -46,7 +46,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -99,12 +99,12 @@ fun PlannerSheet(vm: AppViewModel, zone: ZoneId, initialDay: Long, initialTab: I
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PlanTodayTab(vm: AppViewModel, zone: ZoneId, day: Long) {
-    val events by vm.events.collectAsState()
-    val tasks by vm.tasks.collectAsState()
-    val entries by vm.timeVm.timeEntries.collectAsState()
-    val habits by vm.habits.collectAsState()
-    val templates by vm.eventTemplates.collectAsState()
-    val settings by vm.settings.collectAsState()
+    val events by vm.events.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val entries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val templates by vm.eventTemplates.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     val ws = settings.workStartHour; val we = settings.workEndHour
     val today = LocalDate.now(zone).toEpochDay()
 
@@ -178,7 +178,7 @@ private fun PlanTodayTab(vm: AppViewModel, zone: ZoneId, day: Long) {
     }
 
     // ── Refine the day (plan-lock, reflow, defragment, realistic pre-mortem, load) ──
-    val routines by vm.dayRoutines.collectAsState()
+    val routines by vm.dayRoutines.collectAsStateWithLifecycle()
     val locked = remember(settings.planLockedDaysCsv, day) { settings.planLockedDaysCsv.split(",").mapNotNull { it.trim().toLongOrNull() }.contains(day) }
     SectionCard {
         Text("Refine the day", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -282,8 +282,8 @@ private fun PlanTodayTab(vm: AppViewModel, zone: ZoneId, day: Long) {
             if (risksAll.isEmpty()) Text("Every habit window is clear this week — nothing at risk.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             // Streak-aware: a habit checked in yesterday has a live streak — flag those first (moat).
-            val checkins by vm.habitCheckins.collectAsState()
-            val habitsForStreak by vm.habits.collectAsState()
+            val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+            val habitsForStreak by vm.habits.collectAsStateWithLifecycle()
             // A "live streak" means yesterday was a genuine success — a quit habit's slip (count≥1) isn't one.
             val streakAlive = remember(checkins, habitsForStreak, today) {
                 val byId = habitsForStreak.associateBy { it.id }
@@ -313,8 +313,8 @@ private fun PlanTodayTab(vm: AppViewModel, zone: ZoneId, day: Long) {
 
 @Composable
 private fun WeeklyReviewTab(vm: AppViewModel, zone: ZoneId, day: Long) {
-    val settings by vm.settings.collectAsState()
-    val calendars by vm.eventCalendars.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val calendars by vm.eventCalendars.collectAsStateWithLifecycle()
     val weekStart = remember(day, settings.weekStart) { startOfWeek(day, settings.weekStart) }
     val audit by produceState<CalendarPlanner.Audit?>(initialValue = null, weekStart) {
         value = vm.buildWeeklyAudit(weekStart)
@@ -403,11 +403,11 @@ private fun WeeklyReviewTab(vm: AppViewModel, zone: ZoneId, day: Long) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun HorizonTab(vm: AppViewModel, zone: ZoneId, day: Long) {
-    val events by vm.events.collectAsState()
-    val tasks by vm.tasks.collectAsState()
-    val entries by vm.timeVm.timeEntries.collectAsState()
-    val calendars by vm.eventCalendars.collectAsState()
-    val settings by vm.settings.collectAsState()
+    val events by vm.events.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val entries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
+    val calendars by vm.eventCalendars.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     val ws = settings.workStartHour; val we = settings.workEndHour
     val today = LocalDate.now(zone).toEpochDay()
 

@@ -34,7 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -77,8 +77,8 @@ fun PeriodicNotesScreen(
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
-    val settings by vm.settings.collectAsState()
-    val notesList by vm.notes.collectAsState()   // recompose dots/status when notes change
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val notesList by vm.notes.collectAsStateWithLifecycle()   // recompose dots/status when notes change
     val kairo = LocalKairoColors.current
     val today = remember { LocalDate.now().toEpochDay() }
     val weekStart = settings.weekStart

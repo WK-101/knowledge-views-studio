@@ -42,7 +42,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -230,10 +230,10 @@ private fun HubScreen(vm: AppViewModel, onBack: () -> Unit, listState: androidx.
 // ── LS5 · Values ────────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun ValuesScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val values by vm.coreValues.collectAsState()
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val tasks by vm.tasks.collectAsState()   // R37 · Port 9 — real work counts toward values (R64: this workspace's work only)
+    val values by vm.coreValues.collectAsStateWithLifecycle()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()   // R37 · Port 9 — real work counts toward values (R64: this workspace's work only)
     val zone = vm.zoneId
     val today = vm.today()
     val weekStart = today - 6
@@ -311,7 +311,7 @@ private fun ValueEditor(v: CoreValueEntity?, onDismiss: () -> Unit, onSave: (Str
 // ── Habit scorecard ───────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun ScorecardScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val items by vm.scorecardItems.collectAsState()
+    val items by vm.scorecardItems.collectAsStateWithLifecycle()
     var text by remember { mutableStateOf("") }
     LSScaffold("Habits scorecard", onBack) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
@@ -363,10 +363,10 @@ private fun SignChip(label: String, selected: Boolean, color: Color, onClick: ()
 // ── LS8 · Correlation engine ────────────────────────────────────────────────────────────────────
 @Composable
 private fun CorrelationsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit: (String) -> Unit) {
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val tasks by vm.tasks.collectAsState()
-    val dayLogs by vm.dayLogs.collectAsState()   // the daily review's felt-state feeds mood/energy correlations
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val dayLogs by vm.dayLogs.collectAsStateWithLifecycle()   // the daily review's felt-state feeds mood/energy correlations
     val today = vm.today()
     val corr = remember(habits, checkins, tasks, dayLogs, today) { LifeSystems.correlations(habits, checkins, tasks, today, zone = vm.zoneId, dayLogs = dayLogs) }
     val keystone = remember(corr) { LifeSystems.keystone(corr) }
@@ -413,11 +413,11 @@ private fun unitFor(signal: String) = when (signal) { "mood", "energy" -> "/5"; 
 // ── LS6 · Weekly & annual review ──────────────────────────────────────────────────────────────────
 @Composable
 private fun ReviewsScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val tasks by vm.tasks.collectAsState()
-    val values by vm.coreValues.collectAsState()
-    val saved by vm.integrityReviews.collectAsState()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val values by vm.coreValues.collectAsStateWithLifecycle()
+    val saved by vm.integrityReviews.collectAsStateWithLifecycle()
     val today = LocalDate.ofEpochDay(vm.today())
     val td = today.toEpochDay()
     var kind by remember { mutableStateOf("weekly") }
@@ -425,7 +425,7 @@ private fun ReviewsScreen(vm: AppViewModel, onBack: () -> Unit) {
         if (kind == "weekly") Triple(td - 6, "This week", "${today.year}-W${today.get(java.time.temporal.WeekFields.ISO.weekOfWeekBasedYear())}")
         else Triple(today.withDayOfYear(1).toEpochDay(), "${today.year} in review", "${today.year}")
     }
-    val dayLogs by vm.dayLogs.collectAsState()   // the review keystone reads mood/energy from the daily review too
+    val dayLogs by vm.dayLogs.collectAsStateWithLifecycle()   // the review keystone reads mood/energy from the daily review too
     val review = remember(kind, habits, checkins, tasks, values, dayLogs, td) {
         LifeSystems.review(kind, label, startDay, td, habits, checkins, tasks, values, dayLogs = dayLogs)
     }
@@ -498,8 +498,8 @@ private fun StatRow(label: String, value: String) {
 // ── LS3 · Identity ledger ─────────────────────────────────────────────────────────────────────────
 @Composable
 private fun IdentityLedgerScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
     val ledger = remember(habits, checkins) { LifeSystems.identityLedger(habits, checkins) }
     LSScaffold("Identity ledger", onBack) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -530,7 +530,7 @@ private fun IdentityLedgerScreen(vm: AppViewModel, onBack: () -> Unit) {
 // ── Buddies ───────────────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun BuddiesScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val buddies by vm.buddies.collectAsState()
+    val buddies by vm.buddies.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
     var importOpen by remember { mutableStateOf(false) }
     LSScaffold("Buddies", onBack) { pad ->
@@ -611,9 +611,9 @@ private fun hrsMin(min: Int): String = if (min < 60) "${min}m" else "${min / 60}
 // FW-15 · Life-load balancer.
 @Composable
 private fun LoadBalancerScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val tasks by vm.tasks.collectAsState()
-    val habits by vm.habits.collectAsState()
-    val settings by vm.settings.collectAsState()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     val today = vm.today()
     val forecast = remember(tasks, habits, settings) { FourthWave.lifeLoadForecast(tasks, habits, settings, today, 7, vm.zoneId, settings.dayStartMinuteOfDay()) }
     LSScaffold("Life-load balancer", onBack) { pad ->
@@ -652,10 +652,10 @@ private fun LoadBalancerScreen(vm: AppViewModel, onBack: () -> Unit) {
 // FW-13 · Causal trigger graph.
 @Composable
 private fun CausalGraphScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit: (String) -> Unit) {
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val tasks by vm.tasks.collectAsState()   // R64 — this workspace's task output only
-    val dayLogs by vm.dayLogs.collectAsState()   // the daily review's mood feeds the "good day" outcome
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()   // R64 — this workspace's task output only
+    val dayLogs by vm.dayLogs.collectAsStateWithLifecycle()   // the daily review's mood feeds the "good day" outcome
     val today = vm.today()
     val edges = remember(habits, checkins, dayLogs) { FourthWave.causalPrecursors(habits, checkins, today, dayLogs) }
     val outEdges = remember(habits, checkins, tasks) { FourthWave.causalOutput(habits, checkins, tasks, today, vm.zoneId) }
@@ -712,9 +712,9 @@ private fun CausalGraphScreen(vm: AppViewModel, onBack: () -> Unit, onOpenHabit:
 // FW-16 · Cross-domain receptivity model.
 @Composable
 private fun ReceptivityScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val checkins by vm.habitCheckins.collectAsState()
-    val tasks by vm.tasks.collectAsState()   // R64 — this workspace's task rhythm only
-    val habits by vm.habits.collectAsState()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()   // R64 — this workspace's task rhythm only
+    val habits by vm.habits.collectAsStateWithLifecycle()
     // Receptivity learns *when you succeed* — a quit habit's slip must not count as a positive check-in.
     val rec = remember(checkins, tasks, habits) {
         val byId = habits.associateBy { it.id }
@@ -773,7 +773,7 @@ private fun ReceptivityScreen(vm: AppViewModel, onBack: () -> Unit) {
 // FW-14 · Nudge lab (Personal Nudge MRT).
 @Composable
 private fun NudgeLabScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val events by vm.nudgeEvents.collectAsState()
+    val events by vm.nudgeEvents.collectAsStateWithLifecycle()
     val readout = remember(events) { FourthWave.nudgeMrtReadout(events) }
     LSScaffold("Nudge lab", onBack) { pad ->
         if (readout == null) {
@@ -809,10 +809,10 @@ private fun NudgeLabScreen(vm: AppViewModel, onBack: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EscrowScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val escrows by vm.escrows.collectAsState()
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val tasks by vm.tasks.collectAsState()
+    val escrows by vm.escrows.collectAsStateWithLifecycle()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
     val today = vm.today()
     var addOpen by remember { mutableStateOf(false) }
     LSScaffold("Self-escrow", onBack, actions = { IconButton(onClick = { addOpen = true }) { Icon(Icons.Filled.Add, "New escrow") } }) { pad ->
@@ -1016,8 +1016,8 @@ private fun CountdownCircle(totalSecs: Int) {
 @Composable
 private fun MicroPlanScreen(vm: AppViewModel, onBack: () -> Unit, kind: String) {
     val bundle = kind == com.todocompanion.app.domain.MicroPlans.BUNDLE
-    val plans by vm.microPlans.collectAsState()
-    val habits by vm.habits.collectAsState()
+    val plans by vm.microPlans.collectAsStateWithLifecycle()
+    val habits by vm.habits.collectAsStateWithLifecycle()
     val activeHabits = habits.filter { !it.archived && !it.paused }
     val mine = plans.filter { it.kind == kind }
     var a by remember { mutableStateOf("") }
@@ -1087,7 +1087,7 @@ private fun MicroPlanScreen(vm: AppViewModel, onBack: () -> Unit, kind: String) 
 // CoreValue rows the Values screen uses; the order persists (orderIndex) and feeds nothing but clarity.
 @Composable
 private fun ValuesSortScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val values by vm.coreValues.collectAsState()
+    val values by vm.coreValues.collectAsStateWithLifecycle()
     val ordered = values.sortedBy { it.orderIndex }
     LSScaffold("Rank your values", onBack) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1118,7 +1118,7 @@ private fun ValuesSortScreen(vm: AppViewModel, onBack: () -> Unit) {
 // FW-11/FW-12 · Fresh-start windows (temporal landmarks + transition detector).
 @Composable
 private fun FreshStartScreen(vm: AppViewModel, onBack: () -> Unit) {
-    val settings by vm.settings.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     val today = vm.today()
     val landmark = remember(today) { FourthWave.temporalLandmark(today) }
     val transition = remember(settings, today) { FourthWave.transitionWindow(settings, today) }

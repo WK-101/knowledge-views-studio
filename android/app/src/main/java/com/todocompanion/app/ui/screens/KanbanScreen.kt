@@ -35,7 +35,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,9 +60,9 @@ private data class KCol(val key: String, val label: String, val color: Color, va
 
 @Composable
 fun KanbanScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier) {
-    val groups by vm.groups.collectAsState()
-    val flags by vm.flags.collectAsState()
-    val lists by vm.lists.collectAsState()
+    val groups by vm.groups.collectAsStateWithLifecycle()
+    val flags by vm.flags.collectAsStateWithLifecycle()
+    val lists by vm.lists.collectAsStateWithLifecycle()
     val tasks = remember(groups) { groups.flatMap { it.tasks } }
     var by by remember { mutableStateOf(KanbanBy.PRIORITY) }
     val outline = MaterialTheme.colorScheme.outline

@@ -93,7 +93,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -138,16 +138,16 @@ import com.todocompanion.app.ui.theme.LocalKairoColors
 
 @Composable
 fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier, onOpenOccasion: (String?) -> Unit = {}, onOpenRoutineRun: (String) -> Unit = {}) {
-    val outline by vm.outlineMode.collectAsState()
-    val settings by vm.settings.collectAsState()
-    val view by vm.currentView.collectAsState()
+    val outline by vm.outlineMode.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val view by vm.currentView.collectAsStateWithLifecycle()
 
     if (outline && vm.canOutline()) { OutlineList(vm, settings.density, onOpenTask, modifier); return }
 
-    val hierarchy by vm.filterHierarchy.collectAsState()
+    val hierarchy by vm.filterHierarchy.collectAsStateWithLifecycle()
     if (hierarchy && vm.canHierarchy()) { HierarchyList(vm, settings.density, onOpenTask, modifier); return }
 
-    val groups by vm.groups.collectAsState()
+    val groups by vm.groups.collectAsStateWithLifecycle()
     val isTrash = (view as? ViewRef.Smart)?.kind == SmartKind.TRASH
     val collapsed = remember { mutableStateMapOf<String, Boolean>() }
     // Deleting from Trash is permanent — confirm first (single swipe, and multi-select).
@@ -160,10 +160,10 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     val allVisibleIds = remember(groups) { groups.flatMap { g -> g.tasks.map { it.id } }.toSet() }
 
     // Per-task @context / #tag lookups, MLO-style detail on each row.
-    val allTags by vm.tags.collectAsState()
-    val allContexts by vm.contexts.collectAsState()
-    val tagRefs by vm.taskTags.collectAsState()
-    val ctxRefs by vm.taskContexts.collectAsState()
+    val allTags by vm.tags.collectAsStateWithLifecycle()
+    val allContexts by vm.contexts.collectAsStateWithLifecycle()
+    val tagRefs by vm.taskTags.collectAsStateWithLifecycle()
+    val ctxRefs by vm.taskContexts.collectAsStateWithLifecycle()
     val tagsByTask = remember(tagRefs, allTags) {
         val byId = allTags.associateBy { it.id }
         tagRefs.groupBy { it.taskId }.mapValues { (_, refs) -> refs.mapNotNull { byId[it.tagId] }.map { it.name to it.colorArgb } }
@@ -174,7 +174,7 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     }
     // In smart lists (which span lists) and folder views (which span their lists), show each task's
     // list as a detail — like MLO/TickTick. In a folder, tasks captured with no list read "No list".
-    val lists by vm.lists.collectAsState()
+    val lists by vm.lists.collectAsStateWithLifecycle()
     val inFolderView = view is ViewRef.FolderView
     val showList = view is ViewRef.Smart || inFolderView
     val listNameById = remember(lists) { lists.associate { it.id to it.name } }
@@ -195,7 +195,7 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
 
     if (groups.isEmpty() || groups.all { it.tasks.isEmpty() }) { EmptyState(view); return }
 
-    val sortMode by vm.sortMode.collectAsState()
+    val sortMode by vm.sortMode.collectAsStateWithLifecycle()
     // A single ungrouped list gets the TickTick-style long-press drag: drag up/down reorders (persisted
     // only under MANUAL sort), drag right nests as a subtask, drag left un-nests. A stationary long-press
     // (no drag) still enters multi-select, so both gestures live on the same list.
@@ -214,7 +214,7 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     // `selected`). Both the nav bar (AppRoot) and this bar therefore appear/disappear on one flow emission,
     // in the SAME recomposition — killing the "bar flashes above the nav bar, then jumps over it" desync,
     // which was the local-state (frame N) vs. flow (frame N+1) gap.
-    val selectingBar by vm.selectionActive.collectAsState()
+    val selectingBar by vm.selectionActive.collectAsStateWithLifecycle()
     fun toggleSel(id: String) {
         val next = if (id in selected) selected - id else selected + id
         selected = next
@@ -226,8 +226,8 @@ fun TasksScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, modifier: Modifi
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { vm.selectionActive.value = false } }
     // Back exits selection first (clears it and stays in the app) instead of leaving the screen.
     androidx.activity.compose.BackHandler(enabled = selectionMode) { selected = emptySet() }
-    val allLists by vm.lists.collectAsState()
-    val allFolders by vm.folders.collectAsState()
+    val allLists by vm.lists.collectAsStateWithLifecycle()
+    val allFolders by vm.folders.collectAsStateWithLifecycle()
     // A list's / folder's optional description, shown as a banner atop its tasks.
     val viewDescription = when (view) {
         is ViewRef.ListView -> allLists.firstOrNull { it.id == (view as ViewRef.ListView).listId }?.description
@@ -588,7 +588,7 @@ class TaskLabelNav(val onList: (String) -> Unit, val onContext: (String) -> Unit
  *  cluttered Today/Do-Next opens as a clean task list with these cards collapsed and one tap away. */
 @Composable
 private fun FoldableCard(vm: AppViewModel, cardKey: String, title: String, content: @Composable ColumnScope.() -> Unit) {
-    val s by vm.settings.collectAsState()
+    val s by vm.settings.collectAsStateWithLifecycle()
     val expanded = cardKey in s.smartCardsExpanded
     AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 12.dp) {
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { vm.toggleSmartCard(cardKey) }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -604,8 +604,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.taskListHeaders(vm: A
     // R108 — an archived list/folder is read-only reference. Surface a clear banner with a one-tap
     // Unarchive right where the user is looking (Notion's pattern), reinforcing the disabled add FAB.
     if (view is ViewRef.ListView || view is ViewRef.FolderView) item(key = "archivedbanner") {
-        val lists by vm.lists.collectAsState()
-        val folders by vm.folders.collectAsState()
+        val lists by vm.lists.collectAsStateWithLifecycle()
+        val folders by vm.folders.collectAsStateWithLifecycle()
         val archivedList = (view as? ViewRef.ListView)?.let { v -> lists.firstOrNull { it.id == v.listId }?.takeIf { it.archived } }
         val archivedFolder = (view as? ViewRef.FolderView)?.let { v -> folders.firstOrNull { it.id == v.folderId }?.takeIf { it.archived } }
         // Also treat a (non-archived) list living inside an archived folder as archived-for-viewing.
@@ -904,7 +904,7 @@ private fun ReorderRow(
  */
 @Composable
 private fun RecoveryStrip(vm: AppViewModel) {
-    val tasks by vm.tasks.collectAsState()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
     val overdue = remember(tasks) { vm.overdueOpenTasks() }
     if (overdue.size < 4) return
     val ctx = LocalContext.current
@@ -927,8 +927,8 @@ private fun RecoveryStrip(vm: AppViewModel) {
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun HabitsDueStrip(vm: AppViewModel) {
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
     val today = java.time.LocalDate.now().toEpochDay()
     // P6b: memoize the "due today" scan (O(habits×checkins)), mirroring the 7-day WorkloadStrip below.
     val due = remember(habits, checkins, today) {
@@ -941,7 +941,7 @@ private fun HabitsDueStrip(vm: AppViewModel) {
     if (due.isEmpty()) return
     // R34: the habits card is foldable. Folded by default now (persisted in settings), so Today/Do-Next
     // open as a task list and the day's habits are one tap away when you want them.
-    val s by vm.settings.collectAsState()
+    val s by vm.settings.collectAsStateWithLifecycle()
     val expanded = "habitsdue" in s.smartCardsExpanded
     AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 12.dp) {
             Row(
@@ -986,11 +986,11 @@ private fun HabitsDueStrip(vm: AppViewModel) {
  *  card empties as the day's rituals get done — the same self-clearing behaviour as the habits-due strip. */
 @Composable
 private fun RoutinesDueStrip(vm: AppViewModel, onOpenRoutineRun: (String) -> Unit) {
-    val settings by vm.settings.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     // W3 — routinesDueToday() reads the Room-backed routines/runs flows (workspace-scoped in the VM), so
     // recompute when either changes.
-    val routinesState = vm.routinesState.collectAsState().value
-    val routineRunsState = vm.routineRunsState.collectAsState().value
+    val routinesState = vm.routinesState.collectAsStateWithLifecycle().value
+    val routineRunsState = vm.routineRunsState.collectAsStateWithLifecycle().value
     val due = remember(routinesState, routineRunsState) { vm.routinesDueToday() }
     if (due.isEmpty()) return
     val expanded = "routinesdue" in settings.smartCardsExpanded
@@ -1048,11 +1048,11 @@ private fun RoutinesDueStrip(vm: AppViewModel, onOpenRoutineRun: (String) -> Uni
  *  doubles follow-through; seeing it at the start of the day is the whole point. Foldable, calm-aware. */
 @Composable
 private fun PlansStrip(vm: AppViewModel) {
-    val plans by vm.microPlans.collectAsState()
+    val plans by vm.microPlans.collectAsStateWithLifecycle()
     if (plans.isEmpty()) return
     val ifThen = plans.filter { it.kind == com.todocompanion.app.domain.MicroPlans.IF_THEN }
     val bundles = plans.filter { it.kind == com.todocompanion.app.domain.MicroPlans.BUNDLE }
-    val s by vm.settings.collectAsState()
+    val s by vm.settings.collectAsStateWithLifecycle()
     val expanded = "microplans" in s.smartCardsExpanded
     AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 12.dp) {
             Row(
@@ -1091,9 +1091,9 @@ private fun PlansStrip(vm: AppViewModel) {
  *  opportunity (a build habit due at its usual time). A local rules engine, surfaced in-app. */
 @Composable
 private fun NudgeStrip(vm: AppViewModel) {
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val cravings by vm.cravings.collectAsState()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val cravings by vm.cravings.collectAsStateWithLifecycle()
     val now = java.time.LocalTime.now()
     val today = java.time.LocalDate.now().toEpochDay()
     val nudges = remember(habits, checkins, cravings, now.hour, today) {
@@ -1131,7 +1131,7 @@ private fun NudgeStrip(vm: AppViewModel) {
  *  by its own nature (landmarks pass), and never nags. */
 @Composable
 private fun FreshStartStrip(vm: AppViewModel) {
-    val settings by vm.settings.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     val today = java.time.LocalDate.now().toEpochDay()
     val landmark = remember(today) { com.todocompanion.app.domain.habit.FourthWave.temporalLandmark(today) }
     val transition = remember(settings, today) { com.todocompanion.app.domain.habit.FourthWave.transitionWindow(settings, today) }
@@ -1156,9 +1156,9 @@ private fun FreshStartStrip(vm: AppViewModel) {
  *  done) than the chosen cap, a calm nudge to finish one before starting another. */
 @Composable
 private fun TaskWipStrip(vm: AppViewModel) {
-    val settings by vm.settings.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     if (settings.taskWipLimit <= 0) return
-    val tasks by vm.tasks.collectAsState()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
     val now = System.currentTimeMillis()
     val wip = remember(tasks, settings.taskWipLimit) { com.todocompanion.app.domain.task.TaskCoach.wip(tasks, settings.taskWipLimit, now, dayStartMin = settings.dayStartMinuteOfDay()) }
     if (!wip.overCap) return
@@ -1171,8 +1171,8 @@ private fun TaskWipStrip(vm: AppViewModel) {
 /** R37 · Port 2 — a just-in-time productivity micro-lesson, chosen from today's open tasks. */
 @Composable
 private fun TaskLessonStrip(vm: AppViewModel) {
-    val settings by vm.settings.collectAsState()
-    val tasks by vm.tasks.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
     val now = System.currentTimeMillis()
     val hour = java.time.LocalTime.now().hour
     val childCounts = remember(tasks) { tasks.filter { it.parentId != null }.groupingBy { it.parentId!! }.eachCount() }
@@ -1188,7 +1188,7 @@ private fun TaskLessonStrip(vm: AppViewModel) {
  *  a nagging open loop). Opt-in feel — only appears in the evening when there's something to close. */
 @Composable
 private fun ShutdownStrip(vm: AppViewModel) {
-    val tasks by vm.tasks.collectAsState()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
     val today = java.time.LocalDate.now().toEpochDay()
     val hour = java.time.LocalTime.now().hour
     if (hour < 17) return
@@ -1207,9 +1207,9 @@ private fun ShutdownStrip(vm: AppViewModel) {
  *  Opt-in (Settings). A tiny reflection loop that keeps monitoring alive between the weekly reviews. */
 @Composable
 private fun BookendCard(vm: AppViewModel) {
-    val settings by vm.settings.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     if (!settings.bookendsEnabled) return
-    val dayLogs by vm.dayLogs.collectAsState()
+    val dayLogs by vm.dayLogs.collectAsStateWithLifecycle()
     val today = java.time.LocalDate.now().toEpochDay()
     val log = dayLogs.firstOrNull { it.epochDay == today }
     val hour = java.time.LocalTime.now().hour
@@ -1240,7 +1240,7 @@ private fun BookendCard(vm: AppViewModel) {
  *  Today / Next-7-days / Scheduled, not only on the dedicated Countdowns hub. */
 @Composable
 private fun CountdownDueStrip(vm: AppViewModel, kind: SmartKind, onOpenOccasion: (String?) -> Unit = {}) {
-    val countdowns by vm.countdowns.collectAsState()
+    val countdowns by vm.countdowns.collectAsStateWithLifecycle()
     val zone = java.time.ZoneId.systemDefault()
     val today = java.time.LocalDate.now(zone)
     val relevant = remember(countdowns, kind, today) {
@@ -1262,7 +1262,7 @@ private fun CountdownDueStrip(vm: AppViewModel, kind: SmartKind, onOpenOccasion:
     val cap = if (kind == SmartKind.SCHEDULED) 2 else relevant.size
     val shown = relevant.take(cap)
     // Occasions fold to their title by default (persisted in settings), so a long list isn't buried under them.
-    val s by vm.settings.collectAsState()
+    val s by vm.settings.collectAsStateWithLifecycle()
     val expanded = "countdowns" in s.smartCardsExpanded
     AppCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), padding = 12.dp) {
             Row(Modifier.fillMaxWidth().clickable { vm.toggleSmartCard("countdowns") }, verticalAlignment = Alignment.CenterVertically) {
@@ -1295,9 +1295,9 @@ private fun CountdownDueStrip(vm: AppViewModel, kind: SmartKind, onOpenOccasion:
 
 @Composable
 private fun WorkloadStrip(vm: AppViewModel) {
-    val tasks by vm.tasks.collectAsState()
-    val settings by vm.settings.collectAsState()
-    val habits by vm.habits.collectAsState()   // Fusion F3: habit time counts toward the daily load.
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val habits by vm.habits.collectAsStateWithLifecycle()   // Fusion F3: habit time counts toward the daily load.
     val zone = java.time.ZoneId.systemDefault()
     val today = java.time.LocalDate.now(zone)
     // Each day's capacity in minutes — a per-weekday override when set, else the flat daily figure.
@@ -1390,7 +1390,7 @@ private fun EmptyState(view: ViewRef? = null) {
 
 @Composable
 private fun HierarchyList(vm: AppViewModel, density: Density, onOpenTask: (String) -> Unit, modifier: Modifier) {
-    val rows by vm.hierarchyRows.collectAsState()
+    val rows by vm.hierarchyRows.collectAsStateWithLifecycle()
     if (rows.isEmpty()) { EmptyState(); return }
     Column(modifier.fillMaxSize()) {
         Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
@@ -1418,8 +1418,8 @@ private fun HierarchyList(vm: AppViewModel, density: Density, onOpenTask: (Strin
 
 @Composable
 private fun OutlineList(vm: AppViewModel, density: Density, onOpenTask: (String) -> Unit, modifier: Modifier) {
-    val rows by vm.outlineRows.collectAsState()
-    val zoom by vm.outlineZoom.collectAsState()
+    val rows by vm.outlineRows.collectAsStateWithLifecycle()
+    val zoom by vm.outlineZoom.collectAsStateWithLifecycle()
     Column(modifier.fillMaxSize()) {
         // Zoom breadcrumb: long-press a parent task to focus its subtree; tap here to exit.
         if (zoom != null) {

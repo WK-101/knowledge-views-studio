@@ -50,7 +50,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -111,11 +111,11 @@ private fun templateToRoutine(t: RoutineCatalog.Template): Routine = Routine(
 @Composable
 fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
-    val settings by vm.settings.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     // W3 — routines/runs come from their Room-backed flows now (add/edit/delete reflect immediately).
-    val routines = vm.routinesState.collectAsState().value
-    val runs = vm.routineRunsState.collectAsState().value
-    val dayLogs by vm.dayLogs.collectAsState()
+    val routines = vm.routinesState.collectAsStateWithLifecycle().value
+    val runs = vm.routineRunsState.collectAsStateWithLifecycle().value
+    val dayLogs by vm.dayLogs.collectAsStateWithLifecycle()
     val today = vm.today()
     val onThisDay = remember(routines, runs, today) {
         com.todocompanion.app.domain.RoutineInsights.onThisDay(routines, runs, today, vm.zoneId)
@@ -130,7 +130,7 @@ fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
     var browseCatalog by remember { mutableStateOf(false) }
 
     // A reminder tap deep-links here asking to run a specific routine — start its runner once, then clear.
-    val pendingRun by vm.pendingRoutineRun.collectAsState()
+    val pendingRun by vm.pendingRoutineRun.collectAsStateWithLifecycle()
     LaunchedEffect(pendingRun, routines) {
         val id = pendingRun ?: return@LaunchedEffect
         val r = routines.firstOrNull { it.id == id }
@@ -302,7 +302,7 @@ private fun RoutineRunner(vm: AppViewModel, routine: Routine, onExit: () -> Unit
 
     // Felt-state gating (moat #6): on a low-energy day, default to the 2-minute Lite version — never-miss-
     // twice becomes a kind recovery, not a shame event. The user can still flip it back to the full run.
-    val todayEnergy = vm.dayLogs.collectAsState().value.firstOrNull { it.epochDay == today }?.energy ?: 0
+    val todayEnergy = vm.dayLogs.collectAsStateWithLifecycle().value.firstOrNull { it.epochDay == today }?.energy ?: 0
     val autoLite = todayEnergy in 1..2
     var lite by remember { mutableStateOf(autoLite) }
     val steps = remember(lite, routine) { if (lite) Routines.lite(routine).steps else routine.steps }
@@ -566,9 +566,9 @@ private fun RoutineEditor(
     vm: AppViewModel, routine: Routine, existing: Boolean,
     onDismiss: () -> Unit, onSave: (Routine) -> Unit, onDelete: () -> Unit,
 ) {
-    val habits by vm.habits.collectAsState()
-    val tasks by vm.tasks.collectAsState()
-    val activities by vm.timeVm.timeActivities.collectAsState()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val activities by vm.timeVm.timeActivities.collectAsStateWithLifecycle()
     val openTasks = remember(tasks) { tasks.filter { !it.completed && !it.trashed && !it.isNote } }
     val liveActivities = remember(activities) { activities.filter { !it.archived } }
 

@@ -51,7 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -92,7 +92,7 @@ import com.todocompanion.app.ui.components.appCardColor
  *  behind the device biometric before it renders. */
 @Composable
 fun DoneScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Unit) {
-    val gateSettings by vm.settings.collectAsState()
+    val gateSettings by vm.settings.collectAsStateWithLifecycle()
     if (gateSettings.lockRecord && !gateSettings.appLockEnabled) {
         com.todocompanion.app.ui.AppLockGate(enabled = true) { DoneScreenBody(vm, onOpenTask, onBack) }
     } else DoneScreenBody(vm, onOpenTask, onBack)
@@ -102,12 +102,12 @@ fun DoneScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Uni
 @Composable
 private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
-    val tasks by vm.tasks.collectAsState()
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val timeEntries by vm.timeVm.timeEntries.collectAsState()
-    val lists by vm.lists.collectAsState()
-    val settings by vm.settings.collectAsState()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val timeEntries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
+    val lists by vm.lists.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     val zone = ZoneId.systemDefault()
     val ctx = LocalContext.current
 
@@ -128,8 +128,8 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
     val wins = remember(rangedFeed) { rangedFeed.filter { it.isWin } }
 
     // R32 · Living Record read-side. Tag names per task power the skills roll-up.
-    val taskTags by vm.taskTags.collectAsState()
-    val allTags by vm.tags.collectAsState()
+    val taskTags by vm.taskTags.collectAsStateWithLifecycle()
+    val allTags by vm.tags.collectAsStateWithLifecycle()
     val tagNamesByTask = remember(taskTags, allTags) {
         val nameById = allTags.associate { it.id to it.name }
         taskTags.groupBy { it.taskId }.mapValues { e -> e.value.mapNotNull { nameById[it.tagId] } }
@@ -139,7 +139,7 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
     val patternInsights = remember(rangedFeed) { com.todocompanion.app.domain.done.LivingRecord.insights(rangedFeed, today) }
     // Track 1.1 — the felt dimension for The Record: how the record's window FELT, plus 1–2 cross-stream
     // findings that relate finishing to how days felt (descriptive only). Lifetime clamps to a finite window.
-    val dayLogs by vm.dayLogs.collectAsState()
+    val dayLogs by vm.dayLogs.collectAsStateWithLifecycle()
     // The felt lane clamps the all-time span to a finite window (~10 years) so the mood fold stays cheap;
     // every bounded range keeps its own start/end (both are already <= today).
     val feltStart = maxOf(bounds.first, today.toEpochDay() - 3650)
@@ -153,7 +153,7 @@ private fun DoneScreenBody(vm: AppViewModel, onOpenTask: (String) -> Unit, onBac
         com.todocompanion.app.domain.FeltOutputLedger.compute(feltStart, feltEnd, feed, dayLogs)
     }
     val skills = remember(rangedFeed, tagNamesByTask, listNameById) { com.todocompanion.app.domain.done.LivingRecord.skills(rangedFeed, tagNamesByTask, listNameById) }
-    val sealedNotes by vm.sealedNotes.collectAsState()
+    val sealedNotes by vm.sealedNotes.collectAsStateWithLifecycle()
     var writeLetter by remember { mutableStateOf(false) }
     var openLetter by remember { mutableStateOf<com.todocompanion.app.data.entity.SealedNoteEntity?>(null) }
     var showWrapped by remember { mutableStateOf(false) }

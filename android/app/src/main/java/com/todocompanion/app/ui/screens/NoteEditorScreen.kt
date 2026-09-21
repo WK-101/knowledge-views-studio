@@ -93,7 +93,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -141,18 +141,18 @@ fun NoteEditorScreen(
     onOpenNote: (String) -> Unit = {},
 ) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    val settings by vm.settings.collectAsState()
-    val notes by vm.notes.collectAsState()
-    val notebooks by vm.notebooks.collectAsState()
-    val folders by vm.folders.collectAsState()
-    val tags by vm.tags.collectAsState()
-    val noteTagRefs by vm.noteTagRefs.collectAsState()
-    val contexts by vm.contexts.collectAsState()
-    val noteContextRefs by vm.noteContextRefs.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val notes by vm.notes.collectAsStateWithLifecycle()
+    val notebooks by vm.notebooks.collectAsStateWithLifecycle()
+    val folders by vm.folders.collectAsStateWithLifecycle()
+    val tags by vm.tags.collectAsStateWithLifecycle()
+    val noteTagRefs by vm.noteTagRefs.collectAsStateWithLifecycle()
+    val contexts by vm.contexts.collectAsStateWithLifecycle()
+    val noteContextRefs by vm.noteContextRefs.collectAsStateWithLifecycle()
     // P5 — remember the per-note flows so a recomposition (every keystroke) reuses the DB subscription
     // instead of re-running the query each frame.
-    val revisions by remember(noteId) { vm.observeNoteRevisions(noteId) }.collectAsState(initial = emptyList())
-    val links by remember(noteId) { vm.observeNoteLinks(noteId) }.collectAsState(initial = emptyList())
+    val revisions by remember(noteId) { vm.observeNoteRevisions(noteId) }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val links by remember(noteId) { vm.observeNoteLinks(noteId) }.collectAsStateWithLifecycle(initialValue = emptyList())
 
     val useNotebooks = settings.notesNotebookMode == "notebooks"
     val note = notes.firstOrNull { it.id == noteId }
@@ -164,7 +164,7 @@ fun NoteEditorScreen(
 
     // L11 — Vault: a vaulted note's stored body is ciphertext; decrypt it for editing once unlocked, and
     // re-key the draft the moment the session unlocks so we never render or edit the raw envelope.
-    val vaultUnlocked by vm.vaultUnlocked.collectAsState()
+    val vaultUnlocked by vm.vaultUnlocked.collectAsStateWithLifecycle()
     var vaultDialog by remember(noteId) { mutableStateOf(false) }
     var draft by remember(noteId) { mutableStateOf<NoteEntity?>(null) }
     androidx.compose.runtime.LaunchedEffect(note?.id, vaultUnlocked) {

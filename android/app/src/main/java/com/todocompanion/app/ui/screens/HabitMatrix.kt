@@ -36,7 +36,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -102,9 +102,9 @@ internal fun matrixSections(habits: List<HabitEntity>, groupByCategory: Boolean)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HabitMatrix(vm: AppViewModel, density: Int, onOpenHabit: (HabitEntity) -> Unit, modifier: Modifier = Modifier) {
-    val allHabits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val settings by vm.settings.collectAsState()
+    val allHabits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     val today = vm.today()
     // A numeric habit's cell opens a value-entry dialog (consistent with the list view) instead of a +1 tap.
     var valueFor by remember { mutableStateOf<Pair<HabitEntity, Long>?>(null) }

@@ -26,7 +26,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,15 +56,15 @@ import kotlin.math.roundToInt
 @Composable
 fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
     BackHandler { onBack() }
-    val tasks by vm.tasks.collectAsState()
-    val timeEntries by vm.timeVm.timeEntries.collectAsState()
-    val legacyFocus by vm.focusSessions.collectAsState()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val timeEntries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
+    val legacyFocus by vm.focusSessions.collectAsStateWithLifecycle()
     // Focus stats derive from the one timeline (kind="focus" intervals), matching the Time reports.
     val focus = remember(timeEntries, legacyFocus) { vm.focusViews() }
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val dayLogs by vm.dayLogs.collectAsState()
-    val settings by vm.settings.collectAsState()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val dayLogs by vm.dayLogs.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now()
     val todayEpoch = today.toEpochDay()
@@ -211,7 +211,7 @@ fun StatisticsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 StatTile(value = "${(avgHabit * 100).toInt()}%", label = "Habit rate", modifier = Modifier.weight(1f), sub = "${habits.size} habits")
             }
             // Focus time by list, over the selected range — where your deep work actually went.
-            val lists by vm.lists.collectAsState()
+            val lists by vm.lists.collectAsStateWithLifecycle()
             val listById = lists.associateBy { it.id }
             val taskListOf = tasks.associate { it.id to it.listId }
             val focusRange = focus.filter { it.epochDay in curStart..todayEpoch }

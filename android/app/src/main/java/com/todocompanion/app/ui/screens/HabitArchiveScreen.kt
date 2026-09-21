@@ -34,7 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -59,8 +59,8 @@ import com.todocompanion.app.ui.components.appCardColor
 fun HabitArchiveScreen(vm: AppViewModel, onClose: () -> Unit) {
     BackHandler { onClose() }
     var tab by remember { mutableIntStateOf(0) }   // 0 = Archived, 1 = Trash
-    val withArchived by vm.habitsWithArchived.collectAsState()
-    val trashed by vm.trashedHabits.collectAsState()
+    val withArchived by vm.habitsWithArchived.collectAsStateWithLifecycle()
+    val trashed by vm.trashedHabits.collectAsStateWithLifecycle()
     val archived = withArchived.filter { it.archived }
     var confirmForever by remember { mutableStateOf<HabitEntity?>(null) }
     var confirmEmpty by remember { mutableStateOf(false) }

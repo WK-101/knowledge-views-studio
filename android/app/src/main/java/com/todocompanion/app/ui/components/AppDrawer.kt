@@ -78,7 +78,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -163,15 +163,15 @@ fun AppDrawer(
     onOpenRoutines: () -> Unit = {},
     onOpenGoals: () -> Unit = {},
 ) {
-    val folders by vm.folders.collectAsState()
-    val lists by vm.lists.collectAsState()
-    val tags by vm.tags.collectAsState()
-    val contexts by vm.contexts.collectAsState()
-    val counts by vm.smartCounts.collectAsState()
-    val current by vm.currentView.collectAsState()
-    val settings by vm.settings.collectAsState()
+    val folders by vm.folders.collectAsStateWithLifecycle()
+    val lists by vm.lists.collectAsStateWithLifecycle()
+    val tags by vm.tags.collectAsStateWithLifecycle()
+    val contexts by vm.contexts.collectAsStateWithLifecycle()
+    val counts by vm.smartCounts.collectAsStateWithLifecycle()
+    val current by vm.currentView.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
 
-    val workspaces by vm.workspaces.collectAsState()
+    val workspaces by vm.workspaces.collectAsStateWithLifecycle()
     val activeWsId = settings.activeWorkspaceId
     val activeWs = workspaces.firstOrNull { it.id == activeWsId } ?: workspaces.firstOrNull()
 
@@ -361,12 +361,12 @@ fun AppDrawer(
             ) { t -> TagNode(t, 0, tags, current, vm, onSelect, onNewTag, onManageTag, onMoveTag) }
             }
 
-            val filters by vm.filters.collectAsState()
+            val filters by vm.filters.collectAsStateWithLifecycle()
             // Always render the header when the section isn't hidden — previously an empty AND collapsed
             // Filters section vanished entirely, so it couldn't be re-opened or added to (R21 #228 bug).
             if ("filters" !in hidden) {
                 SectionHeader("Filters", open = open("filters"), onToggle = { toggle("filters") }, onAdd = { onEditFilter(null) })
-                val filterCounts by vm.entryCounts.collectAsState()
+                val filterCounts by vm.entryCounts.collectAsStateWithLifecycle()
                 if (open("filters") && filters.isEmpty()) {
                     Text("No filters yet — tap + to build one.", Modifier.padding(start = 34.dp, end = 12.dp, top = 2.dp, bottom = 6.dp),
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -521,7 +521,7 @@ private fun FolderNode(
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val selected = (current as? ViewRef.FolderView)?.folderId == folder.id
     val pinRef = "folder:${folder.id}"
-    val entryCounts by vm.entryCounts.collectAsState()
+    val entryCounts by vm.entryCounts.collectAsStateWithLifecycle()
     val entryCount = entryCounts.folders[folder.id]?.takeIf { it > 0 }
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
@@ -626,7 +626,7 @@ private fun ListRow(
 ) {
     var menu by remember { mutableStateOf(false) }
     val selected = (current as? ViewRef.ListView)?.listId == list.id
-    val entryCounts by vm.entryCounts.collectAsState()
+    val entryCounts by vm.entryCounts.collectAsStateWithLifecycle()
     val entryCount = entryCounts.lists[list.id]?.takeIf { it > 0 }
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
@@ -677,7 +677,7 @@ private fun TagNode(
     var menu by remember { mutableStateOf(false) }
     val selected = (current as? ViewRef.TagView)?.tagId == tag.id
     val children = allTags.filter { it.parentId == tag.id }.sortedWith(compareBy({ it.sortOrder }, { it.name }))
-    val entryCounts by vm.entryCounts.collectAsState()
+    val entryCounts by vm.entryCounts.collectAsStateWithLifecycle()
     val entryCount = entryCounts.tags[tag.id]?.takeIf { it > 0 }
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
@@ -717,9 +717,9 @@ private fun PinnedFavourites(
     onOpenRef: (String) -> Unit = {},
     open: Boolean = true, onToggle: (() -> Unit)? = null,
 ) {
-    val filters by vm.filters.collectAsState()
-    val counts by vm.smartCounts.collectAsState()
-    val settings by vm.settings.collectAsState()
+    val filters by vm.filters.collectAsStateWithLifecycle()
+    val counts by vm.smartCounts.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     // E4: view:/more: pins open a tab or screen; they aren't a ViewRef, so they carry an action.
     // E5: a smart pin set to "Show if not empty" (AUTO) drops out when its count is 0 (unless active),
     // mirroring the Smart-lists section so a pinned tile can't linger empty.
@@ -890,7 +890,7 @@ private fun ContextNode(
     var menu by remember { mutableStateOf(false) }
     val selected = (current as? ViewRef.ContextView)?.contextId == ctx.id
     val children = all.filter { it.parentId == ctx.id }.sortedWith(compareBy({ it.name }))
-    val entryCounts by vm.entryCounts.collectAsState()
+    val entryCounts by vm.entryCounts.collectAsStateWithLifecycle()
     val entryCount = entryCounts.contexts[ctx.id]?.takeIf { it > 0 }
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
@@ -926,7 +926,7 @@ private fun SmartRow(kind: SmartKind, count: Int?, selected: Boolean, vm: AppVie
     var menu by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
     val pinRef = "smart:${kind.name}"
-    val settings by vm.settings.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     val title = com.todocompanion.app.domain.smartTitle(settings, kind)
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))

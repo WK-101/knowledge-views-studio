@@ -114,7 +114,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -248,10 +248,10 @@ fun CalendarScreen(
     onOpenNote: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val s by vm.settings.collectAsState()
-    val tasks by vm.tasks.collectAsState()
-    val protectedWins by vm.protectedWindows.collectAsState()
-    val deps by vm.dependencies.collectAsState()
+    val s by vm.settings.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val protectedWins by vm.protectedWindows.collectAsStateWithLifecycle()
+    val deps by vm.dependencies.collectAsStateWithLifecycle()
     // Phase 0 S5: honour the app's time-zone override for the calendar's computation zone (event/grid
     // times render in the chosen zone); device-local "today" markers stay as-is, which is correct — a
     // human's "today" is their device's day.
@@ -265,8 +265,8 @@ fun CalendarScreen(
         s.timeFormat, android.text.format.DateFormat.is24HourFormat(androidx.compose.ui.platform.LocalContext.current))
 
     // R39 — dedicated-calendar EVENTS folded into this one calendar (no separate calendar screen).
-    val eventsAll by vm.events.collectAsState()
-    val eventCals by vm.eventCalendars.collectAsState()
+    val eventsAll by vm.events.collectAsStateWithLifecycle()
+    val eventCals by vm.eventCalendars.collectAsStateWithLifecycle()
     val visEventCalIds = remember(eventCals) { eventCals.filter { it.visible }.map { it.id }.toSet() }
     val eventCalById = remember(eventCals) { eventCals.associateBy { it.id } }
     // Show events whose calendar is visible — but if NOTHING is visible (e.g. a context mode hid every
@@ -312,7 +312,7 @@ fun CalendarScreen(
     val firstDow = if (s.weekStart in 1..7) DayOfWeek.of(s.weekStart) else WeekFields.of(Locale.getDefault()).firstDayOfWeek
     // The calendar filter set holds list IDs AND folder IDs now (R23): a task matches if its list, its
     // direct folder, or the folder its list lives in is selected. Empty = show everything.
-    val calLists by vm.lists.collectAsState()
+    val calLists by vm.lists.collectAsStateWithLifecycle()
     val listFilter = s.calendarListFilter
     val listFolderById = remember(calLists) { calLists.associate { it.id to it.folderId } }
     val showCompleted = s.calendarShowCompleted
@@ -327,15 +327,15 @@ fun CalendarScreen(
 
     // Countdowns land on the calendar at their target date — a dot in the month grid and a chip under
     // the selected day, so a countdown you set is visible where you'd look for a dated event.
-    val countdowns by vm.countdowns.collectAsState()
+    val countdowns by vm.countdowns.collectAsStateWithLifecycle()
     val countdownsFor: (LocalDate) -> List<com.todocompanion.app.data.entity.CountdownEntity> = { d ->
         // R43 — occasions land on their NEXT occurrence (a yearly birthday shows on this year's date).
         countdowns.filter { com.todocompanion.app.domain.LifeEvent.nextOccurrence(it, d) == d }
     }
 
     // M1: optionally draw timed habits as read-only blocks in the day/week grid. Opt-in (default off).
-    val habits by vm.habits.collectAsState()
-    val habitCheckins by vm.habitCheckins.collectAsState()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val habitCheckins by vm.habitCheckins.collectAsStateWithLifecycle()
     val todayEd = LocalDate.now(zone).toEpochDay()
     val habitBlocksFor: (LocalDate) -> List<HabitBlock> = block@{ d ->
         val ht = com.todocompanion.app.domain.habit.HabitTime
@@ -383,8 +383,8 @@ fun CalendarScreen(
 
     // Round 14: the "actual" spine — tracked time intervals drawn as a thin read-only rail beside the
     // planned task/habit blocks (planned vs actual), gated by the Time module being on.
-    val timeEntries by vm.timeVm.timeEntries.collectAsState()
-    val timeActivities by vm.timeVm.timeActivities.collectAsState()
+    val timeEntries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
+    val timeActivities by vm.timeVm.timeActivities.collectAsStateWithLifecycle()
     val timeOn = com.todocompanion.app.domain.Modules.isEnabled(s, com.todocompanion.app.domain.Modules.TIME)
     // Precompute per-day tracked blocks ONCE (epochDay → blocks) instead of scanning every entry per
     // calendar cell / day column — the month grid and pinch-zoom were O(cells × entries) before (audit #4/#5).

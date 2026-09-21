@@ -87,7 +87,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -128,16 +128,16 @@ fun NotesScreen(
     onOpenRecall: () -> Unit = {},
     onOpenJournal: () -> Unit = {},
 ) {
-    val settings by vm.settings.collectAsState()
-    val notes by vm.notes.collectAsState()
-    val notebooks by vm.notebooks.collectAsState()
-    val folders by vm.folders.collectAsState()
-    val smartViews by vm.smartViews.collectAsState()
-    val noteTagRefs by vm.noteTagRefs.collectAsState()
-    val noteContextRefs by vm.noteContextRefs.collectAsState()
-    val allTags by vm.tags.collectAsState()
-    val allContexts by vm.contexts.collectAsState()
-    val trashed by vm.trashedNotes.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val notes by vm.notes.collectAsStateWithLifecycle()
+    val notebooks by vm.notebooks.collectAsStateWithLifecycle()
+    val folders by vm.folders.collectAsStateWithLifecycle()
+    val smartViews by vm.smartViews.collectAsStateWithLifecycle()
+    val noteTagRefs by vm.noteTagRefs.collectAsStateWithLifecycle()
+    val noteContextRefs by vm.noteContextRefs.collectAsStateWithLifecycle()
+    val allTags by vm.tags.collectAsStateWithLifecycle()
+    val allContexts by vm.contexts.collectAsStateWithLifecycle()
+    val trashed by vm.trashedNotes.collectAsStateWithLifecycle()
 
     val useNotebooks = settings.notesNotebookMode == "notebooks"
     val grid = settings.noteDefaultView != "list"
@@ -169,7 +169,7 @@ fun NotesScreen(
         else folders.sortedBy { it.sortOrder }.map { it.id to (it.icon?.let { e -> "$e " } ?: "") + it.name }
 
     // Wave J (M4) — engine facts for cross-module smart-view conditions (linked-task status, etc.).
-    val tasks by vm.tasks.collectAsState()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
     val openTaskIds = remember(tasks) { tasks.asSequence().filter { !it.completed && !it.trashed && !it.abandoned }.map { it.id }.toSet() }
     val overdueTaskIds = remember(tasks) {
         val now = System.currentTimeMillis()
@@ -397,7 +397,7 @@ fun NotesScreen(
                         DropdownMenuItem(text = { Text("🗓 Journal (daily · weekly · monthly · yearly)") }, onClick = { toolsMenu = false; onOpenJournal() })
                         DropdownMenuItem(text = { Text("◉ Life graph") }, onClick = { toolsMenu = false; onOpenGraph() })
                         DropdownMenuItem(text = { Text("🌱 Note garden") }, onClick = { toolsMenu = false; onOpenGarden() })
-                        val dueCards by vm.recallDueCount.collectAsState()
+                        val dueCards by vm.recallDueCount.collectAsStateWithLifecycle()
                         LaunchedEffect(Unit) { vm.refreshRecall() }
                         DropdownMenuItem(text = { Text("🎴 Recall" + if (dueCards > 0) "  ·  $dueCards due" else "") }, onClick = { toolsMenu = false; onOpenRecall() })
                         DropdownMenuItem(text = { Text("✨ Wrapped") }, onClick = { toolsMenu = false; showWrapped = true })

@@ -97,7 +97,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -188,7 +188,7 @@ private fun detectSmartActions(text: String): List<SmartAction> {
 fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJustStart: ((String) -> Unit)? = null, onOpenTask: ((String) -> Unit)? = null, onOpenNote: ((String) -> Unit)? = null) {
     // P5 — remember the flow per taskId so a recomposition (e.g. every keystroke in the title) reuses the
     // same DB subscription instead of tearing it down and re-running the query each frame.
-    val loaded by remember(taskId) { vm.observeTask(taskId) }.collectAsState(initial = null)
+    val loaded by remember(taskId) { vm.observeTask(taskId) }.collectAsStateWithLifecycle(initialValue = null)
     var draft by remember(taskId) { mutableStateOf<TaskEntity?>(null) }
     // Seed the draft ONLY from a load that matches the current taskId. observeTask's backing state is retained
     // across a taskId switch (produceState keeps its value until the new flow emits), so without the id guard a
@@ -197,19 +197,19 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     // is available.)
     if (draft == null && loaded?.id == taskId) draft = loaded
 
-    val settings by vm.settings.collectAsState()
-    val allTags by vm.tags.collectAsState()
-    val allContexts by vm.contexts.collectAsState()
-    val allFlags by vm.flags.collectAsState()
-    val ttRefs by vm.taskTags.collectAsState()
-    val tcRefs by vm.taskContexts.collectAsState()
-    val reminders by vm.reminders.collectAsState()
-    val checklist by vm.checklist.collectAsState()
-    val lists by vm.lists.collectAsState()
-    val folders by vm.folders.collectAsState()
-    val activityLog by remember(taskId) { vm.taskActivity(taskId) }.collectAsState(initial = emptyList())
-    val allDeps by vm.dependencies.collectAsState()
-    val allTasks by vm.tasks.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val allTags by vm.tags.collectAsStateWithLifecycle()
+    val allContexts by vm.contexts.collectAsStateWithLifecycle()
+    val allFlags by vm.flags.collectAsStateWithLifecycle()
+    val ttRefs by vm.taskTags.collectAsStateWithLifecycle()
+    val tcRefs by vm.taskContexts.collectAsStateWithLifecycle()
+    val reminders by vm.reminders.collectAsStateWithLifecycle()
+    val checklist by vm.checklist.collectAsStateWithLifecycle()
+    val lists by vm.lists.collectAsStateWithLifecycle()
+    val folders by vm.folders.collectAsStateWithLifecycle()
+    val activityLog by remember(taskId) { vm.taskActivity(taskId) }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val allDeps by vm.dependencies.collectAsStateWithLifecycle()
+    val allTasks by vm.tasks.collectAsStateWithLifecycle()
     // Instant, correct seed for the task just navigated into — above all, opening a subtask via its row. The
     // task list already holds it, so seed straight from there the moment taskId changes, before observeTask's
     // own flow re-emits, instead of briefly showing the previous task or a blank screen. observeTask (guarded
@@ -217,9 +217,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
     // its own declaration below.)
     val listTask = allTasks.firstOrNull { it.id == taskId }
     if (draft == null && listTask != null) draft = listTask
-    val allNotes by vm.notes.collectAsState()   // Phase 2 — the note linked to this task, if any
-    val timeEntries by vm.timeVm.timeEntries.collectAsState()   // T2
-    val timeActivities by vm.timeVm.timeActivities.collectAsState()
+    val allNotes by vm.notes.collectAsStateWithLifecycle()   // Phase 2 — the note linked to this task, if any
+    val timeEntries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()   // T2
+    val timeActivities by vm.timeVm.timeActivities.collectAsStateWithLifecycle()
 
     var showDue by remember { mutableStateOf(false) }
     var showStart by remember { mutableStateOf(false) }
@@ -475,7 +475,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
 
             val myCheck = checklist.filter { it.taskId == task.id }.sortedBy { it.sortOrder }
             val attFlow = remember(task.id) { vm.attachmentMeta(task.id) }
-            val attachments by attFlow.collectAsState(initial = emptyList())
+            val attachments by attFlow.collectAsStateWithLifecycle(initialValue = emptyList())
             // Staged tag/context sets (R21 #2): pending edits if any, else the live DB sets.
             val assignedTags = effTags
             val assignedCtx = effCtx
@@ -713,9 +713,9 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
                     com.todocompanion.app.domain.EditorField.REPEAT -> {
                         // Repeat is set inside the unified Date sheet (R19 #9); this field keeps only the
                         // recurrence insight (reliability) for tasks that already repeat.
-                        val reliability by vm.taskReliability.collectAsState()
+                        val reliability by vm.taskReliability.collectAsStateWithLifecycle()
                         reliability[task.id]?.let { rel ->
-                            val acts by remember(task.id) { vm.taskActivity(task.id) }.collectAsState(initial = emptyList())
+                            val acts by remember(task.id) { vm.taskActivity(task.id) }.collectAsStateWithLifecycle(initialValue = emptyList())
                             val trend = remember(acts, task.rrule) { com.todocompanion.app.domain.task.TaskReliability.trend(task, acts, System.currentTimeMillis()) }
                             val hours = remember(acts, task.rrule) { com.todocompanion.app.domain.task.TaskReliability.completionHours(task, acts) }
                             Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 4.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1219,7 +1219,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
             repeatHasChildren = allTasks.any { it.parentId == t0?.id && !it.trashed },
             showEstimate = true,
             initialEstimateMin = t0?.estimateMin,
-            estimateHint = vm.estimateBias.collectAsState().value?.sentence(),
+            estimateHint = vm.estimateBias.collectAsStateWithLifecycle().value?.sentence(),
         )
     }
     if (prioSheet && task != null) com.todocompanion.app.ui.components.PrioritySheet(
@@ -1279,7 +1279,7 @@ fun TaskDetailScreen(vm: AppViewModel, taskId: String, onBack: () -> Unit, onJus
         )
     }
     if (showHistory && task != null) {
-        val revisions by remember(task.id) { vm.taskRevisions(task.id) }.collectAsState(initial = emptyList())
+        val revisions by remember(task.id) { vm.taskRevisions(task.id) }.collectAsStateWithLifecycle(initialValue = emptyList())
         AlertDialog(
             onDismissRequest = { showHistory = false },
             confirmButton = { TextButton(onClick = { showHistory = false }) { Text("Done") } },
@@ -1769,10 +1769,10 @@ fun fmtDuration(min: Int): String = com.todocompanion.app.util.formatMinutes(min
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun TaskCoachCard(vm: AppViewModel, task: com.todocompanion.app.data.entity.TaskEntity) {
-    val tasks by vm.tasks.collectAsState()
-    val values by vm.coreValues.collectAsState()
-    val escrows by vm.escrows.collectAsState()
-    val revisions by remember(task.id) { vm.taskRevisions(task.id) }.collectAsState(initial = emptyList())
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val values by vm.coreValues.collectAsStateWithLifecycle()
+    val escrows by vm.escrows.collectAsStateWithLifecycle()
+    val revisions by remember(task.id) { vm.taskRevisions(task.id) }.collectAsStateWithLifecycle(initialValue = emptyList())
     val subtaskCount = remember(tasks, task.id) { tasks.count { it.parentId == task.id } }
     val now = System.currentTimeMillis()
     val hour = java.time.LocalTime.now().hour

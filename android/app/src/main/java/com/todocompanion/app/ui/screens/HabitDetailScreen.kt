@@ -61,7 +61,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -111,9 +111,9 @@ fun HabitDetailScreen(
     onOpenNote: (String) -> Unit = {},
 ) {
     androidx.activity.compose.BackHandler { onBack() }
-    val habits by vm.habits.collectAsState()
-    val checkins by vm.habitCheckins.collectAsState()
-    val cravings by vm.cravings.collectAsState()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val cravings by vm.cravings.collectAsStateWithLifecycle()
     val h = habits.firstOrNull { it.id == habitId }
 
     if (h == null) {
@@ -150,7 +150,7 @@ fun HabitDetailScreen(
     val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
     // Z8 correction: the headline strength honours the graded-strength opt-in, matching Momentum & goals.
     val strength = vm.strengthOf(h)
-    val forgivingStreaks = vm.settings.collectAsState().value.forgivingStreaks
+    val forgivingStreaks = vm.settings.collectAsStateWithLifecycle().value.forgivingStreaks
     // Wrapped in remember: the forgiving branch re-scans every done-day, so an unmemoized recompute of a
     // multi-year habit runs on each recomposition.
     // For a break habit the "current" figure is clean-time, and the one authoritative clean-days number is
@@ -212,7 +212,7 @@ fun HabitDetailScreen(
                     }
                 }) { Icon(Icons.Filled.Share, "Share progress") }
                 // W8: mute/unmute this habit's reminders.
-                val muted = h.id in vm.settings.collectAsState().value.mutedHabits
+                val muted = h.id in vm.settings.collectAsStateWithLifecycle().value.mutedHabits
                 IconButton(onClick = { vm.toggleMutedHabit(h.id) }) {
                     Icon(if (muted) Icons.Filled.NotificationsOff else Icons.Filled.Notifications, if (muted) "Unmute reminders" else "Mute reminders")
                 }
@@ -277,8 +277,8 @@ fun HabitDetailScreen(
             // B1 — habits × time (the cross-module "unclaimed intersection"): how much more, or less, you
             // focus on days you keep this habit. Now that Focus is unified into the one timeline, this joins
             // check-ins with kind="focus" minutes directly. Shown only with enough of both kinds of days.
-            val settingsSnap by vm.settings.collectAsState()
-            val timeEntries by vm.timeVm.timeEntries.collectAsState()
+            val settingsSnap by vm.settings.collectAsStateWithLifecycle()
+            val timeEntries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
             if (!isBreak && com.todocompanion.app.domain.Modules.isEnabled(settingsSnap, com.todocompanion.app.domain.Modules.TIME)) {
                 val lift = remember(timeEntries, doneDays, today) {
                     HabitStats.focusLift(doneDays, vm.focusMinutesByDay(), today, h.startEpochDay())
@@ -1196,9 +1196,9 @@ private fun LifeSystemsHabitCards(
     today: Long, color: Color, myCravings: List<com.todocompanion.app.data.entity.CravingEventEntity>,
 ) {
     val isBreak = h.habitType == "break"
-    val settings by vm.settings.collectAsState()
-    val values by vm.coreValues.collectAsState()
-    val witnesses by vm.witnessEvents.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val values by vm.coreValues.collectAsStateWithLifecycle()
+    val witnesses by vm.witnessEvents.collectAsStateWithLifecycle()
     // (The queued "make it easier" apply now runs in the always-composed BuilderSection wrapper, so it fires
     //  even when this collapsed coaching tail isn't shown.)
 
@@ -1266,7 +1266,7 @@ private fun LifeSystemsHabitCards(
 
     // LS-plans · implementation intentions / temptation bundles the user tied to this habit.
     run {
-        val myPlans = vm.microPlans.collectAsState().value.filter { it.habitId == h.id }
+        val myPlans = vm.microPlans.collectAsStateWithLifecycle().value.filter { it.habitId == h.id }
         if (myPlans.isNotEmpty()) {
             Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = appCardColor()) {
                 Column(Modifier.padding(16.dp)) {
@@ -1537,7 +1537,7 @@ private fun FourthWaveHabitCards(
     cravings: List<com.todocompanion.app.data.entity.CravingEventEntity>,
 ) {
     val isBreak = h.habitType == "break"
-    val escrows by vm.escrows.collectAsState()
+    val escrows by vm.escrows.collectAsStateWithLifecycle()
     val checkins = hc
 
     // FW-2 · just-in-time micro-lesson (the teachable moment for where this habit is right now).

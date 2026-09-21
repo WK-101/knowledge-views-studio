@@ -41,7 +41,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
@@ -147,7 +147,7 @@ fun CommandPaletteDialog(vm: AppViewModel, onDismiss: () -> Unit, onRun: (OmegaC
     val focus = remember { FocusRequester() }
     val parsed = remember(text) { OmegaCommand.parse(text) }
     // Module-aware: the catalogue only advertises what the active modules can actually do.
-    val settings by vm.settings.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     val catalog = remember(settings) { commandCatalog(settings) }
 
     fun run() {
@@ -245,10 +245,10 @@ private fun FlowRowCompat(content: @Composable () -> Unit) {
 @Composable
 fun RecapScreen(vm: AppViewModel, initialStartDay: Long, initialEndDay: Long, initialTitle: String, onBack: () -> Unit, onOpenNote: (String) -> Unit = {}) {
     BackHandler(onBack = onBack)
-    val settings by vm.settings.collectAsState()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     // Live, all-workspace task list: collecting it warms the flow AND re-runs the recap when tasks load,
     // so "Tasks done" can't read an empty snapshot (R29 #4).
-    val liveTasks by vm.allTasksLive.collectAsState()
+    val liveTasks by vm.allTasksLive.collectAsStateWithLifecycle()
     val today = remember { LocalDate.now() }
     val td = today.toEpochDay()
 

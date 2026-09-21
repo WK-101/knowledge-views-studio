@@ -35,7 +35,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -81,8 +81,8 @@ private fun sfmt(min: Int): String = when {
 @Composable
 fun TimeStatsScreen(vm: AppViewModel, onBack: () -> Unit) {
     BackHandler(onBack = onBack)   // system-back returns to the Time view, not out of the app
-    val entries by vm.timeVm.timeEntries.collectAsState()
-    val activities by vm.timeVm.timeActivities.collectAsState()
+    val entries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
+    val activities by vm.timeVm.timeActivities.collectAsStateWithLifecycle()
     val zone = remember { ZoneId.systemDefault() }
     var range by rememberSaveable { mutableStateOf(TimeStats.Range.WEEK) }
     var anchor by remember { mutableStateOf(LocalDate.now(zone)) }
@@ -250,8 +250,8 @@ fun TimeStatsScreen(vm: AppViewModel, onBack: () -> Unit) {
  */
 @Composable
 private fun TrendsSection(vm: AppViewModel, range: TimeStats.Range, anchor: LocalDate, zone: ZoneId, now: Long) {
-    val entries by vm.timeVm.timeEntries.collectAsState()
-    val activities by vm.timeVm.timeActivities.collectAsState()
+    val entries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
+    val activities by vm.timeVm.timeActivities.collectAsStateWithLifecycle()
     val t = remember(entries, range, anchor, now) { TimeStats.trends(entries, range, anchor, zone, now) }
     val corr = remember(entries, activities, now) { TimeStats.correlations(entries, activities, zone, now) }
 
