@@ -20,6 +20,8 @@
     <string name="widget_habitline_desc">Your habit-strength trend — the Loop-style consistency line</string>
     <string name="widget_weekrow_desc">One habit\'s week as tappable days — check any day off in place</string>
     <string name="widget_streaks_desc">Your live streaks, longest first — don\'t break the chain</string>
+    <string name="widget_keystone_desc">Your keystone habit — the one that best predicts a good day — tap to check it</string>
+    <string name="widget_correlation_desc">A plain-language pattern the on-device coach found across your habits and tasks</string>
     <string name="widget_momentum_desc">Your unified momentum — habits, task reliability and focus in one score</string>
     <string name="widget_time_desc">Start, switch and stop time tracking from the home screen — a live timer for the running activity</string>
     <string name="widget_note_desc">Two taps — a new note, or today\'s daily note</string>

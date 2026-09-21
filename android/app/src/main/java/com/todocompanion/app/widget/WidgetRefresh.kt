@@ -33,6 +33,8 @@ object Widgets {
         runCatching { StrengthLineWidget.refresh(context) }
         runCatching { WeekRowWidget.refresh(context) }
         runCatching { StreaksWidget.refresh(context) }
+        runCatching { KeystoneWidget.refresh(context) }
+        runCatching { CorrelationWidget.refresh(context) }
         runCatching { TimeWidget.refresh(context) }
     }
 
@@ -44,6 +46,8 @@ object Widgets {
         runCatching { StrengthLineWidget.refresh(context) }
         runCatching { WeekRowWidget.refresh(context) }
         runCatching { StreaksWidget.refresh(context) }
+        runCatching { KeystoneWidget.refresh(context) }
+        runCatching { CorrelationWidget.refresh(context) }
         runCatching { MomentumWidget.refresh(context) }
     }
 

@@ -436,6 +436,20 @@
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_streaks_info" />
         </receiver>
 
+        <!-- The moat: keystone habit (tap to check) + a cross-module correlation. Offline. -->
+        <receiver android:name=".widget.KeystoneWidget" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_keystone_info" />
+        </receiver>
+        <receiver android:name=".widget.CorrelationWidget" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_correlation_info" />
+        </receiver>
+
         <!-- R1: Momentum widget — the unified habit+task+focus score. Offline. -->
         <receiver android:name=".widget.MomentumWidget" android:exported="false">
             <intent-filter>
