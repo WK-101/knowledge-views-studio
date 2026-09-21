@@ -68,12 +68,20 @@ object WidgetPrefs {
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putString("habit_$id", habitId ?: "").apply()
     }
 
+    /** Habit Zero — limit the widget to one habit category/group ("" = all habits). */
+    fun group(ctx: Context, id: Int): String =
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getString("group_$id", "") ?: ""
+
+    fun saveGroup(ctx: Context, id: Int, group: String) {
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putString("group_$id", group).apply()
+    }
+
     fun clear(ctx: Context, id: Int) {
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
             .remove("scope_$id").remove("title_$id").remove("theme_$id")
             .remove("energy_$id").remove("time_$id")
             .remove("opacity_$id").remove("font_$id").remove("compact_$id").remove("toolbar_$id")
-            .remove("dayoff_$id").remove("habit_$id")
+            .remove("dayoff_$id").remove("habit_$id").remove("group_$id")
             .apply()
     }
 

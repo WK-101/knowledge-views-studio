@@ -12,4 +12,6 @@
     android:previewLayout="@layout/widget_note"
     android:resizeMode="horizontal"
     android:widgetCategory="home_screen"
+    android:configure="com.todocompanion.app.widget.WidgetConfigActivity"
+    android:widgetFeatures="reconfigurable|configuration_optional"
     android:description="@string/widget_note_desc" />

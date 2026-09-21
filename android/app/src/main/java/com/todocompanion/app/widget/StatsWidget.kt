@@ -35,7 +35,7 @@ class StatsWidget : AppWidgetProvider() {
                 views.setTextViewText(R.id.st_done, done.toString())
                 views.setTextViewText(R.id.st_due, if (due == 0) "All clear" else "$due still due")
                 views.setOnClickPendingIntent(R.id.st_root, openApp(context))
-                ids.forEach { manager.updateAppWidget(it, views) }
+                ids.forEach { id -> WidgetStyle.applyCardBackground(views, R.id.st_root, context, id); manager.updateAppWidget(id, views) }
             } finally { pending.finish() }
         }
     }

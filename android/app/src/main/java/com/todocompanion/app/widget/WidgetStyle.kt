@@ -57,11 +57,14 @@ data class WidgetStyle(
          * choice needs a non-adaptive drawable so it doesn't follow the system.
          */
         fun applyCardBackground(views: RemoteViews, rootId: Int, ctx: Context, widgetId: Int) {
-            when (WidgetPrefs.theme(ctx, widgetId)) {
-                "light" -> views.setInt(rootId, "setBackgroundResource", R.drawable.widget_bg_light)
-                "dark" -> views.setInt(rootId, "setBackgroundResource", R.drawable.widget_bg_dark)
-                else -> { /* adaptive widget_bg stays */ }
+            // Always set explicitly (auto → the adaptive drawable) so this is idempotent when one RemoteViews
+            // instance is reused across several widget ids with different themes.
+            val res = when (WidgetPrefs.theme(ctx, widgetId)) {
+                "light" -> R.drawable.widget_bg_light
+                "dark" -> R.drawable.widget_bg_dark
+                else -> R.drawable.widget_bg
             }
+            views.setInt(rootId, "setBackgroundResource", res)
         }
 
         /**

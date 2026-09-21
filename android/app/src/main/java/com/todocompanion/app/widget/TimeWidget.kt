@@ -64,7 +64,7 @@ class TimeWidget : AppWidgetProvider() {
                 }
                 // Tap the label opens the Time tab.
                 views.setOnClickPendingIntent(R.id.tw_state, openTime(context))
-                ids.forEach { manager.updateAppWidget(it, views) }
+                ids.forEach { id -> WidgetStyle.applyCardBackground(views, R.id.tw_root, context, id); manager.updateAppWidget(id, views) }
             } finally { pending.finish() }
         }
     }

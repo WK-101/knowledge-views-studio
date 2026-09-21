@@ -44,20 +44,22 @@ class HabitZeroWidget : AppWidgetProvider() {
             try {
                 val zone = ZoneId.systemDefault()
                 val today = LocalDate.now(zone).toEpochDay()
-                val r = HabitZeroData.compute(app, today)
-                // The Zero reward: only when everything due is resolved. Prefer a keystone/correlation from
-                // the on-device engine — the "reason" no single-purpose tracker can give — else the streak.
-                val reward = if (r.remaining.isEmpty() && r.due > 0) runCatching {
-                    val habits = app.repository.wsHabitsOnce()
-                    val checkins = app.repository.getHabitCheckinsOnce()
-                    val tasks = app.repository.wsTasksOnce()
-                    HabitInsights.compute(habits, checkins, tasks, today, zone, 6)
-                        .firstOrNull { it.emoji == "🗝️" || it.emoji == "🔗" || it.emoji == "⚡" || it.emoji == "📉" }
-                        ?.text
-                        ?: if (r.bestStreak >= 2) "🔥 ${r.bestStreak}-day streak — don't break the chain." else null
-                }.getOrNull() else null
 
                 ids.forEach { id ->
+                    // Per-widget: each Habit Zero can scope to one habit group (config) — compute inside the loop.
+                    val group = WidgetPrefs.group(context, id)
+                    val r = HabitZeroData.compute(app, today, group)
+                    // The Zero reward: only when everything due is resolved. Prefer a keystone/correlation from
+                    // the on-device engine — the "reason" no single-purpose tracker can give — else the streak.
+                    val reward = if (r.remaining.isEmpty() && r.due > 0) runCatching {
+                        val habits = app.repository.wsHabitsOnce()
+                        val checkins = app.repository.getHabitCheckinsOnce()
+                        val tasks = app.repository.wsTasksOnce()
+                        HabitInsights.compute(habits, checkins, tasks, today, zone, 6)
+                            .firstOrNull { it.emoji == "🗝️" || it.emoji == "🔗" || it.emoji == "⚡" || it.emoji == "📉" }
+                            ?.text
+                            ?: if (r.bestStreak >= 2) "🔥 ${r.bestStreak}-day streak — don't break the chain." else null
+                    }.getOrNull() else null
                     val style = WidgetStyle.resolve(context, id)
                     val views = RemoteViews(context.packageName, R.layout.widget_habitzero)
                     WidgetStyle.applyListCard(views, R.id.hz_card, context, id)
@@ -145,8 +147,10 @@ object HabitZeroData {
     data class Rem(val id: String, val emoji: String, val name: String, val meta: String, val kind: String)
     data class Result(val due: Int, val done: Int, val skipped: Int, val bestStreak: Int, val remaining: List<Rem>)
 
-    fun compute(app: App, today: Long): Result {
-        val habits = runBlocking { app.repository.wsHabitsOnce() }.filter { !it.archived && !it.paused }
+    fun compute(app: App, today: Long, group: String = ""): Result {
+        val habits = runBlocking { app.repository.wsHabitsOnce() }
+            .filter { !it.archived && !it.paused }
+            .filter { group.isBlank() || it.category.trim() == group.trim() }
         val checkins = runBlocking { app.repository.getHabitCheckinsOnce() }
         var due = 0; var done = 0; var skipped = 0; var best = 0
         val rem = ArrayList<Rem>()
@@ -185,17 +189,19 @@ object HabitZeroData {
 }
 
 class HabitZeroService : RemoteViewsService() {
-    override fun onGetViewFactory(intent: Intent): RemoteViewsFactory = HabitZeroFactory(applicationContext)
+    override fun onGetViewFactory(intent: Intent): RemoteViewsFactory =
+        HabitZeroFactory(applicationContext, intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1))
 }
 
-private class HabitZeroFactory(private val context: Context) : RemoteViewsService.RemoteViewsFactory {
+private class HabitZeroFactory(private val context: Context, private val widgetId: Int) : RemoteViewsService.RemoteViewsFactory {
     private var rows: List<HabitZeroData.Rem> = emptyList()
-    private val style by lazy { WidgetStyle.resolve(context, -1) }
+    private val style by lazy { WidgetStyle.resolve(context, widgetId) }
     override fun onCreate() {}
     override fun onDataSetChanged() {
         val app = context.applicationContext as App
         val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
-        rows = runCatching { HabitZeroData.compute(app, today).remaining }.getOrDefault(emptyList())
+        val group = if (widgetId >= 0) WidgetPrefs.group(context, widgetId) else ""
+        rows = runCatching { HabitZeroData.compute(app, today, group).remaining }.getOrDefault(emptyList())
     }
     override fun onDestroy() { rows = emptyList() }
     override fun getCount() = rows.size

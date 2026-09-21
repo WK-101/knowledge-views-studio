@@ -30,6 +30,6 @@ class NoteWidget : AppWidgetProvider() {
             setOnClickPendingIntent(R.id.note_new, deepLink("note", 0))
             setOnClickPendingIntent(R.id.note_today, deepLink("daily", 1))
         }
-        ids.forEach { manager.updateAppWidget(it, views) }
+        ids.forEach { id -> WidgetStyle.applyCardBackground(views, R.id.widget_root, context, id); manager.updateAppWidget(id, views) }
     }
 }

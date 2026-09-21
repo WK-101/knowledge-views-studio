@@ -72,7 +72,12 @@ class WidgetConfigActivity : ComponentActivity() {
             providerClass.endsWith("HabitsWidget")
         // Widgets that render one chosen habit — they get a habit picker.
         val isSingleHabit = providerClass.endsWith("WeekRowWidget") || providerClass.endsWith("KeystoneWidget")
+        val isHabitZero = providerClass.endsWith("HabitZeroWidget")
         fun suffix(name: String) = providerClass.endsWith(name)
+        // Simple card widgets themed via applyCardBackground (light/dark/auto) — they honour theme but not
+        // opacity (that's a list/image-card feature), so their config shows theme only.
+        val isThemeOnly = listOf("TodayWidget", "StatsWidget", "MatrixWidget", "MomentumWidget", "TimeWidget",
+            "Next7Widget", "CountdownWidget", "NoteWidget", "PomodoroWidget").any { suffix(it) }
         val widgetLabel = when {
             isAgenda -> "Agenda widget"
             suffix("DoNextWidget") -> "Do Next widget"
@@ -107,11 +112,12 @@ class WidgetConfigActivity : ComponentActivity() {
             AppTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor, accentArgb = settings.accentArgb) {
                 var lists by remember { mutableStateOf<List<ListEntity>>(emptyList()) }
                 androidx.compose.runtime.LaunchedEffect(Unit) { lists = app.repository.allListsOnce().filter { !it.archived } }
-                // Build habits, for the single-habit picker (Habit Week / Keystone).
+                // Build habits, for the single-habit picker (Habit Week / Keystone) + Habit Zero's group list.
                 var habits by remember { mutableStateOf<List<com.todocompanion.app.data.entity.HabitEntity>>(emptyList()) }
-                androidx.compose.runtime.LaunchedEffect(isSingleHabit) {
-                    if (isSingleHabit) habits = app.repository.wsHabitsOnce().filter { !it.archived && !it.paused && it.habitType != "break" }
+                androidx.compose.runtime.LaunchedEffect(isSingleHabit, isHabitZero) {
+                    if (isSingleHabit || isHabitZero) habits = app.repository.wsHabitsOnce().filter { !it.archived && !it.paused && it.habitType != "break" }
                 }
+                val groups = remember(habits) { habits.map { it.category.trim() }.filter { it.isNotBlank() }.distinct().sorted() }
 
                 var scope by remember { mutableStateOf(WidgetPrefs.scope(this, widgetId)) }
                 var title by remember { mutableStateOf(WidgetPrefs.title(this, widgetId)) }
@@ -120,6 +126,7 @@ class WidgetConfigActivity : ComponentActivity() {
                 var fontPct by remember { mutableIntStateOf((WidgetPrefs.fontScale(this, widgetId) * 100).roundToInt()) }
                 var compact by remember { mutableStateOf(WidgetPrefs.compact(this, widgetId)) }
                 var habitPin by remember { mutableStateOf(WidgetPrefs.habitId(this, widgetId)) }
+                var groupPin by remember { mutableStateOf(WidgetPrefs.group(this, widgetId)) }
 
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     Scaffold { padding ->
@@ -159,13 +166,22 @@ class WidgetConfigActivity : ComponentActivity() {
                                 Spacer(Modifier.size(18.dp))
                             }
 
+                            if (isHabitZero && groups.isNotEmpty()) {
+                                SectionLabel("Show habits")
+                                ChoiceRow("All habits", groupPin.isBlank()) { groupPin = "" }
+                                groups.forEach { g -> ChoiceRow("Group · $g", groupPin == g) { groupPin = g } }
+                                Spacer(Modifier.size(18.dp))
+                            }
+
                             SectionLabel("Theme")
                             SegmentRow(listOf("auto" to "Auto", "light" to "Light", "dark" to "Dark"), theme) { theme = it }
                             Spacer(Modifier.size(18.dp))
 
-                            SectionLabel("Opacity · $opacity%")
-                            Slider(value = opacity.toFloat(), onValueChange = { opacity = it.roundToInt() }, valueRange = 0f..100f, steps = 19)
-                            Spacer(Modifier.size(12.dp))
+                            if (!isThemeOnly) {
+                                SectionLabel("Opacity · $opacity%")
+                                Slider(value = opacity.toFloat(), onValueChange = { opacity = it.roundToInt() }, valueRange = 0f..100f, steps = 19)
+                                Spacer(Modifier.size(12.dp))
+                            }
 
                             if (isList) {
                                 SectionLabel("Text size")
@@ -187,6 +203,7 @@ class WidgetConfigActivity : ComponentActivity() {
                                 if (isAgenda) WidgetPrefs.save(this@WidgetConfigActivity, widgetId, scope, title.trim(), theme)
                                 else WidgetPrefs.saveTheme(this@WidgetConfigActivity, widgetId, theme)
                                 if (isSingleHabit) WidgetPrefs.saveHabit(this@WidgetConfigActivity, widgetId, habitPin)
+                                if (isHabitZero) WidgetPrefs.saveGroup(this@WidgetConfigActivity, widgetId, groupPin)
                                 WidgetPrefs.saveAppearance(this@WidgetConfigActivity, widgetId, opacity, fontPct, compact, true)
                                 refreshWidget(providerClass, widgetId)
                                 setResult(Activity.RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))

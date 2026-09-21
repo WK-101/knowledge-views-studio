@@ -38,7 +38,7 @@ class MatrixWidget : AppWidgetProvider() {
                 views.setTextViewText(R.id.mx_q3, counts[2].toString())
                 views.setTextViewText(R.id.mx_q4, counts[3].toString())
                 views.setOnClickPendingIntent(R.id.mx_root, openApp(context))
-                ids.forEach { manager.updateAppWidget(it, views) }
+                ids.forEach { id -> WidgetStyle.applyCardBackground(views, R.id.mx_root, context, id); manager.updateAppWidget(id, views) }
             } finally { pending.finish() }
         }
     }

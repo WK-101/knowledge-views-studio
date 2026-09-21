@@ -64,7 +64,7 @@ class Next7Widget : AppWidgetProvider() {
                 views.setTextViewText(R.id.n7_status, if (over == 0) "On track" else "$over over")
                 views.setTextColor(R.id.n7_status, if (over == 0) 0xFF12A594.toInt() else 0xFFE5484D.toInt())
                 views.setOnClickPendingIntent(R.id.n7_root, openNext7(context))
-                ids.forEach { manager.updateAppWidget(it, views) }
+                ids.forEach { id -> WidgetStyle.applyCardBackground(views, R.id.n7_root, context, id); manager.updateAppWidget(id, views) }
             } finally { pending.finish() }
         }
     }
