@@ -6,6 +6,52 @@ storage, performance, UI reuse and cross-module consistency, with a phased plan 
 
 ---
 
+# Sub-ViewModel split — carve the Goals + Routines surface into `GoalsRoutinesViewModel` (2026-09-21)
+
+The **fourth** feature collaborator (after `TimeTrackingViewModel`, `NotesViewModel` and `HabitsViewModel`)
+lifts the whole **Goals** (Unified Goals + the review/accountability layer + the health/capacity/coach/contention
+analytics) and **Routines** (press-play sequences) surface out of `AppViewModel`, in two individually-verified,
+**behaviour-preserving** stages — each compiled green (`compileReleaseKotlin`), stayed provably equivalent under
+the characterization net (`AppViewModelCharacterizationTest` 8/8 + `NoteScopeQueryTest` 2/2), release-built
+(`assembleRelease -x lint`) and re-verified at **0 forbidden permissions**. **No screen code changed**, and the
+parent keeps thin forwarding shims (`val goalsState get() = goalsRoutinesVm.goalsState`, `fun goals() =
+goalsRoutinesVm.goals()`) so every screen call site *and* the parent's own goal/routine bridges resolve unchanged.
+
+- **Stage 6-A (Routines)** moved the read-model flows (`routinesState`, `routineRunsState`), the runner deep-link
+  view-state (`pendingRoutineRun`), and the press-play data actions (`routines`/`saveRoutines`/`requestRoutineRun`/
+  `activeRoutineRun`/`save`+`clearActiveRoutineRun`/`upsertRoutine`/`deleteRoutine`/`routineRuns`/`routinesDueToday`/
+  `runRoutineByName`/`searchRoutines`).
+- **Stage 6-B (Goals)** moved the read-models (`goalsState`, `goalReviewsState`), the nested `GoalHealth` /
+  `GoalCapacity` / `GoalCoach` types (zero screen references, so they travel with their producers), and the goal
+  actions + analytics (`goals`/`saveGoals`/`upsertGoal`/`deleteGoal`, `goalReviews`/`saveGoalReviews`/`logGoalReview`,
+  `goalHealth`, `goalCapacity`, `goalCoaching`, `goalContention`, `searchGoals`, `shareGoalSnapshot`).
+
+**Deliberately kept on the coordinating parent, documented in-code as intentional** (they are goal/routine↔X
+_bridges_, not the surface itself): the multi-source reminders read-model (`allReminders`); the `{{goal:id}}`
+note-embed and `openGoalJournal` (notes); the task `isGoal` completion celebration (`goalCelebration`) and `setGoal`
+(tasks); the period/day-review rollup (`weekPeriodShareData`, `saveDayAlignment`); `runRoutine`'s timer + automation
+start and `startActivityTimer` (time-tracking); `logRoutineRun`'s per-step habit/task tick (habits + tasks); and the
+keystone/capacity reasoning (`bestKeystone`, `capacitySnapshot`) that a goal's health merely reads through. The
+collaborator reaches back to the parent for exactly those cross-feature reads (`app.tasks`, `app.habitCheckins`,
+`app.habitsWithArchived`, `app.strengthOf`, `app.timeVm.timeEntries`, `app.trackedCapacityHours`, `app.runRoutine`).
+
+**Result:** `AppViewModel` **5762 → 5582 lines** (and **~6600 → 5582**, ~1,020 lines, across the three carves this
+round); `GoalsRoutinesViewModel` now **284 lines**. Four real feature collaborators now prove the pattern generalizes
+across very different surfaces (a 78-line time tracker, a 674-line notes engine, a 629-line habits+coach engine, a
+284-line goals+routines engine), leaving `BackupSettingsViewModel` as the last planned carve.
+
+### Scorecard delta (Habits carve → Goals-Routines carve)
+| Dimension | Prev | **Now** | Why |
+|---|:---:|:---:|---|
+| Architecture | 8.0 | **8.2** | a fourth lifecycle-free collaborator sheds another ~180 lines and makes the goal↔tasks/habits/time/day-review seams explicit; the god-object is now a coordinator of feature collaborators rather than the home of every feature. |
+| Testing | 8.0 | **8.0** | unchanged — the net proved every stage equivalent, as designed. |
+| Data / Cross-module / Perf / UI / Security | 8.1 / 7.5 / 7.0 / 7.5 / 8.5 | **8.1 / 7.5 / 7.0 / 7.5 / 8.5** | unchanged this round. |
+| **Overall** | **≈7.9** | **≈7.95** | a third consecutive structural gain on the hardest file, with zero behavioural or surface-area cost. |
+
+_The Habits-carve round and earlier logs follow unchanged below._
+
+---
+
 # Sub-ViewModel split — carve the Habits surface out of the god-VM into `HabitsViewModel` (2026-09-21)
 
 The third feature collaborator (after `TimeTrackingViewModel` and `NotesViewModel`), and the largest
