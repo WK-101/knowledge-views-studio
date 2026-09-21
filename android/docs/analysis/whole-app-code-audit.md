@@ -6,6 +6,38 @@ storage, performance, UI reuse and cross-module consistency, with a phased plan 
 
 ---
 
+# The two mega-objects — safe partial decomposition (2026-09-21)
+
+After the three ceilings closed, the two remaining mega-objects (`AppViewModel`, `AppRepository`) were taken on.
+A close read established that their *remaining* cores are **inherently** cross-coupled, not incidentally so:
+the repository's feature sections call across features by design (time-tracking credits habits, re-parents
+tasks, appends to notes; note-saving syncs bound tasks and drives FTS), and what's left of the ViewModel is the
+cross-feature coordination itself. A full mechanical split would mostly relocate that tangle behind shims and
+back-references — high-risk churn on the app's core for a modest gain — which is *why* the app deliberately
+keeps these as coordinators. So the chosen path was **safe partial extraction**: lift only the genuinely-
+cohesive, low-risk clusters, each behaviour-preserving and verified, and leave the coupled cores intact.
+
+| Extraction | From → new file | Why it's clean | Result |
+|---|---|---|---|
+| **Goals + Routines data module** | `AppRepository` → `GoalsRoutinesRepository.kt` | Touches only its own tables via the domain codecs — no FTS, no cross-feature writes, no shared `uid`/`now`/`activeWs`. (It was mis-filed under the notes header.) | AppRepository **2369 → 2327**; ~19 call sites unchanged via shims; backup transport still reads the DAOs directly. |
+| **Event / calendar CRUD** | `AppViewModel` → `CalendarViewModel.kt` | Same proven collaborator pattern (timeVm/notesVm/tasksVm). The two shared touchpoints — `ensureDefaultCalendar` (8+ callers) and `quickAddOne` (task-capture) — stay on the coordinator, reached via `app` (widened `private`→`internal`). | AppViewModel **5378 → 5264**; every screen call site unchanged via shims. |
+
+**Verified:** `compileReleaseKotlin` green · full `testDebugUnitTest` green (backup round-trip exercises
+goals/routines; characterization tests exercise the VM wiring) · `assembleRelease` 19.8 MB · aapt2 re-confirmed
+**0 forbidden permissions**.
+
+### Score movement (honest — a safe partial, not a full dissolution)
+
+Architecture **8.8 → 8.9**, Maintainability **7.5 → 7.6** (two more cohesive modules extracted; both mega-objects
+smaller). **Overall stays ≈8.2** — deliberately not inflated: the cores remain large-by-design coordinators, and
+the inherent cross-coupling is the real, documented reason the last ~1.3 points to 9.5 would require a
+genuine architectural redesign (splitting the coupling itself), not more mechanical extraction. That redesign is
+a separate, higher-risk undertaking, offered but not force-fit here.
+
+_The three-ceilings section that preceded this round follows unchanged below._
+
+---
+
 # The three named ceilings — closed (2026-09-21)
 
 After the post-fix confirmation re-audit below named three concrete ceilings to 9.5, each was taken on
