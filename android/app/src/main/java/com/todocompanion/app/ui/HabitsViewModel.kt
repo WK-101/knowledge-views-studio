@@ -38,6 +38,8 @@ class HabitsViewModel(
     // Re-declared locally, exactly as TimeTrackingViewModel/NotesViewModel do (same combine + WhileSubscribed
     // + Default), so this collaborator owns its scoping instead of reaching into AppViewModel's private helpers.
     private val activeWs: Flow<String> = app.settings.map { it.activeWorkspaceId }
+    /** The active workspace id, read synchronously — used to STAMP new rows (mirrors AppViewModel's helper). */
+    private fun activeWorkspace(): String = app.settings.value.activeWorkspaceId
     private fun <T> Flow<T>.state(initial: T): StateFlow<T> =
         flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), initial)
     private fun <T> Flow<List<T>>.scopedBy(wsOf: (T) -> String): StateFlow<List<T>> =
@@ -97,4 +99,62 @@ class HabitsViewModel(
     val habitQuickAddOpen = MutableStateFlow(false)               // L6: natural-language "type a habit" dialog
     val habitTrendsOpen = MutableStateFlow(false)                 // M5: full trends & correlations dashboard
     val habitArchiveOpen = MutableStateFlow(false)                // Archived habits + Trash management overlay
+
+    // ── Habit CRUD / lifecycle (Stage 5-C) ────────────────────────────────────────────────────────────────
+    /** Refresh the three habit-touching home-screen widgets (habits list, stats, and momentum, which folds in
+     *  habit strength). Public so the parent's still-there check-in/Focus bridges reach it through a shim. */
+    fun refreshHabitWidgets() {
+        com.todocompanion.app.widget.HabitsWidget.refresh(app.appCtx)
+        com.todocompanion.app.widget.HabitStatsWidget.refresh(app.appCtx)
+        // R104 — the momentum score folds in habit strength, so keep it live on habit changes too.
+        com.todocompanion.app.widget.MomentumWidget.refresh(app.appCtx)
+    }
+    fun createHabit(name: String, emoji: String?, colorArgb: Long?, target: Int, unit: String? = null, scheduleDays: String = "", reminderTimes: String = "") = scope.launch {
+        repo.createHabit(name.trim(), emoji, colorArgb, target, activeWorkspace(), unit, scheduleDays, reminderTimes)
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(app.appCtx, repo)
+        com.todocompanion.app.widget.HabitsWidget.refresh(app.appCtx)
+    }
+    fun saveHabit(h: com.todocompanion.app.data.entity.HabitEntity) = scope.launch {
+        repo.upsertHabit(h)
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(app.appCtx, repo)
+        com.todocompanion.app.widget.HabitsWidget.refresh(app.appCtx)
+    }
+    /** Create from a fully-built habit (Tier I editor). Workspace defaults to the active one. */
+    fun addHabit(h: com.todocompanion.app.data.entity.HabitEntity) = scope.launch {
+        repo.createHabit(h.copy(workspaceId = h.workspaceId.ifBlank { activeWorkspace() }))
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(app.appCtx, repo)
+        refreshHabitWidgets()
+    }
+    fun addHabits(habits: List<com.todocompanion.app.data.entity.HabitEntity>) = scope.launch {
+        val ws = activeWorkspace()
+        habits.forEach { repo.createHabit(it.copy(workspaceId = it.workspaceId.ifBlank { ws })) }
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(app.appCtx, repo)
+        refreshHabitWidgets()
+    }
+    /** Soft-delete a habit to Trash (recoverable), with an Undo. History is preserved; restore is lossless. */
+    fun trashHabit(h: com.todocompanion.app.data.entity.HabitEntity) = scope.launch {
+        repo.setHabitTrashed(h.id, true); refreshHabitWidgets()
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(app.appCtx, repo)
+        app.undoEvents.tryEmit(UndoEvent(UndoKind.HABIT_TRASHED, h.id, "Habit moved to Trash", habitRestore = h))
+    }
+    /** Restore a trashed habit back to the active list. */
+    fun restoreHabit(id: String) = scope.launch {
+        repo.setHabitTrashed(id, false); refreshHabitWidgets()
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(app.appCtx, repo)
+    }
+    /** Archive / unarchive a habit (kept out of the active list & analysis, never deleted), with an Undo. */
+    fun setHabitArchived(h: com.todocompanion.app.data.entity.HabitEntity, archived: Boolean) = scope.launch {
+        repo.setHabitArchived(h.id, archived); refreshHabitWidgets()
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(app.appCtx, repo)
+        if (archived) app.undoEvents.tryEmit(UndoEvent(UndoKind.HABIT_ARCHIVED, h.id, "Habit archived", habitRestore = h))
+    }
+    /** Permanently erase a single trashed habit (Trash → Delete forever). */
+    fun deleteHabit(id: String) = scope.launch {
+        repo.deleteHabit(id); refreshHabitWidgets()
+    }
+    /** Permanently erase every trashed habit in the active workspace (Trash → Empty). */
+    fun emptyHabitTrash() = scope.launch {
+        repo.emptyHabitTrash(activeWorkspace()); refreshHabitWidgets()
+    }
+    fun setHabitOrder(ids: List<String>) = scope.launch { repo.setHabitOrder(ids); refreshHabitWidgets() }
 }

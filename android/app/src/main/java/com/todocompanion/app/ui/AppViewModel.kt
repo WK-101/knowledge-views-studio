@@ -2374,22 +2374,11 @@ class AppViewModel internal constructor(
     }
 
     // ---------- habits ----------
-    fun createHabit(name: String, emoji: String?, colorArgb: Long?, target: Int, unit: String? = null, scheduleDays: String = "", reminderTimes: String = "") = viewModelScope.launch {
-        repo.createHabit(name.trim(), emoji, colorArgb, target, settings.value.activeWorkspaceId, unit, scheduleDays, reminderTimes)
-        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
-        com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
-    }
-    fun saveHabit(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
-        repo.upsertHabit(h)
-        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
-        com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
-    }
+    // Habit CRUD / lifecycle lives on HabitsViewModel now (Stage 5-C) — forwarding shims.
+    fun createHabit(name: String, emoji: String?, colorArgb: Long?, target: Int, unit: String? = null, scheduleDays: String = "", reminderTimes: String = "") = habitsVm.createHabit(name, emoji, colorArgb, target, unit, scheduleDays, reminderTimes)
+    fun saveHabit(h: com.todocompanion.app.data.entity.HabitEntity) = habitsVm.saveHabit(h)
     /** Create from a fully-built habit (Tier I editor). Workspace defaults to the active one. */
-    fun addHabit(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
-        repo.createHabit(h.copy(workspaceId = h.workspaceId.ifBlank { settings.value.activeWorkspaceId }))
-        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
-        refreshHabitWidgets()
-    }
+    fun addHabit(h: com.todocompanion.app.data.entity.HabitEntity) = habitsVm.addHabit(h)
     /** M4: render a habit's progress to a PNG on-device and open the share sheet. onDone gets the saved location. */
     fun shareHabitProgress(h: com.todocompanion.app.data.entity.HabitEntity, onDone: (String?) -> Unit) = viewModelScope.launch {
         val hs = com.todocompanion.app.domain.habit.HabitStats
@@ -3666,37 +3655,18 @@ class AppViewModel internal constructor(
     }
 
     /** M2: create a whole themed routine at once (one reschedule/refresh for the batch). */
-    fun addHabits(habits: List<com.todocompanion.app.data.entity.HabitEntity>) = viewModelScope.launch {
-        val ws = settings.value.activeWorkspaceId
-        habits.forEach { repo.createHabit(it.copy(workspaceId = it.workspaceId.ifBlank { ws })) }
-        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
-        refreshHabitWidgets()
-    }
+    // Habit trash / archive / order live on HabitsViewModel now (Stage 5-C) — forwarding shims.
+    fun addHabits(habits: List<com.todocompanion.app.data.entity.HabitEntity>) = habitsVm.addHabits(habits)
     /** Soft-delete a habit to Trash (recoverable), with an Undo. History is preserved; restore is lossless. */
-    fun trashHabit(h: com.todocompanion.app.data.entity.HabitEntity) = viewModelScope.launch {
-        repo.setHabitTrashed(h.id, true); refreshHabitWidgets()
-        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
-        undoEvents.tryEmit(UndoEvent(UndoKind.HABIT_TRASHED, h.id, "Habit moved to Trash", habitRestore = h))
-    }
+    fun trashHabit(h: com.todocompanion.app.data.entity.HabitEntity) = habitsVm.trashHabit(h)
     /** Restore a trashed habit back to the active list. */
-    fun restoreHabit(id: String) = viewModelScope.launch {
-        repo.setHabitTrashed(id, false); refreshHabitWidgets()
-        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
-    }
+    fun restoreHabit(id: String) = habitsVm.restoreHabit(id)
     /** Archive / unarchive a habit (kept out of the active list & analysis, never deleted), with an Undo. */
-    fun setHabitArchived(h: com.todocompanion.app.data.entity.HabitEntity, archived: Boolean) = viewModelScope.launch {
-        repo.setHabitArchived(h.id, archived); refreshHabitWidgets()
-        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
-        if (archived) undoEvents.tryEmit(UndoEvent(UndoKind.HABIT_ARCHIVED, h.id, "Habit archived", habitRestore = h))
-    }
+    fun setHabitArchived(h: com.todocompanion.app.data.entity.HabitEntity, archived: Boolean) = habitsVm.setHabitArchived(h, archived)
     /** Permanently erase a single trashed habit (Trash → Delete forever). */
-    fun deleteHabit(id: String) = viewModelScope.launch {
-        repo.deleteHabit(id); refreshHabitWidgets()
-    }
+    fun deleteHabit(id: String) = habitsVm.deleteHabit(id)
     /** Permanently erase every trashed habit in the active workspace (Trash → Empty). */
-    fun emptyHabitTrash() = viewModelScope.launch {
-        repo.emptyHabitTrash(settings.value.activeWorkspaceId); refreshHabitWidgets()
-    }
+    fun emptyHabitTrash() = habitsVm.emptyHabitTrash()
     // N2: reward-unlock celebration — surfaced to the Habits screen (confetti + toast) and a notification.
     val rewardCelebration = MutableStateFlow<String?>(null)
     private fun celebrateIfRewardReached(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long) {
@@ -5157,12 +5127,8 @@ class AppViewModel internal constructor(
     fun pauseAllHabits(paused: Boolean) = viewModelScope.launch {
         repo.pauseAllHabits(settings.value.activeWorkspaceId, paused); com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo); refreshHabitWidgets()
     }
-    private fun refreshHabitWidgets() {
-        com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
-        com.todocompanion.app.widget.HabitStatsWidget.refresh(appCtx)
-        // R104 — the momentum score folds in habit strength, so keep it live on habit changes too.
-        com.todocompanion.app.widget.MomentumWidget.refresh(appCtx)
-    }
+    // Lives on HabitsViewModel now (Stage 5-C); parent's still-here check-in/Focus bridges call it via this shim.
+    private fun refreshHabitWidgets() = habitsVm.refreshHabitWidgets()
 
     // ---------- deep-work coach (H4) ----------
     data class DeepWorkStatus(val todayMin: Int, val goalMin: Int, val streakDays: Int, val best: TaskEntity?, val bestBlockMin: Int)
@@ -5799,7 +5765,7 @@ class AppViewModel internal constructor(
 
     // Drag-reorder persistence for the drawer sections.
     fun setTagOrder(ids: List<String>) = viewModelScope.launch { repo.setTagOrder(ids) }
-    fun setHabitOrder(ids: List<String>) = viewModelScope.launch { repo.setHabitOrder(ids); refreshHabitWidgets() }
+    fun setHabitOrder(ids: List<String>) = habitsVm.setHabitOrder(ids)
     fun setContextOrder(ids: List<String>) = viewModelScope.launch { repo.setContextOrder(ids) }
     fun setFilterOrder(ids: List<String>) = viewModelScope.launch { repo.setFilterOrder(ids) }
     /** Persisted per-list Board/List layout choice. */
