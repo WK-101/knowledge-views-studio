@@ -6,6 +6,58 @@ storage, performance, UI reuse and cross-module consistency, with a phased plan 
 
 ---
 
+# Sub-ViewModel split — carve backup/export/import/sync into `BackupSyncViewModel` (Phase 3 complete) (2026-09-21)
+
+The **fifth and final** feature collaborator completes the Phase 3 decomposition: the whole backup /
+export / import / sync surface is lifted out of `AppViewModel` into `BackupSyncViewModel`, in one
+**behaviour-preserving** stage — compiled green (`compileReleaseKotlin`), proven equivalent by the
+characterization net (`AppViewModelCharacterizationTest` 8/8 + `NoteScopeQueryTest` 2/2), release-built
+(`assembleRelease -x lint`) and re-verified at **0 forbidden permissions**, with **no screen code changed**.
+
+The move is unusually clean because the two data-layer collaborators it owns — `BackupExporter` (`backup`)
+and `RestoreManager` (`restore`) — were already private on the parent with **zero external call sites**, so
+they carry over whole. The collaborator owns them plus their threading/UI-glue wrappers (JSON / Markdown /
+CSV / ICS / habit-CSV export, passphrase-encrypted backup, SAF-free Downloads export, share-a-copy; the sync
++ restore/import wrappers) and the auto-backup/sync settings setters (`rearmAutoBackup` + the folder/enabled/
+interval/hour/dow/dom/passphrase setters). Two private helpers the data collaborators need were promoted
+private→internal: `readImportTextBounded` (kept on the parent because three non-backup importers also use it)
+and `displayNameOf` (needed by `RestoreManager`).
+
+**Deliberately kept on the coordinating parent** (documented in-code): the feature-specific importers that
+only *look* backup-ish — calendar `.ics`/vCard import and the note passphrase "courier" — which belong to
+their own features; the cross-feature read models `dataCounts` / `deviceInventory`; the DB-encryption
+(`SecureDb`) cluster; `setMorningBrief` (reminders); and the scattered app-level one-line settings setters
+(sidebar, modules, onboarding, muting, reduce-motion…), whose move behind one-line shims would be net-zero
+and would turn the collaborator into a junk drawer.
+
+**Result — Phase 3 decomposition complete.** `AppViewModel` **5582 → 5493 lines** (and **~6600 → 5493**,
+**~1,100 lines / ~17%** off across the four carves this round). The god-object is now a *coordinator* of five
+lifecycle-free feature collaborators, each owning a cohesive slice:
+
+| Collaborator | Lines | Owns |
+|---|---:|---|
+| `TimeTrackingViewModel` | 78 | time entries / activities / the running-timer controller |
+| `NotesViewModel` | 674 | the notes surface (CRUD, notebooks, vault, `.md` interop, review, threads, ink) |
+| `HabitsViewModel` | 629 | habit tracking + the habit-science / life-systems coach |
+| `GoalsRoutinesViewModel` | 284 | Unified Goals + review/accountability + analytics, and press-play Routines |
+| `BackupSyncViewModel` | 173 | backup / export / import / sync + auto-backup settings |
+
+What remains on the parent is genuinely coordination: the task/list/folder core, the cross-feature bridges
+(reminders, day-review rollups, capacity/keystone reasoning, note-embeds, the Focus↔habit init wiring), and
+navigation/UI state — the seams between features, which is exactly where a coordinator's code belongs.
+
+### Scorecard delta (Goals-Routines carve → Backup-Sync carve · Phase 3 complete)
+| Dimension | Prev | **Now** | Why |
+|---|:---:|:---:|---|
+| Architecture | 8.2 | **8.4** | the decomposition is *finished*: every feature with a cohesive surface now lives in its own lifecycle-free collaborator, and the remaining god-file is coordination rather than feature code — a qualitative shift, not just fewer lines. |
+| Testing | 8.0 | **8.0** | unchanged — the characterization net proved all five carves equivalent, as designed. |
+| Data / Cross-module / Perf / UI / Security | 8.1 / 7.5 / 7.0 / 7.5 / 8.5 | **8.1 / 7.5 / 7.0 / 7.5 / 8.5** | unchanged this round. |
+| **Overall** | **≈7.95** | **≈8.0** | four consecutive structural gains on the hardest file in the codebase, at zero behavioural or surface-area cost. |
+
+_The Goals-Routines-carve round and earlier logs follow unchanged below._
+
+---
+
 # Sub-ViewModel split — carve the Goals + Routines surface into `GoalsRoutinesViewModel` (2026-09-21)
 
 The **fourth** feature collaborator (after `TimeTrackingViewModel`, `NotesViewModel` and `HabitsViewModel`)
