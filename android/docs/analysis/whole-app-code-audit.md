@@ -6,6 +6,53 @@ storage, performance, UI reuse and cross-module consistency, with a phased plan 
 
 ---
 
+# Sub-ViewModel split — carve the Notes surface out of the god-VM into `NotesViewModel` (2026-09-21)
+
+With the cross-feature read models pinned (previous round), the decomposition itself ran in small,
+individually-verified stages, each **behaviour-preserving**, compiled green (`compileReleaseKotlin`),
+proven equivalent by the widened characterization net (`AppViewModelCharacterizationTest` 8/8 +
+`NoteScopeQueryTest` 2/2), release-built (`assembleRelease -x lint`) and re-verified at **0 forbidden
+permissions**. No screen code changed at any stage.
+
+**Pattern (not a rewrite).** `NotesViewModel` continues the exact collaborator pattern the codebase already
+established with `TimeTrackingViewModel`: a plain class (not an Android `ViewModel`) that `AppViewModel`
+constructs once and drives with its own `viewModelScope`, so there is no second lifecycle. It owns the
+workspace-scoped note read-model flows and the note actions, reaching back to the parent only for genuinely
+cross-feature state (`app.settings`, `app.appCtx`, `app.toast`, the transclusion/recap engine). `AppViewModel`
+keeps thin **forwarding shims** (`val notes get() = notesVm.notes`, `fun saveNote(n) = notesVm.saveNote(n)`),
+so the ~170 note call sites across 20 screen files needed **zero** edits.
+
+- **Stage 4a–4e** moved the note read-models, CRUD, notebooks + note-settings, reminders/seal/trash-retention,
+  search/ask/now, and the **L11 vault** (passphrase body-encryption at rest).
+- **Stage 4f-1** moved the `.md` folder interop (single-note export, `.md`-per-note export/import, the
+  two-way mirror with conflict resolution, renderer image resolution).
+- **Stage 4f-2** moved the note-local long-tail that was interleaved with cross-feature bridges: the woven
+  open entry points, evergreen (spaced) review, threads/Maps-of-Content, and writing sprints.
+- **Stage 4f-3** moved ink-note capture and closed the round.
+
+**Deliberately kept on the coordinating parent, documented in-code as intentional** (they are notes↔X
+_bridges_, not the notes surface): the live-transclusion / period-digest engine (`expandNoteTransclusion`,
+`expandNoteForExport`, the daily/periodic-note openers and recap writers — they reach whole-app task/event/time
+data); checkbox→task extraction and reconcile; the Note-Garden task-health roll-up; note outcome/card roll-ups;
+the Sealed-Courier crypto; and the shared tag/context management + whole-app-search dispatcher (the latter
+already reaches `timeVm` the same way, so `searchNotebooks` stays beside it).
+
+**Result:** `AppViewModel` **~6600 → 6174 lines**; `NotesViewModel` now **674 lines** owning a cohesive,
+self-contained slice; a second real feature collaborator (after `TimeTrackingViewModel`) proving the pattern
+generalizes and setting the template for the Habits / Goals-Routines / Backup-Settings carves that follow.
+
+### Scorecard delta (characterization widening → sub-ViewModel split)
+| Dimension | Prev | **Now** | Why |
+|---|:---:|:---:|---|
+| Architecture | 7.4 | **7.7** | the single largest god-object shrinks by ~430 lines into a lifecycle-free feature collaborator on an already-proven pattern; the notes↔X boundaries are now explicit and documented rather than implicit in one 6.6k-line class. |
+| Testing | 8.0 | **8.0** | unchanged — the widened net did its job (every stage proved equivalent), rather than adding new coverage. |
+| Data / Cross-module / Perf / UI / Security | 8.1 / 7.5 / 7.0 / 7.5 / 8.5 | **8.1 / 7.5 / 7.0 / 7.5 / 8.5** | unchanged this round. |
+| **Overall** | **≈7.8** | **≈7.85** | a real structural gain (maintainability of the hardest file) with zero behavioural or surface-area cost. |
+
+_The characterization-widening round and earlier logs follow unchanged below._
+
+---
+
 # Characterization widening — pin the god-VM's cross-feature read models before the split (2026-09-21)
 
 The agreed sequence toward the sub-ViewModel split is **widen the characterization net first, then split**. This

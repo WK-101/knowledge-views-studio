@@ -2196,14 +2196,7 @@ class AppViewModel internal constructor(
     /** L14 — save a handwriting/ink drawing as a note image attachment and hand back a Markdown reference
      *  (`![ink](attachment:<id>)`) the editor appends. Fully on-device; the PNG lives in the note like any
      *  image and renders via [noteImageMap]. [onDone] receives the reference, or null on failure. */
-    fun addInkToNote(noteId: String, png: ByteArray, caption: String = "", onDone: (String?) -> Unit = {}) = viewModelScope.launch {
-        val id = withContext(Dispatchers.IO) {
-            runCatching { repo.addNoteAttachment(noteId, "ink-${System.currentTimeMillis()}.png", "image/png", png) }.getOrNull()
-        }
-        if (id == null) { toast("Couldn't save the drawing"); onDone(null) }
-        // Wave 2 · Searchable Ink — the caption becomes the image alt-text, which the body FTS indexes.
-        else onDone("![${caption.ifBlank { "ink" }}](attachment:$id)")
-    }
+    fun addInkToNote(noteId: String, png: ByteArray, caption: String = "", onDone: (String?) -> Unit = {}) = notesVm.addInkToNote(noteId, png, caption, onDone)
     /** R40 — attach several files at once from the system picker (SAF, multi-select). Each URI's bytes are
      *  copied into app-private storage; no storage permission is involved. [onDone] reports how many landed,
      *  so the editor can acknowledge the save (R46). */
