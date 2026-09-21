@@ -2865,6 +2865,9 @@ class AppViewModel internal constructor(
     fun goalHealth(g: com.todocompanion.app.domain.Goal) = goalsRoutinesVm.goalHealth(g)
     fun upsertGoal(g: com.todocompanion.app.domain.Goal) = goalsRoutinesVm.upsertGoal(g)
     fun deleteGoal(id: String) = goalsRoutinesVm.deleteGoal(id)
+    // G1b — Key-Result auto-pull resolution (live current from a linked habit / list / activity).
+    fun resolveKeyResultCurrent(kr: com.todocompanion.app.domain.KeyResult) = goalsRoutinesVm.resolveKeyResultCurrent(kr)
+    fun withResolvedKeyResults(g: com.todocompanion.app.domain.Goal) = goalsRoutinesVm.withResolvedKeyResults(g)
     fun goalReviews() = goalsRoutinesVm.goalReviews()
     fun saveGoalReviews(list: List<com.todocompanion.app.domain.GoalReview>) = goalsRoutinesVm.saveGoalReviews(list)
     fun logGoalReview(goalId: String, executionPct: Int, commitmentsKept: Int, commitmentsTotal: Int, note: String) =

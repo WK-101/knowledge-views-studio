@@ -44,7 +44,18 @@ data class KeyResult(
     val target: Double = 100.0,
     val current: Double = 0.0,
     val unit: String = "",
+    // G1b — auto-pull: when set, `current` is DERIVED from a linked object (a supporting habit, a task
+    // list or a time activity) instead of typed by hand, so the KR moves as you actually do the work.
+    // sourceType is "" (manual) / "habit" / "list" / "activity"; sourceId is that object's id;
+    // sourceMetric names which measure to pull (see [KeyResultSource]). All default so old goals decode
+    // unchanged and a KR stays manual until you bind a source.
+    val sourceType: String = "",
+    val sourceId: String = "",
+    val sourceMetric: String = "",
 ) {
+    /** True when this KR pulls its current value from a linked object rather than manual entry. */
+    val sourced: Boolean get() = sourceType.isNotBlank() && sourceId.isNotBlank()
+
     /** Fraction complete (0..1); guards a zero-width range. */
     val fraction: Double
         get() {
@@ -52,6 +63,50 @@ data class KeyResult(
             if (span == 0.0) return if (current >= target) 1.0 else 0.0
             return ((current - start) / span).coerceIn(0.0, 1.0)
         }
+}
+
+/** G1b — the catalogue of auto-pull sources & metrics for a [KeyResult]. Pure strings (no entity deps);
+ *  the ViewModel does the live resolution against the habit / task / time stores. */
+object KeyResultSource {
+    const val MANUAL = ""
+    const val HABIT = "habit"
+    const val LIST = "list"
+    const val ACTIVITY = "activity"
+
+    val TYPES = listOf(MANUAL, HABIT, LIST, ACTIVITY)
+    fun typeLabel(type: String): String = when (type) {
+        HABIT -> "Habit"; LIST -> "List"; ACTIVITY -> "Activity"; else -> "Manual"
+    }
+
+    /** One selectable measure for a source type: its stored key, a human label, and a default unit. */
+    data class Metric(val key: String, val label: String, val unit: String)
+
+    fun metricsFor(type: String): List<Metric> = when (type) {
+        HABIT -> listOf(
+            Metric("streak", "Current streak", "days"),
+            Metric("rate30", "30-day rate", "%"),
+            Metric("checkins30", "Days done (30d)", "days"),
+            Metric("totalAll", "Total logged", ""),
+        )
+        LIST -> listOf(
+            Metric("done", "Tasks done", "tasks"),
+            Metric("percent", "Percent complete", "%"),
+            Metric("remaining", "Tasks left", "tasks"),
+        )
+        ACTIVITY -> listOf(
+            Metric("hoursAll", "Hours tracked", "h"),
+            Metric("minutesAll", "Minutes tracked", "min"),
+            Metric("hours30", "Hours (30d)", "h"),
+            Metric("sessions30", "Sessions (30d)", ""),
+        )
+        else -> emptyList()
+    }
+
+    fun metricLabel(type: String, metric: String): String =
+        metricsFor(type).firstOrNull { it.key == metric }?.label ?: metric
+    fun defaultUnit(type: String, metric: String): String =
+        metricsFor(type).firstOrNull { it.key == metric }?.unit ?: ""
+    fun defaultMetric(type: String): String = metricsFor(type).firstOrNull()?.key ?: ""
 }
 
 @Serializable

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -565,10 +566,13 @@ private fun RoutineEditor(
     onDismiss: () -> Unit, onSave: (Routine) -> Unit, onDelete: () -> Unit,
 ) {
     val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
     val tasks by vm.tasks.collectAsStateWithLifecycle()
     val activities by vm.timeVm.timeActivities.collectAsStateWithLifecycle()
     val openTasks = remember(tasks) { tasks.filter { !it.completed && !it.trashed && !it.isNote } }
     val liveActivities = remember(activities) { activities.filter { !it.archived } }
+    val chainToday = vm.today()
+    var confirmBuildChain by remember { mutableStateOf(false) }
 
     var name by remember { mutableStateOf(routine.name) }
     var emoji by remember { mutableStateOf(routine.emoji) }
@@ -677,6 +681,47 @@ private fun RoutineEditor(
                 FilledTonalButton(onClick = {
                     steps.add(RoutineStep(id = UUID.randomUUID().toString(), title = "", durationSec = 300, kind = StepKind.TIMER))
                 }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Filled.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Add step") }
+
+                // G2 — reframe this ritual as a habit chain: each step becomes an anchored habit (habit
+                // stacking), so the steps earn their own streaks and the whole chain has a live adherence.
+                val chainRoutine = remember(name, emoji, note, days, steps.toList()) {
+                    routine.copy(name = name.trim(), emoji = emoji.ifBlank { "🔗" }, note = note.trim(),
+                        days = days.filter { it in 1..7 }.distinct().sorted(), steps = steps.toList())
+                }
+                val chainHabits = remember(chainRoutine, habits) { com.todocompanion.app.domain.RoutineChain.habitsFor(chainRoutine, habits) }
+                val uncreated = remember(chainRoutine, habits) { com.todocompanion.app.domain.RoutineChain.uncreatedSteps(chainRoutine, habits) }
+                if (steps.any { it.title.isNotBlank() }) {
+                    HorizontalDivider()
+                    AppCard {
+                        Text("🔗 HABIT CHAIN", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Turn each step into an anchored habit — “after the last, this one” — so every step keeps its own streak and the chain earns a whole-chain adherence.",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+                        if (chainHabits.isNotEmpty()) {
+                            val stat = remember(chainHabits, checkins, chainToday) { com.todocompanion.app.domain.RoutineChain.chainStat(chainHabits, checkins, chainToday) }
+                            Spacer(Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("${stat.size} habit${if (stat.size == 1) "" else "s"} in the chain", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                    Text("${stat.adherencePct}% kept (30d)" + (if (stat.streak > 0) " · ${stat.streak}-day whole-chain streak" else ""),
+                                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            ChainWeekRow(stat.weekdayRates)
+                            Spacer(Modifier.height(6.dp))
+                            Text(chainHabits.joinToString("  →  ") { (it.emoji?.plus(" ") ?: "") + it.name }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        if (uncreated > 0) {
+                            FilledTonalButton(onClick = { confirmBuildChain = true }, modifier = Modifier.fillMaxWidth()) {
+                                Icon(Icons.Filled.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                                Text(if (chainHabits.isEmpty()) "Build habit chain ($uncreated habit${if (uncreated == 1) "" else "s"})" else "Add $uncreated more to the chain")
+                            }
+                        } else {
+                            Text("✓ Every step is a habit — the chain is built.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
                 Spacer(Modifier.height(8.dp))
             }
             Button(onClick = {
@@ -718,6 +763,45 @@ private fun RoutineEditor(
         destructive = true,
         onConfirm = { confirmDiscard = false; onDismiss() },
         onDismiss = { confirmDiscard = false })
+    if (confirmBuildChain) {
+        val cr = routine.copy(name = name.trim(), emoji = emoji.ifBlank { "🔗" }, note = note.trim(),
+            days = days.filter { it in 1..7 }.distinct().sorted(), steps = steps.toList())
+        val n = com.todocompanion.app.domain.RoutineChain.uncreatedSteps(cr, habits)
+        ConfirmDialog(
+            title = "Build habit chain?",
+            body = "Creates $n new habit${if (n == 1) "" else "s"}, each anchored to the one before it and scheduled on this routine's days, then links your steps to them. Steps already linked to a habit are reused, not duplicated. Tap Save routine afterwards to keep the links.",
+            confirmLabel = "Build",
+            onConfirm = {
+                confirmBuildChain = false
+                val res = com.todocompanion.app.domain.RoutineChain.build(cr, habits)
+                if (res.newHabits.isNotEmpty()) vm.addHabits(res.newHabits)
+                // Persist the step→habit links into local state (ids align 1:1) so Save writes them through.
+                if (res.routine.steps.size == steps.size) for (i in steps.indices) steps[i] = res.routine.steps[i]
+            },
+            onDismiss = { confirmBuildChain = false })
+    }
+}
+
+/** G2 — a compact Mon..Sun bar row for whole-chain weekday adherence (mirrors the habit detail weekday
+ *  chart, kept local to Routines). Each bar's height is that weekday's average kept-rate across the chain. */
+@Composable
+private fun ChainWeekRow(rates: FloatArray) {
+    val letters = listOf("M", "T", "W", "T", "F", "S", "S")
+    val best = rates.maxOrNull()?.takeIf { it > 0f }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        (0..6).forEach { i ->
+            val r = rates.getOrElse(i) { 0f }.coerceIn(0f, 1f)
+            val isBest = best != null && r >= best - 0.0001f && r > 0f
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.fillMaxWidth().height(34.dp), contentAlignment = Alignment.BottomCenter) {
+                    Box(Modifier.fillMaxWidth().fillMaxHeight(fraction = (0.12f + 0.88f * r)).clip(RoundedCornerShape(4.dp))
+                        .background(if (isBest) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = .35f)))
+                }
+                Spacer(Modifier.height(3.dp))
+                Text(letters[i], style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
 }
 
 @Composable

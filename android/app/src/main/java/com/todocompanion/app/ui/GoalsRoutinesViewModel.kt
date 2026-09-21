@@ -163,7 +163,8 @@ class GoalsRoutinesViewModel(
         if (g.hasBudget && g.budgetMinutes > 0) lead += (mins.toDouble() / g.budgetMinutes).coerceAtMost(1.0)
         if (g.hasTasks && tTotal > 0) lag += tDone.toDouble() / tTotal
         // A goal's outcomes count toward its health too — a KR-only or milestone-only goal must not read 0%.
-        g.keyResultFraction?.let { lag += it }
+        // Auto-pull KRs (G1b) resolve their live `current` first, so health tracks the real, current number.
+        withResolvedKeyResults(g).keyResultFraction?.let { lag += it }
         if (g.milestones.isNotEmpty()) lag += g.milestonesDone.toDouble() / g.milestones.size
         val leadAvg = lead.takeIf { it.isNotEmpty() }?.average()
         val lagAvg = lag.takeIf { it.isNotEmpty() }?.average()
@@ -175,6 +176,60 @@ class GoalsRoutinesViewModel(
         }
         val daysLeft = if (g.targetEpochDay > 0) (g.targetEpochDay - java.time.LocalDate.now(zone).toEpochDay()).toInt() else null
         return GoalHealth(g, tDone, tTotal, streak, strength, mins, g.budgetMinutes, overall, daysLeft)
+    }
+
+    // ── G1b · Key-Result auto-pull ────────────────────────────────────────────────────────────────
+    /** Resolve a sourced KR's live `current` from its linked object, or null if it's manual / can't be
+     *  resolved (source object gone). Reads the same live stores goalHealth already uses. */
+    fun resolveKeyResultCurrent(kr: com.todocompanion.app.domain.KeyResult): Double? {
+        if (!kr.sourced) return null
+        val src = com.todocompanion.app.domain.KeyResultSource
+        val now = System.currentTimeMillis()
+        val today = java.time.LocalDate.now(zone).toEpochDay()
+        val cutoff30 = now - 30L * 86_400_000L
+        return when (kr.sourceType) {
+            src.HABIT -> {
+                val h = app.habitsWithArchived.value.firstOrNull { it.id == kr.sourceId } ?: return null
+                val hs = com.todocompanion.app.domain.habit.HabitStats
+                val (done, skip, relapse) = hs.daySets(h, app.habitCheckins.value)
+                when (kr.sourceMetric) {
+                    "streak" -> hs.displayStreak(h, done, skip, relapse, today, app.settings.value.forgivingStreaks).toDouble()
+                    "rate30" -> (hs.rate(h, done, skip, today, 30) * 100.0)
+                    "checkins30" -> done.count { it > today - 30 }.toDouble()
+                    "totalAll" -> app.habitCheckins.value.filter { it.habitId == h.id && it.status == "done" }.sumOf { it.count }.toDouble()
+                    else -> null
+                }
+            }
+            src.LIST -> {
+                val inList = app.tasks.value.filter { it.listId == kr.sourceId && !it.trashed && !it.isNote && !it.abandoned }
+                when (kr.sourceMetric) {
+                    "done" -> inList.count { it.completed }.toDouble()
+                    "remaining" -> inList.count { !it.completed }.toDouble()
+                    "percent" -> if (inList.isEmpty()) 0.0 else inList.count { it.completed } * 100.0 / inList.size
+                    else -> null
+                }
+            }
+            src.ACTIVITY -> {
+                val entries = app.timeVm.timeEntries.value.filter { it.activityId == kr.sourceId }
+                when (kr.sourceMetric) {
+                    "minutesAll" -> entries.sumOf { it.minutes(now) }.toDouble()
+                    "hoursAll" -> entries.sumOf { it.minutes(now) } / 60.0
+                    "hours30" -> entries.filter { it.startMillis >= cutoff30 }.sumOf { it.minutes(now) } / 60.0
+                    "sessions30" -> entries.count { it.startMillis >= cutoff30 }.toDouble()
+                    else -> null
+                }
+            }
+            else -> null
+        }
+    }
+
+    /** A copy of [g] with every sourced KR's `current` replaced by its live resolved value. Cheap no-op
+     *  when the goal has no sourced KRs, so it's safe to call on every render. */
+    fun withResolvedKeyResults(g: com.todocompanion.app.domain.Goal): com.todocompanion.app.domain.Goal {
+        if (g.keyResults.none { it.sourced }) return g
+        return g.copy(keyResults = g.keyResults.map { kr ->
+            resolveKeyResultCurrent(kr)?.let { kr.copy(current = it) } ?: kr
+        })
     }
 
     // ── Phase B · goal editing + the review/accountability layer ─────────────────────────────────

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PlayArrow
@@ -138,7 +139,11 @@ fun GoalsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenNote: (String) -> Un
     var detailFor by remember { mutableStateOf<String?>(null) }
     var reviewScope by remember { mutableStateOf<String?>(null) }   // "" = portfolio, or a goal id
     var browse by remember { mutableStateOf(false) }
+    var showHistory by remember { mutableStateOf(false) }           // G1a — past-review browser fold (folded by default)
 
+    // G1a — portfolio reviews (goalId blank), newest first; hoisted out of the LazyColumn (remember can't
+    // run in a LazyListScope).
+    val portfolioReviews = remember(reviews) { reviews.filter { it.goalId.isBlank() }.sortedByDescending { it.epochDay } }
     val areas = remember(goals) { Goals.areasOf(goals) }
     // Group: each named area in first-seen order, then the unfiled bucket last.
     val grouped = remember(goals, areas) {
@@ -159,6 +164,25 @@ fun GoalsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenNote: (String) -> Un
             }
             if (goals.isNotEmpty()) item {
                 PortfolioHeader(vm, goals, reviews, today, onReview = { reviewScope = "" })
+            }
+            // G1a — the past-review browser: every portfolio review you've logged, newest first, foldable
+            // so the scoreboard stays uncluttered until you want the history behind the trend line.
+            if (portfolioReviews.isNotEmpty()) {
+                item(key = "review_history_header") {
+                    Surface(onClick = { showHistory = !showHistory }, shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .35f), modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.History, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Review history", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text("${portfolioReviews.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(if (showHistory) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                if (showHistory) items(portfolioReviews.size, key = { "prev_${portfolioReviews[it].id}" }) { i ->
+                    GoalReviewCard(portfolioReviews[i])
+                }
             }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -258,6 +282,30 @@ private fun PortfolioHeader(vm: AppViewModel, goals: List<Goal>, reviews: List<c
     }
 }
 
+/** G1a — one logged review, as it reads in the history browser: date, the execution you recorded, the
+ *  4DX commitments kept vs made, and the one-line "next lead measure" note. */
+@Composable
+private fun GoalReviewCard(r: com.todocompanion.app.domain.GoalReview) {
+    AppCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(dayLabel(r.epochDay), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                if (r.commitmentsTotal > 0) Text("🔗 ${r.commitmentsKept}/${r.commitmentsTotal} commitments kept",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text("${r.executionPct}%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary)
+                Text("executed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (r.note.isNotBlank()) {
+            Spacer(Modifier.height(4.dp))
+            Text("“${r.note}”", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+        }
+    }
+}
+
 /** One goal in the list — the at-a-glance card with health, lead/lag, cycle, milestones and coach. */
 @Composable
 private fun GoalRow(vm: AppViewModel, g: Goal, reviews: List<com.todocompanion.app.domain.GoalReview>, today: Long, onOpen: () -> Unit) {
@@ -347,6 +395,7 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
     val cycle = remember(g, today) { GoalScore.cycle(g, today) }
     val cap = remember(g, timeEntries) { vm.goalCapacity(g) }
     var krEdit by remember { mutableStateOf<KeyResult?>(null) }
+    var showGoalHistory by remember { mutableStateOf(false) }   // G1a — this goal's own review history
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxSize().systemBarsPadding()) {
@@ -415,11 +464,15 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
                     Text("LAG MEASURES", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text("The outcomes those inputs produce.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (g.hasTasks) { Spacer(Modifier.height(6.dp)); MeasureLine("✓ Tasks", "${h.taskDone} of ${h.taskTotal} done", if (h.taskTotal == 0) 0f else h.taskDone.toFloat() / h.taskTotal) }
-                    g.keyResults.forEach { kr ->
+                    // G1b — resolve auto-pull KRs so their live current shows here (and drives the fraction bar).
+                    val shownKrs = remember(g, checkins, tasks, timeEntries) { vm.withResolvedKeyResults(g).keyResults }
+                    shownKrs.forEach { kr ->
                         Spacer(Modifier.height(6.dp))
                         Row(Modifier.fillMaxWidth().clickable { krEdit = kr }, verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 MeasureLine("◎ ${kr.title.ifBlank { "Key result" }}", "${trimNum(kr.current)}/${trimNum(kr.target)} ${kr.unit}".trim(), kr.fraction.toFloat())
+                                if (kr.sourced) Text("⟳ auto · ${com.todocompanion.app.domain.KeyResultSource.metricLabel(kr.sourceType, kr.sourceMetric)}",
+                                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                             }
                             Icon(Icons.Filled.Edit, "Update", Modifier.size(16.dp).padding(start = 6.dp), tint = MaterialTheme.colorScheme.outline)
                         }
@@ -471,6 +524,23 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
                     }
                     val trend = GoalScore.executionTrend(reviews, g.id, 10)
                     if (trend.isNotEmpty()) { Spacer(Modifier.height(8.dp)); Sparkline(trend) }
+                    // G1a — this goal's own past reviews, folded away under the trend.
+                    val myReviews = remember(reviews, g.id) { reviews.filter { it.goalId == g.id }.sortedByDescending { it.epochDay } }
+                    if (myReviews.isNotEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        TextButton(onClick = { showGoalHistory = !showGoalHistory }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                            Icon(if (showGoalHistory) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(if (showGoalHistory) "Hide history" else "History (${myReviews.size})", style = MaterialTheme.typography.labelMedium)
+                        }
+                        if (showGoalHistory) {
+                            Spacer(Modifier.height(4.dp))
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                myReviews.take(24).forEach { r -> GoalReviewCard(r) }
+                                if (myReviews.size > 24) Text("+ ${myReviews.size - 24} earlier", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
                 }
                 Spacer(Modifier.height(12.dp))
             }
@@ -485,9 +555,16 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
             title = { Text(kr.title.ifBlank { "Key result" }) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AppTextField(cur, { cur = cleanDecimal(it) }, label = { Text("Current${if (unit.isBlank()) "" else " ($unit)"}") }, singleLine = true, modifier = Modifier.weight(1f))
-                        AppTextField(tgt, { tgt = cleanDecimal(it) }, label = { Text("Target") }, singleLine = true, modifier = Modifier.weight(1f))
+                    if (kr.sourced) {
+                        // Auto-pull KR: current is derived, not typed — show it read-only, edit only target/unit.
+                        Text("⟳ Current is pulled automatically from ${com.todocompanion.app.domain.KeyResultSource.metricLabel(kr.sourceType, kr.sourceMetric).lowercase()} — now ${trimNum(kr.current)}${if (unit.isBlank()) "" else " $unit"}. Change the source in the goal editor.",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        AppTextField(tgt, { tgt = cleanDecimal(it) }, label = { Text("Target") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    } else {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            AppTextField(cur, { cur = cleanDecimal(it) }, label = { Text("Current${if (unit.isBlank()) "" else " ($unit)"}") }, singleLine = true, modifier = Modifier.weight(1f))
+                            AppTextField(tgt, { tgt = cleanDecimal(it) }, label = { Text("Target") }, singleLine = true, modifier = Modifier.weight(1f))
+                        }
                     }
                     AppTextField(unit, { unit = it.take(8) }, label = { Text("Unit") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
@@ -495,9 +572,13 @@ private fun GoalDetailScreen(vm: AppViewModel, g: Goal, onBack: () -> Unit, onEd
             confirmButton = {
                 TextButton(onClick = {
                     // Keep the prior value when a field is left mid-edit / unparseable, rather than zeroing it.
-                    val v = cur.toDoubleOrNull() ?: kr.current
+                    // A sourced KR's current is derived — never write the resolved snapshot back over it.
                     val t = tgt.toDoubleOrNull() ?: kr.target
-                    vm.upsertGoal(g.copy(keyResults = g.keyResults.map { if (it.id == kr.id) it.copy(current = v, target = t, unit = unit.trim()) else it }))
+                    vm.upsertGoal(g.copy(keyResults = g.keyResults.map {
+                        if (it.id != kr.id) it
+                        else if (kr.sourced) it.copy(target = t, unit = unit.trim())
+                        else it.copy(current = cur.toDoubleOrNull() ?: it.current, target = t, unit = unit.trim())
+                    }))
                     krEdit = null
                 }) { Text("Save") }
             },
@@ -673,6 +754,8 @@ private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, on
                         var nowRaw by remember(kr.id) { mutableStateOf(editNum(kr.current)) }
                         var targetRaw by remember(kr.id) { mutableStateOf(editNum(kr.target)) }
                         fun clean(s: String) = cleanDecimal(s)
+                        val src = com.todocompanion.app.domain.KeyResultSource
+                        val hasSource = kr.sourceType.isNotBlank()
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             AppTextField(kr.title, { keyResults[i] = kr.copy(title = it) }, label = { Text("Result ${i + 1}") }, singleLine = true, modifier = Modifier.weight(1f))
                             IconButton(onClick = { keyResults.removeAt(i) }) { Icon(Icons.Filled.Delete, "Delete", tint = faint) }
@@ -681,12 +764,51 @@ private fun GoalEditorScreen(vm: AppViewModel, goal: Goal, existing: Boolean, on
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             // Start is the baseline the fraction measures from (a "run 2→5 km" KR is 0% at 2, not at 0).
                             AppTextField(startRaw, { s -> startRaw = clean(s); keyResults[i] = kr.copy(start = startRaw.toDoubleOrNull() ?: kr.start) }, label = { Text("Start") }, singleLine = true, modifier = Modifier.weight(1f))
-                            AppTextField(nowRaw, { s -> nowRaw = clean(s); keyResults[i] = kr.copy(current = nowRaw.toDoubleOrNull() ?: kr.current) }, label = { Text("Now") }, singleLine = true, modifier = Modifier.weight(1f))
+                            if (hasSource) {
+                                // Auto-pull KR: "Now" is derived — show the live value read-only instead of a field.
+                                val live = if (kr.sourced) vm.resolveKeyResultCurrent(kr) else null
+                                Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)).padding(horizontal = 12.dp, vertical = 12.dp)) {
+                                    Column {
+                                        Text("Now (auto)", style = MaterialTheme.typography.labelSmall, color = faint)
+                                        Text(live?.let { trimNum(it) } ?: (if (kr.sourced) "—" else "pick a source"), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                    }
+                                }
+                            } else {
+                                AppTextField(nowRaw, { s -> nowRaw = clean(s); keyResults[i] = kr.copy(current = nowRaw.toDoubleOrNull() ?: kr.current) }, label = { Text("Now") }, singleLine = true, modifier = Modifier.weight(1f))
+                            }
                         }
                         Spacer(Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             AppTextField(targetRaw, { s -> targetRaw = clean(s); keyResults[i] = kr.copy(target = targetRaw.toDoubleOrNull() ?: kr.target) }, label = { Text("Target") }, singleLine = true, modifier = Modifier.weight(1f))
                             AppTextField(kr.unit, { keyResults[i] = kr.copy(unit = it.take(8)) }, label = { Text("Unit") }, singleLine = true, modifier = Modifier.weight(1f))
+                        }
+                        // G1b — bind the KR's "current" to a live source, so it moves as you do the work.
+                        Spacer(Modifier.height(8.dp))
+                        Text("Pull “Now” from", style = MaterialTheme.typography.labelSmall, color = faint)
+                        OptionChips(src.TYPES, kr.sourceType, { t ->
+                            keyResults[i] = if (t.isBlank()) kr.copy(sourceType = "", sourceId = "", sourceMetric = "")
+                            else kr.copy(sourceType = t, sourceId = "", sourceMetric = src.defaultMetric(t))
+                        }, wrap = false, spacing = 6) { src.typeLabel(it) }
+                        if (hasSource) {
+                            val objects: List<Pair<String, String>> = when (kr.sourceType) {
+                                src.HABIT -> liveHabits.map { it.id to ((it.emoji?.plus(" ") ?: "") + it.name) }
+                                src.LIST -> lists.map { it.id to it.name }
+                                src.ACTIVITY -> liveActs.map { it.id to ((it.emoji?.plus(" ") ?: "") + it.name) }
+                                else -> emptyList()
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            if (objects.isEmpty()) {
+                                Text("No ${src.typeLabel(kr.sourceType).lowercase()} to link yet.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                            } else {
+                                OptionChips(objects.map { it.first }, kr.sourceId, { id -> keyResults[i] = kr.copy(sourceId = id) }, wrap = true, spacing = 6) { id -> objects.firstOrNull { it.first == id }?.second ?: "" }
+                                Spacer(Modifier.height(4.dp))
+                                Text("Measure", style = MaterialTheme.typography.labelSmall, color = faint)
+                                val metrics = src.metricsFor(kr.sourceType)
+                                OptionChips(metrics.map { it.key }, kr.sourceMetric, { m ->
+                                    val autoUnit = if (kr.unit.isBlank()) src.defaultUnit(kr.sourceType, m) else kr.unit
+                                    keyResults[i] = kr.copy(sourceMetric = m, unit = autoUnit)
+                                }, wrap = true, spacing = 6) { key -> metrics.firstOrNull { it.key == key }?.label ?: key }
+                            }
                         }
                     }
                 }
