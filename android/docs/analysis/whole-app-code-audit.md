@@ -6,6 +6,48 @@ storage, performance, UI reuse and cross-module consistency, with a phased plan 
 
 ---
 
+# Round 7 — Phase 3: the time-tracking slice carved out of the god-VM (device-verified) (2026-09-21)
+
+The single largest self-contained slice of the 6.6k-line `AppViewModel` — time tracking, read by ~16
+screens and by the VM's own capacity/recap/coach logic — is now decomposed out, in three device-verified
+stages. Each stage was behaviour-preserving and confirmed by the user exercising the app (the correctness
+here is interactive — running timers across surfaces, workspace isolation, rotation — not something a
+startup log can show), so this ran as an interactive-checklist loop rather than the Room log loop.
+
+### Shipped this round (Stages 1–3)
+| Stage | What landed | Status | Evidence |
+|---|---|:---:|---|
+| **1 — seam** | A `TimeTrackingViewModel` the two dedicated Time screens use | ✅ Done | A thin type forwarding to the VM's single controller + scoped flows; zero-risk (identical state). Device-confirmed: 6/6 checks (timer start/stop/pause, cross-surface, workspace isolation, stats). |
+| **2 — self-contained controller** | `TimeTrackingController` reads its own workspace-scoped data | ✅ Done | The controller no longer takes VM closures: it reads settings + the ACTIVE-workspace activities/entries straight from the repo (replicating `.scopedBy { workspaceId }`) and refreshes the habit widgets itself, so it's constructed once at the composition root. `TimeTrackingControllerTest` reworked to the 2-arg ctor (7 cases incl. workspace-scoped reassign). Device-confirmed: 7/7 checks incl. workspace isolation of timer ops. |
+| **3 — lifted out** | The time surface leaves `AppViewModel` | ✅ Done | `TimeTrackingViewModel` becomes the real owner (a plain class on the VM's `viewModelScope`): it holds the workspace-scoped `timeActivities`/`timeEntries` flows and the controller's live actions. The VM deletes its 2 flow declarations + ~15 action wrappers + `pausedTrack`, declares `timeVm` early/non-lazy, and routes its ~45 internal reads through it; **17 UI files** now read time through the one object. Device-confirmed: 8/8 checks across Time, Calendar, Focus, Statistics, Day-Review, Momentum, Done, Habits, Goals, and workspace switch. |
+
+**What this buys:** the god-VM no longer *owns* time tracking — the flows, the single controller, and the
+timer actions live in one cohesive, independently-testable place, and the whole UI depends on that object
+rather than reaching into `AppViewModel`'s time API. The controller went from VM-coupled (untestable in
+isolation) to self-contained (7 unit tests). This is the audit's #13 (carve time-tracking out of the VM)
+delivered and verified end-to-end, on the seam the codebase already had (`TimeTrackingController`).
+
+**Honest scope:** raw line count of `AppViewModel` moved only ~25 lines (the time *substance* was ~55
+lines; the ~45 internal reads gained a `timeVm.` prefix). The win is **decoupling and testability**, not a
+dramatic line-count drop — the god-VM is still large, and a real NavHost (the other Phase-3 lever) remains,
+genuinely interactive-verification territory.
+
+**Test note:** the full unit suite is green except one **pre-existing** failure unrelated to this work —
+`NoteRichRendererTest.blockquoteAndNestedListsAndRuleAndLink`, which fails identically on the pre-Stage-3
+baseline (a Markdown-renderer test, no overlap with time tracking).
+
+### Scorecard delta (R6 → R7)
+| Dimension | R6 | **R7** | Why |
+|---|:---:|:---:|---|
+| Architecture & maintainability | 6.5 | **7.0** | the largest self-contained VM slice is decomposed out onto a proven seam; the time controller is self-contained + single-instance + unit-tested, and the whole UI depends on one time object, not the god-VM's time API. |
+| Testing | 7.5 | **7.5** | the controller test was reworked to the self-contained ctor (still 7 cases); no net-new suites this round. |
+| Data storage / Cross-module / Performance / UI / Security | 8.0 / 7.0 / 7.0 / 7.0 / 8.5 | **8.0 / 7.0 / 7.0 / 7.0 / 8.5** | unchanged this round. |
+| **Overall** | **≈7.5** | **≈7.6** | the time-carve is banked and device-verified. The remaining levers to 9.5: the NavHost (interactive-verification Architecture), and the still-unbanked Performance/Data compaction (backup + revisions gzip) which is unit/round-trip verifiable — the next lever picked below. |
+
+_The Round 6 and earlier logs follow unchanged below._
+
+---
+
 # Round 6 — Phase 3 groundwork: composition root + testable write-path use-cases (2026-09-20)
 
 Phase 3 (architecture decomposition) is the ceiling-raiser and its felt half — rotation,
