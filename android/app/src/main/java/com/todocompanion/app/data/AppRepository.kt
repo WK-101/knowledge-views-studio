@@ -31,6 +31,7 @@ import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.shareIn
 import java.util.UUID
 
 /** Single source of truth over Room. Reads are reactive Flows; writes are suspend.
@@ -381,7 +382,16 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     }
 
     // ----- reactive reads -----
-    val allTasks: Flow<List<TaskEntity>> = tasks.observeAll()
+    // Hot whole-table flows are collected from several places at once (allTasks alone feeds 5 separate
+    // stateIn collectors across the VM). Left cold, every collector runs its own SELECT *, so one task
+    // write re-triggers ~5 identical queries. Routing them through one WhileSubscribed(replay = 1)
+    // pipeline collapses that to a single shared upstream query per table, shared across all collectors,
+    // and keeps it warm 5s past the last unsubscribe to ride out screen transitions. Only tables with
+    // more than one collector are shared here; single-collector flows gain nothing from sharing.
+    private val repoScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+    private fun <T> Flow<T>.shared(): Flow<T> =
+        shareIn(repoScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000), replay = 1)
+    val allTasks: Flow<List<TaskEntity>> = tasks.observeAll().shared()
     val allFolders: Flow<List<FolderEntity>> = folders.observeAll()
     val allLists: Flow<List<ListEntity>> = lists.observeAll()
     val allChecklist: Flow<List<ChecklistItemEntity>> = checklist.observeAll()
@@ -465,7 +475,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     suspend fun upsertEvent(e: com.todocompanion.app.data.entity.EventEntity) = events.upsert(e)
     suspend fun upsertEvents(e: List<com.todocompanion.app.data.entity.EventEntity>) = events.upsertAll(e)
     suspend fun deleteEvent(id: String) { events.deleteOverridesOf(id); events.deleteById(id) }
-    val allSettings: Flow<List<SettingEntity>> = settings.observeAll()
+    val allSettings: Flow<List<SettingEntity>> = settings.observeAll().shared()
     private val habits = db.habitDao()
     val allHabits: Flow<List<HabitEntity>> = habits.observeAll()
     val allCheckins: Flow<List<HabitCheckinEntity>> = habits.observeCheckins()

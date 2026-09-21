@@ -75,8 +75,10 @@ class HabitsViewModel(
     /** Fusion F2: a habit pre-selected to Focus on; the Focus screen consumes it and auto-logs. */
     val pendingFocusHabitId = MutableStateFlow<String?>(null)
     // Matrix mode and density are persisted in settings, so the choice survives an app restart.
-    val habitMatrixMode: StateFlow<Boolean> = app.settings.map { it.habitMatrixMode }.stateIn(scope, SharingStarted.Eagerly, false)
-    val habitDensity: StateFlow<Int> = app.settings.map { it.habitDensity }.stateIn(scope, SharingStarted.Eagerly, 1)
+    // Pure UI projections (only the Habits tab collects them; no imperative .value read), so WhileSubscribed
+    // lets them stop when that tab is off-screen instead of staying warm for the app's whole lifetime.
+    val habitMatrixMode: StateFlow<Boolean> = app.settings.map { it.habitMatrixMode }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), false)
+    val habitDensity: StateFlow<Int> = app.settings.map { it.habitDensity }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), 1)
     fun setHabitMatrixMode(on: Boolean) = scope.launch { repo.saveSettings(app.settings.value.copy(habitMatrixMode = on)) }
     fun setHabitDensity(level: Int) = scope.launch { repo.saveSettings(app.settings.value.copy(habitDensity = level.coerceIn(0, 2))) }
     fun setHabitGroupByCategory(on: Boolean) = scope.launch { repo.saveSettings(app.settings.value.copy(habitGroupByCategory = on)) }

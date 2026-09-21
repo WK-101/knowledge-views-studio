@@ -308,6 +308,10 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
             // the SAME helpers the matrix uses, so both habit views agree. Grouping can be toggled off.
             val sorted = remember(habits, checkins, appSettings.habitSort, today) { matrixSorted(habits, checkins, today, appSettings.habitSort) }
             val sections = remember(sorted, appSettings.habitGroupByCategory) { matrixSections(sorted, appSettings.habitGroupByCategory) }
+            // #11 — index the whole check-in table by habit ONCE (O(C)) rather than letting each HabitRow
+            // re-scan all check-ins for its own habit (and its stacking anchor). That turned the visible list
+            // into O(habits × check-ins) every recomposition; now each row reads its own O(small) slice.
+            val byHabit = remember(checkins) { checkins.groupBy { it.habitId } }
             // A section header shows for any named group (even a single one, F2); a flat ungrouped list
             // (title == null) shows no headers.
             val showHeaders = sections.size > 1 || sections.any { it.first != null }
@@ -343,9 +347,9 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                     item(key = "seccol-$title") {
                         HabitDraggableColumn(secHabits, onReorder = { persistSection(secHabits, it) }) { h ->
                             HabitRow(
-                                h, checkins, today, allHabits = habits, forgiving = appSettings.forgivingStreaks, graded = appSettings.gradedStrength, calm = appSettings.calmMode, strengthMeter = appSettings.strengthMeter,
+                                h, byHabit, today, allHabits = habits, forgiving = appSettings.forgivingStreaks, graded = appSettings.gradedStrength, calm = appSettings.calmMode, strengthMeter = appSettings.strengthMeter,
                                 onCycle = {
-                                    val cur = daysFor(h, checkins).counts[today] ?: 0
+                                    val cur = daysFor(h, byHabit[h.id].orEmpty()).counts[today] ?: 0
                                     if (h.habitType == "break") {
                                         if (HabitStats.isRelapse(h, cur)) vm.clearHabitDay(h, today) else vm.setHabitValue(h, today, h.targetPerDay + 1)
                                     } else vm.cycleHabit(h, today, cur)
@@ -358,7 +362,7 @@ fun HabitsScreen(vm: AppViewModel, modifier: Modifier = Modifier, onFocusHabit: 
                                 onEdit = { vm.habitEditor.value = com.todocompanion.app.ui.HabitEditRequest(h) },
                                 onFocus = { onFocusHabit(h.id) },
                                 onAddValue = { delta ->
-                                    val cur = daysFor(h, checkins).counts[today] ?: 0
+                                    val cur = daysFor(h, byHabit[h.id].orEmpty()).counts[today] ?: 0
                                     vm.setHabitValue(h, today, (cur + delta).coerceAtLeast(0))
                                 },
                                 onArchive = { vm.setHabitArchived(h, true) },
@@ -610,7 +614,7 @@ private fun HabitDraggableColumn(habits: List<HabitEntity>, onReorder: (List<Str
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HabitRow(
-    h: HabitEntity, checkins: List<com.todocompanion.app.data.entity.HabitCheckinEntity>, today: Long,
+    h: HabitEntity, checkinsByHabit: Map<String, List<com.todocompanion.app.data.entity.HabitCheckinEntity>>, today: Long,
     allHabits: List<HabitEntity> = emptyList(), forgiving: Boolean = false, graded: Boolean = false, calm: Boolean = false, strengthMeter: Boolean = false,
     onCycle: () -> Unit, onOpen: () -> Unit, onSkip: () -> Unit, onClear: () -> Unit,
     onSetValue: () -> Unit, onPause: () -> Unit, onEdit: () -> Unit, onFocus: () -> Unit,
@@ -618,13 +622,16 @@ private fun HabitRow(
 ) {
     val color = h.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
     val emptyCell = MaterialTheme.colorScheme.surfaceVariant
-    val d = remember(checkins, h) { daysFor(h, checkins) }
+    // #11 — read only this habit's pre-grouped slice; daySets still tolerates a mixed list, but here it's
+    // already narrowed so each row is O(its own check-ins) rather than O(all check-ins).
+    val mine = checkinsByHabit[h.id].orEmpty()
+    val d = remember(mine, h) { daysFor(h, mine) }
     val todayCount = d.counts[today] ?: 0
     val isBreak = h.habitType == "break"
     // Z8 correction: honour the graded-strength opt-in here too, so the list badge matches the detail.
-    val gradedCredit = if (graded && !isBreak) remember(checkins, h) {
+    val gradedCredit = if (graded && !isBreak) remember(mine, h) {
         val target = h.targetPerDay.coerceAtLeast(1)
-        checkins.filter { it.habitId == h.id && it.status == "done" && !HabitStats.meetsGoal(h, it.count) && it.count > 0 }
+        mine.filter { it.status == "done" && !HabitStats.meetsGoal(h, it.count) && it.count > 0 }
             .associate { it.epochDay to (it.count.toDouble() / target).coerceIn(0.0, 0.99) }
     } else emptyMap()
     // P4: memoize the per-habit stat derivations (each scans the whole checkins list via `d`) so a
@@ -637,8 +644,8 @@ private fun HabitRow(
     var rowMenu by remember { mutableStateOf(false) }
     // K4: habit-stacking anchor — surface "after <anchor>" and highlight once the anchor is done today.
     val anchor = h.anchorHabitId?.let { aid -> allHabits.firstOrNull { it.id == aid } }
-    // P4: memoize the anchor's daysFor(...) scan over the whole checkins list.
-    val anchorDoneToday = remember(anchor, checkins, today) { anchor?.let { a -> val ad = daysFor(a, checkins); HabitStats.meetsGoal(a, ad.counts[today] ?: 0) } ?: false }
+    // P4: memoize the anchor's daysFor(...) scan; #11 — read the anchor's own pre-grouped slice too.
+    val anchorDoneToday = remember(anchor, checkinsByHabit, today) { anchor?.let { a -> val ad = daysFor(a, checkinsByHabit[a.id].orEmpty()); HabitStats.meetsGoal(a, ad.counts[today] ?: 0) } ?: false }
 
     Surface(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),

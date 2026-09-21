@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
@@ -147,20 +148,45 @@ class AppViewModel internal constructor(
     private fun <T> Flow<T>.state(initial: T): StateFlow<T> =
         flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)
 
-    val settings: StateFlow<AppSettings> =
-        repo.allSettings.map { rows ->
-            val base = AppSettings.fromMap(rows.associate { s -> s.key to s.value })
-            // SEC (R2-A/H2) — the sync passphrase is KeyStore-wrapped in SecurePrefs, not the DB table; the
-            // sync_pass_rev row (bumped on every save) makes this flow re-emit so the value stays fresh.
-            val sp = runCatching { com.todocompanion.app.data.security.SecurePrefs.getSecret(appCtx, AppSettings.Keys.SYNC_PASS) }.getOrNull()
-            if (sp != null) base.copy(syncPassphrase = sp) else base
-        }
-            // Mirror theme fields to a synchronous cache so the next cold start's first frame is correct.
-            .onEach { com.todocompanion.app.domain.ThemePrefs.save(appCtx, it) }
+    // #9 — allSettings re-emits on *any* settings-row write, so both per-emit side effects here used to run
+    // every time: a KeyStore decrypt (SecurePrefs.getSecret) and a ThemePrefs disk write. Both are now gated
+    // to fire only on real change. The decrypt re-reads only when the sync_pass_rev token moves (bumped on
+    // each passphrase save; see AppRepository.SYNC_PASS_REV) — that token is threaded through explicitly
+    // because AppSettings doesn't carry it, so distinctUntilChanged still sees passphrase changes. The theme
+    // cache is written only when a theme field actually changes. The captured vars are safe: this is one
+    // StateFlow whose upstream runs sequentially on flowOn(Default).
+    val settings: StateFlow<AppSettings> = run {
+        var lastPassRev: String? = null
+        var cachedPass: String? = null
+        var lastTheme: Any? = null
+        repo.allSettings
+            .map { rows ->
+                val map = rows.associate { s -> s.key to s.value }
+                // "sync_pass_rev" mirrors AppRepository.SYNC_PASS_REV (private const there).
+                AppSettings.fromMap(map) to (map["sync_pass_rev"] ?: "")
+            }
+            // Swallow Room re-emits that changed nothing this pipeline reads (avoids a needless decrypt+write).
+            .distinctUntilChanged()
+            .map { (base, passRev) ->
+                if (passRev != lastPassRev) {
+                    cachedPass = runCatching {
+                        com.todocompanion.app.data.security.SecurePrefs.getSecret(appCtx, AppSettings.Keys.SYNC_PASS)
+                    }.getOrNull()
+                    lastPassRev = passRev
+                }
+                cachedPass?.let { base.copy(syncPassphrase = it) } ?: base
+            }
+            // Mirror theme fields to a synchronous cache so the next cold start's first frame is correct —
+            // but only when a theme field moved, not on every unrelated settings edit.
+            .onEach { s ->
+                val theme = Triple(s.themeMode, s.dynamicColor, s.accentArgb)
+                if (theme != lastTheme) { com.todocompanion.app.domain.ThemePrefs.save(appCtx, s); lastTheme = theme }
+            }
             // Seed the initial value from that cache — no dark→light flash on launch.
             .state(com.todocompanion.app.domain.ThemePrefs.read(appCtx).let { (mode, dyn, accent) ->
                 AppSettings(themeMode = mode, dynamicColor = dyn, accentArgb = accent)
             })
+    }
 
     // R28 #4 — the seeded [settings] above only carries theme fields, so every OTHER field reads its
     // default on the first frame (e.g. onboardedModules=false), which briefly flashed the module picker on
@@ -4317,14 +4343,18 @@ class AppViewModel internal constructor(
     // Event templates (stored in settings JSON) ------------------------------------------------------
     val eventTemplates: StateFlow<List<com.todocompanion.app.domain.calendar.EventTemplate>> =
         settings.map { com.todocompanion.app.domain.calendar.EventTemplates.parse(it.eventTemplatesJson) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    // #10 — this StateFlow is now a lazy UI projection (WhileSubscribed), so its .value is the empty seed
+    // when no screen collects it. Mutating commands must read the live list from settings (the source of
+    // truth) instead, or an upsert/remove would silently drop everything. This helper makes that explicit.
+    private fun eventTemplatesNow() = com.todocompanion.app.domain.calendar.EventTemplates.parse(settings.value.eventTemplatesJson)
 
     fun saveEventTemplate(t: com.todocompanion.app.domain.calendar.EventTemplate) = viewModelScope.launch {
-        val list = com.todocompanion.app.domain.calendar.EventTemplates.upsert(eventTemplates.value, t)
+        val list = com.todocompanion.app.domain.calendar.EventTemplates.upsert(eventTemplatesNow(), t)
         repo.saveSettings(settings.value.copy(eventTemplatesJson = com.todocompanion.app.domain.calendar.EventTemplates.encode(list)))
     }
     fun deleteEventTemplate(id: String) = viewModelScope.launch {
-        val list = com.todocompanion.app.domain.calendar.EventTemplates.remove(eventTemplates.value, id)
+        val list = com.todocompanion.app.domain.calendar.EventTemplates.remove(eventTemplatesNow(), id)
         repo.saveSettings(settings.value.copy(eventTemplatesJson = com.todocompanion.app.domain.calendar.EventTemplates.encode(list)))
     }
     /** Drop a template onto the calendar at [startMillis]. */
@@ -4350,7 +4380,9 @@ class AppViewModel internal constructor(
     /** Remembered travel minutes per place (for the auto travel buffer). */
     val travelTimes: StateFlow<Map<String, Int>> =
         settings.map { com.todocompanion.app.domain.calendar.TravelTimes.parse(it.travelTimesJson) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+    // #10 — commands read the live map from settings (see eventTemplatesNow rationale), not the lazy flow.
+    private fun travelTimesNow() = com.todocompanion.app.domain.calendar.TravelTimes.parse(settings.value.travelTimesJson)
 
     /** Reserve a "leave by" travel block ending when [eventStart] begins, and remember the figure for [place]. */
     fun addTravelBuffer(eventStart: Long, minutes: Int, place: String, calendarId: String) = viewModelScope.launch {
@@ -4363,7 +4395,7 @@ class AppViewModel internal constructor(
             startMillis = eventStart - minutes * 60000L, endMillis = eventStart,
             alertsMinutes = "0", busy = true, createdAt = now, updatedAt = now)
         repo.upsertEvent(e); com.todocompanion.app.reminders.AlarmScheduler.scheduleEventAlerts(appCtx, e)
-        val map = com.todocompanion.app.domain.calendar.TravelTimes.remember(travelTimes.value, place, minutes)
+        val map = com.todocompanion.app.domain.calendar.TravelTimes.remember(travelTimesNow(), place, minutes)
         repo.saveSettings(settings.value.copy(travelTimesJson = com.todocompanion.app.domain.calendar.TravelTimes.encode(map)))
     }
 
@@ -4472,7 +4504,9 @@ class AppViewModel internal constructor(
     // Day routines (settings JSON) --------------------------------------------------------------------
     val dayRoutines: StateFlow<List<com.todocompanion.app.domain.calendar.DayRoutine>> =
         settings.map { com.todocompanion.app.domain.calendar.DayRoutines.parse(it.dayRoutinesJson) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    // #10 — commands read the live list from settings (see eventTemplatesNow rationale), not the lazy flow.
+    private fun dayRoutinesNow() = com.todocompanion.app.domain.calendar.DayRoutines.parse(settings.value.dayRoutinesJson)
 
     /** Capture today's timed (non-all-day) events as a reusable routine of offsets from the working start. */
     fun saveDayRoutineFromDay(name: String, day: Long) = viewModelScope.launch {
@@ -4485,13 +4519,13 @@ class AppViewModel internal constructor(
                     durationMin = o.durationMin().toInt().coerceAtLeast(5), colorArgb = o.event.colorArgb)
             }
         if (blocks.isEmpty()) { toast("No timed events today to save as a routine."); return@launch }
-        val list = com.todocompanion.app.domain.calendar.DayRoutines.upsert(dayRoutines.value,
+        val list = com.todocompanion.app.domain.calendar.DayRoutines.upsert(dayRoutinesNow(),
             com.todocompanion.app.domain.calendar.DayRoutine(java.util.UUID.randomUUID().toString(), n, blocks = blocks))
         repo.saveSettings(settings.value.copy(dayRoutinesJson = com.todocompanion.app.domain.calendar.DayRoutines.encode(list)))
         toast("Saved routine “$n”.")
     }
     fun applyDayRoutine(routineId: String, day: Long) = viewModelScope.launch {
-        val r = dayRoutines.value.firstOrNull { it.id == routineId } ?: return@launch
+        val r = dayRoutinesNow().firstOrNull { it.id == routineId } ?: return@launch
         val calId = ensureDefaultCalendar()
         val base = java.time.LocalDate.ofEpochDay(day).atStartOfDay(zone).plusHours(settings.value.workStartHour.toLong()).toInstant().toEpochMilli()
         val now = System.currentTimeMillis()
@@ -4505,7 +4539,7 @@ class AppViewModel internal constructor(
         toast("Laid out “${r.name}” — ${evs.size} block${if (evs.size == 1) "" else "s"}.")
     }
     fun deleteDayRoutine(id: String) = viewModelScope.launch {
-        repo.saveSettings(settings.value.copy(dayRoutinesJson = com.todocompanion.app.domain.calendar.DayRoutines.encode(com.todocompanion.app.domain.calendar.DayRoutines.remove(dayRoutines.value, id))))
+        repo.saveSettings(settings.value.copy(dayRoutinesJson = com.todocompanion.app.domain.calendar.DayRoutines.encode(com.todocompanion.app.domain.calendar.DayRoutines.remove(dayRoutinesNow(), id))))
     }
 
     /** R59 (Wave 4) — import a local holiday pack for a year range as all-day events, into a dedicated
@@ -4536,15 +4570,17 @@ class AppViewModel internal constructor(
     // Protected windows -------------------------------------------------------------------------------
     val protectedWindows: StateFlow<List<com.todocompanion.app.domain.calendar.ProtectedWindow>> =
         settings.map { com.todocompanion.app.domain.calendar.ProtectedWindows.parse(it.protectedWindowsJson) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    // #10 — commands read the live list from settings (see eventTemplatesNow rationale), not the lazy flow.
+    private fun protectedWindowsNow() = com.todocompanion.app.domain.calendar.ProtectedWindows.parse(settings.value.protectedWindowsJson)
     fun saveProtectedWindow(name: String, startMin: Int, endMin: Int, days: List<Int>) = viewModelScope.launch {
         val n = name.trim(); if (n.isBlank() || endMin <= startMin) return@launch
-        val list = com.todocompanion.app.domain.calendar.ProtectedWindows.upsert(protectedWindows.value,
+        val list = com.todocompanion.app.domain.calendar.ProtectedWindows.upsert(protectedWindowsNow(),
             com.todocompanion.app.domain.calendar.ProtectedWindow(java.util.UUID.randomUUID().toString(), n, startMin, endMin, days))
         repo.saveSettings(settings.value.copy(protectedWindowsJson = com.todocompanion.app.domain.calendar.ProtectedWindows.encode(list)))
     }
     fun deleteProtectedWindow(id: String) = viewModelScope.launch {
-        repo.saveSettings(settings.value.copy(protectedWindowsJson = com.todocompanion.app.domain.calendar.ProtectedWindows.encode(com.todocompanion.app.domain.calendar.ProtectedWindows.remove(protectedWindows.value, id))))
+        repo.saveSettings(settings.value.copy(protectedWindowsJson = com.todocompanion.app.domain.calendar.ProtectedWindows.encode(com.todocompanion.app.domain.calendar.ProtectedWindows.remove(protectedWindowsNow(), id))))
     }
     /** R59 (Wave 3) — merge the two protected-time systems: fold any legacy availability protectedBlocks
      *  into the canonical ProtectedWindow list (which the planner also respects), atomically, then clear
@@ -4575,21 +4611,23 @@ class AppViewModel internal constructor(
     // Calendar Sets, minus the geofence). Reuses the existing per-calendar visibility — no new filtering.
     val calContexts: StateFlow<List<com.todocompanion.app.domain.calendar.CalContext>> =
         settings.map { com.todocompanion.app.domain.calendar.CalContexts.parse(it.calContextsJson) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    // #10 — commands read the live list from settings (see eventTemplatesNow rationale), not the lazy flow.
+    private fun calContextsNow() = com.todocompanion.app.domain.calendar.CalContexts.parse(settings.value.calContextsJson)
     fun saveContext(name: String, calendarIds: List<String>) = viewModelScope.launch {
         val n = name.trim(); if (n.isBlank()) return@launch
-        val list = com.todocompanion.app.domain.calendar.CalContexts.upsert(calContexts.value,
+        val list = com.todocompanion.app.domain.calendar.CalContexts.upsert(calContextsNow(),
             com.todocompanion.app.domain.calendar.CalContext(java.util.UUID.randomUUID().toString(), n, calendarIds = calendarIds))
         repo.saveSettings(settings.value.copy(calContextsJson = com.todocompanion.app.domain.calendar.CalContexts.encode(list)))
     }
     fun deleteContext(id: String) = viewModelScope.launch {
         val next = if (settings.value.activeContextId == id) "" else settings.value.activeContextId
         repo.saveSettings(settings.value.copy(
-            calContextsJson = com.todocompanion.app.domain.calendar.CalContexts.encode(com.todocompanion.app.domain.calendar.CalContexts.remove(calContexts.value, id)),
+            calContextsJson = com.todocompanion.app.domain.calendar.CalContexts.encode(com.todocompanion.app.domain.calendar.CalContexts.remove(calContextsNow(), id)),
             activeContextId = next))
     }
     fun activateContext(id: String) = viewModelScope.launch {
-        val ctx = calContexts.value.firstOrNull { it.id == id }
+        val ctx = calContextsNow().firstOrNull { it.id == id }
         if (ctx == null) { repo.saveSettings(settings.value.copy(activeContextId = "")); repo.eventCalendarsOnce().forEach { repo.upsertEventCalendar(it.copy(visible = true)) }; return@launch }
         repo.eventCalendarsOnce().forEach { repo.upsertEventCalendar(it.copy(visible = it.id in ctx.calendarIds)) }
         repo.saveSettings(settings.value.copy(activeContextId = id))
