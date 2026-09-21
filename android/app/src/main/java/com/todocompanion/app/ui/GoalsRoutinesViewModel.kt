@@ -153,14 +153,26 @@ class GoalsRoutinesViewModel(
         }
         var mins = 0
         if (g.hasBudget) mins = app.timeVm.timeEntries.value.filter { it.activityId == g.activityId }.sumOf { it.minutes(now) }
-        val fracs = ArrayList<Double>()
-        if (g.hasTasks && tTotal > 0) fracs += tDone.toDouble() / tTotal
-        if (g.hasHabit) fracs += strength / 100.0
-        if (g.hasBudget && g.budgetMinutes > 0) fracs += (mins.toDouble() / g.budgetMinutes).coerceAtMost(1.0)
+        // Weighted arms (Goals.kt lead/lag: habit + time are LEAD inputs you control day-to-day; the
+        // task list, key results and milestones are LAG outcomes they produce). Outcomes weigh more
+        // than inputs (0.65 vs 0.35), so a goal reads by what it actually produces rather than by the
+        // activity poured in — but a lead-only or lag-only goal still uses its own arms at full weight.
+        val lead = ArrayList<Double>()
+        val lag = ArrayList<Double>()
+        if (g.hasHabit) lead += strength / 100.0
+        if (g.hasBudget && g.budgetMinutes > 0) lead += (mins.toDouble() / g.budgetMinutes).coerceAtMost(1.0)
+        if (g.hasTasks && tTotal > 0) lag += tDone.toDouble() / tTotal
         // A goal's outcomes count toward its health too — a KR-only or milestone-only goal must not read 0%.
-        g.keyResultFraction?.let { fracs += it }
-        if (g.milestones.isNotEmpty()) fracs += g.milestonesDone.toDouble() / g.milestones.size
-        val overall = if (fracs.isEmpty()) 0.0 else fracs.average()
+        g.keyResultFraction?.let { lag += it }
+        if (g.milestones.isNotEmpty()) lag += g.milestonesDone.toDouble() / g.milestones.size
+        val leadAvg = lead.takeIf { it.isNotEmpty() }?.average()
+        val lagAvg = lag.takeIf { it.isNotEmpty() }?.average()
+        val overall = when {
+            leadAvg != null && lagAvg != null -> 0.35 * leadAvg + 0.65 * lagAvg
+            lagAvg != null -> lagAvg
+            leadAvg != null -> leadAvg
+            else -> 0.0
+        }
         val daysLeft = if (g.targetEpochDay > 0) (g.targetEpochDay - java.time.LocalDate.now(zone).toEpochDay()).toInt() else null
         return GoalHealth(g, tDone, tTotal, streak, strength, mins, g.budgetMinutes, overall, daysLeft)
     }
