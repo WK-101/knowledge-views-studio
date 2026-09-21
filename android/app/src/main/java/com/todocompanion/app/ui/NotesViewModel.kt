@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -165,5 +166,99 @@ class NotesViewModel(
     fun deleteSmartView(id: String) = scope.launch { repo.deleteSmartView(id) }
     fun restoreNoteRevision(noteId: String, title: String, body: String) = scope.launch {
         repo.getNote(noteId)?.let { repo.upsertNote(it.copy(title = title, body = body)) }
+    }
+
+    // ── Note reminders + seal (Stage 4d) — reuse the existing AlarmScheduler, no new permission ──
+    /** Set a note's whole reminder set: a primary [atMillis] with optional [rrule], any [extra] one-shots,
+     *  and "keep reminding until opened" ([keep]). A null primary + no extras clears everything. */
+    fun setNoteReminder(noteId: String, atMillis: Long?, rrule: String? = null, extra: List<Long> = emptyList(), keep: Boolean = false) = scope.launch {
+        val now = System.currentTimeMillis()
+        val extraCsv = extra.filter { it > now }.sorted().joinToString(",")
+        if (atMillis == null && extraCsv.isEmpty()) {
+            repo.clearNoteReminder(noteId)
+            com.todocompanion.app.reminders.AlarmScheduler.cancelNoteReminder(app.appCtx, noteId)
+            return@launch
+        }
+        repo.setNoteReminderAll(noteId, atMillis, rrule?.ifBlank { null }, extraCsv, keep)
+        repo.getNote(noteId)?.let { com.todocompanion.app.reminders.AlarmScheduler.armNoteReminders(app.appCtx, it) }
+    }
+    /** Wave J — seal a note to your future self: hidden until [untilMillis], when a reveal reminder resurfaces it. */
+    fun sealNote(noteId: String, untilMillis: Long) = scope.launch {
+        if (untilMillis <= System.currentTimeMillis()) return@launch
+        repo.setNoteSealedUntil(noteId, untilMillis)
+        repo.setNoteReminderAll(noteId, untilMillis, null, "", false)
+        repo.getNote(noteId)?.let { com.todocompanion.app.reminders.AlarmScheduler.armNoteReminders(app.appCtx, it) }
+    }
+    fun unsealNote(noteId: String) = scope.launch {
+        repo.setNoteSealedUntil(noteId, null)
+        repo.clearNoteReminder(noteId)
+        com.todocompanion.app.reminders.AlarmScheduler.cancelNoteReminder(app.appCtx, noteId)
+    }
+    fun setNotesTrashRetention(days: Int) = scope.launch { repo.saveSettings(app.settings.value.copy(notesTrashRetentionDays = days)) }
+    fun setNotesMaxRevisions(n: Int) = scope.launch { repo.saveSettings(app.settings.value.copy(notesMaxRevisions = n)) }
+    /** Lazy on-open sweep — hard-delete trashed notes older than the retention setting (0 = never). */
+    fun purgeExpiredNoteTrash() = scope.launch { repo.purgeExpiredTrashedNotes(app.settings.value.notesTrashRetentionDays) }
+
+    // ── Note search / ask / right-now (Stage 4d) ──
+    /** Note-search results (ids), driven by [searchNotes]; empty when the query is blank. */
+    val noteSearchIds = MutableStateFlow<List<String>>(emptyList())
+    fun searchNotes(query: String) = scope.launch {
+        noteSearchIds.value = if (query.isBlank()) emptyList() else repo.searchNoteIds(query)
+    }
+    /** L9 — "Ask your notes": on-device, extractive answers (no model, no network). A model-free MinHash
+     *  semantic pass ([NoteSemantic]) broadens recall when the literal, term-coverage pass finds little. */
+    val noteAnswers = MutableStateFlow<List<com.todocompanion.app.domain.NoteAsk.Answer>>(emptyList())
+    fun askNotes(query: String) = scope.launch {
+        if (query.isBlank()) { noteAnswers.value = emptyList(); return@launch }
+        val now = System.currentTimeMillis()
+        val ws = activeWorkspace()   // scope Ask-your-notes to the active workspace (no cross-workspace leak)
+        val notes = repo.getNotesOnce()
+            .filter { it.workspaceId == ws && !it.trashed && !it.noIndex && (it.sealedUntil == null || it.sealedUntil!! <= now) }
+        val docs = notes.map { com.todocompanion.app.domain.NoteAsk.Doc(it.id, it.title, it.body) }
+        val literal = com.todocompanion.app.domain.NoteAsk.answer(query, docs)
+        val answers = if (literal.size >= 4) literal else {
+            val qSig = com.todocompanion.app.domain.NoteSemantic.signature(query)
+            val have = literal.map { it.id }.toSet()
+            val semantic = notes.asSequence()
+                .filter { it.id !in have }
+                .map { n ->
+                    val sim = com.todocompanion.app.domain.NoteSemantic.similarity(
+                        qSig, com.todocompanion.app.domain.NoteSemantic.signature("${n.title}\n${n.body}"))
+                    n to sim
+                }
+                .filter { it.second >= 0.12f }
+                .sortedByDescending { it.second }
+                .take(6 - literal.size)
+                .map { (n, sim) ->
+                    val body = n.body.split(Regex("\\n\\s*\\n")).firstOrNull { it.isNotBlank() }?.trim().orEmpty()
+                    com.todocompanion.app.domain.NoteAsk.Answer(
+                        n.id, n.title.ifBlank { "Untitled" },
+                        (if (body.length > 240) body.take(237).trimEnd() + "…" else body).ifBlank { n.title },
+                        sim.toDouble())
+                }
+                .toList()
+            literal + semantic
+        }
+        noteAnswers.value = answers
+    }
+    /** L10 — Right Note, Right Now: notes whose @context is scheduled and open at this moment (permission-free,
+     *  via ContextAvailability open-hours; joins the app's existing context engine on `app.contexts`). */
+    val notesNow = MutableStateFlow<List<com.todocompanion.app.data.entity.NoteEntity>>(emptyList())
+    fun refreshNotesForNow() = scope.launch {
+        val t = java.time.LocalDateTime.now()
+        val dow = t.dayOfWeek.value            // 1..7, matching ContextAvailability
+        val minute = t.hour * 60 + t.minute
+        val ws = activeWorkspace()
+        val openCtx = app.contexts.value.filter {
+            it.workspaceId == ws &&
+                com.todocompanion.app.domain.context.ContextAvailability.parse(it.openHoursJson) != null &&
+                com.todocompanion.app.domain.context.ContextAvailability.isAvailable(it, dow, minute)
+        }.map { it.id }.toSet()
+        if (openCtx.isEmpty()) { notesNow.value = emptyList(); return@launch }
+        val ids = repo.getNoteContextCrossRefs().filter { it.contextId in openCtx }.map { it.noteId }.toSet()
+        val now = System.currentTimeMillis()
+        notesNow.value = repo.getNotesOnce().filter {
+            !it.trashed && !it.archived && it.id in ids && (it.sealedUntil == null || it.sealedUntil!! <= now)
+        }.sortedByDescending { it.updatedAt }
     }
 }
