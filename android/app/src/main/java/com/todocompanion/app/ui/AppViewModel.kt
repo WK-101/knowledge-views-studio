@@ -2381,23 +2381,7 @@ class AppViewModel internal constructor(
     /** Create from a fully-built habit (Tier I editor). Workspace defaults to the active one. */
     fun addHabit(h: com.todocompanion.app.data.entity.HabitEntity) = habitsVm.addHabit(h)
     /** M4: render a habit's progress to a PNG on-device and open the share sheet. onDone gets the saved location. */
-    fun shareHabitProgress(h: com.todocompanion.app.data.entity.HabitEntity, onDone: (String?) -> Unit) = viewModelScope.launch {
-        val hs = com.todocompanion.app.domain.habit.HabitStats
-        val cks = habitCheckins.value.filter { it.habitId == h.id }
-        val (done, skip, relapse) = hs.daySets(h, cks)   // R108 audit C2 — one canonical derivation
-        val today = today()
-        val strength = hs.strength(h, done, skip, relapse, today)
-        val cur = hs.currentStreak(h, done, skip, relapse, today)
-        val best = hs.bestStreak(h, done, skip, relapse, today)
-        val total = if (h.unit != null) cks.sumOf { it.count } else done.size
-        val safe = h.name.filter { it.isLetterOrDigit() }.take(20).ifBlank { "habit" }
-        val res = withContext(Dispatchers.IO) {
-            val bmp = com.todocompanion.app.util.ProgressCard.render(h.emoji, h.name, h.colorArgb, strength, cur, best, h.unit, total, done, skip, today)
-            com.todocompanion.app.util.ProgressCard.saveAndShareUri(appCtx, bmp, "todo-companion-$safe-progress.png")
-        }
-        res.shareUri?.let { com.todocompanion.app.util.ProgressCard.share(appCtx, it) }
-        onDone(res.savedLocation)
-    }
+    fun shareHabitProgress(h: com.todocompanion.app.data.entity.HabitEntity, onDone: (String?) -> Unit) = habitsVm.shareHabitProgress(h, onDone)   // → HabitsViewModel (Stage 5-F)
     /** N4: render a shareable "your week" recap card (habits + tasks) on-device. */
     fun shareWeeklyRecap(onDone: (String?) -> Unit) = viewModelScope.launch {
         val hs = com.todocompanion.app.domain.habit.HabitStats
@@ -2922,14 +2906,7 @@ class AppViewModel internal constructor(
     }
 
     // ── W8 · per-item reminder mute ─────────────────────────────────────────────────────────────
-    fun toggleMutedHabit(id: String) = viewModelScope.launch {
-        val cur = settings.value.mutedHabits
-        val muting = id !in cur
-        repo.saveSettings(settings.value.copy(mutedHabits = if (muting) cur + id else cur - id))
-        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
-        // Y2: quietly guard the keystone — warn before silencing your highest-leverage habit.
-        if (muting && keystoneHabitId() == id) toast("Heads up — this is your keystone habit")
-    }
+    fun toggleMutedHabit(id: String) = habitsVm.toggleMutedHabit(id)   // → HabitsViewModel (Stage 5-F)
     fun toggleMutedList(id: String) = viewModelScope.launch {
         val cur = settings.value.mutedLists
         repo.saveSettings(settings.value.copy(mutedLists = if (id in cur) cur - id else cur + id))
@@ -3568,38 +3545,11 @@ class AppViewModel internal constructor(
 
     // ── Z8 · graded strength — an opt-in that gives partial days partial credit ───────────────────
     /** Per-day fractional credit for build-habit days that were attempted but fell short of the goal. */
-    private fun gradedCreditFor(h: com.todocompanion.app.data.entity.HabitEntity, hc: List<com.todocompanion.app.data.entity.HabitCheckinEntity>): Map<Long, Double> {
-        if (h.habitType == "break") return emptyMap()
-        val target = h.targetPerDay.coerceAtLeast(1)
-        val hs = com.todocompanion.app.domain.habit.HabitStats
-        return hc.filter { it.status == "done" && !hs.meetsGoal(h, it.count) && it.count > 0 }
-            .associate { it.epochDay to (it.count.toDouble() / target).coerceIn(0.0, 0.99) }
-    }
-    /** The strength score honouring the graded-credit opt-in (Z8) when it's on. */
-    fun strengthOf(h: com.todocompanion.app.data.entity.HabitEntity): Int {
-        val hs = com.todocompanion.app.domain.habit.HabitStats
-        val hc = habitCheckins.value.filter { it.habitId == h.id }
-        val (done, skip, relapse) = hs.daySets(h, hc)   // R108 audit C2
-        val today = java.time.LocalDate.now(zone).toEpochDay()
-        val graded = if (settings.value.gradedStrength) gradedCreditFor(h, hc) else emptyMap()
-        return hs.strength(h, done, skip, relapse, today, gradedCredit = graded)
-    }
+    /** The strength score honouring the graded-credit opt-in (Z8) when it's on. → HabitsViewModel (Stage 5-F). */
+    fun strengthOf(h: com.todocompanion.app.data.entity.HabitEntity): Int = habitsVm.strengthOf(h)
     /** Z8 preview — average strength across active build habits, binary vs graded, for the opt-in. */
-    fun gradedStrengthPreview(): Pair<Int, Int>? {
-        val hs = com.todocompanion.app.domain.habit.HabitStats
-        val today = java.time.LocalDate.now(zone).toEpochDay()
-        val active = habits.value.filter { !it.archived && !it.paused && it.habitType != "break" }
-        if (active.isEmpty()) return null
-        val binary = ArrayList<Int>(); val graded = ArrayList<Int>()
-        active.forEach { h ->
-            val hc = habitCheckins.value.filter { it.habitId == h.id }
-            val (done, skip, relapse) = hs.daySets(h, hc)   // R108 audit C2
-            binary += hs.strength(h, done, skip, relapse, today)
-            graded += hs.strength(h, done, skip, relapse, today, gradedCredit = gradedCreditFor(h, hc))
-        }
-        return binary.average().toInt() to graded.average().toInt()
-    }
-    fun setGradedStrength(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(gradedStrength = on)) }
+    fun gradedStrengthPreview(): Pair<Int, Int>? = habitsVm.gradedStrengthPreview()
+    fun setGradedStrength(on: Boolean) = habitsVm.setGradedStrength(on)
 
     // ══ PC · polish & correctness ════════════════════════════════════════════════════════════════
 
@@ -3933,7 +3883,7 @@ class AppViewModel internal constructor(
 
     // ── R36 · fourth-wave actions ───────────────────────────────────────────────────────────────────
     // FW-5 New-Habit WIP limiter.
-    fun setHabitWipLimit(n: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(habitWipLimit = n.coerceIn(0, 20))) }
+    fun setHabitWipLimit(n: Int) = habitsVm.setHabitWipLimit(n)   // → HabitsViewModel (Stage 5-F)
 
     // FW-11 Transition detector + reset window.
     fun setTransition(label: String, startDay: Long) = viewModelScope.launch {
@@ -3954,57 +3904,18 @@ class AppViewModel internal constructor(
         if (moved > 0) toast("Carried $moved task${if (moved == 1) "" else "s"} forward to tomorrow. Day closed.")
     }
 
-    // FW-9 Self-escrow contingency reward.
-    fun addEscrow(habitId: String?, description: String, kind: String, milestoneKind: String, milestoneValue: Int) = viewModelScope.launch {
-        val d = description.trim(); if (d.isBlank()) return@launch
-        repo.upsertEscrow(com.todocompanion.app.data.entity.EscrowEntity(
-            id = java.util.UUID.randomUUID().toString(), habitId = habitId, description = d, kind = kind,
-            milestoneKind = milestoneKind, milestoneValue = milestoneValue.coerceAtLeast(1), createdAt = System.currentTimeMillis(), workspaceId = activeWorkspace()))
-        toast(if (kind == "stake") "Stake locked. It's real now — reach the milestone or it's forfeit." else "Reward escrowed. Earn it at the milestone.")
-    }
-    fun releaseEscrow(e: com.todocompanion.app.data.entity.EscrowEntity, redeem: Boolean) = viewModelScope.launch {
-        repo.upsertEscrow(e.copy(released = true, redeemed = redeem))
-        toast(when {
-            e.kind == "stake" && redeem -> "Stake paid. The contract held."
-            e.kind == "stake" -> "Stake returned — you made it."
-            redeem -> "Enjoy it — you earned this one. 🎉"
-            else -> "Banked for later."
-        })
-    }
-    fun deleteEscrow(id: String) = viewModelScope.launch { repo.deleteEscrow(id) }
+    // FW-9 Self-escrow contingency reward. → HabitsViewModel (Stage 5-F).
+    fun addEscrow(habitId: String?, description: String, kind: String, milestoneKind: String, milestoneValue: Int) = habitsVm.addEscrow(habitId, description, kind, milestoneKind, milestoneValue)
+    fun releaseEscrow(e: com.todocompanion.app.data.entity.EscrowEntity, redeem: Boolean) = habitsVm.releaseEscrow(e, redeem)
+    fun deleteEscrow(id: String) = habitsVm.deleteEscrow(id)
 
-    // FW-14 Personal Nudge MRT — record that an opportunity nudge (variant v) was shown for a habit today,
-    // and reconcile past open impressions against whether the habit was completed.
-    fun logNudgeShown(habitId: String, variant: Int, day: Long) = viewModelScope.launch {
-        if (repo.nudgeForHabitDay(habitId, day) != null) return@launch   // one impression per habit per day
-        repo.upsertNudgeEvent(com.todocompanion.app.data.entity.NudgeEventEntity(
-            id = java.util.UUID.randomUUID().toString(), habitId = habitId, variant = variant, epochDay = day,
-            createdAt = System.currentTimeMillis(), workspaceId = activeWorkspace()))
-    }
-    /** Mark open nudge impressions from the last two weeks as acted/not, by whether the target (habit or
-     *  task) was completed that day. R37: extended to task-reminder impressions (targetKind = "task"). */
-    fun reconcileNudges() = viewModelScope.launch {
-        val today = java.time.LocalDate.now(zone).toEpochDay()
-        val open = repo.openNudgesSince(today - 14)
-        if (open.isEmpty()) return@launch
-        val checkins = repo.getHabitCheckinsOnce()
-        val habits = repo.getHabitsOnce().associateBy { it.id }
-        open.forEach { ev ->
-            if (ev.epochDay >= today) return@forEach   // only reconcile past days
-            val done = if (ev.targetKind == "task") {
-                val t = repo.getTask(ev.habitId)
-                t?.completed == true && t.completedAt?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() } == ev.epochDay
-            } else {
-                val h = habits[ev.habitId] ?: return@forEach
-                checkins.any { it.habitId == ev.habitId && it.epochDay == ev.epochDay && it.status == "done" && com.todocompanion.app.domain.habit.HabitStats.meetsGoal(h, it.count) }
-            }
-            if (done) repo.upsertNudgeEvent(ev.copy(acted = true))
-        }
-    }
+    // FW-14 Personal Nudge MRT — record/reconcile opportunity-nudge impressions. → HabitsViewModel (Stage 5-F).
+    fun logNudgeShown(habitId: String, variant: Int, day: Long) = habitsVm.logNudgeShown(habitId, variant, day)
+    fun reconcileNudges() = habitsVm.reconcileNudges()
 
     // ── R37 · habit-science ports to tasks ─────────────────────────────────────────────────────────
     fun setTaskWipLimit(n: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(taskWipLimit = n.coerceIn(0, 20))) }
-    fun setReceptivityTiming(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(receptivityTiming = on)) }
+    fun setReceptivityTiming(on: Boolean) = habitsVm.setReceptivityTiming(on)   // → HabitsViewModel (Stage 5-F)
 
     /** Port 9 — link a project/task to a core value, so "living your values" counts real work. */
     fun setTaskValue(taskId: String, valueId: String?) = viewModelScope.launch {
@@ -5640,17 +5551,7 @@ class AppViewModel internal constructor(
      * E1/R56: search across all habits too — name, description/"why", identity, category, unit and now
      * the free-form notes. Archived habits are INCLUDED (the UI labels them) so a habit is never unfindable.
      */
-    fun searchHabits(query: String): List<com.todocompanion.app.data.entity.HabitEntity> {
-        val q = query.trim().lowercase().removePrefix("#").removePrefix("@")
-        if (q.isBlank()) return emptyList()
-        // Search over archived habits too (the row labels them "· archived") so a habit is never
-        // unfindable — matches this function's contract, which `habits` (active-only) silently broke.
-        return habitsWithArchived.value.filter { h ->
-            h.name.lowercase().contains(q) || h.description.lowercase().contains(q) ||
-                h.identity.lowercase().contains(q) || h.category.lowercase().contains(q) ||
-                h.notes.lowercase().contains(q) || (h.unit?.lowercase()?.contains(q) == true)
-        }.sortedBy { it.sortOrder }
-    }
+    fun searchHabits(query: String): List<com.todocompanion.app.data.entity.HabitEntity> = habitsVm.searchHabits(query)   // → HabitsViewModel (Stage 5-F)
 
     // ---------- export / import ----------
     // R75 — the file I/O lives in a standalone, unit-testable BackupExporter (context + repo + zone,
