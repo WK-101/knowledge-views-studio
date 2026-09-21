@@ -301,7 +301,7 @@ private fun rangeLabelStat(range: PeriodRange): String = when (range) {
     PeriodRange.YEAR -> "This year"
     PeriodRange.ALL -> "All time"
 }
-private fun fmtMin(m: Int): String = if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
+private fun fmtMin(m: Int): String = com.todocompanion.app.util.formatMinutes(m)
 
 /** Track 2.2 — render a set of headline metrics as stat tiles, two per row. Each carries its rate and a
  *  drift-vs-baseline arrow (▲ rising · ▼ easing · • level) folded into the shared [StatTile]'s sub slot. */

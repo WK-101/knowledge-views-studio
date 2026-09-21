@@ -97,7 +97,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.todocompanion.app.data.entity.RoutineRunEntity::class,
     ],
     version = 87,
-    // R73 — export the schema JSON (to app/schemas/) on every build. With 54 hand-written migrations
+    // R73 — export the schema JSON (to app/schemas/) on every build. With 82 hand-written migrations (v5→v87)
     // this is the safety net: it lets an instrumented MigrationTest replay the whole chain in CI and
     // fail the build the moment a migration drifts from the entity definitions. Turned on from v59;
     // each future version's schema is committed alongside its migration.
@@ -1176,7 +1176,7 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
-         * The complete, ordered v5→v63 migration chain. Exposed (and used by the builder below) so an
+         * The complete, ordered v5→v87 migration chain. Exposed (and used by the builder below) so an
          * instrumented [androidTest] MigrationTest can replay it against a real SQLite DB and assert the
          * result matches the exported schema — turning a silent migration bug into a failing build.
          */
@@ -1223,7 +1223,7 @@ abstract class AppDatabase : RoomDatabase() {
                         })
                         .addMigrations(*ALL_MIGRATIONS)
                         // R68 — data-safety: NEVER silently wipe a real user's database on a forward upgrade.
-                        // The full v5→v59 migration chain above is exhaustive, so a normal upgrade never needs
+                        // The full v5→v87 migration chain above is exhaustive, so a normal upgrade never needs
                         // a fallback. We keep destructive fallback ONLY for a DOWNGRADE (installing an older
                         // build over a newer schema) — the one case a migration genuinely can't exist for.
                         // A missing FORWARD migration now fails loudly in testing instead of erasing years of

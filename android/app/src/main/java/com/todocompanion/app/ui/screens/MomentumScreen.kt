@@ -294,7 +294,7 @@ fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit, onOpenGoals: () -> Unit
             }
 
             // The inputs — a disabled module's tile is dropped so the row only shows what's live.
-            fun fmtMin(m: Int) = if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
+            fun fmtMin(m: Int) = com.todocompanion.app.util.formatMinutes(m)
             val weekStartMs = LocalDate.now(zone).minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
             val timeWeekMin = if (timeOn) com.todocompanion.app.domain.TimeTracking.totalMinutes(timeEntries, weekStartMs, dayEnd, nowMs) else 0
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

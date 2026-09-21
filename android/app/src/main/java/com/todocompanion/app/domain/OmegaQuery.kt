@@ -66,12 +66,7 @@ data class OmegaPeriod(val startDay: Long, val endDay: Long, val label: String) 
 }
 
 /** Format minutes as "1h 20m" / "45m" / "2h". */
-internal fun fmtHm(min: Int): String = when {
-    min <= 0 -> "0m"
-    min < 60 -> "${min}m"
-    min % 60 == 0 -> "${min / 60}h"
-    else -> "${min / 60}h ${min % 60}m"
-}
+internal fun fmtHm(min: Int): String = com.todocompanion.app.util.formatMinutes(min)
 
 /** Strength (0..100) of every active build habit, as of [today] — shared by query, recap and report. */
 internal fun habitStrengths(habits: List<HabitEntity>, checkins: List<HabitCheckinEntity>, today: Long): List<Pair<HabitEntity, Int>> {

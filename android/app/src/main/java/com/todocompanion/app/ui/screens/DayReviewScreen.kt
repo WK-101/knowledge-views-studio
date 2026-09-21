@@ -324,7 +324,7 @@ fun DayReviewScreen(vm: AppViewModel, initialDay: Long, startInClose: Boolean = 
 
     val nothing = tasksDone.isEmpty() && habitsKept.isEmpty() && occ.isEmpty() && tracked.isEmpty() && focusMin == 0
 
-    fun fmtHm(m: Int) = if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
+    fun fmtHm(m: Int) = com.todocompanion.app.util.formatMinutes(m)
     fun timeLabel(ms: Long) = Instant.ofEpochMilli(ms).atZone(zone).toLocalTime().let { "%02d:%02d".format(it.hour, it.minute) }
     fun mood(v: Int) = when (v) { 1 -> "😞"; 2 -> "🙁"; 3 -> "😐"; 4 -> "🙂"; 5 -> "😄"; else -> "" }
     fun outcomeLabel(v: Int) = when (v) { 1 -> "Not yet"; 2 -> "Partly"; 3 -> "Done"; else -> "" }
@@ -2635,7 +2635,7 @@ private fun joinGoodWhy(thing: String, why: String): String {
 
 private fun oneDp(v: Double): String = String.format(Locale.US, "%.1f", v)
 
-private fun formatHm(m: Int): String = if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
+private fun formatHm(m: Int): String = com.todocompanion.app.util.formatMinutes(m)
 
 private fun moodFace(v: Int): String = when (v.coerceIn(0, 5)) { 1 -> "😞"; 2 -> "🙁"; 3 -> "😐"; 4 -> "🙂"; 5 -> "😄"; else -> "😐" }
 

@@ -8,7 +8,6 @@ import kotlin.math.abs
 import kotlin.math.acos
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.tan
 
 /**
  * R43 — the "third horizon". Twelve planner insights that only a UNIFIED local store can form, because
@@ -236,5 +235,4 @@ object ThirdHorizon {
     }
     private fun s(n: Int) = if (n == 1) "" else "s"
     // 'tan' kept imported for potential future use of the simpler hour-angle form.
-    @Suppress("unused") private fun keepTan() = tan(0.0)
 }

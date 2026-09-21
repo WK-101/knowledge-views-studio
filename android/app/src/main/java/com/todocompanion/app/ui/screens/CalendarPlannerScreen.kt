@@ -679,10 +679,7 @@ private fun StatRow(label: String, value: String) {
     }
 }
 
-private fun fmtMin(min: Int): String {
-    val m = if (min < 0) 0 else min
-    return when { m < 60 -> "${m}m"; m % 60 == 0 -> "${m / 60}h"; else -> "${m / 60}h ${m % 60}m" }
-}
+private fun fmtMin(min: Int): String = com.todocompanion.app.util.formatMinutes(min)
 
 private fun startOfWeek(day: Long, weekStart: Int): Long {
     // App convention: 0 = System (locale first-day), 1..7 = Mon..Sun (ISO). Most recent start day ≤ day.

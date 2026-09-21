@@ -5295,22 +5295,9 @@ class AppViewModel internal constructor(
     }
 
     // ---------- search ----------
-    fun search(query: String): List<TaskEntity> {
-        val q = query.trim().lowercase()
-        if (q.isBlank()) return emptyList()
-        val q2 = q.removePrefix("#").removePrefix("@")
-        val tagIds = tags.value.filter { it.name.lowercase().contains(q2) }.map { it.id }.toSet()
-        val ctxIds = contexts.value.filter { it.name.lowercase().contains(q2) }.map { it.id }.toSet()
-        val byTag = taskTags.value.filter { it.tagId in tagIds }.map { it.taskId }.toSet()
-        val byCtx = taskContexts.value.filter { it.contextId in ctxIds }.map { it.taskId }.toSet()
-        return tasks.value.filter {
-            !it.trashed && (it.title.lowercase().contains(q) || it.note.lowercase().contains(q) || it.id in byTag || it.id in byCtx)
-        }
-    }
-
     /**
-     * R54 — scale-aware search. Small task sets use the instant in-memory scan (identical to [search]);
-     * large histories use the FTS4 index (indexed title/note MATCH) so search stays fast into the
+     * R54 — scale-aware search. Small task sets use the instant in-memory scan; large histories use
+     * the FTS4 index (indexed title/note MATCH) so search stays fast into the
      * hundred-thousands. Tag/context matches always come from the in-memory join (those tables are small).
      * If FTS is unavailable it transparently falls back to the in-memory scan — search never fails.
      */

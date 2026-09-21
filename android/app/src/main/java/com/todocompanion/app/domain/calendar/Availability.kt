@@ -165,11 +165,6 @@ object Availability {
     }
 
     fun fmtMinutes(min: Int): String {
-        val h = min / 60; val m = min % 60
-        return when {
-            h > 0 && m > 0 -> "${h}h ${m}m"
-            h > 0 -> "${h}h"
-            else -> "${m}m"
-        }
+        return com.todocompanion.app.util.formatMinutes(min)
     }
 }

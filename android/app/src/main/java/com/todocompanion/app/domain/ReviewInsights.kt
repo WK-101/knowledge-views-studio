@@ -367,7 +367,7 @@ object ReviewInsights {
 
     private fun oneDp(v: Double): String = String.format(Locale.US, "%.1f", v)
 
-    private fun fmtHm(m: Int): String = if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
+    private fun fmtHm(m: Int): String = com.todocompanion.app.util.formatMinutes(m)
 
     /** Trim the shared "Did I do my best to …?" scaffolding so the phrase reads inside a sentence. */
     private fun shortQuestion(text: String): String {

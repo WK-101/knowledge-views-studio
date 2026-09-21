@@ -418,11 +418,7 @@ fun DateTimeOptionalDialog(
     }
 }
 
-internal fun fmtDuration(min: Int): String = when {
-    min < 60 -> "${min}m"
-    min % 60 == 0 -> "${min / 60}h"
-    else -> "${min / 60}h ${min % 60}m"
-}
+internal fun fmtDuration(min: Int): String = com.todocompanion.app.util.formatMinutes(min)
 private fun reminderLabelOffset(off: Int?): String = when (off) {
     null -> "None"; 0 -> "On time"; 1440 -> "1 day before"; 60 -> "1 hour before"
     else -> "$off min before"
