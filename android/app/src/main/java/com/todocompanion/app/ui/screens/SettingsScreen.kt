@@ -963,6 +963,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Toggle("Time reminders to my peak", s.receptivityTiming) { on -> vm.setReceptivityTiming(on) }
                 Text("Shift the daily brief and evening review to the hour you're most likely to act, learned from when you actually finish habits and tasks. Off = use the fixed times.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Toggle("Smart habit reminders", s.habitSmartReminders) { on -> vm.setSmartHabitReminders(on) }
+                Text("Nudge each habit toward the time you actually tend to do it (within ±90 min of the time you set), and send one gentle follow-up ~45 min later if a due habit's reminder goes unactioned. Off = fixed times, single nudge.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                 // R107 — Rewards & Routines live here now, with the rest of the habit tools, instead of as
                 // standalone entries in the main settings list where they were easy to miss.

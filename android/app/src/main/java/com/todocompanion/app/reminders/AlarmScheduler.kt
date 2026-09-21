@@ -395,15 +395,34 @@ object AlarmScheduler {
      *  simply stop. Call after any habit change, at startup, and on boot. */
     suspend fun scheduleHabitReminders(context: Context, repo: AppRepository, zone: ZoneId = ZoneId.systemDefault()) {
         val now = System.currentTimeMillis()
-        val muted = repo.settingsSnapshot().mutedHabits   // W8
+        val settings = repo.settingsSnapshot()
+        val muted = settings.mutedHabits   // W8
+        val smart = settings.habitSmartReminders
+        // Smart reminders learn from when each habit actually gets done; fetch check-ins only when needed.
+        val byHabit = if (smart) repo.getHabitCheckinsOnce().groupBy { it.habitId } else emptyMap()
         repo.getHabitsOnce().filter { !it.archived && it.reminderTimes.isNotBlank() && it.id !in muted }.forEach { h ->
+            // Adaptive: nudge every reminder toward the median time this habit is actually done, but stay
+            // within ±90 min of the time the user set — the nudge lands when they're receptive, not adrift.
+            val typical = if (smart) com.todocompanion.app.domain.habit.HabitStats.typicalDoneMinute(byHabit[h.id] ?: emptyList()) else null
             h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it in 0..1439 }.forEach { min ->
-                var next = LocalDate.now(zone).atTime(LocalTime.of(min / 60, min % 60)).atZone(zone).toInstant().toEpochMilli()
+                val fireMin = if (typical != null) typical.coerceIn((min - 90).coerceAtLeast(0), (min + 90).coerceAtMost(1439)) else min
+                var next = LocalDate.now(zone).atTime(LocalTime.of(fireMin / 60, fireMin % 60)).atZone(zone).toInstant().toEpochMilli()
                 if (next <= now) next += 86_400_000L
+                // reqCode + extras stay keyed on the user's configured minute so self-heal still matches
+                // reminderTimes even when the alarm fires at the adaptive minute.
                 setAlarm(context, next, broadcast(context, ACTION_HABIT, habitReqCode(h.id, min),
                     mapOf(EXTRA_HABIT_ID to h.id, EXTRA_HABIT_NAME to ((h.emoji?.plus(" ") ?: "") + h.name), EXTRA_HABIT_MIN to min.toString())))
             }
         }
+    }
+
+    /** Smart-reminder escalation: fire one gentle follow-up nudge [delayMin] minutes from now for a habit
+     *  still due after its reminder went unactioned. Distinct request code so it never clobbers the daily
+     *  alarm or a snooze; carries EXTRA_ESCALATE so the receiver won't re-arm the next day or re-escalate. */
+    fun scheduleHabitFollowup(context: Context, habitId: String, habitName: String, minute: Int, delayMin: Int = 45) {
+        val at = System.currentTimeMillis() + delayMin * 60_000L
+        setAlarm(context, at, broadcast(context, ACTION_HABIT, habitReqCode(habitId, minute) + 11,
+            mapOf(EXTRA_HABIT_ID to habitId, EXTRA_HABIT_NAME to habitName, EXTRA_HABIT_MIN to minute.toString(), EXTRA_ESCALATE to "true")))
     }
 
     /** Snooze a habit reminder: fire it again [delayMin] minutes from now (notification action). */

@@ -165,6 +165,10 @@ data class AppSettings(
     // Phase F — adapt the evening reminder to when the user usually closes their day (median of recent
     // close times, clamped to a sane evening window). Off = keep the fixed eveningReviewHour exactly.
     val eveningReviewAdaptive: Boolean = false,
+    // Habits Tier 2 — smart habit reminders: nudge each habit's reminder toward the time you actually
+    // tend to do it (within ±90 min of the time you set), and, if a due habit's nudge goes unactioned,
+    // send one gentle follow-up ~45 min later. Off = fixed times, single nudge. Offline; no new perm.
+    val habitSmartReminders: Boolean = false,
     // R59 (Wave 1) — reminder intensity default (0 Gentle · 1 Persistent · 2 Insistent-alarm), applied to
     // newly created reminders, and the snooze duration (minutes) every notification's Snooze action uses.
     val defaultReminderTier: Int = 0,
@@ -598,6 +602,7 @@ data class AppSettings(
         Keys.EVENING_ON to eveningReviewEnabled.toString(),
         Keys.EVENING_H to eveningReviewHour.toString(),
         Keys.EVENING_ADAPTIVE to eveningReviewAdaptive.toString(),
+        Keys.HABIT_SMART_REMINDERS to habitSmartReminders.toString(),
         Keys.REMINDER_TIER to defaultReminderTier.toString(),
         Keys.SNOOZE_MIN to defaultSnoozeMin.toString(),
         Keys.QUIET_ON to quietHoursEnabled.toString(),
@@ -817,6 +822,7 @@ data class AppSettings(
         const val EVENING_ON = "evening_on"
         const val EVENING_H = "evening_h"
         const val EVENING_ADAPTIVE = "evening_adaptive"
+        const val HABIT_SMART_REMINDERS = "habit_smart_reminders"
         const val REMINDER_TIER = "reminder_tier"
         const val SNOOZE_MIN = "snooze_min"
         const val QUIET_ON = "quiet_on"
@@ -1118,6 +1124,7 @@ data class AppSettings(
             eveningReviewEnabled = m[Keys.EVENING_ON]?.toBooleanStrictOrNull() ?: false,
             eveningReviewHour = m[Keys.EVENING_H]?.toIntOrNull()?.coerceIn(0, 23) ?: 20,
             eveningReviewAdaptive = m[Keys.EVENING_ADAPTIVE]?.toBooleanStrictOrNull() ?: false,
+            habitSmartReminders = m[Keys.HABIT_SMART_REMINDERS]?.toBooleanStrictOrNull() ?: false,
             defaultReminderTier = m[Keys.REMINDER_TIER]?.toIntOrNull()?.coerceIn(0, 2) ?: 0,
             defaultSnoozeMin = m[Keys.SNOOZE_MIN]?.toIntOrNull()?.coerceIn(1, 720) ?: 10,
             quietHoursEnabled = m[Keys.QUIET_ON]?.toBooleanStrictOrNull() ?: false,

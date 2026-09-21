@@ -247,6 +247,8 @@ class ReminderReceiver : BroadcastReceiver() {
                 val habitId = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_ID) ?: return
                 val name = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_NAME) ?: "your habit"
                 val min = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_MIN)?.toIntOrNull() ?: return
+                // This firing is the smart-reminder follow-up, not the daily alarm — don't re-arm or re-escalate.
+                val escalate = intent.getBooleanExtra(AlarmScheduler.EXTRA_ESCALATE, false)
                 val pending = goAsync()
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
@@ -254,7 +256,8 @@ class ReminderReceiver : BroadcastReceiver() {
                         val todayEpoch = java.time.LocalDate.now(zone).toEpochDay()
                         val h = app.repository.getHabitsOnce().firstOrNull { it.id == habitId }
                         // Self-heal: only fire + reschedule while the time is still configured.
-                        val muted = app.repository.settingsSnapshot().mutedHabits.contains(habitId)   // W8
+                        val settings = app.repository.settingsSnapshot()
+                        val muted = settings.mutedHabits.contains(habitId)   // W8
                         val stillWanted = h != null && !h.archived && !muted &&
                             h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.contains(min)
                         if (stillWanted && !h!!.paused) {
@@ -265,11 +268,18 @@ class ReminderReceiver : BroadcastReceiver() {
                             val doneDays = checkins.filter { it.habitId == habitId && it.status == "done" && stats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
                             val todayCount = checkins.firstOrNull { it.habitId == habitId && it.epochDay == todayEpoch }?.count ?: 0
                             val stillDue = stats.dueToday(h, todayEpoch, doneDays, todayCount)
+                            val quietOk = AlarmScheduler.quietDeferUntil(System.currentTimeMillis()) == null
                             // R59 (Wave 2) — honour quiet hours: skip the nudge when we're in the quiet window
                             // (the habit re-arms for its next day regardless).
-                            if (scheduledToday && stillDue && AlarmScheduler.quietDeferUntil(System.currentTimeMillis()) == null)
+                            if (scheduledToday && stillDue && quietOk)
                                 Notifications.showHabit(context, habitId, name, min, why = h.description)
-                            AlarmScheduler.rescheduleHabit(context, habitId, name, min)
+                            if (!escalate) {
+                                AlarmScheduler.rescheduleHabit(context, habitId, name, min)
+                                // Habits Tier 2 — smart reminders: one gentle follow-up if this due habit's
+                                // nudge lands and it's still not done (skipped when muted/quiet/not due).
+                                if (settings.habitSmartReminders && scheduledToday && stillDue && quietOk)
+                                    AlarmScheduler.scheduleHabitFollowup(context, habitId, name, min, 45)
+                            }
                         }
                     } finally { pending.finish() }
                 }

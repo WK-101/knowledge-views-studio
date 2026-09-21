@@ -369,6 +369,11 @@ class HabitsViewModel(
     }
     fun setChronotype(i: Int) = scope.launch { repo.saveSettings(app.settings.value.copy(chronotype = i.coerceIn(0, 2))) }
     fun setCalmMode(on: Boolean) = scope.launch { repo.saveSettings(app.settings.value.copy(calmMode = on)) }
+    /** Smart habit reminders: adaptive timing + one gentle follow-up. Re-arm alarms so it takes effect now. */
+    fun setSmartReminders(on: Boolean) = scope.launch {
+        repo.saveSettings(app.settings.value.copy(habitSmartReminders = on))
+        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(app.appCtx, repo)
+    }
     fun addReward(text: String) = scope.launch {
         val t = text.trim(); if (t.isBlank()) return@launch
         if (t !in app.settings.value.rewardMenu) repo.saveSettings(app.settings.value.copy(rewardMenu = app.settings.value.rewardMenu + t))

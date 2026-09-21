@@ -419,6 +419,23 @@
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_habitline_info" />
         </receiver>
 
+        <!-- One habit's week as 7 tappable day cells. Offline. -->
+        <receiver android:name=".widget.WeekRowWidget" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_weekrow_info" />
+        </receiver>
+        <receiver android:name=".widget.WeekRowReceiver" android:exported="false" />
+
+        <!-- Your live streaks, longest first. Offline. -->
+        <receiver android:name=".widget.StreaksWidget" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_streaks_info" />
+        </receiver>
+
         <!-- R1: Momentum widget — the unified habit+task+focus score. Offline. -->
         <receiver android:name=".widget.MomentumWidget" android:exported="false">
             <intent-filter>

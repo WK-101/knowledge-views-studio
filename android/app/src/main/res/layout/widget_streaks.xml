@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/st_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/st_card"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_bg"
+        android:importantForAccessibility="no"
+        android:contentDescription="@null" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/st_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Streaks"
+            android:textColor="@color/w_text_primary"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:paddingBottom="6dp" />
+
+        <TextView android:id="@+id/st_r0" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:textSize="14sp" android:textColor="@color/w_text_primary" android:paddingTop="4dp" android:paddingBottom="4dp" />
+        <TextView android:id="@+id/st_r1" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:textSize="14sp" android:textColor="@color/w_text_primary" android:paddingTop="4dp" android:paddingBottom="4dp" />
+        <TextView android:id="@+id/st_r2" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:textSize="14sp" android:textColor="@color/w_text_primary" android:paddingTop="4dp" android:paddingBottom="4dp" />
+        <TextView android:id="@+id/st_r3" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:textSize="14sp" android:textColor="@color/w_text_primary" android:paddingTop="4dp" android:paddingBottom="4dp" />
+        <TextView android:id="@+id/st_r4" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:textSize="14sp" android:textColor="@color/w_text_primary" android:paddingTop="4dp" android:paddingBottom="4dp" />
+        <TextView android:id="@+id/st_r5" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:textSize="14sp" android:textColor="@color/w_text_primary" android:paddingTop="4dp" android:paddingBottom="4dp" />
+    </LinearLayout>
+</FrameLayout>

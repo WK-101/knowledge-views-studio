@@ -3429,6 +3429,7 @@ class AppViewModel internal constructor(
     fun startJourney(j: com.todocompanion.app.domain.habit.HabitJourneys.Journey) = habitsVm.startJourney(j)
     fun setChronotype(i: Int) = habitsVm.setChronotype(i)
     fun setCalmMode(on: Boolean) = habitsVm.setCalmMode(on)
+    fun setSmartHabitReminders(on: Boolean) = habitsVm.setSmartReminders(on)
     fun addReward(text: String) = habitsVm.addReward(text)
     fun removeReward(text: String) = habitsVm.removeReward(text)
     fun saveValue(id: String?, name: String, emoji: String?, colorArgb: Long?, statement: String) = habitsVm.saveValue(id, name, emoji, colorArgb, statement)

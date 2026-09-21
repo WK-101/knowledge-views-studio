@@ -168,6 +168,7 @@ class WidgetConfigActivity : ComponentActivity() {
             providerClass.endsWith("RecordWidget") -> RecordWidget.refresh(this)
             providerClass.endsWith("HabitsWidget") -> HabitsWidget.updateOne(this, widgetId)
             providerClass.endsWith("HabitStatsWidget") -> HabitStatsWidget.refresh(this)
+            providerClass.endsWith("WeekRowWidget") -> WeekRowWidget.updateOne(this, widgetId)
             else -> {
                 // Generic: broadcast an update to that provider so it re-renders with the new prefs.
                 runCatching {
