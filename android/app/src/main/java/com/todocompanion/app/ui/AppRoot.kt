@@ -115,6 +115,7 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
@@ -177,6 +178,49 @@ private enum class Tab(val label: String, val icon: ImageVector) {
 private enum class Overlay {
     STATS, ATTACHMENTS, DONE, PLAN, REVIEW, MOMENTUM, ROUTINES, GOALS, TIME_TRACKING, TIME_STATS,
     NOTES_GRAPH, NOTES_GARDEN, RECALL,
+}
+
+/**
+ * R110 (NavHost round · stage 3) — the argument-CARRYING full-screen overlays, as one destination type.
+ * Unlike the arg-free [Overlay] set these hold navigation arguments, so they are a sealed hierarchy rather
+ * than an enum; unlike the arg-free stack they never open on top of one another (the Journal→review edge
+ * replaces rather than stacks), so a single nullable slot — not a list — models them exactly. The [Saver]
+ * round-trips each destination's arguments through a Bundle-safe String, so an open overlay survives config
+ * change AND process death; the ad-hoc `remember` flags this replaces silently dropped their arguments.
+ */
+private sealed interface OverlayArg {
+    data class Occasions(val openId: String?) : OverlayArg
+    data class DayReview(val day: Long, val startClose: Boolean, val startWeekly: Boolean) : OverlayArg
+    data class Recap(val start: Long, val end: Long, val title: String) : OverlayArg
+    data class Journal(val period: com.todocompanion.app.domain.PeriodRange, val anchor: Long) : OverlayArg
+
+    companion object {
+        private const val SEP = "\u0001"   // a control char no title/id contains → a safe field delimiter
+        val Saver: Saver<OverlayArg?, String> = Saver(
+            save = { arg ->
+                when (arg) {
+                    null -> ""
+                    is Occasions -> "O$SEP${arg.openId ?: ""}"
+                    is DayReview -> "D$SEP${arg.day}$SEP${arg.startClose}$SEP${arg.startWeekly}"
+                    is Recap -> "R$SEP${arg.start}$SEP${arg.end}$SEP${arg.title}"
+                    is Journal -> "J$SEP${arg.period.name}$SEP${arg.anchor}"
+                }
+            },
+            restore = { s ->
+                if (s.isEmpty()) null else {
+                    // limit=4 keeps a Recap title that happens to contain SEP intact in the final field.
+                    val p = s.split(SEP, limit = 4)
+                    when (p[0]) {
+                        "O" -> Occasions(p[1].ifEmpty { null })
+                        "D" -> DayReview(p[1].toLong(), p[2].toBoolean(), p[3].toBoolean())
+                        "R" -> Recap(p[1].toLong(), p[2].toLong(), p[3])
+                        "J" -> Journal(com.todocompanion.app.domain.PeriodRange.valueOf(p[1]), p[2].toLong())
+                        else -> null
+                    }
+                }
+            },
+        )
+    }
 }
 
 private data class NewReq(val isFolder: Boolean, val parentId: String?)
@@ -449,20 +493,16 @@ fun AppRoot(
         var importResult by remember { mutableStateOf<String?>(null) }
         var saveTab by remember { mutableStateOf(false) }
         var templatePicker by remember { mutableStateOf(false) }
-        var showCountdowns by rememberSaveable { mutableStateOf(false) }
+        // R110 (NavHost round · stage 3) — Occasions, Day/Week review, the any-period Recap and the Journal
+        // hub are ONE saveable destination (see [OverlayArg]) rather than seven ad-hoc flags. They never open
+        // on top of one another, so a single nullable slot models them exactly; the Saver persists each
+        // destination's arguments, so an open overlay now survives process death — the old `remember`-backed
+        // flags (countdownOpenId, the dayReview start flags, recapRange, periodicHub) silently lost it.
+        var argOverlay by rememberSaveable(stateSaver = OverlayArg.Saver) { mutableStateOf<OverlayArg?>(null) }
         // R48 — deep-link into Occasions (optionally opening a specific entry) from the calendar / lists.
-        var countdownOpenId by remember { mutableStateOf<String?>(null) }
-        val openOccasion: (String?) -> Unit = { id -> countdownOpenId = id; showCountdowns = true }
-        var showDayReview by rememberSaveable { mutableStateOf<Long?>(null) }   // R66 end-of-day review (holds the epoch-day, null = closed)
-        // Phase F — when opened via the "Close your day" shortcut / evening nudge, land straight in the close flow.
-        var dayReviewStartClose by remember { mutableStateOf(false) }
-        // Opened via the drawer's "Weekly review": land straight in the guided weekly ritual.
-        var dayReviewStartWeekly by remember { mutableStateOf(false) }
-        // Tier Ω: the command palette, the any-period recap overlay, and the annual-report picker.
+        val openOccasion: (String?) -> Unit = { id -> argOverlay = OverlayArg.Occasions(id) }
+        // Tier Ω: the command palette (recap + Journal are now [OverlayArg]) and the annual-report picker.
         var showPalette by remember { mutableStateOf(false) }
-        var recapRange by remember { mutableStateOf<Triple<Long, Long, String>?>(null) }
-        // Periodic Notes — the Journal hub overlay: (granularity, anchor epoch-day).
-        var periodicHub by remember { mutableStateOf<Pair<com.todocompanion.app.domain.PeriodRange, Long>?>(null) }
         var showAnnual by rememberSaveable { mutableStateOf(false) }
         // G4 interactive time-blocking: which (day, minute) slot the user tapped on the calendar.
         var blockAt by remember { mutableStateOf<Pair<java.time.LocalDate, Int>?>(null) }
@@ -627,7 +667,7 @@ fun AppRoot(
                 a != null && a.startsWith("arrive:") -> { vm.fireArrivalReminders(a.removePrefix("arrive:")); launchAction.value = null }
                 a == "open_focus" -> { tab = Tab.FOCUS; launchAction.value = null }
                 a == "open_habits" -> { tab = Tab.HABITS; launchAction.value = null }
-                a == "open_countdowns" -> { showCountdowns = true; launchAction.value = null }
+                a == "open_countdowns" -> { argOverlay = OverlayArg.Occasions(null); launchAction.value = null }
                 a == "open_matrix" -> { tab = Tab.MATRIX; launchAction.value = null }
                 a == "open_today" -> { vm.select(ViewRef.Smart(SmartKind.TODAY)); tab = Tab.TASKS; launchAction.value = null }
                 a == "open_donext" -> { vm.select(ViewRef.Smart(SmartKind.DO_NEXT)); tab = Tab.TASKS; launchAction.value = null }
@@ -635,15 +675,15 @@ fun AppRoot(
                 a == "open_plan" -> { openOverlay(Overlay.PLAN); launchAction.value = null }
                 a == "open_momentum" -> { openOverlay(Overlay.MOMENTUM); launchAction.value = null }
                 a == "open_record" -> { openOverlay(Overlay.DONE); launchAction.value = null }
-                a == "open_dayreview" -> { dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay(); launchAction.value = null }
+                a == "open_dayreview" -> { argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = false, startWeekly = false); launchAction.value = null }
                 // Phase F — the "Close your day" shortcut / evening nudge opens today's review in the close flow.
-                a == "open_close_day" -> { dayReviewStartClose = true; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay(); launchAction.value = null }
+                a == "open_close_day" -> { argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = true, startWeekly = false); launchAction.value = null }
                 a == "open_time" -> { openOverlay(Overlay.TIME_TRACKING); launchAction.value = null }
                 a == "open_calendar" -> { tab = Tab.CALENDAR; launchAction.value = null }
                 // Periodic Notes: widget/shortcut deep links — a new blank note, today's daily note, the Journal hub.
                 a == "new_note" -> { vm.createNote { id -> editingNote = id }; launchAction.value = null }
                 a == "new_daily_note" -> { vm.openDailyNote(java.time.LocalDate.now().toEpochDay()) { id -> editingNote = id }; launchAction.value = null }
-                a == "open_journal" -> { periodicHub = com.todocompanion.app.domain.PeriodRange.DAY to java.time.LocalDate.now().toEpochDay(); launchAction.value = null }
+                a == "open_journal" -> { argOverlay = OverlayArg.Journal(com.todocompanion.app.domain.PeriodRange.DAY, java.time.LocalDate.now().toEpochDay()); launchAction.value = null }
                 a != null && a.startsWith(com.todocompanion.app.MainActivity.ACTION_TRACK_ACTIVITY) -> {
                     val id = a.removePrefix(com.todocompanion.app.MainActivity.ACTION_TRACK_ACTIVITY)
                     vm.timeVm.startTimeTracking(id); openOverlay(Overlay.TIME_TRACKING); launchAction.value = null
@@ -760,16 +800,16 @@ fun AppRoot(
                     onOpenTab = { name -> runCatching { Tab.valueOf(name) }.getOrNull()?.let { tab = it }; scope.launch { drawerState.close() } },
                     onOpenTemplates = { templatePicker = true; scope.launch { drawerState.close() } },
                     onOpenAttachments = { openOverlay(Overlay.ATTACHMENTS); scope.launch { drawerState.close() } },
-                    onOpenCountdowns = { showCountdowns = true; scope.launch { drawerState.close() } },
+                    onOpenCountdowns = { argOverlay = OverlayArg.Occasions(null); scope.launch { drawerState.close() } },
                     onOpenDone = { openOverlay(Overlay.DONE); scope.launch { drawerState.close() } },
                     onOpenMomentum = { openOverlay(Overlay.MOMENTUM); scope.launch { drawerState.close() } },
                     onOpenTime = { openOverlay(Overlay.TIME_TRACKING); scope.launch { drawerState.close() } },
-                    onOpenRecap = { val t = java.time.LocalDate.now(); val ws = com.todocompanion.app.domain.weekStartOf(t, settings.weekStart); recapRange = Triple(ws.toEpochDay(), t.toEpochDay(), "This week"); scope.launch { drawerState.close() } },
+                    onOpenRecap = { val t = java.time.LocalDate.now(); val ws = com.todocompanion.app.domain.weekStartOf(t, settings.weekStart); argOverlay = OverlayArg.Recap(ws.toEpochDay(), t.toEpochDay(), "This week"); scope.launch { drawerState.close() } },
                     onOpenAnnual = { showAnnual = true; scope.launch { drawerState.close() } },
                     // Same open path the FAB "Day review" and the "day review" command use (R66).
-                    onOpenDayReview = { dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay(); scope.launch { drawerState.close() } },
+                    onOpenDayReview = { argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = false, startWeekly = false); scope.launch { drawerState.close() } },
                     // The guided reflective weekly ritual, opened directly (lands on the Week roll-up's flow).
-                    onOpenWeeklyReview = { dayReviewStartClose = false; dayReviewStartWeekly = true; showDayReview = java.time.LocalDate.now().toEpochDay(); scope.launch { drawerState.close() } },
+                    onOpenWeeklyReview = { argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = false, startWeekly = true); scope.launch { drawerState.close() } },
                     onOpenRoutines = { openOverlay(Overlay.ROUTINES); scope.launch { drawerState.close() } },
                     onOpenGoals = { openOverlay(Overlay.GOALS); scope.launch { drawerState.close() } },
                 )
@@ -1043,8 +1083,8 @@ fun AppRoot(
                                     DropdownMenuItem(text = { Text("New task") }, leadingIcon = { Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; openQuickAdd(null) })
                                     DropdownMenuItem(text = { Text("Plan my day") }, leadingIcon = { Icon(Icons.Filled.Bolt, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; openOverlay(Overlay.PLAN) })
                                     DropdownMenuItem(text = { Text("Focus") }, leadingIcon = { Icon(Icons.Filled.Timer, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; tab = Tab.FOCUS })
-                                    DropdownMenuItem(text = { Text("Weekly review") }, leadingIcon = { Icon(Icons.Filled.EventRepeat, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; dayReviewStartClose = false; dayReviewStartWeekly = true; showDayReview = java.time.LocalDate.now().toEpochDay() })
-                                    DropdownMenuItem(text = { Text("Day review") }, leadingIcon = { Icon(Icons.Filled.WbSunny, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay() })
+                                    DropdownMenuItem(text = { Text("Weekly review") }, leadingIcon = { Icon(Icons.Filled.EventRepeat, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = false, startWeekly = true) })
+                                    DropdownMenuItem(text = { Text("Day review") }, leadingIcon = { Icon(Icons.Filled.WbSunny, null, modifier = Modifier.size(18.dp)) }, onClick = { fabMenu = false; argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = false, startWeekly = false) })
                                 }
                             }
                         }
@@ -1121,7 +1161,7 @@ fun AppRoot(
                                 onOpenGoal = { openOverlay(Overlay.GOALS) },
                                 onOpenRoutine = { openOverlay(Overlay.ROUTINES) })
                             Tab.SETTINGS -> SettingsScreen(vm)
-          Tab.NOTES -> com.todocompanion.app.ui.screens.NotesScreen(vm, onOpenNote = ::openNote, query = notesQuery, onQueryChange = { notesQuery = it }, searchOpen = notesSearchOpen, onOpenGraph = { openOverlay(Overlay.NOTES_GRAPH) }, onOpenGarden = { openOverlay(Overlay.NOTES_GARDEN) }, onOpenRecall = { openOverlay(Overlay.RECALL) }, onOpenJournal = { periodicHub = com.todocompanion.app.domain.PeriodRange.DAY to java.time.LocalDate.now().toEpochDay() })
+          Tab.NOTES -> com.todocompanion.app.ui.screens.NotesScreen(vm, onOpenNote = ::openNote, query = notesQuery, onQueryChange = { notesQuery = it }, searchOpen = notesSearchOpen, onOpenGraph = { openOverlay(Overlay.NOTES_GRAPH) }, onOpenGarden = { openOverlay(Overlay.NOTES_GARDEN) }, onOpenRecall = { openOverlay(Overlay.RECALL) }, onOpenJournal = { argOverlay = OverlayArg.Journal(com.todocompanion.app.domain.PeriodRange.DAY, java.time.LocalDate.now().toEpochDay()) })
                             Tab.CALENDAR -> CalendarScreen(vm, ::openTask, calMode, { calMode = it; if (settings.calendarRememberLast) vm.saveSettings(settings.copy(calendarDefaultMode = it)) },
                                 calAnchor, calSelected, { calAnchor = it }, { calSelected = it },
                                 onAddOnDate = { d ->
@@ -1132,7 +1172,7 @@ fun AppRoot(
                                 onOpenNote = { editingNote = it },
                                 // A3 — the two-sided day: closing the day from the calendar opens the Daily
                                 // Review in close mode for exactly the day you were looking at.
-                                onCloseDay = { d -> dayReviewStartClose = true; dayReviewStartWeekly = false; showDayReview = d.toEpochDay() })
+                                onCloseDay = { d -> argOverlay = OverlayArg.DayReview(d.toEpochDay(), startClose = true, startWeekly = false) })
                             Tab.TIMELINE -> com.todocompanion.app.ui.screens.TimelineScreen(vm, ::openTask, selectedLists = timelineLists, showDone = timelineShowDone)
                             Tab.MATRIX -> MatrixScreen(vm, ::openTask, matrixSettings, { matrixSettings = false })
                             Tab.HABITS -> com.todocompanion.app.ui.screens.HabitsScreen(vm, onFocusHabit = { hid -> vm.pendingFocusHabitId.value = hid; timeFocus = true; tab = Tab.TIME })
@@ -1220,10 +1260,6 @@ fun AppRoot(
                 onBack = { if (route == "hub") vm.lifeSystemsRoute.value = null else vm.lifeSystemsRoute.value = "hub" },
                 onOpenHabit = { hid -> vm.lifeSystemsRoute.value = null; vm.habitDetailId.value = hid })
         }
-        // Argument-carrying overlays keep their own flags for now (folded into the stack in Stage 3).
-        if (showCountdowns) com.todocompanion.app.ui.screens.CountdownScreen(vm, onBack = { showCountdowns = false; countdownOpenId = null }, initialOpenId = countdownOpenId)
-        showDayReview?.let { d -> com.todocompanion.app.ui.screens.DayReviewScreen(vm, d, startInClose = dayReviewStartClose, startInWeekly = dayReviewStartWeekly, onOpenTask = { showDayReview = null; dayReviewStartClose = false; dayReviewStartWeekly = false; openTask(it) }, onOpenNote = { editingNote = it }, onBack = { showDayReview = null; dayReviewStartClose = false; dayReviewStartWeekly = false }) }
-
         // ── Unified overlay back-stack (NavHost round · Stage 2) ─────────────────────────────────────
         // The 13 argument-free full-screen overlays render from a single saveable stack: only the top
         // shows; each screen's own Back handler calls closeOverlay(), popping it to reveal what it covered.
@@ -1245,6 +1281,33 @@ fun AppRoot(
             else -> {}
         }
 
+        // ── Argument-carrying overlay destination (NavHost round · Stage 3) ──────────────────────────
+        // Exactly one of Occasions / Day-review / Recap / Journal is ever shown; each carries its own
+        // arguments (see [OverlayArg]). Back and every cross-open set `argOverlay` directly: a task/note
+        // cross-open clears it (the drill-in takes over), and the Journal→review edge REPLACES it (so Back
+        // from the review lands on the tab, matching the old flow that nulled periodicHub first). Rendered
+        // after the arg-free stack so a destination opened from within one draws on top.
+        when (val a = argOverlay) {
+            is OverlayArg.Occasions -> com.todocompanion.app.ui.screens.CountdownScreen(vm, onBack = { argOverlay = null }, initialOpenId = a.openId)
+            is OverlayArg.DayReview -> com.todocompanion.app.ui.screens.DayReviewScreen(vm, a.day, startInClose = a.startClose, startInWeekly = a.startWeekly, onOpenTask = { argOverlay = null; openTask(it) }, onOpenNote = { editingNote = it }, onBack = { argOverlay = null })
+            is OverlayArg.Recap -> RecapScreen(vm, a.start, a.end, a.title, onBack = { argOverlay = null }, onOpenNote = { id -> argOverlay = null; openNote(id) })
+            is OverlayArg.Journal -> com.todocompanion.app.ui.screens.PeriodicNotesScreen(
+                vm, initialPeriod = a.period, initialAnchor = a.anchor,
+                onOpenNote = { id -> argOverlay = null; openNote(id) },
+                onOpenReview = { rp, ra ->
+                    val td = java.time.LocalDate.now().toEpochDay()
+                    val w = rp.window(ra, settings.weekStart, td)
+                    argOverlay = when (rp) {
+                        com.todocompanion.app.domain.PeriodRange.DAY -> OverlayArg.DayReview(w.startDay, startClose = false, startWeekly = false)
+                        com.todocompanion.app.domain.PeriodRange.WEEK -> OverlayArg.DayReview(w.startDay, startClose = false, startWeekly = true)
+                        else -> OverlayArg.Recap(w.startDay, w.endDay, com.todocompanion.app.domain.PeriodicNotes.titleFor(rp, w.startDay))
+                    }
+                },
+                onBack = { argOverlay = null },
+            )
+            null -> {}
+        }
+
 
         // ── Tier Ω · command palette, recap overlay, annual-report picker ──────────────────────────
         if (showPalette) CommandPaletteDialog(vm, onDismiss = { showPalette = false }) { cmd ->
@@ -1262,10 +1325,10 @@ fun AppRoot(
                     OmegaCommand.Action.MOMENTUM -> openOverlay(Overlay.MOMENTUM)
                     OmegaCommand.Action.STATS -> openOverlay(Overlay.STATS)
                     OmegaCommand.Action.ANNUAL_REPORT -> showAnnual = true
-                    OmegaCommand.Action.RECAP_WEEK -> { val ws = com.todocompanion.app.domain.weekStartOf(now, settings.weekStart); recapRange = Triple(ws.toEpochDay(), td, "This week") }
-                    OmegaCommand.Action.RECAP_LAST_WEEK -> { val ws = com.todocompanion.app.domain.weekStartOf(now, settings.weekStart); recapRange = Triple(ws.minusWeeks(1).toEpochDay(), ws.minusDays(1).toEpochDay(), "Last week") }
-                    OmegaCommand.Action.RECAP_MONTH -> recapRange = Triple(now.withDayOfMonth(1).toEpochDay(), td, "This month")
-                    OmegaCommand.Action.RECAP_LAST_MONTH -> { val fm = now.withDayOfMonth(1).minusMonths(1); recapRange = Triple(fm.toEpochDay(), fm.plusMonths(1).minusDays(1).toEpochDay(), "Last month") }
+                    OmegaCommand.Action.RECAP_WEEK -> { val ws = com.todocompanion.app.domain.weekStartOf(now, settings.weekStart); argOverlay = OverlayArg.Recap(ws.toEpochDay(), td, "This week") }
+                    OmegaCommand.Action.RECAP_LAST_WEEK -> { val ws = com.todocompanion.app.domain.weekStartOf(now, settings.weekStart); argOverlay = OverlayArg.Recap(ws.minusWeeks(1).toEpochDay(), ws.minusDays(1).toEpochDay(), "Last week") }
+                    OmegaCommand.Action.RECAP_MONTH -> argOverlay = OverlayArg.Recap(now.withDayOfMonth(1).toEpochDay(), td, "This month")
+                    OmegaCommand.Action.RECAP_LAST_MONTH -> { val fm = now.withDayOfMonth(1).minusMonths(1); argOverlay = OverlayArg.Recap(fm.toEpochDay(), fm.plusMonths(1).minusDays(1).toEpochDay(), "Last month") }
                     OmegaCommand.Action.NEW_NOTE -> vm.createNote { id -> editingNote = id }
                     OmegaCommand.Action.NEW_TASK -> showQuickAdd = true
                     OmegaCommand.Action.STOP_TIMER -> { vm.timeVm.stopTimeTracking(); android.widget.Toast.makeText(context, "Timer stopped", android.widget.Toast.LENGTH_SHORT).show() }
@@ -1312,8 +1375,8 @@ fun AppRoot(
                     // R28 #5 — every hub/overlay screen is reachable from the palette, not just the bottom tabs.
                     val overlayByName: Map<String, () -> Unit> = mapOf(
                         "the record" to { openOverlay(Overlay.DONE) }, "record" to { openOverlay(Overlay.DONE) }, "done" to { openOverlay(Overlay.DONE) },
-                        "countdowns" to { showCountdowns = true }, "countdown" to { showCountdowns = true },
-                        "occasions" to { showCountdowns = true }, "occasion" to { showCountdowns = true }, "birthdays" to { showCountdowns = true },
+                        "countdowns" to { argOverlay = OverlayArg.Occasions(null) }, "countdown" to { argOverlay = OverlayArg.Occasions(null) },
+                        "occasions" to { argOverlay = OverlayArg.Occasions(null) }, "occasion" to { argOverlay = OverlayArg.Occasions(null) }, "birthdays" to { argOverlay = OverlayArg.Occasions(null) },
                         "attachments" to { openOverlay(Overlay.ATTACHMENTS) }, "files" to { openOverlay(Overlay.ATTACHMENTS) },
                         // Hubs added since the palette last learned them, so every major surface is reachable by name.
                         "routines" to { openOverlay(Overlay.ROUTINES) }, "routine" to { openOverlay(Overlay.ROUTINES) },
@@ -1321,19 +1384,19 @@ fun AppRoot(
                         "life systems" to { vm.lifeSystemsRoute.value = "hub" }, "systems" to { vm.lifeSystemsRoute.value = "hub" }, "life" to { vm.lifeSystemsRoute.value = "hub" },
                         "notes graph" to { openOverlay(Overlay.NOTES_GRAPH) }, "graph" to { openOverlay(Overlay.NOTES_GRAPH) },
                         // Periodic Notes — the Journal hub + one-tap period notes.
-                        "journal" to { periodicHub = com.todocompanion.app.domain.PeriodRange.DAY to now.toEpochDay() }, "periodic notes" to { periodicHub = com.todocompanion.app.domain.PeriodRange.DAY to now.toEpochDay() },
+                        "journal" to { argOverlay = OverlayArg.Journal(com.todocompanion.app.domain.PeriodRange.DAY, now.toEpochDay()) }, "periodic notes" to { argOverlay = OverlayArg.Journal(com.todocompanion.app.domain.PeriodRange.DAY, now.toEpochDay()) },
                         "daily note" to { vm.openDailyNote(now.toEpochDay()) { id -> editingNote = id } }, "today's note" to { vm.openDailyNote(now.toEpochDay()) { id -> editingNote = id } }, "todays note" to { vm.openDailyNote(now.toEpochDay()) { id -> editingNote = id } },
-                        "weekly note" to { periodicHub = com.todocompanion.app.domain.PeriodRange.WEEK to now.toEpochDay() },
-                        "monthly note" to { periodicHub = com.todocompanion.app.domain.PeriodRange.MONTH to now.toEpochDay() },
-                        "yearly note" to { periodicHub = com.todocompanion.app.domain.PeriodRange.YEAR to now.toEpochDay() },
+                        "weekly note" to { argOverlay = OverlayArg.Journal(com.todocompanion.app.domain.PeriodRange.WEEK, now.toEpochDay()) },
+                        "monthly note" to { argOverlay = OverlayArg.Journal(com.todocompanion.app.domain.PeriodRange.MONTH, now.toEpochDay()) },
+                        "yearly note" to { argOverlay = OverlayArg.Journal(com.todocompanion.app.domain.PeriodRange.YEAR, now.toEpochDay()) },
                         "notes garden" to { openOverlay(Overlay.NOTES_GARDEN) }, "garden" to { openOverlay(Overlay.NOTES_GARDEN) }, "review notes" to { openOverlay(Overlay.NOTES_GARDEN) },
                         "recall" to { openOverlay(Overlay.RECALL) }, "active recall" to { openOverlay(Overlay.RECALL) },
                         "new note" to { vm.createNote { id -> editingNote = id } }, "add note" to { vm.createNote { id -> editingNote = id } },
                         "new task" to { showQuickAdd = true }, "quick add" to { showQuickAdd = true }, "add task" to { showQuickAdd = true },
                         "momentum" to { openOverlay(Overlay.MOMENTUM) }, "statistics" to { openOverlay(Overlay.STATS) }, "stats" to { openOverlay(Overlay.STATS) },
-                        "weekly review" to { dayReviewStartClose = false; dayReviewStartWeekly = true; showDayReview = java.time.LocalDate.now().toEpochDay() },
+                        "weekly review" to { argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = false, startWeekly = true) },
                         "weekly cleanup" to { openOverlay(Overlay.REVIEW) }, "cleanup" to { openOverlay(Overlay.REVIEW) }, "review" to { openOverlay(Overlay.REVIEW) },
-                        "day review" to { dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay() }, "day" to { dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay() }, "today review" to { dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = java.time.LocalDate.now().toEpochDay() },
+                        "day review" to { argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = false, startWeekly = false) }, "day" to { argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = false, startWeekly = false) }, "today review" to { argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = false, startWeekly = false) },
                         "plan" to { openOverlay(Overlay.PLAN) }, "plan my day" to { openOverlay(Overlay.PLAN) },
                         "time stats" to { openOverlay(Overlay.TIME_STATS) }, "time tracking" to { openOverlay(Overlay.TIME_TRACKING) },
                         // Focus session, board/kanban toggle, and templates — reachable by name like every other surface.
@@ -1379,26 +1442,8 @@ fun AppRoot(
                 is OmegaCommand.Command.Ask -> {}   // answered inline in the palette
             }
         }
-        recapRange?.let { (s, e, t) -> RecapScreen(vm, s, e, t, onBack = { recapRange = null }, onOpenNote = { id -> recapRange = null; openNote(id) }) }
-        // Periodic Notes — the Journal hub (app-standard TopAppBar chrome). onOpenReview jumps to the
-        // matching review/recap for that period.
-        periodicHub?.let { (p, a) ->
-            com.todocompanion.app.ui.screens.PeriodicNotesScreen(
-                vm, initialPeriod = p, initialAnchor = a,
-                onOpenNote = { id -> periodicHub = null; openNote(id) },
-                onOpenReview = { rp, ra ->
-                    periodicHub = null
-                    val td = java.time.LocalDate.now().toEpochDay()
-                    val w = rp.window(ra, settings.weekStart, td)
-                    when (rp) {
-                        com.todocompanion.app.domain.PeriodRange.DAY -> { dayReviewStartClose = false; dayReviewStartWeekly = false; showDayReview = w.startDay }
-                        com.todocompanion.app.domain.PeriodRange.WEEK -> { dayReviewStartClose = false; dayReviewStartWeekly = true; showDayReview = w.startDay }
-                        else -> recapRange = Triple(w.startDay, w.endDay, com.todocompanion.app.domain.PeriodicNotes.titleFor(rp, w.startDay))
-                    }
-                },
-                onBack = { periodicHub = null },
-            )
-        }
+        // Occasions / Recap / Journal (and the Day/Week review) now render from the single `argOverlay`
+        // destination above (NavHost round · Stage 3), not from their own flags here.
         if (showAnnual) {
             val yr = java.time.LocalDate.now().year
             AlertDialog(
