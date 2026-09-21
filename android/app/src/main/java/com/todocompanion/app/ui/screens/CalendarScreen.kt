@@ -2397,10 +2397,10 @@ private data class CalSwipe(
 private fun calSwipeVisual(action: SwipeAction): Pair<Color, androidx.compose.ui.graphics.vector.ImageVector> = when (action) {
     SwipeAction.COMPLETE -> LocalKairoColors.current.good to Icons.Filled.Check
     SwipeAction.TRASH -> LocalKairoColors.current.bad to Icons.Filled.Delete
-    SwipeAction.STAR -> Color(0xFFF5A623) to Icons.Filled.Star
+    SwipeAction.STAR -> LocalKairoColors.current.star to Icons.Filled.Star
     SwipeAction.WONT_DO -> Color(0xFF64748B) to Icons.Filled.Close
     SwipeAction.CYCLE_PRIORITY -> LocalKairoColors.current.info to Icons.Filled.Flag
-    SwipeAction.EDIT -> Color(0xFF5B57D9) to Icons.Filled.Edit
+    SwipeAction.EDIT -> LocalKairoColors.current.chart[0] to Icons.Filled.Edit
     else -> Color.Transparent to Icons.Filled.Check
 }
 

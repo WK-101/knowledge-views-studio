@@ -545,16 +545,22 @@ private fun QuickAddBody(vm: AppViewModel, initialDue: Long? = null, initialHasT
 }
 
 /** The accent for each recognised-token chip in the confirm row — mirrors the live title highlighting. */
-private fun captureChipColor(t: com.todocompanion.app.domain.nlp.ChipType): Color = when (t) {
-    com.todocompanion.app.domain.nlp.ChipType.DATE, com.todocompanion.app.domain.nlp.ChipType.TIME -> Color(0xFF2563EB)
-    com.todocompanion.app.domain.nlp.ChipType.PRIORITY -> Color(0xFFEA580C)
-    com.todocompanion.app.domain.nlp.ChipType.TAG -> Color(0xFF7C3AED)
-    com.todocompanion.app.domain.nlp.ChipType.CONTEXT -> Color(0xFFDB2777)
-    com.todocompanion.app.domain.nlp.ChipType.LIST -> Color(0xFF0D9488)
-    com.todocompanion.app.domain.nlp.ChipType.REMINDER -> Color(0xFF0891B2)
-    com.todocompanion.app.domain.nlp.ChipType.RECUR -> Color(0xFF4F46E5)
-    com.todocompanion.app.domain.nlp.ChipType.ESTIMATE -> Color(0xFF0891B2)
-    com.todocompanion.app.domain.nlp.ChipType.STAR -> Color(0xFFD97706)
+// Theme-aware: reads the shared KairoColors chart/semantic tokens (light + dark sets) instead of fixed
+// literals, so the capture chips adapt to dark/AMOLED like the live highlighter already does.
+@androidx.compose.runtime.Composable
+private fun captureChipColor(t: com.todocompanion.app.domain.nlp.ChipType): Color {
+    val k = com.todocompanion.app.ui.theme.LocalKairoColors.current
+    return when (t) {
+        com.todocompanion.app.domain.nlp.ChipType.DATE, com.todocompanion.app.domain.nlp.ChipType.TIME -> k.info
+        com.todocompanion.app.domain.nlp.ChipType.PRIORITY -> k.chart[2]   // amber
+        com.todocompanion.app.domain.nlp.ChipType.TAG -> k.chart[4]        // violet
+        com.todocompanion.app.domain.nlp.ChipType.CONTEXT -> k.chart[7]    // pink
+        com.todocompanion.app.domain.nlp.ChipType.LIST -> k.chart[1]       // teal
+        com.todocompanion.app.domain.nlp.ChipType.REMINDER -> k.chart[5]   // sky
+        com.todocompanion.app.domain.nlp.ChipType.RECUR -> k.chart[0]      // indigo (brand)
+        com.todocompanion.app.domain.nlp.ChipType.ESTIMATE -> k.chart[5]   // sky
+        com.todocompanion.app.domain.nlp.ChipType.STAR -> k.star
+    }
 }
 
 /** A borderless icon button for the quick-add toolbar. Tinted when active. */

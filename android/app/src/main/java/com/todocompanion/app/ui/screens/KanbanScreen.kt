@@ -30,6 +30,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -149,11 +150,15 @@ private fun KanbanCard(
                 Text(task.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
                 task.dueDate?.let { Spacer(Modifier.size(2.dp)); DueChip(it) }
             }
-            Column(Modifier.padding(end = 2.dp), verticalArrangement = Arrangement.Center) {
-                if (onLeft != null) Icon(Icons.AutoMirrored.Filled.ArrowBack, "Move left", tint = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.size(20.dp).clickable { onLeft(task) })
-                if (onRight != null) Icon(Icons.AutoMirrored.Filled.ArrowForward, "Move right", tint = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.size(20.dp).clickable { onRight(task) })
+            Column(verticalArrangement = Arrangement.Center) {
+                // a11y: IconButton gives each arrow the 48dp interactive minimum + button semantics (the bare
+                // 20dp Icon.clickable was well under the touch-target floor).
+                if (onLeft != null) IconButton(onClick = { onLeft(task) }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Move left", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
+                }
+                if (onRight != null) IconButton(onClick = { onRight(task) }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, "Move right", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
+                }
             }
         }
     }

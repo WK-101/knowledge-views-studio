@@ -5136,19 +5136,11 @@ class AppViewModel internal constructor(
         val uri = withContext(Dispatchers.IO) {
             runCatching {
                 val bmp = com.todocompanion.app.ui.util.ReceiptRenderer.render(a, listName, zone)
-                val dir = java.io.File(appCtx.cacheDir, "shared").apply { mkdirs() }
-                val f = java.io.File(dir, "receipt-${a.refId.take(8)}.png")
-                java.io.FileOutputStream(f).use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
-                androidx.core.content.FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", f)
+                com.todocompanion.app.util.ProgressCard.saveAndShareUri(appCtx, bmp, "receipt-${a.refId.take(8)}.png").shareUri
             }.getOrNull()
         }
         if (uri == null) { toast("Couldn't make the receipt"); onDone(false); return@launch }
-        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-            type = "image/png"; putExtra(android.content.Intent.EXTRA_STREAM, uri)
-            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        val chooser = android.content.Intent.createChooser(send, "Proof of work").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-        runCatching { appCtx.startActivity(chooser) }.onFailure { toast("No app to share to") }
+        com.todocompanion.app.util.ProgressCard.share(appCtx, uri, "Proof of work")
         onDone(true)
     }
 
@@ -5205,19 +5197,11 @@ class AppViewModel internal constructor(
         val uri = withContext(Dispatchers.IO) {
             runCatching {
                 val bmp = com.todocompanion.app.ui.util.ReceiptRenderer.renderCertificate(year, stats, head, ofYear.size)
-                val dir = java.io.File(appCtx.cacheDir, "shared").apply { mkdirs() }
-                val f = java.io.File(dir, "certificate-$year.png")
-                java.io.FileOutputStream(f).use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
-                androidx.core.content.FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", f)
+                com.todocompanion.app.util.ProgressCard.saveAndShareUri(appCtx, bmp, "certificate-$year.png").shareUri
             }.getOrNull()
         }
         if (uri == null) { toast("Couldn't make the certificate"); onDone(false); return@launch }
-        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-            type = "image/png"; putExtra(android.content.Intent.EXTRA_STREAM, uri)
-            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        val chooser = android.content.Intent.createChooser(send, "Certificate of work · $year").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-        runCatching { appCtx.startActivity(chooser) }.onFailure { toast("No app to share to") }
+        com.todocompanion.app.util.ProgressCard.share(appCtx, uri, "Certificate of work · $year")
         onDone(true)
     }
 
@@ -5229,19 +5213,11 @@ class AppViewModel internal constructor(
         val uri = withContext(Dispatchers.IO) {
             runCatching {
                 val bmp = com.todocompanion.app.ui.util.ReceiptRenderer.renderMilestoneCard(m.emoji, m.label, m.detail, payload)
-                val dir = java.io.File(appCtx.cacheDir, "shared").apply { mkdirs() }
-                val f = java.io.File(dir, "milestone-${m.key}.png")
-                java.io.FileOutputStream(f).use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
-                androidx.core.content.FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", f)
+                com.todocompanion.app.util.ProgressCard.saveAndShareUri(appCtx, bmp, "milestone-${m.key}.png").shareUri
             }.getOrNull()
         }
         if (uri == null) { toast("Couldn't make the card"); onDone(false); return@launch }
-        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-            type = "image/png"; putExtra(android.content.Intent.EXTRA_STREAM, uri)
-            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        runCatching { appCtx.startActivity(android.content.Intent.createChooser(send, m.label).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            .onFailure { toast("No app to share to") }
+        com.todocompanion.app.util.ProgressCard.share(appCtx, uri, m.label)
         onDone(true)
     }
 

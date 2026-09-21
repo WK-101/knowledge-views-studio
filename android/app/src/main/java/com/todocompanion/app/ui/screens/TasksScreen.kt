@@ -1552,11 +1552,11 @@ private fun swipeVisual(action: SwipeAction, isTrashRestore: Boolean): Pair<Colo
     isTrashRestore -> LocalKairoColors.current.good to Icons.Filled.Restore
     action == SwipeAction.COMPLETE -> LocalKairoColors.current.good to Icons.Filled.Check
     action == SwipeAction.TRASH -> LocalKairoColors.current.bad to Icons.Filled.Delete
-    action == SwipeAction.STAR -> Color(0xFFF5A623) to Icons.Filled.Star
+    action == SwipeAction.STAR -> LocalKairoColors.current.star to Icons.Filled.Star
     action == SwipeAction.WONT_DO -> Color(0xFF64748B) to Icons.Filled.Cancel
     action == SwipeAction.CYCLE_PRIORITY -> LocalKairoColors.current.info to Icons.Filled.Flag
-    action == SwipeAction.SCHEDULE_TOMORROW -> Color(0xFF8B5CF6) to Icons.Filled.Event
-    action == SwipeAction.EDIT -> Color(0xFF5B57D9) to Icons.Filled.Edit
+    action == SwipeAction.SCHEDULE_TOMORROW -> LocalKairoColors.current.chart[4] to Icons.Filled.Event
+    action == SwipeAction.EDIT -> LocalKairoColors.current.chart[0] to Icons.Filled.Edit
     action == SwipeAction.MOVE -> Color(0xFF0EA5A0) to Icons.AutoMirrored.Filled.DriveFileMove
     action == SwipeAction.SOMEDAY -> Color(0xFF7C8DB0) to Icons.Filled.Cloud
     else -> Color.Transparent to Icons.Filled.Check

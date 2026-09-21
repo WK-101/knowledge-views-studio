@@ -379,7 +379,7 @@ fun NotesScreen(
                             val decoded = remember(v.predicateJson) { com.todocompanion.app.domain.NoteSmartViews.decode(v.predicateJson) }
                             DropdownMenuItem(
                                 text = { Text((v.icon?.let { "$it " } ?: "🔎 ") + v.title) },
-                                trailingIcon = { Icon(Icons.Filled.Delete, "Delete view", Modifier.size(18.dp).clickable { deleteView = v; filterMenu = false }, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                trailingIcon = { IconButton(onClick = { deleteView = v; filterMenu = false }) { Icon(Icons.Filled.Delete, "Delete view", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) } },
                                 onClick = { if (decoded != null) { activePredicate = decoded; activeLabel = v.id; container = null; archiveView = false; trashView = false }; filterMenu = false },
                             )
                         }

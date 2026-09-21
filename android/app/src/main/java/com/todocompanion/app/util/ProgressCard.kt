@@ -150,13 +150,15 @@ object ProgressCard {
         return Result(shareUri, saved)
     }
 
-    /** Fire the system share sheet for a rendered card. Offline: it only shares a local file. */
-    fun share(context: Context, uri: android.net.Uri) {
+    /** Fire the system share sheet for a rendered card. Offline: it only shares a local file. [title] is
+     *  the chooser title (so callers like the Done-record receipt / year-certificate / milestone can label
+     *  their own share sheet while reusing this one plumbing path). */
+    fun share(context: Context, uri: android.net.Uri, title: String = "Share progress") {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "image/png"
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        runCatching { context.startActivity(Intent.createChooser(intent, "Share progress").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        runCatching { context.startActivity(Intent.createChooser(intent, title).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }
 }
