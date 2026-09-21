@@ -667,6 +667,8 @@ fun AppRoot(
                 a != null && a.startsWith("arrive:") -> { vm.fireArrivalReminders(a.removePrefix("arrive:")); launchAction.value = null }
                 a == "open_focus" -> { tab = Tab.FOCUS; launchAction.value = null }
                 a == "open_habits" -> { tab = Tab.HABITS; launchAction.value = null }
+                // Habits widget "＋" / empty-state CTA — land on Habits with the new-habit editor open.
+                a == "open_habit_add" -> { tab = Tab.HABITS; vm.habitEditor.value = com.todocompanion.app.ui.HabitEditRequest(); launchAction.value = null }
                 a == "open_countdowns" -> { argOverlay = OverlayArg.Occasions(null); launchAction.value = null }
                 a == "open_matrix" -> { tab = Tab.MATRIX; launchAction.value = null }
                 a == "open_today" -> { vm.select(ViewRef.Smart(SmartKind.TODAY)); tab = Tab.TASKS; launchAction.value = null }

@@ -68,11 +68,14 @@ class WidgetConfigActivity : ComponentActivity() {
         val providerClass = AppWidgetManager.getInstance(this)
             .getAppWidgetInfo(widgetId)?.provider?.className.orEmpty()
         val isAgenda = providerClass.endsWith("AgendaWidget")
-        val isList = isAgenda || providerClass.endsWith("DoNextWidget") || providerClass.endsWith("RecordWidget")
+        val isList = isAgenda || providerClass.endsWith("DoNextWidget") || providerClass.endsWith("RecordWidget") ||
+            providerClass.endsWith("HabitsWidget")
         val widgetLabel = when {
             isAgenda -> "Agenda widget"
             providerClass.endsWith("DoNextWidget") -> "Do-Next widget"
             providerClass.endsWith("RecordWidget") -> "Record widget"
+            providerClass.endsWith("HabitsWidget") -> "Habits widget"
+            providerClass.endsWith("HabitStatsWidget") -> "Today-ring widget"
             else -> "Widget settings"
         }
 
@@ -163,6 +166,8 @@ class WidgetConfigActivity : ComponentActivity() {
             providerClass.endsWith("AgendaWidget") -> AgendaWidget.updateOne(this, widgetId)
             providerClass.endsWith("DoNextWidget") -> DoNextWidget.updateOne(this, widgetId)
             providerClass.endsWith("RecordWidget") -> RecordWidget.refresh(this)
+            providerClass.endsWith("HabitsWidget") -> HabitsWidget.updateOne(this, widgetId)
+            providerClass.endsWith("HabitStatsWidget") -> HabitStatsWidget.refresh(this)
             else -> {
                 // Generic: broadcast an update to that provider so it re-renders with the new prefs.
                 runCatching {

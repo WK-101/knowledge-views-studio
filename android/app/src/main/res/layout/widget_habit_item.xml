@@ -5,14 +5,47 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:paddingTop="7dp"
-    android:paddingBottom="7dp"
-    android:paddingLeft="4dp"
-    android:paddingRight="4dp">
-    <TextView android:id="@+id/hi_check" android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="☐" android:textColor="@color/w_teal" android:textSize="20sp" android:paddingRight="10dp" />
-    <TextView android:id="@+id/hi_name" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-        android:maxLines="1" android:ellipsize="end" android:text="Habit" android:textColor="@color/w_text_primary" android:textSize="14sp" />
-    <TextView android:id="@+id/hi_progress" android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="" android:textColor="@color/w_text_secondary" android:textSize="12sp" />
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp"
+    android:paddingLeft="2dp"
+    android:paddingRight="2dp">
+
+    <ImageView
+        android:id="@+id/hi_check"
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:layout_marginEnd="10dp"
+        android:contentDescription="Check off"
+        android:scaleType="fitCenter" />
+
+    <TextView
+        android:id="@+id/hi_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Habit"
+        android:textColor="@color/w_text_primary"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/hi_streak"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="6dp"
+        android:text=""
+        android:textColor="@color/w_warning"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/hi_progress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:text=""
+        android:textColor="@color/w_text_secondary"
+        android:textSize="12sp"
+        android:fontFamily="monospace" />
 </LinearLayout>
