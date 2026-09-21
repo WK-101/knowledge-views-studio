@@ -3653,7 +3653,7 @@ class AppViewModel internal constructor(
     fun rhythmSuggestion(habitId: String, windowDays: Int = 120): RhythmSuggestion? {
         val h = habits.value.firstOrNull { it.id == habitId } ?: return null
         if (h.habitType == "break") return null   // a quit habit has no positive daily action to schedule
-        if (!(h.freqType == "weekly" && h.scheduleDays.isBlank())) return null   // only for "every day" weekly habits
+        if (!(h.freqType == com.todocompanion.app.domain.habit.HabitStats.FREQ_WEEKLY && h.scheduleDays.isBlank())) return null   // only for "every day" weekly habits
         val hs = com.todocompanion.app.domain.habit.HabitStats
         val today = java.time.LocalDate.now(zone).toEpochDay()
         val counts = IntArray(7)
@@ -3670,7 +3670,7 @@ class AppViewModel internal constructor(
     fun applyRhythmSuggestion(s: RhythmSuggestion) = viewModelScope.launch {
         val h = habits.value.firstOrNull { it.id == s.habitId } ?: return@launch
         val days = s.weekdays.sorted().joinToString(",")
-        repo.upsertHabit(h.copy(freqType = "weekly", scheduleDays = days))
+        repo.upsertHabit(h.copy(freqType = com.todocompanion.app.domain.habit.HabitStats.FREQ_WEEKLY, scheduleDays = days))
         com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
         com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
         appendAction("rhythm", "Matched ‘${h.name}’ to ${s.weekdayLabel()}", "{\"habit\":\"${h.id}\",\"freq\":\"${h.freqType}\",\"days\":\"${h.scheduleDays}\"}")   // Z6: undoable

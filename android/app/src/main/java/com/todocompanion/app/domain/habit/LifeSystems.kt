@@ -151,9 +151,11 @@ object LifeSystems {
     private fun expectedPerWeek(h: HabitEntity): Double = when (h.freqType) {
         HabitStats.FREQ_TIMES_WEEK -> h.freqParam.coerceAtLeast(1).toDouble()
         HabitStats.FREQ_TIMES_MONTH -> h.freqParam.coerceAtLeast(1) / 4.3
-        "interval" -> 7.0 / h.freqParam.coerceAtLeast(1)
+        HabitStats.FREQ_INTERVAL -> 7.0 / h.freqParam.coerceAtLeast(1)
         else -> { // weekly: count scheduled weekdays, or 7 when every day
-            val days = h.scheduleDays.split(",").mapNotNull { it.trim().toIntOrNull() }
+            // C2 — route through the one shared parser (range-checks 1..7, de-dupes) instead of a looser
+            // inline split, so a malformed scheduleDays string can't inflate the expected count here.
+            val days = HabitStats.parseSchedule(h.scheduleDays)
             if (days.isEmpty()) 7.0 else days.size.toDouble()
         }
     }

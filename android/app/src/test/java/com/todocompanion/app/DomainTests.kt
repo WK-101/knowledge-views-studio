@@ -276,6 +276,20 @@ class HabitStatsTest {
         // Rate counts only scheduled days.
         assertEquals(1f, S.rate(setOf(mon, wed, fri), fri, sched, window = 5), 1e-6f)
     }
+
+    @Test fun parseScheduleIsRobust() {
+        // C2 — the one shared day-of-week parser every habit surface routes through. Pin its robustness so
+        // the looser inline parsers it replaces (which didn't range-check) can't reintroduce a bad day.
+        val S = com.todocompanion.app.domain.habit.HabitStats
+        assertEquals("trims whitespace around tokens", setOf(1, 3, 5), S.parseSchedule(" 1 , 3 , 5 "))
+        assertEquals("drops out-of-range day numbers (0, 8, 9)", setOf(3), S.parseSchedule("0,8,9,3"))
+        assertEquals("ignores non-numeric tokens", setOf(3), S.parseSchedule("mon,3,x"))
+        assertEquals("de-dupes repeats", setOf(2), S.parseSchedule("2,2,2"))
+        assertEquals("blank string = every day (empty set)", emptySet<Int>(), S.parseSchedule(""))
+        assertEquals("whitespace-only = every day (empty set)", emptySet<Int>(), S.parseSchedule("   "))
+        // An empty schedule means "every day" — every date is scheduled.
+        assertEquals(true, S.isScheduled(java.time.LocalDate.of(2026, 1, 3).toEpochDay(), emptySet()))
+    }
 }
 
 class QuickAddRecurrenceTest {
