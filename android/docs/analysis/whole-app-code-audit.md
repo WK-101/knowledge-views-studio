@@ -6,6 +6,32 @@ storage, performance, UI reuse and cross-module consistency, with a phased plan 
 
 ---
 
+# The three named ceilings — closed (2026-09-21)
+
+After the post-fix confirmation re-audit below named three concrete ceilings to 9.5, each was taken on
+directly. All three are implemented, verified (`compileReleaseKotlin` green · full `testDebugUnitTest` green ·
+`assembleRelease` 19.8 MB · aapt2 re-confirmed **0 forbidden permissions**), committed and pushed.
+
+| # | Ceiling (from re-audit) | What was done | Evidence |
+|---|---|---|---|
+| 1 | **AppViewModel still a 5,480-line god object; task render pipeline coupled inside it** (Architecture/Maintainability) | Moved the derived render pipeline — `groups`, `outlineRows`, `hierarchyRows` + the `buildOutline`/`buildFilteredOutline` helpers — out of AppViewModel into `TasksViewModel`, where the view-state it consumes already lives. AppViewModel keeps thin forwarding shims (`val groups get() = tasksVm.groups`); `wsTasks`/`inboxTasksAll` are now `internal` and `priorityConfig()` is a top-level extension so both sides resolve one copy. Flows are `by lazy` to respect construction order. | AppViewModel **5480 → 5378** (−102); `TasksViewModel.kt` now owns the pipeline; behaviour proven unchanged by `AppViewModelCharacterizationTest`. |
+| 2 | **Swipe-only TaskRow actions have no TalkBack path; 30dp chevron** (Accessibility) | `TaskRow`'s `SwipeToDismissBox` complete/delete now have `CustomAccessibilityAction` fallbacks (complete · delete · expand/collapse) so screen-reader / switch-access users can trigger every row action without a gesture; the row gains `Role.Button` + `onClickLabel`; the 30dp collapse chevron is widened to a **48dp** touch target (leaf spacer matched so checkboxes stay aligned). | `TaskRow.kt:76-108` (custom actions + role); `TaskRow.kt` chevron `size(48.dp)`. |
+| 3 | **Migration bodies never replayed headlessly** (Testing/Data) | `MigrationReplayTest` — a headless (Robolectric) replay of the flagged `MIGRATION_85_86` / `MIGRATION_86_87` SQL bodies against a real SQLite engine: seeds the settings JSON, runs the real `migrate()` bodies, and asserts the JSON→row copies land in the right columns (plus idempotency and the empty-source case). No new dependency; the migrations are pulled from `ALL_MIGRATIONS`. | `MigrationReplayTest.kt` (3 tests, JVM-gated). A buggy body in those promotions now fails `./gradlew test`, not just a device. |
+
+### Score movement (grounded in the change + verification)
+
+| Dimension | Post-fix | **After ceilings** | Why |
+|---|:---:|:---:|---|
+| Architecture | 8.6 | **8.8 ↑** | render pipeline decoupled from the coordinator and co-located with its state; AppViewModel −102 lines (still 5,378 — not fully dissolved, hence not higher). |
+| Maintainability | 7.2 | **7.5 ↑** | task rendering is now edit-one-place, in the collaborator that owns the state it reads. |
+| Accessibility | 6.5 | **7.2 ↑** | the primary list's destructive action has a non-gesture path; 48dp target; `Role.Button` on the core row. |
+| Testing | 7.8 | **8.2 ↑** | the sharpest data-loss exposure (the JSON→row migration copies) is now exercised headlessly; full-chain stepwise replay remains device-only, so not a full close. |
+| **Overall** | **≈8.0** | **≈8.2 ↑** | three concrete ceilings closed; the remaining distance to 9.5 is the un-dissolved AppViewModel/AppRepository mega-objects and full-chain headless migration replay. |
+
+_The confirmation re-audit that named these ceilings follows unchanged below._
+
+---
+
 # Post-fix confirmation re-audit — all 20 fixes verified against actual code (2026-09-21)
 
 The 20-fix plan from the re-audit below (Tier 1 quick wins · Tier 2 high-leverage · Tier 3 structural) is
