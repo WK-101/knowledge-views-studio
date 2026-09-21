@@ -1619,7 +1619,7 @@ private fun TaskListItem(
                         offsetX.animateTo(0f)
                     },
                 )
-                .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
+                .combinedClickable(onClickLabel = "Open task", role = androidx.compose.ui.semantics.Role.Button, onClick = onOpen, onLongClick = onLongPress)
                 .padding(start = 6.dp, end = 8.dp, top = rowVerticalPadding(density), bottom = rowVerticalPadding(density)),
             verticalAlignment = Alignment.Top,
         ) {

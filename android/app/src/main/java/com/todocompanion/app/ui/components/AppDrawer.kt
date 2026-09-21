@@ -294,13 +294,13 @@ fun AppDrawer(
                 SectionHeader("Archived", open = open("archived"), onToggle = { toggle("archived") })
                 if (open("archived")) {
                     archivedFolders.sortedBy { it.name }.forEach { f ->
-                        Row(Modifier.fillMaxWidth().clickable { onSelect(ViewRef.FolderView(f.id)) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().clickableRow(onClickLabel = "Open folder") { onSelect(ViewRef.FolderView(f.id)) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text((f.icon ?: "📁") + "  " + f.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             IconButton(onClick = { vm.setFolderArchived(f, false) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Unarchive, "Restore", modifier = Modifier.size(18.dp)) }
                         }
                     }
                     archivedLists.sortedBy { it.name }.forEach { l ->
-                        Row(Modifier.fillMaxWidth().clickable { onSelect(ViewRef.ListView(l.id)) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().clickableRow(onClickLabel = "Open list") { onSelect(ViewRef.ListView(l.id)) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text((l.emoji ?: "🗒️") + "  " + l.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             IconButton(onClick = { vm.setListArchived(l, false) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Unarchive, "Restore", modifier = Modifier.size(18.dp)) }
                         }
@@ -317,14 +317,14 @@ fun AppDrawer(
                 SectionHeader("Trash — lists & folders", open = open("trashedContainers"), onToggle = { toggle("trashedContainers") })
                 if (open("trashedContainers")) {
                     trashedFolders.sortedBy { it.name }.forEach { f ->
-                        Row(Modifier.fillMaxWidth().clickable { onSelect(ViewRef.FolderView(f.id)) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().clickableRow(onClickLabel = "Open folder") { onSelect(ViewRef.FolderView(f.id)) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text((f.icon ?: "📁") + "  " + f.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             IconButton(onClick = { vm.restoreTrashedFolder(f) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Unarchive, "Restore", modifier = Modifier.size(18.dp)) }
                             IconButton(onClick = { purgeFolder = f }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.DeleteForever, "Delete forever", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error) }
                         }
                     }
                     trashedLists.sortedBy { it.name }.forEach { l ->
-                        Row(Modifier.fillMaxWidth().clickable { onSelect(ViewRef.ListView(l.id)) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().clickableRow(onClickLabel = "Open list") { onSelect(ViewRef.ListView(l.id)) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text((l.emoji ?: "🗒️") + "  " + l.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             IconButton(onClick = { vm.restoreTrashedList(l) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Unarchive, "Restore", modifier = Modifier.size(18.dp)) }
                             IconButton(onClick = { purgeList = l }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.DeleteForever, "Delete forever", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error) }
@@ -378,7 +378,7 @@ fun AppDrawer(
                     Row(
                         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
                             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-                            .clickable { onSelect(ViewRef.FilterView(f.id)) }.padding(start = 12.dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
+                            .clickableRow(onClickLabel = "Open filter") { onSelect(ViewRef.FilterView(f.id)) }.padding(start = 12.dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(Icons.Filled.FilterList, null, tint = f.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
