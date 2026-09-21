@@ -192,6 +192,12 @@ class AppViewModel internal constructor(
     // here so the shims below and this VM's own note-touching helpers reach it without a forward reference.
     val notesVm = NotesViewModel(this, viewModelScope, repo)
 
+    // Phase 3, Stage 5 — the Habits surface (habit tracking + the habit-science / life-systems coaching layer)
+    // lives in HabitsViewModel now, same collaborator pattern. Declared here so the shims below and this VM's
+    // own habit-touching bridges (allReminders, receptiveHour, capacity, recap, Focus wiring) reach it without
+    // a forward reference.
+    val habitsVm = HabitsViewModel(this, viewModelScope, repo)
+
     // W2 (scale) — the active-workspace task set now comes from SQL (TaskDao.observeWorkspaceScoped, backed
     // by the restored workspaceId/folderId indices), re-subscribing when the workspace changes, instead of
     // loading the whole tasks table and filtering here. The SQL mirrors the old rule exactly — proven by
@@ -222,7 +228,7 @@ class AppViewModel internal constructor(
     val templates: StateFlow<List<TemplateEntity>> = repo.allTemplates.scopedBy { it.workspaceId }
     val countdowns = repo.allCountdowns.scopedBy { it.workspaceId }
     val sealedNotes = repo.allSealedNotes.scopedBy { it.workspaceId }
-    val cravings = repo.allCravings.scopedBy { it.workspaceId }
+    val cravings get() = habitsVm.cravings   // → HabitsViewModel (Stage 5-A)
     // Notes module (v66) — the read-model flows moved to NotesViewModel (Phase 3, Stage 4a). Kept callable
     // here as thin forwarding shims (like timeVm's retained helpers, in reverse) so the ~170 note call sites
     // across the screens — and this VM's own note-touching helpers — need no edits.
@@ -256,18 +262,19 @@ class AppViewModel internal constructor(
         val tmp = list[idx]; list[idx] = list[swap]; list[swap] = tmp
         list.forEachIndexed { i, v -> if (v.orderIndex != i) repo.upsertCoreValue(v.copy(orderIndex = i)) }
     }
-    val witnessEvents = repo.allWitnessEvents.scopedBy { it.workspaceId }
-    val scorecardItems = repo.allScorecardItems.scopedBy { it.workspaceId }
-    val buddies = repo.allBuddies.scopedBy { it.workspaceId }
-    val integrityReviews = repo.allIntegrityReviews.scopedBy { it.workspaceId }
+    // Habit-science / life-systems read-model flows live on HabitsViewModel now (Stage 5-A) — forwarding shims.
+    val witnessEvents get() = habitsVm.witnessEvents
+    val scorecardItems get() = habitsVm.scorecardItems
+    val buddies get() = habitsVm.buddies
+    val integrityReviews get() = habitsVm.integrityReviews
     // R35 — third-wave flows.
-    val experiments = repo.allExperiments.scopedBy { it.workspaceId }
+    val experiments get() = habitsVm.experiments
     val activationItems = repo.allActivationItems.scopedBy { it.workspaceId }
     // R62 — day-log bookends are now per-workspace too (composite key epochDay + workspaceId).
     val dayLogs = repo.allDayLogs.scopedBy { it.workspaceId }
     // R36 — fourth-wave flows.
-    val escrows = repo.allEscrows.scopedBy { it.workspaceId }
-    val nudgeEvents = repo.allNudgeEvents.scopedBy { it.workspaceId }
+    val escrows get() = habitsVm.escrows
+    val nudgeEvents get() = habitsVm.nudgeEvents
     val eventCalendars = repo.allEventCalendars.scopedBy { it.workspaceId }
     // Events are scoped transitively through their calendar (an event's workspace IS its calendar's), so
     // moving/removing a calendar can never leave an event stranded in the wrong space.
@@ -1164,12 +1171,14 @@ class AppViewModel internal constructor(
     fun onThisDay(today: java.time.LocalDate = java.time.LocalDate.now(zone)): List<Pair<Int, TaskEntity>> =
         com.todocompanion.app.domain.LifeReadModels.onThisDay(allTasksLive.value, today, zone)
     val filters = combine(repo.allFilters, activeWs) { f, ws -> f.filter { it.workspaceId == ws } }.state(emptyList())
-    val habits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.archived && !it.trashed } }.state(emptyList())
+    // Habit read-model flows live on HabitsViewModel now (Stage 5-A) — forwarding shims so the many habit call
+    // sites, and this VM's own habit-touching bridges (allReminders, receptiveHour, capacity, recap), are unchanged.
+    val habits get() = habitsVm.habits
     /** Active-workspace habits INCLUDING archived (but never trashed) — for surfaces that must tell
      *  "archived" apart from "deleted" (e.g. a goal's lead-measure hint) and for the Archived view. */
-    val habitsWithArchived = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && !it.trashed } }.state(emptyList())
+    val habitsWithArchived get() = habitsVm.habitsWithArchived
     /** Trashed habits in the active workspace, newest-deleted first — the source for the habits Trash. */
-    val trashedHabits = combine(repo.allHabits, activeWs) { h, ws -> h.filter { it.workspaceId == ws && it.trashed }.sortedByDescending { it.trashedAt ?: 0L } }.state(emptyList())
+    val trashedHabits get() = habitsVm.trashedHabits
 
     // W3 (cross-module) — ONE read-model over every domain's reminders through the shared UnifiedReminder
     // lens (task ReminderEntity, habit/event CSV, note fields, routine JSON-int, occasion lead-days), so any
@@ -1188,7 +1197,7 @@ class AppViewModel internal constructor(
                 rs.flatMap { R.fromRoutine(it.id, it.name, it.whenReminderMin) },
             )
         }.state(emptyList())
-    val habitCheckins = repo.allCheckins.state(emptyList())
+    val habitCheckins get() = habitsVm.habitCheckins   // → HabitsViewModel (Stage 5-A)
     val focusSessions = repo.allFocusSessions.scopedBy { it.workspaceId }
     // R37 · Port 5 — the receptive hour (0..23) learned from when you actually finish habits & tasks, or
     // null when there isn't enough signal / the setting is off. Feeds the daily-brief scheduler.
