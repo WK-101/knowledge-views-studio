@@ -6,6 +6,61 @@ storage, performance, UI reuse and cross-module consistency, with a phased plan 
 
 ---
 
+# Sub-ViewModel split — carve the Habits surface out of the god-VM into `HabitsViewModel` (2026-09-21)
+
+The third feature collaborator (after `TimeTrackingViewModel` and `NotesViewModel`), and the largest
+carve yet: the whole **Habits** surface — habit tracking plus the habit-science / life-systems coaching
+layer built on top of it — lifted out of `AppViewModel` in seven individually-verified, **behaviour-preserving**
+stages. Every stage compiled green (`compileReleaseKotlin`), stayed provably equivalent under the widened
+characterization net (`AppViewModelCharacterizationTest` 8/8 + `NoteScopeQueryTest` 2/2), release-built
+(`assembleRelease -x lint`) and re-verified at **0 forbidden permissions**. **No screen code changed at any
+stage** — `HabitsScreen` still references `AppViewModel.HabitShine` by name (the data class stays on the
+parent; only its flow moved), and every one of the ~80 habit call sites reaches the collaborator through a
+thin forwarding shim (`val habits get() = habitsVm.habits`, `fun saveHabit(h) = habitsVm.saveHabit(h)`).
+
+**Stages.**
+- **5-A** moved the read-model flows: the three habit lists (`habits`, `habitsWithArchived`, `trashedHabits`),
+  `habitCheckins`, and the habit-science tables (`cravings`, `witnessEvents`, `scorecardItems`, `buddies`,
+  `integrityReviews`, `experiments`, `escrows`, `nudgeEvents`).
+- **5-B** moved habit view-state + the settings setters (matrix/density/group/sort/insights, time-cfg, block-minute).
+- **5-C** moved habit CRUD (create/save/add/trash/restore/archive/delete/empty-trash/order) + widget refresh.
+- **5-D** moved the check-in / day-log / award engine (cycle, set-value, the reward "shine", `awardIfNewlyDone`,
+  make-up/keep-streak/skip/slip/clear/set-day, freeze spend, photo, pause).
+- **5-E1/5-E2** moved the R33/R34 habit-builder + life-systems coach actions (freeze, pledge, quit-clock,
+  cravings, journeys, chronotype/calm, rewards, values, scorecard, witnesses, forfeit/ease, buddy digests,
+  integrity reviews, bookends/companion/strength-meter, reminder drift, graduation, n-of-1 experiments).
+- **5-F** moved the remaining habit-owned tail: the on-device progress-card share, mute-habit, Z8 graded
+  strength (`strengthOf`/`gradedStrengthPreview`/`setGradedStrength`), the FW-5 WIP limiter, FW-9 self-escrow,
+  FW-14 personal-nudge MRT, R37 receptivity timing, and habit substring search.
+
+**Deliberately kept on the coordinating parent, documented in-code as intentional** (they are habits↔X
+_bridges_ or belong to a later carve, not the habits surface): the keystone/burnout/momentum reasoning
+(`bestKeystone`, `keystoneHabitId`, `burnoutSignal`, `momentumSnapshot`, `learnedHabitMinutes`) which reads
+whole-app task/time/goal data; the habit↔time bridges (`startTimeTrackingForHabit`, `setHabitTimeActivity`,
+`placeHabitBlock`, the habit-time reserve helpers); the habit↔notes bridge (`openHabitJournal`); the
+habit+task+focus weekly recap (`shareWeeklyRecap`); the Focus→habit auto-credit init bridge (which now calls
+`habitsVm.celebrateIfRewardReached` / `habitsVm.awardIfNewlyDone`); and the habit-CSV export/import glue
+(`exportHabitsCsvTo`, `importHabitsCsv`) which stays beside the rest of the export/import block for the
+future `BackupSettingsViewModel` carve.
+
+**Result:** `AppViewModel` **6174 → 5762 lines** (and **~6600 → 5762**, ~840 lines, across the two carves
+this round); `HabitsViewModel` now **629 lines** owning a cohesive, self-contained slice. Three real feature
+collaborators now prove the pattern generalizes across very different surfaces (a 78-line time tracker, a
+674-line notes engine, a 629-line habits+coach engine), leaving Goals-Routines and Backup-Settings as the
+remaining carves.
+
+### Scorecard delta (Notes carve → Habits carve)
+| Dimension | Prev | **Now** | Why |
+|---|:---:|:---:|---|
+| Architecture | 7.7 | **8.0** | the god-object sheds another ~410 lines into a third lifecycle-free collaborator; the habits↔tasks/time/goals/Focus boundaries — historically the app's most tangled seam — are now explicit and documented, and the pattern is proven repeatable rather than a one-off. |
+| Testing | 8.0 | **8.0** | unchanged — the widened net proved every stage equivalent, as designed. |
+| Data / Cross-module / Perf / UI / Security | 8.1 / 7.5 / 7.0 / 7.5 / 8.5 | **8.1 / 7.5 / 7.0 / 7.5 / 8.5** | unchanged this round. |
+| **Overall** | **≈7.85** | **≈7.9** | a second real structural gain on the hardest file, with zero behavioural or surface-area cost. |
+
+_The Notes-carve round and earlier logs follow unchanged below._
+
+---
+
 # Sub-ViewModel split — carve the Notes surface out of the god-VM into `NotesViewModel` (2026-09-21)
 
 With the cross-feature read models pinned (previous round), the decomposition itself ran in small,
