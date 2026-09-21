@@ -657,32 +657,15 @@ class AppViewModel internal constructor(
         return n
     }
 
+    // Woven note-open entry points live on NotesViewModel now (Stage 4f-2) — forwarding shims.
     /** Open (creating if needed) the meeting note bound to a calendar event. */
-    fun openEventNote(eventId: String, eventTitle: String, onOpen: (String) -> Unit) = viewModelScope.launch {
-        val ws = activeWorkspace()
-        val existing = repo.getNotesOnce().firstOrNull { !it.trashed && it.workspaceId == ws && it.linkedEventId == eventId }
-        onOpen(existing?.id ?: repo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(
-            id = "", kind = "meeting", linkedEventId = eventId, title = eventTitle.ifBlank { "Meeting note" }, workspaceId = ws,
-        )))
-    }
-
+    fun openEventNote(eventId: String, eventTitle: String, onOpen: (String) -> Unit) = notesVm.openEventNote(eventId, eventTitle, onOpen)
     /** Open (creating if needed) the note bound to a task. */
-    fun openTaskNote(taskId: String, taskTitle: String, onOpen: (String) -> Unit) = viewModelScope.launch {
-        val ws = activeWorkspace()
-        val existing = repo.getNotesOnce().firstOrNull { !it.trashed && it.workspaceId == ws && it.linkedTaskId == taskId }
-        onOpen(existing?.id ?: repo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(
-            id = "", linkedTaskId = taskId, title = taskTitle.ifBlank { "Note" }, workspaceId = ws,
-        )))
-    }
+    fun openTaskNote(taskId: String, taskTitle: String, onOpen: (String) -> Unit) = notesVm.openTaskNote(taskId, taskTitle, onOpen)
 
     // ── Phase 3: expert connection layer — [[wiki-links]] (by title) + checkbox → task ──────────────
     /** Open the note titled [title] (case-insensitive), creating it if none exists — a [[wiki-link]] jump. */
-    fun openOrCreateNoteByTitle(title: String, onOpen: (String) -> Unit) = viewModelScope.launch {
-        val ws = activeWorkspace()
-        val t = title.trim()
-        val existing = repo.getNotesOnce().firstOrNull { !it.trashed && it.workspaceId == ws && it.title.equals(t, ignoreCase = true) }
-        onOpen(existing?.id ?: repo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(id = "", title = t, workspaceId = ws)))
-    }
+    fun openOrCreateNoteByTitle(title: String, onOpen: (String) -> Unit) = notesVm.openOrCreateNoteByTitle(title, onOpen)
 
     /** Turn each unchecked "- [ ]" line in a note into a real Inbox task; reports how many were created.
      *  L5 — each extracted line is then *bound* to its new task by rewriting it to `- [ ] [[Task title]]`,
@@ -737,24 +720,11 @@ class AppViewModel internal constructor(
     fun startTimeTrackingForNote(noteId: String) = viewModelScope.launch { repo.startTimeTrackingForNote(noteId) }
 
     // ── Wave 2 — cross-module note extensions ────────────────────────────────────────────────────────
+    // Evergreen review lives on NotesViewModel now (Stage 4f-2) — forwarding shims.
     /** Evergreen Resurfacing — notes due for a spaced review right now, most-overdue first. */
-    val notesDueForReview: StateFlow<List<com.todocompanion.app.data.entity.NoteEntity>> = notes.map { list ->
-        val t = System.currentTimeMillis()
-        list.filter {
-            !it.trashed && !it.archived && !it.vault && it.reviewEvery > 0 &&
-                com.todocompanion.app.domain.NoteReview.isDue(it.reviewEvery, it.lastReviewedAt, it.updatedAt, t)
-        }.sortedBy { com.todocompanion.app.domain.NoteReview.nextDue(it.reviewEvery, it.lastReviewedAt, it.updatedAt) ?: Long.MAX_VALUE }
-    }.state(emptyList())
-
-    fun setNoteReview(noteId: String, days: Int) = viewModelScope.launch {
-        repo.getNote(noteId)?.let {
-            repo.upsertNote(it.copy(reviewEvery = days,
-                lastReviewedAt = if (days > 0 && it.lastReviewedAt == 0L) System.currentTimeMillis() else it.lastReviewedAt))
-        }
-    }
-    fun markNoteReviewed(noteId: String) = viewModelScope.launch {
-        repo.getNote(noteId)?.let { repo.upsertNote(it.copy(lastReviewedAt = System.currentTimeMillis())) }
-    }
+    val notesDueForReview get() = notesVm.notesDueForReview
+    fun setNoteReview(noteId: String, days: Int) = notesVm.setNoteReview(noteId, days)
+    fun markNoteReviewed(noteId: String) = notesVm.markNoteReviewed(noteId)
 
     /** The Note-Garden review — a snapshot of entropy in the vault (orphans, stale, dropped intentions,
      *  near-duplicates), assembled on-device from projections. Refresh with [refreshNoteGarden]. */
@@ -829,50 +799,19 @@ class AppViewModel internal constructor(
         }
     }
 
+    // Writing sprints & Threads (Maps of Content) live on NotesViewModel now (Stage 4f-2) — forwarding shims.
     /** Writing Sprints — log a finished sprint as tracked time on the note. */
-    fun logNoteSprint(noteId: String, startMillis: Long, endMillis: Long) = viewModelScope.launch {
-        repo.logNoteTime(noteId, startMillis, endMillis, "Writing sprint")
-    }
-
-    // ── Threads (Maps of Content) — a thread is a note (kind="thread") whose body lists ordered [[links]] ──
-    private fun threadTriples(): List<Triple<String, String, String>> {
-        val ws = activeWorkspace()
-        return notes.value.filter {
-            it.kind == com.todocompanion.app.domain.NoteThreads.KIND && !it.trashed && it.workspaceId == ws
-        }.map { Triple(it.id, it.title.ifBlank { "Untitled thread" }, it.body) }
-    }
-
+    fun logNoteSprint(noteId: String, startMillis: Long, endMillis: Long) = notesVm.logNoteSprint(noteId, startMillis, endMillis)
     /** The threads a note belongs to, with its prev/next neighbours in each (drives the editor's prev/next bar). */
-    fun noteThreadPositions(noteTitle: String): List<com.todocompanion.app.domain.NoteThreads.Position> =
-        com.todocompanion.app.domain.NoteThreads.positionsFor(noteTitle, threadTriples())
-
+    fun noteThreadPositions(noteTitle: String): List<com.todocompanion.app.domain.NoteThreads.Position> = notesVm.noteThreadPositions(noteTitle)
     /** All thread notes in the active workspace as (id, title), most-recent first — for the "add to thread" picker. */
-    fun threadList(): List<Pair<String, String>> = threadTriples()
-        .map { it.first to it.second }
-        .sortedByDescending { p -> notes.value.firstOrNull { it.id == p.first }?.updatedAt ?: 0L }
-
+    fun threadList(): List<Pair<String, String>> = notesVm.threadList()
     /** Add [memberTitle] to an existing thread note. */
-    fun addNoteToThread(threadId: String, memberTitle: String) = viewModelScope.launch {
-        val th = repo.getNote(threadId) ?: return@launch
-        repo.upsertNote(th.copy(body = com.todocompanion.app.domain.NoteThreads.addItem(th.body, memberTitle)))
-    }
-
+    fun addNoteToThread(threadId: String, memberTitle: String) = notesVm.addNoteToThread(threadId, memberTitle)
     /** Create a new thread note listing [memberTitle], then open it. */
-    fun createThread(threadTitle: String, memberTitle: String, onOpen: (String) -> Unit) = viewModelScope.launch {
-        val id = repo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(
-            id = "", kind = com.todocompanion.app.domain.NoteThreads.KIND, workspaceId = activeWorkspace(),
-            title = threadTitle.ifBlank { "New thread" },
-            body = com.todocompanion.app.domain.NoteThreads.addItem(
-                "_A thread — an ordered map of content. Reorder the links below to reorder it._\n", memberTitle),
-        ))
-        onOpen(id)
-    }
-
+    fun createThread(threadTitle: String, memberTitle: String, onOpen: (String) -> Unit) = notesVm.createThread(threadTitle, memberTitle, onOpen)
     /** Open the note whose title matches [title] (prev/next navigation within a thread); no-op if none. */
-    fun openNoteByTitle(title: String, onOpen: (String) -> Unit) {
-        val key = title.trim().lowercase()
-        notes.value.firstOrNull { it.title.trim().lowercase() == key && !it.trashed }?.let { onOpen(it.id) }
-    }
+    fun openNoteByTitle(title: String, onOpen: (String) -> Unit) = notesVm.openNoteByTitle(title, onOpen)
 
     // ── Wave 3 — Active Recall · Outcome Ledger · Notes⇄Goals · Courier · Read-Anywhere ───────────────
 
