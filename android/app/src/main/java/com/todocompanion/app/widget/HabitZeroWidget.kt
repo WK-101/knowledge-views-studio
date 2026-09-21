@@ -8,6 +8,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.view.View
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
 import com.todocompanion.app.App
@@ -49,63 +50,195 @@ class HabitZeroWidget : AppWidgetProvider() {
                     // Per-widget: each Habit Zero can scope to one habit group (config) — compute inside the loop.
                     val group = WidgetPrefs.group(context, id)
                     val r = HabitZeroData.compute(app, today, group)
-                    // The Zero reward: only when everything due is resolved. Prefer a keystone/correlation from
-                    // the on-device engine — the "reason" no single-purpose tracker can give — else the streak.
-                    val reward = if (r.remaining.isEmpty() && r.due > 0) runCatching {
-                        val habits = app.repository.wsHabitsOnce()
-                        val checkins = app.repository.getHabitCheckinsOnce()
-                        val tasks = app.repository.wsTasksOnce()
-                        HabitInsights.compute(habits, checkins, tasks, today, zone, 6)
-                            .firstOrNull { it.emoji == "🗝️" || it.emoji == "🔗" || it.emoji == "⚡" || it.emoji == "📉" }
-                            ?.text
-                            ?: if (r.bestStreak >= 2) "🔥 ${r.bestStreak}-day streak — don't break the chain." else null
-                    }.getOrNull() else null
                     val style = WidgetStyle.resolve(context, id)
-                    val views = RemoteViews(context.packageName, R.layout.widget_habitzero)
-                    WidgetStyle.applyListCard(views, R.id.hz_card, context, id)
-
-                    val edge = WidgetBitmaps.dp(context, 52f).toInt()
-                    val stroke = WidgetBitmaps.dp(context, 6.5f)
-                    val progress = if (r.due > 0) r.done.toFloat() / r.due else 0f
-                    val fill = if (r.due > 0 && r.done >= r.due) style.success else style.accent
-                    views.setImageViewBitmap(R.id.hz_ring, WidgetBitmaps.ring(edge, stroke, progress, style.chip, fill))
-
-                    val left = r.remaining.size
-                    views.setTextViewText(R.id.hz_left, when {
-                        r.due == 0 -> "No habits due"
-                        left == 0 -> "All done ✓"
-                        else -> "$left to go"
-                    })
-                    views.setTextColor(R.id.hz_left, style.textPrimary)
-                    val sub = buildString {
-                        if (r.due > 0) append("${r.done} of ${r.due} done")
-                        if (r.skipped > 0) append(" · ${r.skipped} skipped")
-                        if (r.bestStreak >= 2) append(" · 🔥${r.bestStreak}")
+                    // Size-responsive: pick the density from the placed cell size. The list stays for tall
+                    // widgets; smaller sizes collapse to a dot grid, a strip, or just the meter.
+                    val opts = runCatching { manager.getAppWidgetOptions(id) }.getOrNull()
+                    val minW = opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0) ?: 0
+                    val minH = opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) ?: 0
+                    when (pickBucket(minW, minH)) {
+                        Bucket.METER -> renderMeter(context, manager, id, r, style)
+                        Bucket.STRIP -> renderStrip(context, manager, id, r, style)
+                        Bucket.GRID -> renderGrid(context, manager, id, r, style)
+                        Bucket.LIST -> renderList(context, manager, id, r, style, app, today, zone)
                     }
-                    views.setTextViewText(R.id.hz_count, sub)
-                    views.setTextColor(R.id.hz_count, style.textSecondary)
-
-                    // The vanishing list of remaining habits.
-                    val svc = Intent(context, HabitZeroService::class.java).apply {
-                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
-                        data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
-                    }
-                    views.setRemoteAdapter(R.id.hz_list, svc)
-                    views.setEmptyView(R.id.hz_list, R.id.hz_empty)
-                    views.setPendingIntentTemplate(R.id.hz_list, tapTemplate(context))
-
-                    views.setTextViewText(R.id.hz_empty, when {
-                        r.due == 0 -> "No habits scheduled today."
-                        else -> "🎉  All wrapped for today" + (reward?.let { "\n$it" } ?: "")
-                    })
-                    views.setTextColor(R.id.hz_empty, style.textPrimary)
-
-                    views.setOnClickPendingIntent(R.id.hz_header, openHabits(context))
-                    manager.updateAppWidget(id, views)
-                    manager.notifyAppWidgetViewDataChanged(id, R.id.hz_list)
                 }
             } finally { pending.finish() }
         }
+    }
+
+    /** The compact densities, chosen from the placed cell size (dp, from AppWidgetOptions). */
+    private enum class Bucket { METER, STRIP, GRID, LIST }
+
+    private fun pickBucket(minW: Int, minH: Int): Bucket = when {
+        minW == 0 || minH == 0 -> Bucket.LIST                              // options not reported yet → safe default
+        minH >= 170 -> Bucket.LIST                                         // tall enough for the scrolling list
+        minH < 100 -> if (minW >= 110) Bucket.STRIP else Bucket.METER      // short: wide → strip, else meter
+        else -> if (minW >= 110) Bucket.GRID else Bucket.METER             // medium: wide → grid, narrow → meter
+    }
+
+    /** The full "vanishing list" density (unchanged behaviour) for tall widgets. */
+    private suspend fun renderList(
+        context: Context, manager: AppWidgetManager, id: Int,
+        r: HabitZeroData.Result, style: WidgetStyle, app: App, today: Long, zone: ZoneId,
+    ) {
+        // The Zero reward: only when everything due is resolved. Prefer a keystone/correlation from the
+        // on-device engine — the "reason" no single-purpose tracker can give — else the streak.
+        val reward = if (r.remaining.isEmpty() && r.due > 0) runCatching {
+            val habits = app.repository.wsHabitsOnce()
+            val checkins = app.repository.getHabitCheckinsOnce()
+            val tasks = app.repository.wsTasksOnce()
+            HabitInsights.compute(habits, checkins, tasks, today, zone, 6)
+                .firstOrNull { it.emoji == "🗝️" || it.emoji == "🔗" || it.emoji == "⚡" || it.emoji == "📉" }
+                ?.text
+                ?: if (r.bestStreak >= 2) "🔥 ${r.bestStreak}-day streak — don't break the chain." else null
+        }.getOrNull() else null
+        val views = RemoteViews(context.packageName, R.layout.widget_habitzero)
+        WidgetStyle.applyListCard(views, R.id.hz_card, context, id)
+
+        val edge = WidgetBitmaps.dp(context, 52f).toInt()
+        val stroke = WidgetBitmaps.dp(context, 6.5f)
+        val progress = if (r.due > 0) r.done.toFloat() / r.due else 0f
+        val fill = if (r.due > 0 && r.done >= r.due) style.success else style.accent
+        views.setImageViewBitmap(R.id.hz_ring, WidgetBitmaps.ring(edge, stroke, progress, style.chip, fill))
+
+        val left = r.remaining.size
+        views.setTextViewText(R.id.hz_left, when {
+            r.due == 0 -> "No habits due"
+            left == 0 -> "All done ✓"
+            else -> "$left to go"
+        })
+        views.setTextColor(R.id.hz_left, style.textPrimary)
+        val sub = buildString {
+            if (r.due > 0) append("${r.done} of ${r.due} done")
+            if (r.skipped > 0) append(" · ${r.skipped} skipped")
+            if (r.bestStreak >= 2) append(" · 🔥${r.bestStreak}")
+        }
+        views.setTextViewText(R.id.hz_count, sub)
+        views.setTextColor(R.id.hz_count, style.textSecondary)
+
+        // The vanishing list of remaining habits.
+        val svc = Intent(context, HabitZeroService::class.java).apply {
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+            data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
+        }
+        views.setRemoteAdapter(R.id.hz_list, svc)
+        views.setEmptyView(R.id.hz_list, R.id.hz_empty)
+        views.setPendingIntentTemplate(R.id.hz_list, tapTemplate(context))
+
+        views.setTextViewText(R.id.hz_empty, when {
+            r.due == 0 -> "No habits scheduled today."
+            else -> "🎉  All wrapped for today" + (reward?.let { "\n$it" } ?: "")
+        })
+        views.setTextColor(R.id.hz_empty, style.textPrimary)
+
+        views.setOnClickPendingIntent(R.id.hz_header, openHabits(context))
+        manager.updateAppWidget(id, views)
+        manager.notifyAppWidgetViewDataChanged(id, R.id.hz_list)
+    }
+
+    /** 1×1 "meter": just the whole-habits donut with the remaining count in the middle. */
+    private fun renderMeter(context: Context, manager: AppWidgetManager, id: Int, r: HabitZeroData.Result, style: WidgetStyle) {
+        val views = RemoteViews(context.packageName, R.layout.widget_habitzero_meter)
+        WidgetStyle.applyListCard(views, R.id.hz_card, context, id)
+        val edge = WidgetBitmaps.dp(context, 80f).toInt()
+        val stroke = WidgetBitmaps.dp(context, 8f)
+        val progress = if (r.due > 0) r.done.toFloat() / r.due else 0f
+        val fill = if (r.due > 0 && r.done >= r.due) style.success else style.accent
+        views.setImageViewBitmap(R.id.hzm_ring, WidgetBitmaps.ring(edge, stroke, progress, style.chip, fill))
+        val left = r.remaining.size
+        views.setTextViewText(R.id.hzm_count, if (r.due == 0) "–" else if (left == 0) "✓" else "$left")
+        views.setTextColor(R.id.hzm_count, if (left == 0 && r.due > 0) style.success else style.textPrimary)
+        views.setTextViewText(R.id.hzm_sub, when {
+            r.due == 0 -> "none"
+            left == 0 -> "done"
+            else -> "left"
+        })
+        views.setTextColor(R.id.hzm_sub, style.textSecondary)
+        views.setOnClickPendingIntent(R.id.hz_card, openHabits(context))
+        manager.updateAppWidget(id, views)
+    }
+
+    /** 2×1 "strip": the meter, then the remaining habits as a row of tappable dots. */
+    private fun renderStrip(context: Context, manager: AppWidgetManager, id: Int, r: HabitZeroData.Result, style: WidgetStyle) {
+        val views = RemoteViews(context.packageName, R.layout.widget_habitzero_strip)
+        WidgetStyle.applyListCard(views, R.id.hz_card, context, id)
+        val edge = WidgetBitmaps.dp(context, 52f).toInt()
+        val stroke = WidgetBitmaps.dp(context, 6f)
+        val progress = if (r.due > 0) r.done.toFloat() / r.due else 0f
+        val fill = if (r.due > 0 && r.done >= r.due) style.success else style.accent
+        views.setImageViewBitmap(R.id.hzs_ring, WidgetBitmaps.ring(edge, stroke, progress, style.chip, fill))
+        val left = r.remaining.size
+        views.setTextViewText(R.id.hzs_count, if (r.due == 0) "–" else if (left == 0) "✓" else "$left")
+        views.setTextColor(R.id.hzs_count, if (left == 0 && r.due > 0) style.success else style.textPrimary)
+        val slots = intArrayOf(R.id.hzs_d0, R.id.hzs_d1, R.id.hzs_d2, R.id.hzs_d3, R.id.hzs_d4)
+        fillDots(context, views, id, slots, r.remaining, style, WidgetBitmaps.dp(context, 46f).toInt())
+        views.setOnClickPendingIntent(R.id.hz_card, openHabits(context))
+        manager.updateAppWidget(id, views)
+    }
+
+    /** 2×2 "grid": the remaining habits as a dot grid, with a small meter cell in the last slot. */
+    private fun renderGrid(context: Context, manager: AppWidgetManager, id: Int, r: HabitZeroData.Result, style: WidgetStyle) {
+        val views = RemoteViews(context.packageName, R.layout.widget_habitzero_grid)
+        WidgetStyle.applyListCard(views, R.id.hz_card, context, id)
+        val edge = WidgetBitmaps.dp(context, 44f).toInt()
+        val stroke = WidgetBitmaps.dp(context, 5f)
+        val progress = if (r.due > 0) r.done.toFloat() / r.due else 0f
+        val fill = if (r.due > 0 && r.done >= r.due) style.success else style.accent
+        views.setImageViewBitmap(R.id.hzg_ring, WidgetBitmaps.ring(edge, stroke, progress, style.chip, fill))
+        val left = r.remaining.size
+        views.setTextViewText(R.id.hzg_count, if (r.due == 0) "–" else if (left == 0) "✓" else "$left")
+        views.setTextColor(R.id.hzg_count, if (left == 0 && r.due > 0) style.success else style.textPrimary)
+        val slots = intArrayOf(R.id.hzg_0, R.id.hzg_1, R.id.hzg_2, R.id.hzg_3, R.id.hzg_4, R.id.hzg_5, R.id.hzg_6, R.id.hzg_7)
+        fillDots(context, views, id, slots, r.remaining, style, edge)
+        views.setOnClickPendingIntent(R.id.hz_card, openHabits(context))
+        manager.updateAppWidget(id, views)
+    }
+
+    /**
+     * Fill the fixed dot slots from the remaining habits: each dot is the habit's emoji on its colour
+     * (a progress ring for numeric / timed), tapped straight to [HabitZeroReceiver]. Extra slots go
+     * INVISIBLE (not GONE) so the weighted grid stays even; a "+N" dot absorbs any overflow.
+     */
+    private fun fillDots(
+        context: Context, views: RemoteViews, widgetId: Int,
+        slots: IntArray, rem: List<HabitZeroData.Rem>, style: WidgetStyle, edgePx: Int,
+    ) {
+        val n = slots.size
+        val overflow = rem.size > n
+        val shown = if (overflow) n - 1 else minOf(rem.size, n)
+        for (i in slots.indices) {
+            val slot = slots[i]
+            when {
+                i < shown -> {
+                    val h = rem[i]
+                    val disc = h.color?.toInt() ?: style.accent
+                    val ring = if (h.kind == "build") null else style.accent
+                    views.setImageViewBitmap(slot, WidgetBitmaps.habitDot(edgePx, disc, h.emoji.ifBlank { "•" }, ring, style.chip, h.progress))
+                    views.setViewVisibility(slot, View.VISIBLE)
+                    views.setOnClickPendingIntent(slot, dotTapPI(context, widgetId, h.id))
+                }
+                overflow && i == n - 1 -> {
+                    val extra = rem.size - shown
+                    views.setImageViewBitmap(slot, WidgetBitmaps.habitDot(edgePx, style.accent, "+$extra"))
+                    views.setViewVisibility(slot, View.VISIBLE)
+                    views.setOnClickPendingIntent(slot, openHabits(context))
+                }
+                else -> views.setViewVisibility(slot, View.INVISIBLE)
+            }
+        }
+    }
+
+    /** A per-dot tap → [HabitZeroReceiver]. Unique requestCode per (widget, habit): PendingIntent equality
+     *  ignores extras, so the habit id must ride the requestCode or every dot would share one intent. */
+    private fun dotTapPI(context: Context, widgetId: Int, habitId: String): PendingIntent {
+        val i = Intent(context, HabitZeroReceiver::class.java)
+            .setAction(HabitZeroReceiver.ACTION_TAP)
+            .putExtra(HabitZeroReceiver.EXTRA_HABIT_ID, habitId)
+        return PendingIntent.getBroadcast(
+            context, ("hz:$widgetId:$habitId").hashCode(), i,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
     }
 
     private fun tapTemplate(context: Context): PendingIntent =
@@ -144,7 +277,8 @@ class HabitZeroWidget : AppWidgetProvider() {
 /** Shared "what's still due today" computation, used by both the provider (for the meter) and the list
  *  factory (for the rows), so the count and the list can never disagree. */
 object HabitZeroData {
-    data class Rem(val id: String, val emoji: String, val name: String, val meta: String, val kind: String)
+    data class Rem(val id: String, val emoji: String, val name: String, val meta: String, val kind: String,
+                   val progress: Float = 0f, val color: Long? = null)
     data class Result(val due: Int, val done: Int, val skipped: Int, val bestStreak: Int, val remaining: List<Rem>)
 
     fun compute(app: App, today: Long, group: String = ""): Result {
@@ -180,7 +314,9 @@ object HabitZeroData {
                         numeric -> "⌨ $todayCount/${h.targetPerDay}" + (h.unit?.let { " $it" } ?: "")
                         else -> "○"
                     }
-                    rem += Rem(h.id, h.emoji ?: "", h.name, meta, kind)
+                    // Ring progress for the compact dots: how far today's count is toward the target.
+                    val prog = if ((timed || numeric) && h.targetPerDay > 0) (todayCount.toFloat() / h.targetPerDay).coerceIn(0f, 1f) else 0f
+                    rem += Rem(h.id, h.emoji ?: "", h.name, meta, kind, prog, h.colorArgb)
                 }
             }
         }

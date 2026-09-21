@@ -197,6 +197,55 @@ object WidgetBitmaps {
         return (al shl 24) or (r shl 16) or (g shl 8) or bl
     }
 
+    /**
+     * A "habit dot" for the compact Habit Zero densities: a filled coloured disc with a soft top-left
+     * sheen and the habit's emoji (or a short label like "+3") centred on it, optionally wrapped in a
+     * progress ring for numeric / timed habits. Drawn to the dot's actual pixels so a grid of them stays
+     * cheap. Text is baked in (RemoteViews can't overlay a TextView on each collectionless slot cleanly).
+     */
+    fun habitDot(
+        sizePx: Int,
+        discColor: Int,
+        label: String,
+        ringColor: Int? = null,
+        ringTrack: Int = 0x22FFFFFF,
+        progress: Float = 0f,
+    ): Bitmap {
+        val size = cap(sizePx, 400)
+        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val cx = size / 2f
+        val ringStroke = if (ringColor != null) max(2f, size * 0.075f) else 0f
+        val discR = size / 2f - ringStroke - if (ringColor != null) max(1.5f, size * 0.03f) else max(1f, size * 0.02f)
+        // Disc + a subtle radial sheen so it reads as a raised token, not a flat circle.
+        paint().apply { style = Paint.Style.FILL; color = discColor }.let { c.drawCircle(cx, cx, discR, it) }
+        paint().apply {
+            style = Paint.Style.FILL
+            shader = android.graphics.RadialGradient(
+                size * 0.36f, size * 0.32f, discR * 1.15f,
+                0x33FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP,
+            )
+        }.let { c.drawCircle(cx, cx, discR, it) }
+        // Progress ring for numeric / timed dots.
+        if (ringColor != null) {
+            val pad = ringStroke / 2f + 0.5f
+            val rect = RectF(pad, pad, size - pad, size - pad)
+            val rp = paint().apply { style = Paint.Style.STROKE; strokeWidth = ringStroke; strokeCap = Paint.Cap.ROUND }
+            rp.color = ringTrack; c.drawArc(rect, 0f, 360f, false, rp)
+            val sweep = progress.coerceIn(0f, 1f) * 360f
+            if (sweep > 0f) { rp.color = ringColor; c.drawArc(rect, -90f, sweep, false, rp) }
+        }
+        // Emoji / label, centred on the disc.
+        val tp = paint().apply {
+            textAlign = Paint.Align.CENTER
+            color = 0xFFFFFFFF.toInt()
+            textSize = size * (if (label.length > 2) 0.34f else 0.46f)
+        }
+        val fm = tp.fontMetrics
+        c.drawText(label, cx, cx - (fm.ascent + fm.descent) / 2f, tp)
+        return bmp
+    }
+
     /** Fit a square bitmap edge (px) to a widget's min dimension in dp, within sane bounds. */
     fun squareEdge(ctx: Context, minDimDp: Int, targetDp: Float, maxDp: Float): Int {
         val target = min(minDimDp.toFloat(), maxDp) * (targetDp / maxDp)
