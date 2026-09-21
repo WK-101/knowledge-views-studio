@@ -28,6 +28,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -74,19 +78,30 @@ fun TaskRow(
     ) {
         val task = row.task
         val level = PriorityLevel.from(task.importance, task.urgency)
+        // Ceiling 2 — TalkBack / switch-access fallbacks for the gesture-only swipe actions (complete via
+        // StartToEnd, delete via EndToStart) plus expand/collapse, so every action the row supports has a
+        // non-gesture path. Without these a screen-reader user could not delete a task from the row at all.
+        val rowActions = buildList {
+            add(CustomAccessibilityAction(if (task.completed) "Mark not done" else "Mark done") { onToggleComplete(); true })
+            add(CustomAccessibilityAction("Delete") { onDelete(); true })
+            if (row.hasChildren) add(CustomAccessibilityAction(if (row.collapsed) "Expand subtasks" else "Collapse subtasks") { onToggleCollapse(); true })
+        }
         Row(
             Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)
                 // Structural ancestors in a filtered outline are dimmed; matches stay solid.
                 .graphicsLayer { alpha = if (row.matched) 1f else 0.5f }
-                .combinedClickable(onClick = onClick, onLongClick = onZoom)
+                .combinedClickable(onClickLabel = "Open task", role = Role.Button, onLongClickLabel = "Zoom into subtask", onClick = onClick, onLongClick = onZoom)
+                .semantics { customActions = rowActions }
                 .padding(start = (6 + row.depth * 18).dp, end = 6.dp, top = rowVerticalPadding(density) / 2, bottom = rowVerticalPadding(density) / 2),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (row.hasChildren) {
-                IconButton(onClick = onToggleCollapse, modifier = Modifier.size(30.dp)) {
+                // 48dp touch target (was 30dp — below the Material minimum); the leaf Spacer matches it so the
+                // checkboxes stay aligned across rows with and without children.
+                IconButton(onClick = onToggleCollapse, modifier = Modifier.size(48.dp)) {
                     Icon(if (row.collapsed) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown, if (row.collapsed) "Expand" else "Collapse")
                 }
-            } else Spacer(Modifier.width(30.dp))
+            } else Spacer(Modifier.width(48.dp))
 
             PriorityCheckbox(task.completed, level, onToggleComplete, onSetLevel = onSetPriority)
             Spacer(Modifier.width(4.dp))

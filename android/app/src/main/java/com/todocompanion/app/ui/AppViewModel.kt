@@ -248,13 +248,15 @@ class AppViewModel internal constructor(
     // TaskScopeQueryTest, guarded by AppViewModelCharacterizationTest — so what the user sees is unchanged:
     // R64 keeps a shared-Inbox task in the workspace it was captured in; non-Inbox tasks belong via their
     // list's or folder's workspace; the Inbox LIST view stays the one shared surface (it reads inboxTasksAll).
+    // `internal` (not private): the extracted task render pipeline in TasksViewModel reads these two flows
+    // via `app.wsTasks` / `app.inboxTasksAll`. They remain module-private — no screen touches them directly.
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    private val wsTasks: Flow<List<TaskEntity>> =
+    internal val wsTasks: Flow<List<TaskEntity>> =
         activeWs.flatMapLatest { ws -> repo.observeTasksByWorkspace(ws) }
 
     /** The one shared surface: every Inbox task across all workspaces. The Inbox list view (and its count)
      *  read this so the Inbox stays the single cross-workspace zone; nothing else does. */
-    private val inboxTasksAll: Flow<List<TaskEntity>> =
+    internal val inboxTasksAll: Flow<List<TaskEntity>> =
         repo.allTasks.map { all -> all.filter { it.listId == ListEntity.INBOX_ID } }
 
     val tasks: StateFlow<List<TaskEntity>> = wsTasks.state(emptyList())
@@ -1346,46 +1348,20 @@ class AppViewModel internal constructor(
     /** "Right now I have X energy" planner (#15 — lives in tasksVm; shim keeps the read/write API unchanged). */
     val energyAvailable get() = tasksVm.energyAvailable
 
-    /** All ids in the subtree rooted at [rootId] — root plus every descendant. Cycle-safe. Delegates to
-     *  the pure ListPipeline copy (shared with the extracted rendering pipeline). */
-    private fun <T> subtreeIds(rootId: String, entities: List<T>, idOf: (T) -> String, parentOf: (T) -> String?): Set<String> =
-        ListPipeline.subtreeIds(rootId, entities, idOf, parentOf)
-
     /** All list ids inside a folder, including nested folders and nested lists. */
     private fun folderListIds(folderId: String, lists: List<ListEntity>, folders: List<FolderEntity>): Set<String> =
         com.todocompanion.app.domain.EntryCounts.folderListIds(folderId, lists, folders)
 
-    private fun AppSettings.priorityConfig() = PriorityEngine.Config(
-        mode = when (priorityMode) { "importance" -> PriorityEngine.Mode.IMPORTANCE; "urgency" -> PriorityEngine.Mode.URGENCY; else -> PriorityEngine.Mode.BOTH },
-        dueWeight = priorityDueWeight, startWeight = priorityStartWeight, goalWeight = priorityGoalWeight, overdueBoost = priorityOverdueBoost,
-        starBoost = priorityStarBoost, curveBase = priorityCurveBase, computed = priorityComputed,
-    )
-
-    val groups: StateFlow<List<TaskGroup>> =
-        combine(
-            // wsTasks + shared Inbox + the FULL task set (used only to resolve dependency prerequisites that
-            // may live outside the workspace-scoped render set — see ListPipeline.compute's allTasks param).
-            combine(wsTasks, inboxTasksAll, repo.allTasks) { ws, inbox, allT -> Triple(ws, inbox, allT) },
-            combine(currentView, groupMode, sortMode, settings, combine(repo.allFlags, timeAvailableMin, energyAvailable) { fl, ta, ea -> Triple(fl, ta, ea) }) { v, g, s, set, fte -> ListPipeline.Cfg(v, g, s, set.priorityConfig(), fte.first, fte.second, fte.third, set.activeWorkspaceId) },
-            repo.taskTagRefs,
-            combine(repo.taskContextRefs, repo.allContexts, repo.allFilters, repo.allLists, combine(repo.allFolders, repo.allTags) { fo, tg -> fo to tg }) { r, c, f, l, foTg -> ListPipeline.ViewCtx(r, c, f, l, foTg.first, foTg.second) },
-            repo.allDependencies,
-        ) { wsTriple, cfg, ttRefs, vc, deps ->
-            ListPipeline.compute(wsTriple.first, wsTriple.second, cfg, ttRefs, vc, deps, zone, dayStartMin, System.currentTimeMillis(), wsTriple.third)
-        }.state(emptyList())
+    /** #15 / ceiling 1 — the derived render pipeline lives in tasksVm now (with the view-state it reads);
+     *  this shim keeps every screen's `vm.groups` call site unchanged. */
+    val groups get() = tasksVm.groups
 
     /** #15 — outline zoom + its action live in tasksVm; shims keep the API unchanged. */
     val outlineZoom get() = tasksVm.outlineZoom
     fun zoomInto(taskId: String?) = tasksVm.zoomInto(taskId)
 
-    val outlineRows: StateFlow<List<OutlineRow>> =
-        combine(wsTasks, currentView, outlineZoom) { all, v, zoom ->
-            val listId = (v as? ViewRef.ListView)?.listId ?: return@combine emptyList()
-            val listTasks = all.filter { it.listId == listId && !it.trashed }
-            // Zoom only holds while its task still exists in this list.
-            val start = zoom?.takeIf { z -> listTasks.any { it.id == z } }
-            buildOutline(listTasks, start)
-        }.state(emptyList())
+    /** #15 / ceiling 1 — moved to tasksVm; shim keeps the API unchanged. */
+    val outlineRows get() = tasksVm.outlineRows
 
     /** Title of the current zoom root, for the breadcrumb, or null when not zoomed. (#15 — see tasksVm.) */
     fun zoomTitle(): String? = tasksVm.zoomTitle()
@@ -1393,50 +1369,8 @@ class AppViewModel internal constructor(
     /** True when the current view can render as a hierarchy-preserving filter (filter/tag/context). */
     fun canHierarchy(): Boolean = tasksVm.canHierarchy()
 
-    /**
-     * MLO "outline filtering": the matched tasks of a filter/tag/context view rendered in their real
-     * tree position — matches solid, structural ancestors dimmed. Empty unless [filterHierarchy] is on.
-     */
-    val hierarchyRows: StateFlow<List<OutlineRow>> =
-        combine(
-            wsTasks, currentView, filterHierarchy,
-            combine(repo.taskTagRefs, repo.taskContextRefs, repo.allFilters, repo.allLists, combine(repo.allTags, repo.allContexts) { tg, cx -> tg to cx }) { tt, tc, f, ls, tgcx -> listOf(tt, tc, f, ls, tgcx.first, tgcx.second) },
-        ) { all, v, on, refs ->
-            if (!on) return@combine emptyList()
-            @Suppress("UNCHECKED_CAST")
-            val ttRefs = refs[0] as List<com.todocompanion.app.data.entity.TaskTagCrossRef>
-            @Suppress("UNCHECKED_CAST")
-            val tcRefs = refs[1] as List<com.todocompanion.app.data.entity.TaskContextCrossRef>
-            @Suppress("UNCHECKED_CAST")
-            val filters = refs[2] as List<com.todocompanion.app.data.entity.FilterEntity>
-            @Suppress("UNCHECKED_CAST")
-            val hLists = refs[3] as List<ListEntity>
-            @Suppress("UNCHECKED_CAST")
-            val hTags = refs[4] as List<TagEntity>
-            @Suppress("UNCHECKED_CAST")
-            val hContexts = refs[5] as List<ContextEntity>
-            val listFolderById = hLists.associate { it.id to it.folderId }
-            val now = System.currentTimeMillis()
-            val matched: Set<String> = when (v) {
-                is ViewRef.FilterView -> {
-                    val q = com.todocompanion.app.domain.view.Filters.parse(filters.firstOrNull { it.id == v.filterId }?.queryJson)
-                    val tagsByTask = ttRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.tagId }.toSet() }
-                    val ctxByTask = tcRefs.groupBy { it.taskId }.mapValues { e -> e.value.map { it.contextId }.toSet() }
-                    val hit = all.filter { com.todocompanion.app.domain.view.Filters.matches(q, it, tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty(), now, zone, it.folderId ?: listFolderById[it.listId]) }.map { it.id }.toSet()
-                    if (q.includeChildren) expandWithDescendants(hit, all) else hit
-                }
-                is ViewRef.TagView -> {
-                    val tagIds = subtreeIds(v.tagId, hTags, { it.id }, { it.parentId })
-                    ttRefs.filter { it.tagId in tagIds }.map { it.taskId }.toSet()
-                }
-                is ViewRef.ContextView -> {
-                    val ctxIds = subtreeIds(v.contextId, hContexts, { it.id }, { it.parentId })
-                    tcRefs.filter { it.contextId in ctxIds }.map { it.taskId }.toSet()
-                }
-                else -> return@combine emptyList()
-            }
-            buildFilteredOutline(all.filter { !it.trashed }, matched)
-        }.state(emptyList())
+    /** #15 / ceiling 1 — the MLO "outline filtering" pipeline lives in tasksVm now; shim keeps the API. */
+    val hierarchyRows get() = tasksVm.hierarchyRows
 
     private fun rankDoNext(
         base: List<TaskEntity>, all: List<TaskEntity>, now: Long, cfg: PriorityEngine.Config,
@@ -5430,51 +5364,15 @@ class AppViewModel internal constructor(
     fun importFromIntent(uri: Uri, merge: Boolean = false, onDone: (Boolean, String) -> Unit) = backupSyncVm.importFromIntent(uri, merge, onDone)
     fun importFrom(uri: Uri, onDone: (Boolean) -> Unit) = backupSyncVm.importFrom(uri, onDone)
 
-    private fun buildOutline(all: List<TaskEntity>, startId: String? = null): List<OutlineRow> {
-        val byParent = all.groupBy { it.parentId }
-        val out = ArrayList<OutlineRow>(all.size)
-        fun dfs(parentId: String?, depth: Int) {
-            byParent[parentId]?.sortedBy { it.sortOrder }?.forEach { t ->
-                val kids = byParent[t.id].orEmpty()
-                out.add(OutlineRow(t, depth, kids.isNotEmpty(), t.collapsed))
-                if (!t.collapsed) dfs(t.id, depth + 1)
-            }
-        }
-        if (startId != null) {
-            val root = all.firstOrNull { it.id == startId } ?: return emptyList()
-            val kids = byParent[startId].orEmpty()
-            out.add(OutlineRow(root, 0, kids.isNotEmpty(), root.collapsed))
-            if (!root.collapsed) dfs(startId, 1)
-        } else dfs(null, 0)
-        return out
-    }
-
-    /** Grow an id set to include every descendant of its members (for "include subtasks" filters). */
-    private fun expandWithDescendants(ids: Set<String>, all: List<TaskEntity>): Set<String> =
-        ListPipeline.expandWithDescendants(ids, all)
-
-    /** Build an outline of the [matched] tasks plus every ancestor needed to place them in the tree.
-     *  Ancestors that aren't themselves matches are flagged (rendered dimmed). Ignores collapse. */
-    private fun buildFilteredOutline(all: List<TaskEntity>, matched: Set<String>): List<OutlineRow> {
-        if (matched.isEmpty()) return emptyList()
-        val byId = all.associateBy { it.id }
-        val included = HashSet<String>()
-        matched.forEach { id ->
-            var cur: String? = id
-            while (cur != null && cur !in included && cur in byId) { included.add(cur); cur = byId[cur]?.parentId }
-        }
-        val inc = all.filter { it.id in included }
-        val byParent = inc.groupBy { it.parentId }
-        val out = ArrayList<OutlineRow>(inc.size)
-        fun dfs(t: TaskEntity, depth: Int) {
-            val kids = byParent[t.id].orEmpty()
-            out.add(OutlineRow(t, depth, kids.isNotEmpty(), collapsed = false, matched = t.id in matched))
-            kids.sortedBy { it.sortOrder }.forEach { dfs(it, depth + 1) }
-        }
-        // Roots = included tasks whose parent isn't part of this filtered forest.
-        inc.filter { it.parentId == null || it.parentId !in included }
-            .sortedWith(compareBy({ it.listId }, { it.sortOrder }))
-            .forEach { dfs(it, 0) }
-        return out
-    }
 }
+
+/**
+ * #15 / ceiling 1 — the settings→priority config mapping, lifted to a top-level `internal` extension (was a
+ * private member) so both AppViewModel's own read-models (smartCounts / rankDoNext / …) and the extracted
+ * TasksViewModel render pipeline resolve the same one. Pure — reads only AppSettings fields.
+ */
+internal fun AppSettings.priorityConfig() = PriorityEngine.Config(
+    mode = when (priorityMode) { "importance" -> PriorityEngine.Mode.IMPORTANCE; "urgency" -> PriorityEngine.Mode.URGENCY; else -> PriorityEngine.Mode.BOTH },
+    dueWeight = priorityDueWeight, startWeight = priorityStartWeight, goalWeight = priorityGoalWeight, overdueBoost = priorityOverdueBoost,
+    starBoost = priorityStarBoost, curveBase = priorityCurveBase, computed = priorityComputed,
+)
