@@ -4,12 +4,14 @@ import com.todocompanion.app.data.AppRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * Phase 3, Stage 5 — the dedicated home for the Habits surface (habit tracking + the habit-science /
@@ -61,4 +63,38 @@ class HabitsViewModel(
     val experiments = repo.allExperiments.scopedBy { it.workspaceId }
     val escrows = repo.allEscrows.scopedBy { it.workspaceId }
     val nudgeEvents = repo.allNudgeEvents.scopedBy { it.workspaceId }
+
+    // ── Habits-tab view-state + settings-backed setters + overlay flags (Stage 5-B) ───────────────────────
+    /** Fusion F2: a habit pre-selected to Focus on; the Focus screen consumes it and auto-logs. */
+    val pendingFocusHabitId = MutableStateFlow<String?>(null)
+    // Matrix mode and density are persisted in settings, so the choice survives an app restart.
+    val habitMatrixMode: StateFlow<Boolean> = app.settings.map { it.habitMatrixMode }.stateIn(scope, SharingStarted.Eagerly, false)
+    val habitDensity: StateFlow<Int> = app.settings.map { it.habitDensity }.stateIn(scope, SharingStarted.Eagerly, 1)
+    fun setHabitMatrixMode(on: Boolean) = scope.launch { repo.saveSettings(app.settings.value.copy(habitMatrixMode = on)) }
+    fun setHabitDensity(level: Int) = scope.launch { repo.saveSettings(app.settings.value.copy(habitDensity = level.coerceIn(0, 2))) }
+    fun setHabitGroupByCategory(on: Boolean) = scope.launch { repo.saveSettings(app.settings.value.copy(habitGroupByCategory = on)) }
+    fun setHabitSort(mode: String) = scope.launch { repo.saveSettings(app.settings.value.copy(habitSort = mode)) }
+    fun setHabitInsightsExpanded(on: Boolean) = scope.launch { repo.saveSettings(app.settings.value.copy(habitInsightsExpanded = on)) }
+    /** Persist a habit's time-planning config (HabitTime) into settings-JSON, keyed by habit id. */
+    fun setHabitTimeCfg(habitId: String, cfg: com.todocompanion.app.domain.habit.HabitTime.Cfg) = scope.launch {
+        if (habitId.isBlank()) return@launch
+        val m = app.settings.value.habitTimeCfg.toMutableMap()
+        if (com.todocompanion.app.domain.habit.HabitTime.isDefault(cfg)) m.remove(habitId)
+        else m[habitId] = com.todocompanion.app.domain.habit.HabitTime.encodeCfg(cfg)
+        repo.saveSettings(app.settings.value.copy(habitTimeCfg = m))
+    }
+    /** R108 — persist the minute-of-day a habit's flexible calendar block was dragged to (display placement
+     *  only; not a reminder). Merges into the existing HabitTime cfg keyed by habit id. */
+    fun setHabitBlockMinute(habitId: String, minute: Int) = scope.launch {
+        if (habitId.isBlank()) return@launch
+        val cur = com.todocompanion.app.domain.habit.HabitTime.cfgFor(app.settings.value, habitId)
+        setHabitTimeCfg(habitId, cur.copy(blockMin = minute.coerceIn(0, 1439)))
+    }
+    val habitDetailId = MutableStateFlow<String?>(null)    // non-null → the analytics screen overlays the tab
+    val habitBatchOpen = MutableStateFlow(false)
+    val habitPresetOpen = MutableStateFlow(false)
+    val habitEditor = MutableStateFlow<HabitEditRequest?>(null)   // non-null → the full-screen editor is open
+    val habitQuickAddOpen = MutableStateFlow(false)               // L6: natural-language "type a habit" dialog
+    val habitTrendsOpen = MutableStateFlow(false)                 // M5: full trends & correlations dashboard
+    val habitArchiveOpen = MutableStateFlow(false)                // Archived habits + Trash management overlay
 }

@@ -2080,42 +2080,30 @@ class AppViewModel internal constructor(
 
     /** "Just start" (C2): a task pre-selected for the next time the Focus screen opens. */
     val pendingFocusTaskId = MutableStateFlow<String?>(null)
+    // ---- Habits tab view-state + settings setters + overlay flags live on HabitsViewModel now (Stage 5-B) ----
+    // Forwarding shims: the `get()` flows expose the same StateFlow/MutableStateFlow instances so external
+    // `.value =` writes (overlay open/close from many screens) keep working unchanged.
     /** Fusion F2: a habit pre-selected to Focus on; the Focus screen consumes it and auto-logs. */
-    val pendingFocusHabitId = MutableStateFlow<String?>(null)
-
-    // ---- Habits tab view-state, hoisted so the app's single top bar can drive it (one header) ----
-    // Matrix mode and density are now persisted in settings, so the choice survives an app restart
-    // (they used to reset to list/medium every launch).
-    val habitMatrixMode: StateFlow<Boolean> = settings.map { it.habitMatrixMode }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
-    val habitDensity: StateFlow<Int> = settings.map { it.habitDensity }.stateIn(viewModelScope, SharingStarted.Eagerly, 1)
-    fun setHabitMatrixMode(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(habitMatrixMode = on)) }
-    fun setHabitDensity(level: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(habitDensity = level.coerceIn(0, 2))) }
-    fun setHabitGroupByCategory(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(habitGroupByCategory = on)) }
-    fun setHabitSort(mode: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(habitSort = mode)) }
-    fun setHabitInsightsExpanded(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(habitInsightsExpanded = on)) }
+    val pendingFocusHabitId get() = habitsVm.pendingFocusHabitId
+    val habitMatrixMode get() = habitsVm.habitMatrixMode
+    val habitDensity get() = habitsVm.habitDensity
+    fun setHabitMatrixMode(on: Boolean) = habitsVm.setHabitMatrixMode(on)
+    fun setHabitDensity(level: Int) = habitsVm.setHabitDensity(level)
+    fun setHabitGroupByCategory(on: Boolean) = habitsVm.setHabitGroupByCategory(on)
+    fun setHabitSort(mode: String) = habitsVm.setHabitSort(mode)
+    fun setHabitInsightsExpanded(on: Boolean) = habitsVm.setHabitInsightsExpanded(on)
     /** Persist a habit's time-planning config (HabitTime) into settings-JSON, keyed by habit id. */
-    fun setHabitTimeCfg(habitId: String, cfg: com.todocompanion.app.domain.habit.HabitTime.Cfg) = viewModelScope.launch {
-        if (habitId.isBlank()) return@launch
-        val m = settings.value.habitTimeCfg.toMutableMap()
-        if (com.todocompanion.app.domain.habit.HabitTime.isDefault(cfg)) m.remove(habitId)
-        else m[habitId] = com.todocompanion.app.domain.habit.HabitTime.encodeCfg(cfg)
-        repo.saveSettings(settings.value.copy(habitTimeCfg = m))
-    }
-    /** R108 — persist the minute-of-day a habit's flexible calendar block was dragged to (display placement
-     *  only; not a reminder). Merges into the existing HabitTime cfg keyed by habit id. */
-    fun setHabitBlockMinute(habitId: String, minute: Int) = viewModelScope.launch {
-        if (habitId.isBlank()) return@launch
-        val cur = com.todocompanion.app.domain.habit.HabitTime.cfgFor(settings.value, habitId)
-        setHabitTimeCfg(habitId, cur.copy(blockMin = minute.coerceIn(0, 1439)))
-    }
+    fun setHabitTimeCfg(habitId: String, cfg: com.todocompanion.app.domain.habit.HabitTime.Cfg) = habitsVm.setHabitTimeCfg(habitId, cfg)
+    /** R108 — persist the minute-of-day a habit's flexible calendar block was dragged to. */
+    fun setHabitBlockMinute(habitId: String, minute: Int) = habitsVm.setHabitBlockMinute(habitId, minute)
     fun setTimeGridColumns(cols: Int) = viewModelScope.launch { repo.saveSettings(settings.value.copy(timeGridColumns = cols.coerceIn(2, 5))) }
-    val habitDetailId = MutableStateFlow<String?>(null)    // non-null → the analytics screen overlays the tab
-    val habitBatchOpen = MutableStateFlow(false)
-    val habitPresetOpen = MutableStateFlow(false)
-    val habitEditor = MutableStateFlow<HabitEditRequest?>(null)   // non-null → the full-screen editor is open
-    val habitQuickAddOpen = MutableStateFlow(false)               // L6: natural-language "type a habit" dialog
-    val habitTrendsOpen = MutableStateFlow(false)                 // M5: full trends & correlations dashboard
-    val habitArchiveOpen = MutableStateFlow(false)                // Archived habits + Trash management overlay
+    val habitDetailId get() = habitsVm.habitDetailId    // non-null → the analytics screen overlays the tab
+    val habitBatchOpen get() = habitsVm.habitBatchOpen
+    val habitPresetOpen get() = habitsVm.habitPresetOpen
+    val habitEditor get() = habitsVm.habitEditor         // non-null → the full-screen editor is open
+    val habitQuickAddOpen get() = habitsVm.habitQuickAddOpen   // L6: natural-language "type a habit" dialog
+    val habitTrendsOpen get() = habitsVm.habitTrendsOpen       // M5: full trends & correlations dashboard
+    val habitArchiveOpen get() = habitsVm.habitArchiveOpen     // Archived habits + Trash management overlay
     fun toggleChecklist(item: ChecklistItemEntity) = viewModelScope.launch { repo.saveChecklistItem(item.copy(checked = !item.checked)) }
     fun deleteChecklistItem(id: String) = viewModelScope.launch { repo.deleteChecklistItem(id) }
 
