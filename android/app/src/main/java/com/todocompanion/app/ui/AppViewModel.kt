@@ -204,6 +204,11 @@ class AppViewModel internal constructor(
     // the day-review rollup) reach it without a forward reference.
     val goalsRoutinesVm = GoalsRoutinesViewModel(this, viewModelScope, repo)
 
+    // Phase 3, Stage 7 — the backup / export / import / sync surface (the two data collaborators BackupExporter
+    // + RestoreManager, their wrappers, and the auto-backup/sync settings) lives in BackupSyncViewModel now,
+    // same collaborator pattern. Declared here so the shims below reach it without a forward reference.
+    val backupSyncVm = BackupSyncViewModel(this, viewModelScope, repo)
+
     // W2 (scale) — the active-workspace task set now comes from SQL (TaskDao.observeWorkspaceScoped, backed
     // by the restored workspaceId/folderId indices), re-subscribing when the workspace changes, instead of
     // loading the whole tasks table and filtering here. The SQL mirrors the old rule exactly — proven by
@@ -1025,7 +1030,8 @@ class AppViewModel internal constructor(
      *  OOM the app on import (share exports were already capped; imports were not). Returns null past the cap
      *  or on any read error. 64 MB comfortably covers a large full-JSON backup while refusing a pathological
      *  file. */
-    private fun readImportTextBounded(uri: android.net.Uri, maxBytes: Long = 64L * 1024 * 1024): String? =
+    // internal (was private) — BackupSyncViewModel's encrypted-backup importer reaches this shared bounded reader.
+    internal fun readImportTextBounded(uri: android.net.Uri, maxBytes: Long = 64L * 1024 * 1024): String? =
         runCatching {
             appCtx.contentResolver.openInputStream(uri)?.use { ins ->
                 val buf = java.io.ByteArrayOutputStream()
@@ -2283,7 +2289,7 @@ class AppViewModel internal constructor(
         }
         runCatching { appCtx.startActivity(intent) }.onFailure { toast("No app can open this file") }
     }
-    private fun displayNameOf(uri: Uri): String? = runCatching {
+    internal fun displayNameOf(uri: Uri): String? = runCatching {
         appCtx.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
             if (c.moveToFirst()) c.getString(0) else null
         }
@@ -5387,150 +5393,55 @@ class AppViewModel internal constructor(
      */
     fun searchHabits(query: String): List<com.todocompanion.app.data.entity.HabitEntity> = habitsVm.searchHabits(query)   // → HabitsViewModel (Stage 5-F)
 
-    // ---------- export / import ----------
-    // R75 — the file I/O lives in a standalone, unit-testable BackupExporter (context + repo + zone,
-    // no UI state). These wrappers keep only the threading and the UI glue (settings stamp, widget
-    // refreshes, user-facing messages), so behaviour is unchanged.
-    private val backup by lazy { com.todocompanion.app.data.backup.BackupExporter(appCtx, repo) { zone } }
-
-    fun exportTo(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch { onDone(backup.exportJson(uri)) }
-
-    // Wave O — device-independent passphrase-encrypted backup (PBKDF2 + AES-GCM). Restores on any device
-    // from the passphrase alone, unlike the Keystore-bound SQLCipher DB. Fully local — no network.
-    fun exportEncryptedBackup(uri: Uri, passphrase: String, onDone: (Boolean) -> Unit) = viewModelScope.launch {
-        val ok = withContext(Dispatchers.IO) {
-            runCatching {
-                val jsonStr = repo.exportJson()
-                val blob = com.todocompanion.app.util.PortableCrypto.encrypt(jsonStr, passphrase.toCharArray())
-                appCtx.contentResolver.openOutputStream(uri, "wt")?.use { it.write(blob.toByteArray()) }
-                true
-            }.getOrDefault(false)
-        }
-        onDone(ok)
-    }
-    fun importEncryptedBackup(uri: Uri, passphrase: String, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
-        val text = withContext(Dispatchers.IO) { runCatching { readImportTextBounded(uri) }.getOrNull() }
-        if (text == null) { onDone(false, "Couldn't read the file"); return@launch }
-        val plain = com.todocompanion.app.util.PortableCrypto.decrypt(text, passphrase.toCharArray())
-        if (plain == null) { onDone(false, "Wrong passphrase or damaged backup"); return@launch }
-        withContext(Dispatchers.IO) { repo.importJsonMerge(plain) }
-        onDone(true, "Restored from encrypted backup")
-    }
-    fun exportMarkdownTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = viewModelScope.launch { onDone(backup.exportMarkdown(uri, includeCompleted)) }
-    fun exportCsvTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = viewModelScope.launch { onDone(backup.exportCsv(uri, includeCompleted)) }
-    fun exportIcsTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = viewModelScope.launch { onDone(backup.exportIcs(uri, includeCompleted)) }
-    fun exportHabitsCsvTo(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch { onDone(backup.exportHabitsCsv(uri)) }
-
-    /**
-     * SAF-free export fallback: write the chosen export straight into the public Downloads folder
-     * (or the app's files dir on older devices). Used when the device has no system document picker.
-     * [onDone] receives a user-facing location like "Downloads/todo-companion-backup.json", or null.
-     */
-    fun exportToDownloads(kind: String, onDone: (String?) -> Unit) = viewModelScope.launch {
-        val loc = backup.downloadExport(kind)
-        // U10: a successful full backup stamps the "last backup" time the Momentum data-safety card reads.
-        if (kind == "json" && loc != null) repo.saveSettings(settings.value.copy(lastBackupAt = System.currentTimeMillis(), lastSyncAt = System.currentTimeMillis()))
-        onDone(loc)
-    }
-    fun importHabitsCsv(uri: Uri, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
-        val n = backup.importHabitsCsv(uri)
-        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
-        com.todocompanion.app.widget.HabitsWidget.refresh(appCtx)
-        when { n < 0 -> onDone(false, "Couldn't read that CSV — export from Loop, or our habit CSV"); n == 0 -> onDone(false, "No check-ins found in that file"); else -> onDone(true, "Imported $n habit check-ins") }
-    }
-
-    // ── CU3 · import an .ics calendar into tasks (the other half of the 2-way bridge) ──────────────
-    fun importIcs(uri: Uri, onDone: (Boolean, String) -> Unit) = viewModelScope.launch {
-        val n = backup.importIcsAsTasks(uri)
-        when { n < 0 -> onDone(false, "Couldn't read that file"); n == 0 -> onDone(false, "No events found in that .ics"); else -> onDone(true, "Imported $n event${if (n == 1) "" else "s"} as tasks") }
-    }
-
-    // ── CU4 · one-tap handoff — share a full copy through the system share sheet (0 permission) ────
-    fun shareBackupCopy(onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
-        val uri = withContext(Dispatchers.IO) {
-            runCatching {
-                val json = repo.exportJson()
-                val dir = java.io.File(appCtx.cacheDir, "shared").apply { mkdirs() }
-                val f = java.io.File(dir, "modular-backup-${java.time.LocalDate.now(zone)}.json").apply { writeText(json) }
-                androidx.core.content.FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", f)
-            }.getOrNull()
-        }
-        if (uri == null) { toast("Couldn't prepare the copy"); onDone(false); return@launch }
-        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-            type = "application/json"; putExtra(android.content.Intent.EXTRA_STREAM, uri)
-            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        val chooser = android.content.Intent.createChooser(send, "Send a copy to another device").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-        runCatching { appCtx.startActivity(chooser) }.onFailure { toast("No app to share with") }
-        onDone(true)
-    }
+    // ---------- export / import / sync → BackupSyncViewModel (Stage 7) ----------
+    // The BackupExporter + RestoreManager data collaborators and their threading/UI-glue wrappers live on
+    // BackupSyncViewModel now; the parent keeps thin forwarding shims so the Settings + import/export call
+    // sites need no edits. (The feature-specific importers below — calendar .ics/vCard, the note courier —
+    // and the app-level plain settings setters stay here on purpose.)
+    fun exportTo(uri: Uri, onDone: (Boolean) -> Unit) = backupSyncVm.exportTo(uri, onDone)
+    fun exportEncryptedBackup(uri: Uri, passphrase: String, onDone: (Boolean) -> Unit) = backupSyncVm.exportEncryptedBackup(uri, passphrase, onDone)
+    fun importEncryptedBackup(uri: Uri, passphrase: String, onDone: (Boolean, String) -> Unit) = backupSyncVm.importEncryptedBackup(uri, passphrase, onDone)
+    fun exportMarkdownTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = backupSyncVm.exportMarkdownTo(uri, includeCompleted, onDone)
+    fun exportCsvTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = backupSyncVm.exportCsvTo(uri, includeCompleted, onDone)
+    fun exportIcsTo(uri: Uri, includeCompleted: Boolean, onDone: (Boolean) -> Unit) = backupSyncVm.exportIcsTo(uri, includeCompleted, onDone)
+    fun exportHabitsCsvTo(uri: Uri, onDone: (Boolean) -> Unit) = backupSyncVm.exportHabitsCsvTo(uri, onDone)
+    fun exportToDownloads(kind: String, onDone: (String?) -> Unit) = backupSyncVm.exportToDownloads(kind, onDone)
+    fun importHabitsCsv(uri: Uri, onDone: (Boolean, String) -> Unit) = backupSyncVm.importHabitsCsv(uri, onDone)
+    fun importIcs(uri: Uri, onDone: (Boolean, String) -> Unit) = backupSyncVm.importIcs(uri, onDone)
+    fun shareBackupCopy(onDone: (Boolean) -> Unit = {}) = backupSyncVm.shareBackupCopy(onDone)
 
     // ── CU5 · accountability snapshot — share a goal's progress as an image card → GoalsRoutinesViewModel ──
     fun shareGoalSnapshot(g: com.todocompanion.app.domain.Goal, onDone: (String?) -> Unit = {}) = goalsRoutinesVm.shareGoalSnapshot(g, onDone)
 
-    // ---------- Tier D: folder backup & account-free sync ----------
-    // R84 — sync + every restore/import path lives in data.backup/RestoreManager (the most data-sensitive
-    // corner: a restore overwrites the whole store). The VM keeps the trivial settings setters below and
-    // thin viewModelScope wrappers; behaviour is identical.
-    private val restore by lazy {
-        com.todocompanion.app.data.backup.RestoreManager(
-            appCtx, repo,
-            settings = { settings.value },
-            saveSettings = { repo.saveSettings(it) },
-            listsSnapshot = { lists.value },
-            displayNameOf = { displayNameOf(it) },
-        )
-    }
-    fun setSyncFolder(uri: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(syncFolder = uri, syncEnabled = uri.isNotBlank())) }
-    /** Re-arm (or cancel) the auto-backup alarm from the latest settings, so enabling/retiming takes
-     *  effect immediately rather than waiting for the next app launch or boot. */
-    private fun rearmAutoBackup(s: com.todocompanion.app.domain.AppSettings) {
-        if (s.autoBackupEnabled && s.autoBackupFolder.ifBlank { s.syncFolder }.isNotBlank())
-            com.todocompanion.app.reminders.AlarmScheduler.scheduleAutoBackup(appCtx, s.autoBackupHour, s.autoBackupIntervalDays, s.lastBackupAt, s.autoBackupDow, s.autoBackupDom)
-        else com.todocompanion.app.reminders.AlarmScheduler.cancelAutoBackup(appCtx)
-    }
-    fun setAutoBackupFolder(uri: String) = viewModelScope.launch {
-        val s = settings.value.copy(autoBackupFolder = uri, autoBackupEnabled = uri.isNotBlank()); repo.saveSettings(s); rearmAutoBackup(s)
-    }
-    fun setAutoBackupEnabled(on: Boolean) = viewModelScope.launch {
-        val s = settings.value.copy(autoBackupEnabled = on); repo.saveSettings(s); rearmAutoBackup(s)
-    }
-    /** How often the automatic backup runs (days: 1 daily · 7 weekly · 30 monthly). */
-    fun setAutoBackupInterval(days: Int) = viewModelScope.launch {
-        val s = settings.value.copy(autoBackupIntervalDays = days.coerceIn(1, 30)); repo.saveSettings(s); rearmAutoBackup(s)
-    }
-    /** The hour of day (0–23) the automatic backup fires. */
-    fun setAutoBackupHour(hour: Int) = viewModelScope.launch {
-        val s = settings.value.copy(autoBackupHour = hour.coerceIn(0, 23)); repo.saveSettings(s); rearmAutoBackup(s)
-    }
-    /** For weekly backups: which ISO weekday to run on (1 = Mon … 7 = Sun). */
-    fun setAutoBackupDow(dow: Int) = viewModelScope.launch {
-        val s = settings.value.copy(autoBackupDow = dow.coerceIn(0, 7)); repo.saveSettings(s); rearmAutoBackup(s)
-    }
-    /** For monthly backups: which day-of-month to run on (1–31, clamped to the month's length). */
-    fun setAutoBackupDom(dom: Int) = viewModelScope.launch {
-        val s = settings.value.copy(autoBackupDom = dom.coerceIn(1, 31)); repo.saveSettings(s); rearmAutoBackup(s)
-    }
+    // ---------- Tier D: folder backup & account-free sync → BackupSyncViewModel (Stage 7) ----------
+    // The RestoreManager + its wrappers + the auto-backup/sync settings live on BackupSyncViewModel now.
+    fun setSyncFolder(uri: String) = backupSyncVm.setSyncFolder(uri)
+    fun setAutoBackupFolder(uri: String) = backupSyncVm.setAutoBackupFolder(uri)
+    fun setAutoBackupEnabled(on: Boolean) = backupSyncVm.setAutoBackupEnabled(on)
+    fun setAutoBackupInterval(days: Int) = backupSyncVm.setAutoBackupInterval(days)
+    fun setAutoBackupHour(hour: Int) = backupSyncVm.setAutoBackupHour(hour)
+    fun setAutoBackupDow(dow: Int) = backupSyncVm.setAutoBackupDow(dow)
+    fun setAutoBackupDom(dom: Int) = backupSyncVm.setAutoBackupDom(dom)
     /** Toggle a smart-list helper card between folded (default) and expanded; the choice persists. */
     fun toggleSmartCard(key: String) = viewModelScope.launch {
         val cur = settings.value.smartCardsExpanded
         repo.saveSettings(settings.value.copy(smartCardsExpanded = if (key in cur) cur - key else cur + key))
     }
-    fun setSyncEnabled(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(syncEnabled = on)) }
+    fun setSyncEnabled(on: Boolean) = backupSyncVm.setSyncEnabled(on)
     fun markOnboarded() = viewModelScope.launch { repo.saveSettings(settings.value.copy(onboarded = true)) }
     fun replayOnboarding() = viewModelScope.launch { repo.saveSettings(settings.value.copy(onboarded = false)) }
-    fun setSyncPassphrase(pass: String) = viewModelScope.launch { repo.saveSettings(settings.value.copy(syncPassphrase = pass)) }
+    fun setSyncPassphrase(pass: String) = backupSyncVm.setSyncPassphrase(pass)
 
-    fun runSyncNow(onDone: (Boolean, String) -> Unit) = viewModelScope.launch { restore.runSyncNow(onDone) }
-    fun runBackupNow(onDone: (Boolean) -> Unit) = viewModelScope.launch { restore.runBackupNow(onDone) }
+    fun runSyncNow(onDone: (Boolean, String) -> Unit) = backupSyncVm.runSyncNow(onDone)
+    fun runBackupNow(onDone: (Boolean) -> Unit) = backupSyncVm.runBackupNow(onDone)
     /** Import tasks from a Todoist/TickTick CSV or MLO OPML/.mlobak file. Returns (ok, message). */
-    fun importExternal(uri: Uri, onDone: (Boolean, String) -> Unit) = viewModelScope.launch { restore.importExternal(uri, onDone) }
-    fun loadSavedBackups(broad: Boolean = false, onDone: (List<com.todocompanion.app.util.FileExport.SavedFile>) -> Unit) = viewModelScope.launch { onDone(restore.loadSavedBackups(broad)) }
-    fun importInboxHint(): String = restore.importInboxHint()
-    fun importPastedText(text: String, onDone: (Boolean, String) -> Unit) = viewModelScope.launch { restore.importPastedText(text, onDone) }
-    fun restoreSaved(s: com.todocompanion.app.util.FileExport.SavedFile, onDone: (Boolean, String) -> Unit) = viewModelScope.launch { restore.restoreSaved(s, onDone) }
-    fun importFromIntent(uri: Uri, merge: Boolean = false, onDone: (Boolean, String) -> Unit) = viewModelScope.launch { restore.importFromIntent(uri, merge, onDone) }
-    fun importFrom(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch { restore.importFrom(uri, onDone) }
+    fun importExternal(uri: Uri, onDone: (Boolean, String) -> Unit) = backupSyncVm.importExternal(uri, onDone)
+    fun loadSavedBackups(broad: Boolean = false, onDone: (List<com.todocompanion.app.util.FileExport.SavedFile>) -> Unit) = backupSyncVm.loadSavedBackups(broad, onDone)
+    fun importInboxHint(): String = backupSyncVm.importInboxHint()
+    fun importPastedText(text: String, onDone: (Boolean, String) -> Unit) = backupSyncVm.importPastedText(text, onDone)
+    fun restoreSaved(s: com.todocompanion.app.util.FileExport.SavedFile, onDone: (Boolean, String) -> Unit) = backupSyncVm.restoreSaved(s, onDone)
+    fun importFromIntent(uri: Uri, merge: Boolean = false, onDone: (Boolean, String) -> Unit) = backupSyncVm.importFromIntent(uri, merge, onDone)
+    fun importFrom(uri: Uri, onDone: (Boolean) -> Unit) = backupSyncVm.importFrom(uri, onDone)
 
     private fun buildOutline(all: List<TaskEntity>, startId: String? = null): List<OutlineRow> {
         val byParent = all.groupBy { it.parentId }
