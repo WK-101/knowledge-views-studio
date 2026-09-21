@@ -45,9 +45,19 @@ class BackupRoundTripTest {
         val folderId = srcRepo.createFolder("Projects")
         val listId = srcRepo.createList("Alpha", folderId = folderId)
         val t1 = srcRepo.createTask(listId, "Ship it")
-        srcRepo.createTask(listId, "Write tests")
+        val t2 = srcRepo.createTask(listId, "Write tests")
         val habitId = srcRepo.createHabit(HabitEntity(id = "h1", name = "Meditate", createdAt = 0L))
         srcRepo.setCheckinValue(habitId, 20_000L, 1)
+        // #14 — task-adjacent relational tables: a flag assigned to a task, a tag + a context linked to a task,
+        // and a cross-task dependency. Each rides its own backup-envelope collection and was previously
+        // unasserted here; a future change that drops one from export/import now fails.
+        val flagId = srcRepo.createFlag("Urgent", 0xFFEF4444L)
+        srcRepo.getTask(t1)!!.let { srcRepo.saveTask(it.copy(flagId = flagId)) }
+        srcRepo.upsertTag(com.todocompanion.app.data.entity.TagEntity(id = "tag-work", name = "work"))
+        srcRepo.setTaskTags(t1, listOf("tag-work"))
+        srcRepo.upsertContext(com.todocompanion.app.data.entity.ContextEntity(id = "ctx-home", name = "@home"))
+        srcRepo.setTaskContexts(t1, listOf("ctx-home"))
+        srcRepo.addDependency(taskId = t2, dependsOn = t1)
         // Settings (the whole key/value map — theme, review config, share config, daily questions, …).
         srcRepo.saveSettings(srcRepo.settingsSnapshot().copy(weekStart = 3, dailyQuestionsJson = "SEED-Q"))
         // W3 — Phase B goals now live in a Room table (with milestones + key results), not the settings blob;
@@ -108,6 +118,12 @@ class BackupRoundTripTest {
         assertEquals("list keeps its folder", folderId, dstRepo.allLists.first().first { it.id == listId }.folderId)
         assertEquals("habit survives", "Meditate", dstRepo.allHabits.first().first { it.id == "h1" }.name)
         assertTrue("check-in survives", dstRepo.allCheckins.first().any { it.habitId == "h1" })
+        // Task-adjacent relational tables (#14).
+        assertTrue("flag survives", dstRepo.allFlags.first().any { it.id == flagId && it.name == "Urgent" })
+        assertEquals("task keeps its flag", flagId, dstRepo.getTask(t1)?.flagId)
+        assertTrue("task↔tag link survives", dstRepo.taskTagRefs.first().any { it.taskId == t1 && it.tagId == "tag-work" })
+        assertTrue("task↔context link survives", dstRepo.taskContextRefs.first().any { it.taskId == t1 && it.contextId == "ctx-home" })
+        assertTrue("dependency survives", dstRepo.allDependencies.first().any { it.taskId == t2 && it.dependsOnTaskId == t1 })
         // Settings.
         val restored = dstRepo.settingsSnapshot()
         assertEquals("settings survive (weekStart)", 3, restored.weekStart)
