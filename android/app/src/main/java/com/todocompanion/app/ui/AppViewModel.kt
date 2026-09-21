@@ -3703,65 +3703,26 @@ class AppViewModel internal constructor(
     // LS2 context capture at check-in — lives on HabitsViewModel now (Stage 5-D).
     fun setCheckinContext(h: com.todocompanion.app.data.entity.HabitEntity, epochDay: Long, energy: Int, mood: Int, place: String) = habitsVm.setCheckinContext(h, epochDay, energy, mood, place)
 
-    // LS · buddy digest export / import
-    fun exportBuddyDigest(name: String): String {
-        val today = java.time.LocalDate.now(zone).toEpochDay()
-        val digest = com.todocompanion.app.domain.habit.LifeSystems.buildDigest(name.ifBlank { "Me" }, habits.value, habitCheckins.value, today, settings.value.forgivingStreaks)
-        return kotlinx.serialization.json.Json.encodeToString(com.todocompanion.app.domain.habit.LifeSystems.BuddyDigest.serializer(), digest)
-    }
-    fun importBuddyDigest(json: String) = viewModelScope.launch {
-        val digest = runCatching { kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString(com.todocompanion.app.domain.habit.LifeSystems.BuddyDigest.serializer(), json) }.getOrNull()
-        if (digest == null) { toast("That doesn't look like a buddy digest."); return@launch }
-        repo.upsertBuddy(com.todocompanion.app.data.entity.BuddySnapshotEntity(java.util.UUID.randomUUID().toString(), digest.name, System.currentTimeMillis(), json, workspaceId = activeWorkspace()))
-        toast("Imported ${digest.name}'s progress 🤝")
-    }
-    fun deleteBuddy(id: String) = viewModelScope.launch { repo.deleteBuddy(id) }
-
-    // LS6 save an integrity-review reflection
-    fun saveIntegrityReview(kind: String, periodKey: String, note: String, statsJson: String) = viewModelScope.launch {
-        repo.upsertIntegrityReview(com.todocompanion.app.data.entity.IntegrityReviewEntity(
-            java.util.UUID.randomUUID().toString(), kind, periodKey, System.currentTimeMillis(), note.trim(), statsJson, workspaceId = activeWorkspace()))
-        toast("Review saved to your ledger.")
-    }
-    fun deleteIntegrityReview(id: String) = viewModelScope.launch { repo.deleteIntegrityReview(id) }
-
-    // ── R35 · third-wave actions ──────────────────────────────────────────────────────────────────
-    fun setBookends(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(bookendsEnabled = on)) }
-    fun setCompanion(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(companionEnabled = on)) }
-    fun setStrengthMeter(on: Boolean) = viewModelScope.launch { repo.saveSettings(settings.value.copy(strengthMeter = on)) }
-
-    // TW-B self-tuning reminder — accept the suggested time.
-    fun applyReminderDrift(h: com.todocompanion.app.data.entity.HabitEntity, minute: Int) = viewModelScope.launch {
-        val others = h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }
-        val typical = com.todocompanion.app.domain.habit.HabitStats.typicalDoneMinute(repo.getHabitCheckinsOnce().filter { it.habitId == h.id })
-        val replaced = if (others.isEmpty()) listOf(minute) else {
-            val nearest = others.minByOrNull { kotlin.math.abs(it - (typical ?: minute)) }
-            (others - (nearest ?: minute) + minute).distinct().sorted()
-        }
-        repo.upsertHabit(h.copy(reminderTimes = replaced.joinToString(",")))
-        com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(appCtx, repo)
-        toast("Reminder moved to ${com.todocompanion.app.domain.habit.HabitStats.minuteLabel(minute)}.")
-    }
-
-    // TW-D reward taper — graduate / un-graduate a habit that's reached automaticity.
-    fun setGraduated(h: com.todocompanion.app.data.entity.HabitEntity, on: Boolean) = viewModelScope.launch {
-        repo.upsertHabit(h.copy(graduated = on))
-        toast(if (on) "🎓 Graduated — this one's part of you now. Prompts will ease off." else "Back to active coaching.")
-    }
+    // Buddy digest · integrity ledger · third-wave · reminder-drift · graduation live on HabitsViewModel now
+    // (Stage 5-E2) — forwarding shims.
+    fun exportBuddyDigest(name: String): String = habitsVm.exportBuddyDigest(name)
+    fun importBuddyDigest(json: String) = habitsVm.importBuddyDigest(json)
+    fun deleteBuddy(id: String) = habitsVm.deleteBuddy(id)
+    fun saveIntegrityReview(kind: String, periodKey: String, note: String, statsJson: String) = habitsVm.saveIntegrityReview(kind, periodKey, note, statsJson)
+    fun deleteIntegrityReview(id: String) = habitsVm.deleteIntegrityReview(id)
+    fun setBookends(on: Boolean) = habitsVm.setBookends(on)
+    fun setCompanion(on: Boolean) = habitsVm.setCompanion(on)
+    fun setStrengthMeter(on: Boolean) = habitsVm.setStrengthMeter(on)
+    fun applyReminderDrift(h: com.todocompanion.app.data.entity.HabitEntity, minute: Int) = habitsVm.applyReminderDrift(h, minute)
+    fun setGraduated(h: com.todocompanion.app.data.entity.HabitEntity, on: Boolean) = habitsVm.setGraduated(h, on)
 
     // TW-F make-up ledger — lives on HabitsViewModel now (Stage 5-D).
     fun logMakeUp(h: com.todocompanion.app.data.entity.HabitEntity, day: Long) = habitsVm.logMakeUp(h, day)
 
-    // TW-C n-of-1 experiments.
-    fun startExperiment(habitId: String, outcome: String, blockLen: Int, blocks: Int) = viewModelScope.launch {
-        val today = java.time.LocalDate.now(zone).toEpochDay()
-        repo.upsertExperiment(com.todocompanion.app.data.entity.ExperimentEntity(
-            id = java.util.UUID.randomUUID().toString(), habitId = habitId, outcome = outcome,
-            startDay = today, blockLenDays = blockLen.coerceIn(1, 14), blocks = blocks.coerceIn(2, 12), createdAt = System.currentTimeMillis(), workspaceId = activeWorkspace()))
-        toast("Experiment started. Follow the on/off blocks and log your ${outcome}.")
-    }
-    fun endExperiment(e: com.todocompanion.app.data.entity.ExperimentEntity) = viewModelScope.launch { repo.upsertExperiment(e.copy(active = false)) }
-    fun deleteExperiment(id: String) = viewModelScope.launch { repo.deleteExperiment(id) }
+    // TW-C n-of-1 experiments — live on HabitsViewModel now (Stage 5-E2).
+    fun startExperiment(habitId: String, outcome: String, blockLen: Int, blocks: Int) = habitsVm.startExperiment(habitId, outcome, blockLen, blocks)
+    fun endExperiment(e: com.todocompanion.app.data.entity.ExperimentEntity) = habitsVm.endExperiment(e)
+    fun deleteExperiment(id: String) = habitsVm.deleteExperiment(id)
 
     // TW-D behavioral activation.
     fun addActivation(text: String, valueId: String?, day: Long) = viewModelScope.launch {
