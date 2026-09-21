@@ -185,6 +185,11 @@ class AppViewModel internal constructor(
     // every screen reaches the whole time surface through this one object.
     val timeVm = TimeTrackingViewModel(this, viewModelScope, repo, timeCtl)
 
+    // Phase 3, Stage 4 — the Notes surface lives in NotesViewModel now (same collaborator pattern as timeVm):
+    // it owns the workspace-scoped note read-model flows (and, in later stages, the note actions). Declared
+    // here so the shims below and this VM's own note-touching helpers reach it without a forward reference.
+    val notesVm = NotesViewModel(this, viewModelScope, repo)
+
     // W2 (scale) — the active-workspace task set now comes from SQL (TaskDao.observeWorkspaceScoped, backed
     // by the restored workspaceId/folderId indices), re-subscribing when the workspace changes, instead of
     // loading the whole tasks table and filtering here. The SQL mirrors the old rule exactly — proven by
@@ -216,24 +221,15 @@ class AppViewModel internal constructor(
     val countdowns = repo.allCountdowns.scopedBy { it.workspaceId }
     val sealedNotes = repo.allSealedNotes.scopedBy { it.workspaceId }
     val cravings = repo.allCravings.scopedBy { it.workspaceId }
-    // Notes module (v66) — workspace-scoped, non-trashed notes + the optional dedicated notebook tree.
-    // W2 (scale) — the live-notes and Trash lists now filter workspace+trashed IN SQL (index-backed via
-    // NoteDao.observeByWorkspace), re-subscribing when the active workspace changes, instead of loading the
-    // whole notes table and filtering in memory here. Behaviour is identical (proven by NoteScopeQueryTest).
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val notes = activeWs.flatMapLatest { ws -> repo.observeNotesByWorkspace(ws, trashed = false) }.state(emptyList())
-    /** The Trash — workspace-scoped notes the user has trashed but not yet permanently deleted. */
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val trashedNotes = activeWs.flatMapLatest { ws -> repo.observeNotesByWorkspace(ws, trashed = true) }.state(emptyList())
-    val notebooks = repo.observeNotebooks().scopedBy { it.workspaceId }
-    // Note ↔ tag cross-refs (for chips on cards / editor). Observe the note_tags table directly so a tag
-    // toggle reflects immediately — writing note_tags doesn't touch the notes table, so deriving this from
-    // the notes flow left the editor's chips stale (tags looked un-addable/un-selectable).
-    val noteTagRefs: StateFlow<List<com.todocompanion.app.data.entity.NoteTagCrossRef>> =
-        repo.observeNoteTagCrossRefs().state(emptyList())
-    val noteContextRefs: StateFlow<List<com.todocompanion.app.data.entity.NoteContextCrossRef>> =
-        repo.observeNoteContextCrossRefs().state(emptyList())
-    val smartViews = repo.observeSmartViews().scopedBy { it.workspaceId }
+    // Notes module (v66) — the read-model flows moved to NotesViewModel (Phase 3, Stage 4a). Kept callable
+    // here as thin forwarding shims (like timeVm's retained helpers, in reverse) so the ~170 note call sites
+    // across the screens — and this VM's own note-touching helpers — need no edits.
+    val notes get() = notesVm.notes
+    val trashedNotes get() = notesVm.trashedNotes
+    val notebooks get() = notesVm.notebooks
+    val noteTagRefs get() = notesVm.noteTagRefs
+    val noteContextRefs get() = notesVm.noteContextRefs
+    val smartViews get() = notesVm.smartViews
     // R34 — life-systems layer flows.
     val coreValues = repo.allCoreValues.scopedBy { it.workspaceId }
     // R67 — temptation-bundling + implementation-intention micro-plans (settings-JSON, no schema).
