@@ -3,6 +3,7 @@ package com.todocompanion.app.widget
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -11,11 +12,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Create
@@ -88,31 +92,43 @@ private fun QuickNotePanel(onSave: (String, String) -> Unit, onDismiss: () -> Un
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { bodyFocus.requestFocus(); keyboard?.show() }
 
-    // Tap-away scrim finishes; the card consumes taps.
+    // A dimmed scrim behind a bottom sheet — a proper modal popup, not a bare card floating on the
+    // launcher. Tap-away on the scrim dismisses; the sheet consumes its own taps.
     Box(
-        Modifier.fillMaxSize().clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onDismiss() },
+        Modifier.fillMaxSize()
+            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.32f))
+            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onDismiss() },
         contentAlignment = Alignment.BottomCenter,
     ) {
         Surface(
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 3.dp,
+            tonalElevation = 2.dp,
+            shadowElevation = 16.dp,
             // Lift above the keyboard and the nav bar so the whole panel is visible while typing.
             modifier = Modifier.fillMaxWidth().imePadding().navigationBarsPadding()
                 .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {},
         ) {
             // Borderless title + body, matching the in-app Notes editor (no boxed fields).
             val clear = TextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
                 focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
                 unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
                 disabledIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
             )
-            Column(Modifier.padding(horizontal = 8.dp, vertical = 12.dp)) {
+            Column(Modifier.padding(horizontal = 10.dp, vertical = 10.dp)) {
+                // Grabber handle — the sheet affordance.
+                Box(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentAlignment = Alignment.Center) {
+                    Box(
+                        Modifier.width(36.dp).height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.30f)),
+                    )
+                }
                 Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.Create, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 8.dp))
-                    Text("New note", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("New note", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 TextField(
                     value = title, onValueChange = { title = it },

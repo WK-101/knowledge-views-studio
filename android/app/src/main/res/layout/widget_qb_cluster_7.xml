@@ -1,43 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Quick-bar tap grid for 7 actions — a flower (centre + hex ring), the "blob" island: top pair ·
-     middle triple with centre · bottom pair. Weights MUST match WidgetBitmaps.clusterPositions(7).
-     RemoteViews-legal containers only. -->
+<!-- Quick-bar tap grid for 7 actions — a prominent centre + a 6-way ring (top pair, side pair,
+     bottom pair). Weights MUST match WidgetBitmaps.clusterPositions(7). qb_c0 = centre.
+     RemoteViews-legal only. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:baselineAligned="false">
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:baselineAligned="false">
 
-    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.55" />
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="2"
         android:orientation="horizontal" android:baselineAligned="false">
-        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1.5" />
-        <FrameLayout android:id="@+id/qb_c0" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
-        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.55" />
         <FrameLayout android:id="@+id/qb_c1" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
-        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1.5" />
-    </LinearLayout>
-
-    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="2"
-        android:orientation="horizontal" android:baselineAligned="false">
-        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.5" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
         <FrameLayout android:id="@+id/qb_c2" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
-        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.5" />
-        <FrameLayout android:id="@+id/qb_c3" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
-        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.5" />
-        <FrameLayout android:id="@+id/qb_c4" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
-        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.5" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.55" />
     </LinearLayout>
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="2"
         android:orientation="horizontal" android:baselineAligned="false">
-        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1.5" />
-        <FrameLayout android:id="@+id/qb_c5" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
-        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-        <FrameLayout android:id="@+id/qb_c6" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
-        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1.5" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.55" />
+        <FrameLayout android:id="@+id/qb_c3" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
+        <FrameLayout android:id="@+id/qb_c0" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
+        <FrameLayout android:id="@+id/qb_c4" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.55" />
     </LinearLayout>
 
-    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="2"
+        android:orientation="horizontal" android:baselineAligned="false">
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.55" />
+        <FrameLayout android:id="@+id/qb_c5" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
+        <FrameLayout android:id="@+id/qb_c6" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.55" />
+    </LinearLayout>
+
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.55" />
 </LinearLayout>

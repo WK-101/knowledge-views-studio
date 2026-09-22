@@ -1,30 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Quick-bar tap grid for 4 actions — a centred 2×2 cluster. Weights here MUST match
-     WidgetBitmaps.clusterPositions(4) so the transparent tap cells sit exactly over the drawn discs.
-     Every node is a RemoteViews-legal container (FrameLayout / LinearLayout); no bare <View>. -->
+<!-- Quick-bar tap grid for 4 actions — a prominent centre + 3 around it (top-left, top-right, bottom).
+     Cells sit on a 3×3 grid; weights MUST match WidgetBitmaps.clusterPositions(4). qb_c0 = centre.
+     RemoteViews-legal containers only. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:baselineAligned="false">
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:baselineAligned="false">
 
-    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.55" />
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="2"
         android:orientation="horizontal" android:baselineAligned="false">
-        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-        <FrameLayout android:id="@+id/qb_c0" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.55" />
         <FrameLayout android:id="@+id/qb_c1" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
-        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
+        <FrameLayout android:id="@+id/qb_c2" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.55" />
     </LinearLayout>
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="2"
         android:orientation="horizontal" android:baselineAligned="false">
-        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-        <FrameLayout android:id="@+id/qb_c2" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
-        <FrameLayout android:id="@+id/qb_c3" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
-        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.55" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
+        <FrameLayout android:id="@+id/qb_c0" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.55" />
     </LinearLayout>
 
-    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="2"
+        android:orientation="horizontal" android:baselineAligned="false">
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.55" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
+        <FrameLayout android:id="@+id/qb_c3" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="2" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.55" />
+    </LinearLayout>
+
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.55" />
 </LinearLayout>

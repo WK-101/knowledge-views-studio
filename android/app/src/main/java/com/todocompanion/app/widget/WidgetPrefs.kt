@@ -85,7 +85,7 @@ object WidgetPrefs {
     }
 
     // Quick-bar widget: how many buttons (4–7) and which action each slot fires.
-    val QUICK_ACTIONS = listOf("task", "note", "habit", "time", "search", "closeday", "weekreview")
+    val QUICK_ACTIONS = listOf("task", "note", "habit", "time", "search", "dailynote", "closeday", "weekreview")
     private val QUICK_DEFAULT = listOf("task", "note", "habit", "time", "search", "closeday", "weekreview")
 
     fun quickCount(ctx: Context, id: Int): Int =

@@ -275,21 +275,25 @@ object WidgetBitmaps {
      * exactly the same fractions — so a tap always hits the disc under the finger. Counts run 4–7
      * (the configurable range); 1–3 are sane fallbacks. See each layout XML for the mirror weights.
      */
-    fun clusterPositions(n: Int): List<Pair<Float, Float>> = when (n.coerceIn(1, 7)) {
-        1 -> listOf(0.5f to 0.5f)
-        2 -> listOf(0.333f to 0.5f, 0.667f to 0.5f)
-        3 -> listOf(0.5f to 0.30f, 0.333f to 0.70f, 0.667f to 0.70f)
-        4 -> listOf(0.333f to 0.333f, 0.667f to 0.333f, 0.333f to 0.667f, 0.667f to 0.667f)
-        5 -> listOf(0.25f to 0.25f, 0.75f to 0.25f, 0.5f to 0.5f, 0.25f to 0.75f, 0.75f to 0.75f)
-        6 -> listOf(0.3125f to 0.25f, 0.6875f to 0.25f, 0.25f to 0.5f, 0.75f to 0.5f, 0.3125f to 0.75f, 0.6875f to 0.75f)
-        else -> listOf(0.3125f to 0.25f, 0.6875f to 0.25f, 0.1875f to 0.5f, 0.5f to 0.5f, 0.8125f to 0.5f, 0.3125f to 0.75f, 0.6875f to 0.75f)
+    fun clusterPositions(n: Int): List<Pair<Float, Float>> {
+        val a = 0.218f; val b = 0.5f; val d = 0.782f   // 3×3 grid cell centres (matches the tap grids)
+        return when (n.coerceIn(1, 7)) {
+            1 -> listOf(b to b)
+            2 -> listOf(a to b, d to b)
+            3 -> listOf(b to b, a to a, d to a)                                   // centre + top pair
+            4 -> listOf(b to b, a to a, d to a, b to d)                           // centre + TL,TR,B
+            5 -> listOf(b to b, a to a, d to a, a to d, d to d)                   // centre + 4 corners
+            6 -> listOf(b to b, a to a, d to a, a to b, d to b, b to d)           // centre + TL,TR,L,R,B
+            else -> listOf(b to b, a to a, d to a, a to b, d to b, a to d, d to d) // centre + 6-way ring
+        }
     }
 
-    /** The Quick-bar "island": the chosen actions drawn as one cohesive cluster — a soft accent blob
-     *  (the union of the discs' halos, so the shape reads as a single connected object) with the crisp
-     *  accent discs and their glyphs on top. Positions come from [clusterPositions] so the overlaid
-     *  `widget_qb_cluster_N` tap grid lines up disc-for-disc. */
-    fun quickCluster(wPx: Int, hPx: Int, keys: List<String>, discColor: Int, glyphColor: Int): Bitmap {
+    /** The Quick-bar "island" (Google-Keep-style): ONE solid, bumpy-squircle blob with a prominent
+     *  centre button (the primary action) and the remaining actions as clean glyphs sitting directly on
+     *  the blob — no per-action discs, no faint wash. Positions come from [clusterPositions] so the
+     *  overlaid `widget_qb_cluster_N` tap grid lines up action-for-action. Colours are derived here from
+     *  [dark]/[accent]/[onAccent] and the blob is faded to [opacity] (0–100). */
+    fun quickCluster(wPx: Int, hPx: Int, keys: List<String>, dark: Boolean, accent: Int, onAccent: Int, opacity: Int): Bitmap {
         val w = cap(wPx, 1600); val h = cap(hPx, 900)
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
@@ -297,22 +301,38 @@ object WidgetBitmaps {
         val pos = clusterPositions(n)
         val wf = w.toFloat(); val hf = h.toFloat()
         val minDim = min(wf, hf)
-        val rDisc = minDim * 0.145f
         fun cx(i: Int) = pos[i].first * wf
         fun cy(i: Int) = pos[i].second * hf
-        // Unifying blob: the union of enlarged halos, filled once at low alpha so overlaps stay smooth
-        // (no darkened seams) and the cluster looks like one connected island rather than loose discs.
+
+        // Keep-like palette: a solid tinted island, a saturated accent centre button, and light (dark
+        // theme) or accent (light theme) glyphs directly on the blob.
+        val blobBase = if (dark) blend(accent, 0xFF12131C.toInt(), 0.74f) else blend(accent, 0xFFFFFFFF.toInt(), 0.86f)
+        val blobColor = withAlpha(blobBase, 255 * opacity.coerceIn(0, 100) / 100)
+        val glyphColor = if (dark) 0xFFF3F1FA.toInt() else accent
+        val rDisc = minDim * 0.15f          // ring glyph radius
+        val rCenter = minDim * 0.165f       // centre button half-size (larger — the primary)
+
+        // Blob = union of a rounded core square + a circle around every button, so the outline hugs each
+        // button and the whole thing reads as one connected, bumpy squircle (the Keep quick-capture shape).
         val blob = Path()
+        val coreHalf = minDim * 0.30f
+        blob.addRoundRect(
+            RectF(wf / 2f - coreHalf, hf / 2f - coreHalf, wf / 2f + coreHalf, hf / 2f + coreHalf),
+            minDim * 0.16f, minDim * 0.16f, Path.Direction.CW,
+        )
         for (i in 0 until n) {
-            val halo = Path().apply { addCircle(cx(i), cy(i), rDisc * 1.55f, Path.Direction.CW) }
-            blob.op(halo, Path.Op.UNION)
+            val r = (if (i == 0) rCenter else rDisc) + minDim * 0.055f
+            blob.op(Path().apply { addCircle(cx(i), cy(i), r, Path.Direction.CW) }, Path.Op.UNION)
         }
-        paint().apply { style = Paint.Style.FILL; color = withAlpha(discColor, 46) }.let { c.drawPath(blob, it) }
-        // Crisp discs + centred glyphs.
-        for (i in 0 until n) {
-            paint().apply { style = Paint.Style.FILL; color = discColor }.let { c.drawCircle(cx(i), cy(i), rDisc, it) }
-            clusterGlyph(c, keys[i], cx(i), cy(i), rDisc, glyphColor)
-        }
+        paint().apply { style = Paint.Style.FILL; color = blobColor }.let { c.drawPath(blob, it) }
+
+        // Ring actions: glyph only, on the blob.
+        for (i in 1 until n) clusterGlyph(c, keys[i], cx(i), cy(i), rDisc, glyphColor)
+
+        // Centre: a prominent filled squircle button carrying the primary action's glyph.
+        val rect = RectF(cx(0) - rCenter, cy(0) - rCenter, cx(0) + rCenter, cy(0) + rCenter)
+        paint().apply { style = Paint.Style.FILL; color = accent }.let { c.drawRoundRect(rect, rCenter * 0.5f, rCenter * 0.5f, it) }
+        clusterGlyph(c, keys[0], cx(0), cy(0), rCenter * 0.92f, onAccent)
         return bmp
     }
 
@@ -351,6 +371,14 @@ object WidgetBitmaps {
             "weekreview" -> {
                 fun bar(xf: Float, bh: Float) = c.drawRoundRect(RectF(fx(xf), cy + s * 0.20f - bh, fx(xf) + s * 0.10f, cy + s * 0.20f), s * 0.02f, s * 0.02f, fill)
                 bar(0.32f, s * 0.18f); bar(0.45f, s * 0.30f); bar(0.58f, s * 0.42f)
+            }
+            "dailynote" -> {
+                // A dated page: outlined page, a filled header band, two short body lines.
+                c.drawRoundRect(RectF(fx(0.30f), fy(0.26f), fx(0.70f), fy(0.74f)), s * 0.06f, s * 0.06f, stroke)
+                c.drawRoundRect(RectF(fx(0.30f), fy(0.26f), fx(0.70f), fy(0.41f)), s * 0.06f, s * 0.06f, fill)
+                val ln = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.05f; strokeCap = Paint.Cap.ROUND; this.color = color }
+                c.drawLine(fx(0.37f), fy(0.54f), fx(0.63f), fy(0.54f), ln)
+                c.drawLine(fx(0.37f), fy(0.64f), fx(0.55f), fy(0.64f), ln)
             }
         }
     }

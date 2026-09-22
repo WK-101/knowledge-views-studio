@@ -30,19 +30,24 @@ class QuickBarWidget : AppWidgetProvider() {
     private fun render(context: Context, manager: AppWidgetManager, id: Int) {
         val style = WidgetStyle.resolve(context, id)
         val views = RemoteViews(context.packageName, R.layout.widget_quickbar)
-        WidgetStyle.applyListCard(views, R.id.qb_card, context, id)
+        // No rectangular card behind the island — the blob itself is the surface (Keep-style), so it
+        // floats cleanly on the launcher. Per-widget opacity is folded into the blob's own alpha.
+        views.setViewVisibility(R.id.qb_card, android.view.View.GONE)
 
         val count = WidgetPrefs.quickCount(context, id)
         val slots = WidgetPrefs.quickSlots(context, id).take(count)
 
-        // The face: one drawn cluster of accent discs fused by a soft blob, sized to the widget's
-        // pixels so it reads as a single island rather than a row of separate buttons.
+        // The face: one solid, bumpy-squircle "island" with a prominent centre button and glyph-only
+        // actions around it — a single object, sized to the widget's pixels.
         val opts = runCatching { manager.getAppWidgetOptions(id) }.getOrNull()
         val wDp = (opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 180) ?: 180).coerceIn(100, 640)
         val hDp = (opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 140) ?: 140).coerceIn(70, 400)
         val wPx = WidgetBitmaps.dp(context, wDp.toFloat()).toInt()
         val hPx = WidgetBitmaps.dp(context, hDp.toFloat()).toInt()
-        views.setImageViewBitmap(R.id.qb_face, WidgetBitmaps.quickCluster(wPx, hPx, slots, style.accent, style.onAccent))
+        views.setImageViewBitmap(
+            R.id.qb_face,
+            WidgetBitmaps.quickCluster(wPx, hPx, slots, style.dark, style.accent, style.onAccent, WidgetPrefs.opacity(context, id)),
+        )
 
         // Transparent per-count tap grid whose cells sit exactly over the drawn discs
         // (weights mirror WidgetBitmaps.clusterPositions). Filled into qb_grid at runtime.
@@ -75,6 +80,7 @@ class QuickBarWidget : AppWidgetProvider() {
             "search" -> Intent(context, QuickSearchActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
             "closeday" -> appIntent(context, "open_close_day")
             "weekreview" -> appIntent(context, "open_weekreview")
+            "dailynote" -> appIntent(context, "new_daily_note")
             else -> appIntent(context, "open_today")
         }
         return PendingIntent.getActivity(context, reqCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -88,7 +94,8 @@ class QuickBarWidget : AppWidgetProvider() {
 
     private fun labelFor(key: String): String = when (key) {
         "task" -> "Task"; "note" -> "Note"; "habit" -> "Habit"; "time" -> "Time"
-        "search" -> "Search"; "closeday" -> "Close"; "weekreview" -> "Review"; else -> key
+        "search" -> "Search"; "closeday" -> "Close"; "weekreview" -> "Review"
+        "dailynote" -> "Daily note"; else -> key
     }
 
     companion object {
@@ -101,7 +108,7 @@ class QuickBarWidget : AppWidgetProvider() {
         fun displayName(key: String): String = when (key) {
             "task" -> "Quick add task"; "note" -> "Quick add note"; "habit" -> "Quick habit check"
             "time" -> "Quick time track"; "search" -> "Quick search"; "closeday" -> "Close the day"
-            "weekreview" -> "Weekly review"; else -> key
+            "weekreview" -> "Weekly review"; "dailynote" -> "Today's daily note"; else -> key
         }
 
         fun updateOne(context: Context, id: Int) {

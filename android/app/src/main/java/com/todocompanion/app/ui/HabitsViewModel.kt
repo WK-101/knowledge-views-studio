@@ -111,7 +111,6 @@ class HabitsViewModel(
     fun refreshHabitWidgets() {
         com.todocompanion.app.widget.HabitsWidget.refresh(app.appCtx)
         com.todocompanion.app.widget.HabitStatsWidget.refresh(app.appCtx)
-        com.todocompanion.app.widget.HabitGridWidget.refresh(app.appCtx)
         com.todocompanion.app.widget.StrengthLineWidget.refresh(app.appCtx)
         com.todocompanion.app.widget.WeekRowWidget.refresh(app.appCtx)
         com.todocompanion.app.widget.StreaksWidget.refresh(app.appCtx)

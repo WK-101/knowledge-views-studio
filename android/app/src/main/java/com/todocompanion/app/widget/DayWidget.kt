@@ -116,10 +116,12 @@ class DayWidget : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.day_next, navIntent(context, id, +7))
         views.setOnClickPendingIntent(R.id.day_title, activity(context, id * 10 + 1, "open_calendar"))
 
-        // Compact iconized add buttons: New task → quick-capture popup; New event → event editor.
+        // Compact iconized add buttons, one accent family for a polished pair: a filled-accent primary
+        // "+" (new task) and a tonal-accent secondary (new event) — no clashing second hue.
         val iconPx = WidgetBitmaps.dp(context, 28f).toInt()
+        val tonal = WidgetBitmaps.blend(style.accent, style.surface, 0.82f)
         views.setImageViewBitmap(R.id.day_add_task, WidgetBitmaps.roundIcon(iconPx, style.accent, style.onAccent, "plus"))
-        views.setImageViewBitmap(R.id.day_add_event, WidgetBitmaps.roundIcon(iconPx, style.teal, style.onAccent, "calendar"))
+        views.setImageViewBitmap(R.id.day_add_event, WidgetBitmaps.roundIcon(iconPx, tonal, style.accent, "calendar"))
         views.setOnClickPendingIntent(R.id.day_add_task, quickCapture(context, id * 10 + 2))
         views.setOnClickPendingIntent(R.id.day_add_event, activity(context, id * 10 + 3, "new_event"))
 
