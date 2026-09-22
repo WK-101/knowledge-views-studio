@@ -176,9 +176,9 @@ class MatrixWidgetService : RemoteViewsService() {
 }
 
 private class MatrixQuadFactory(private val context: Context, private val widgetId: Int, private val quad: Int) : RemoteViewsService.RemoteViewsFactory {
-    private data class Row(val id: String, val title: String, val done: Boolean)
+    private data class Row(val id: String, val title: String, val done: Boolean,
+                           val priColor: Int = 0, val priTint: Float = 0f)
     private var rows: List<Row> = emptyList()
-    private var dotColor: Int = 0
     private var checkPx: Int = 0
 
     override fun onCreate() {}
@@ -191,14 +191,15 @@ private class MatrixQuadFactory(private val context: Context, private val widget
 
     override fun onDataSetChanged() {
         val app = context.applicationContext as App
-        val style = WidgetStyle.resolve(context, widgetId)
-        dotColor = intArrayOf(style.danger, style.warning, style.info, style.teal)[quad]
         checkPx = WidgetBitmaps.dp(context, 20f).toInt()
         val cap = WidgetPrefs.matrixRows(context, widgetId).let { if (it <= 0) 30 else it }
         rows = runCatching {
             MatrixData.load(app).getOrElse(quad) { emptyList() }
                 .take(cap)
-                .map { Row(it.id, it.title.ifBlank { "Untitled" }, it.completed) }
+                .map {
+                    val (pc, pt) = WidgetBitmaps.priorityColorAndTint(it.importance, it.urgency)
+                    Row(it.id, it.title.ifBlank { "Untitled" }, it.completed, priColor = pc, priTint = pt)
+                }
         }.getOrDefault(emptyList())
     }
 
@@ -206,9 +207,10 @@ private class MatrixQuadFactory(private val context: Context, private val widget
         val r = rows[position]
         val style = WidgetStyle.resolve(context, widgetId)
         return RemoteViews(context.packageName, R.layout.widget_matrix_item).apply {
-            // A check-circle ringed in the quadrant colour (filled when already done) — the modern,
-            // in-app-consistent mark. Tapping it ticks the task off in place; tapping the title opens it.
-            setImageViewBitmap(R.id.mx_i_check, WidgetBitmaps.checkCircle(checkPx, if (r.done) style.success else dotColor, r.done))
+            // The app's priority checkbox (rounded square, priority-coloured + rest tint), matching the
+            // in-app row and the Agenda/Day/Do-Next widgets. Tapping it ticks the task off in place;
+            // tapping the title opens it.
+            setImageViewBitmap(R.id.mx_i_check, WidgetBitmaps.priorityCheckbox(checkPx, r.priColor, r.done, r.priTint))
             setTextViewText(R.id.mx_i_title, r.title)
             setTextColor(R.id.mx_i_title, if (r.done) style.textTertiary else style.textPrimary)
             if (r.done) {

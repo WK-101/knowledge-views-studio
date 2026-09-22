@@ -6,7 +6,6 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.view.View
 import android.widget.RemoteViews
 import com.todocompanion.app.MainActivity
 import com.todocompanion.app.R
@@ -32,30 +31,38 @@ class QuickBarWidget : AppWidgetProvider() {
         val style = WidgetStyle.resolve(context, id)
         val views = RemoteViews(context.packageName, R.layout.widget_quickbar)
         WidgetStyle.applyListCard(views, R.id.qb_card, context, id)
-        views.removeAllViews(R.id.qb_row0)
-        views.removeAllViews(R.id.qb_row1)
 
         val count = WidgetPrefs.quickCount(context, id)
         val slots = WidgetPrefs.quickSlots(context, id).take(count)
-        val row0n = (count + 1) / 2   // ceil — top row holds the extra when odd
 
-        // The face: one drawn cluster of accent discs, sized to the widget's pixels so it reads as a
-        // single island rather than a row of separate buttons.
+        // The face: one drawn cluster of accent discs fused by a soft blob, sized to the widget's
+        // pixels so it reads as a single island rather than a row of separate buttons.
         val opts = runCatching { manager.getAppWidgetOptions(id) }.getOrNull()
-        val wDp = (opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250) ?: 250).coerceIn(120, 640)
-        val hDp = (opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110) ?: 110).coerceIn(70, 400)
+        val wDp = (opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 180) ?: 180).coerceIn(100, 640)
+        val hDp = (opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 140) ?: 140).coerceIn(70, 400)
         val wPx = WidgetBitmaps.dp(context, wDp.toFloat()).toInt()
         val hPx = WidgetBitmaps.dp(context, hDp.toFloat()).toInt()
         views.setImageViewBitmap(R.id.qb_face, WidgetBitmaps.quickCluster(wPx, hPx, slots, style.accent, style.onAccent))
 
-        // Transparent tap zones over each disc — same 2-row weighted grid as the drawing.
+        // Transparent per-count tap grid whose cells sit exactly over the drawn discs
+        // (weights mirror WidgetBitmaps.clusterPositions). Filled into qb_grid at runtime.
+        views.removeAllViews(R.id.qb_grid)
+        val grid = RemoteViews(context.packageName, clusterLayoutFor(slots.size))
         slots.forEachIndexed { i, key ->
-            val cell = RemoteViews(context.packageName, R.layout.widget_quickbar_tap)
-            cell.setOnClickPendingIntent(R.id.qb_tap, pendingFor(context, id, i, key))
-            cell.setContentDescription(R.id.qb_tap, labelFor(key))
-            views.addView(if (i < row0n) R.id.qb_row0 else R.id.qb_row1, cell)
+            val cellId = CELL_IDS[i]
+            grid.setOnClickPendingIntent(cellId, pendingFor(context, id, i, key))
+            grid.setContentDescription(cellId, labelFor(key))
         }
+        views.addView(R.id.qb_grid, grid)
         manager.updateAppWidget(id, views)
+    }
+
+    /** The cluster tap-grid layout for a given action count (4–7); other counts clamp to the range. */
+    private fun clusterLayoutFor(n: Int): Int = when (n.coerceIn(4, 7)) {
+        4 -> R.layout.widget_qb_cluster_4
+        5 -> R.layout.widget_qb_cluster_5
+        6 -> R.layout.widget_qb_cluster_6
+        else -> R.layout.widget_qb_cluster_7
     }
 
     private fun pendingFor(context: Context, widgetId: Int, index: Int, key: String): PendingIntent {
@@ -85,6 +92,11 @@ class QuickBarWidget : AppWidgetProvider() {
     }
 
     companion object {
+        /** Fixed tap-cell ids, in reading order, matching qb_c0..qb_c6 across every widget_qb_cluster_N. */
+        private val CELL_IDS = intArrayOf(
+            R.id.qb_c0, R.id.qb_c1, R.id.qb_c2, R.id.qb_c3, R.id.qb_c4, R.id.qb_c5, R.id.qb_c6,
+        )
+
         /** Human-readable names for the settings screen. */
         fun displayName(key: String): String = when (key) {
             "task" -> "Quick add task"; "note" -> "Quick add note"; "habit" -> "Quick habit check"

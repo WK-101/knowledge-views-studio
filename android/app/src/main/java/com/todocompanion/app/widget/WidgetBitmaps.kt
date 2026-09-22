@@ -268,29 +268,51 @@ object WidgetBitmaps {
         return bmp
     }
 
-    /** The Quick-bar "island": the chosen actions drawn as one cohesive cluster of accent discs (two
-     *  balanced rows), so the widget reads as a single object rather than a row of separate buttons.
-     *  Transparent tap zones are overlaid in the same 2-row weighted grid, so taps line up with discs. */
+    /**
+     * The chosen action's centre in the widget as (xFrac, yFrac), one per slot, for a given count.
+     * These are the single source of truth for the Quick-bar "island": the drawing places each disc
+     * here, and the matching `widget_qb_cluster_N` layout's weighted tap cells are authored to land on
+     * exactly the same fractions — so a tap always hits the disc under the finger. Counts run 4–7
+     * (the configurable range); 1–3 are sane fallbacks. See each layout XML for the mirror weights.
+     */
+    fun clusterPositions(n: Int): List<Pair<Float, Float>> = when (n.coerceIn(1, 7)) {
+        1 -> listOf(0.5f to 0.5f)
+        2 -> listOf(0.333f to 0.5f, 0.667f to 0.5f)
+        3 -> listOf(0.5f to 0.30f, 0.333f to 0.70f, 0.667f to 0.70f)
+        4 -> listOf(0.333f to 0.333f, 0.667f to 0.333f, 0.333f to 0.667f, 0.667f to 0.667f)
+        5 -> listOf(0.25f to 0.25f, 0.75f to 0.25f, 0.5f to 0.5f, 0.25f to 0.75f, 0.75f to 0.75f)
+        6 -> listOf(0.3125f to 0.25f, 0.6875f to 0.25f, 0.25f to 0.5f, 0.75f to 0.5f, 0.3125f to 0.75f, 0.6875f to 0.75f)
+        else -> listOf(0.3125f to 0.25f, 0.6875f to 0.25f, 0.1875f to 0.5f, 0.5f to 0.5f, 0.8125f to 0.5f, 0.3125f to 0.75f, 0.6875f to 0.75f)
+    }
+
+    /** The Quick-bar "island": the chosen actions drawn as one cohesive cluster — a soft accent blob
+     *  (the union of the discs' halos, so the shape reads as a single connected object) with the crisp
+     *  accent discs and their glyphs on top. Positions come from [clusterPositions] so the overlaid
+     *  `widget_qb_cluster_N` tap grid lines up disc-for-disc. */
     fun quickCluster(wPx: Int, hPx: Int, keys: List<String>, discColor: Int, glyphColor: Int): Bitmap {
         val w = cap(wPx, 1600); val h = cap(hPx, 900)
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val n = keys.size.coerceIn(1, 7)
-        val row0n = (n + 1) / 2
-        val row1n = n - row0n
+        val pos = clusterPositions(n)
         val wf = w.toFloat(); val hf = h.toFloat()
-        val rows = if (row1n == 0) 1 else 2
-        val maxK = maxOf(row0n, row1n, 1)
-        val rDisc = min(wf / (maxK * 2f), hf / (rows * 2f)) * 0.82f
-        fun drawRow(count: Int, startIdx: Int, cy: Float) {
-            for (i in 0 until count) {
-                val cx = wf * (i + 0.5f) / count
-                paint().apply { style = Paint.Style.FILL; color = discColor }.let { c.drawCircle(cx, cy, rDisc, it) }
-                clusterGlyph(c, keys[startIdx + i], cx, cy, rDisc, glyphColor)
-            }
+        val minDim = min(wf, hf)
+        val rDisc = minDim * 0.145f
+        fun cx(i: Int) = pos[i].first * wf
+        fun cy(i: Int) = pos[i].second * hf
+        // Unifying blob: the union of enlarged halos, filled once at low alpha so overlaps stay smooth
+        // (no darkened seams) and the cluster looks like one connected island rather than loose discs.
+        val blob = Path()
+        for (i in 0 until n) {
+            val halo = Path().apply { addCircle(cx(i), cy(i), rDisc * 1.55f, Path.Direction.CW) }
+            blob.op(halo, Path.Op.UNION)
         }
-        if (rows == 1) drawRow(row0n, 0, hf * 0.5f)
-        else { drawRow(row0n, 0, hf * 0.25f); drawRow(row1n, row0n, hf * 0.75f) }
+        paint().apply { style = Paint.Style.FILL; color = withAlpha(discColor, 46) }.let { c.drawPath(blob, it) }
+        // Crisp discs + centred glyphs.
+        for (i in 0 until n) {
+            paint().apply { style = Paint.Style.FILL; color = discColor }.let { c.drawCircle(cx(i), cy(i), rDisc, it) }
+            clusterGlyph(c, keys[i], cx(i), cy(i), rDisc, glyphColor)
+        }
         return bmp
     }
 

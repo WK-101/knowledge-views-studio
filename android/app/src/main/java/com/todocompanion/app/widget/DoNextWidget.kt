@@ -133,7 +133,8 @@ class DoNextWidgetService : RemoteViewsService() {
 }
 
 private class DoNextFactory(private val context: Context, private val widgetId: Int) : RemoteViewsService.RemoteViewsFactory {
-    private data class Row(val id: String, val rank: Int, val title: String, val sub: String)
+    private data class Row(val id: String, val rank: Int, val title: String, val sub: String,
+                           val priColor: Int = 0, val priTint: Float = 0f)
     private var rows: List<Row> = emptyList()
     private var style: WidgetStyle = WidgetStyle.resolve(context)
 
@@ -176,7 +177,8 @@ private class DoNextFactory(private val context: Context, private val widgetId: 
                 val e = t.energy?.let { listOf("", "Low", "Med", "High").getOrNull(it) }
                 val est = estimateOf(t)?.let { "${it}m" }
                 val sub = listOfNotNull(e, est).joinToString(" · ")
-                Row(t.id, i + 1, t.title.ifBlank { "Untitled" }, sub)
+                val (pc, pt) = WidgetBitmaps.priorityColorAndTint(t.importance, t.urgency)
+                Row(t.id, i + 1, t.title.ifBlank { "Untitled" }, sub, priColor = pc, priTint = pt)
             }
             .toList()
     }
@@ -190,9 +192,9 @@ private class DoNextFactory(private val context: Context, private val widgetId: 
             setViewPadding(R.id.dni_root, 0, vpad, 0, vpad)
             setTextViewTextSize(R.id.dni_title, android.util.TypedValue.COMPLEX_UNIT_SP, style.sp(14f))
             setTextViewTextSize(R.id.dni_sub, android.util.TypedValue.COMPLEX_UNIT_SP, style.sp(12f))
-            // A drawn check-circle (modern, matches the in-app checkbox). Tap it to tick off in place;
-            // the rest of the row opens the task.
-            setImageViewBitmap(R.id.dni_check, WidgetBitmaps.checkCircle(WidgetBitmaps.dp(context, 22f).toInt(), style.accent, false))
+            // The app's priority checkbox (rounded square, priority-coloured + rest tint), matching the
+            // in-app row and the Agenda/Day widgets. Tap it to tick off in place; the rest opens the task.
+            setImageViewBitmap(R.id.dni_check, WidgetBitmaps.priorityCheckbox(WidgetBitmaps.dp(context, 22f).toInt(), r.priColor, false, r.priTint))
             setContentDescription(R.id.dni_check, "Complete ${r.title}")
             setOnClickFillInIntent(R.id.dni_check, TaskWidgetReceiver.completeFill(r.id))
             setOnClickFillInIntent(R.id.dni_root, TaskWidgetReceiver.openFill("open_task:${r.id}"))

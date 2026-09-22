@@ -110,13 +110,13 @@
                 android:orientation="horizontal"
                 android:baselineAligned="false">
 
-                <View android:id="@+id/day_c0" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-                <View android:id="@+id/day_c1" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-                <View android:id="@+id/day_c2" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-                <View android:id="@+id/day_c3" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-                <View android:id="@+id/day_c4" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-                <View android:id="@+id/day_c5" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-                <View android:id="@+id/day_c6" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+                <FrameLayout android:id="@+id/day_c0" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+                <FrameLayout android:id="@+id/day_c1" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+                <FrameLayout android:id="@+id/day_c2" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+                <FrameLayout android:id="@+id/day_c3" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+                <FrameLayout android:id="@+id/day_c4" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+                <FrameLayout android:id="@+id/day_c5" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+                <FrameLayout android:id="@+id/day_c6" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
             </LinearLayout>
         </FrameLayout>
 

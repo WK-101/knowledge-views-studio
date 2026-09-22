@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- R108 — the Quick-bar "island": a themeable rounded card, the action cluster drawn as one bitmap
-     on top (so it reads as a single object, not separate buttons), and a transparent 2-row weighted
-     tap grid overlaid so each disc is tappable. Rows are filled at runtime (addView). -->
+<!-- R107 — the Quick-bar "island": a themeable rounded card, the action cluster drawn as one bitmap
+     on top (a soft accent blob with discs, so it reads as a single object — not a row of buttons),
+     and a transparent per-count tap grid (widget_qb_cluster_N) overlaid so each disc is tappable.
+     The grid is filled at runtime (addView), and its weights mirror WidgetBitmaps.clusterPositions(N). -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/qb_root"
     android:layout_width="match_parent"
@@ -24,25 +25,8 @@
         android:importantForAccessibility="no"
         android:contentDescription="@null" />
 
-    <LinearLayout
+    <FrameLayout
+        android:id="@+id/qb_grid"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical">
-
-        <LinearLayout
-            android:id="@+id/qb_row0"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="horizontal"
-            android:baselineAligned="false" />
-
-        <LinearLayout
-            android:id="@+id/qb_row1"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="horizontal"
-            android:baselineAligned="false" />
-    </LinearLayout>
+        android:layout_height="match_parent" />
 </FrameLayout>
