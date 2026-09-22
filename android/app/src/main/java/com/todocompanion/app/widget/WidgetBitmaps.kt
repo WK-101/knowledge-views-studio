@@ -277,14 +277,15 @@ object WidgetBitmaps {
      */
     fun clusterPositions(n: Int): List<Pair<Float, Float>> {
         val a = 0.25f; val b = 0.5f; val d = 0.75f   // 3×3 grid cell centres (matches the tap grids)
-        return when (n.coerceIn(1, 7)) {
+        return when (n.coerceIn(1, 8)) {
             1 -> listOf(b to b)
             2 -> listOf(a to b, d to b)
             3 -> listOf(b to b, a to a, d to a)                                   // centre + top pair
             4 -> listOf(b to b, a to a, d to a, b to d)                           // centre + TL,TR,B
             5 -> listOf(b to b, a to a, d to a, a to d, d to d)                   // centre + 4 corners
             6 -> listOf(b to b, a to a, d to a, a to b, d to b, b to d)           // centre + TL,TR,L,R,B
-            else -> listOf(b to b, a to a, d to a, a to b, d to b, a to d, d to d) // centre + 6-way ring
+            7 -> listOf(b to b, a to a, d to a, a to b, d to b, a to d, d to d)   // centre + 6-way ring
+            else -> listOf(b to b, a to a, b to a, d to a, a to b, d to b, a to d, d to d) // centre + 7 (TL,T,TR,L,R,BL,BR)
         }
     }
 
@@ -293,35 +294,33 @@ object WidgetBitmaps {
      *  glyph sits in the centre on one subtle tonal chip (the single point of emphasis); the other
      *  actions are calm, background-free glyphs in the corners. Positions come from [clusterPositions]
      *  so the overlaid `widget_qb_cluster_N` tap grid lines up action-for-action. */
-    fun quickCluster(wPx: Int, hPx: Int, keys: List<String>, cardColor: Int, glyphColor: Int, accentColor: Int, chipColor: Int): Bitmap {
+    fun quickCluster(wPx: Int, hPx: Int, keys: List<String>, cardColor: Int, glyphColor: Int, accentColor: Int): Bitmap {
         // Cap both edges the same so the bitmap keeps the widget's aspect (no fitXY squashing).
         val w = cap(wPx, 1600); val h = cap(hPx, 1600)
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
-        val n = keys.size.coerceIn(1, 7)
+        val n = keys.size.coerceIn(1, 8)
         val pos = clusterPositions(n)
         val wf = w.toFloat(); val hf = h.toFloat()
-        val minDim = min(wf, hf)
-        fun cx(i: Int) = pos[i].first * wf
-        fun cy(i: Int) = pos[i].second * hf
+        // Draw a centred SQUARE so a portrait / landscape cell still shows a square island (the reference
+        // look) instead of a stretched rectangle. The leftover margins stay transparent.
+        val side = min(wf, hf)
+        val ox = (wf - side) / 2f
+        val oy = (hf - side) / 2f
+        fun cx(i: Int) = ox + pos[i].first * side
+        fun cy(i: Int) = oy + pos[i].second * side
 
-        // The island IS one flat, solid rounded card filling the widget — drawn here so its corners stay
-        // crisp at any aspect and the surface reads solid (not washed out).
-        val cardR = minDim * 0.155f
+        // The island: one flat, solid rounded square card (theme-coloured, faded to opacity by the caller).
+        val cardR = side * 0.15f
         paint().apply { style = Paint.Style.FILL; color = cardColor }
-            .let { c.drawRoundRect(RectF(0f, 0f, wf, hf), cardR, cardR, it) }
+            .let { c.drawRoundRect(RectF(ox, oy, ox + side, oy + side), cardR, cardR, it) }
 
-        val rCorner = minDim * 0.135f      // corner glyph radius (bold, generous)
-        val rCenter = minDim * 0.155f      // centre glyph radius (a touch larger — the primary)
+        val rCorner = side * 0.115f       // ring glyph radius — clean, generous padding
+        val rCenter = side * 0.16f        // centre (brand) radius — larger, the anchor
 
-        // One soft rounded-square chip behind the centre (primary) — the single point of emphasis.
-        val chipHalf = minDim * 0.21f
-        paint().apply { style = Paint.Style.FILL; color = chipColor }.let {
-            c.drawRoundRect(RectF(cx(0) - chipHalf, cy(0) - chipHalf, cx(0) + chipHalf, cy(0) + chipHalf), chipHalf * 0.5f, chipHalf * 0.5f, it)
-        }
-        // Corners: calm monochrome line glyphs, no backgrounds.
+        // Ring: modern monochrome line glyphs, no backgrounds. Centre: the app's brand mark, in accent,
+        // sitting straight on the card (no chip / border).
         for (i in 1 until n) clusterGlyph(c, keys[i], cx(i), cy(i), rCorner, glyphColor)
-        // Centre: the larger primary glyph, in the accent.
         clusterGlyph(c, keys[0], cx(0), cy(0), rCenter, accentColor)
         return bmp
     }
@@ -331,9 +330,31 @@ object WidgetBitmaps {
         val s = r * 2f
         fun fx(f: Float) = cx - r + s * f
         fun fy(f: Float) = cy - r + s * f
-        val stroke = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.085f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; this.color = color }
+        val stroke = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.09f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; this.color = color }
         val fill = paint().apply { style = Paint.Style.FILL; this.color = color }
         when (kind) {
+            "app" -> {
+                // The Kairo brand mark (monochrome): a 3D isometric box with the guiding star in front,
+                // reproduced from ic_launcher_monochrome (108-unit viewport, centred on 54,54).
+                val k = r / 36f
+                fun bx(x: Float) = cx + (x - 54f) * k
+                fun by(y: Float) = cy + (y - 54f) * k
+                val bs = paint().apply { style = Paint.Style.STROKE; strokeWidth = 2.9f * k; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; this.color = color }
+                val box = Path().apply {
+                    moveTo(bx(54f), by(19f)); lineTo(bx(84.3f), by(36.5f)); lineTo(bx(84.3f), by(71.5f))
+                    lineTo(bx(54f), by(89f)); lineTo(bx(23.7f), by(71.5f)); lineTo(bx(23.7f), by(36.5f)); close()
+                }
+                c.drawPath(box, bs)
+                c.drawLine(bx(54f), by(54f), bx(84.3f), by(36.5f), bs)
+                c.drawLine(bx(54f), by(54f), bx(23.7f), by(36.5f), bs)
+                c.drawLine(bx(54f), by(54f), bx(54f), by(89f), bs)
+                val star = Path().apply {
+                    moveTo(bx(54f), by(31f)); quadTo(bx(57.2f), by(50.8f), bx(77f), by(54f))
+                    quadTo(bx(57.2f), by(57.2f), bx(54f), by(77f)); quadTo(bx(50.8f), by(57.2f), bx(31f), by(54f))
+                    quadTo(bx(50.8f), by(50.8f), bx(54f), by(31f)); close()
+                }
+                c.drawPath(star, fill)
+            }
             "task" -> {
                 c.drawRoundRect(RectF(fx(0.30f), fy(0.30f), fx(0.70f), fy(0.70f)), s * 0.09f, s * 0.09f, stroke)
                 val p = Path().apply { moveTo(fx(0.38f), fy(0.50f)); lineTo(fx(0.46f), fy(0.58f)); lineTo(fx(0.63f), fy(0.40f)) }

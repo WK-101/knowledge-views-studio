@@ -48,20 +48,26 @@ class QuickBarWidget : AppWidgetProvider() {
         val wPx = WidgetBitmaps.dp(context, wDp.toFloat()).toInt()
         val hPx = WidgetBitmaps.dp(context, hDp.toFloat()).toInt()
 
-        // Solid, theme-coloured card faded to the per-widget opacity; a subtle overlay chip on the centre.
+        // Centre is the app's brand mark; the configured actions ring around it. Solid theme card,
+        // faded to the per-widget opacity.
         val op = WidgetPrefs.opacity(context, id).coerceIn(0, 100)
         val cardColor = ((255 * op / 100) shl 24) or (style.surface and 0x00FFFFFF)
+        val keys = listOf("app") + slots
         views.setImageViewBitmap(
             R.id.qb_face,
-            WidgetBitmaps.quickCluster(wPx, hPx, slots, cardColor, style.textPrimary, style.accent, style.chip),
+            WidgetBitmaps.quickCluster(wPx, hPx, keys, cardColor, style.textPrimary, style.accent),
         )
 
-        // Transparent per-count tap grid whose cells sit exactly over the drawn discs
-        // (weights mirror WidgetBitmaps.clusterPositions). Filled into qb_grid at runtime.
+        // Transparent tap grid: centre cell opens the app; the ring cells fire the configured actions.
+        // Weights mirror WidgetBitmaps.clusterPositions; a count of N actions uses the (N+1)-cell layout.
         views.removeAllViews(R.id.qb_grid)
-        val grid = RemoteViews(context.packageName, clusterLayoutFor(slots.size))
+        val grid = RemoteViews(context.packageName, clusterLayoutFor(count))
+        grid.setOnClickPendingIntent(CELL_IDS[0], PendingIntent.getActivity(
+            context, id * 10 + 9, appIntent(context, "open_today"),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+        grid.setContentDescription(CELL_IDS[0], "Open Kairo")
         slots.forEachIndexed { i, key ->
-            val cellId = CELL_IDS[i]
+            val cellId = CELL_IDS[i + 1]
             grid.setOnClickPendingIntent(cellId, pendingFor(context, id, i, key))
             grid.setContentDescription(cellId, labelFor(key))
         }
@@ -69,12 +75,12 @@ class QuickBarWidget : AppWidgetProvider() {
         manager.updateAppWidget(id, views)
     }
 
-    /** The cluster tap-grid layout for a given action count (4–7); other counts clamp to the range. */
+    /** The tap-grid layout for a ring of N actions (4–7) around the brand centre — an (N+1)-cell grid. */
     private fun clusterLayoutFor(n: Int): Int = when (n.coerceIn(4, 7)) {
-        4 -> R.layout.widget_qb_cluster_4
-        5 -> R.layout.widget_qb_cluster_5
-        6 -> R.layout.widget_qb_cluster_6
-        else -> R.layout.widget_qb_cluster_7
+        4 -> R.layout.widget_qb_cluster_5
+        5 -> R.layout.widget_qb_cluster_6
+        6 -> R.layout.widget_qb_cluster_7
+        else -> R.layout.widget_qb_cluster_8
     }
 
     private fun pendingFor(context: Context, widgetId: Int, index: Int, key: String): PendingIntent {
@@ -108,7 +114,7 @@ class QuickBarWidget : AppWidgetProvider() {
     companion object {
         /** Fixed tap-cell ids, in reading order, matching qb_c0..qb_c6 across every widget_qb_cluster_N. */
         private val CELL_IDS = intArrayOf(
-            R.id.qb_c0, R.id.qb_c1, R.id.qb_c2, R.id.qb_c3, R.id.qb_c4, R.id.qb_c5, R.id.qb_c6,
+            R.id.qb_c0, R.id.qb_c1, R.id.qb_c2, R.id.qb_c3, R.id.qb_c4, R.id.qb_c5, R.id.qb_c6, R.id.qb_c7,
         )
 
         /** Human-readable names for the settings screen. */

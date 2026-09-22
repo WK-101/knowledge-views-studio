@@ -89,7 +89,7 @@ object WidgetPrefs {
     private val QUICK_DEFAULT = listOf("task", "note", "habit", "time", "search", "closeday", "weekreview")
 
     fun quickCount(ctx: Context, id: Int): Int =
-        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getInt("qccount_$id", 5).coerceIn(4, 7)
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getInt("qccount_$id", 4).coerceIn(4, 7)
 
     fun quickSlots(ctx: Context, id: Int): List<String> {
         val raw = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getString("qcslots_$id", null)
