@@ -20,11 +20,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -40,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -186,15 +189,18 @@ private fun HabitQuickLogPanel(
                 Spacer(Modifier.size(20.dp))
 
                 // Big −  value  + stepper.
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     StepButton(Icons.Filled.Remove, "Decrease") { value = (value - step).coerceAtLeast(0) }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(96.dp)) {
-                        Text(
-                            value.toString(),
-                            style = MaterialTheme.typography.displaySmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            textAlign = TextAlign.Center,
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(128.dp)) {
+                        // Type any value directly (e.g. 8000 steps) — the ± buttons stay for small nudges.
+                        OutlinedTextField(
+                            value = if (value == 0) "" else value.toString(),
+                            onValueChange = { s -> value = s.filter { it.isDigit() }.take(7).toIntOrNull() ?: 0 },
+                            placeholder = { Text("0", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.headlineMedium) },
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.headlineMedium.copy(textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         if (unit.isNotBlank()) Text(unit, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -202,7 +208,7 @@ private fun HabitQuickLogPanel(
                 }
                 Spacer(Modifier.size(18.dp))
 
-                // Quick-set chips: the goal, and a "done" shortcut.
+                // Quick-set chips: the goal, half, and clear.
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     QuickChip("Goal $target") { value = target }
                     if (target > 1) QuickChip("½ · ${target / 2}") { value = (target / 2).coerceAtLeast(1) }

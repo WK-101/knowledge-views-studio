@@ -526,6 +526,10 @@ fun AppRoot(
         var calSelected by rememberSaveable { mutableStateOf(java.time.LocalDate.now()) }
         // R39 — the calendar header's events menu passes its choice to CalendarScreen, which owns the dialogs.
         var calEventAction by remember { mutableStateOf<String?>(null) }
+        // R108 — when a review is opened straight from the Quick-bar widget, Back returns to the home
+        // screen (not into the app). We flag it here and moveTaskToBack when that overlay closes.
+        var reviewFromWidget by remember { mutableStateOf(false) }
+        val hostActivity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
         var matrixSettings by remember { mutableStateOf(false) }
         var searchQuery by rememberSaveable { mutableStateOf("") }
         var calFilter by remember { mutableStateOf(false) }
@@ -688,9 +692,9 @@ fun AppRoot(
                 a == "open_record" -> { openOverlay(Overlay.DONE); launchAction.value = null }
                 a == "open_dayreview" -> { argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = false, startWeekly = false); launchAction.value = null }
                 // Phase F — the "Close your day" shortcut / evening nudge opens today's review in the close flow.
-                a == "open_close_day" -> { argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = true, startWeekly = false); launchAction.value = null }
+                a == "open_close_day" -> { reviewFromWidget = true; argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = true, startWeekly = false); launchAction.value = null }
                 // Quick-bar widget's "Weekly review" button — open this week's review directly.
-                a == "open_weekreview" -> { argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = false, startWeekly = true); launchAction.value = null }
+                a == "open_weekreview" -> { reviewFromWidget = true; argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = false, startWeekly = true); launchAction.value = null }
                 a == "open_time" -> { openOverlay(Overlay.TIME_TRACKING); launchAction.value = null }
                 a == "open_calendar" -> { tab = Tab.CALENDAR; launchAction.value = null }
                 // Day widget's "＋ event" button — land on the calendar with the new-event editor open.
@@ -1313,7 +1317,11 @@ fun AppRoot(
         // after the arg-free stack so a destination opened from within one draws on top.
         when (val a = argOverlay) {
             is OverlayArg.Occasions -> com.todocompanion.app.ui.screens.CountdownScreen(vm, onBack = { argOverlay = null }, initialOpenId = a.openId)
-            is OverlayArg.DayReview -> com.todocompanion.app.ui.screens.DayReviewScreen(vm, a.day, startInClose = a.startClose, startInWeekly = a.startWeekly, onOpenTask = { argOverlay = null; openTask(it) }, onOpenNote = { editingNote = it }, onBack = { argOverlay = null })
+            is OverlayArg.DayReview -> com.todocompanion.app.ui.screens.DayReviewScreen(vm, a.day, startInClose = a.startClose, startInWeekly = a.startWeekly, onOpenTask = { argOverlay = null; openTask(it) }, onOpenNote = { editingNote = it }, onBack = {
+                argOverlay = null
+                // Opened from the widget → Back goes to the home screen, not into the app.
+                if (reviewFromWidget) { reviewFromWidget = false; hostActivity?.moveTaskToBack(true) }
+            })
             is OverlayArg.Recap -> RecapScreen(vm, a.start, a.end, a.title, onBack = { argOverlay = null }, onOpenNote = { id -> argOverlay = null; openNote(id) })
             is OverlayArg.Journal -> com.todocompanion.app.ui.screens.PeriodicNotesScreen(
                 vm, initialPeriod = a.period, initialAnchor = a.anchor,

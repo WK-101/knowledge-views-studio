@@ -342,6 +342,9 @@
                 android:resource="@xml/widget_quickbar_info" />
         </receiver>
 
+        <!-- R108 headless focus/pomodoro/stopwatch timer — Stop action + completion alarm. -->
+        <receiver android:name=".widget.FocusTimerReceiver" android:exported="false" />
+
         <!-- Countdown widget: days remaining to a pinned date. Offline. -->
         <receiver
             android:name=".widget.CountdownWidget"

@@ -268,6 +268,71 @@ object WidgetBitmaps {
         return bmp
     }
 
+    /** The Quick-bar "island": the chosen actions drawn as one cohesive cluster of accent discs (two
+     *  balanced rows), so the widget reads as a single object rather than a row of separate buttons.
+     *  Transparent tap zones are overlaid in the same 2-row weighted grid, so taps line up with discs. */
+    fun quickCluster(wPx: Int, hPx: Int, keys: List<String>, discColor: Int, glyphColor: Int): Bitmap {
+        val w = cap(wPx, 1600); val h = cap(hPx, 900)
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val n = keys.size.coerceIn(1, 7)
+        val row0n = (n + 1) / 2
+        val row1n = n - row0n
+        val wf = w.toFloat(); val hf = h.toFloat()
+        val rows = if (row1n == 0) 1 else 2
+        val maxK = maxOf(row0n, row1n, 1)
+        val rDisc = min(wf / (maxK * 2f), hf / (rows * 2f)) * 0.82f
+        fun drawRow(count: Int, startIdx: Int, cy: Float) {
+            for (i in 0 until count) {
+                val cx = wf * (i + 0.5f) / count
+                paint().apply { style = Paint.Style.FILL; color = discColor }.let { c.drawCircle(cx, cy, rDisc, it) }
+                clusterGlyph(c, keys[startIdx + i], cx, cy, rDisc, glyphColor)
+            }
+        }
+        if (rows == 1) drawRow(row0n, 0, hf * 0.5f)
+        else { drawRow(row0n, 0, hf * 0.25f); drawRow(row1n, row0n, hf * 0.75f) }
+        return bmp
+    }
+
+    /** One action glyph centred in a disc of radius [r] at ([cx],[cy]) — matches [actionIcon]'s shapes. */
+    private fun clusterGlyph(c: Canvas, kind: String, cx: Float, cy: Float, r: Float, color: Int) {
+        val s = r * 2f
+        fun fx(f: Float) = cx - r + s * f
+        fun fy(f: Float) = cy - r + s * f
+        val stroke = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.075f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; this.color = color }
+        val fill = paint().apply { style = Paint.Style.FILL; this.color = color }
+        when (kind) {
+            "task" -> {
+                c.drawRoundRect(RectF(fx(0.30f), fy(0.30f), fx(0.70f), fy(0.70f)), s * 0.07f, s * 0.07f, stroke)
+                val p = Path().apply { moveTo(fx(0.38f), fy(0.50f)); lineTo(fx(0.46f), fy(0.58f)); lineTo(fx(0.63f), fy(0.40f)) }
+                c.drawPath(p, stroke)
+            }
+            "note" -> {
+                c.drawRoundRect(RectF(fx(0.32f), fy(0.28f), fx(0.68f), fy(0.72f)), s * 0.05f, s * 0.05f, stroke)
+                val ln = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.055f; strokeCap = Paint.Cap.ROUND; this.color = color }
+                c.drawLine(fx(0.40f), fy(0.42f), fx(0.60f), fy(0.42f), ln)
+                c.drawLine(fx(0.40f), fy(0.52f), fx(0.60f), fy(0.52f), ln)
+                c.drawLine(fx(0.40f), fy(0.62f), fx(0.53f), fy(0.62f), ln)
+            }
+            "habit" -> { c.drawCircle(cx, cy, s * 0.20f, stroke); c.drawCircle(cx, cy, s * 0.075f, fill) }
+            "time" -> {
+                c.drawCircle(cx, cy, s * 0.22f, stroke)
+                val hh = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.06f; strokeCap = Paint.Cap.ROUND; this.color = color }
+                c.drawLine(cx, cy, cx, cy - s * 0.13f, hh); c.drawLine(cx, cy, cx + s * 0.10f, cy, hh)
+            }
+            "search" -> { c.drawCircle(fx(0.44f), fy(0.44f), s * 0.16f, stroke); c.drawLine(fx(0.56f), fy(0.56f), fx(0.68f), fy(0.68f), stroke) }
+            "closeday" -> {
+                val moon = Path().apply { addCircle(fx(0.52f), cy, s * 0.22f, Path.Direction.CW) }
+                val cut = Path().apply { addCircle(fx(0.62f), fy(0.42f), s * 0.20f, Path.Direction.CW) }
+                moon.op(cut, Path.Op.DIFFERENCE); c.drawPath(moon, fill)
+            }
+            "weekreview" -> {
+                fun bar(xf: Float, bh: Float) = c.drawRoundRect(RectF(fx(xf), cy + s * 0.20f - bh, fx(xf) + s * 0.10f, cy + s * 0.20f), s * 0.02f, s * 0.02f, fill)
+                bar(0.32f, s * 0.18f); bar(0.45f, s * 0.30f); bar(0.58f, s * 0.42f)
+            }
+        }
+    }
+
     /** The Day widget's week strip: seven day columns (weekday letter over the date number), the
      *  selected day filled with an accent pill, today ringed, and a dot under any day that has items.
      *  Drawn as one bitmap; seven invisible equal tap zones sit over it for per-day selection. */

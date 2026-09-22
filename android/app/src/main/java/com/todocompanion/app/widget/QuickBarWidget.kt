@@ -37,25 +37,23 @@ class QuickBarWidget : AppWidgetProvider() {
 
         val count = WidgetPrefs.quickCount(context, id)
         val slots = WidgetPrefs.quickSlots(context, id).take(count)
-        val minH = runCatching { manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) }.getOrDefault(0)
-        // Labels off when compact, or when the widget is too short to fit icon + caption cleanly.
-        val showLabel = !WidgetPrefs.compact(context, id) && (minH == 0 || minH >= 110)
-        val iconPx = WidgetBitmaps.dp(context, if (showLabel) 46f else 50f).toInt()
         val row0n = (count + 1) / 2   // ceil — top row holds the extra when odd
 
+        // The face: one drawn cluster of accent discs, sized to the widget's pixels so it reads as a
+        // single island rather than a row of separate buttons.
+        val opts = runCatching { manager.getAppWidgetOptions(id) }.getOrNull()
+        val wDp = (opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250) ?: 250).coerceIn(120, 640)
+        val hDp = (opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110) ?: 110).coerceIn(70, 400)
+        val wPx = WidgetBitmaps.dp(context, wDp.toFloat()).toInt()
+        val hPx = WidgetBitmaps.dp(context, hDp.toFloat()).toInt()
+        views.setImageViewBitmap(R.id.qb_face, WidgetBitmaps.quickCluster(wPx, hPx, slots, style.accent, style.onAccent))
+
+        // Transparent tap zones over each disc — same 2-row weighted grid as the drawing.
         slots.forEachIndexed { i, key ->
-            val btn = RemoteViews(context.packageName, R.layout.widget_quickbar_button)
-            btn.setImageViewBitmap(R.id.qb_icon, WidgetBitmaps.actionIcon(iconPx, style.accent, style.onAccent, key))
-            btn.setContentDescription(R.id.qb_icon, labelFor(key))
-            if (showLabel) {
-                btn.setViewVisibility(R.id.qb_label, View.VISIBLE)
-                btn.setTextViewText(R.id.qb_label, labelFor(key))
-                btn.setTextColor(R.id.qb_label, style.textSecondary)
-            } else {
-                btn.setViewVisibility(R.id.qb_label, View.GONE)
-            }
-            btn.setOnClickPendingIntent(R.id.qb_btn_root, pendingFor(context, id, i, key))
-            views.addView(if (i < row0n) R.id.qb_row0 else R.id.qb_row1, btn)
+            val cell = RemoteViews(context.packageName, R.layout.widget_quickbar_tap)
+            cell.setOnClickPendingIntent(R.id.qb_tap, pendingFor(context, id, i, key))
+            cell.setContentDescription(R.id.qb_tap, labelFor(key))
+            views.addView(if (i < row0n) R.id.qb_row0 else R.id.qb_row1, cell)
         }
         manager.updateAppWidget(id, views)
     }

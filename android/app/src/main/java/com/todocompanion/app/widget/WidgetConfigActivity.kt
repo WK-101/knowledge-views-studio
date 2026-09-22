@@ -151,8 +151,20 @@ class WidgetConfigActivity : ComponentActivity() {
                             Text("Tune how this widget looks and what it shows.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.size(16.dp))
 
-                            // Live preview — reflects the current choices, like Todoist's config.
-                            WidgetPreview(theme = theme, opacity = opacity, fontPct = fontPct, compact = compact,
+                            // Live preview — reflects the current choices AND this widget's kind.
+                            val previewKind = when {
+                                isQuickBar -> "cluster"
+                                isMatrix -> "matrix"
+                                suffix("HabitStatsWidget") || suffix("HabitZeroWidget") || suffix("WeekRowWidget") ||
+                                    suffix("KeystoneWidget") || suffix("StreaksWidget") || suffix("CorrelationWidget") ||
+                                    suffix("HabitGridWidget") || suffix("StrengthLineWidget") -> "ring"
+                                suffix("TimeWidget") || suffix("PomodoroWidget") -> "timer"
+                                suffix("StatsWidget") || suffix("CountdownWidget") || suffix("MomentumWidget") ||
+                                    suffix("Next7Widget") || suffix("NoteWidget") -> "tile"
+                                isList -> "list"
+                                else -> "list"
+                            }
+                            WidgetPreview(kind = previewKind, theme = theme, opacity = opacity, fontPct = fontPct, compact = compact,
                                 title = if (isAgenda) title.ifBlank { WidgetPrefs.defaultTitle(scope) } else widgetLabel.removeSuffix(" widget"))
                             Spacer(Modifier.size(20.dp))
 
@@ -299,35 +311,107 @@ private fun QuickSlotRow(index: Int, current: String, onPick: (String) -> Unit) 
     }
 }
 
-/** A small, faithful preview card of a list widget under the chosen appearance. */
+/** A small, faithful preview that reflects THIS widget's kind (list / cluster / matrix / ring / timer /
+ *  tile) under the chosen appearance, so the "how it looks" section matches the widget being set up. */
 @Composable
-private fun WidgetPreview(theme: String, opacity: Int, fontPct: Int, compact: Boolean, title: String) {
+private fun WidgetPreview(kind: String, theme: String, opacity: Int, fontPct: Int, compact: Boolean, title: String) {
     val dark = when (theme) { "light" -> false; "dark" -> true; else -> isSystemInDarkTheme() }
     val surface = (if (dark) Color(0xFF1A1B26) else Color(0xFFFBFAFF)).copy(alpha = opacity / 100f)
     val textPrimary = if (dark) Color.White else Color(0xFF1A1B26)
     val textSecondary = if (dark) Color(0xFFB9B4D0) else Color(0xFF5B5870)
     val accent = if (dark) Color(0xFFB9A6EC) else Color(0xFF6D5AC4)
+    val onAccent = Color.White
     val scale = fontPct / 100f
     val rowPad = if (compact) 4.dp else 8.dp
+    val danger = Color(0xFFE5484D); val warn = Color(0xFFEA9A16); val info = Color(0xFF3E7BFA); val teal = Color(0xFF12A594)
+
+    fun disc(bg: Color, glyph: String) = @Composable {
+        Box(Modifier.size(34.dp).clip(RoundedCornerShape(50)).background(bg), contentAlignment = Alignment.Center) {
+            Text(glyph, color = onAccent, fontSize = (15 * scale).sp)
+        }
+    }
+
     Box(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant) // ground so a low-opacity card is visible
     ) {
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(surface).padding(14.dp)
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(surface).padding(14.dp)
         ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(title, color = textPrimary, fontWeight = FontWeight.Bold, fontSize = (16 * scale).sp, modifier = Modifier.weight(1f))
-                Box(Modifier.clip(RoundedCornerShape(16.dp)).background(accent).padding(horizontal = 10.dp, vertical = 4.dp)) {
-                    Text("＋", color = Color.White, fontWeight = FontWeight.Bold, fontSize = (14 * scale).sp)
+            when (kind) {
+                "cluster" -> {
+                    // The Quick-bar island: two balanced rows of accent discs.
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            disc(accent, "✓")(); disc(accent, "✎")(); disc(accent, "◎")()
+                        }
+                        Spacer(Modifier.size(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            disc(accent, "◷")(); disc(accent, "⌕")()
+                        }
+                    }
                 }
-            }
-            Spacer(Modifier.size(6.dp))
-            listOf("Draft the proposal" to "Today", "Reply to Sam" to "2:30 PM", "Plan the week" to "Overdue").forEach { (t, s) ->
-                Row(Modifier.fillMaxWidth().padding(vertical = rowPad), verticalAlignment = Alignment.CenterVertically) {
-                    Text("○", color = accent, fontSize = (17 * scale).sp, modifier = Modifier.padding(end = 10.dp))
-                    Text(t, color = textPrimary, fontSize = (14 * scale).sp, modifier = Modifier.weight(1f))
-                    Text(s, color = textSecondary, fontSize = (12 * scale).sp)
+                "matrix" -> {
+                    val quads = listOf("Do first" to danger, "Schedule" to warn, "Delegate" to info, "Later" to teal)
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        for (r in 0..1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            for (cIdx in 0..1) {
+                                val (label, col) = quads[r * 2 + cIdx]
+                                Column(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(col.copy(alpha = 0.14f)).padding(8.dp)) {
+                                    Text(label, color = col, fontSize = (11 * scale).sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                    Text("• Task", color = textSecondary, fontSize = (10 * scale).sp, maxLines = 1)
+                                }
+                            }
+                        }
+                    }
+                }
+                "ring" -> {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(64.dp).clip(RoundedCornerShape(50)).background(accent.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(44.dp).clip(RoundedCornerShape(50)).background(surface), contentAlignment = Alignment.Center) {
+                                Text("72%", color = accent, fontWeight = FontWeight.Bold, fontSize = (14 * scale).sp)
+                            }
+                        }
+                        Spacer(Modifier.size(14.dp))
+                        Column {
+                            Text(title, color = textPrimary, fontWeight = FontWeight.Bold, fontSize = (15 * scale).sp)
+                            Text("5 of 7 done · 🔥 12", color = textSecondary, fontSize = (12 * scale).sp)
+                        }
+                    }
+                }
+                "timer" -> {
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("25:00", color = textPrimary, fontWeight = FontWeight.Bold, fontSize = (30 * scale).sp)
+                        Spacer(Modifier.size(6.dp))
+                        Box(Modifier.clip(RoundedCornerShape(50)).background(accent).padding(horizontal = 16.dp, vertical = 6.dp)) {
+                            Text("▶ Start", color = onAccent, fontWeight = FontWeight.Bold, fontSize = (13 * scale).sp)
+                        }
+                    }
+                }
+                "tile" -> {
+                    Column {
+                        Text(title, color = textSecondary, fontSize = (12 * scale).sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.size(4.dp))
+                        Text("8", color = accent, fontWeight = FontWeight.Bold, fontSize = (34 * scale).sp)
+                        Text("due today", color = textSecondary, fontSize = (12 * scale).sp)
+                    }
+                }
+                else -> { // "list"
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(title, color = textPrimary, fontWeight = FontWeight.Bold, fontSize = (16 * scale).sp, modifier = Modifier.weight(1f))
+                        Box(Modifier.clip(RoundedCornerShape(12.dp)).background(accent).padding(horizontal = 10.dp, vertical = 4.dp)) {
+                            Text("＋", color = onAccent, fontWeight = FontWeight.Bold, fontSize = (14 * scale).sp)
+                        }
+                    }
+                    Spacer(Modifier.size(6.dp))
+                    listOf(Triple("Draft the proposal", "Today", danger), Triple("Reply to Sam", "2:30 PM", info), Triple("Plan the week", "Overdue", warn)).forEach { (t, s, col) ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = rowPad), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size((16 * scale).dp).clip(RoundedCornerShape(5.dp)).background(col.copy(alpha = 0.18f)).padding(1.dp), contentAlignment = Alignment.Center) {}
+                            Spacer(Modifier.size(10.dp))
+                            Text(t, color = textPrimary, fontSize = (14 * scale).sp, modifier = Modifier.weight(1f))
+                            Text(s, color = if (s == "Overdue") danger else textSecondary, fontSize = (12 * scale).sp)
+                        }
+                    }
                 }
             }
         }
