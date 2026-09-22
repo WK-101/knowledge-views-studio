@@ -84,12 +84,14 @@ object WidgetPrefs {
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putString("group_$id", group).apply()
     }
 
-    // Quick-bar widget: how many buttons (4–7) and which action each slot fires.
-    val QUICK_ACTIONS = listOf("task", "note", "habit", "time", "search", "dailynote", "closeday", "weekreview")
-    private val QUICK_DEFAULT = listOf("task", "note", "habit", "time", "search", "closeday", "weekreview")
+    // Quick-bar widget: how many buttons (4–7) and which action each slot fires. Slot 0 is the centre;
+    // it defaults to "app" — the brand mark that opens Kairo — but every slot (centre included) is a
+    // freely assignable action, so "app" is just the first option in the pool.
+    val QUICK_ACTIONS = listOf("app", "task", "note", "habit", "time", "search", "dailynote", "closeday", "weekreview")
+    private val QUICK_DEFAULT = listOf("app", "task", "note", "habit", "time", "search", "closeday")
 
     fun quickCount(ctx: Context, id: Int): Int =
-        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getInt("qccount_$id", 4).coerceIn(4, 7)
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getInt("qccount_$id", 5).coerceIn(4, 7)
 
     fun quickSlots(ctx: Context, id: Int): List<String> {
         val raw = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getString("qcslots_$id", null)

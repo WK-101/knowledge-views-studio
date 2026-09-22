@@ -48,26 +48,20 @@ class QuickBarWidget : AppWidgetProvider() {
         val wPx = WidgetBitmaps.dp(context, wDp.toFloat()).toInt()
         val hPx = WidgetBitmaps.dp(context, hDp.toFloat()).toInt()
 
-        // Centre is the app's brand mark; the configured actions ring around it. Solid theme card,
-        // faded to the per-widget opacity.
+        // Every slot is a clickable action; slot 0 sits in the centre (defaults to "app" — the brand
+        // mark that opens Kairo). Solid theme card, faded to the per-widget opacity.
         val op = WidgetPrefs.opacity(context, id).coerceIn(0, 100)
         val cardColor = ((255 * op / 100) shl 24) or (style.surface and 0x00FFFFFF)
-        val keys = listOf("app") + slots
         views.setImageViewBitmap(
             R.id.qb_face,
-            WidgetBitmaps.quickCluster(wPx, hPx, keys, cardColor, style.textPrimary, style.accent),
+            WidgetBitmaps.quickCluster(wPx, hPx, slots, cardColor, style.textPrimary, style.accent),
         )
 
-        // Transparent tap grid: centre cell opens the app; the ring cells fire the configured actions.
-        // Weights mirror WidgetBitmaps.clusterPositions; a count of N actions uses the (N+1)-cell layout.
+        // Transparent tap grid: each cell fires its slot's action (weights mirror clusterPositions).
         views.removeAllViews(R.id.qb_grid)
         val grid = RemoteViews(context.packageName, clusterLayoutFor(count))
-        grid.setOnClickPendingIntent(CELL_IDS[0], PendingIntent.getActivity(
-            context, id * 10 + 9, appIntent(context, "open_today"),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
-        grid.setContentDescription(CELL_IDS[0], "Open Kairo")
         slots.forEachIndexed { i, key ->
-            val cellId = CELL_IDS[i + 1]
+            val cellId = CELL_IDS[i]
             grid.setOnClickPendingIntent(cellId, pendingFor(context, id, i, key))
             grid.setContentDescription(cellId, labelFor(key))
         }
@@ -75,12 +69,12 @@ class QuickBarWidget : AppWidgetProvider() {
         manager.updateAppWidget(id, views)
     }
 
-    /** The tap-grid layout for a ring of N actions (4–7) around the brand centre — an (N+1)-cell grid. */
+    /** The tap-grid layout for N total actions (4–7) — the brand-plus-ring N-cell grid. */
     private fun clusterLayoutFor(n: Int): Int = when (n.coerceIn(4, 7)) {
-        4 -> R.layout.widget_qb_cluster_5
-        5 -> R.layout.widget_qb_cluster_6
-        6 -> R.layout.widget_qb_cluster_7
-        else -> R.layout.widget_qb_cluster_8
+        4 -> R.layout.widget_qb_cluster_4
+        5 -> R.layout.widget_qb_cluster_5
+        6 -> R.layout.widget_qb_cluster_6
+        else -> R.layout.widget_qb_cluster_7
     }
 
     private fun pendingFor(context: Context, widgetId: Int, index: Int, key: String): PendingIntent {
@@ -94,6 +88,7 @@ class QuickBarWidget : AppWidgetProvider() {
             "closeday" -> appIntent(context, "open_close_day")
             "weekreview" -> appIntent(context, "open_weekreview")
             "dailynote" -> appIntent(context, "new_daily_note")
+            "app" -> appIntent(context, "open_today")
             else -> appIntent(context, "open_today")
         }
         return PendingIntent.getActivity(context, reqCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -106,7 +101,7 @@ class QuickBarWidget : AppWidgetProvider() {
         }
 
     private fun labelFor(key: String): String = when (key) {
-        "task" -> "Task"; "note" -> "Note"; "habit" -> "Habit"; "time" -> "Time"
+        "app" -> "Open Kairo"; "task" -> "Task"; "note" -> "Note"; "habit" -> "Habit"; "time" -> "Time"
         "search" -> "Search"; "closeday" -> "Close"; "weekreview" -> "Review"
         "dailynote" -> "Daily note"; else -> key
     }
@@ -119,7 +114,7 @@ class QuickBarWidget : AppWidgetProvider() {
 
         /** Human-readable names for the settings screen. */
         fun displayName(key: String): String = when (key) {
-            "task" -> "Quick add task"; "note" -> "Quick add note"; "habit" -> "Quick habit check"
+            "app" -> "Open Kairo"; "task" -> "Quick add task"; "note" -> "Quick add note"; "habit" -> "Quick habit check"
             "time" -> "Quick time track"; "search" -> "Quick search"; "closeday" -> "Close the day"
             "weekreview" -> "Weekly review"; "dailynote" -> "Today's daily note"; else -> key
         }

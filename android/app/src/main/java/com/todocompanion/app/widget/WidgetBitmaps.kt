@@ -276,7 +276,7 @@ object WidgetBitmaps {
      * (the configurable range); 1–3 are sane fallbacks. See each layout XML for the mirror weights.
      */
     fun clusterPositions(n: Int): List<Pair<Float, Float>> {
-        val a = 0.25f; val b = 0.5f; val d = 0.75f   // 3×3 grid cell centres (matches the tap grids)
+        val a = 0.206f; val b = 0.5f; val d = 0.794f   // 3×3 grid cell centres (matches the tap grids)
         return when (n.coerceIn(1, 8)) {
             1 -> listOf(b to b)
             2 -> listOf(a to b, d to b)
@@ -315,11 +315,11 @@ object WidgetBitmaps {
         paint().apply { style = Paint.Style.FILL; color = cardColor }
             .let { c.drawRoundRect(RectF(ox, oy, ox + side, oy + side), cardR, cardR, it) }
 
-        val rCorner = side * 0.115f       // ring glyph radius — clean, generous padding
-        val rCenter = side * 0.16f        // centre (brand) radius — larger, the anchor
+        val rCorner = side * 0.14f        // ring glyph radius — larger, pushed toward the corners
+        val rCenter = side * 0.165f       // centre glyph radius — a touch larger, the primary
 
-        // Ring: modern monochrome line glyphs, no backgrounds. Centre: the app's brand mark, in accent,
-        // sitting straight on the card (no chip / border).
+        // Ring: monochrome line glyphs, no backgrounds. Centre (slot 0): the primary action, in accent —
+        // by default the app's brand mark. Both sit straight on the card (no chip / border).
         for (i in 1 until n) clusterGlyph(c, keys[i], cx(i), cy(i), rCorner, glyphColor)
         clusterGlyph(c, keys[0], cx(0), cy(0), rCenter, accentColor)
         return bmp
@@ -330,16 +330,16 @@ object WidgetBitmaps {
         val s = r * 2f
         fun fx(f: Float) = cx - r + s * f
         fun fy(f: Float) = cy - r + s * f
-        val stroke = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.09f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; this.color = color }
+        val stroke = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.072f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; this.color = color }
         val fill = paint().apply { style = Paint.Style.FILL; this.color = color }
         when (kind) {
             "app" -> {
-                // The Kairo brand mark (monochrome): a 3D isometric box with the guiding star in front,
-                // reproduced from ic_launcher_monochrome (108-unit viewport, centred on 54,54).
-                val k = r / 36f
+                // The Kairo brand mark: a 3D isometric box (accent wireframe) with the guiding gold star
+                // in front, reproduced from the launcher icon (108-unit viewport, centred on 54,54).
+                val k = r / 34f
                 fun bx(x: Float) = cx + (x - 54f) * k
                 fun by(y: Float) = cy + (y - 54f) * k
-                val bs = paint().apply { style = Paint.Style.STROKE; strokeWidth = 2.9f * k; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; this.color = color }
+                val bs = paint().apply { style = Paint.Style.STROKE; strokeWidth = 2.4f * k; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; this.color = color }
                 val box = Path().apply {
                     moveTo(bx(54f), by(19f)); lineTo(bx(84.3f), by(36.5f)); lineTo(bx(84.3f), by(71.5f))
                     lineTo(bx(54f), by(89f)); lineTo(bx(23.7f), by(71.5f)); lineTo(bx(23.7f), by(36.5f)); close()
@@ -353,7 +353,7 @@ object WidgetBitmaps {
                     quadTo(bx(57.2f), by(57.2f), bx(54f), by(77f)); quadTo(bx(50.8f), by(57.2f), bx(31f), by(54f))
                     quadTo(bx(50.8f), by(50.8f), bx(54f), by(31f)); close()
                 }
-                c.drawPath(star, fill)
+                c.drawPath(star, paint().apply { style = Paint.Style.FILL; this.color = 0xFFF5B01E.toInt() })
             }
             "task" -> {
                 c.drawRoundRect(RectF(fx(0.30f), fy(0.30f), fx(0.70f), fy(0.70f)), s * 0.09f, s * 0.09f, stroke)
