@@ -206,7 +206,7 @@ class WidgetConfigActivity : ComponentActivity() {
 
                             if (isQuickBar) {
                                 SectionLabel("Buttons")
-                                SegmentRow(listOf(4, 5, 6, 7).map { it.toString() to it.toString() }, qcCount.toString()) { qcCount = it.toInt() }
+                                SegmentRow(listOf(5, 7, 9).map { it.toString() to it.toString() }, qcCount.toString()) { qcCount = it.toInt() }
                                 Spacer(Modifier.size(12.dp))
                                 SectionLabel("Assign each button")
                                 for (i in 0 until qcCount) {

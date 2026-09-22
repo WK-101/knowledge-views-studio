@@ -93,7 +93,7 @@ class DayWidget : AppWidgetProvider() {
         val opts = runCatching { manager.getAppWidgetOptions(id) }.getOrNull()
         val wDp = (opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250) ?: 250).coerceIn(120, 640)
         val stripW = WidgetBitmaps.dp(context, (wDp - 24).toFloat()).toInt()
-        val stripH = WidgetBitmaps.dp(context, 50f).toInt()
+        val stripH = WidgetBitmaps.dp(context, 56f).toInt()
         val letters = weekDays.map { it.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()) }
         val nums = weekDays.map { it.dayOfMonth }
         views.setImageViewBitmap(R.id.day_strip, WidgetBitmaps.weekStrip(
@@ -124,6 +124,10 @@ class DayWidget : AppWidgetProvider() {
         views.setImageViewBitmap(R.id.day_add_event, WidgetBitmaps.roundIcon(context, iconPx, tonal, style.accent, "calendar"))
         views.setOnClickPendingIntent(R.id.day_add_task, quickCapture(context, id * 10 + 2))
         views.setOnClickPendingIntent(R.id.day_add_event, activity(context, id * 10 + 3, "new_event"))
+        // Jump-to-today: a flat accent "today" mark that snaps the widget back to today from any date.
+        val todayPx = WidgetBitmaps.dp(context, 24f).toInt()
+        views.setImageViewBitmap(R.id.day_today, WidgetBitmaps.roundIcon(context, todayPx, 0, style.accent, "today"))
+        views.setOnClickPendingIntent(R.id.day_today, setDayIntent(context, id, 0))
 
         WidgetStyle.applyListCard(views, R.id.day_card, context, id)
         views.setTextColor(R.id.day_empty, style.textSecondary)

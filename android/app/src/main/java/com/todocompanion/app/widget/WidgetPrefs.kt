@@ -88,17 +88,17 @@ object WidgetPrefs {
     // it defaults to "app" — the brand mark that opens Kairo — but every slot (centre included) is a
     // freely assignable action, so "app" is just the first option in the pool.
     val QUICK_ACTIONS = listOf("app", "task", "note", "habit", "time", "search", "dailynote", "closeday", "weekreview")
-    private val QUICK_DEFAULT = listOf("app", "task", "note", "habit", "time", "search", "closeday")
+    private val QUICK_DEFAULT = listOf("app", "task", "note", "habit", "time", "search", "closeday", "weekreview", "dailynote")
 
     fun quickCount(ctx: Context, id: Int): Int =
-        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getInt("qccount_$id", 5).coerceIn(4, 7)
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getInt("qccount_$id", 5).coerceIn(5, 9)
 
     fun quickSlots(ctx: Context, id: Int): List<String> {
         val prefs = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
         val raw = prefs.getString("qcslots_$id", null)
         val saved = raw?.split(",")?.map { it.trim() }?.filter { it in QUICK_ACTIONS } ?: emptyList()
-        // Always return 7 entries (config edits by index); fall back to defaults for any missing slot.
-        val result = (0 until 7).map { saved.getOrNull(it) ?: QUICK_DEFAULT[it] }
+        // Always return 9 entries (config edits by index); fall back to defaults for any missing slot.
+        val result = (0 until 9).map { saved.getOrNull(it) ?: QUICK_DEFAULT[it] }
 
         // One-time migration: the centre (slot 0) now defaults to the app's brand mark. A widget placed
         // before "app" existed as an action still has a capture action stored in slot 0, so its centre
@@ -119,7 +119,7 @@ object WidgetPrefs {
 
     fun saveQuick(ctx: Context, id: Int, count: Int, slots: List<String>) {
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
-            .putInt("qccount_$id", count.coerceIn(4, 7))
+            .putInt("qccount_$id", count.coerceIn(5, 9))
             .putString("qcslots_$id", slots.joinToString(","))
             .apply()
     }

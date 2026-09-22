@@ -174,6 +174,7 @@ object WidgetBitmaps {
             "clock" -> R.drawable.wic_time
             "stop" -> R.drawable.wic_stop
             "play" -> R.drawable.wic_play
+            "today" -> R.drawable.wic_today
             else -> 0
         }
         if (res != 0) {
@@ -251,7 +252,7 @@ object WidgetBitmaps {
      */
     fun clusterPositions(n: Int): List<Pair<Float, Float>> {
         val a = 0.206f; val b = 0.5f; val d = 0.794f   // 3×3 grid cell centres (matches the tap grids)
-        return when (n.coerceIn(1, 8)) {
+        return when (n.coerceIn(1, 9)) {
             1 -> listOf(b to b)
             2 -> listOf(a to b, d to b)
             3 -> listOf(b to b, a to a, d to a)                                   // centre + top pair
@@ -259,7 +260,8 @@ object WidgetBitmaps {
             5 -> listOf(b to b, a to a, d to a, a to d, d to d)                   // centre + 4 corners
             6 -> listOf(b to b, a to a, d to a, a to b, d to b, b to d)           // centre + TL,TR,L,R,B
             7 -> listOf(b to b, a to a, d to a, a to b, d to b, a to d, d to d)   // centre + 6-way ring
-            else -> listOf(b to b, a to a, b to a, d to a, a to b, d to b, a to d, d to d) // centre + 7 (TL,T,TR,L,R,BL,BR)
+            8 -> listOf(b to b, a to a, b to a, d to a, a to b, d to b, a to d, d to d) // centre + 7 (TL,T,TR,L,R,BL,BR)
+            else -> listOf(b to b, a to a, b to a, d to a, a to b, d to b, a to d, b to d, d to d) // centre + full 8 (3×3)
         }
     }
 
@@ -273,7 +275,7 @@ object WidgetBitmaps {
         val w = cap(wPx, 1600); val h = cap(hPx, 1600)
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
-        val n = keys.size.coerceIn(1, 8)
+        val n = keys.size.coerceIn(1, 9)
         val pos = clusterPositions(n)
         val wf = w.toFloat(); val hf = h.toFloat()
         // Draw a centred SQUARE so a portrait / landscape cell still shows a square island (the reference
@@ -351,15 +353,16 @@ object WidgetBitmaps {
         val c = Canvas(bmp)
         val n = 7
         val colW = w / n.toFloat()
-        val letterSize = h * 0.24f
-        val numSize = h * 0.30f
-        val pillR = min(colW, h.toFloat()) * 0.32f
+        val letterSize = h * 0.22f
+        val numSize = h * 0.28f
+        // Cap the pill by height so a wide widget can't grow the circle up into the weekday letters.
+        val pillR = min(colW * 0.42f, h * 0.24f)
         for (i in 0 until n) {
             val cxi = colW * i + colW / 2f
-            // Weekday letter (top).
+            // Weekday letter (top band, clear of the circle below).
             val lp = paint().apply { textAlign = Paint.Align.CENTER; color = textSecondary; textSize = letterSize; isFakeBoldText = i == todayIdx }
-            c.drawText(letters.getOrElse(i) { "" }, cxi, h * 0.30f, lp)
-            // Selected pill / today ring behind the number.
+            c.drawText(letters.getOrElse(i) { "" }, cxi, h * 0.24f, lp)
+            // Selected pill / today ring behind the number (well below the letter row).
             val numCy = h * 0.62f
             if (i == selectedIdx) {
                 paint().apply { style = Paint.Style.FILL; color = accent }.let { c.drawCircle(cxi, numCy, pillR, it) }
@@ -377,7 +380,7 @@ object WidgetBitmaps {
             // Item dot.
             if (hasItems.getOrElse(i) { false }) {
                 val dc = if (i == selectedIdx) onAccent else dotColor
-                paint().apply { style = Paint.Style.FILL; color = dc }.let { c.drawCircle(cxi, numCy + pillR + h * 0.12f, h * 0.035f, it) }
+                paint().apply { style = Paint.Style.FILL; color = dc }.let { c.drawCircle(cxi, numCy + pillR + h * 0.075f, h * 0.03f, it) }
             }
         }
         return bmp

@@ -97,8 +97,8 @@ class HabitZeroWidget : AppWidgetProvider() {
         val views = RemoteViews(context.packageName, R.layout.widget_habitzero)
         WidgetStyle.applyListCard(views, R.id.hz_card, context, id)
 
-        val edge = WidgetBitmaps.dp(context, 52f).toInt()
-        val stroke = WidgetBitmaps.dp(context, 6.5f)
+        val edge = WidgetBitmaps.dp(context, 60f).toInt()
+        val stroke = WidgetBitmaps.dp(context, 7.5f)
         val progress = if (r.due > 0) r.done.toFloat() / r.due else 0f
         val fill = if (r.due > 0 && r.done >= r.due) style.success else style.accent
         views.setImageViewBitmap(R.id.hz_ring, WidgetBitmaps.ring(edge, stroke, progress, style.chip, fill))

@@ -69,12 +69,13 @@ class QuickBarWidget : AppWidgetProvider() {
         manager.updateAppWidget(id, views)
     }
 
-    /** The tap-grid layout for N total actions (4–7) — the brand-plus-ring N-cell grid. */
-    private fun clusterLayoutFor(n: Int): Int = when (n.coerceIn(4, 7)) {
-        4 -> R.layout.widget_qb_cluster_4
+    /** The tap-grid layout for N total actions (5–9) — the brand-plus-ring N-cell grid. */
+    private fun clusterLayoutFor(n: Int): Int = when (n.coerceIn(5, 9)) {
         5 -> R.layout.widget_qb_cluster_5
         6 -> R.layout.widget_qb_cluster_6
-        else -> R.layout.widget_qb_cluster_7
+        7 -> R.layout.widget_qb_cluster_7
+        8 -> R.layout.widget_qb_cluster_8
+        else -> R.layout.widget_qb_cluster_9
     }
 
     private fun pendingFor(context: Context, widgetId: Int, index: Int, key: String): PendingIntent {
@@ -109,7 +110,7 @@ class QuickBarWidget : AppWidgetProvider() {
     companion object {
         /** Fixed tap-cell ids, in reading order, matching qb_c0..qb_c6 across every widget_qb_cluster_N. */
         private val CELL_IDS = intArrayOf(
-            R.id.qb_c0, R.id.qb_c1, R.id.qb_c2, R.id.qb_c3, R.id.qb_c4, R.id.qb_c5, R.id.qb_c6, R.id.qb_c7,
+            R.id.qb_c0, R.id.qb_c1, R.id.qb_c2, R.id.qb_c3, R.id.qb_c4, R.id.qb_c5, R.id.qb_c6, R.id.qb_c7, R.id.qb_c8,
         )
 
         /** Human-readable names for the settings screen. */
