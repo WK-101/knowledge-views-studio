@@ -288,12 +288,12 @@ object WidgetBitmaps {
         }
     }
 
-    /** The Quick-bar "island" (Google-Keep-style): ONE solid, bumpy-squircle blob with a prominent
-     *  centre button (the primary action) and the remaining actions as clean glyphs sitting directly on
-     *  the blob — no per-action discs, no faint wash. Positions come from [clusterPositions] so the
-     *  overlaid `widget_qb_cluster_N` tap grid lines up action-for-action. Colours are derived here from
-     *  [dark]/[accent]/[onAccent] and the blob is faded to [opacity] (0–100). */
-    fun quickCluster(wPx: Int, hPx: Int, keys: List<String>, dark: Boolean, accent: Int, onAccent: Int, opacity: Int): Bitmap {
+    /** The Quick-bar face: minimal, monochrome line glyphs on a clean grid over the widget's own flat
+     *  rounded card (drawn by the qb_card layer) — the modern launcher-shortcut look. A larger primary
+     *  glyph sits in the centre on one subtle tonal chip (the single point of emphasis); the other
+     *  actions are calm, background-free glyphs in the corners. Positions come from [clusterPositions]
+     *  so the overlaid `widget_qb_cluster_N` tap grid lines up action-for-action. */
+    fun quickCluster(wPx: Int, hPx: Int, keys: List<String>, glyphColor: Int, accentColor: Int, chipColor: Int): Bitmap {
         val w = cap(wPx, 1600); val h = cap(hPx, 900)
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
@@ -303,36 +303,18 @@ object WidgetBitmaps {
         val minDim = min(wf, hf)
         fun cx(i: Int) = pos[i].first * wf
         fun cy(i: Int) = pos[i].second * hf
+        val rCorner = minDim * 0.12f       // corner glyph radius
+        val rCenter = minDim * 0.145f      // centre glyph radius (a touch larger — the primary)
 
-        // Keep-like palette: a solid tinted island, a saturated accent centre button, and light (dark
-        // theme) or accent (light theme) glyphs directly on the blob.
-        val blobBase = if (dark) blend(accent, 0xFF12131C.toInt(), 0.74f) else blend(accent, 0xFFFFFFFF.toInt(), 0.86f)
-        val blobColor = withAlpha(blobBase, 255 * opacity.coerceIn(0, 100) / 100)
-        val glyphColor = if (dark) 0xFFF3F1FA.toInt() else accent
-        val rDisc = minDim * 0.15f          // ring glyph radius
-        val rCenter = minDim * 0.165f       // centre button half-size (larger — the primary)
-
-        // Blob = union of a rounded core square + a circle around every button, so the outline hugs each
-        // button and the whole thing reads as one connected, bumpy squircle (the Keep quick-capture shape).
-        val blob = Path()
-        val coreHalf = minDim * 0.30f
-        blob.addRoundRect(
-            RectF(wf / 2f - coreHalf, hf / 2f - coreHalf, wf / 2f + coreHalf, hf / 2f + coreHalf),
-            minDim * 0.16f, minDim * 0.16f, Path.Direction.CW,
-        )
-        for (i in 0 until n) {
-            val r = (if (i == 0) rCenter else rDisc) + minDim * 0.055f
-            blob.op(Path().apply { addCircle(cx(i), cy(i), r, Path.Direction.CW) }, Path.Op.UNION)
+        // One soft rounded-square chip behind the centre (primary) — the single point of emphasis.
+        val chipHalf = minDim * 0.205f
+        paint().apply { style = Paint.Style.FILL; color = chipColor }.let {
+            c.drawRoundRect(RectF(cx(0) - chipHalf, cy(0) - chipHalf, cx(0) + chipHalf, cy(0) + chipHalf), chipHalf * 0.42f, chipHalf * 0.42f, it)
         }
-        paint().apply { style = Paint.Style.FILL; color = blobColor }.let { c.drawPath(blob, it) }
-
-        // Ring actions: glyph only, on the blob.
-        for (i in 1 until n) clusterGlyph(c, keys[i], cx(i), cy(i), rDisc, glyphColor)
-
-        // Centre: a prominent filled squircle button carrying the primary action's glyph.
-        val rect = RectF(cx(0) - rCenter, cy(0) - rCenter, cx(0) + rCenter, cy(0) + rCenter)
-        paint().apply { style = Paint.Style.FILL; color = accent }.let { c.drawRoundRect(rect, rCenter * 0.5f, rCenter * 0.5f, it) }
-        clusterGlyph(c, keys[0], cx(0), cy(0), rCenter * 0.92f, onAccent)
+        // Corners: calm monochrome line glyphs, no backgrounds.
+        for (i in 1 until n) clusterGlyph(c, keys[i], cx(i), cy(i), rCorner, glyphColor)
+        // Centre: the larger primary glyph, in the accent.
+        clusterGlyph(c, keys[0], cx(0), cy(0), rCenter, accentColor)
         return bmp
     }
 

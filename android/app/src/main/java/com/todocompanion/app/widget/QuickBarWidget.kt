@@ -30,15 +30,16 @@ class QuickBarWidget : AppWidgetProvider() {
     private fun render(context: Context, manager: AppWidgetManager, id: Int) {
         val style = WidgetStyle.resolve(context, id)
         val views = RemoteViews(context.packageName, R.layout.widget_quickbar)
-        // No rectangular card behind the island — the blob itself is the surface (Keep-style), so it
-        // floats cleanly on the launcher. Per-widget opacity is folded into the blob's own alpha.
-        views.setViewVisibility(R.id.qb_card, android.view.View.GONE)
+        // The island is the widget's own flat, themeable rounded card (theme + opacity honoured), with
+        // the minimal action glyphs drawn on top — the modern launcher-shortcut look.
+        WidgetStyle.applyListCard(views, R.id.qb_card, context, id)
+        views.setViewVisibility(R.id.qb_card, android.view.View.VISIBLE)
 
         val count = WidgetPrefs.quickCount(context, id)
         val slots = WidgetPrefs.quickSlots(context, id).take(count)
 
-        // The face: one solid, bumpy-squircle "island" with a prominent centre button and glyph-only
-        // actions around it — a single object, sized to the widget's pixels.
+        // The face: minimal monochrome line glyphs on a clean grid — a larger primary in the centre
+        // (on one subtle tonal chip) and the other actions in the corners. Sized to the widget's pixels.
         val opts = runCatching { manager.getAppWidgetOptions(id) }.getOrNull()
         val wDp = (opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 180) ?: 180).coerceIn(100, 640)
         val hDp = (opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 140) ?: 140).coerceIn(70, 400)
@@ -46,7 +47,7 @@ class QuickBarWidget : AppWidgetProvider() {
         val hPx = WidgetBitmaps.dp(context, hDp.toFloat()).toInt()
         views.setImageViewBitmap(
             R.id.qb_face,
-            WidgetBitmaps.quickCluster(wPx, hPx, slots, style.dark, style.accent, style.onAccent, WidgetPrefs.opacity(context, id)),
+            WidgetBitmaps.quickCluster(wPx, hPx, slots, style.textPrimary, style.accent, style.surfaceVariant),
         )
 
         // Transparent per-count tap grid whose cells sit exactly over the drawn discs
