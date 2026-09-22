@@ -54,7 +54,7 @@ class QuickBarWidget : AppWidgetProvider() {
         val cardColor = ((255 * op / 100) shl 24) or (style.surface and 0x00FFFFFF)
         views.setImageViewBitmap(
             R.id.qb_face,
-            WidgetBitmaps.quickCluster(wPx, hPx, slots, cardColor, style.textPrimary, style.accent),
+            WidgetBitmaps.quickCluster(context, wPx, hPx, slots, cardColor, style.textPrimary, style.accent),
         )
 
         // Transparent tap grid: each cell fires its slot's action (weights mirror clusterPositions).

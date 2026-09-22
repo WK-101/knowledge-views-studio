@@ -94,10 +94,26 @@ object WidgetPrefs {
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getInt("qccount_$id", 5).coerceIn(4, 7)
 
     fun quickSlots(ctx: Context, id: Int): List<String> {
-        val raw = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getString("qcslots_$id", null)
+        val prefs = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+        val raw = prefs.getString("qcslots_$id", null)
         val saved = raw?.split(",")?.map { it.trim() }?.filter { it in QUICK_ACTIONS } ?: emptyList()
         // Always return 7 entries (config edits by index); fall back to defaults for any missing slot.
-        return (0 until 7).map { saved.getOrNull(it) ?: QUICK_DEFAULT[it] }
+        val result = (0 until 7).map { saved.getOrNull(it) ?: QUICK_DEFAULT[it] }
+
+        // One-time migration: the centre (slot 0) now defaults to the app's brand mark. A widget placed
+        // before "app" existed as an action still has a capture action stored in slot 0, so its centre
+        // shows a checkmark instead of the app icon. Adopt the new default once, leaving every other slot
+        // (and any later manual re-assignment) untouched.
+        if (!prefs.getBoolean("qcappmig_$id", false)) {
+            if (raw != null && result[0] != "app") {
+                val migrated = result.toMutableList().also { it[0] = "app" }
+                prefs.edit().putString("qcslots_$id", migrated.joinToString(","))
+                    .putBoolean("qcappmig_$id", true).apply()
+                return migrated
+            }
+            prefs.edit().putBoolean("qcappmig_$id", true).apply()
+        }
+        return result
     }
 
     fun saveQuick(ctx: Context, id: Int, count: Int, slots: List<String>) {
@@ -113,7 +129,7 @@ object WidgetPrefs {
             .remove("energy_$id").remove("time_$id")
             .remove("opacity_$id").remove("font_$id").remove("compact_$id").remove("toolbar_$id")
             .remove("dayoff_$id").remove("habit_$id").remove("group_$id").remove("mxrows_$id")
-            .remove("qccount_$id").remove("qcslots_$id")
+            .remove("qccount_$id").remove("qcslots_$id").remove("qcappmig_$id")
             .apply()
     }
 

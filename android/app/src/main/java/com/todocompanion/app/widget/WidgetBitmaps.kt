@@ -9,6 +9,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Shader
 import android.util.TypedValue
+import com.todocompanion.app.R
 import kotlin.math.max
 import kotlin.math.min
 
@@ -289,12 +290,12 @@ object WidgetBitmaps {
         }
     }
 
-    /** The Quick-bar face: minimal, monochrome line glyphs on a clean grid over the widget's own flat
-     *  rounded card (drawn by the qb_card layer) — the modern launcher-shortcut look. A larger primary
-     *  glyph sits in the centre on one subtle tonal chip (the single point of emphasis); the other
-     *  actions are calm, background-free glyphs in the corners. Positions come from [clusterPositions]
-     *  so the overlaid `widget_qb_cluster_N` tap grid lines up action-for-action. */
-    fun quickCluster(wPx: Int, hPx: Int, keys: List<String>, cardColor: Int, glyphColor: Int, accentColor: Int): Bitmap {
+    /** The Quick-bar face: the app's own Material icons on a clean grid over one flat rounded card —
+     *  the modern launcher-shortcut look. Every glyph is a real vector drawable (the same icon language
+     *  used across the app), tinted to the theme; the centre glyph is the app's brand mark by default,
+     *  rendered in full colour. Positions come from [clusterPositions] so the overlaid
+     *  `widget_qb_cluster_N` tap grid lines up action-for-action. */
+    fun quickCluster(ctx: Context, wPx: Int, hPx: Int, keys: List<String>, cardColor: Int, glyphColor: Int, accentColor: Int): Bitmap {
         // Cap both edges the same so the bitmap keeps the widget's aspect (no fitXY squashing).
         val w = cap(wPx, 1600); val h = cap(hPx, 1600)
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
@@ -315,84 +316,45 @@ object WidgetBitmaps {
         paint().apply { style = Paint.Style.FILL; color = cardColor }
             .let { c.drawRoundRect(RectF(ox, oy, ox + side, oy + side), cardR, cardR, it) }
 
-        val rCorner = side * 0.14f        // ring glyph radius — larger, pushed toward the corners
-        val rCenter = side * 0.165f       // centre glyph radius — a touch larger, the primary
+        val rCorner = side * 0.155f       // ring icon half-box — larger, pushed toward the corners
+        val rCenter = side * 0.185f       // centre icon half-box — the primary, a touch larger
 
-        // Ring: monochrome line glyphs, no backgrounds. Centre (slot 0): the primary action, in accent —
-        // by default the app's brand mark. Both sit straight on the card (no chip / border).
-        for (i in 1 until n) clusterGlyph(c, keys[i], cx(i), cy(i), rCorner, glyphColor)
-        clusterGlyph(c, keys[0], cx(0), cy(0), rCenter, accentColor)
+        // Ring: the app's Material icons, tinted to the theme ink; no backgrounds, no borders.
+        for (i in 1 until n) drawActionIcon(ctx, c, keys[i], cx(i), cy(i), rCorner, glyphColor)
+        // Centre (slot 0): the primary action. The brand mark renders in full colour and a shade larger;
+        // any other assigned action is tinted in the accent to stay the point of emphasis.
+        val centreKey = keys[0]
+        if (centreKey == "app") {
+            drawActionIcon(ctx, c, "app", cx(0), cy(0), rCenter * 1.42f, null)
+        } else {
+            drawActionIcon(ctx, c, centreKey, cx(0), cy(0), rCenter, accentColor)
+        }
         return bmp
     }
 
-    /** One action glyph centred in a disc of radius [r] at ([cx],[cy]) — matches [actionIcon]'s shapes. */
-    private fun clusterGlyph(c: Canvas, kind: String, cx: Float, cy: Float, r: Float, color: Int) {
-        val s = r * 2f
-        fun fx(f: Float) = cx - r + s * f
-        fun fy(f: Float) = cy - r + s * f
-        val stroke = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.072f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; this.color = color }
-        val fill = paint().apply { style = Paint.Style.FILL; this.color = color }
-        when (kind) {
-            "app" -> {
-                // The Kairo brand mark: a 3D isometric box (accent wireframe) with the guiding gold star
-                // in front, reproduced from the launcher icon (108-unit viewport, centred on 54,54).
-                val k = r / 34f
-                fun bx(x: Float) = cx + (x - 54f) * k
-                fun by(y: Float) = cy + (y - 54f) * k
-                val bs = paint().apply { style = Paint.Style.STROKE; strokeWidth = 2.4f * k; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; this.color = color }
-                val box = Path().apply {
-                    moveTo(bx(54f), by(19f)); lineTo(bx(84.3f), by(36.5f)); lineTo(bx(84.3f), by(71.5f))
-                    lineTo(bx(54f), by(89f)); lineTo(bx(23.7f), by(71.5f)); lineTo(bx(23.7f), by(36.5f)); close()
-                }
-                c.drawPath(box, bs)
-                c.drawLine(bx(54f), by(54f), bx(84.3f), by(36.5f), bs)
-                c.drawLine(bx(54f), by(54f), bx(23.7f), by(36.5f), bs)
-                c.drawLine(bx(54f), by(54f), bx(54f), by(89f), bs)
-                val star = Path().apply {
-                    moveTo(bx(54f), by(31f)); quadTo(bx(57.2f), by(50.8f), bx(77f), by(54f))
-                    quadTo(bx(57.2f), by(57.2f), bx(54f), by(77f)); quadTo(bx(50.8f), by(57.2f), bx(31f), by(54f))
-                    quadTo(bx(50.8f), by(50.8f), bx(54f), by(31f)); close()
-                }
-                c.drawPath(star, paint().apply { style = Paint.Style.FILL; this.color = 0xFFF5B01E.toInt() })
-            }
-            "task" -> {
-                c.drawRoundRect(RectF(fx(0.30f), fy(0.30f), fx(0.70f), fy(0.70f)), s * 0.09f, s * 0.09f, stroke)
-                val p = Path().apply { moveTo(fx(0.38f), fy(0.50f)); lineTo(fx(0.46f), fy(0.58f)); lineTo(fx(0.63f), fy(0.40f)) }
-                c.drawPath(p, stroke)
-            }
-            "note" -> {
-                // A clean document: rounded page + three evenly spaced text lines.
-                c.drawRoundRect(RectF(fx(0.30f), fy(0.26f), fx(0.70f), fy(0.74f)), s * 0.09f, s * 0.09f, stroke)
-                val ln = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.06f; strokeCap = Paint.Cap.ROUND; this.color = color }
-                c.drawLine(fx(0.40f), fy(0.41f), fx(0.60f), fy(0.41f), ln)
-                c.drawLine(fx(0.40f), fy(0.50f), fx(0.60f), fy(0.50f), ln)
-                c.drawLine(fx(0.40f), fy(0.59f), fx(0.54f), fy(0.59f), ln)
-            }
-            "habit" -> { c.drawCircle(cx, cy, s * 0.20f, stroke); c.drawCircle(cx, cy, s * 0.075f, fill) }
-            "time" -> {
-                c.drawCircle(cx, cy, s * 0.22f, stroke)
-                val hh = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.06f; strokeCap = Paint.Cap.ROUND; this.color = color }
-                c.drawLine(cx, cy, cx, cy - s * 0.13f, hh); c.drawLine(cx, cy, cx + s * 0.10f, cy, hh)
-            }
-            "search" -> { c.drawCircle(fx(0.44f), fy(0.44f), s * 0.16f, stroke); c.drawLine(fx(0.56f), fy(0.56f), fx(0.68f), fy(0.68f), stroke) }
-            "closeday" -> {
-                val moon = Path().apply { addCircle(fx(0.52f), cy, s * 0.22f, Path.Direction.CW) }
-                val cut = Path().apply { addCircle(fx(0.62f), fy(0.42f), s * 0.20f, Path.Direction.CW) }
-                moon.op(cut, Path.Op.DIFFERENCE); c.drawPath(moon, fill)
-            }
-            "weekreview" -> {
-                fun bar(xf: Float, bh: Float) = c.drawRoundRect(RectF(fx(xf), cy + s * 0.20f - bh, fx(xf) + s * 0.10f, cy + s * 0.20f), s * 0.02f, s * 0.02f, fill)
-                bar(0.32f, s * 0.18f); bar(0.45f, s * 0.30f); bar(0.58f, s * 0.42f)
-            }
-            "dailynote" -> {
-                // A dated page: outlined page, a filled header band, two short body lines.
-                c.drawRoundRect(RectF(fx(0.30f), fy(0.26f), fx(0.70f), fy(0.74f)), s * 0.06f, s * 0.06f, stroke)
-                c.drawRoundRect(RectF(fx(0.30f), fy(0.26f), fx(0.70f), fy(0.41f)), s * 0.06f, s * 0.06f, fill)
-                val ln = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.05f; strokeCap = Paint.Cap.ROUND; this.color = color }
-                c.drawLine(fx(0.37f), fy(0.54f), fx(0.63f), fy(0.54f), ln)
-                c.drawLine(fx(0.37f), fy(0.64f), fx(0.55f), fy(0.64f), ln)
-            }
-        }
+    /** The drawable resource that represents each Quick-bar action — the app's own icon set. */
+    private fun actionIconRes(key: String): Int = when (key) {
+        "app" -> R.drawable.ic_launcher_foreground
+        "task" -> R.drawable.wic_task
+        "note" -> R.drawable.wic_note
+        "habit" -> R.drawable.wic_habit
+        "time" -> R.drawable.wic_time
+        "search" -> R.drawable.wic_search
+        "dailynote" -> R.drawable.wic_dailynote
+        "closeday" -> R.drawable.wic_closeday
+        "weekreview" -> R.drawable.wic_review
+        else -> R.drawable.ic_launcher_foreground
+    }
+
+    /** Render one action's vector drawable centred at ([cx],[cy]) into a square of half-side [half].
+     *  A non-null [tint] recolours the (single-path) glyph to the theme; null keeps the drawable's own
+     *  colours (used for the full-colour brand mark). */
+    private fun drawActionIcon(ctx: Context, c: Canvas, key: String, cx: Float, cy: Float, half: Float, tint: Int?) {
+        val d = androidx.core.content.ContextCompat.getDrawable(ctx, actionIconRes(key))?.mutate() ?: return
+        if (tint != null) androidx.core.graphics.drawable.DrawableCompat.setTint(d, tint)
+        else androidx.core.graphics.drawable.DrawableCompat.setTintList(d, null)
+        d.setBounds((cx - half).toInt(), (cy - half).toInt(), (cx + half).toInt(), (cy + half).toInt())
+        d.draw(c)
     }
 
     /** The Day widget's week strip: seven day columns (weekday letter over the date number), the
