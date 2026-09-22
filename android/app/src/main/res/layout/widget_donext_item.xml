@@ -9,18 +9,15 @@
     android:paddingTop="7dp"
     android:paddingBottom="7dp">
 
-    <!-- R104 — tap to tick this task off in place. (Priority order is conveyed by the list order.) -->
-    <TextView
+    <!-- Tap to tick this task off in place (bitmap check-circle set per-row by the factory). -->
+    <ImageView
         android:id="@+id/dni_check"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:paddingStart="0dp"
-        android:paddingEnd="10dp"
-        android:paddingTop="1dp"
-        android:paddingBottom="1dp"
-        android:text="○"
-        android:textColor="@color/w_accent_text"
-        android:textSize="17sp" />
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_gravity="center_vertical"
+        android:layout_marginEnd="10dp"
+        android:scaleType="fitCenter"
+        android:adjustViewBounds="true" />
 
     <TextView
         android:id="@+id/dni_title"

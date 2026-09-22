@@ -127,9 +127,8 @@ private class RecordFactory(private val context: Context, private val widgetId: 
             setTextViewTextSize(R.id.item_sub, android.util.TypedValue.COMPLEX_UNIT_SP, style.sp(12f))
             setTextColor(R.id.item_title, style.textPrimary)
             setTextColor(R.id.item_sub, style.textSecondary)
-            // R104 — the shared row has a check glyph; here it's a done tick (these are finished tasks).
-            setTextViewText(R.id.item_check, "✓")
-            setTextColor(R.id.item_check, style.success)
+            // A drawn, filled check-circle (modern, matches the in-app completed mark) — these are finished tasks.
+            setImageViewBitmap(R.id.item_check, WidgetBitmaps.checkCircle(WidgetBitmaps.dp(context, 22f).toInt(), style.success, true))
             val fill = Intent().putExtra(MainActivity.EXTRA_ACTION, "open_task:${r.id}")
             setOnClickFillInIntent(R.id.item_root, fill)
         }

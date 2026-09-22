@@ -9,18 +9,15 @@
     android:paddingTop="8dp"
     android:paddingBottom="8dp">
 
-    <!-- R104 — tap to tick the task off in place (set per-row by the factory). -->
-    <TextView
+    <!-- Tap to tick the task off in place (bitmap check-circle set per-row by the factory). -->
+    <ImageView
         android:id="@+id/item_check"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:paddingStart="0dp"
-        android:paddingEnd="10dp"
-        android:paddingTop="1dp"
-        android:paddingBottom="1dp"
-        android:text="○"
-        android:textColor="@color/w_accent_text"
-        android:textSize="17sp" />
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_gravity="center_vertical"
+        android:layout_marginEnd="10dp"
+        android:scaleType="fitCenter"
+        android:adjustViewBounds="true" />
 
     <TextView
         android:id="@+id/item_title"

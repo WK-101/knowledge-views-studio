@@ -190,8 +190,9 @@ private class DoNextFactory(private val context: Context, private val widgetId: 
             setViewPadding(R.id.dni_root, 0, vpad, 0, vpad)
             setTextViewTextSize(R.id.dni_title, android.util.TypedValue.COMPLEX_UNIT_SP, style.sp(14f))
             setTextViewTextSize(R.id.dni_sub, android.util.TypedValue.COMPLEX_UNIT_SP, style.sp(12f))
-            setTextViewTextSize(R.id.dni_check, android.util.TypedValue.COMPLEX_UNIT_SP, style.sp(17f))
-            // R104 — tap the circle to tick it off in place; the rest of the row opens the task.
+            // A drawn check-circle (modern, matches the in-app checkbox). Tap it to tick off in place;
+            // the rest of the row opens the task.
+            setImageViewBitmap(R.id.dni_check, WidgetBitmaps.checkCircle(WidgetBitmaps.dp(context, 22f).toInt(), style.accent, false))
             setContentDescription(R.id.dni_check, "Complete ${r.title}")
             setOnClickFillInIntent(R.id.dni_check, TaskWidgetReceiver.completeFill(r.id))
             setOnClickFillInIntent(R.id.dni_root, TaskWidgetReceiver.openFill("open_task:${r.id}"))

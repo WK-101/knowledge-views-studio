@@ -96,6 +96,53 @@ object WidgetBitmaps {
         return bmp
     }
 
+    /** A round icon button: a filled/tinted disc with a glyph drawn on it — a stop square or a play
+     *  triangle or a clock — for widget action buttons and headers (RemoteViews can't tint a vector). */
+    fun roundIcon(sizePx: Int, discColor: Int, glyphColor: Int, glyph: String): Bitmap {
+        val size = cap(sizePx, 220)
+        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val cx = size / 2f
+        if (discColor != 0) {
+            paint().apply { style = Paint.Style.FILL; color = discColor }.let { c.drawCircle(cx, cx, cx, it) }
+        }
+        when (glyph) {
+            "stop" -> {
+                val r = size * 0.30f
+                val rr = size * 0.06f
+                paint().apply { style = Paint.Style.FILL; color = glyphColor }
+                    .let { c.drawRoundRect(RectF(cx - r, cx - r, cx + r, cx + r), rr, rr, it) }
+            }
+            "play" -> {
+                val p = Path().apply {
+                    moveTo(size * 0.40f, size * 0.32f)
+                    lineTo(size * 0.40f, size * 0.68f)
+                    lineTo(size * 0.70f, size * 0.50f)
+                    close()
+                }
+                paint().apply { style = Paint.Style.FILL; color = glyphColor }.let { c.drawPath(p, it) }
+            }
+            "clock" -> {
+                val ring = paint().apply { style = Paint.Style.STROKE; strokeWidth = size * 0.09f; strokeCap = Paint.Cap.ROUND; color = glyphColor }
+                c.drawCircle(cx, cx, size * 0.34f, ring)
+                val hands = paint().apply { style = Paint.Style.STROKE; strokeWidth = size * 0.08f; strokeCap = Paint.Cap.ROUND; color = glyphColor }
+                c.drawLine(cx, cx, cx, cx - size * 0.20f, hands)
+                c.drawLine(cx, cx, cx + size * 0.15f, cx, hands)
+            }
+        }
+        return bmp
+    }
+
+    /** A small solid dot — a calendar-event marker for a task row (distinct from the check circle). */
+    fun dot(sizePx: Int, color: Int): Bitmap {
+        val size = cap(sizePx, 180)
+        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        paint().apply { style = Paint.Style.FILL; this.color = color }
+            .let { c.drawCircle(size / 2f, size / 2f, size * 0.22f, it) }
+        return bmp
+    }
+
     /**
      * A GitHub-style contribution grid: [cols] weeks across, [rows] days down, each cell's colour
      * supplied by [colorAt]. Cells are rounded squares with a hairline gap.

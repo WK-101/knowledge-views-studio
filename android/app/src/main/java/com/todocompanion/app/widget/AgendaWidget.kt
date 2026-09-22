@@ -195,23 +195,21 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
             setViewPadding(R.id.item_root, 0, vpad, 0, vpad)
             setTextViewTextSize(R.id.item_title, android.util.TypedValue.COMPLEX_UNIT_SP, style.sp(14f))
             setTextViewTextSize(R.id.item_sub, android.util.TypedValue.COMPLEX_UNIT_SP, style.sp(12f))
-            setTextViewTextSize(R.id.item_check, android.util.TypedValue.COMPLEX_UNIT_SP, style.sp(17f))
             setTextColor(R.id.item_title, style.textPrimary)
             setTextColor(R.id.item_sub, when {
                 r.isEvent -> style.info
                 r.overdue -> style.danger
                 else -> style.textSecondary
             })
-            // R104 — the check circle: tasks tick off in place; an event shows a coloured dot and
-            // just opens the calendar (events aren't completable here).
+            // A drawn check-circle (modern, matches the in-app task checkbox): tasks tick off in place;
+            // an event shows a coloured dot and just opens the calendar (events aren't completable here).
+            val markPx = WidgetBitmaps.dp(context, 22f).toInt()
             if (r.isEvent) {
-                setTextViewText(R.id.item_check, "•")
-                setTextColor(R.id.item_check, style.info)
+                setImageViewBitmap(R.id.item_check, WidgetBitmaps.dot(markPx, style.info))
                 setContentDescription(R.id.item_check, "Open ${r.title}")
                 setOnClickFillInIntent(R.id.item_check, TaskWidgetReceiver.openFill("open_calendar"))
             } else {
-                setTextViewText(R.id.item_check, "○")
-                setTextColor(R.id.item_check, if (r.overdue) style.danger else style.accentText)
+                setImageViewBitmap(R.id.item_check, WidgetBitmaps.checkCircle(markPx, if (r.overdue) style.danger else style.accent, false))
                 setContentDescription(R.id.item_check, "Complete ${r.title}")
                 setOnClickFillInIntent(R.id.item_check, TaskWidgetReceiver.completeFill(r.id))
             }
