@@ -30,24 +30,30 @@ class QuickBarWidget : AppWidgetProvider() {
     private fun render(context: Context, manager: AppWidgetManager, id: Int) {
         val style = WidgetStyle.resolve(context, id)
         val views = RemoteViews(context.packageName, R.layout.widget_quickbar)
-        // The island is the widget's own flat, themeable rounded card (theme + opacity honoured), with
-        // the minimal action glyphs drawn on top — the modern launcher-shortcut look.
-        WidgetStyle.applyListCard(views, R.id.qb_card, context, id)
-        views.setViewVisibility(R.id.qb_card, android.view.View.VISIBLE)
+        // The whole island — a solid rounded card plus the minimal action glyphs — is drawn into qb_face
+        // sized to the widget's real aspect, so the card layer isn't needed and nothing gets stretched.
+        views.setViewVisibility(R.id.qb_card, android.view.View.GONE)
 
         val count = WidgetPrefs.quickCount(context, id)
         val slots = WidgetPrefs.quickSlots(context, id).take(count)
 
-        // The face: minimal monochrome line glyphs on a clean grid — a larger primary in the centre
-        // (on one subtle tonal chip) and the other actions in the corners. Sized to the widget's pixels.
+        // Size the bitmap to the widget's ACTUAL current dimensions (orientation-aware), so `fitXY` maps
+        // 1:1 and never squashes the square chip / round icons the way the min-size did.
         val opts = runCatching { manager.getAppWidgetOptions(id) }.getOrNull()
-        val wDp = (opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 180) ?: 180).coerceIn(100, 640)
-        val hDp = (opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 140) ?: 140).coerceIn(70, 400)
+        val portrait = context.resources.configuration.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val wDp = ((if (portrait) opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH) else opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH)) ?: 0)
+            .let { if (it <= 0) 160 else it }.coerceIn(90, 640)
+        val hDp = ((if (portrait) opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT) else opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)) ?: 0)
+            .let { if (it <= 0) 160 else it }.coerceIn(90, 640)
         val wPx = WidgetBitmaps.dp(context, wDp.toFloat()).toInt()
         val hPx = WidgetBitmaps.dp(context, hDp.toFloat()).toInt()
+
+        // Solid, theme-coloured card faded to the per-widget opacity; a subtle overlay chip on the centre.
+        val op = WidgetPrefs.opacity(context, id).coerceIn(0, 100)
+        val cardColor = ((255 * op / 100) shl 24) or (style.surface and 0x00FFFFFF)
         views.setImageViewBitmap(
             R.id.qb_face,
-            WidgetBitmaps.quickCluster(wPx, hPx, slots, style.textPrimary, style.accent, style.surfaceVariant),
+            WidgetBitmaps.quickCluster(wPx, hPx, slots, cardColor, style.textPrimary, style.accent, style.chip),
         )
 
         // Transparent per-count tap grid whose cells sit exactly over the drawn discs

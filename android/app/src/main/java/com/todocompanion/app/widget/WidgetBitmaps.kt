@@ -276,7 +276,7 @@ object WidgetBitmaps {
      * (the configurable range); 1–3 are sane fallbacks. See each layout XML for the mirror weights.
      */
     fun clusterPositions(n: Int): List<Pair<Float, Float>> {
-        val a = 0.218f; val b = 0.5f; val d = 0.782f   // 3×3 grid cell centres (matches the tap grids)
+        val a = 0.25f; val b = 0.5f; val d = 0.75f   // 3×3 grid cell centres (matches the tap grids)
         return when (n.coerceIn(1, 7)) {
             1 -> listOf(b to b)
             2 -> listOf(a to b, d to b)
@@ -293,8 +293,9 @@ object WidgetBitmaps {
      *  glyph sits in the centre on one subtle tonal chip (the single point of emphasis); the other
      *  actions are calm, background-free glyphs in the corners. Positions come from [clusterPositions]
      *  so the overlaid `widget_qb_cluster_N` tap grid lines up action-for-action. */
-    fun quickCluster(wPx: Int, hPx: Int, keys: List<String>, glyphColor: Int, accentColor: Int, chipColor: Int): Bitmap {
-        val w = cap(wPx, 1600); val h = cap(hPx, 900)
+    fun quickCluster(wPx: Int, hPx: Int, keys: List<String>, cardColor: Int, glyphColor: Int, accentColor: Int, chipColor: Int): Bitmap {
+        // Cap both edges the same so the bitmap keeps the widget's aspect (no fitXY squashing).
+        val w = cap(wPx, 1600); val h = cap(hPx, 1600)
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val n = keys.size.coerceIn(1, 7)
@@ -303,13 +304,20 @@ object WidgetBitmaps {
         val minDim = min(wf, hf)
         fun cx(i: Int) = pos[i].first * wf
         fun cy(i: Int) = pos[i].second * hf
-        val rCorner = minDim * 0.12f       // corner glyph radius
-        val rCenter = minDim * 0.145f      // centre glyph radius (a touch larger — the primary)
+
+        // The island IS one flat, solid rounded card filling the widget — drawn here so its corners stay
+        // crisp at any aspect and the surface reads solid (not washed out).
+        val cardR = minDim * 0.155f
+        paint().apply { style = Paint.Style.FILL; color = cardColor }
+            .let { c.drawRoundRect(RectF(0f, 0f, wf, hf), cardR, cardR, it) }
+
+        val rCorner = minDim * 0.135f      // corner glyph radius (bold, generous)
+        val rCenter = minDim * 0.155f      // centre glyph radius (a touch larger — the primary)
 
         // One soft rounded-square chip behind the centre (primary) — the single point of emphasis.
-        val chipHalf = minDim * 0.205f
+        val chipHalf = minDim * 0.21f
         paint().apply { style = Paint.Style.FILL; color = chipColor }.let {
-            c.drawRoundRect(RectF(cx(0) - chipHalf, cy(0) - chipHalf, cx(0) + chipHalf, cy(0) + chipHalf), chipHalf * 0.42f, chipHalf * 0.42f, it)
+            c.drawRoundRect(RectF(cx(0) - chipHalf, cy(0) - chipHalf, cx(0) + chipHalf, cy(0) + chipHalf), chipHalf * 0.5f, chipHalf * 0.5f, it)
         }
         // Corners: calm monochrome line glyphs, no backgrounds.
         for (i in 1 until n) clusterGlyph(c, keys[i], cx(i), cy(i), rCorner, glyphColor)
@@ -323,20 +331,21 @@ object WidgetBitmaps {
         val s = r * 2f
         fun fx(f: Float) = cx - r + s * f
         fun fy(f: Float) = cy - r + s * f
-        val stroke = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.075f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; this.color = color }
+        val stroke = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.085f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; this.color = color }
         val fill = paint().apply { style = Paint.Style.FILL; this.color = color }
         when (kind) {
             "task" -> {
-                c.drawRoundRect(RectF(fx(0.30f), fy(0.30f), fx(0.70f), fy(0.70f)), s * 0.07f, s * 0.07f, stroke)
+                c.drawRoundRect(RectF(fx(0.30f), fy(0.30f), fx(0.70f), fy(0.70f)), s * 0.09f, s * 0.09f, stroke)
                 val p = Path().apply { moveTo(fx(0.38f), fy(0.50f)); lineTo(fx(0.46f), fy(0.58f)); lineTo(fx(0.63f), fy(0.40f)) }
                 c.drawPath(p, stroke)
             }
             "note" -> {
-                c.drawRoundRect(RectF(fx(0.32f), fy(0.28f), fx(0.68f), fy(0.72f)), s * 0.05f, s * 0.05f, stroke)
-                val ln = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.055f; strokeCap = Paint.Cap.ROUND; this.color = color }
-                c.drawLine(fx(0.40f), fy(0.42f), fx(0.60f), fy(0.42f), ln)
-                c.drawLine(fx(0.40f), fy(0.52f), fx(0.60f), fy(0.52f), ln)
-                c.drawLine(fx(0.40f), fy(0.62f), fx(0.53f), fy(0.62f), ln)
+                // A clean document: rounded page + three evenly spaced text lines.
+                c.drawRoundRect(RectF(fx(0.30f), fy(0.26f), fx(0.70f), fy(0.74f)), s * 0.09f, s * 0.09f, stroke)
+                val ln = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.06f; strokeCap = Paint.Cap.ROUND; this.color = color }
+                c.drawLine(fx(0.40f), fy(0.41f), fx(0.60f), fy(0.41f), ln)
+                c.drawLine(fx(0.40f), fy(0.50f), fx(0.60f), fy(0.50f), ln)
+                c.drawLine(fx(0.40f), fy(0.59f), fx(0.54f), fy(0.59f), ln)
             }
             "habit" -> { c.drawCircle(cx, cy, s * 0.20f, stroke); c.drawCircle(cx, cy, s * 0.075f, fill) }
             "time" -> {
