@@ -251,6 +251,10 @@
             android:name=".widget.AgendaWidgetService"
             android:permission="android.permission.BIND_REMOTEVIEWS"
             android:exported="false" />
+        <service
+            android:name=".widget.MatrixWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
 
         <!-- Per-widget configuration screen (which scope/list, title, theme). Offline. -->
         <activity

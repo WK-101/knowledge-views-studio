@@ -64,7 +64,8 @@ class TimeWidget : AppWidgetProvider() {
                     else {
                         views.setViewVisibility(vid, View.VISIBLE)
                         val label = (a.emoji?.plus(" ") ?: "") + a.name
-                        views.setTextViewText(vid, if (running?.activityId == a.id) "▶ $label" else label)
+                        // A play glyph marks a start chip; the running one shows a filled ▶.
+                        views.setTextViewText(vid, if (running?.activityId == a.id) "▶ $label" else "▷ $label")
                         views.setOnClickPendingIntent(vid, action(context, ACTION_START, a.id, 100 + i))
                     }
                 }

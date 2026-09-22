@@ -133,6 +133,26 @@ object WidgetBitmaps {
         return bmp
     }
 
+    /** A tear-off calendar date tile: an accent header band over a body panel with the day-of-month
+     *  number — the leading glyph the Agenda widget uses to echo the app's calendar. */
+    fun calendarIcon(sizePx: Int, accent: Int, body: Int, ink: Int, day: Int): Bitmap {
+        val size = cap(sizePx, 220)
+        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val r = size * 0.16f
+        paint().apply { style = Paint.Style.FILL; color = accent }.let { c.drawRoundRect(RectF(0f, 0f, size.toFloat(), size.toFloat()), r, r, it) }
+        val top = size * 0.30f
+        paint().apply { style = Paint.Style.FILL; color = body }.let { c.drawRoundRect(RectF(0f, top, size.toFloat(), size.toFloat()), r, r, it) }
+        val tp = paint().apply {
+            textAlign = Paint.Align.CENTER; color = ink; isFakeBoldText = true
+            textSize = size * 0.46f
+        }
+        val bodyMid = top + (size - top) / 2f
+        val fm = tp.fontMetrics
+        c.drawText(day.toString(), size / 2f, bodyMid - (fm.ascent + fm.descent) / 2f, tp)
+        return bmp
+    }
+
     /** A small solid dot — a calendar-event marker for a task row (distinct from the check circle). */
     fun dot(sizePx: Int, color: Int): Bitmap {
         val size = cap(sizePx, 180)

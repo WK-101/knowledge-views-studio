@@ -57,7 +57,7 @@ class TodayWidget : AppWidgetProvider() {
                     setOnClickPendingIntent(R.id.widget_root, openAppIntent(context, null))
                     setOnClickPendingIntent(R.id.widget_add, openAppIntent(context, MainActivity.ACTION_QUICK_ADD))
                 }
-                ids.forEach { id -> WidgetStyle.applyCardBackground(views, R.id.widget_root, context, id); manager.updateAppWidget(id, views) }
+                ids.forEach { id -> WidgetStyle.applyListCard(views, R.id.today_card, context, id); manager.updateAppWidget(id, views) }
             } finally {
                 pending.finish()
             }

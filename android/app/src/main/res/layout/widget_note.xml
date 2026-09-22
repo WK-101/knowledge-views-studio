@@ -1,57 +1,69 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Notes quick widget: a compact card with two tap targets — a new blank note and today's daily note.
      Fully offline: each tile deep-links into the app (todocompanion://note / todocompanion://daily). -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@drawable/widget_bg"
-    android:padding="10dp">
+    android:layout_height="match_parent">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/widget_note_title"
-        android:textColor="@color/w_text_secondary"
-        android:textSize="11sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.04"
-        android:paddingBottom="6dp" />
+    <ImageView
+        android:id="@+id/note_card"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_bg"
+        android:importantForAccessibility="no" />
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:orientation="horizontal"
-        android:weightSum="2">
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="10dp">
 
         <TextView
-            android:id="@+id/note_new"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:layout_marginEnd="4dp"
-            android:gravity="center"
-            android:background="@drawable/widget_add_bg"
-            android:text="＋ Note"
-            android:textColor="@color/w_on_accent"
-            android:textSize="14sp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/widget_note_title"
+            android:textColor="@color/w_text_secondary"
+            android:textSize="11sp"
             android:textStyle="bold"
-            android:contentDescription="@string/sc_new_note_long" />
+            android:letterSpacing="0.04"
+            android:paddingBottom="6dp" />
 
-        <TextView
-            android:id="@+id/note_today"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
             android:layout_weight="1"
-            android:layout_marginStart="4dp"
-            android:gravity="center"
-            android:background="@drawable/widget_tile_bg"
-            android:text="🌅 Today"
-            android:textColor="@color/w_text_primary"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:contentDescription="@string/sc_daily_note_long" />
+            android:orientation="horizontal"
+            android:weightSum="2">
+
+            <TextView
+                android:id="@+id/note_new"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:gravity="center"
+                android:background="@drawable/widget_add_bg"
+                android:text="＋ Note"
+                android:textColor="@color/w_on_accent"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:contentDescription="@string/sc_new_note_long" />
+
+            <TextView
+                android:id="@+id/note_today"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:gravity="center"
+                android:background="@drawable/widget_tile_bg"
+                android:text="🌅 Today"
+                android:textColor="@color/w_text_primary"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:contentDescription="@string/sc_daily_note_long" />
+        </LinearLayout>
     </LinearLayout>
-</LinearLayout>
+</FrameLayout>

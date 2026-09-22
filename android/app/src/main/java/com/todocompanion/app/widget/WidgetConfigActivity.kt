@@ -129,6 +129,8 @@ class WidgetConfigActivity : ComponentActivity() {
                 var compact by remember { mutableStateOf(WidgetPrefs.compact(this, widgetId)) }
                 var habitPin by remember { mutableStateOf(WidgetPrefs.habitId(this, widgetId)) }
                 var groupPin by remember { mutableStateOf(WidgetPrefs.group(this, widgetId)) }
+                val isMatrix = suffix("MatrixWidget")
+                var mxRows by remember { mutableIntStateOf(WidgetPrefs.matrixRows(this, widgetId)) }
 
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     Scaffold { padding ->
@@ -175,15 +177,20 @@ class WidgetConfigActivity : ComponentActivity() {
                                 Spacer(Modifier.size(18.dp))
                             }
 
+                            if (isMatrix) {
+                                SectionLabel("Tasks per quadrant")
+                                SegmentRow(listOf(0 to "Auto", 3 to "3", 5 to "5", 8 to "8", 12 to "12").map { it.first.toString() to it.second }, mxRows.toString()) { mxRows = it.toInt() }
+                                Spacer(Modifier.size(18.dp))
+                            }
+
                             SectionLabel("Theme")
                             SegmentRow(listOf("auto" to "Auto", "light" to "Light", "dark" to "Dark"), theme) { theme = it }
                             Spacer(Modifier.size(18.dp))
 
-                            if (!isThemeOnly) {
-                                SectionLabel("Opacity · $opacity%")
-                                Slider(value = opacity.toFloat(), onValueChange = { opacity = it.roundToInt() }, valueRange = 0f..100f, steps = 19)
-                                Spacer(Modifier.size(12.dp))
-                            }
+                            // Opacity applies to every widget (each has a themeable card layer).
+                            SectionLabel("Opacity · $opacity%")
+                            Slider(value = opacity.toFloat(), onValueChange = { opacity = it.roundToInt() }, valueRange = 0f..100f, steps = 19)
+                            Spacer(Modifier.size(12.dp))
 
                             if (isList) {
                                 SectionLabel("Text size")
@@ -206,6 +213,7 @@ class WidgetConfigActivity : ComponentActivity() {
                                 else WidgetPrefs.saveTheme(this@WidgetConfigActivity, widgetId, theme)
                                 if (isSingleHabit) WidgetPrefs.saveHabit(this@WidgetConfigActivity, widgetId, habitPin)
                                 if (isHabitZero) WidgetPrefs.saveGroup(this@WidgetConfigActivity, widgetId, groupPin)
+                                if (isMatrix) WidgetPrefs.saveMatrixRows(this@WidgetConfigActivity, widgetId, mxRows)
                                 WidgetPrefs.saveAppearance(this@WidgetConfigActivity, widgetId, opacity, fontPct, compact, true)
                                 refreshWidget(providerClass, widgetId)
                                 setResult(Activity.RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))

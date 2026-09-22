@@ -20,7 +20,7 @@ class PomodoroWidget : AppWidgetProvider() {
         ids.forEach { id ->
             val views = RemoteViews(context.packageName, R.layout.widget_pomodoro)
             views.setOnClickPendingIntent(R.id.pomo_root, pi)
-            WidgetStyle.applyCardBackground(views, R.id.pomo_root, context, id)
+            WidgetStyle.applyListCard(views, R.id.pomo_card, context, id)
             manager.updateAppWidget(id, views)
         }
     }

@@ -52,6 +52,16 @@ class AgendaWidget : AppWidgetProvider() {
         WidgetStyle.applyListCard(views, R.id.widget_card, context, id)
         views.setTextColor(R.id.widget_title, s.textPrimary)
         views.setTextColor(R.id.widget_empty, s.textSecondary)
+        // Calendar-style header: a tear-off date tile + a "weekday · D Mon" line, echoing the app's calendar.
+        val today = LocalDate.now(ZoneId.systemDefault())
+        views.setImageViewBitmap(R.id.widget_dateicon,
+            WidgetBitmaps.calendarIcon(WidgetBitmaps.dp(context, 38f).toInt(), s.accent, s.surfaceVariant, s.textPrimary, today.dayOfMonth))
+        views.setViewVisibility(R.id.widget_dateicon, View.VISIBLE)
+        val dow = today.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault())
+        val mon = today.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault())
+        views.setTextViewText(R.id.widget_daterow, "$dow · ${today.dayOfMonth} $mon")
+        views.setViewVisibility(R.id.widget_daterow, View.VISIBLE)
+        views.setTextColor(R.id.widget_daterow, s.textSecondary)
         // Size-responsive: on a short (≈1-row-tall) placement, drop the header so the list itself — the
         // actual content — gets every pixel and the widget reads as a clean task strip.
         val minH = runCatching { manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) }.getOrDefault(0)

@@ -63,7 +63,7 @@ class MomentumWidget : AppWidgetProvider() {
                 views.setTextViewText(R.id.mo_score, "$momentum")
                 views.setTextViewText(R.id.mo_sub, sub)
                 views.setOnClickPendingIntent(R.id.mo_root, openMomentum(context))
-                ids.forEach { id -> WidgetStyle.applyCardBackground(views, R.id.mo_root, context, id); manager.updateAppWidget(id, views) }
+                ids.forEach { id -> WidgetStyle.applyListCard(views, R.id.mo_card, context, id); manager.updateAppWidget(id, views) }
             } finally { pending.finish() }
         }
     }

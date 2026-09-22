@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Eisenhower matrix widget: a real 2×2 board — each quadrant lists its top open tasks (not just a
-     count), colour-coded, with a header count. Tapping a task opens it; tapping a quadrant opens the
-     Matrix filtered to it. Card layer is a separate ImageView so runtime theme + opacity apply. -->
+<!-- Eisenhower matrix widget: a real 2×2 board. Each quadrant is a scrolling list of its tasks (fills
+     the space, scrolls for more), colour-coded, with the app's quadrant name + a live count. Tapping a
+     task opens it. Card layer is a separate ImageView so runtime theme + opacity apply. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/mx_root"
     android:layout_width="match_parent"
@@ -21,55 +21,45 @@
         android:orientation="vertical"
         android:padding="7dp">
 
-        <!-- Row 1: Do first · Schedule -->
         <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
 
-            <LinearLayout android:id="@+id/mx_q1" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:layout_margin="3dp" android:padding="9dp" android:background="@drawable/widget_tile_bg">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingBottom="3dp">
-                    <TextView android:id="@+id/mx_q1_label" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Do first" android:textColor="@color/w_danger" android:textSize="11sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
-                    <TextView android:id="@+id/mx_q1_count" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textColor="@color/w_danger" android:textSize="12sp" android:textStyle="bold" />
+            <LinearLayout android:id="@+id/mx_q0" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:layout_margin="3dp" android:padding="8dp" android:background="@drawable/widget_tile_bg">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingBottom="2dp">
+                    <TextView android:id="@+id/mx_lbl0" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textColor="@color/w_danger" android:textSize="11sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+                    <TextView android:id="@+id/mx_cnt0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textColor="@color/w_danger" android:textSize="12sp" android:textStyle="bold" />
                 </LinearLayout>
-                <TextView android:id="@+id/mx_q1_t0" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:paddingVertical="2dp" android:textColor="@color/w_text_primary" android:textSize="12sp" />
-                <TextView android:id="@+id/mx_q1_t1" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:paddingVertical="2dp" android:textColor="@color/w_text_primary" android:textSize="12sp" />
-                <TextView android:id="@+id/mx_q1_t2" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:paddingVertical="2dp" android:textColor="@color/w_text_secondary" android:textSize="12sp" />
-                <TextView android:id="@+id/mx_q1_empty" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Clear" android:textColor="@color/w_text_tertiary" android:textSize="11sp" android:paddingTop="2dp" />
+                <ListView android:id="@+id/mx_l0" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:divider="@null" android:dividerHeight="0dp" />
+                <TextView android:id="@+id/mx_e0" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center" android:text="Clear" android:textColor="@color/w_text_tertiary" android:textSize="11sp" android:visibility="gone" />
             </LinearLayout>
 
-            <LinearLayout android:id="@+id/mx_q2" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:layout_margin="3dp" android:padding="9dp" android:background="@drawable/widget_tile_bg">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingBottom="3dp">
-                    <TextView android:id="@+id/mx_q2_label" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Schedule" android:textColor="@color/w_warning" android:textSize="11sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
-                    <TextView android:id="@+id/mx_q2_count" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textColor="@color/w_warning" android:textSize="12sp" android:textStyle="bold" />
+            <LinearLayout android:id="@+id/mx_q1" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:layout_margin="3dp" android:padding="8dp" android:background="@drawable/widget_tile_bg">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingBottom="2dp">
+                    <TextView android:id="@+id/mx_lbl1" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textColor="@color/w_warning" android:textSize="11sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+                    <TextView android:id="@+id/mx_cnt1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textColor="@color/w_warning" android:textSize="12sp" android:textStyle="bold" />
                 </LinearLayout>
-                <TextView android:id="@+id/mx_q2_t0" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:paddingVertical="2dp" android:textColor="@color/w_text_primary" android:textSize="12sp" />
-                <TextView android:id="@+id/mx_q2_t1" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:paddingVertical="2dp" android:textColor="@color/w_text_primary" android:textSize="12sp" />
-                <TextView android:id="@+id/mx_q2_t2" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:paddingVertical="2dp" android:textColor="@color/w_text_secondary" android:textSize="12sp" />
-                <TextView android:id="@+id/mx_q2_empty" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Clear" android:textColor="@color/w_text_tertiary" android:textSize="11sp" android:paddingTop="2dp" />
+                <ListView android:id="@+id/mx_l1" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:divider="@null" android:dividerHeight="0dp" />
+                <TextView android:id="@+id/mx_e1" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center" android:text="Clear" android:textColor="@color/w_text_tertiary" android:textSize="11sp" android:visibility="gone" />
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Row 2: Delegate · Later -->
         <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
 
-            <LinearLayout android:id="@+id/mx_q3" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:layout_margin="3dp" android:padding="9dp" android:background="@drawable/widget_tile_bg">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingBottom="3dp">
-                    <TextView android:id="@+id/mx_q3_label" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Delegate" android:textColor="@color/w_info" android:textSize="11sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
-                    <TextView android:id="@+id/mx_q3_count" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textColor="@color/w_info" android:textSize="12sp" android:textStyle="bold" />
+            <LinearLayout android:id="@+id/mx_q2" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:layout_margin="3dp" android:padding="8dp" android:background="@drawable/widget_tile_bg">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingBottom="2dp">
+                    <TextView android:id="@+id/mx_lbl2" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textColor="@color/w_info" android:textSize="11sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+                    <TextView android:id="@+id/mx_cnt2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textColor="@color/w_info" android:textSize="12sp" android:textStyle="bold" />
                 </LinearLayout>
-                <TextView android:id="@+id/mx_q3_t0" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:paddingVertical="2dp" android:textColor="@color/w_text_primary" android:textSize="12sp" />
-                <TextView android:id="@+id/mx_q3_t1" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:paddingVertical="2dp" android:textColor="@color/w_text_primary" android:textSize="12sp" />
-                <TextView android:id="@+id/mx_q3_t2" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:paddingVertical="2dp" android:textColor="@color/w_text_secondary" android:textSize="12sp" />
-                <TextView android:id="@+id/mx_q3_empty" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Clear" android:textColor="@color/w_text_tertiary" android:textSize="11sp" android:paddingTop="2dp" />
+                <ListView android:id="@+id/mx_l2" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:divider="@null" android:dividerHeight="0dp" />
+                <TextView android:id="@+id/mx_e2" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center" android:text="Clear" android:textColor="@color/w_text_tertiary" android:textSize="11sp" android:visibility="gone" />
             </LinearLayout>
 
-            <LinearLayout android:id="@+id/mx_q4" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:layout_margin="3dp" android:padding="9dp" android:background="@drawable/widget_tile_bg">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingBottom="3dp">
-                    <TextView android:id="@+id/mx_q4_label" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Later" android:textColor="@color/w_teal" android:textSize="11sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
-                    <TextView android:id="@+id/mx_q4_count" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textColor="@color/w_teal" android:textSize="12sp" android:textStyle="bold" />
+            <LinearLayout android:id="@+id/mx_q3" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:layout_margin="3dp" android:padding="8dp" android:background="@drawable/widget_tile_bg">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingBottom="2dp">
+                    <TextView android:id="@+id/mx_lbl3" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textColor="@color/w_teal" android:textSize="11sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+                    <TextView android:id="@+id/mx_cnt3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textColor="@color/w_teal" android:textSize="12sp" android:textStyle="bold" />
                 </LinearLayout>
-                <TextView android:id="@+id/mx_q4_t0" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:paddingVertical="2dp" android:textColor="@color/w_text_primary" android:textSize="12sp" />
-                <TextView android:id="@+id/mx_q4_t1" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:paddingVertical="2dp" android:textColor="@color/w_text_primary" android:textSize="12sp" />
-                <TextView android:id="@+id/mx_q4_t2" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:paddingVertical="2dp" android:textColor="@color/w_text_secondary" android:textSize="12sp" />
-                <TextView android:id="@+id/mx_q4_empty" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Clear" android:textColor="@color/w_text_tertiary" android:textSize="11sp" android:paddingTop="2dp" />
+                <ListView android:id="@+id/mx_l3" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:divider="@null" android:dividerHeight="0dp" />
+                <TextView android:id="@+id/mx_e3" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center" android:text="Clear" android:textColor="@color/w_text_tertiary" android:textSize="11sp" android:visibility="gone" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

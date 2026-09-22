@@ -36,6 +36,9 @@ class RecordWidget : AppWidgetProvider() {
             views.setPendingIntentTemplate(R.id.widget_list, itemTemplate(context))
 
             views.setTextViewText(R.id.widget_title, WidgetPrefs.title(context, id).ifBlank { "The Record" })
+            // The Record reuses the Agenda layout but isn't a dated view — hide the calendar date tile/row.
+            views.setViewVisibility(R.id.widget_dateicon, android.view.View.GONE)
+            views.setViewVisibility(R.id.widget_daterow, android.view.View.GONE)
             views.setTextViewText(R.id.widget_empty, "Finish something to see it here")
             val s = WidgetStyle.resolve(context, id)
             WidgetStyle.applyListCard(views, R.id.widget_card, context, id)

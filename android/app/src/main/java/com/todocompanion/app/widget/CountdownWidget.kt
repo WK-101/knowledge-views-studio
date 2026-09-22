@@ -49,7 +49,7 @@ class CountdownWidget : AppWidgetProvider() {
                     pick.colorArgb?.let { views.setTextColor(R.id.cd_days, it.toInt()) }
                 }
                 views.setOnClickPendingIntent(R.id.cd_root, openIntent(context))
-                ids.forEach { id -> WidgetStyle.applyCardBackground(views, R.id.cd_root, context, id); manager.updateAppWidget(id, views) }
+                ids.forEach { id -> WidgetStyle.applyListCard(views, R.id.cd_card, context, id); manager.updateAppWidget(id, views) }
             } finally { pending.finish() }
         }
     }
