@@ -37,7 +37,7 @@ class TimeWidget : AppWidgetProvider() {
                 val style = WidgetStyle.resolve(context)
                 // Header clock icon — running ticks accent, idle sits muted.
                 val iconPx = WidgetBitmaps.dp(context, 26f).toInt()
-                views.setImageViewBitmap(R.id.tw_icon, WidgetBitmaps.roundIcon(iconPx, 0, if (running != null) style.accent else style.textTertiary, "clock"))
+                views.setImageViewBitmap(R.id.tw_icon, WidgetBitmaps.roundIcon(context, iconPx, 0, if (running != null) style.accent else style.textTertiary, "clock"))
 
                 if (running != null) {
                     val a = byId[running.activityId]
@@ -48,7 +48,7 @@ class TimeWidget : AppWidgetProvider() {
                     views.setViewVisibility(R.id.tw_timer, View.VISIBLE)
                     views.setViewVisibility(R.id.tw_stop, View.VISIBLE)
                     val stopPx = WidgetBitmaps.dp(context, 46f).toInt()
-                    views.setImageViewBitmap(R.id.tw_stop, WidgetBitmaps.roundIcon(stopPx, style.danger, style.onAccent, "stop"))
+                    views.setImageViewBitmap(R.id.tw_stop, WidgetBitmaps.roundIcon(context, stopPx, style.danger, style.onAccent, "stop"))
                     views.setOnClickPendingIntent(R.id.tw_stop, action(context, ACTION_STOP, null, 1))
                 } else {
                     views.setTextViewText(R.id.tw_state, if (activities.isEmpty()) "Add an activity in Time" else "Not tracking")

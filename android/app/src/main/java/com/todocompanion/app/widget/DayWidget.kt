@@ -120,8 +120,8 @@ class DayWidget : AppWidgetProvider() {
         // "+" (new task) and a tonal-accent secondary (new event) — no clashing second hue.
         val iconPx = WidgetBitmaps.dp(context, 28f).toInt()
         val tonal = WidgetBitmaps.blend(style.accent, style.surface, 0.82f)
-        views.setImageViewBitmap(R.id.day_add_task, WidgetBitmaps.roundIcon(iconPx, style.accent, style.onAccent, "plus"))
-        views.setImageViewBitmap(R.id.day_add_event, WidgetBitmaps.roundIcon(iconPx, tonal, style.accent, "calendar"))
+        views.setImageViewBitmap(R.id.day_add_task, WidgetBitmaps.roundIcon(context, iconPx, style.accent, style.onAccent, "plus"))
+        views.setImageViewBitmap(R.id.day_add_event, WidgetBitmaps.roundIcon(context, iconPx, tonal, style.accent, "calendar"))
         views.setOnClickPendingIntent(R.id.day_add_task, quickCapture(context, id * 10 + 2))
         views.setOnClickPendingIntent(R.id.day_add_event, activity(context, id * 10 + 3, "new_event"))
 

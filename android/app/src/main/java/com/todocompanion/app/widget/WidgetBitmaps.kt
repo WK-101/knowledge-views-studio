@@ -158,7 +158,7 @@ object WidgetBitmaps {
 
     /** A round icon button: a filled/tinted disc with a glyph drawn on it — a stop square or a play
      *  triangle or a clock — for widget action buttons and headers (RemoteViews can't tint a vector). */
-    fun roundIcon(sizePx: Int, discColor: Int, glyphColor: Int, glyph: String): Bitmap {
+    fun roundIcon(ctx: Context, sizePx: Int, discColor: Int, glyphColor: Int, glyph: String): Bitmap {
         val size = cap(sizePx, 220)
         val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
@@ -166,46 +166,19 @@ object WidgetBitmaps {
         if (discColor != 0) {
             paint().apply { style = Paint.Style.FILL; color = discColor }.let { c.drawCircle(cx, cx, cx, it) }
         }
-        when (glyph) {
-            "stop" -> {
-                val r = size * 0.30f
-                val rr = size * 0.06f
-                paint().apply { style = Paint.Style.FILL; color = glyphColor }
-                    .let { c.drawRoundRect(RectF(cx - r, cx - r, cx + r, cx + r), rr, rr, it) }
-            }
-            "play" -> {
-                val p = Path().apply {
-                    moveTo(size * 0.40f, size * 0.32f)
-                    lineTo(size * 0.40f, size * 0.68f)
-                    lineTo(size * 0.70f, size * 0.50f)
-                    close()
-                }
-                paint().apply { style = Paint.Style.FILL; color = glyphColor }.let { c.drawPath(p, it) }
-            }
-            "clock" -> {
-                val ring = paint().apply { style = Paint.Style.STROKE; strokeWidth = size * 0.09f; strokeCap = Paint.Cap.ROUND; color = glyphColor }
-                c.drawCircle(cx, cx, size * 0.34f, ring)
-                val hands = paint().apply { style = Paint.Style.STROKE; strokeWidth = size * 0.08f; strokeCap = Paint.Cap.ROUND; color = glyphColor }
-                c.drawLine(cx, cx, cx, cx - size * 0.20f, hands)
-                c.drawLine(cx, cx, cx + size * 0.15f, cx, hands)
-            }
-            "plus" -> {
-                val p = paint().apply { style = Paint.Style.STROKE; strokeWidth = size * 0.11f; strokeCap = Paint.Cap.ROUND; color = glyphColor }
-                c.drawLine(cx, cx - size * 0.22f, cx, cx + size * 0.22f, p)
-                c.drawLine(cx - size * 0.22f, cx, cx + size * 0.22f, cx, p)
-            }
-            "calendar" -> {
-                // A small calendar tile with two binding tabs and a "+" on the page — "add event".
-                val stroke = paint().apply { style = Paint.Style.STROKE; strokeWidth = size * 0.07f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; color = glyphColor }
-                val body = RectF(size * 0.26f, size * 0.30f, size * 0.74f, size * 0.72f)
-                c.drawRoundRect(body, size * 0.06f, size * 0.06f, stroke)
-                c.drawLine(size * 0.38f, size * 0.24f, size * 0.38f, size * 0.34f, stroke)
-                c.drawLine(size * 0.62f, size * 0.24f, size * 0.62f, size * 0.34f, stroke)
-                val pl = paint().apply { style = Paint.Style.STROKE; strokeWidth = size * 0.07f; strokeCap = Paint.Cap.ROUND; color = glyphColor }
-                val pcy = size * 0.53f
-                c.drawLine(cx, pcy - size * 0.10f, cx, pcy + size * 0.10f, pl)
-                c.drawLine(cx - size * 0.10f, pcy, cx + size * 0.10f, pcy, pl)
-            }
+        // The glyph is the app's own Material icon, tinted — not a hand-drawn shape. On a disc it fills
+        // ~56%; free-standing (no disc) it fills a little more so it doesn't read as small.
+        val res = when (glyph) {
+            "plus" -> R.drawable.wic_add
+            "calendar" -> R.drawable.wic_event
+            "clock" -> R.drawable.wic_time
+            "stop" -> R.drawable.wic_stop
+            "play" -> R.drawable.wic_play
+            else -> 0
+        }
+        if (res != 0) {
+            val half = if (discColor != 0) size * 0.28f else size * 0.34f
+            drawVector(ctx, c, res, cx, cx, half, glyphColor)
         }
         return bmp
     }
@@ -316,16 +289,19 @@ object WidgetBitmaps {
         paint().apply { style = Paint.Style.FILL; color = cardColor }
             .let { c.drawRoundRect(RectF(ox, oy, ox + side, oy + side), cardR, cardR, it) }
 
-        val rCorner = side * 0.155f       // ring icon half-box — larger, pushed toward the corners
-        val rCenter = side * 0.185f       // centre icon half-box — the primary, a touch larger
+        // Sized to the reference launcher-shortcut widgets: small, well-spaced corner glyphs with a lot
+        // of breathing room, and a modestly larger brand mark at the centre (never crowding the card).
+        val rCorner = side * 0.082f       // ring icon half-box — compact, generous margin from the edges
+        val rCenter = side * 0.098f       // centre icon half-box — a touch larger, the primary
 
         // Ring: the app's Material icons, tinted to the theme ink; no backgrounds, no borders.
         for (i in 1 until n) drawActionIcon(ctx, c, keys[i], cx(i), cy(i), rCorner, glyphColor)
-        // Centre (slot 0): the primary action. The brand mark renders in full colour and a shade larger;
+        // Centre (slot 0): the primary action. The brand mark renders in full colour and a shade larger
+        // (its own art has more internal margin, so it needs a bigger box to read at the same weight);
         // any other assigned action is tinted in the accent to stay the point of emphasis.
         val centreKey = keys[0]
         if (centreKey == "app") {
-            drawActionIcon(ctx, c, "app", cx(0), cy(0), rCenter * 1.42f, null)
+            drawActionIcon(ctx, c, "app", cx(0), cy(0), side * 0.165f, null)
         } else {
             drawActionIcon(ctx, c, centreKey, cx(0), cy(0), rCenter, accentColor)
         }
@@ -346,11 +322,15 @@ object WidgetBitmaps {
         else -> R.drawable.ic_launcher_foreground
     }
 
-    /** Render one action's vector drawable centred at ([cx],[cy]) into a square of half-side [half].
-     *  A non-null [tint] recolours the (single-path) glyph to the theme; null keeps the drawable's own
-     *  colours (used for the full-colour brand mark). */
-    private fun drawActionIcon(ctx: Context, c: Canvas, key: String, cx: Float, cy: Float, half: Float, tint: Int?) {
-        val d = androidx.core.content.ContextCompat.getDrawable(ctx, actionIconRes(key))?.mutate() ?: return
+    /** Render one action's vector drawable centred at ([cx],[cy]) into a square of half-side [half]. */
+    private fun drawActionIcon(ctx: Context, c: Canvas, key: String, cx: Float, cy: Float, half: Float, tint: Int?) =
+        drawVector(ctx, c, actionIconRes(key), cx, cy, half, tint)
+
+    /** Draw a vector drawable centred at ([cx],[cy]) into a square of half-side [half]. A non-null [tint]
+     *  recolours the (single-path) glyph to the theme; null keeps the drawable's own colours (used for
+     *  the full-colour brand mark). */
+    private fun drawVector(ctx: Context, c: Canvas, resId: Int, cx: Float, cy: Float, half: Float, tint: Int?) {
+        val d = androidx.core.content.ContextCompat.getDrawable(ctx, resId)?.mutate() ?: return
         if (tint != null) androidx.core.graphics.drawable.DrawableCompat.setTint(d, tint)
         else androidx.core.graphics.drawable.DrawableCompat.setTintList(d, null)
         d.setBounds((cx - half).toInt(), (cy - half).toInt(), (cx + half).toInt(), (cy + half).toInt())

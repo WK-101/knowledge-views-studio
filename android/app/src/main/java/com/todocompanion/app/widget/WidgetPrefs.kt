@@ -103,15 +103,16 @@ object WidgetPrefs {
         // One-time migration: the centre (slot 0) now defaults to the app's brand mark. A widget placed
         // before "app" existed as an action still has a capture action stored in slot 0, so its centre
         // shows a checkmark instead of the app icon. Adopt the new default once, leaving every other slot
-        // (and any later manual re-assignment) untouched.
-        if (!prefs.getBoolean("qcappmig_$id", false)) {
+        // (and any later manual re-assignment) untouched. Uses a fresh flag key ("v2") so widgets that
+        // were touched by the first attempt still get corrected on this build.
+        if (!prefs.getBoolean("qcctrapp2_$id", false)) {
             if (raw != null && result[0] != "app") {
                 val migrated = result.toMutableList().also { it[0] = "app" }
                 prefs.edit().putString("qcslots_$id", migrated.joinToString(","))
-                    .putBoolean("qcappmig_$id", true).apply()
+                    .putBoolean("qcctrapp2_$id", true).putBoolean("qcappmig_$id", true).apply()
                 return migrated
             }
-            prefs.edit().putBoolean("qcappmig_$id", true).apply()
+            prefs.edit().putBoolean("qcctrapp2_$id", true).putBoolean("qcappmig_$id", true).apply()
         }
         return result
     }
@@ -129,7 +130,7 @@ object WidgetPrefs {
             .remove("energy_$id").remove("time_$id")
             .remove("opacity_$id").remove("font_$id").remove("compact_$id").remove("toolbar_$id")
             .remove("dayoff_$id").remove("habit_$id").remove("group_$id").remove("mxrows_$id")
-            .remove("qccount_$id").remove("qcslots_$id").remove("qcappmig_$id")
+            .remove("qccount_$id").remove("qcslots_$id").remove("qcappmig_$id").remove("qcctrapp2_$id")
             .apply()
     }
 
