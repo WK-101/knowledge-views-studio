@@ -64,7 +64,8 @@ class MatrixWidget : AppWidgetProvider() {
                         }
                         views.setRemoteAdapter(listIds[q], svc)
                         views.setEmptyView(listIds[q], emptyIds[q])
-                        views.setPendingIntentTemplate(listIds[q], openTaskTemplate(context, id, q))
+                        // Broadcast template: a row's title opens the task, its check ticks it off in place.
+                        views.setPendingIntentTemplate(listIds[q], TaskWidgetReceiver.template(context, id * 8 + q + 3000))
                         views.setOnClickPendingIntent(quadRoots[q], openMatrix(context, id, q))
                     }
                     manager.updateAppWidget(id, views)
@@ -81,13 +82,6 @@ class MatrixWidget : AppWidgetProvider() {
         }
         return PendingIntent.getActivity(context, ("mx:$widgetId:q$q").hashCode(), i,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-    }
-
-    /** One template per quadrant list; each row's fill-in supplies open_task:<id>. */
-    private fun openTaskTemplate(context: Context, widgetId: Int, q: Int): PendingIntent {
-        val i = Intent(context, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP }
-        return PendingIntent.getActivity(context, widgetId * 8 + q + 3000, i,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
     }
 
     companion object {
@@ -182,8 +176,10 @@ class MatrixWidgetService : RemoteViewsService() {
 }
 
 private class MatrixQuadFactory(private val context: Context, private val widgetId: Int, private val quad: Int) : RemoteViewsService.RemoteViewsFactory {
-    private var rows: List<Pair<String, String>> = emptyList()
+    private data class Row(val id: String, val title: String, val done: Boolean)
+    private var rows: List<Row> = emptyList()
     private var dotColor: Int = 0
+    private var checkPx: Int = 0
 
     override fun onCreate() {}
     override fun onDestroy() {}
@@ -197,11 +193,12 @@ private class MatrixQuadFactory(private val context: Context, private val widget
         val app = context.applicationContext as App
         val style = WidgetStyle.resolve(context, widgetId)
         dotColor = intArrayOf(style.danger, style.warning, style.info, style.teal)[quad]
+        checkPx = WidgetBitmaps.dp(context, 20f).toInt()
         val cap = WidgetPrefs.matrixRows(context, widgetId).let { if (it <= 0) 30 else it }
         rows = runCatching {
             MatrixData.load(app).getOrElse(quad) { emptyList() }
                 .take(cap)
-                .map { it.id to it.title.ifBlank { "Untitled" } }
+                .map { Row(it.id, it.title.ifBlank { "Untitled" }, it.completed) }
         }.getOrDefault(emptyList())
     }
 
@@ -209,10 +206,19 @@ private class MatrixQuadFactory(private val context: Context, private val widget
         val r = rows[position]
         val style = WidgetStyle.resolve(context, widgetId)
         return RemoteViews(context.packageName, R.layout.widget_matrix_item).apply {
-            setTextColor(R.id.mx_i_dot, dotColor)
-            setTextViewText(R.id.mx_i_title, r.second)
-            setTextColor(R.id.mx_i_title, style.textPrimary)
-            setOnClickFillInIntent(R.id.mx_i_root, Intent().putExtra(MainActivity.EXTRA_ACTION, "open_task:${r.first}"))
+            // A check-circle ringed in the quadrant colour (filled when already done) — the modern,
+            // in-app-consistent mark. Tapping it ticks the task off in place; tapping the title opens it.
+            setImageViewBitmap(R.id.mx_i_check, WidgetBitmaps.checkCircle(checkPx, if (r.done) style.success else dotColor, r.done))
+            setTextViewText(R.id.mx_i_title, r.title)
+            setTextColor(R.id.mx_i_title, if (r.done) style.textTertiary else style.textPrimary)
+            if (r.done) {
+                // Already done — the whole row just opens the task (no re-complete).
+                setOnClickFillInIntent(R.id.mx_i_root, TaskWidgetReceiver.openFill("open_task:${r.id}"))
+            } else {
+                setOnClickFillInIntent(R.id.mx_i_check, TaskWidgetReceiver.completeFill(r.id))
+                setOnClickFillInIntent(R.id.mx_i_title, TaskWidgetReceiver.openFill("open_task:${r.id}"))
+                setOnClickFillInIntent(R.id.mx_i_root, TaskWidgetReceiver.openFill("open_task:${r.id}"))
+            }
         }
     }
 }

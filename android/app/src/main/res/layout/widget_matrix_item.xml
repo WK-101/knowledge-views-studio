@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- One task row inside an Eisenhower quadrant list. A coloured bullet + the task title; the whole row
-     opens that task. -->
+<!-- One task row inside an Eisenhower quadrant list. A check-circle (coloured to the quadrant) that
+     ticks the task off in place + the task title; tapping the title opens that task. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/mx_i_root"
     android:layout_width="match_parent"
@@ -10,14 +10,14 @@
     android:paddingTop="3dp"
     android:paddingBottom="3dp">
 
-    <TextView
-        android:id="@+id/mx_i_dot"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="6dp"
-        android:text="•"
-        android:textColor="@color/w_text_secondary"
-        android:textSize="13sp" />
+    <ImageView
+        android:id="@+id/mx_i_check"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_marginEnd="7dp"
+        android:scaleType="fitCenter"
+        android:contentDescription="Complete task"
+        android:importantForAccessibility="yes" />
 
     <TextView
         android:id="@+id/mx_i_title"

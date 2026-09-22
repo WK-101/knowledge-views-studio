@@ -40,6 +40,7 @@ class TaskWidgetReceiver : BroadcastReceiver() {
                     RecordWidget.refresh(context)
                     StatsWidget.refresh(context)
                     DayWidget.refresh(context)
+                    MatrixWidget.refresh(context)
                 } finally { pending.finish() }
             }
             return

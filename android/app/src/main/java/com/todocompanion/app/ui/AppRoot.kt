@@ -691,6 +691,8 @@ fun AppRoot(
                 a == "open_close_day" -> { argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = true, startWeekly = false); launchAction.value = null }
                 a == "open_time" -> { openOverlay(Overlay.TIME_TRACKING); launchAction.value = null }
                 a == "open_calendar" -> { tab = Tab.CALENDAR; launchAction.value = null }
+                // Day widget's "＋ event" button — land on the calendar with the new-event editor open.
+                a == "new_event" -> { tab = Tab.CALENDAR; calEventAction = "new"; launchAction.value = null }
                 // Periodic Notes: widget/shortcut deep links — a new blank note, today's daily note, the Journal hub.
                 a == "new_note" -> { vm.createNote { id -> editingNote = id }; launchAction.value = null }
                 a == "new_daily_note" -> { vm.openDailyNote(java.time.LocalDate.now().toEpochDay()) { id -> editingNote = id }; launchAction.value = null }

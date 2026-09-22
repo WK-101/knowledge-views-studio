@@ -96,6 +96,65 @@ object WidgetBitmaps {
         return bmp
     }
 
+    /**
+     * The app's MLO-style priority checkbox, drawn for a widget row: a rounded *square* whose 2dp
+     * border and fill are the task's priority colour. Unchecked shows a faint priority tint
+     * ([restTint] by level); checked fills solid with a contrast tick. Matches
+     * ui.components.PriorityCheckbox one-for-one so a home-screen row reads exactly like an in-app row.
+     */
+    fun priorityCheckbox(sizePx: Int, color: Int, done: Boolean, restTint: Float): Bitmap {
+        val size = cap(sizePx, 180)
+        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val stroke = max(2f, size * 0.09f)
+        val radius = size * 0.27f            // 6dp on a 22dp box
+        val inset = stroke / 2f + 0.5f
+        val rect = RectF(inset, inset, size - inset, size - inset)
+        // Fill: faint tint at rest, solid when done (matches the app's alpha ramp).
+        val fillAlpha = ((restTint + (1f - restTint) * (if (done) 1f else 0f)) * 255f).toInt().coerceIn(0, 255)
+        if (fillAlpha > 0) {
+            paint().apply { style = Paint.Style.FILL; this.color = withAlpha(color, fillAlpha) }
+                .let { c.drawRoundRect(rect, radius, radius, it) }
+        }
+        paint().apply { style = Paint.Style.STROKE; strokeWidth = stroke; this.color = color }
+            .let { c.drawRoundRect(rect, radius, radius, it) }
+        if (done) {
+            val ink = if (luminance(color) > 0.5f) 0xFF000000.toInt() else 0xFFFFFFFF.toInt()
+            val tick = paint().apply {
+                style = Paint.Style.STROKE
+                strokeWidth = max(2f, size * 0.11f)
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+                this.color = ink
+            }
+            val path = Path().apply {
+                moveTo(size * 0.30f, size * 0.52f)
+                lineTo(size * 0.44f, size * 0.66f)
+                lineTo(size * 0.72f, size * 0.34f)
+            }
+            c.drawPath(path, tick)
+        }
+        return bmp
+    }
+
+    /** The app's fixed priority colour + rest-tint for a task (importance/urgency → PriorityLevel).
+     *  Fixed to the light palette so priority reads the same in light/dark/AMOLED, exactly as the app. */
+    fun priorityColorAndTint(importance: Int, urgency: Int): Pair<Int, Float> =
+        when (com.todocompanion.app.domain.priority.PriorityLevel.from(importance, urgency)) {
+            com.todocompanion.app.domain.priority.PriorityLevel.HIGH -> 0xFFE5484D.toInt() to 0.18f
+            com.todocompanion.app.domain.priority.PriorityLevel.MEDIUM -> 0xFFEA9A16.toInt() to 0.14f
+            com.todocompanion.app.domain.priority.PriorityLevel.LOW -> 0xFF3E7BFA.toInt() to 0.10f
+            com.todocompanion.app.domain.priority.PriorityLevel.NONE -> 0xFF9AA3B2.toInt() to 0f
+        }
+
+    private fun withAlpha(color: Int, alpha: Int): Int = (alpha shl 24) or (color and 0x00FFFFFF)
+    private fun luminance(color: Int): Float {
+        val r = (color shr 16 and 0xFF) / 255f
+        val g = (color shr 8 and 0xFF) / 255f
+        val b = (color and 0xFF) / 255f
+        return 0.299f * r + 0.587f * g + 0.114f * b
+    }
+
     /** A round icon button: a filled/tinted disc with a glyph drawn on it — a stop square or a play
      *  triangle or a clock — for widget action buttons and headers (RemoteViews can't tint a vector). */
     fun roundIcon(sizePx: Int, discColor: Int, glyphColor: Int, glyph: String): Bitmap {
@@ -128,6 +187,69 @@ object WidgetBitmaps {
                 val hands = paint().apply { style = Paint.Style.STROKE; strokeWidth = size * 0.08f; strokeCap = Paint.Cap.ROUND; color = glyphColor }
                 c.drawLine(cx, cx, cx, cx - size * 0.20f, hands)
                 c.drawLine(cx, cx, cx + size * 0.15f, cx, hands)
+            }
+            "plus" -> {
+                val p = paint().apply { style = Paint.Style.STROKE; strokeWidth = size * 0.11f; strokeCap = Paint.Cap.ROUND; color = glyphColor }
+                c.drawLine(cx, cx - size * 0.22f, cx, cx + size * 0.22f, p)
+                c.drawLine(cx - size * 0.22f, cx, cx + size * 0.22f, cx, p)
+            }
+            "calendar" -> {
+                // A small calendar tile with two binding tabs and a "+" on the page — "add event".
+                val stroke = paint().apply { style = Paint.Style.STROKE; strokeWidth = size * 0.07f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; color = glyphColor }
+                val body = RectF(size * 0.26f, size * 0.30f, size * 0.74f, size * 0.72f)
+                c.drawRoundRect(body, size * 0.06f, size * 0.06f, stroke)
+                c.drawLine(size * 0.38f, size * 0.24f, size * 0.38f, size * 0.34f, stroke)
+                c.drawLine(size * 0.62f, size * 0.24f, size * 0.62f, size * 0.34f, stroke)
+                val pl = paint().apply { style = Paint.Style.STROKE; strokeWidth = size * 0.07f; strokeCap = Paint.Cap.ROUND; color = glyphColor }
+                val pcy = size * 0.53f
+                c.drawLine(cx, pcy - size * 0.10f, cx, pcy + size * 0.10f, pl)
+                c.drawLine(cx - size * 0.10f, pcy, cx + size * 0.10f, pcy, pl)
+            }
+        }
+        return bmp
+    }
+
+    /** The Day widget's week strip: seven day columns (weekday letter over the date number), the
+     *  selected day filled with an accent pill, today ringed, and a dot under any day that has items.
+     *  Drawn as one bitmap; seven invisible equal tap zones sit over it for per-day selection. */
+    fun weekStrip(
+        widthPx: Int, heightPx: Int,
+        letters: List<String>, nums: List<Int>,
+        selectedIdx: Int, todayIdx: Int, hasItems: List<Boolean>,
+        accent: Int, onAccent: Int, textPrimary: Int, textSecondary: Int, dotColor: Int,
+    ): Bitmap {
+        val w = cap(widthPx, 1600); val h = cap(heightPx, 400)
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val n = 7
+        val colW = w / n.toFloat()
+        val letterSize = h * 0.24f
+        val numSize = h * 0.30f
+        val pillR = min(colW, h.toFloat()) * 0.32f
+        for (i in 0 until n) {
+            val cxi = colW * i + colW / 2f
+            // Weekday letter (top).
+            val lp = paint().apply { textAlign = Paint.Align.CENTER; color = textSecondary; textSize = letterSize; isFakeBoldText = i == todayIdx }
+            c.drawText(letters.getOrElse(i) { "" }, cxi, h * 0.30f, lp)
+            // Selected pill / today ring behind the number.
+            val numCy = h * 0.62f
+            if (i == selectedIdx) {
+                paint().apply { style = Paint.Style.FILL; color = accent }.let { c.drawCircle(cxi, numCy, pillR, it) }
+            } else if (i == todayIdx) {
+                paint().apply { style = Paint.Style.STROKE; strokeWidth = max(2f, h * 0.03f); color = accent }.let { c.drawCircle(cxi, numCy, pillR, it) }
+            }
+            // Date number.
+            val np = paint().apply {
+                textAlign = Paint.Align.CENTER
+                color = when { i == selectedIdx -> onAccent; i == todayIdx -> accent; else -> textPrimary }
+                textSize = numSize; isFakeBoldText = i == selectedIdx || i == todayIdx
+            }
+            val fm = np.fontMetrics
+            c.drawText(nums.getOrElse(i) { 0 }.toString(), cxi, numCy - (fm.ascent + fm.descent) / 2f, np)
+            // Item dot.
+            if (hasItems.getOrElse(i) { false }) {
+                val dc = if (i == selectedIdx) onAccent else dotColor
+                paint().apply { style = Paint.Style.FILL; color = dc }.let { c.drawCircle(cxi, numCy + pillR + h * 0.12f, h * 0.035f, it) }
             }
         }
         return bmp

@@ -7,31 +7,55 @@ import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.view.View
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
 import com.todocompanion.app.App
 import com.todocompanion.app.MainActivity
 import com.todocompanion.app.R
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.time.temporal.ChronoUnit
+import java.time.temporal.WeekFields
 import java.util.Locale
 
 /**
- * R104 — the Day widget: one day's events and tasks together (the unified agenda Any.do/Business
- * Calendar surface), with ‹ › day navigation, in-place task check-off, and a split New Task /
- * New Event footer. Offline — reads the local Room DB + dedicated calendar only.
+ * R107 — the Day widget: a calendar-style day agenda. A week date-selection strip (tap a day to
+ * switch, echoing the in-app day view), compact iconized New-task / New-event buttons, priority-
+ * coloured task rows with in-place check-off, and one day's events + tasks together. New-task opens
+ * the translucent quick-capture popup (not the whole app); New-event opens the calendar's event
+ * editor. Offline — reads the local Room DB + dedicated calendar only.
  */
 class DayWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        ids.forEach { id -> render(context, manager, id) }
+        if (ids.isEmpty()) return
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try { ids.forEach { render(context, manager, it) } } finally { pending.finish() }
+        }
     }
 
     override fun onDeleted(context: Context, ids: IntArray) { ids.forEach { WidgetPrefs.clear(context, it) } }
 
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, newOptions: android.os.Bundle) {
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try { render(context, manager, id) } finally { pending.finish() }
+        }
+    }
+
+    /** Renders one widget. Safe to call from an IO coroutine — it does blocking DB reads. */
     private fun render(context: Context, manager: AppWidgetManager, id: Int) {
+        val app = context.applicationContext as App
+        val style = WidgetStyle.resolve(context, id)
         val views = RemoteViews(context.packageName, R.layout.widget_day)
         val svc = Intent(context, DayWidgetService::class.java).apply {
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
@@ -41,28 +65,72 @@ class DayWidget : AppWidgetProvider() {
         views.setEmptyView(R.id.day_list, R.id.day_empty)
         views.setPendingIntentTemplate(R.id.day_list, TaskWidgetReceiver.template(context, 4203))
 
-        // Date label for the selected day.
         val zone = ZoneId.systemDefault()
-        val date = LocalDate.now(zone).plusDays(WidgetPrefs.dayOffset(context, id).toLong())
-        views.setTextViewText(R.id.day_title, dayLabel(date, LocalDate.now(zone)))
+        val today = LocalDate.now(zone)
+        val offset = WidgetPrefs.dayOffset(context, id)
+        val selected = today.plusDays(offset.toLong())
 
-        // Day navigation + the day label taps to the calendar.
-        views.setOnClickPendingIntent(R.id.day_prev, navIntent(context, id, -1))
-        views.setOnClickPendingIntent(R.id.day_next, navIntent(context, id, +1))
+        val s = runBlocking { app.repository.settingsSnapshot() }
+        val weekStart = if (s.weekStart in 1..7) DayOfWeek.of(s.weekStart) else WeekFields.of(Locale.getDefault()).firstDayOfWeek
+        val fromStart = ((selected.dayOfWeek.value - weekStart.value) + 7) % 7
+        val weekStartDate = selected.minusDays(fromStart.toLong())
+        val weekDays = (0..6).map { weekStartDate.plusDays(it.toLong()) }
+
+        // Per-day presence dots: any open task due, or any event, that day.
+        val tasks = runBlocking { app.repository.wsTasksOnce() }
+        val weekStartMs = weekStartDate.atStartOfDay(zone).toInstant().toEpochMilli()
+        val weekEndMs = weekStartDate.plusDays(7).atStartOfDay(zone).toInstant().toEpochMilli()
+        val eventDays = runCatching {
+            runBlocking { com.todocompanion.app.domain.calendar.CalendarEngine.expand(app.repository.wsEventsOnce(), weekStartMs, weekEndMs, zone) }
+                .map { Instant.ofEpochMilli(it.startMillis).atZone(zone).toLocalDate() }.toSet()
+        }.getOrDefault(emptySet())
+        val taskDays = tasks.asSequence()
+            .filter { !it.completed && !it.trashed && !it.abandoned && it.dueDate != null }
+            .map { Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate() }.toSet()
+        val hasItems = weekDays.map { it in eventDays || it in taskDays }
+
+        // The week strip: one bitmap, seven equal invisible tap zones over it.
+        val opts = runCatching { manager.getAppWidgetOptions(id) }.getOrNull()
+        val wDp = (opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250) ?: 250).coerceIn(120, 640)
+        val stripW = WidgetBitmaps.dp(context, (wDp - 24).toFloat()).toInt()
+        val stripH = WidgetBitmaps.dp(context, 50f).toInt()
+        val letters = weekDays.map { it.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()) }
+        val nums = weekDays.map { it.dayOfMonth }
+        views.setImageViewBitmap(R.id.day_strip, WidgetBitmaps.weekStrip(
+            stripW, stripH, letters, nums,
+            selectedIdx = fromStart, todayIdx = weekDays.indexOf(today), hasItems = hasItems,
+            accent = style.accent, onAccent = style.onAccent, textPrimary = style.textPrimary,
+            textSecondary = style.textSecondary, dotColor = style.accent))
+        val cellIds = intArrayOf(R.id.day_c0, R.id.day_c1, R.id.day_c2, R.id.day_c3, R.id.day_c4, R.id.day_c5, R.id.day_c6)
+        for (i in 0 until 7) {
+            val absOffset = ChronoUnit.DAYS.between(today, weekDays[i]).toInt()
+            views.setOnClickPendingIntent(cellIds[i], setDayIntent(context, id, absOffset))
+        }
+
+        // Title (selected day's label) + week navigation (±7).
+        views.setTextViewText(R.id.day_title, dayLabel(selected, today))
+        views.setTextColor(R.id.day_title, style.textPrimary)
+        views.setTextColor(R.id.day_prev, style.textSecondary)
+        views.setTextColor(R.id.day_next, style.textSecondary)
+        views.setOnClickPendingIntent(R.id.day_prev, navIntent(context, id, -7))
+        views.setOnClickPendingIntent(R.id.day_next, navIntent(context, id, +7))
         views.setOnClickPendingIntent(R.id.day_title, activity(context, id * 10 + 1, "open_calendar"))
-        views.setOnClickPendingIntent(R.id.day_add_task, activity(context, id * 10 + 2, MainActivity.ACTION_QUICK_ADD))
-        views.setOnClickPendingIntent(R.id.day_add_event, activity(context, id * 10 + 3, "open_calendar"))
+
+        // Compact iconized add buttons: New task → quick-capture popup; New event → event editor.
+        val iconPx = WidgetBitmaps.dp(context, 28f).toInt()
+        views.setImageViewBitmap(R.id.day_add_task, WidgetBitmaps.roundIcon(iconPx, style.accent, style.onAccent, "plus"))
+        views.setImageViewBitmap(R.id.day_add_event, WidgetBitmaps.roundIcon(iconPx, style.teal, style.onAccent, "calendar"))
+        views.setOnClickPendingIntent(R.id.day_add_task, quickCapture(context, id * 10 + 2))
+        views.setOnClickPendingIntent(R.id.day_add_event, activity(context, id * 10 + 3, "new_event"))
 
         WidgetStyle.applyListCard(views, R.id.day_card, context, id)
-        // R105 — size-responsive: on a short widget, drop the footer so the list keeps its rows.
-        val minH = runCatching { manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) }.getOrDefault(0)
-        views.setViewVisibility(R.id.day_footer, if (minH in 1..119) android.view.View.GONE else android.view.View.VISIBLE)
+        views.setTextColor(R.id.day_empty, style.textSecondary)
+        // Size-responsive: shed the strip (then the header) on short placements so the list keeps its rows.
+        val minH = opts?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) ?: 0
+        views.setViewVisibility(R.id.day_strip_wrap, if (minH in 1..149) View.GONE else View.VISIBLE)
+        views.setViewVisibility(R.id.day_header, if (minH in 1..79) View.GONE else View.VISIBLE)
         manager.updateAppWidget(id, views)
         manager.notifyAppWidgetViewDataChanged(id, R.id.day_list)
-    }
-
-    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, newOptions: android.os.Bundle) {
-        render(context, manager, id)
     }
 
     private fun dayLabel(date: LocalDate, today: LocalDate): String = when (date) {
@@ -80,12 +148,27 @@ class DayWidget : AppWidgetProvider() {
         return PendingIntent.getActivity(context, code, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 
+    /** New task → the translucent quick-capture popup (the whole app never comes forward). */
+    private fun quickCapture(context: Context, code: Int): PendingIntent {
+        val i = Intent(context, QuickCaptureActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+        return PendingIntent.getActivity(context, code, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
+
     private fun navIntent(context: Context, id: Int, delta: Int): PendingIntent {
         val i = Intent(context, DayNavReceiver::class.java).setAction(DayNavReceiver.ACTION_NAV).apply {
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
             putExtra(DayNavReceiver.EXTRA_DELTA, delta)
         }
-        return PendingIntent.getBroadcast(context, id * 10 + 5 + delta, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        return PendingIntent.getBroadcast(context, id * 100 + 50 + delta, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
+
+    /** Tap a strip cell → jump the widget straight to that day (absolute offset from today). */
+    private fun setDayIntent(context: Context, id: Int, absOffset: Int): PendingIntent {
+        val i = Intent(context, DayNavReceiver::class.java).setAction(DayNavReceiver.ACTION_NAV).apply {
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+            putExtra(DayNavReceiver.EXTRA_ABS_OFFSET, absOffset)
+        }
+        return PendingIntent.getBroadcast(context, id * 100 + absOffset + 500, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 
     companion object {
@@ -102,25 +185,33 @@ class DayWidget : AppWidgetProvider() {
 
         fun updateOne(context: Context, id: Int) {
             val m = AppWidgetManager.getInstance(context) ?: return
-            DayWidget().render(context, m, id)
+            context.sendBroadcast(Intent(context, DayWidget::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(id))
+            })
         }
     }
 }
 
-/** ‹ / › day navigation: shift the widget's day offset and re-render. */
+/** ‹ / › week navigation + strip-cell day selection: shift or set the widget's day offset, re-render. */
 class DayNavReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION_NAV) return
         val id = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
         if (id == AppWidgetManager.INVALID_APPWIDGET_ID) return
-        val delta = intent.getIntExtra(EXTRA_DELTA, 0)
-        WidgetPrefs.setDayOffset(context, id, WidgetPrefs.dayOffset(context, id) + delta)
+        if (intent.hasExtra(EXTRA_ABS_OFFSET)) {
+            WidgetPrefs.setDayOffset(context, id, intent.getIntExtra(EXTRA_ABS_OFFSET, 0))
+        } else {
+            val delta = intent.getIntExtra(EXTRA_DELTA, 0)
+            WidgetPrefs.setDayOffset(context, id, WidgetPrefs.dayOffset(context, id) + delta)
+        }
         DayWidget.updateOne(context, id)
     }
 
     companion object {
         const val ACTION_NAV = "com.todocompanion.app.action.DAY_NAV"
         const val EXTRA_DELTA = "delta"
+        const val EXTRA_ABS_OFFSET = "abs_offset"
     }
 }
 
@@ -133,7 +224,7 @@ class DayWidgetService : RemoteViewsService() {
 
 private class DayFactory(private val context: Context, private val widgetId: Int) : RemoteViewsService.RemoteViewsFactory {
     private data class Row(val id: String, val title: String, val sub: String, val overdue: Boolean,
-                           val isEvent: Boolean, val sortKey: Long)
+                           val isEvent: Boolean, val sortKey: Long, val priColor: Int = 0, val priTint: Float = 0f)
     private var rows: List<Row> = emptyList()
     private var style: WidgetStyle = WidgetStyle.resolve(context)
 
@@ -156,7 +247,6 @@ private class DayFactory(private val context: Context, private val widgetId: Int
         val isToday = date == today
 
         val tasks = runBlocking { app.repository.wsTasksOnce() }
-        // Phase 0 S1: honour the app's 12/24-hour clock on the widget too (falls back to device preference).
         val use24 = runBlocking {
             com.todocompanion.app.domain.AppClock.is24(app.repository.settingsSnapshot().timeFormat,
                 android.text.format.DateFormat.is24HourFormat(context))
@@ -167,7 +257,6 @@ private class DayFactory(private val context: Context, private val widgetId: Int
             .filter { !it.completed && !it.trashed && !it.abandoned }
             .filter { t ->
                 val due = t.dueDate ?: return@filter false
-                // The selected day, plus overdue rolled onto today.
                 (due in dayStart until dayEnd) || (isToday && due < dayStart)
             }
             .map { t ->
@@ -180,7 +269,8 @@ private class DayFactory(private val context: Context, private val widgetId: Int
                     hasTime -> clock(dt.hour, dt.minute)
                     else -> "Task"
                 }
-                Row(t.id, t.title.ifBlank { "Untitled" }, sub, overdue, isEvent = false, sortKey = if (overdue) 0 else due)
+                val (pc, pt) = WidgetBitmaps.priorityColorAndTint(t.importance, t.urgency)
+                Row(t.id, t.title.ifBlank { "Untitled" }, sub, overdue, isEvent = false, sortKey = if (overdue) 0 else due, priColor = pc, priTint = pt)
             }.toList()
 
         val eventRows = runBlocking {
@@ -213,7 +303,8 @@ private class DayFactory(private val context: Context, private val widgetId: Int
                 setOnClickFillInIntent(R.id.item_check, TaskWidgetReceiver.openFill("open_calendar"))
                 setOnClickFillInIntent(R.id.item_root, TaskWidgetReceiver.openFill("open_calendar"))
             } else {
-                setImageViewBitmap(R.id.item_check, WidgetBitmaps.checkCircle(markPx, if (r.overdue) style.danger else style.accent, false))
+                // The app's rounded-square priority checkbox — tint + border in the task's priority colour.
+                setImageViewBitmap(R.id.item_check, WidgetBitmaps.priorityCheckbox(markPx, r.priColor, false, r.priTint))
                 setContentDescription(R.id.item_check, "Complete ${r.title}")
                 setOnClickFillInIntent(R.id.item_check, TaskWidgetReceiver.completeFill(r.id))
                 setOnClickFillInIntent(R.id.item_root, TaskWidgetReceiver.openFill("open_task:${r.id}"))

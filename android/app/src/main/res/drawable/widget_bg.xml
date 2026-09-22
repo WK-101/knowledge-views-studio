@@ -2,7 +2,7 @@
 <!-- R104 — shared widget card. Colour comes from @color/w_surface, which the system
      swaps light/dark automatically (see values / values-night colors.xml). -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <corners android:radius="26dp" />
+    <corners android:radius="16dp" />
     <solid android:color="@color/w_surface" />
     <stroke android:width="0.5dp" android:color="@color/w_stroke" />
 </shape>

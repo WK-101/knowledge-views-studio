@@ -38,7 +38,8 @@ class AgendaWidget : AppWidgetProvider() {
         }
         views.setRemoteAdapter(R.id.widget_list, svc)
         views.setEmptyView(R.id.widget_list, R.id.widget_empty)
-        views.setOnClickPendingIntent(R.id.widget_add, activityIntent(context, 1, MainActivity.ACTION_QUICK_ADD))
+        // The ＋ opens the translucent quick-capture popup (the whole app never comes forward).
+        views.setOnClickPendingIntent(R.id.widget_add, quickCaptureIntent(context, 1))
         views.setOnClickPendingIntent(R.id.widget_header, activityIntent(context, 0, null))
         // R104 — one broadcast template; each row's fill-in either ticks the task off or opens it.
         views.setPendingIntentTemplate(R.id.widget_list, TaskWidgetReceiver.template(context, 4201))
@@ -82,6 +83,12 @@ class AgendaWidget : AppWidgetProvider() {
         return PendingIntent.getActivity(context, code, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 
+    /** ＋ → the translucent quick-capture popup, so a task is added without opening the whole app. */
+    private fun quickCaptureIntent(context: Context, code: Int): PendingIntent {
+        val intent = Intent(context, QuickCaptureActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+        return PendingIntent.getActivity(context, code, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
+
     companion object {
         fun refresh(context: Context) {
             val manager = AppWidgetManager.getInstance(context) ?: return
@@ -111,7 +118,8 @@ class AgendaWidgetService : RemoteViewsService() {
 
 private class AgendaFactory(private val context: Context, private val widgetId: Int) : RemoteViewsService.RemoteViewsFactory {
     private data class Row(val id: String, val title: String, val sub: String, val overdue: Boolean,
-                           val isEvent: Boolean = false, val sortKey: Long = Long.MAX_VALUE)
+                           val isEvent: Boolean = false, val sortKey: Long = Long.MAX_VALUE,
+                           val priColor: Int = 0, val priTint: Float = 0f)
     private var rows: List<Row> = emptyList()
 
     override fun onCreate() {}
@@ -171,7 +179,8 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
                         }
                     }
                 }
-                Row(t.id, t.title.ifBlank { "Untitled" }, sub, overdue, isEvent = false, sortKey = due ?: Long.MAX_VALUE)
+                val (pc, pt) = WidgetBitmaps.priorityColorAndTint(t.importance, t.urgency)
+                Row(t.id, t.title.ifBlank { "Untitled" }, sub, overdue, isEvent = false, sortKey = due ?: Long.MAX_VALUE, priColor = pc, priTint = pt)
             }.toList()
 
         // R41 — the agenda reads the dedicated calendar too: today's / this-week's EVENT occurrences,
@@ -219,7 +228,8 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
                 setContentDescription(R.id.item_check, "Open ${r.title}")
                 setOnClickFillInIntent(R.id.item_check, TaskWidgetReceiver.openFill("open_calendar"))
             } else {
-                setImageViewBitmap(R.id.item_check, WidgetBitmaps.checkCircle(markPx, if (r.overdue) style.danger else style.accent, false))
+                // The app's rounded-square priority checkbox — tint + border in the task's priority colour.
+                setImageViewBitmap(R.id.item_check, WidgetBitmaps.priorityCheckbox(markPx, r.priColor, false, r.priTint))
                 setContentDescription(R.id.item_check, "Complete ${r.title}")
                 setOnClickFillInIntent(R.id.item_check, TaskWidgetReceiver.completeFill(r.id))
             }
