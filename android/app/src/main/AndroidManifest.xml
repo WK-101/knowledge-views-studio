@@ -295,6 +295,53 @@
             android:taskAffinity=""
             android:launchMode="singleTask" />
 
+        <!-- R107 Quick-bar popups — each floats over the launcher in its own translucent task (no full
+             app). Launched only by our own Quick-bar widget (explicit component), so not exported.
+             Offline; read/write the local DB only. -->
+        <activity
+            android:name=".widget.QuickNoteActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ToDoCompanion.QuickCapture"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="stateAlwaysVisible|adjustResize" />
+        <activity
+            android:name=".widget.QuickHabitsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ToDoCompanion.QuickCapture"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask" />
+        <activity
+            android:name=".widget.QuickTimeActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ToDoCompanion.QuickCapture"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask" />
+        <activity
+            android:name=".widget.QuickSearchActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ToDoCompanion.QuickCapture"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="stateAlwaysVisible|adjustResize" />
+
+        <!-- R107 Quick-bar widget: a modular toolbar of quick-capture buttons. -->
+        <receiver
+            android:name=".widget.QuickBarWidget"
+            android:label="Quick Actions"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quickbar_info" />
+        </receiver>
+
         <!-- Countdown widget: days remaining to a pinned date. Offline. -->
         <receiver
             android:name=".widget.CountdownWidget"

@@ -689,6 +689,8 @@ fun AppRoot(
                 a == "open_dayreview" -> { argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = false, startWeekly = false); launchAction.value = null }
                 // Phase F — the "Close your day" shortcut / evening nudge opens today's review in the close flow.
                 a == "open_close_day" -> { argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = true, startWeekly = false); launchAction.value = null }
+                // Quick-bar widget's "Weekly review" button — open this week's review directly.
+                a == "open_weekreview" -> { argOverlay = OverlayArg.DayReview(java.time.LocalDate.now().toEpochDay(), startClose = false, startWeekly = true); launchAction.value = null }
                 a == "open_time" -> { openOverlay(Overlay.TIME_TRACKING); launchAction.value = null }
                 a == "open_calendar" -> { tab = Tab.CALENDAR; launchAction.value = null }
                 // Day widget's "＋ event" button — land on the calendar with the new-event editor open.

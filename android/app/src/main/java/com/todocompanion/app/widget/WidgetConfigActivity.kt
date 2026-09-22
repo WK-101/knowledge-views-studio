@@ -21,7 +21,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -104,6 +109,7 @@ class WidgetConfigActivity : ComponentActivity() {
             suffix("PomodoroWidget") -> "Focus Timer widget"
             suffix("QuickAddWidget") -> "Quick Add widget"
             suffix("NoteWidget") -> "New Note widget"
+            suffix("QuickBarWidget") -> "Quick Actions widget"
             else -> "Widget settings"
         }
 
@@ -131,6 +137,9 @@ class WidgetConfigActivity : ComponentActivity() {
                 var groupPin by remember { mutableStateOf(WidgetPrefs.group(this, widgetId)) }
                 val isMatrix = suffix("MatrixWidget")
                 var mxRows by remember { mutableIntStateOf(WidgetPrefs.matrixRows(this, widgetId)) }
+                val isQuickBar = suffix("QuickBarWidget")
+                var qcCount by remember { mutableIntStateOf(WidgetPrefs.quickCount(this, widgetId)) }
+                val qcSlots = remember { androidx.compose.runtime.mutableStateListOf<String>().also { it.addAll(WidgetPrefs.quickSlots(this, widgetId)) } }
 
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     Scaffold { padding ->
@@ -183,6 +192,19 @@ class WidgetConfigActivity : ComponentActivity() {
                                 Spacer(Modifier.size(18.dp))
                             }
 
+                            if (isQuickBar) {
+                                SectionLabel("Buttons")
+                                SegmentRow(listOf(4, 5, 6, 7).map { it.toString() to it.toString() }, qcCount.toString()) { qcCount = it.toInt() }
+                                Spacer(Modifier.size(12.dp))
+                                SectionLabel("Assign each button")
+                                for (i in 0 until qcCount) {
+                                    QuickSlotRow(index = i, current = qcSlots.getOrElse(i) { WidgetPrefs.QUICK_ACTIONS.first() }) { picked ->
+                                        if (i < qcSlots.size) qcSlots[i] = picked else qcSlots.add(picked)
+                                    }
+                                }
+                                Spacer(Modifier.size(18.dp))
+                            }
+
                             SectionLabel("Theme")
                             SegmentRow(listOf("auto" to "Auto", "light" to "Light", "dark" to "Dark"), theme) { theme = it }
                             Spacer(Modifier.size(18.dp))
@@ -214,6 +236,7 @@ class WidgetConfigActivity : ComponentActivity() {
                                 if (isSingleHabit) WidgetPrefs.saveHabit(this@WidgetConfigActivity, widgetId, habitPin)
                                 if (isHabitZero) WidgetPrefs.saveGroup(this@WidgetConfigActivity, widgetId, groupPin)
                                 if (isMatrix) WidgetPrefs.saveMatrixRows(this@WidgetConfigActivity, widgetId, mxRows)
+                                if (isQuickBar) WidgetPrefs.saveQuick(this@WidgetConfigActivity, widgetId, qcCount, qcSlots.toList())
                                 WidgetPrefs.saveAppearance(this@WidgetConfigActivity, widgetId, opacity, fontPct, compact, true)
                                 refreshWidget(providerClass, widgetId)
                                 setResult(Activity.RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
@@ -247,6 +270,30 @@ class WidgetConfigActivity : ComponentActivity() {
                         })
                     }
                 }
+            }
+        }
+    }
+}
+
+/** One Quick-bar slot: shows the current action and opens a dropdown of all actions to reassign it. */
+@Composable
+private fun QuickSlotRow(index: Int, current: String, onPick: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable { open = true }
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("${index + 1}.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 10.dp))
+            Text(QuickBarWidget.displayName(current), color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+            Icon(Icons.Filled.ArrowDropDown, "Change", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            WidgetPrefs.QUICK_ACTIONS.forEach { key ->
+                DropdownMenuItem(text = { Text(QuickBarWidget.displayName(key)) }, onClick = { onPick(key); open = false })
             }
         }
     }

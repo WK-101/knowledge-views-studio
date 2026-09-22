@@ -209,6 +209,65 @@ object WidgetBitmaps {
         return bmp
     }
 
+    /** A Quick-bar action tile: a rounded-square filled [tileColor] with a white glyph for the action
+     *  ("task","note","habit","time","search","closeday","weekreview"). One bitmap per button. */
+    fun actionIcon(sizePx: Int, tileColor: Int, glyphColor: Int, kind: String): Bitmap {
+        val size = cap(sizePx, 240)
+        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val s = size.toFloat()
+        paint().apply { style = Paint.Style.FILL; color = tileColor }
+            .let { c.drawRoundRect(RectF(0f, 0f, s, s), s * 0.28f, s * 0.28f, it) }
+        val cx = s / 2f
+        val stroke = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.075f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; color = glyphColor }
+        val fill = paint().apply { style = Paint.Style.FILL; color = glyphColor }
+        when (kind) {
+            "task" -> {
+                c.drawRoundRect(RectF(s * 0.30f, s * 0.30f, s * 0.70f, s * 0.70f), s * 0.07f, s * 0.07f, stroke)
+                val tick = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.075f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; color = glyphColor }
+                val p = Path().apply { moveTo(s * 0.38f, s * 0.50f); lineTo(s * 0.46f, s * 0.58f); lineTo(s * 0.63f, s * 0.40f) }
+                c.drawPath(p, tick)
+            }
+            "note" -> {
+                c.drawRoundRect(RectF(s * 0.32f, s * 0.28f, s * 0.68f, s * 0.72f), s * 0.05f, s * 0.05f, stroke)
+                val ln = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.055f; strokeCap = Paint.Cap.ROUND; color = glyphColor }
+                c.drawLine(s * 0.40f, s * 0.42f, s * 0.60f, s * 0.42f, ln)
+                c.drawLine(s * 0.40f, s * 0.52f, s * 0.60f, s * 0.52f, ln)
+                c.drawLine(s * 0.40f, s * 0.62f, s * 0.53f, s * 0.62f, ln)
+            }
+            "habit" -> {
+                c.drawCircle(cx, cx, s * 0.20f, stroke)
+                c.drawCircle(cx, cx, s * 0.075f, fill)
+            }
+            "time" -> {
+                c.drawCircle(cx, cx, s * 0.22f, stroke)
+                val hands = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.06f; strokeCap = Paint.Cap.ROUND; color = glyphColor }
+                c.drawLine(cx, cx, cx, cx - s * 0.13f, hands)
+                c.drawLine(cx, cx, cx + s * 0.10f, cx, hands)
+            }
+            "search" -> {
+                c.drawCircle(s * 0.44f, s * 0.44f, s * 0.16f, stroke)
+                c.drawLine(s * 0.56f, s * 0.56f, s * 0.68f, s * 0.68f, stroke)
+            }
+            "closeday" -> {
+                // A crescent moon (wind-down / close the day).
+                val moon = Path().apply {
+                    addCircle(s * 0.52f, cx, s * 0.22f, Path.Direction.CW)
+                }
+                val cut = Path().apply { addCircle(s * 0.62f, s * 0.42f, s * 0.20f, Path.Direction.CW) }
+                moon.op(cut, Path.Op.DIFFERENCE)
+                c.drawPath(moon, fill)
+            }
+            "weekreview" -> {
+                // Three ascending bars (a week's review / recap).
+                fun bar(xf: Float, hf: Float) = c.drawRoundRect(
+                    RectF(xf, cx + s * 0.20f - hf, xf + s * 0.10f, cx + s * 0.20f), s * 0.02f, s * 0.02f, fill)
+                bar(s * 0.32f, s * 0.18f); bar(s * 0.45f, s * 0.30f); bar(s * 0.58f, s * 0.42f)
+            }
+        }
+        return bmp
+    }
+
     /** The Day widget's week strip: seven day columns (weekday letter over the date number), the
      *  selected day filled with an accent pill, today ringed, and a dot under any day that has items.
      *  Drawn as one bitmap; seven invisible equal tap zones sit over it for per-day selection. */

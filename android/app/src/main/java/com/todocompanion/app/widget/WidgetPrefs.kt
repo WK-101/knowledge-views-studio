@@ -84,12 +84,34 @@ object WidgetPrefs {
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putString("group_$id", group).apply()
     }
 
+    // Quick-bar widget: how many buttons (4–7) and which action each slot fires.
+    val QUICK_ACTIONS = listOf("task", "note", "habit", "time", "search", "closeday", "weekreview")
+    private val QUICK_DEFAULT = listOf("task", "note", "habit", "time", "search", "closeday", "weekreview")
+
+    fun quickCount(ctx: Context, id: Int): Int =
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getInt("qccount_$id", 5).coerceIn(4, 7)
+
+    fun quickSlots(ctx: Context, id: Int): List<String> {
+        val raw = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getString("qcslots_$id", null)
+        val saved = raw?.split(",")?.map { it.trim() }?.filter { it in QUICK_ACTIONS } ?: emptyList()
+        // Always return 7 entries (config edits by index); fall back to defaults for any missing slot.
+        return (0 until 7).map { saved.getOrNull(it) ?: QUICK_DEFAULT[it] }
+    }
+
+    fun saveQuick(ctx: Context, id: Int, count: Int, slots: List<String>) {
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
+            .putInt("qccount_$id", count.coerceIn(4, 7))
+            .putString("qcslots_$id", slots.joinToString(","))
+            .apply()
+    }
+
     fun clear(ctx: Context, id: Int) {
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
             .remove("scope_$id").remove("title_$id").remove("theme_$id")
             .remove("energy_$id").remove("time_$id")
             .remove("opacity_$id").remove("font_$id").remove("compact_$id").remove("toolbar_$id")
             .remove("dayoff_$id").remove("habit_$id").remove("group_$id").remove("mxrows_$id")
+            .remove("qccount_$id").remove("qcslots_$id")
             .apply()
     }
 
