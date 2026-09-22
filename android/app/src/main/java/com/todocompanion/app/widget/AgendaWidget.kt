@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.view.View
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
 import com.todocompanion.app.App
@@ -22,31 +23,41 @@ import java.time.ZoneId
  */
 class AgendaWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        ids.forEach { id ->
-            val views = RemoteViews(context.packageName, R.layout.widget_agenda)
-            val svc = Intent(context, AgendaWidgetService::class.java).apply {
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
-                data = android.net.Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
-            }
-            views.setRemoteAdapter(R.id.widget_list, svc)
-            views.setEmptyView(R.id.widget_list, R.id.widget_empty)
-            views.setOnClickPendingIntent(R.id.widget_add, activityIntent(context, 1, MainActivity.ACTION_QUICK_ADD))
-            views.setOnClickPendingIntent(R.id.widget_header, activityIntent(context, 0, null))
-            // R104 — one broadcast template; each row's fill-in either ticks the task off or opens it.
-            views.setPendingIntentTemplate(R.id.widget_list, TaskWidgetReceiver.template(context, 4201))
+        ids.forEach { renderOne(context, manager, it) }
+    }
 
-            // Per-widget title + theme (from the configuration screen).
-            val scope = WidgetPrefs.scope(context, id)
-            val title = WidgetPrefs.title(context, id).ifBlank { WidgetPrefs.defaultTitle(scope) }
-            views.setTextViewText(R.id.widget_title, title)
-            // R104 — theme + opacity on the card layer; text colours from the shared style.
-            val s = WidgetStyle.resolve(context, id)
-            WidgetStyle.applyListCard(views, R.id.widget_card, context, id)
-            views.setTextColor(R.id.widget_title, s.textPrimary)
-            views.setTextColor(R.id.widget_empty, s.textSecondary)
-            manager.updateAppWidget(id, views)
-            manager.notifyAppWidgetViewDataChanged(id, R.id.widget_list)
+    // Re-render one widget when it's resized so the header can collapse on short placements.
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, newOptions: android.os.Bundle) =
+        renderOne(context, manager, id)
+
+    private fun renderOne(context: Context, manager: AppWidgetManager, id: Int) {
+        val views = RemoteViews(context.packageName, R.layout.widget_agenda)
+        val svc = Intent(context, AgendaWidgetService::class.java).apply {
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+            data = android.net.Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
         }
+        views.setRemoteAdapter(R.id.widget_list, svc)
+        views.setEmptyView(R.id.widget_list, R.id.widget_empty)
+        views.setOnClickPendingIntent(R.id.widget_add, activityIntent(context, 1, MainActivity.ACTION_QUICK_ADD))
+        views.setOnClickPendingIntent(R.id.widget_header, activityIntent(context, 0, null))
+        // R104 — one broadcast template; each row's fill-in either ticks the task off or opens it.
+        views.setPendingIntentTemplate(R.id.widget_list, TaskWidgetReceiver.template(context, 4201))
+
+        // Per-widget title + theme (from the configuration screen).
+        val scope = WidgetPrefs.scope(context, id)
+        val title = WidgetPrefs.title(context, id).ifBlank { WidgetPrefs.defaultTitle(scope) }
+        views.setTextViewText(R.id.widget_title, title)
+        // R104 — theme + opacity on the card layer; text colours from the shared style.
+        val s = WidgetStyle.resolve(context, id)
+        WidgetStyle.applyListCard(views, R.id.widget_card, context, id)
+        views.setTextColor(R.id.widget_title, s.textPrimary)
+        views.setTextColor(R.id.widget_empty, s.textSecondary)
+        // Size-responsive: on a short (≈1-row-tall) placement, drop the header so the list itself — the
+        // actual content — gets every pixel and the widget reads as a clean task strip.
+        val minH = runCatching { manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) }.getOrDefault(0)
+        views.setViewVisibility(R.id.widget_header, if (minH in 1..99) View.GONE else View.VISIBLE)
+        manager.updateAppWidget(id, views)
+        manager.notifyAppWidgetViewDataChanged(id, R.id.widget_list)
     }
 
     override fun onDeleted(context: Context, ids: IntArray) {

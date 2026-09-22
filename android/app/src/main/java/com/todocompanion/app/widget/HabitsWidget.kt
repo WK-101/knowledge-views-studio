@@ -57,6 +57,11 @@ class HabitsWidget : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.hb_add, activity(context, id * 10 + 2, "open_habit_add"))
         views.setOnClickPendingIntent(R.id.hb_empty, activity(context, id * 10 + 3, "open_habit_add"))
 
+        // Size-responsive: on a short (≈1-row-tall) placement, drop the header so the habit rows get
+        // every pixel and the widget reads as a clean check-off strip.
+        val minH = runCatching { manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) }.getOrDefault(0)
+        views.setViewVisibility(R.id.hb_header, if (minH in 1..99) android.view.View.GONE else android.view.View.VISIBLE)
+
         manager.updateAppWidget(id, views)
         manager.notifyAppWidgetViewDataChanged(id, R.id.hb_list)
 
@@ -125,9 +130,16 @@ class HabitCheckReceiver : BroadcastReceiver() {
             try {
                 val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
                 val h = app.repository.getHabitsOnce().firstOrNull { it.id == habitId } ?: return@launch
-                val current = app.repository.getHabitCheckinsOnce().firstOrNull { it.habitId == habitId && it.epochDay == today }?.count ?: 0
-                app.repository.cycleCheckin(habitId, today, h.targetPerDay, current)
-                Widgets.refreshHabitWidgets(context)
+                // A numeric/timed habit opens the value popup (never a blind +1); a yes/no habit toggles in place.
+                val timed = h.unit?.startsWith("min") == true
+                val numeric = !timed && (h.targetPerDay > 1 || h.unit != null || h.clickIncrement > 1)
+                if (timed || numeric) {
+                    context.startActivity(HabitQuickLogActivity.intent(context, habitId))
+                } else {
+                    val current = app.repository.getHabitCheckinsOnce().firstOrNull { it.habitId == habitId && it.epochDay == today }?.count ?: 0
+                    app.repository.cycleCheckin(habitId, today, h.targetPerDay, current)
+                    Widgets.refreshHabitWidgets(context)
+                }
             } finally { pending.finish() }
         }
     }

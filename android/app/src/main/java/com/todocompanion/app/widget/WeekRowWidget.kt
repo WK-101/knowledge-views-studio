@@ -144,9 +144,16 @@ class WeekRowReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val h = app.repository.getHabitsOnce().firstOrNull { it.id == habitId } ?: return@launch
-                val current = app.repository.getHabitCheckinsOnce().firstOrNull { it.habitId == habitId && it.epochDay == day }?.count ?: 0
-                app.repository.cycleCheckin(habitId, day, h.targetPerDay, current)
-                Widgets.refreshHabitWidgets(context)
+                // Numeric/timed → the value popup for that day; yes/no → toggle the cell in place.
+                val timed = h.unit?.startsWith("min") == true
+                val numeric = !timed && (h.targetPerDay > 1 || h.unit != null || h.clickIncrement > 1)
+                if (timed || numeric) {
+                    context.startActivity(HabitQuickLogActivity.intent(context, habitId, day))
+                } else {
+                    val current = app.repository.getHabitCheckinsOnce().firstOrNull { it.habitId == habitId && it.epochDay == day }?.count ?: 0
+                    app.repository.cycleCheckin(habitId, day, h.targetPerDay, current)
+                    Widgets.refreshHabitWidgets(context)
+                }
             } finally { pending.finish() }
         }
     }

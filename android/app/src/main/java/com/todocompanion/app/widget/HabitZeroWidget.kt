@@ -71,10 +71,11 @@ class HabitZeroWidget : AppWidgetProvider() {
     private enum class Bucket { METER, STRIP, GRID, LIST }
 
     private fun pickBucket(minW: Int, minH: Int): Bucket = when {
-        minW == 0 || minH == 0 -> Bucket.LIST                              // options not reported yet → safe default
-        minH >= 170 -> Bucket.LIST                                         // tall enough for the scrolling list
-        minH < 100 -> if (minW >= 110) Bucket.STRIP else Bucket.METER      // short: wide → strip, else meter
-        else -> if (minW >= 110) Bucket.GRID else Bucket.METER             // medium: wide → grid, narrow → meter
+        minW == 0 || minH == 0 -> Bucket.LIST   // options not reported yet → safe default
+        minW < 110 -> Bucket.METER              // one cell wide → just the donut (any height)
+        minH < 100 -> Bucket.STRIP              // wide & short → meter + a row of dots
+        minH < 170 -> Bucket.GRID               // wide & medium → the dot grid
+        else -> Bucket.LIST                     // wide & tall → the scrolling list
     }
 
     /** The full "vanishing list" density (unchanged behaviour) for tall widgets. */
@@ -358,8 +359,9 @@ private class HabitZeroFactory(private val context: Context, private val widgetI
     }
 }
 
-/** Dispatches a tap on a remaining habit by type: build → check off in place; numeric → amount popup;
- *  timed → the timer. Only the build case writes here (so it vanishes instantly); the others open the app. */
+/** Dispatches a tap on a remaining habit by type: a yes/no habit checks off in place (so it vanishes
+ *  instantly and the meter climbs); a numeric or timed habit opens the lightweight [HabitQuickLogActivity]
+ *  popup — the amount entry floats straight over the launcher, the whole app never opens. */
 class HabitZeroReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION_TAP) return
@@ -370,23 +372,17 @@ class HabitZeroReceiver : BroadcastReceiver() {
             try {
                 val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
                 val h = app.repository.getHabitsOnce().firstOrNull { it.id == habitId } ?: return@launch
-                val timed = h.habitType != "break" && h.unit?.startsWith("min") == true
-                val numeric = !timed && h.habitType != "break" && (h.targetPerDay > 1 || h.unit != null || h.clickIncrement > 1)
-                when {
-                    timed -> context.startActivity(route(context, "focus_habit:$habitId"))
-                    numeric -> context.startActivity(route(context, "habit_value:$habitId"))
-                    else -> {
-                        val cur = app.repository.getHabitCheckinsOnce().firstOrNull { it.habitId == habitId && it.epochDay == today }?.count ?: 0
-                        app.repository.cycleCheckin(habitId, today, h.targetPerDay, cur)
-                        Widgets.refreshHabitWidgets(context)
-                    }
+                val timed = h.unit?.startsWith("min") == true
+                val numeric = !timed && (h.targetPerDay > 1 || h.unit != null || h.clickIncrement > 1)
+                if (timed || numeric) {
+                    context.startActivity(HabitQuickLogActivity.intent(context, habitId))
+                } else {
+                    val cur = app.repository.getHabitCheckinsOnce().firstOrNull { it.habitId == habitId && it.epochDay == today }?.count ?: 0
+                    app.repository.cycleCheckin(habitId, today, h.targetPerDay, cur)
+                    Widgets.refreshHabitWidgets(context)
                 }
             } finally { pending.finish() }
         }
-    }
-    private fun route(context: Context, action: String) = Intent(context, MainActivity::class.java).apply {
-        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        putExtra(MainActivity.EXTRA_ACTION, action)
     }
     companion object {
         const val ACTION_TAP = "com.todocompanion.app.action.HABIT_ZERO_TAP"

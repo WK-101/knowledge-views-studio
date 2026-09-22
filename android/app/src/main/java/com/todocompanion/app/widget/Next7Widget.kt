@@ -42,6 +42,7 @@ class Next7Widget : AppWidgetProvider() {
                 val settings = app.repository.settingsSnapshot()
 
                 val views = RemoteViews(context.packageName, R.layout.widget_next7)
+                val style = WidgetStyle.resolve(context)
                 var over = 0
                 for (off in 0..6) {
                     val d = today.plusDays(off.toLong())
@@ -56,13 +57,13 @@ class Next7Widget : AppWidgetProvider() {
                     val frac = (min.toFloat() / capMin).coerceIn(0f, 1f)
 
                     views.setTextViewText(dayIds[off], d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()))
-                    views.setTextColor(dayIds[off], if (d == today) 0xFF6650A4.toInt() else 0xFFB9B4D0.toInt())
+                    views.setTextColor(dayIds[off], if (d == today) style.accentText else style.textSecondary)
                     views.setProgressBar(barIds[off], 100, (frac * 100).toInt(), false)
                     views.setTextViewText(hrsIds[off], if (min > 0) "${(min + 30) / 60}h" else "—")
-                    views.setTextColor(hrsIds[off], if (overCap) 0xFFE5484D.toInt() else 0xFFE9E5FF.toInt())
+                    views.setTextColor(hrsIds[off], if (overCap) style.danger else style.textPrimary)
                 }
                 views.setTextViewText(R.id.n7_status, if (over == 0) "On track" else "$over over")
-                views.setTextColor(R.id.n7_status, if (over == 0) 0xFF12A594.toInt() else 0xFFE5484D.toInt())
+                views.setTextColor(R.id.n7_status, if (over == 0) style.success else style.danger)
                 views.setOnClickPendingIntent(R.id.n7_root, openNext7(context))
                 ids.forEach { id -> WidgetStyle.applyCardBackground(views, R.id.n7_root, context, id); manager.updateAppWidget(id, views) }
             } finally { pending.finish() }

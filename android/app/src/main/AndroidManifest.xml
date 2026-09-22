@@ -280,6 +280,17 @@
             </intent-filter>
         </activity>
 
+        <!-- Translucent "log a habit value" popup a habit widget fires into when you tap a numeric or
+             timed habit — the amount entry appears straight over the launcher, the whole app never opens.
+             Launched only by our own widget receivers (explicit component), so not exported. Offline. -->
+        <activity
+            android:name=".widget.HabitQuickLogActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ToDoCompanion.QuickCapture"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask" />
+
         <!-- Countdown widget: days remaining to a pinned date. Offline. -->
         <receiver
             android:name=".widget.CountdownWidget"

@@ -68,8 +68,10 @@ class WidgetConfigActivity : ComponentActivity() {
         val providerClass = AppWidgetManager.getInstance(this)
             .getAppWidgetInfo(widgetId)?.provider?.className.orEmpty()
         val isAgenda = providerClass.endsWith("AgendaWidget")
+        // "List" widgets expose the compact-density + text-size controls (their row factories honour both).
+        // DayWidget renders through the same compact/font-aware factory, so it belongs here too.
         val isList = isAgenda || providerClass.endsWith("DoNextWidget") || providerClass.endsWith("RecordWidget") ||
-            providerClass.endsWith("HabitsWidget")
+            providerClass.endsWith("HabitsWidget") || providerClass.endsWith("DayWidget")
         // Widgets that render one chosen habit — they get a habit picker.
         val isSingleHabit = providerClass.endsWith("WeekRowWidget") || providerClass.endsWith("KeystoneWidget")
         val isHabitZero = providerClass.endsWith("HabitZeroWidget")
