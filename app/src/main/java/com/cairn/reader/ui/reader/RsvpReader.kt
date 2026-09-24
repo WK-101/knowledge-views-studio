@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material3.Icon
@@ -36,12 +38,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -98,15 +96,37 @@ fun RsvpReader(
                 }
 
                 Spacer(Modifier.height(48.dp))
-                // The reticle: a thin guide line with the ORP-aligned word.
-                Box(Modifier.fillMaxWidth().height(96.dp), contentAlignment = Alignment.Center) {
-                    val word = words.getOrNull(index).orEmpty()
-                    Text(
-                        text = orpAnnotated(word),
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 34.sp,
-                        color = scheme.onSurface,
-                    )
+                // The reticle: the ORP letter is PINNED to the fixed centre column (two guide ticks
+                // mark it) so the eye never has to move between words — the whole point of RSVP. The
+                // text before/after the pivot grows out to each side around that fixed point.
+                val word = words.getOrNull(index).orEmpty()
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.width(2.dp).height(10.dp).background(scheme.primary.copy(alpha = 0.5f)))
+                    Box(Modifier.fillMaxWidth().height(72.dp), contentAlignment = Alignment.Center) {
+                        val orp = orpIndex(word)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.width(140.dp), contentAlignment = Alignment.CenterEnd) {
+                                Text(
+                                    text = if (word.isNotEmpty()) word.substring(0, orp) else "",
+                                    fontFamily = FontFamily.Monospace, fontSize = 34.sp, color = scheme.onSurface,
+                                    maxLines = 1,
+                                )
+                            }
+                            Text(
+                                text = if (word.isNotEmpty()) word[orp].toString() else "",
+                                fontFamily = FontFamily.Monospace, fontSize = 34.sp,
+                                color = Color(0xFFEF5350), fontWeight = FontWeight.Bold,
+                            )
+                            Box(Modifier.width(140.dp), contentAlignment = Alignment.CenterStart) {
+                                Text(
+                                    text = if (word.isNotEmpty() && orp + 1 <= word.length - 1) word.substring(orp + 1) else "",
+                                    fontFamily = FontFamily.Monospace, fontSize = 34.sp, color = scheme.onSurface,
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                    }
+                    Box(Modifier.width(2.dp).height(10.dp).background(scheme.primary.copy(alpha = 0.5f)))
                 }
                 Spacer(Modifier.height(48.dp))
 
@@ -129,7 +149,13 @@ fun RsvpReader(
                     IconButton(onClick = { index = 0; playing = true }) {
                         Icon(Icons.Outlined.Replay, contentDescription = stringResource(R.string.restart), tint = scheme.onSurface)
                     }
-                    Spacer(Modifier.width(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    // Regression: step back a word to re-read (RSVP's usual weakness — you can't glance
+                    // back). Stepping pauses so you can dwell.
+                    IconButton(onClick = { playing = false; index = (index - 1).coerceAtLeast(0) }, enabled = index > 0) {
+                        Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous word", tint = scheme.onSurface)
+                    }
+                    Spacer(Modifier.width(8.dp))
                     IconButton(onClick = {
                         if (index >= words.size - 1) index = 0
                         playing = !playing
@@ -139,6 +165,10 @@ fun RsvpReader(
                             contentDescription = if (playing) "Pause" else "Play",
                             tint = scheme.onSurface,
                         )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(onClick = { playing = false; index = (index + 1).coerceAtMost(words.size - 1) }, enabled = index < words.size - 1) {
+                        Icon(Icons.Filled.SkipNext, contentDescription = "Next word", tint = scheme.onSurface)
                     }
                 }
 
@@ -156,21 +186,11 @@ fun RsvpReader(
     }
 }
 
-/** Highlight the Optimal Recognition Point letter (Spritz-style) so the eye anchors in one spot. */
-private fun orpAnnotated(word: String): AnnotatedString {
-    if (word.isEmpty()) return AnnotatedString("")
-    val orp = when (word.length) {
-        1 -> 0
-        in 2..5 -> 1
-        in 6..9 -> 2
-        in 10..13 -> 3
-        else -> 4
-    }.coerceIn(0, word.length - 1)
-    return buildAnnotatedString {
-        append(word.substring(0, orp))
-        withStyle(SpanStyle(color = Color(0xFFEF5350), fontWeight = FontWeight.Bold)) {
-            append(word[orp].toString())
-        }
-        if (orp + 1 <= word.length - 1) append(word.substring(orp + 1))
-    }
-}
+/** The Optimal Recognition Point letter index (Spritz-style) the word is pinned around. */
+private fun orpIndex(word: String): Int = when (word.length) {
+    0, 1 -> 0
+    in 2..5 -> 1
+    in 6..9 -> 2
+    in 10..13 -> 3
+    else -> 4
+}.coerceIn(0, (word.length - 1).coerceAtLeast(0))
