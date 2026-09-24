@@ -55,13 +55,26 @@ object CallClock {
     private var wakeLock: PowerManager.WakeLock? = null
     private var power: PowerManager? = null
     private var ticker: Job? = null
+    private var appContext: Context? = null
 
     private val _timings = MutableStateFlow<Map<String, CallTiming>>(emptyMap())
     val timings: StateFlow<Map<String, CallTiming>> = _timings.asStateFlow()
 
     internal fun attach(context: Context) {
+        appContext = context.applicationContext
         feedback = CallFeedback(context.applicationContext)
         power = context.applicationContext.getSystemService(PowerManager::class.java)
+    }
+
+    /**
+     * Calls that are never timed: emergency calls, any call while the emergency window runs (the operator's
+     * call-back, either direction), and numbers the user listed as starting that window (B23).
+     */
+    private fun exempt(number: String?, emergency: Boolean): Boolean {
+        if (emergency) return true
+        val ctx = appContext
+        if (ctx != null && runCatching { ScreeningGuard.inEmergencyWindow(ctx) }.getOrDefault(false)) return true
+        return !number.isNullOrBlank() && runCatching { TelecomGraph.dependencies.startsEmergencyWindow(number) }.getOrDefault(false)
     }
 
     internal fun detach() {
@@ -84,7 +97,7 @@ object CallClock {
      */
     private fun requestPlan(id: String, number: String?, accountId: String?, incoming: Boolean, emergency: Boolean) {
         if (!requested.add(id)) return
-        if (emergency) {
+        if (exempt(number, emergency)) {
             plans[id] = CallTimePlan.NONE
             return
         }
@@ -135,7 +148,7 @@ object CallClock {
     /** "End in 1 min": works on calls without a limit too, never on emergency calls. */
     fun endIn(id: String, minutes: Int) {
         val call = find(id) ?: return
-        if (call.isEmergency || !call.isLive || id in endedByLimit) return
+        if (exempt(call.number, call.isEmergency) || !call.isLive || id in endedByLimit) return
         val now = SystemClock.elapsedRealtime()
         if (book[id] == null) {
             val connectedFor = if (call.connectTimeMillis > 0) System.currentTimeMillis() - call.connectTimeMillis else 0L
@@ -200,6 +213,9 @@ object CallClock {
                 fb?.vibrate(CallHaptic.WARN)
             }
             CountdownEvent.END -> {
+                // The emergency window may have started during this call (an emergency call made meanwhile).
+                val call = find(id)
+                if (call != null && exempt(call.number, call.isEmergency)) return
                 endedByLimit += id
                 CallManager.endForLimit(id)
             }

@@ -178,10 +178,13 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                 RuleType.LABEL -> {
                     if (groups.isEmpty()) Text("No labels yet. Create one in Contacts.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        groups.distinctBy { it.title }.forEach { g -> FilterChip(r.pattern == g.id.toString(), { r = r.copy(pattern = g.id.toString(), label = g.title) }, label = { Text(g.title) }) }
+                        // By title: the rule covers the label in every account.
+                        groups.map { app.parley.common.LabelRefs.key(it.title) }.distinct().forEach { t ->
+                            FilterChip(r.labelKey == t, { r = r.copy(pattern = t, label = t, ringtone = null) }, label = { Text(t) })
+                        }
                     }
                     Text(
-                        if (allow) "Label rules with a ringtone give these contacts their own sound." else "Everyone in this label is blocked, even though they're contacts. Labels sync with your contacts account.",
+                        if (allow) "These contacts ring even during off hours. A label's ringtone is set on its page in Contacts." else "Everyone in this label is blocked, even though they're contacts. Labels sync with your contacts account.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -229,10 +232,13 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                     FilterChip(r.expiresAt != null && r.expiresAt!! - now > 25 * 3_600_000L, { r = r.copy(expiresAt = now + 7 * 86_400_000L) }, label = { Text("7 days") })
                 }
                 r.expiresAt?.let { Text("Until ${Format.fullDate(context, it)}", style = MaterialTheme.typography.bodySmall) }
-                Text("Ringtone", style = MaterialTheme.typography.titleSmall)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedButton({ pickTone(r.ringtone) }) { Text(ringtoneTitle(context, r.ringtone) ?: "Same as usual") }
-                    if (r.ringtone != null) TextButton({ r = r.copy(ringtone = null) }) { Text("Reset") }
+                // A label's ringtone has one home: the label's page in Contacts.
+                if (r.type != RuleType.LABEL) {
+                    Text("Ringtone", style = MaterialTheme.typography.titleSmall)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedButton({ pickTone(r.ringtone) }) { Text(ringtoneTitle(context, r.ringtone) ?: "Same as usual") }
+                        if (r.ringtone != null) TextButton({ r = r.copy(ringtone = null) }) { Text("Reset") }
+                    }
                 }
             } else {
                 Text("Notify me", style = MaterialTheme.typography.titleSmall)

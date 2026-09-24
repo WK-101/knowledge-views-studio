@@ -10,11 +10,11 @@ import org.junit.Test
 class CallLimitsTest {
     private val global = LimitRule(LimitScope.GLOBAL, perCallMinutes = 60)
     private val sim = LimitRule(LimitScope.SIM, key = "sim2", title = "Work SIM", perCallMinutes = 30)
-    private val family = LimitRule(LimitScope.LABEL, key = "7", title = "Family", perCallMinutes = 20)
+    private val family = LimitRule(LimitScope.LABEL, key = "Family", title = "Family", perCallMinutes = 20)
     private val ana = LimitRule(LimitScope.CONTACT, key = "ana", title = "Ana", perCallMinutes = 10)
 
-    private fun facts(incoming: Boolean = false, key: String? = "ana", labels: Set<Long> = setOf(7), account: String? = "sim2", emergency: Boolean = false) =
-        CallFacts(incoming = incoming, isEmergency = emergency, contactKey = key, labelIds = labels, accountId = account)
+    private fun facts(incoming: Boolean = false, key: String? = "ana", labels: Set<String> = setOf("Family"), account: String? = "sim2", emergency: Boolean = false) =
+        CallFacts(incoming = incoming, isEmergency = emergency, contactKey = key, labelTitles = labels, accountId = account)
 
     @Test fun most_specific_scope_wins() {
         val config = CallingConfig(rules = listOf(global, sim, family, ana))
@@ -25,9 +25,9 @@ class CallLimitsTest {
     }
 
     @Test fun strictest_rule_within_a_scope() {
-        val work = LimitRule(LimitScope.LABEL, key = "8", perCallMinutes = 5)
+        val work = LimitRule(LimitScope.LABEL, key = "Work", perCallMinutes = 5)
         val config = CallingConfig(rules = listOf(family, work))
-        assertEquals(work, CallLimits.ruleFor(config, facts(key = null, labels = setOf(7, 8))))
+        assertEquals(work, CallLimits.ruleFor(config, facts(key = null, labels = setOf("Family", "Work"))))
     }
 
     @Test fun direction_filters_rules() {
@@ -50,6 +50,31 @@ class CallLimitsTest {
         val used = listOf(QuotaStatus(QuotaPeriod.DAY, 60, 600))
         assertFalse(CallLimits.silenceIncoming(config, f.copy(incoming = true), used))
         assertNull(CallLimits.outgoingBlocker(config, f, used))
+    }
+
+    @Test fun emergency_window_call_back_is_never_limited_timed_or_silenced() {
+        // Regression: only emergency numbers were exempt, so a limit could hang up the operator calling back.
+        val config = CallingConfig(
+            rules = listOf(global.copy(dailyMinutes = 1)),
+            reminders = ReminderSettings(everyMinutes = 5),
+            silenceIncomingOverQuota = true,
+        )
+        val callBack = CallFacts(incoming = true, isEmergency = false, inEmergencyWindow = true)
+        assertTrue(CallLimits.isExempt(config, callBack))
+        assertNull(CallLimits.ruleFor(config, callBack))
+        assertTrue(CallLimits.plan(config, callBack).isEmpty)
+        assertEquals(0, CallLimits.reminderMinutes(config, callBack))
+        val used = listOf(QuotaStatus(QuotaPeriod.DAY, 60, 600))
+        assertFalse(CallLimits.silenceIncoming(config, callBack, used))
+        assertNull(CallLimits.outgoingBlocker(config, callBack.copy(incoming = false), used))
+        assertFalse(CallLimits.plan(config, callBack.copy(inEmergencyWindow = false)).isEmpty)
+    }
+
+    @Test fun label_limits_match_by_title_and_old_id_keys_by_saved_title() {
+        val legacy = LimitRule(LimitScope.LABEL, key = "7", title = "Family", perCallMinutes = 20)
+        val config = CallingConfig(rules = listOf(legacy))
+        assertEquals(legacy, CallLimits.ruleFor(config, facts(key = null, labels = setOf("Family"))))
+        assertNull(CallLimits.ruleFor(config, facts(key = null, labels = setOf("Work"))))
     }
 
     @Test fun never_limit_contacts_are_exempt() {

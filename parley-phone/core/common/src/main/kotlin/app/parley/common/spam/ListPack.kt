@@ -78,6 +78,27 @@ object ListPack {
 
     fun sha256Hex(b: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(it) }
 
+    private val ID = Regex("[A-Za-z0-9._-]{1,80}")
+
+    /** Pack ids: letters, digits, '.', '_' and '-', no path separators, and never only dots ("." or ".."). */
+    fun isValidId(id: String): Boolean = ID.matches(id) && id.any { it != '.' }
+
+    /** Directory name a pack is stored under: derived from, never equal to, the id (so no id can escape the pack folder). */
+    fun storageName(id: String): String = "pack_" + sha256Hex(id.toByteArray(Charsets.UTF_8))
+
+    /** A stored manifest, or null when it can't be read. */
+    fun readManifest(bytes: ByteArray): PackManifest? = runCatching { json.decodeFromString(PackManifest.serializer(), bytes.decodeToString()) }.getOrNull()
+
+    /** The publisher key a signed pack names, decoded (full 32 bytes), or null. */
+    fun publicKeyBytes(p: PackManifest): ByteArray? = p.publicKey?.let { runCatching { java.util.Base64.getDecoder().decode(it) }.getOrNull() }
+
+    /** Whether [candidate] was signed by the same publisher key as the installed pack ([installedKey], Base64). Full key compare. */
+    fun sameKey(installedKey: String?, candidate: PackManifest): Boolean {
+        val a = installedKey?.let { runCatching { java.util.Base64.getDecoder().decode(it) }.getOrNull() } ?: return false
+        val b = publicKeyBytes(candidate) ?: return false
+        return a.size == 32 && MessageDigest.isEqual(a, b)
+    }
+
     /** Reads and fully verifies a pack. Throws [PackException] with a user-readable reason. */
     fun parse(zip: ByteArray): ParsedPack {
         val files = HashMap<String, ByteArray>()
@@ -107,7 +128,7 @@ object ListPack {
             throw PackException("The list's manifest can't be read")
         }
         if (manifest.format != 1) throw PackException("This list needs a newer version of Parley")
-        if (manifest.id.isBlank() || !manifest.id.matches(Regex("[A-Za-z0-9._-]{1,80}"))) throw PackException("The list has an invalid id")
+        if (!isValidId(manifest.id)) throw PackException("The list has an invalid id")
         val numbers = files[NUMBERS] ?: ByteArray(0)
         val rangesBytes = files[RANGES] ?: ByteArray(0)
         for ((name, bytes) in listOf(NUMBERS to numbers, RANGES to rangesBytes)) {

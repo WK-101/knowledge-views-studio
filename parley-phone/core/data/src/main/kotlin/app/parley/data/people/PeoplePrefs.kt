@@ -48,6 +48,9 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
     val settings: StateFlow<PeopleSettings> = store.data.map { it.read().also { loadedFlag.value = true } }
         .stateIn(scope, SharingStarted.Eagerly, PeopleSettings())
 
+    /** False until the stored preferences have been read once. */
+    val loaded: Boolean get() = loadedFlag.value
+
     suspend fun current(): PeopleSettings = if (loadedFlag.value) settings.value else store.data.first().read()
 
     suspend fun update(f: (PeopleSettings) -> PeopleSettings) {

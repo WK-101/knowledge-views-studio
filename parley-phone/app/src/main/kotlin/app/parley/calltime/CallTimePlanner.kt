@@ -13,6 +13,7 @@ import app.parley.common.calltime.Quotas
 import app.parley.common.calltime.UsageEntry
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
+import app.parley.telecom.ScreeningGuard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -37,13 +38,15 @@ class CallTimePlanner(private val c: DataContainer) {
         val info = number?.takeIf { it.isNotBlank() }?.let { runCatching { c.contacts.lookup(it) }.getOrNull() }
         val key = info?.lookupKey?.takeIf { it.isNotBlank() }
         val labelRules = config.rules.filter { it.scope == LimitScope.LABEL }
-        val labels = if (info == null || labelRules.isEmpty()) emptySet() else labelRules.mapNotNull { r ->
-            r.key.toLongOrNull()?.takeIf { gid -> info.contactId in runCatching { c.contacts.contactIdsInGroup(gid) }.getOrDefault(emptySet()) }
-        }.toSet()
+        // Label titles in every account (label limits are keyed by title).
+        val labels = if (info == null || labelRules.isEmpty()) emptySet() else runCatching { c.people.labelsOf(info.contactId) }.getOrDefault(emptySet())
         val contact = key?.let { k -> c.contacts.contacts.value?.firstOrNull { it.lookupKey == k } }
         val keys = contact?.phones?.map { PhoneNumbers.matchKey(it.number) }?.toSet()
             ?: listOfNotNull(number?.takeIf { it.isNotBlank() }?.let { PhoneNumbers.matchKey(it) }).toSet()
-        Subject(CallFacts(incoming, emergency, key, labels, accountId), keys, info?.name)
+        // The hour after an emergency call, and numbers listed as starting it (B23): never limited or silenced.
+        val window = runCatching { ScreeningGuard.inEmergencyWindow(c.appContext) }.getOrDefault(false) ||
+            (!number.isNullOrBlank() && c.settings.current().screening.emergencyExtras.any { PhoneNumbers.same(it, number, PhoneEnv.countryIso(c.appContext)) })
+        Subject(CallFacts(incoming, emergency, key, labels, accountId, inEmergencyWindow = window), keys, info?.name)
     }
 
     /** Allowance status of the rule that governs [s], counted from the call history. */

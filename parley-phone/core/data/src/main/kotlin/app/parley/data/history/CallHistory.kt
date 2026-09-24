@@ -76,12 +76,18 @@ class CallHistory(
     private val scope: CoroutineScope,
 ) : CallHistoryBackup {
     val prefs = HistoryPrefs(context, scope)
-    private val db by lazy { HistoryDatabase.create(context) }
+    @Volatile private var dbRef: HistoryDatabase? = null
+    private val db: HistoryDatabase get() = dbRef ?: synchronized(this) { dbRef ?: HistoryDatabase.create(context).also { dbRef = it } }
     private val dao: HistoryDao get() = db.dao()
     private val crypto = HistoryCrypto(context)
     private val cr = context.contentResolver
     private val mutex = Mutex()
     private var knownKeys: HashSet<String>? = null
+
+    /** Decrypted rows by id, so a sync only decrypts the rows it added (guarded by [reloadLock]). */
+    private val decrypted = HashMap<Long, CallLogRecord>()
+    private val undecryptable = HashSet<Long>()
+    private val reloadLock = Mutex()
 
     val countryIso: String get() = PhoneEnv.countryIso(context)
     private val zone: ZoneId get() = ZoneId.systemDefault()
@@ -103,8 +109,10 @@ class CallHistory(
         .distinctUntilChanged()
 
     /**
-     * The whole history Recents shows: system call log plus archived calls it no longer has, newest first.
-     * Archived-only calls have ids from [ARCHIVE_ID_BASE] up. Null until the call log has loaded.
+     * The history Recents shows: system call log plus archived calls it no longer has, newest first. Only the
+     * newest [ARCHIVE_UI_WINDOW] archived calls are merged in, so a years-long archive doesn't slow every screen;
+     * [callsFor] and the backup still see all of it. Archived-only calls have ids from [ARCHIVE_ID_BASE] up.
+     * Null until the call log has loaded.
      */
     val calls: StateFlow<List<CallEntry>?> = combine(
         callLog.calls, _archive, prefs.state.map { it.archiveEnabled }.distinctUntilChanged(), vaultKeys,
@@ -112,7 +120,7 @@ class CallHistory(
         when {
             sys == null -> null
             !on || arch.isNullOrEmpty() -> sys
-            else -> HistoryMerge.merge(sys, arch.map { it.toEntry() }.filter { PhoneNumbers.matchKey(it.number) !in vk || it.number.isBlank() })
+            else -> HistoryMerge.merge(sys, arch.asSequence().take(ARCHIVE_UI_WINDOW).map { it.toEntry() }.filter { PhoneNumbers.matchKey(it.number) !in vk || it.number.isBlank() }.toList())
         }
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, null)
 
@@ -151,28 +159,66 @@ class CallHistory(
 
     // ------------------------------------------------------------------ archive
 
-    /** Decrypts the archive into [archive]. A lost key (e.g. Keystore reset) starts a fresh, empty archive. */
+    /** Opens a sealed value; a damaged row gives null, but key problems are passed on (they aren't the row's fault). */
+    private fun openOrNull(blob: ByteArray): String? = try {
+        String(crypto.open(blob))
+    } catch (e: HistoryCrypto.KeyLostException) {
+        throw e
+    } catch (e: HistoryCrypto.KeyUnavailableException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
+
+    /**
+     * Decrypts the archive into [archive], only the rows not decrypted before. When the key can't be used right
+     * now, nothing changes and the next sync tries again. Only a key that is gone for good starts a new archive,
+     * and even then the old database is moved aside (never deleted) and the user is told.
+     */
     private suspend fun reload() = withContext(Dispatchers.IO) {
-        try {
-            val rows = dao.all()
-            val out = ArrayList<ArchivedCall>(rows.size)
-            for (r in rows) {
-                val rec = runCatching { decode(String(crypto.open(r.blob))) }.getOrElse { e ->
-                    if (e is HistoryCrypto.KeyLostException) throw e
-                    null
-                } ?: continue
-                out += ArchivedCall(r.id, rec)
+        reloadLock.withLock {
+            try {
+                val ids = dao.idsNewestFirst()
+                decrypted.keys.retainAll(ids.toHashSet())
+                val missing = ids.filter { it !in decrypted && it !in undecryptable }
+                missing.chunked(500).forEach { chunk ->
+                    for (r in dao.byIds(chunk)) {
+                        val rec = openOrNull(r.blob)?.let { runCatching { decode(it) }.getOrNull() }
+                        if (rec != null) decrypted[r.id] = rec else undecryptable += r.id
+                    }
+                }
+                _kept.value = dao.keepForever().mapNotNull { k -> openOrNull(k.blob)?.let { k.personKey to it } }.toMap()
+                _archive.value = ids.mapNotNull { id -> decrypted[id]?.let { ArchivedCall(id, it) } }
+            } catch (e: HistoryCrypto.KeyUnavailableException) {
+                Log.w(TAG, "Archive key unavailable for now; will retry", e)
+            } catch (e: HistoryCrypto.KeyLostException) {
+                startOver(e)
             }
-            _kept.value = dao.keepForever().mapNotNull { k -> runCatching { k.personKey to String(crypto.open(k.blob)) }.getOrNull() }.toMap()
-            _archive.value = out
-        } catch (e: HistoryCrypto.KeyLostException) {
-            Log.w(TAG, "Archive key lost; starting a new archive", e)
-            dao.clear(); dao.clearTrash(); dao.removeKeepForever(dao.keepForever().map { it.personKey })
-            crypto.reset()
-            knownKeys = null
-            _kept.value = emptyMap()
-            _archive.value = emptyList()
         }
+    }
+
+    /**
+     * The archive key is gone for good: its rows can never be read again. The database and the wrapped key are
+     * renamed (kept on the phone, not deleted), a new empty archive starts, and a notice is shown.
+     */
+    private suspend fun startOver(e: Exception) {
+        Log.w(TAG, "Archive key lost; the old archive is kept aside and a new one starts", e)
+        val suffix = "lost-" + System.currentTimeMillis()
+        synchronized(this) {
+            runCatching { dbRef?.close() }
+            dbRef = null
+            for (ext in listOf("", "-wal", "-shm", "-journal")) {
+                val f = context.getDatabasePath(HistoryDatabase.NAME + ext)
+                if (f.exists()) f.renameTo(java.io.File(f.parentFile, "parley-history-$suffix.db$ext"))
+            }
+        }
+        crypto.reset(suffix)
+        decrypted.clear()
+        undecryptable.clear()
+        knownKeys = null
+        _kept.value = emptyMap()
+        _archive.value = emptyList()
+        runCatching { prefs.setArchiveReset(System.currentTimeMillis()) }
     }
 
     private suspend fun keys(): HashSet<String> = knownKeys ?: HashSet(dao.dedupeKeys()).also { knownKeys = it }
@@ -186,6 +232,8 @@ class CallHistory(
             if (!prefs.current().archiveEnabled) return@withLock 0
             if (!Permissions.has(context, android.Manifest.permission.READ_CALL_LOG)) return@withLock 0
             if (_archive.value == null) reload()
+            // Key not usable right now: leave the archive alone and try on the next change.
+            if (_archive.value == null) return@withLock 0
             val since = if (full) null else dao.newest()?.minus(TimeUnit.DAYS.toMillis(3))
             val vk = vaultKeys.first()
             val known = keys()
@@ -330,9 +378,50 @@ class CallHistory(
         }
     }
 
-    /** Every call with [number] (any format), optionally only since [since]. */
-    fun callsFor(number: String, since: Long = Long.MIN_VALUE): List<CallEntry> =
-        calls.value.orEmpty().filter { it.date >= since && !it.presentationHidden && PhoneNumbers.same(it.number, number, countryIso) }
+    /** Every call with [number] (any format), optionally only since [since], including archived calls Recents doesn't show. */
+    fun callsFor(number: String, since: Long = Long.MIN_VALUE): List<CallEntry> {
+        val iso = countryIso
+        fun matches(e: CallEntry) = e.date >= since && !e.presentationHidden && PhoneNumbers.same(e.number, number, iso)
+        val shown = calls.value.orEmpty().filter(::matches)
+        if (!prefs.state.value.archiveEnabled) return shown
+        val seen = shown.map { HistoryMerge.key(it) }.toHashSet()
+        val older = _archive.value.orEmpty().asSequence().drop(ARCHIVE_UI_WINDOW).map { it.toEntry() }
+            .filter { matches(it) && seen.add(HistoryMerge.key(it)) }.toList()
+        return shown + older
+    }
+
+    /**
+     * Removes every call with [number] from the system log and the archive with no undo copy, for automatic purges
+     * (an expired temporary contact). Reads the provider and the archive directly, so it works in a process that
+     * never loaded Recents. Returns calls removed.
+     */
+    suspend fun purgeNumber(number: String): Int = withContext(Dispatchers.IO + NonCancellable) {
+        if (number.isBlank()) return@withContext 0
+        val iso = countryIso
+        var n = 0
+        val ids = ArrayList<Long>()
+        runCatching {
+            cr.query(Uri.withAppendedPath(Calls.CONTENT_FILTER_URI, Uri.encode(number)), arrayOf(Calls._ID), null, null, null)
+                ?.use { c -> while (c.moveToNext()) ids += c.getLong(0) }
+        }
+        ids.chunked(500).forEach { chunk ->
+            n += runCatching { cr.delete(Calls.CONTENT_URI, "${Calls._ID} IN (${chunk.joinToString(",")})", null) }.getOrDefault(0)
+        }
+        mutex.withLock {
+            runCatching {
+                if (_archive.value == null) reload()
+                val person = personMac(number, iso)
+                // Also rows filed under another form of the number.
+                val other = _archive.value.orEmpty().filter { !it.record.number.isNullOrBlank() && PhoneNumbers.same(it.record.number, number, iso) }.map { it.rowId }
+                n += dao.deleteByPerson(person)
+                other.chunked(500).forEach { dao.deleteIds(it) }
+                dao.removeKeepForever(listOf(person))
+                knownKeys = null
+                reload()
+            }
+        }
+        n
+    }
 
     suspend fun deleteForNumber(number: String): Long? = delete(callsFor(number))
 
@@ -440,6 +529,8 @@ class CallHistory(
     /** Archived calls the system log no longer has, and the "keep forever" numbers. */
     override suspend fun backupLines(): List<CallHistoryLine> = withContext(Dispatchers.IO) {
         if (_archive.value == null) reload()
+        // Rather fail the backup than silently leave the archive out.
+        if (_archive.value == null && prefs.current().archiveEnabled) throw IllegalStateException("Parley's call archive can't be unlocked right now. Try again later.")
         val inProvider = readProvider(null).map { HistoryMerge.key(it.toEntry(0)) }.toHashSet()
         _archive.value.orEmpty().map { it.record }.filter { HistoryMerge.key(it.toEntry(0)) !in inProvider }.map { CallHistoryLine(call = it) } +
             _kept.value.values.map { CallHistoryLine(keepForever = it) }
@@ -522,6 +613,9 @@ class CallHistory(
 
         /** Ids of archived-only calls in [calls] start here (provider ids are far smaller; vault ids are negative). */
         const val ARCHIVE_ID_BASE = 1L shl 52
+
+        /** Archived calls merged into Recents (newest first); older ones stay reachable per number. */
+        const val ARCHIVE_UI_WINDOW = 5_000
         private const val DAY = 86_400_000L
         private const val TRASH_DAYS = 30L
         private const val MAX_IMPORT_BYTES = 20 shl 20

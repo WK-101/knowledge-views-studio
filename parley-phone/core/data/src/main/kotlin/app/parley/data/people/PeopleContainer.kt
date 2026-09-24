@@ -24,9 +24,10 @@ import org.json.JSONObject
  * - In-call screen: [callBackgroundFor] returns a file URI string of the caller's background image, or null.
  */
 class PeopleContainer(private val c: DataContainer) {
-    val prefs = PeoplePrefs(c.appContext, c.scope)
+    val prefs: PeoplePrefs = c.peoplePrefs
     val index = PeopleIndex(c.appContext, c.contacts, c.scope)
-    val labels = LabelsRepository(c.appContext, c.contacts)
+    val labelRefs = LabelReferences(c, prefs)
+    val labels = LabelsRepository(c.appContext, c.contacts, labelRefs)
     val backgrounds = CallBackgrounds(c.appContext, c.contacts)
     val mover by lazy { ContactMover(c.appContext, c.contacts, c.records) }
     val accounts by lazy { AccountDiagnostics(c.appContext) }
@@ -52,23 +53,13 @@ class PeopleContainer(private val c: DataContainer) {
         val tones = prefs.settings.value.labelRingtones
         if (tones.isEmpty()) return null
         val contactId = c.contacts.lookup(number)?.contactId ?: return null
-        return labelsOf(contactId).sorted().firstNotNullOfOrNull { tones[it] }
+        return app.parley.common.LabelRefs.ringtoneFor(labelsOf(contactId), tones)
     }
 
     fun callBackgroundFor(number: String): String? = backgrounds.callBackgroundFor(number)
 
     /** Label titles of one contact, straight from the provider (works before the index has loaded). */
-    fun labelsOf(contactId: Long): Set<String> {
-        val cr = c.appContext.contentResolver
-        val groupIds = HashSet<Long>()
-        try {
-            cr.query(Data.CONTENT_URI, arrayOf(GroupMembership.GROUP_ROW_ID), "${Data.CONTACT_ID}=? AND ${Data.MIMETYPE}=?", arrayOf(contactId.toString(), GroupMembership.CONTENT_ITEM_TYPE), null)
-                ?.use { q -> while (q.moveToNext()) groupIds += q.getLong(0) }
-        } catch (_: Exception) {
-        }
-        if (groupIds.isEmpty()) return emptySet()
-        return c.contacts.groups().filter { it.id in groupIds }.map { it.title.trim() }.toSet()
-    }
+    fun labelsOf(contactId: Long): Set<String> = c.contacts.labelTitlesOf(contactId)
 }
 
 /** Backs up people preferences, private-name approvals and call backgrounds (matched back by name and number). */

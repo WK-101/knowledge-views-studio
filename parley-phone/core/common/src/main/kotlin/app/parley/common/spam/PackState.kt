@@ -26,6 +26,8 @@ data class PackState(
     val ranges: Int = 0,
     val signed: Boolean = false,
     val fingerprint: String? = null,
+    /** Full Base64 Ed25519 publisher key of a signed pack: updates must be signed by exactly this key. */
+    val publicKey: String? = null,
     /** When this version was installed on the phone. */
     val installedAt: Long = 0,
     val origin: PackOrigin = PackOrigin.FILE,

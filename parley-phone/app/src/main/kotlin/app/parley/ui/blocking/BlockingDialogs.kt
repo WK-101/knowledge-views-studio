@@ -63,7 +63,8 @@ sealed interface BlockingDialog {
     data class WebSearch(val number: String, val contactName: String?) : BlockingDialog
     data class Report(val number: String) : BlockingDialog
     data class PrefixAllow(val name: String?, val numbers: List<String>) : BlockingDialog
-    data class LabelRule(val groupId: Long, val title: String) : BlockingDialog
+    /** Screening for a label, by title (the label in every account). */
+    data class LabelRule(val title: String) : BlockingDialog
     data object Snooze : BlockingDialog
 }
 
@@ -265,9 +266,12 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
     val options = listOf(
         "Block everyone in '${d.title}'" to "Their calls are rejected. The label syncs across your phones with your contacts account.",
         "Only '${d.title}' rings during off hours" to "At night or at weekends (set the hours in Blocking › Off hours), everyone else is silenced.",
-        "Ringtone for '${d.title}'" to "Parley's ringer plays a tone you choose for these people (unless they have their own).",
+        "Ringtone for '${d.title}'" to "Parley's ringer plays a tone you choose for these people (unless they have their own). The same tone as on the label's page.",
     )
+    // One store for label ringtones: the label page's.
+    val people by vm.people.settings.collectAsStateWithLifecycle()
     var pickedTone by remember { mutableStateOf<String?>(null) }
+    val tone = pickedTone ?: people.labelRingtones[d.title]
     val pickTone = rememberRingtonePicker { pickedTone = it }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -283,23 +287,24 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
                         }
                     }
                 }
-                if (choice == 2) TextButton({ pickTone(pickedTone) }) { Text(ringtoneTitle(LocalContext.current, pickedTone) ?: "Choose ringtone") }
+                if (choice == 2) TextButton({ pickTone(tone) }) { Text(ringtoneTitle(LocalContext.current, tone) ?: "Choose ringtone") }
             }
         },
         confirmButton = {
             TextButton({
                 scope.launch {
                     when (choice) {
-                        0 -> vm.c.blocks.saveRule(BlockRule(pattern = d.groupId.toString(), type = RuleType.LABEL, label = d.title, kind = RuleKind.BLOCK))
+                        0 -> vm.c.blocks.saveRule(BlockRule(pattern = d.title, type = RuleType.LABEL, label = d.title, kind = RuleKind.BLOCK))
                         1 -> vm.c.settings.update {
-                            it.copy(screening = it.screening.copy(offHours = it.screening.offHours.copy(enabled = true, allow = OffHoursAllow.LABEL, labelId = d.groupId, labelTitle = d.title)))
+                            it.copy(screening = it.screening.copy(offHours = it.screening.offHours.copy(enabled = true, allow = OffHoursAllow.LABEL, labelId = null, labelTitle = d.title)))
                         }
-                        2 -> vm.c.blocks.saveRule(BlockRule(pattern = d.groupId.toString(), type = RuleType.LABEL, label = d.title, kind = RuleKind.ALLOW, ringtone = pickedTone))
+                        // Only the ringtone: no allow rule (which would also let the label ring through off hours).
+                        2 -> pickedTone?.let { t -> vm.people.update { s -> s.copy(labelRingtones = s.labelRingtones + (d.title to t)) } }
                     }
                     vm.toast("Saved")
                 }
                 onDismiss()
-            }, enabled = choice != 2 || pickedTone != null) { Text("Save") }
+            }, enabled = choice != 2 || tone != null) { Text("Save") }
         },
         dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
     )

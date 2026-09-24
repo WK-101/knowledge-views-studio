@@ -45,11 +45,14 @@ fun RangeDeleteDialog(vm: AppViewModel, number: String, onDeleted: (batchId: Lon
     var picked by remember { mutableStateOf<LocalDate?>(null) }
     var picking by remember { mutableStateOf(false) }
     val now = remember { System.currentTimeMillis() }
-    val all = remember(number) { vm.c.history.callsFor(number) }
+    // Matching every call's number is real work: done off the main thread, counts appear when ready.
+    val all by androidx.compose.runtime.produceState<List<app.parley.common.CallEntry>?>(null, number) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { vm.c.history.callsFor(number) }
+    }
     fun count(r: DeleteRange): Int? {
         if (r == DeleteRange.SINCE_DATE && picked == null) return null
         val since = r.since(now, zone, picked)
-        return all.count { it.date >= since }
+        return all?.count { it.date >= since }
     }
     val selected = count(range)
 
