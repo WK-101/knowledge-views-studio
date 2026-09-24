@@ -29,6 +29,16 @@ class T9Test {
         assertEquals("25", T9.encode("Бо"))
     }
 
+    @Test fun other_cyrillic_alphabets() {
+        // Ukrainian і/ї/є/ґ, Belarusian ў, Serbian љ/њ, Bulgarian ѝ: no letter may split a word.
+        assertEquals(T9.encode("Олексій").length, T9.encode("Олексій").replace(" ", "").length)
+        assertNotNull(m("4", "Ігор"))
+        assertNotNull(m("5434", "Олексій"))
+        assertNotNull(m("2", "Ґанна"))
+        for (c in "іїєґўјљњћђџѕѓќѝ") assertNotNull("no key for $c", T9.digitFor(c))
+        assertNotNull(T9.digitFor('Ї'))
+    }
+
     @Test fun number_match() {
         val r = m("0612", "Zed", "06 12 34 56 78")!!
         assertEquals("06 12 34 56 78", r.matchedNumber)

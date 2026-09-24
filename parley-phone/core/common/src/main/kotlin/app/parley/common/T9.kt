@@ -15,6 +15,19 @@ object T9 {
     )
     private val special = mapOf('ß' to '7', 'æ' to '2', 'ø' to '6', 'ł' to '5', 'đ' to '3', 'œ' to '6', 'þ' to '8', 'ı' to '4')
     private val cyrillic = buildKeyMap("абвг", "дежз", "ийкл", "мноп", "рсту", "фхцч", "шщъы", "ьэюя")
+    /**
+     * Letters of other Cyrillic alphabets (Ukrainian, Belarusian, Serbian, Macedonian…) that aren't in the Russian
+     * layout, placed on the key of the Russian letter they sound like. Per-language layouts come with the keypad
+     * alphabet setting; this keeps every name findable meanwhile.
+     */
+    private val cyrillicExtra = mapOf(
+        'і' to '4', 'ї' to '4', 'ј' to '4', 'ѝ' to '4', 'ӣ' to '4', 'љ' to '4', 'ќ' to '4', // like и / й / л / к
+        'є' to '3', 'ђ' to '3', 'ѕ' to '3', // like е / д / з
+        'ґ' to '2', 'ѓ' to '2', // like г
+        'ў' to '6', 'ӯ' to '6', // like у
+        'њ' to '5', // like н
+        'ћ' to '7', 'џ' to '7', // like ч
+    )
     private val greek = buildKeyMap("αβγ", "δεζ", "ηθι", "κλμ", "νξο", "πρσς", "τυφ", "χψω")
 
     private fun buildKeyMap(vararg groups: String): Map<Char, Char> =
@@ -27,12 +40,15 @@ object T9 {
         latin[lower]?.let { return it }
         special[lower]?.let { return it }
         cyrillic[lower]?.let { return it }
+        cyrillicExtra[lower]?.let { return it }
         if (lower == 'ё') return '3'
         greek[lower]?.let { return it }
         // Strip accents: é -> e, ñ -> n, å -> a ...
         val base = Normalizer.normalize(lower.toString(), Normalizer.Form.NFD).firstOrNull()
         if (base != null && base != lower) {
             latin[base]?.let { return it }
+            cyrillic[base]?.let { return it }
+            cyrillicExtra[base]?.let { return it }
             greek[base]?.let { return it }
         }
         return null

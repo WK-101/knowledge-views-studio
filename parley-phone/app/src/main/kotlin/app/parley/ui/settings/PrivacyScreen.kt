@@ -96,8 +96,8 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
                 ListItem(headlineContent = { Text("${vault.size} private contacts") }, supportingContent = { Text("Encrypted; invisible to every other app") })
                 ListItem(headlineContent = { Text("${priv.size} private calls") }, supportingContent = { Text("Kept out of the system call log") })
                 ListItem(
-                    headlineContent = { Text(if (s.callLogRetentionDays > 0) "Call history kept ${s.callLogRetentionDays} days" else "Call history kept until you delete it") },
-                    supportingContent = { Text("Change in Settings → Calls") },
+                    headlineContent = { Text(if (s.callLogRetentionDays > 0) "Call history kept ${s.callLogRetentionDays} days" else "Parley never deletes call history on its own") },
+                    supportingContent = { Text("Android itself may keep only recent calls on some phones. Change in Settings → Calls") },
                 )
                 ListItem(headlineContent = { Text("$journalCount changes you can undo") }, supportingContent = { Text("Deleted and edited contacts are kept for 30 days on this phone only") })
                 ListItem(

@@ -18,7 +18,7 @@ class DataContainer(context: Context) {
     val sims = SimRepository(appContext)
     val blocks by lazy { BlockRepository(appContext, db, scope) }
     val prefs by lazy { PrefsRepository(db) }
-    val screener by lazy { CallScreener(appContext, contacts, blocks, sims, settings, vault) }
+    val screener by lazy { CallScreener(appContext, contacts, blocks, sims, settings, vault, scope) }
     val placer by lazy { CallPlacer(appContext, sims, prefs) }
     val records by lazy { ContactRecordStore(appContext) }
     val vcards by lazy { VCardIO(appContext, contacts, records) }

@@ -1,6 +1,7 @@
 package app.parley.data
 
 import android.content.Context
+import kotlinx.coroutines.launch
 import app.parley.common.BlockReason
 import app.parley.common.CallPolicy
 import app.parley.common.Decision
@@ -15,6 +16,8 @@ class CallScreener(
     private val sims: SimRepository,
     private val settings: SettingsRepository,
     private val vault: app.parley.data.vault.VaultRepository,
+    /** Logging happens here, after the decision is returned, so it never delays Telecom's answer. */
+    private val scope: kotlinx.coroutines.CoroutineScope,
 ) {
     /**
      * True when any screening feature is on; lets the call path skip I/O entirely otherwise.
@@ -53,7 +56,7 @@ class CallScreener(
                 val last = blocks.lastBlocked(number)
                 if (last != null && System.currentTimeMillis() - last < REPEAT_WINDOW_MS) return Decision.Allow
             }
-            blocks.logBlocked(number, decision.reason.name, decision.action)
+            scope.launch { runCatching { blocks.logBlocked(number, decision.reason.name, decision.action) } }
         }
         return decision
     }
