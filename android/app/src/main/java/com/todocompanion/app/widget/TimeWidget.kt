@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
  * one-tap Stop, or your top activities to start with one tap. The fastest possible capture, matching the
  * widgets Tasks, Habits and Momentum already have. Offline; reads and writes the local DB only.
  */
-class TimeWidget : AppWidgetProvider() {
+class TimeWidget : BaseWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         if (ids.isEmpty()) return
         val pending = goAsync()

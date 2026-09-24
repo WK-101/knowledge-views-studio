@@ -19,7 +19,7 @@ import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 /** Home-screen widget for the nearest pinned countdown (else the next upcoming one). Offline. */
-class CountdownWidget : AppWidgetProvider() {
+class CountdownWidget : BaseWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         if (ids.isEmpty()) return
         val pending = goAsync()

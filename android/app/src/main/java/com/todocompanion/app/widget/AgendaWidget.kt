@@ -21,7 +21,7 @@ import java.time.ZoneId
  * Home-screen "Agenda" widget: a scrolling list of today's + overdue open tasks. Tapping an item
  * opens that task; the header + button quick-adds. Offline — reads the local Room DB only.
  */
-class AgendaWidget : AppWidgetProvider() {
+class AgendaWidget : BaseWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         ids.forEach { renderOne(context, manager, it) }
     }

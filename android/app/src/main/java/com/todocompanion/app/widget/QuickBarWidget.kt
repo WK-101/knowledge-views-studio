@@ -17,7 +17,7 @@ import com.todocompanion.app.R
  * habit check, time-track, search) or jumps straight into a flow (close the day, weekly review) — no
  * full-app launch for the capture actions. Offline; the popups read/write the local DB only.
  */
-class QuickBarWidget : AppWidgetProvider() {
+class QuickBarWidget : BaseWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         ids.forEach { render(context, manager, it) }
     }

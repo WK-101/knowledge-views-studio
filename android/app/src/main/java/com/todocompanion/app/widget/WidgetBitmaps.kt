@@ -28,6 +28,16 @@ object WidgetBitmaps {
     /** Clamp a requested pixel edge so a single bitmap stays well under the transaction budget. */
     private fun cap(px: Int, maxEdge: Int = 1400): Int = px.coerceIn(1, maxEdge)
 
+    /** Scale a (w,h) down so w*h*4 (ARGB bytes) stays under the RemoteViews Binder budget. The real
+     *  limit is the ~1 MB Binder buffer, not the multi-MB the class once assumed — a big square icon
+     *  bitmap could otherwise blow it on a large placement. */
+    private fun capBytes(w: Int, h: Int, maxBytes: Long = 900_000L): Pair<Int, Int> {
+        val bytes = w.toLong() * h.toLong() * 4L
+        if (bytes <= maxBytes) return w to h
+        val s = kotlin.math.sqrt(maxBytes.toDouble() / bytes.toDouble())
+        return max(1, (w * s).toInt()) to max(1, (h * s).toInt())
+    }
+
     private fun paint() = Paint(Paint.ANTI_ALIAS_FLAG)
 
     /**
@@ -213,7 +223,7 @@ object WidgetBitmaps {
      *  `widget_qb_cluster_N` tap grid lines up action-for-action. */
     fun quickCluster(ctx: Context, wPx: Int, hPx: Int, keys: List<String>, cardColor: Int, glyphColor: Int, accentColor: Int): Bitmap {
         // Cap both edges the same so the bitmap keeps the widget's aspect (no fitXY squashing).
-        val w = cap(wPx, 1600); val h = cap(hPx, 1600)
+        val (w, h) = capBytes(cap(wPx, 1600), cap(hPx, 1600))
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val n = keys.size.coerceIn(1, 9)
@@ -289,7 +299,7 @@ object WidgetBitmaps {
         selectedIdx: Int, todayIdx: Int, hasItems: List<Boolean>,
         accent: Int, onAccent: Int, textPrimary: Int, textSecondary: Int, dotColor: Int,
     ): Bitmap {
-        val w = cap(widthPx, 1600); val h = cap(heightPx, 400)
+        val (w, h) = capBytes(cap(widthPx, 1600), cap(heightPx, 400))
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val n = 7

@@ -12,7 +12,7 @@ import com.todocompanion.app.R
  * A tiny home-screen button that opens the translucent quick-capture popup — you type a task and it's
  * saved to the Inbox without the whole app ever coming forward (R17). Fully offline.
  */
-class QuickAddWidget : AppWidgetProvider() {
+class QuickAddWidget : BaseWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         val intent = Intent(context, QuickCaptureActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK

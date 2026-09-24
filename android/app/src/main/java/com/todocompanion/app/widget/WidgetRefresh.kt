@@ -2,9 +2,13 @@ package com.todocompanion.app.widget
 
 import android.app.AlarmManager
 import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import com.todocompanion.app.MainActivity
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -49,6 +53,39 @@ object Widgets {
         runCatching { CorrelationWidget.refresh(context) }
         runCatching { MomentumWidget.refresh(context) }
     }
+
+    // ---- shared plumbing (used by providers/receivers instead of copy-pasting) ----
+
+    /** Re-render every placed instance of [cls]; optionally poke a collection view to reload first. */
+    fun broadcastUpdate(ctx: Context, cls: Class<out AppWidgetProvider>, listViewId: Int? = null) {
+        val m = AppWidgetManager.getInstance(ctx) ?: return
+        val ids = m.getAppWidgetIds(ComponentName(ctx, cls))
+        if (ids.isEmpty()) return
+        listViewId?.let { m.notifyAppWidgetViewDataChanged(ids, it) }
+        ctx.sendBroadcast(Intent(ctx, cls).apply {
+            action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+        })
+    }
+
+    /** A PendingIntent that opens MainActivity, optionally with an EXTRA_ACTION deep-link. */
+    fun appIntent(ctx: Context, action: String?, reqCode: Int): PendingIntent {
+        val i = Intent(ctx, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            if (action != null) putExtra(MainActivity.EXTRA_ACTION, action)
+        }
+        return PendingIntent.getActivity(ctx, reqCode, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
+
+    /** A PendingIntent that opens the translucent quick-capture popup (the whole app never comes forward). */
+    fun captureIntent(ctx: Context, reqCode: Int): PendingIntent {
+        val i = Intent(ctx, QuickCaptureActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+        return PendingIntent.getActivity(ctx, reqCode, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
+
+    /** The widget's current min-height in dp (0 = unknown) — the input to size-responsive layouts. */
+    fun minHeightDp(mgr: AppWidgetManager, id: Int): Int =
+        runCatching { mgr.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) }.getOrDefault(0)
 
     /** (Re)arm the next local-midnight refresh. Idempotent — safe to call on every app start. */
     fun scheduleMidnight(context: Context) {

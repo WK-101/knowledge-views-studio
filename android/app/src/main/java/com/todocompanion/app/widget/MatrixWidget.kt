@@ -29,7 +29,7 @@ import java.time.ZoneId
  * honouring every in-app Matrix setting (thresholds, date range, list/folder filter, duration cap,
  * overdue-only, show-completed, sort). Tapping a task opens it. Offline; active workspace only.
  */
-class MatrixWidget : AppWidgetProvider() {
+class MatrixWidget : BaseWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = render(context, manager, ids)
     override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, newOptions: android.os.Bundle) =
         render(context, manager, intArrayOf(id))

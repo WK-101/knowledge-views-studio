@@ -22,7 +22,7 @@ import java.time.ZoneId
  * R1: the unified "Momentum" on the home screen — one score blending habit strength, task reliability
  * and focus, the same number the Momentum dashboard shows. Offline; reads the local DB only.
  */
-class MomentumWidget : AppWidgetProvider() {
+class MomentumWidget : BaseWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         if (ids.isEmpty()) return
         val pending = goAsync()

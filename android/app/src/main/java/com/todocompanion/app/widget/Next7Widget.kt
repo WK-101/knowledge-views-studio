@@ -25,7 +25,7 @@ import java.util.Locale
  * days turn red so you can rebalance before the week buries you — planning intelligence neither MLO
  * nor TickTick offers. Offline; reads the local DB only.
  */
-class Next7Widget : AppWidgetProvider() {
+class Next7Widget : BaseWidgetProvider() {
     private val dayIds = intArrayOf(R.id.n7_day0, R.id.n7_day1, R.id.n7_day2, R.id.n7_day3, R.id.n7_day4, R.id.n7_day5, R.id.n7_day6)
     private val barIds = intArrayOf(R.id.n7_bar0, R.id.n7_bar1, R.id.n7_bar2, R.id.n7_bar3, R.id.n7_bar4, R.id.n7_bar5, R.id.n7_bar6)
     private val hrsIds = intArrayOf(R.id.n7_hrs0, R.id.n7_hrs1, R.id.n7_hrs2, R.id.n7_hrs3, R.id.n7_hrs4, R.id.n7_hrs5, R.id.n7_hrs6)

@@ -23,7 +23,7 @@ import java.time.ZoneId
  * off or clear it, right from the home screen — the "don't break the chain" surface. Shows the top
  * habit; its streak rides along. Offline; reads and writes the local DB.
  */
-class WeekRowWidget : AppWidgetProvider() {
+class WeekRowWidget : BaseWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         ids.forEach { id -> render(context, manager, id) }
     }

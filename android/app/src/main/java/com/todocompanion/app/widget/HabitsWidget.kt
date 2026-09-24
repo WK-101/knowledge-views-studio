@@ -26,7 +26,7 @@ import java.time.ZoneId
  * target, then resets), straight from the home screen. Each row carries the habit's own colour, its
  * current streak, and numeric progress. Offline — reads and writes the local DB only.
  */
-class HabitsWidget : AppWidgetProvider() {
+class HabitsWidget : BaseWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         ids.forEach { id -> render(context, manager, id) }
     }

@@ -1,10 +1,30 @@
 package com.todocompanion.app.domain.habit
 
 import com.todocompanion.app.data.entity.HabitEntity
+import com.todocompanion.app.data.entity.HabitCheckinEntity
 import kotlin.math.pow
 
 /** Habit streak / completion / strength maths. Pure, so it's unit-testable. */
 object HabitStats {
+
+    /** The habit's interaction kind — the classification every check-off widget/receiver needs. */
+    enum class HabitKind { BUILD, NUMERIC, TIMED }
+
+    fun kindOf(h: HabitEntity): HabitKind = when {
+        h.unit?.startsWith("min", ignoreCase = true) == true -> HabitKind.TIMED
+        (h.targetPerDay > 1 || h.unit != null || h.clickIncrement > 1) -> HabitKind.NUMERIC
+        else -> HabitKind.BUILD
+    }
+
+    /** Current streak for one habit, computed straight from its check-ins — dedupes the four-line
+     *  doneDays/skipDays/relapse block the habit widgets each copy-pasted. */
+    fun streakFor(habit: HabitEntity, checkins: List<HabitCheckinEntity>, today: Long): Int {
+        val its = checkins.filter { it.habitId == habit.id }
+        val done = its.filter { it.status == "done" && meetsGoal(habit, it.count) }.map { it.epochDay }.toSet()
+        val skip = its.filter { it.status == "skip" }.map { it.epochDay }.toSet()
+        val relapse = its.filter { isRelapse(habit, it.count) }.map { it.epochDay }.toSet()
+        return currentStreak(habit, done, skip, relapse, today)
+    }
 
     // ---- legacy weekly helpers (still used by the widget & simple call sites) ----
 

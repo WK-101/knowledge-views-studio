@@ -21,7 +21,7 @@ import java.time.ZoneId
  * same-day items. Tapping an entry opens that task; the header opens The Record. Reuses the Agenda
  * widget's layouts. Offline — reads the local DB only, scoped to the active workspace.
  */
-class RecordWidget : AppWidgetProvider() {
+class RecordWidget : BaseWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         ids.forEach { id ->
             val views = RemoteViews(context.packageName, R.layout.widget_agenda)

@@ -34,7 +34,7 @@ import java.util.Locale
  * the translucent quick-capture popup (not the whole app); New-event opens the calendar's event
  * editor. Offline — reads the local Room DB + dedicated calendar only.
  */
-class DayWidget : AppWidgetProvider() {
+class DayWidget : BaseWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         if (ids.isEmpty()) return
         val pending = goAsync()

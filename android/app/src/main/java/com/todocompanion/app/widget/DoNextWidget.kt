@@ -25,7 +25,7 @@ import kotlinx.coroutines.runBlocking
  * ENERGY you have and how much TIME ("I have 15 minutes"), so what shows always fits the moment.
  * Tapping a task opens it; the header quick-adds. Offline — reads the local Room DB only.
  */
-class DoNextWidget : AppWidgetProvider() {
+class DoNextWidget : BaseWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         ids.forEach { id -> render(context, manager, id) }
     }
