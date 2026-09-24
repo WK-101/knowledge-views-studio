@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.automirrored.rounded.Message
-import androidx.compose.material.icons.rounded.CallMerge
+import androidx.compose.material.icons.automirrored.rounded.CallMerge
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Lock
@@ -116,7 +116,7 @@ fun SelectionBar(vm: AppViewModel) {
                         if (!app.parley.messaging.IntroduceStart.fromContacts(vm, chosen)) vm.toast(res.getString(R.string.sel_no_numbers))
                     })
                     if (chosen.size >= 2) {
-                        DropdownMenuItem({ Text(stringResource(R.string.sel_merge)) }, leadingIcon = { Icon(Icons.Rounded.CallMerge, null) }, onClick = {
+                        DropdownMenuItem({ Text(stringResource(R.string.sel_merge)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.CallMerge, null) }, onClick = {
                             menu = false
                             scope.launch {
                                 vm.c.contacts.join(chosen.map { it.id })
