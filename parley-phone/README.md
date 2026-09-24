@@ -27,7 +27,7 @@ This project is independent of the rest of this repository.
 | **Keypad** | Keypad alphabets (Russian, Ukrainian, Belarusian, Bulgarian, Serbian, Greek, Hebrew, Arabic) with a second row of letters; **Chinese, Japanese and Korean** search by syllables or initials; `0`/`1` as word separators; every number of a contact in the results; editable number with paste (no clipboard snooping); **hardware keyboards and flip phones**; honest `*#06#` sheet; carrier **USSD replies** in a dialog |
 | **Calling extras** | **Call-waiting sheet** (hold & answer, end & answer, decline, reply); on-hold strip with swap/merge; "Return to call" chip; **notification health check**; audio button that adapts to Bluetooth; call haptics; two-pane layout in landscape; **Quick Settings tile to hang up**; per-contact call-screen picture; full TalkBack labels |
 | **Contacts extras** | "Second line" under names (company, nickname, account…); label filters (unlabelled, any/all), merge labels, **label pages** with message/email all and a label ringtone; drag-to-reorder favourites with pinch-to-zoom grid; actionable "Saved in" chips (edit this copy, move losslessly, unlink); **"already exists" warning** while typing; account diagnostics; **SIM import/copy**; date of death; "why did this change?" line; **Who can see your contacts** (honest per-app audit, private by default, one-contact sharing, GrapheneOS Contact Scopes pointer); protected private-name lookup for approved apps; diagnostics export with masked numbers |
-| **Look & feel** | Material 3 Expressive with dynamic colour; avatars and names animate into the contact page; navigation rail on tablets and foldables; light/dark/AMOLED; compact density; optional call/message buttons on contact rows |
+| **Look & feel** | Material 3 Expressive with dynamic colour; avatars and names animate into the contact page; navigation rail on tablets and foldables; light/dark/AMOLED (system-bar icons follow Parley's theme); compact density; optional call/message buttons on contact rows; **one header on every tab** (title, search that expands in place, the tab's actions, "Lock now" with the app lock); **customisable navigation bar** (show, hide and reorder tabs); **Settings in categories** with grouped cards and a **search over every setting**; Android's "App settings" gear opens Parley's Settings |
 
 **Not included:**
 
@@ -36,6 +36,40 @@ This project is independent of the rest of this repository.
 - **Online spam lookups.** By design, nothing is sent anywhere.
 - **A separate Android Auto app.** Android Auto's own phone screen already shows the same contacts and call history; a car app for calling needs Google Play review, so it's planned for the Play release.
 - **Whole-address-book transfer by animated QR.** That would need Parley to have camera access. "Move to a new phone" sends one encrypted file instead.
+
+## Where things are
+
+**Home header** (every tab: title · search · the tab's actions · ⋮)
+
+| Tab | Header actions | Its own ⋮ items |
+|---|---|---|
+| Favorites | Search (filters favourites and frequent) | — (sort and "Reorder" stay above the grid) |
+| Recents | Search, Call insights | Export…, Call history settings (filter chips and saved filters stay above the list) |
+| Contacts | Search, Labels, Lock now (with the app lock) | Select all, Find & merge duplicates, Contacts settings (label/account/private filter chips and "Temporary (n)" stay above the list) |
+| Keypad | Search (all contacts), Speed dial | Speed dial, SIMs & plan minutes, Keypad settings |
+
+Shared ⋮ items on every tab: Birthdays & dates, Temporary contacts, Recently deleted, Tidy up contacts, Blocked numbers, Expecting a call…, Lock now (with the app lock), Settings.
+
+**Navigation bar.** Settings › Appearance › Navigation bar shows, hides and reorders the tabs (at least one stays); the rail on wide screens follows it and "Open on" offers only visible tabs. A hidden tab still opens from links: dialling a number (`tel:`, ACTION_DIAL, headset Call button) opens the Keypad and a missed-call notification opens Recents; the opened tab then appears in the bar, in its usual place, until you switch to another tab.
+
+**Settings** (search covers every row below; the registry is `SettingsCatalog` in `core:common`)
+
+| Category | Settings |
+|---|---|
+| Appearance | Theme, Pure black, Wallpaper colours · Navigation bar, Open on · List density, Call & message buttons on contacts · Sort names by, Second line under names, Prefer nicknames |
+| Calls | Default phone app · Answer by, Confirm before calling, Vibrate on call events, Ringtone for unknown callers · SIMs, SIM & calling accounts, Call forwarding/waiting/voicemail |
+| Keypad | Keypad tones, Keypad vibration · Keypad letters, Speed dial, USSD replies |
+| Call time | Reminders & limits, Plan minutes per SIM |
+| Blocking & spam | Blocking & screening, Let repeat callers through, Expecting a call · Spam lists, Rule templates, Test a call, Import & share rules |
+| Contacts | Save new contacts to, Labels, Temporary contacts, Find & merge duplicates, Contact health check · Import .vcf/.csv, Import from SIM, Export .vcf/.csv, Export one account · Birthdays & dates, Birthday reminders, Reminder time, Keep-in-touch nudges |
+| Recents & history | Keep full call history, Kept calls & recently deleted, Keep call history (retention) · Show SIM in call history, Call insights, Import call history from CSV |
+| Messaging | Quick reply messages, My details for messages |
+| Privacy & security | App lock, Lock again after, Hide screen content · Hide private contacts, Private call history · Privacy dashboard, Who can see your contacts, Let apps show private names, App permissions |
+| Backup & sync | Backup & restore, Sync between your phones · Recently deleted & changed, What changed (time machine) |
+| Notifications & device | Notification health check, Notification settings, Full-screen incoming calls, Battery optimisation, Xiaomi permissions |
+| About | Version, Export diagnostics |
+
+**Temporary contacts.** Type a number on the keypad and choose "Save temporary contact" (name; 1, 7 or 30 days or custom; whether its call history goes too), or pick "Delete automatically" on a contact's page. They're listed in Contacts (chip "Temporary (n)" and ⋮) and Settings › Contacts › Temporary contacts, with the time left and Extend / Keep permanently / Delete now.
 
 ## Permissions Parley doesn't ask for, and why
 

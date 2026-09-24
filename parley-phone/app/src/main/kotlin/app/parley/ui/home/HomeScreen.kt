@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.ManageHistory
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Badge
@@ -258,6 +259,7 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
         }
         StartTab.KEYPAD -> {
             MenuItem("Speed dial", Icons.Rounded.Speed) { go(Routes.SPEED_DIAL) }
+            MenuItem("SIMs & plan minutes", Icons.Rounded.SimCard) { go(app.parley.ui.history.HistoryRoutes.SIMS) }
             MenuItem("Keypad settings", Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.KEYPAD)) }
         }
         StartTab.FAVORITES -> Unit

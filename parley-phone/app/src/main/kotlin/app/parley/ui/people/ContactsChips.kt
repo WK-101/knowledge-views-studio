@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoDelete
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.AccountCircle
@@ -95,5 +96,14 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
             )
         }
         AssistChip(onClick = { open(PeopleRoutes.LABELS) }, label = { Text("Labels") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Label, null, Modifier.size(16.dp)) })
+        // Contacts that delete themselves: shown only when there are some.
+        val temporary = app.parley.ui.temporary.rememberTemporaryItems(vm).size
+        if (temporary > 0) {
+            AssistChip(
+                onClick = { open(app.parley.ui.Routes.TEMPORARY) },
+                label = { Text("Temporary ($temporary)") },
+                leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.AutoDelete, null, Modifier.size(16.dp)) },
+            )
+        }
     }
 }

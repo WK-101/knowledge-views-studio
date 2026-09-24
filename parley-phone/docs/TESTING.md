@@ -155,3 +155,28 @@ Call the phone from another phone in each state below. For each one, check that 
 - [ ] Who can see your contacts list (and GrapheneOS pointer on GrapheneOS).
 - [ ] Private-name lookup from a test app: permission, approval notification, access log.
 - [ ] Diagnostics export contains no numbers.
+
+## 10. UI refresh (header, Settings, navigation bar)
+
+**Status bar and header**
+- [ ] Every home tab (Favorites, Recents, Contacts, Keypad) starts below the status bar and the camera cutout, in portrait and landscape, with gesture and 3-button navigation.
+- [ ] Status-bar and navigation-bar icons are dark in Parley's light theme and light in its dark theme, also when Parley's theme differs from the phone's (Settings › Appearance › Theme).
+- [ ] Tablet / unfolded / landscape: the navigation rail starts below the header and nothing hides behind the system bars.
+- [ ] Each tab shows its title, the search icon, its own actions and "More options"; the bar tints when a list scrolls under it.
+- [ ] Search icon → the field gets the keyboard; typing filters (Favorites: favourites and frequent; Recents; Contacts; Keypad: all contacts); ✕ clears, ✕ on an empty field or Back closes; switching tabs closes it; rotation keeps it.
+- [ ] The Contacts multi-select bar also sits below the status bar.
+- [ ] With app lock on: "Lock now" (Contacts header and every overflow menu) shows the lock screen without an automatic fingerprint prompt; Unlock works.
+
+**Settings**
+- [ ] Settings shows categories with icons and summaries; each opens its page with grouped cards; the large title collapses on scroll.
+- [ ] Search "dark", "vibration", "spam", "voicemail", "backup", "tabs": results show their category; tapping one opens the page, scrolls to the setting and briefly highlights it.
+- [ ] Android's App info › Parley › gear (App settings) opens Parley's Settings.
+- [ ] Every 3.0 setting is still reachable (README › "Where things are").
+
+**Navigation bar**
+- [ ] Settings › Appearance › Navigation bar: hide tabs (the last one can't be hidden), drag to reorder, TalkBack "Move up" / "Move down"; the bottom bar and the rail follow; "Open on" lists only visible tabs.
+- [ ] Hide Keypad, then open a tel: link or press Call on a headset: the Keypad opens and shows in the bar until you switch tabs. Hide Recents, tap a missed-call notification: Recents opens the same way.
+
+**Temporary contacts**
+- [ ] Type an unknown number on the keypad: chips Message / Add to contacts / Save temporary contact / Add to existing contact; a saved number only shows Message.
+- [ ] Save temporary contact: name, 1 / 7 / 30 days or custom, "Also delete its call history"; it appears under the Contacts chip "Temporary (n)", in the overflow menu and in Settings › Contacts › Temporary contacts with the time left; Extend, Keep permanently and Delete now work (Delete now can be undone from Recently deleted).

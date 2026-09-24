@@ -1,6 +1,7 @@
 package app.parley.ui.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -91,6 +92,8 @@ fun NavTabsEditor(tabs: NavTabs, onChange: (NavTabs) -> Unit) {
                         modifier = Modifier
                             .size(40.dp)
                             .padding(8.dp)
+                            // A tap on the handle doesn't switch the tab on or off; only dragging does something.
+                            .pointerInput(Unit) { detectTapGestures { } }
                             .pointerInput(t) {
                                 detectVerticalDragGestures(
                                     onDragStart = { dragging = t; dragOffset = 0f },

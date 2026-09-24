@@ -479,9 +479,16 @@ internal fun NotificationsPage(vm: AppViewModel) {
             context.startSafely(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
         }
         val nm = context.getSystemService(NotificationManager::class.java)
-        if (Build.VERSION.SDK_INT >= 34 && !nm.canUseFullScreenIntent()) {
-            linkRow("full_screen", Icons.Rounded.Fullscreen, sub = "Currently off: calls may only show as a notification", external = true) {
+        val fullScreenOff = Build.VERSION.SDK_INT >= 34 && !nm.canUseFullScreenIntent()
+        linkRow(
+            "full_screen", if (fullScreenOff) Icons.Rounded.Warning else Icons.Rounded.Fullscreen,
+            sub = if (fullScreenOff) "Currently off: calls may only show as a notification" else "On: incoming calls show over the lock screen",
+            external = true,
+        ) {
+            if (Build.VERSION.SDK_INT >= 34) {
                 context.startSafely(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:" + context.packageName)))
+            } else {
+                context.startSafely(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
             }
         }
         linkRow("battery", Icons.Rounded.BatteryAlert, sub = "Some phones delay calls for optimised apps. Set Parley to “Unrestricted”.", external = true) {

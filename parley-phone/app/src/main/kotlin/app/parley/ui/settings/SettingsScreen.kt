@@ -222,7 +222,7 @@ private fun SettingsSearchBar(query: String, onQuery: (String) -> Unit, onClose:
 
 @Composable
 private fun SearchResults(query: String, modifier: Modifier, onPick: (SettingEntry) -> Unit) {
-    val results = remember(query) { SettingsSearch.search(query) }
+    val results = remember(query) { SettingsSearch.search(query).filter { it.key !in unavailableHere } }
     if (query.isBlank()) {
         EmptyState(Icons.AutoMirrored.Rounded.ManageSearch, "Search all settings", "Try “dark”, “vibration”, “backup” or “spam”.", modifier)
         return
@@ -255,7 +255,16 @@ private fun SearchResults(query: String, modifier: Modifier, onPick: (SettingEnt
 /** One category of Settings; [focus] is a setting to scroll to and highlight (from search). */
 @Composable
 fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: String?, back: () -> Unit, open: (String) -> Unit) {
-    CompositionLocalProvider(LocalHighlightKey provides focus) {
+    val s by vm.settings.collectAsStateWithLifecycle()
+    val severalAccounts = app.parley.ui.people.hasSeveralAccounts(vm)
+    // A setting found by search that is shown only when another one is on: point at that one instead.
+    val shown = when {
+        focus == "lock_after" && !s.appLock -> "app_lock"
+        focus == "reminder_time" && !s.birthdayReminders -> "birthday_reminders"
+        focus == "export_account" && !severalAccounts -> "export_vcf"
+        else -> focus
+    }
+    CompositionLocalProvider(LocalHighlightKey provides shown) {
         SettingsScaffold(category.title, back) {
             when (category) {
                 SettingsCategory.APPEARANCE -> AppearancePage(vm)
@@ -324,3 +333,9 @@ internal fun ImportReportDialog(report: ImportReport, onDismiss: () -> Unit) {
 }
 
 private const val MAX_REPORT_ITEMS = 50
+
+/** Settings that don't exist on this phone, left out of search. */
+private val unavailableHere: Set<String> = buildSet {
+    if (android.os.Build.VERSION.SDK_INT < 31) add("dynamic_color")
+    if (listOf("Xiaomi", "Redmi", "POCO").none { android.os.Build.MANUFACTURER.equals(it, true) }) add("xiaomi")
+}
