@@ -11,8 +11,9 @@ object PhoneNumbers {
         if (raw.isNullOrBlank()) return ""
         val sb = StringBuilder(raw.length)
         for ((i, c) in raw.trim().withIndex()) {
+            val digit = T9.asciiDigit(c)
             when {
-                c in '0'..'9' -> sb.append(c)
+                digit != null -> sb.append(digit)
                 c == '+' && sb.isEmpty() && i <= 1 -> sb.append('+')
                 c == '*' || c == '#' -> sb.append(c)
                 c.isLetter() -> T9.digitFor(c)?.let { sb.append(it) }
@@ -21,8 +22,8 @@ object PhoneNumbers {
         return sb.toString()
     }
 
-    /** Only the digits of a number. */
-    fun digits(raw: String?): String = raw.orEmpty().filter { it in '0'..'9' }
+    /** Only the digits of a number (Arabic-Indic and other decimal digits become 0–9). */
+    fun digits(raw: String?): String = buildString { raw.orEmpty().forEach { c -> T9.asciiDigit(c)?.let { append(it) } } }
 
     /** True for USSD/MMI style codes such as *#06# or *100#. */
     fun isServiceCode(raw: String): Boolean {

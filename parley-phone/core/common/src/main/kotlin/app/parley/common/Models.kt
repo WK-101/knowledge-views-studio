@@ -19,6 +19,8 @@ data class ContactSummary(
     val emails: List<String> = emptyList(),
     /** "Family, Given" form used when the user sorts by last name. */
     val displayNameAlt: String = displayName,
+    /** How the name is pronounced, when the contact has one (furigana, pinyin…): searched on the keypad too. */
+    val phoneticName: String? = null,
 )
 
 enum class CallType { INCOMING, OUTGOING, MISSED, REJECTED, BLOCKED, VOICEMAIL, ANSWERED_EXTERNALLY, UNKNOWN }

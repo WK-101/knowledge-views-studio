@@ -23,5 +23,7 @@ dependencies {
         exclude(group = "org.freemarker")
         exclude(group = "com.fasterxml.jackson.core")
     }
+    // Offline number parsing (E.164 with the SIM country as hint, numbers inside free text). Pure Java, no network.
+    implementation(libs.libphonenumber)
     testImplementation(libs.junit)
 }
