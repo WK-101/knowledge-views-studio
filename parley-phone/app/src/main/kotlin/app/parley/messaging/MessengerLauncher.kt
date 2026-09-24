@@ -4,7 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
+import androidx.core.net.toUri
 import android.provider.ContactsContract
 import android.provider.Telephony
 import app.parley.common.MessengerApp
@@ -30,7 +30,7 @@ object MessengerLauncher {
     /** The default SMS app, so the SMS link has an explicit package too. */
     fun smsPackage(context: Context): String? = runCatching { Telephony.Sms.getDefaultSmsPackage(context) }.getOrNull()
 
-    fun intent(link: MessengerLink): Intent = Intent(link.action, Uri.parse(link.uri)).apply {
+    fun intent(link: MessengerLink): Intent = Intent(link.action, link.uri.toUri()).apply {
         link.packageName?.let { setPackage(it) }
         link.extras.forEach { (k, v) -> putExtra(k, v) }
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

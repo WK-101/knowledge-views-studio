@@ -95,6 +95,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -167,7 +168,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit) {
     val systemTones = remember { Settings.System.getInt(context.contentResolver, Settings.System.DTMF_TONE_WHEN_DIALING, 1) == 1 }
 
     // K4: the number is an editable field (cursor, selection, paste) that never opens the on-screen keyboard.
-    val field = rememberTextFieldState(vm.dialInput.value)
+    val field = rememberTextFieldState(input)
     LaunchedEffect(input) { if (field.text.toString() != input) field.setTextAndPlaceCursorAtEnd(input) }
     LaunchedEffect(field) { snapshotFlow { field.text.toString() }.collect { if (it != vm.dialInput.value) vm.dialInput.value = it } }
     LaunchedEffect(input) { if (input == IMEI_CODE) imeiSheet = true }
@@ -572,10 +573,10 @@ private fun CallButton(label: String?, onClick: () -> Unit) {
  */
 @Composable
 private fun DialResultRow(r: DialResult, countryIso: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val context = LocalContext.current
+    val resources = LocalResources.current
     val c = r.contact
     val phone = c?.phones?.firstOrNull { it.number == r.number }
-    val type = phone?.let { Format.phoneType(context.resources, it.type, it.label) }
+    val type = phone?.let { Format.phoneType(resources, it.type, it.label) }
     if (r.secondary) {
         ListItem(
             modifier = modifier.clickable(onClick = onClick),

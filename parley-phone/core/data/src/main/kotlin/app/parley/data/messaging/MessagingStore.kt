@@ -1,6 +1,7 @@
 package app.parley.data.messaging
 
 import android.content.Context
+import androidx.core.content.edit
 import app.parley.common.KeypadLayout
 import app.parley.common.MessengerApp
 import app.parley.common.PhoneNumbers
@@ -50,24 +51,24 @@ class MessagingStore(context: Context) {
         choice ?: KeypadLayout.forLocale(locale.language, locale.script)
 
     fun setKeypadLayout(layout: KeypadLayout?) {
-        prefs.edit().apply { if (layout == null) remove(K_LAYOUT) else putString(K_LAYOUT, layout.name) }.apply()
+        prefs.edit { if (layout == null) remove(K_LAYOUT) else putString(K_LAYOUT, layout.name) }
         _keypadLayout.value = layout
     }
 
     fun setMyDetails(d: MyDetails) {
-        prefs.edit().putString(K_MY_NAME, d.name.trim()).putString(K_MY_NUMBER, d.number.trim()).apply()
+        prefs.edit { putString(K_MY_NAME, d.name.trim()).putString(K_MY_NUMBER, d.number.trim()) }
         _myDetails.value = d.copy(name = d.name.trim(), number = d.number.trim())
     }
 
     /** Package of the messenger chosen last time, offered first. */
     var lastApp: String?
         get() = prefs.getString(K_LAST_APP, null)
-        set(v) = prefs.edit().putString(K_LAST_APP, v).apply()
+        set(v) = prefs.edit { putString(K_LAST_APP, v) }
 
     /** WhatsApp or WhatsApp Business, asked once when both are installed. */
     var whatsappChoice: String?
         get() = prefs.getString(K_WA_CHOICE, null)
-        set(v) = prefs.edit().putString(K_WA_CHOICE, v).apply()
+        set(v) = prefs.edit { putString(K_WA_CHOICE, v) }
 
     /** Records that a chat was opened, for the number history note and for "Chat, then decide". */
     fun recordOpened(number: String, app: MessengerApp?, label: String, isContact: Boolean, now: Long = System.currentTimeMillis()) {
@@ -109,7 +110,7 @@ class MessagingStore(context: Context) {
     private fun saveLastMessaged(map: Map<String, LastMessaged>) {
         val json = JSONObject()
         map.forEach { (k, v) -> json.put(k, JSONObject().put("p", v.app?.packageName.orEmpty()).put("l", v.label).put("t", v.at)) }
-        prefs.edit().putString(K_LAST_MESSAGED, json.toString()).apply()
+        prefs.edit { putString(K_LAST_MESSAGED, json.toString()) }
     }
 
     private companion object {
