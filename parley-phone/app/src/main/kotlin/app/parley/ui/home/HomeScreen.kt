@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.CallMerge
+import androidx.compose.material.icons.automirrored.rounded.Chat
+import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.rounded.AutoDelete
 import androidx.compose.material.icons.rounded.Block
@@ -247,6 +249,7 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
     when (tab) {
         StartTab.RECENTS -> {
             app.parley.ui.history.RecentsExportMenuItem(close)
+            MenuItem("Messaged numbers", Icons.AutoMirrored.Rounded.Chat) { go(app.parley.messaging.MessagingRoutes.MESSAGED) }
             MenuItem("Call history settings", Icons.Rounded.ManageHistory) { go(Routes.settingsPage(SettingsCategory.HISTORY)) }
         }
         StartTab.CONTACTS -> {
@@ -254,6 +257,7 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
                 close()
                 vm.selection.value = vm.people.filtered.value.orEmpty().map { it.id }.toSet()
             }
+            MenuItem("Add several numbers…", Icons.Rounded.GroupAdd) { go(app.parley.messaging.MessagingRoutes.BULK_ADD) }
             MenuItem("Find & merge duplicates", Icons.AutoMirrored.Rounded.CallMerge) { go(Routes.DUPLICATES) }
             MenuItem("Contacts settings", Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS)) }
         }

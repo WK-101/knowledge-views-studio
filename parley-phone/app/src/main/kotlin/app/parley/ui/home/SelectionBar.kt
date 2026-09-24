@@ -105,6 +105,11 @@ fun SelectionBar(vm: AppViewModel) {
                         if (numbers.isEmpty()) vm.toast("No phone numbers in the selection")
                         else runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + numbers.joinToString(";")))) }
                     })
+                    DropdownMenuItem({ Text("Introduce myself…") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = {
+                        menu = false
+                        // M13: one prefilled chat at a time; you press Send yourself.
+                        if (!app.parley.messaging.IntroduceStart.fromContacts(vm, chosen)) vm.toast("No phone numbers in the selection")
+                    })
                     if (chosen.size >= 2) {
                         DropdownMenuItem({ Text("Merge into one") }, leadingIcon = { Icon(Icons.Rounded.CallMerge, null) }, onClick = {
                             menu = false

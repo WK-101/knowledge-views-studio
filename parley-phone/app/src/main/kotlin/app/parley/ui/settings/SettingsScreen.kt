@@ -274,7 +274,7 @@ fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: Stri
                 SettingsCategory.BLOCKING -> BlockingPage(vm, open)
                 SettingsCategory.CONTACTS -> ContactsPage(vm, open)
                 SettingsCategory.HISTORY -> HistoryPage(vm, open)
-                SettingsCategory.MESSAGING -> MessagingPage(vm)
+                SettingsCategory.MESSAGING -> MessagingPage(vm, open)
                 SettingsCategory.PRIVACY -> PrivacyPage(vm, open)
                 SettingsCategory.BACKUP -> BackupPage(vm, open)
                 SettingsCategory.NOTIFICATIONS -> NotificationsPage(vm)

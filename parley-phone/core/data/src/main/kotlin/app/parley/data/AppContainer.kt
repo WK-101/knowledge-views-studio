@@ -54,6 +54,8 @@ class DataContainer(context: Context) {
     val journal by lazy { JournalRepository(meta, records) }
     val folderSync by lazy { app.parley.data.sync.FolderSync(appContext, contacts, records) }
     val messaging by lazy { app.parley.data.messaging.MessagingStore(appContext, scope) { n -> vault.lookup(n) != null } }
+    /** M11: "Add several numbers…" batches (one undo per batch). */
+    val bulkAdd by lazy { app.parley.data.messaging.BulkAddStore(this) }
     val timeMachine by lazy { app.parley.data.backup.TimeMachine(appContext, records) }
     val people by lazy { app.parley.data.people.PeopleContainer(this) }
     val backup by lazy {

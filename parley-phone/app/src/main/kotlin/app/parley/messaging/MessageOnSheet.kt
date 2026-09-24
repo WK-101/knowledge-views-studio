@@ -12,6 +12,11 @@ import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -225,6 +230,9 @@ fun MessageOnContent(number: String, accountId: String? = null, onLaunched: (Mes
             // F19: only enabled when a link can actually be built; otherwise the reason is shown.
             val enabled = unavailable == null
             val chosen = row.apps.firstOrNull { it.packageName == store.whatsappChoice }
+            // M13: Telegram rows also open the person's profile (long-press or the ⋮ button).
+            val telegram = row.apps[0].messenger == app.parley.common.Messenger.TELEGRAM
+            var rowMenu by remember { mutableStateOf(false) }
             ListItem(
                 headlineContent = { Text(row.label) },
                 supportingContent = when {
@@ -234,13 +242,36 @@ fun MessageOnContent(number: String, accountId: String? = null, onLaunched: (Mes
                     else -> null
                 },
                 leadingContent = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
+                trailingContent = if (telegram && enabled) ({
+                    Box {
+                        IconButton({ rowMenu = true }) { Icon(Icons.Rounded.MoreVert, "More ${row.label} actions") }
+                        DropdownMenu(rowMenu, { rowMenu = false }) {
+                            DropdownMenuItem({ Text("Open chat") }, onClick = { rowMenu = false; launchRow(row) })
+                            DropdownMenuItem({ Text("Open profile") }, onClick = {
+                                rowMenu = false
+                                val profile = e164?.let { MessengerLinks.telegramProfile(row.apps[0], it) }
+                                // Older Telegram versions ignore "profile" and open the chat instead, which is fine too.
+                                val error = if (profile == null) unavailable ?: "Can't open this number" else MessengerLauncher.open(context, profile, row.apps[0])
+                                if (error != null) Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                            })
+                        }
+                    }
+                }) else null,
                 colors = if (enabled) ListItemDefaults.colors() else ListItemDefaults.colors(headlineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)),
                 modifier = Modifier.combinedClickable(
                     enabled = enabled,
                     role = Role.Button,
                     onClick = { launchRow(row) },
-                    onLongClick = if (row.apps.size > 1) ({ launchRow(row, forceAsk = true) }) else null,
-                    onLongClickLabel = if (row.apps.size > 1) "Choose WhatsApp or WhatsApp Business" else null,
+                    onLongClick = when {
+                        row.apps.size > 1 -> ({ launchRow(row, forceAsk = true) })
+                        telegram -> ({ rowMenu = true })
+                        else -> null
+                    },
+                    onLongClickLabel = when {
+                        row.apps.size > 1 -> "Choose WhatsApp or WhatsApp Business"
+                        telegram -> "Open chat or profile"
+                        else -> null
+                    },
                 ),
             )
         }

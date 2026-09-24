@@ -22,6 +22,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.ContentPaste
+import androidx.compose.material.icons.rounded.GroupAdd
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.foundation.layout.Row
@@ -74,6 +77,8 @@ import kotlinx.coroutines.withContext
 class NumberActionActivity : ComponentActivity() {
     private sealed interface Stage {
         data object NoNumber : Stage
+        /** M8: "Message a number" (tile, launcher shortcut): an empty field with Paste and the country. */
+        data object Enter : Stage
         data class Pick(val found: List<NumberText.Found>) : Stage
         /** [raw] is the number as written in the text, re-read when the user picks another country (F19). */
         data class Actions(val number: String, val raw: String? = null) : Stage
@@ -91,6 +96,8 @@ class NumberActionActivity : ComponentActivity() {
     private var appLock = true
     /** A chat with an unknown number was opened from here; offer a temporary contact when the user comes back. */
     private var awaitingReturn = false
+    /** The selected, shared or pasted text, kept only while the sheet is open, for "Save all…" (M11). */
+    private var sourceText: String? = null
     private var leftForChat = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -140,13 +147,16 @@ class NumberActionActivity : ComponentActivity() {
     }
 
     private fun initialStage(intent: Intent): Stage {
+        sourceText = null
         val text = when (intent.action) {
+            MessageNumber.ACTION -> return Stage.Enter
             Intent.ACTION_PROCESS_TEXT -> intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
             Intent.ACTION_SEND -> intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
             ACTION_MESSAGE_ON -> intent.getStringExtra(EXTRA_NUMBER)?.takeIf { it.isNotBlank() }?.let { return Stage.Message(it, intent.getStringExtra(EXTRA_ACCOUNT_ID)) }
             else -> null
         }.orEmpty().take(MAX_TEXT)
         val found = NumberText.find(text, PhoneEnv.countryIso(this))
+        if (found.size > 1) sourceText = text
         return when (found.size) {
             0 -> Stage.NoNumber
             1 -> Stage.Actions(found[0].e164 ?: found[0].raw, found[0].raw)
@@ -175,6 +185,7 @@ class NumberActionActivity : ComponentActivity() {
                         Text("Parley couldn't find a phone number in this text.", style = MaterialTheme.typography.bodyMedium)
                         TextButton({ finish() }) { Text("Close") }
                     }
+                    Stage.Enter -> EnterNumber()
                     is Stage.Pick -> PickNumber(s.found)
                     is Stage.Actions -> NumberActions(s.number, s.raw)
                     is Stage.Message -> MessageOnContent(s.number, s.accountId) { app -> afterLaunch(app != null) }
@@ -198,12 +209,108 @@ class NumberActionActivity : ComponentActivity() {
     private fun PickNumber(found: List<NumberText.Found>) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
             Text("Choose a number", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            if (sourceText != null) {
+                // M11: several numbers in the text can be saved together, after a review.
+                ListItem(
+                    headlineContent = { Text("Save all ${found.size} numbers…") },
+                    supportingContent = { Text("Review them, name them and save them at once") },
+                    leadingContent = { Icon(Icons.Rounded.GroupAdd, null) },
+                    modifier = Modifier.clickable { saveAll() },
+                )
+            }
             found.forEach { f ->
                 ListItem(
                     headlineContent = { Text(f.e164?.let(NumberText::formatInternational) ?: f.raw) },
                     supportingContent = { Text("“${f.raw}” in the text") },
                     modifier = Modifier.clickable { stage = Stage.Actions(f.e164 ?: f.raw, f.raw) },
                 )
+            }
+        }
+    }
+
+    /** M11: hands the text to Parley's "Add several numbers" screen (in memory only) and closes the sheet. */
+    private fun saveAll() {
+        MessagingInbox.bulkText = sourceText
+        startActivity(
+            Intent(this, MainActivity::class.java).setAction(MainActivity.ACTION_BULK_ADD).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+        finish()
+    }
+
+    /**
+     * M8: an empty number field. The clipboard is read only when the Paste chip is tapped; a national number is read
+     * with the SIM's country unless another is chosen; the messengers appear once the number is complete.
+     */
+    @Composable
+    private fun EnterNumber() {
+        val defaultRegion = remember { PhoneEnv.countryIso(this) }
+        var typed by rememberSaveable { mutableStateOf("") }
+        var regionOverride by rememberSaveable { mutableStateOf<String?>(null) }
+        var pickCountry by remember { mutableStateOf(false) }
+        val region = regionOverride ?: defaultRegion
+        val e164 = remember(typed, region) { NumberText.toE164(typed, region) }
+        val ready = e164 != null && app.parley.common.MessengerLinks.unavailableReason(e164) == null
+        val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+        LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+
+        fun paste() {
+            val clip = runCatching {
+                getSystemService(android.content.ClipboardManager::class.java).primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()
+            }.getOrNull()?.take(MAX_TEXT)
+            if (clip.isNullOrBlank()) {
+                Toast.makeText(this, "Nothing to paste", Toast.LENGTH_SHORT).show()
+                return
+            }
+            val found = NumberText.find(clip, region)
+            when {
+                found.isEmpty() -> Toast.makeText(this, "No phone number in what you copied", Toast.LENGTH_SHORT).show()
+                found.size == 1 -> typed = found[0].raw
+                else -> {
+                    sourceText = clip
+                    stage = Stage.Pick(found)
+                }
+            }
+        }
+
+        Column(Modifier.fillMaxWidth()) {
+            Text("Message a number", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
+            OutlinedTextField(
+                typed, { typed = it.take(40) },
+                label = { Text("Phone number") },
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp).focusRequester(focus),
+            )
+            Row(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                androidx.compose.material3.AssistChip(
+                    onClick = { paste() },
+                    label = { Text("Paste") },
+                    leadingIcon = { Icon(Icons.Rounded.ContentPaste, null) },
+                )
+                androidx.compose.material3.AssistChip(
+                    onClick = { pickCountry = true },
+                    label = { Text(countryLabel(region)) },
+                    leadingIcon = { Icon(Icons.Rounded.Public, null) },
+                )
+            }
+            if (ready) {
+                androidx.compose.runtime.key(e164) {
+                    MessageOnContent(e164!!) { app -> afterLaunch(app != null) }
+                }
+            } else {
+                Text(
+                    if (typed.isBlank()) "Type or paste a number. Parley reads the clipboard only when you tap Paste."
+                    else "Keep typing, or pick the number's country.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.navigationBarsPadding().padding(horizontal = 24.dp, vertical = 16.dp),
+                )
+            }
+        }
+        if (pickCountry) {
+            CountryPickerDialog(selected = region, onDismiss = { pickCountry = false }) { code ->
+                pickCountry = false
+                regionOverride = code.takeUnless { it == defaultRegion }
             }
         }
     }

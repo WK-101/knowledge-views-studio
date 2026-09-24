@@ -86,6 +86,8 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
                 // F13: the "last messaged" record follows the same retention.
                 runCatching { c.messaging.pruneOlderThan(before) }
             }
+            // M10: "Forget messaged numbers after" (the stricter of it and the retention above wins).
+            runCatching { c.messaging.pruneExpired(settings.callLogRetentionDays, now) }
             // 5. Journal older than 30 days
             c.meta.pruneJournal(now - TimeUnit.DAYS.toMillis(30))
             // 6. Daily time-machine snapshot (incremental)

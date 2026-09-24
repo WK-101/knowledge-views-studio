@@ -42,6 +42,20 @@ object MessagedRecord {
         return entries.filterNot { it.key == key || (it.number == null && it.key == legacy) }
     }
 
+    /** M10: "Forget messaged numbers after" choices, in days (0 = never). */
+    val EXPIRY_CHOICES = listOf(0, 7, 30, 90)
+
+    fun expiryLabel(days: Int): String = if (days <= 0) "Never" else "After $days days"
+
+    /**
+     * M10: the oldest time kept, from the record's own expiry ([expiryDays], 0 = never) and the call-history
+     * retention ([retentionDays], 0 = keep): whichever is stricter wins. Null when nothing expires.
+     */
+    fun cutoff(expiryDays: Int, retentionDays: Int, now: Long): Long? {
+        val days = listOf(expiryDays, retentionDays).filter { it > 0 }.minOrNull() ?: return null
+        return now - days * 86_400_000L
+    }
+
     /** Call-history retention applies here too: entries older than [before] go. */
     fun prune(entries: List<MessagedEntry>, before: Long): List<MessagedEntry> = entries.filter { it.at >= before }
 
