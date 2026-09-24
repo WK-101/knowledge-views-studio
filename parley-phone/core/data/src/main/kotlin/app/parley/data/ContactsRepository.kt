@@ -178,6 +178,21 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         }
     }
 
+    /**
+     * Whether [number] belongs to a contact: true / false, or null when it couldn't be checked (no permission,
+     * provider busy or failing). Screening must treat null as "maybe a contact" so a real contact is never blocked.
+     */
+    fun isContact(number: String): Boolean? {
+        if (number.isBlank()) return false
+        if (!Permissions.has(context, android.Manifest.permission.READ_CONTACTS)) return null
+        val uri = Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number))
+        return try {
+            cr.query(uri, arrayOf(PhoneLookup._ID), null, null, null)?.use { it.count > 0 }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     /** Aggregated view of a contact (all sources), for display. */
     suspend fun details(contactId: Long): ContactDetails? = load(contactId, forEdit = false)
 

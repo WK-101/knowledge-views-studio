@@ -34,10 +34,10 @@ class CallScreener(
         val facts = IncomingCallFacts(
             number = number,
             hidden = hidden,
-            // Without contacts access nobody can be recognised: fail open rather than block every caller.
+            // If contacts can't be checked (no permission, provider failing) fail open: never block a real contact.
             isContact = !number.isNullOrBlank() && (
-                !Permissions.has(context, android.Manifest.permission.READ_CONTACTS) ||
-                    contacts.lookup(number) != null || vault.lookup(number) != null
+                contacts.isContact(number) != false ||
+                    runCatching { vault.lookup(number) != null }.getOrDefault(true)
                 ),
             verification = verification,
             countryIso = PhoneEnv.countryIso(context),
