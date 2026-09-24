@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- The in-call UI. Exported (required by Telecom) but protected by BIND_INCALL_SERVICE. -->
+        <service
+            android:name="app.parley.telecom.ParleyInCallService"
+            android:exported="true"
+            android:permission="android.permission.BIND_INCALL_SERVICE">
+            <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true" />
+            <intent-filter>
+                <action android:name="android.telecom.InCallService" />
+            </intent-filter>
+        </service>
+
+        <!-- Offline call screening (used when the user also grants the call-screening role). -->
+        <service
+            android:name="app.parley.telecom.ParleyCallScreeningService"
+            android:exported="true"
+            android:permission="android.permission.BIND_SCREENING_SERVICE">
+            <intent-filter>
+                <action android:name="android.telecom.CallScreeningService" />
+            </intent-filter>
+        </service>
+
+        <activity
+            android:name="app.parley.telecom.ui.InCallActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:showWhenLocked="true"
+            android:taskAffinity="app.parley.incall"
+            android:theme="@style/Theme.Parley.InCall"
+            android:turnScreenOn="true" />
+
+        <receiver
+            android:name="app.parley.telecom.CallActionReceiver"
+            android:exported="false" />
+    </application>
+</manifest>

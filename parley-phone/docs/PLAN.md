@@ -2,6 +2,25 @@
 
 *Companion to [RESEARCH.md](RESEARCH.md). Working name: "Parley".*
 
+## Status (v1.0.0 build)
+
+Decisions confirmed:
+- GPL-3.0.
+- Code in this folder.
+- minSdk 29 (Android 10).
+- Side-load and F-Droid first, Google Play later.
+- Testing on several real phones.
+
+Milestones M0–M5 are implemented and v1.0.0 builds as a signed release APK. What remains is **device testing**, using [TESTING.md](TESTING.md).
+
+Changes from the original plan, made during implementation:
+
+- **Telecom plays the ringtone and vibration.** We do *not* declare `IN_CALL_SERVICE_RINGING`. The platform ringer already honours per-contact ringtones, Do Not Disturb, "send to voicemail" and haptics on every OEM. Re-implementing it would add risk with no benefit. The "silence" block action uses `TelecomManager.silenceRinger()`.
+- **Missed-call notifications** use Telecom's delegation to the default dialer (`ACTION_SHOW_MISSED_CALLS_NOTIFICATION`). The receiver is protected so only the system can trigger it.
+- **Feature screens live in the `app` module, under packages** (`ui/home`, `ui/contact`, `ui/blocking`, …), not in separate `feature/*` Gradle modules. Fewer modules means a faster, simpler build. The critical rule is still enforced: `telecom` does not depend on `core:data` or on feature code.
+- **Screening happens in two places.** In the InCallService, with a 1.5 s cap, so it works as soon as Parley is the default dialer. And optionally in a `CallScreeningService`, when the user also grants the call-screening role, so blocked calls never ring.
+- **Reply with message** uses Telecom's built-in "respond via text" when the carrier supports it. Otherwise it opens the SMS app with the text pre-filled, so Parley never needs `SEND_SMS`.
+
 ## 1. Product principles
 
 These decide trade-offs, in priority order:
