@@ -66,3 +66,4 @@ The `checkReleasePermissions` / `checkDebugPermissions` tasks run before every a
 - [docs/RESEARCH.md](docs/RESEARCH.md): research brief
 - [docs/PLAN.md](docs/PLAN.md): product and technical plan
 - [docs/TESTING.md](docs/TESTING.md): device test checklist
+- [docs/COMPETITIVE_ANALYSIS.md](docs/COMPETITIVE_ANALYSIS.md): full-code analysis of four open-source apps, and the roadmap
