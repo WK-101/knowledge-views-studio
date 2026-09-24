@@ -35,7 +35,6 @@ class TaskWidgetReceiver : BroadcastReceiver() {
                     // Nudge the task-driven widgets right away (the DB observer also fires, debounced).
                     AgendaWidget.refresh(context)
                     DoNextWidget.refresh(context)
-                    TodayWidget.refresh(context)
                     Next7Widget.refresh(context)
                     RecordWidget.refresh(context)
                     DayWidget.refresh(context)

@@ -83,7 +83,7 @@ class WidgetConfigActivity : ComponentActivity() {
         fun suffix(name: String) = providerClass.endsWith(name)
         // Simple card widgets themed via applyCardBackground (light/dark/auto) — they honour theme but not
         // opacity (that's a list/image-card feature), so their config shows theme only.
-        val isThemeOnly = listOf("TodayWidget", "MatrixWidget", "MomentumWidget", "TimeWidget",
+        val isThemeOnly = listOf("MatrixWidget", "MomentumWidget", "TimeWidget",
             "Next7Widget", "CountdownWidget").any { suffix(it) }
         val widgetLabel = when {
             isAgenda -> "Agenda widget"
@@ -98,7 +98,6 @@ class WidgetConfigActivity : ComponentActivity() {
             suffix("KeystoneWidget") -> "Keystone Habit widget"
             suffix("CorrelationWidget") -> "Habit Insight widget"
             suffix("DayWidget") -> "Day widget"
-            suffix("TodayWidget") -> "Tasks Today widget"
             suffix("MatrixWidget") -> "Priority Matrix widget"
             suffix("Next7Widget") -> "Next 7 Days widget"
             suffix("MomentumWidget") -> "Momentum widget"

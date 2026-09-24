@@ -17,13 +17,13 @@
     <color name="w_text_secondary">#5B5870</color>
     <color name="w_text_tertiary">#8A8798</color>
     <color name="w_on_accent">#FFFFFF</color>          <!-- text/icon on a filled accent (never flips) -->
-    <color name="w_accent">#6D5AC4</color>             <!-- filled accent (add pill, progress) -->
-    <color name="w_accent_text">#6D5AC4</color>        <!-- accent-coloured text on the card -->
-    <color name="w_teal">#0E8577</color>               <!-- time / habit brand teal -->
-    <color name="w_danger">#C4361F</color>             <!-- overdue / over-capacity -->
-    <color name="w_warning">#B26A00</color>            <!-- amber -->
-    <color name="w_info">#2563EB</color>               <!-- blue accent -->
-    <color name="w_success">#12A05C</color>            <!-- done / on-track green -->
+    <color name="w_accent">#5B57D9</color>             <!-- filled accent (add pill, progress) — KairoColors brand -->
+    <color name="w_accent_text">#5B57D9</color>        <!-- accent-coloured text on the card -->
+    <color name="w_teal">#12A594</color>               <!-- time / habit brand teal -->
+    <color name="w_danger">#E5484D</color>             <!-- overdue / over-capacity -->
+    <color name="w_warning">#EA9A16</color>            <!-- amber -->
+    <color name="w_info">#3E7BFA</color>               <!-- blue accent -->
+    <color name="w_success">#1E9E64</color>            <!-- done / on-track green -->
     <color name="w_divider">#14000000</color>
     <color name="w_stroke">#14000000</color>
 </resources>

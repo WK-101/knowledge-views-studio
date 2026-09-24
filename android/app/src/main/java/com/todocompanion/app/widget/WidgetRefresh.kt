@@ -21,7 +21,6 @@ import java.time.ZoneId
 object Widgets {
     /** Re-render every placed widget. Safe to call from any thread; each is guarded. */
     fun refreshAll(context: Context) {
-        runCatching { TodayWidget.refresh(context) }
         runCatching { AgendaWidget.refresh(context) }
         runCatching { DayWidget.refresh(context) }
         runCatching { DoNextWidget.refresh(context) }

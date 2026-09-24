@@ -222,19 +222,6 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Home-screen "Today" widget: task count + quick-add. Offline, reads local DB. -->
-        <receiver
-            android:name=".widget.TodayWidget"
-            android:label="@string/widget_today_name"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_today_info" />
-        </receiver>
-
         <!-- Home-screen "Agenda" list widget: today's + overdue tasks. Offline, reads local DB. -->
         <receiver
             android:name=".widget.AgendaWidget"

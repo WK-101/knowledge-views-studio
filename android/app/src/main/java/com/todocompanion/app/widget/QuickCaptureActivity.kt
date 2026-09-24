@@ -41,7 +41,6 @@ class QuickCaptureActivity : ComponentActivity() {
                 // closes the floating window — the app itself never comes forward.
                 QuickCapturePanel(vm, initialText = prefill, onDismiss = {
                     AgendaWidget.refresh(this@QuickCaptureActivity)
-                    TodayWidget.refresh(this@QuickCaptureActivity)
                     DoNextWidget.refresh(this@QuickCaptureActivity)
                     Next7Widget.refresh(this@QuickCaptureActivity)
                     finish()

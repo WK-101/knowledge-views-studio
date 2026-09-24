@@ -3,7 +3,6 @@
     <string name="app_name">Kairo</string>
     <string name="share_to_note_label">Kairo note</string>
     <!-- Widget picker names — one per widget so the launcher shows a distinct name, not just "Kairo". -->
-    <string name="widget_today_name">Tasks Today</string>
     <string name="widget_agenda_name">Agenda</string>
     <string name="widget_day_name">Day</string>
     <string name="widget_record_name">The Record</string>
@@ -26,7 +25,6 @@
     <string name="widget_habitzero_name">Habit Zero</string>
     <string name="widget_time_name">Time Tracker</string>
     <string name="widget_note_name">New Note</string>
-    <string name="widget_today_desc">Today\'s task count with a quick-add button</string>
     <string name="widget_agenda_desc">A scrolling list of today\'s and overdue tasks</string>
     <string name="widget_day_desc">One day\'s events and tasks together — swipe days, check off, add either</string>
     <string name="widget_record_desc">A scrolling list of what you\'ve recently finished</string>
