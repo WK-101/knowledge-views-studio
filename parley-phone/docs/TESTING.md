@@ -80,3 +80,36 @@ Call the phone from another phone in each state below. For each one, check that 
 - [ ] Light, dark and pure-black themes; wallpaper colours on and off
 - [ ] Large font (system font size at maximum) → nothing is cut off on the call screen or keypad
 - [ ] TalkBack: the incoming call can be answered using TalkBack actions ("Answer" and "Decline")
+
+## 8. v2.0 features
+
+**Other apps**
+- [ ] From WhatsApp, Signal or a browser: share a contact / "add to contacts" / pick a contact → Parley opens.
+- [ ] Open a `.vcf` file from a file manager → Parley asks which account to import into and shows a report.
+
+**Never lose a contact**
+- [ ] Delete a contact → tap **Undo** in the snackbar → it's back. Delete another, then restore it from ⋮ → Recently deleted.
+- [ ] Backup: Settings → Backup & restore → set a passphrase (write down the recovery key) → choose a folder → Back up now. Check that a `.parley` file appears in the folder.
+- [ ] Restore that file with the passphrase and again with the recovery key (Merge mode). Nothing should be duplicated.
+- [ ] Move to a new phone: send the file to a second phone, install Parley there, Backup → Restore from a file.
+- [ ] Time machine: edit a contact, then on the next day open ⋮ → Version history and restore the earlier version. Settings → What changed.
+- [ ] Folder sync with Syncthing between two phones: edit a contact on phone A → it updates on phone B; delete on B → gone on A (and in Recently deleted).
+
+**Privacy**
+- [ ] App lock on, then leave the app and come back → locked. Incoming call while locked → the call screen still shows the name.
+- [ ] Move a contact to the private vault → it disappears from other apps (e.g. WhatsApp's contact list). Call from it → Parley shows the name. The call then disappears from the system call log and appears in Parley with a 🔒.
+- [ ] Quick Settings tile "Private contacts" hides and shows private contacts.
+- [ ] Encrypted QR: share a contact privately and scan it with another phone's camera → it opens Parley and asks for the passcode.
+
+**Calls**
+- [ ] Incoming call from a contact with a pinned note → the note and "last call …" show on the call screen.
+- [ ] Unknown caller → "Not in your contacts · <city/country>"; with an unknown-caller ringtone set, that ringtone plays.
+- [ ] Ignore → ringing stops, the call keeps waiting silently, and you can still answer it from the notification.
+- [ ] With "Block numbers not in contacts" on, call twice within 3 minutes from an unknown number → the second call rings.
+
+**Other**
+- [ ] Birthdays screen, and a birthday notification at the chosen hour.
+- [ ] Add to home screen (call, message, open) and the direct-dial widget.
+- [ ] "Call with Signal/WhatsApp" rows on a contact that uses those apps; long-press to make one the default Call action.
+- [ ] Contact health check → Fix all (country codes).
+- [ ] Tablet/foldable or landscape: navigation rail on the side.
