@@ -59,15 +59,24 @@ class FreeTimeWidget : BaseWidgetProvider() {
                 val tkItem = nextTask?.let { NextItem(it.title, it.dueDate!!, false) }
                 val next = listOfNotNull(evItem, tkItem).minByOrNull { it.startMillis }
 
-                // Free minutes left in the REST of today's working window: start the window at the
-                // current hour (clamped into an 8–22 day) so the number reflects time still ahead, not
-                // hours already gone. (A future refinement is honouring the user's stored availability
-                // config; this keeps a sensible default while staying directionally correct.)
+                // Free minutes left in the REST of today, using the user's REAL availability settings
+                // (working days, window, min-slot, buffer, protected blocks) — the same config the in-app
+                // "When am I free?" screen uses — clamped so the window starts no earlier than now, so the
+                // number reads as time still ahead rather than hours already gone.
                 val freeMin = runCatching {
-                    val startH = LocalTime.now(zone).hour.coerceIn(8, 22)
-                    val cfg = Availability.Config(setOf(1, 2, 3, 4, 5, 6, 7), startH, 22, 15, 0)
+                    val s = app.repository.settingsSnapshot()
+                    val startH = maxOf(s.workStartHour, LocalTime.now(zone).hour).coerceAtMost(s.workEndHour)
+                    val cfg = Availability.Config(
+                        days = Availability.parseDays(s.availDays),
+                        startHour = startH,
+                        endHour = s.workEndHour,
+                        minSlotMin = s.availMinSlotMin,
+                        bufferMin = s.availBufferMin,
+                    )
+                    val protectedList = Availability.parseProtected(s.protectedBlocks)
                     val taskBusy = Availability.taskBusyIntervals(tasks, zone)
-                    Availability.forDays(events, listOf(today), cfg, zone, extraBusy = taskBusy).firstOrNull()?.freeMin ?: 0
+                    Availability.forDays(events, listOf(today), cfg, zone, protected = protectedList, extraBusy = taskBusy)
+                        .firstOrNull()?.freeMin ?: 0
                 }.getOrDefault(0)
 
                 val fmt = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withZone(zone)

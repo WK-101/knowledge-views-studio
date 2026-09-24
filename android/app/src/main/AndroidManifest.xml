@@ -495,6 +495,22 @@
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_routine_info" />
         </receiver>
 
+        <!-- R107 — Time Summary: today's tracked total + top activities + the week's total. Offline. -->
+        <receiver android:name=".widget.TimeSummaryWidget" android:label="@string/widget_timesummary_name" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_timesummary_info" />
+        </receiver>
+
+        <!-- R107 — Weekly Review status: whether this week's review is done + wins logged. Offline. -->
+        <receiver android:name=".widget.WeekReviewWidget" android:label="@string/widget_weekreview_name" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_weekreview_info" />
+        </receiver>
+
         <!-- R1: Momentum widget — the unified habit+task+focus score. Offline. -->
         <receiver android:name=".widget.MomentumWidget" android:label="@string/widget_momentum_name" android:exported="false">
             <intent-filter>

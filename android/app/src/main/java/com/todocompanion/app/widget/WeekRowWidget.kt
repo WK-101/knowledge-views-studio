@@ -62,10 +62,8 @@ class WeekRowWidget : BaseWidgetProvider() {
                 }
 
                 val checkins = app.repository.getHabitCheckinsOnce().filter { it.habitId == habit.id }
-                val doneDays = checkins.filter { it.status == "done" && HabitStats.meetsGoal(habit, it.count) }.map { it.epochDay }.toHashSet()
-                val skipDays = checkins.filter { it.status == "skip" }.map { it.epochDay }.toHashSet()
-                val relapse = checkins.filter { HabitStats.isRelapse(habit, it.count) }.map { it.epochDay }.toHashSet()
-                val streak = HabitStats.currentStreak(habit, doneDays, skipDays, relapse, today)
+                val ds = HabitStats.daySets(habit, checkins)
+                val streak = HabitStats.currentStreak(habit, ds.done, ds.skip, ds.relapse, today)
 
                 views.setTextViewText(R.id.wr_title, (habit.emoji?.plus(" ") ?: "") + habit.name)
                 views.setTextColor(R.id.wr_title, style.textPrimary)
@@ -79,8 +77,8 @@ class WeekRowWidget : BaseWidgetProvider() {
                 for (i in 0..6) {
                     val day = monday + i
                     val future = day > today
-                    val done = day in doneDays
-                    val color = if (day in skipDays) style.textTertiary else (habit.colorArgb?.toInt() ?: style.teal)
+                    val done = day in ds.done
+                    val color = if (day in ds.skip) style.textTertiary else (habit.colorArgb?.toInt() ?: style.teal)
                     views.setTextViewText(lblIds[i], labels[i])
                     views.setTextColor(lblIds[i], if (day == today) style.accentText else style.textTertiary)
                     views.setImageViewBitmap(cellIds[i], WidgetBitmaps.checkCircle(edge, if (future) style.chip else color, done))

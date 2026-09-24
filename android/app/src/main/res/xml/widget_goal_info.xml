@@ -3,7 +3,7 @@
     android:minWidth="180dp"
     android:minHeight="110dp"
     android:minResizeWidth="110dp"
-    android:minResizeHeight="40dp"
+    android:minResizeHeight="90dp"
     android:maxResizeWidth="720dp"
     android:maxResizeHeight="320dp"
     android:targetCellWidth="3"

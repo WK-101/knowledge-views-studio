@@ -183,10 +183,7 @@ private class HabitsFactory(private val context: Context, private val widgetId: 
             .map { h ->
                 val hc = checkins.filter { it.habitId == h.id }
                 val count = hc.firstOrNull { it.epochDay == today }?.count ?: 0
-                val doneDays = hc.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-                val skipDays = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
-                val relapse = hc.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
-                val streak = HabitStats.currentStreak(h, doneDays, skipDays, relapse, today)
+                val streak = HabitStats.streakFor(h, hc, today)
                 val unit = h.unit?.takeIf { it.isNotBlank() }?.let { " $it" } ?: ""
                 Row(
                     id = h.id,

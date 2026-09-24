@@ -31,22 +31,24 @@ class MomentumWidget : BaseWidgetProvider() {
             try {
                 val zone = ZoneId.systemDefault()
                 val today = LocalDate.now(zone).toEpochDay()
-                val habits = app.repository.wsHabitsOnce().filter { !it.archived }
-                val checkins = app.repository.getHabitCheckinsOnce()
+                // All repository reads are guarded: an uncaught throw here would crash the process on a
+                // widget update (goAsync's finally only finishes the pending result).
+                val habits = runCatching { app.repository.wsHabitsOnce() }.getOrDefault(emptyList()).filter { !it.archived }
+                val checkins = runCatching { app.repository.getHabitCheckinsOnce() }.getOrDefault(emptyList())
                 val strengths = habits.map { h ->
-                    val d = checkins.filter { it.habitId == h.id && it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-                    val s = checkins.filter { it.habitId == h.id && it.status == "skip" }.map { it.epochDay }.toSet()
-                    val r = checkins.filter { it.habitId == h.id && HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
-                    HabitStats.strength(h, d, s, r, today)
+                    val ds = HabitStats.daySets(h, checkins)
+                    HabitStats.strength(h, ds.done, ds.skip, ds.relapse, today)
                 }
                 val habitStrength = if (strengths.isEmpty()) null else strengths.average().toInt()
                 val now = System.currentTimeMillis()
-                val activities = app.repository.wsActivitiesOnce()
-                val relVals = app.repository.wsTasksOnce().filter { !it.rrule.isNullOrBlank() && !it.trashed }
+                val activities = runCatching { app.repository.wsActivitiesOnce() }.getOrDefault(emptyList())
+                val relVals = runCatching { app.repository.wsTasksOnce() }.getOrDefault(emptyList())
+                    .filter { !it.rrule.isNullOrBlank() && !it.trashed }
                     .mapNotNull { TaskReliability.score(it, activities, now, zone)?.score }
                 val taskRel = if (relVals.isEmpty()) null else relVals.average().toInt()
                 val weekDays = (0 until 7).map { today - it }.toSet()
-                val focusWeek = app.repository.wsFocusSessionsOnce().filter { it.epochDay in weekDays }.sumOf { it.minutes }
+                val focusWeek = runCatching { app.repository.wsFocusSessionsOnce() }.getOrDefault(emptyList())
+                    .filter { it.epochDay in weekDays }.sumOf { it.minutes }
                 val parts = buildList {
                     habitStrength?.let { add(it.toDouble() to 0.5) }
                     taskRel?.let { add(it.toDouble() to 0.35) }

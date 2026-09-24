@@ -22,6 +22,8 @@
     <string name="widget_focus_name">Focus</string>
     <string name="widget_freetime_name">Next Up</string>
     <string name="widget_routine_name">Routine Runner</string>
+    <string name="widget_timesummary_name">Time Summary</string>
+    <string name="widget_weekreview_name">Weekly Review</string>
     <string name="widget_momentum_name">Momentum</string>
     <string name="widget_habitzero_name">Habit Zero</string>
     <string name="widget_time_name">Time Tracker</string>
@@ -46,6 +48,8 @@
     <string name="widget_focus_desc">Start a focus session in one tap and watch it count up</string>
     <string name="widget_freetime_desc">Your next event or task and how much of the day is still open</string>
     <string name="widget_routine_desc">Today\'s routines — tap one to start its guided runner</string>
+    <string name="widget_timesummary_desc">Today\'s tracked time and top activities, plus the week\'s total</string>
+    <string name="widget_weekreview_desc">Whether this week\'s review is done, and the wins you\'ve logged</string>
     <string name="widget_momentum_desc">Your unified momentum — habits, task reliability and focus in one score</string>
     <string name="widget_habitzero_desc">Today\'s remaining habits — each one you finish leaves the list and the meter grows, until you hit zero</string>
     <string name="widget_time_desc">Start, switch and stop time tracking from the home screen — a live timer for the running activity</string>

@@ -50,13 +50,7 @@ class HabitInsightWidget : BaseWidgetProvider() {
                 val autoHabit by lazy(LazyThreadSafetyMode.NONE) {
                     val ksId = (ksInsight?.action as? InsightAction.Open)?.habitId
                         ?: habits.filter { !it.archived && !it.paused && it.habitType != "break" }
-                            .maxByOrNull { h ->
-                                val hc = checkins.filter { it.habitId == h.id }
-                                HabitStats.currentStreak(h,
-                                    hc.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet(),
-                                    hc.filter { it.status == "skip" }.map { it.epochDay }.toSet(),
-                                    hc.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet(), today)
-                            }?.id
+                            .maxByOrNull { HabitStats.streakFor(it, checkins, today) }?.id
                     habits.firstOrNull { it.id == ksId }
                 }
 
@@ -115,11 +109,7 @@ class HabitInsightWidget : BaseWidgetProvider() {
         val byHabit = checkins.groupBy { it.habitId }
         data class Row(val name: String, val streak: Int, val quit: Boolean)
         val rows = habits.mapNotNull { h ->
-            val hc = byHabit[h.id] ?: emptyList()
-            val doneDays = hc.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-            val skipDays = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
-            val relapse = hc.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
-            val s = HabitStats.currentStreak(h, doneDays, skipDays, relapse, today)
+            val s = HabitStats.streakFor(h, byHabit[h.id] ?: emptyList(), today)
             if (s >= 1) Row((h.emoji?.plus(" ") ?: "") + h.name, s, h.habitType == "break") else null
         }.sortedByDescending { it.streak }.take(6)
 

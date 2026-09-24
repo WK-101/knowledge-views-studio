@@ -347,22 +347,19 @@ object HabitZeroData {
         var due = 0; var done = 0; var skipped = 0; var best = 0
         val rem = ArrayList<Rem>()
         habits.forEach { h ->
-            val hc = checkins.filter { it.habitId == h.id }
-            val doneDays = hc.filter { it.status == "done" && HabitStats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
-            val skipDays = hc.filter { it.status == "skip" }.map { it.epochDay }.toSet()
-            val relapse = hc.filter { HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
-            val todayCount = hc.firstOrNull { it.epochDay == today }?.count ?: 0
-            best = maxOf(best, HabitStats.currentStreak(h, doneDays, skipDays, relapse, today))
+            val ds = HabitStats.daySets(h, checkins)
+            val todayCount = ds.counts[today] ?: 0
+            best = maxOf(best, HabitStats.currentStreak(h, ds.done, ds.skip, ds.relapse, today))
             // Break/quit habits are never a "to-do" — success is passive, resolved only at midnight — so they
             // stay out of the vanishing list and the meter entirely.
             val scheduled = h.habitType != "break" &&
                 (HabitStats.isExpectedDay(h, today) || h.freqType == HabitStats.FREQ_TIMES_WEEK || h.freqType == HabitStats.FREQ_TIMES_MONTH)
             if (!scheduled) return@forEach
             due++
-            val stillDue = HabitStats.dueToday(h, today, doneDays, todayCount)
+            val stillDue = HabitStats.dueToday(h, today, ds.done, todayCount)
             when {
                 !stillDue -> done++
-                today in skipDays -> skipped++
+                today in ds.skip -> skipped++
                 else -> {
                     val timed = h.unit?.startsWith("min") == true
                     val numeric = !timed && (h.targetPerDay > 1 || h.unit != null || h.clickIncrement > 1)

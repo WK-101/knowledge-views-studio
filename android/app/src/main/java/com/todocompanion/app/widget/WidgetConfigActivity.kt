@@ -107,6 +107,8 @@ class WidgetConfigActivity : ComponentActivity() {
             suffix("FocusWidget") -> "Focus widget"
             suffix("FreeTimeWidget") -> "Next Up widget"
             suffix("RoutineWidget") -> "Routine Runner widget"
+            suffix("TimeSummaryWidget") -> "Time Summary widget"
+            suffix("WeekReviewWidget") -> "Weekly Review widget"
             else -> "Widget settings"
         }
 
@@ -158,8 +160,9 @@ class WidgetConfigActivity : ComponentActivity() {
                                     isHabitInsight || suffix("GoalWidget") -> "ring"
                                 suffix("TimeWidget") || suffix("FocusWidget") -> "timer"
                                 suffix("CountdownWidget") || suffix("MomentumWidget") ||
-                                    suffix("Next7Widget") || suffix("CloseDayWidget") || suffix("FreeTimeWidget") -> "tile"
-                                suffix("RoutineWidget") -> "list"
+                                    suffix("Next7Widget") || suffix("CloseDayWidget") || suffix("FreeTimeWidget") ||
+                                    suffix("WeekReviewWidget") -> "tile"
+                                suffix("RoutineWidget") || suffix("TimeSummaryWidget") -> "list"
                                 isList -> "list"
                                 else -> "list"
                             }
