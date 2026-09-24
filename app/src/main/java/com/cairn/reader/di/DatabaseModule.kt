@@ -27,11 +27,13 @@ import com.cairn.reader.data.db.MIGRATION_20_21
 import com.cairn.reader.data.db.MIGRATION_21_22
 import com.cairn.reader.data.db.MIGRATION_22_23
 import com.cairn.reader.data.db.MIGRATION_23_24
+import com.cairn.reader.data.db.MIGRATION_24_25
 import com.cairn.reader.data.db.MIGRATION_7_8
 import com.cairn.reader.data.db.RuleDao
 import com.cairn.reader.data.db.SourceDao
 import com.cairn.reader.data.db.SyncDao
 import com.cairn.reader.data.db.TagDao
+import com.cairn.reader.data.db.TrainerDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -56,7 +58,7 @@ object DatabaseModule {
         // resolves the DB first (first-launch ANR).
         val openEncrypted = com.cairn.reader.data.db.DbCrypto.awaitOpenEncrypted(context)
         val builder = Room.databaseBuilder(context, CairnDatabase::class.java, "cairn.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25)
             // No destructive fallback: a missing migration must fail loudly in dev/CI rather than
             // silently wiping a user's library — the app's core promise is "your data, forever".
         if (openEncrypted) builder.openHelperFactory(com.cairn.reader.data.db.DbCrypto.factory(passphrase))
@@ -92,4 +94,7 @@ object DatabaseModule {
 
     @Provides
     fun provideCrawlFrontierDao(db: CairnDatabase): com.cairn.reader.data.db.CrawlFrontierDao = db.crawlFrontierDao()
+
+    @Provides
+    fun provideTrainerDao(db: CairnDatabase): TrainerDao = db.trainerDao()
 }

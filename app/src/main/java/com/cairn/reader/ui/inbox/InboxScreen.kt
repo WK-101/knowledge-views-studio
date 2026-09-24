@@ -79,6 +79,7 @@ internal fun InboxScreen(
     val openInWebDefault by viewModel.openInWebDefault.collectAsStateWithLifecycle()
     val selecting = picked.isNotEmpty()
     var sheetRow by remember { mutableStateOf<ItemListRow?>(null) }
+    var trainRow by remember { mutableStateOf<ItemListRow?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
 
     // Route a tapped item per its feed's chosen open mode (Reader / in-app Browser / External).
@@ -190,6 +191,17 @@ internal fun InboxScreen(
                         label = { Text(if (unread > 0) "$name · $unread" else name) },
                     )
                 }
+                // Focus lens: only offered once the user has trained something. On, it shows just the
+                // stories that matched a liked source/author/tag; off, muted stories are simply hidden.
+                val hasTraining by viewModel.hasTraining.collectAsStateWithLifecycle()
+                val focusOnly by viewModel.focusOnly.collectAsStateWithLifecycle()
+                if (hasTraining) {
+                    FilterChip(
+                        selected = focusOnly,
+                        onClick = { viewModel.setFocusOnly(!focusOnly) },
+                        label = { Text("Focus") },
+                    )
+                }
             }
         }
         PullToRefreshBox(
@@ -272,6 +284,17 @@ internal fun InboxScreen(
             onMarkBelow = { viewModel.markBelowRead(row) },
             onDelete = { viewModel.delete(row.id) },
             onSelect = { viewModel.togglePick(row.id) },
+            onTrain = { sheetRow = null; trainRow = row },
+        )
+    }
+
+    trainRow?.let { row ->
+        val trainers by viewModel.trainers.collectAsStateWithLifecycle()
+        com.cairn.reader.ui.components.TrainingSheet(
+            row = row,
+            trainers = trainers,
+            onTrain = { kind, value, sentiment -> viewModel.train(kind, value, sentiment) },
+            onDismiss = { trainRow = null },
         )
     }
 }

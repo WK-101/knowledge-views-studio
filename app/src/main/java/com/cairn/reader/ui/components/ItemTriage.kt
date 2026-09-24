@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -39,11 +40,20 @@ import androidx.compose.material.icons.outlined.OfflinePin
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.ThumbDown
+import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material.icons.outlined.ThumbDown
+import androidx.compose.material.icons.outlined.ThumbUp
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.runtime.remember
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -289,6 +299,7 @@ fun ItemActionSheet(
     onSelect: (() -> Unit)? = null,
     onTags: (() -> Unit)? = null,
     onManageCollections: (() -> Unit)? = null,
+    onTrain: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scheme = MaterialTheme.colorScheme
@@ -311,6 +322,7 @@ fun ItemActionSheet(
         add(SheetAction(Icons.Filled.Archive, "Archive") { onArchive(); onDismiss() })
         if (onManageCollections != null) add(SheetAction(Icons.Outlined.FolderOpen, "Collections") { onManageCollections(); onDismiss() })
         if (onTags != null) add(SheetAction(Icons.Outlined.Label, "Tags") { onTags(); onDismiss() })
+        if (onTrain != null) add(SheetAction(Icons.Outlined.Tune, "Train") { onTrain(); onDismiss() })
         if (onSaveOffline != null && row.type != ItemType.PDF.name) {
             val permanent = CacheStatus.isPermanent(row.cacheStatus)
             add(SheetAction(
@@ -384,5 +396,87 @@ private fun ActionCard(action: SheetAction, modifier: Modifier = Modifier) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+/**
+ * The NewsBlur-style training sheet: thumb the story's feed, author, and each tag up (Focus — show
+ * more like it) or down (Hide). All on-device; [trainers] is the live set so each thumb reflects the
+ * current state, and tapping the same thumb again clears it.
+ */
+@Composable
+fun TrainingSheet(
+    row: ItemListRow,
+    trainers: List<com.cairn.reader.data.db.TrainerEntity>,
+    onTrain: (com.cairn.reader.domain.training.TrainerKind, String, Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    fun sentimentOf(kind: com.cairn.reader.domain.training.TrainerKind, raw: String): Int {
+        val v = if (kind == com.cairn.reader.domain.training.TrainerKind.FEED) raw.trim() else raw.trim().lowercase()
+        return trainers.firstOrNull { it.kind == kind.name && it.value == v }?.sentiment ?: 0
+    }
+    val tags = remember(row.tagNames) {
+        row.tagNames?.split('\u001f')?.mapNotNull { it.trim().ifEmpty { null } } ?: emptyList()
+    }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        com.cairn.reader.ui.KeepImmersiveWhileOpen()
+        Column(
+            Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp).padding(bottom = 28.dp),
+        ) {
+            Text("Train your feed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+            Spacer(Modifier.height(2.dp))
+            Text(
+                "Thumb a source, author or tag up to see more like it (Focus), or down to hide it. It all stays on your device.",
+                style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            val feedName = row.sourceTitle ?: row.siteName
+            val feedId = row.sourceId
+            if (feedName != null && feedId != null) {
+                TrainRow("Feed", feedName, sentimentOf(com.cairn.reader.domain.training.TrainerKind.FEED, feedId)) { s ->
+                    onTrain(com.cairn.reader.domain.training.TrainerKind.FEED, feedId, s)
+                }
+            }
+            row.author?.trim()?.takeIf { it.isNotBlank() }?.let { author ->
+                TrainRow("Author", author, sentimentOf(com.cairn.reader.domain.training.TrainerKind.AUTHOR, author)) { s ->
+                    onTrain(com.cairn.reader.domain.training.TrainerKind.AUTHOR, author, s)
+                }
+            }
+            tags.forEach { tag ->
+                TrainRow("Tag", "#${tag.substringAfterLast('/')}", sentimentOf(com.cairn.reader.domain.training.TrainerKind.TAG, tag)) { s ->
+                    onTrain(com.cairn.reader.domain.training.TrainerKind.TAG, tag, s)
+                }
+            }
+            if (feedId == null && row.author.isNullOrBlank() && tags.isEmpty()) {
+                Text("Nothing to train on this story yet.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrainRow(kindLabel: String, value: String, sentiment: Int, onThumb: (Int) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(kindLabel.uppercase(), style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        IconButton(onClick = { onThumb(1) }) {
+            Icon(
+                if (sentiment > 0) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
+                contentDescription = "Show more like this",
+                tint = if (sentiment > 0) scheme.primary else scheme.onSurfaceVariant,
+            )
+        }
+        IconButton(onClick = { onThumb(-1) }) {
+            Icon(
+                if (sentiment < 0) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
+                contentDescription = "Hide stories like this",
+                tint = if (sentiment < 0) scheme.error else scheme.onSurfaceVariant,
+            )
+        }
     }
 }

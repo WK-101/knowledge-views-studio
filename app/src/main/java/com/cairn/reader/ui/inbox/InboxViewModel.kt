@@ -68,6 +68,7 @@ class InboxViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val ttsReader: TtsReader,
     private val audioPlayer: AudioPlayer,
+    private val trainingRepository: com.cairn.reader.data.repo.TrainingRepository,
 ) : ViewModel() {
 
     /** Unsubscribe from a feed straight from the drawer's long-press menu. */
@@ -234,8 +235,33 @@ class InboxViewModel @Inject constructor(
         if (sort == InboxSort.OLDEST) filtered.reversed() else filtered
     }
 
+    // -- On-device training filter (NewsBlur-style focus/hide) ------------------------------------
+    private val _focusOnly = MutableStateFlow(false)
+    /** When on, the inbox shows only Focus stories (matched a liked facet). */
+    val focusOnly: StateFlow<Boolean> = _focusOnly.asStateFlow()
+    fun setFocusOnly(on: Boolean) { _focusOnly.value = on }
+    /** Whether any training exists (drives whether the Focus chip is even offered). */
+    val hasTraining: StateFlow<Boolean> =
+        trainingRepository.count.map { it > 0 }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    /** Live trainer set, so the training sheet reflects each facet's current thumb. */
+    val trainers: StateFlow<List<com.cairn.reader.data.db.TrainerEntity>> =
+        trainingRepository.trainers.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Apply training: muted stories (net-negative) always drop out; Focus mode keeps only liked
+     *  ones. A no-op when nothing has been trained, so it never surprises a user who hasn't opted in. */
+    private val trainedRows = combine(filteredRows, trainingRepository.trainers, _focusOnly) { list, trainers, focus ->
+        if (trainers.isEmpty()) return@combine list
+        list.filter { row ->
+            val s = com.cairn.reader.domain.training.TrainingScorer.score(row, trainers)
+            if (focus) s > 0 else s >= 0
+        }
+    }
+
+    fun train(kind: com.cairn.reader.domain.training.TrainerKind, value: String, sentiment: Int) =
+        viewModelScope.launch { trainingRepository.toggle(kind, value, sentiment) }
+
     val state: StateFlow<InboxUiState> =
-        combine(filteredRows, itemRepository.unreadCount(), _filter, _sort) { items, unread, filter, sort ->
+        combine(trainedRows, itemRepository.unreadCount(), _filter, _sort) { items, unread, filter, sort ->
             InboxUiState(loading = false, items = items, unread = unread, filter = filter, sort = sort)
         }.stateIn(
             scope = viewModelScope,

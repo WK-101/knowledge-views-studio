@@ -24,8 +24,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RuleEntity::class,
         TranscriptEntity::class,
         CrawlFrontierEntity::class,
+        TrainerEntity::class,
     ],
-    version = 24,
+    version = 25,
     exportSchema = true,
     autoMigrations = [
         // v14 → v15: drop the legacy items.collectionId column. The item_collections join table is
@@ -49,6 +50,7 @@ abstract class CairnDatabase : RoomDatabase() {
     abstract fun insightsDao(): InsightsDao
     abstract fun transcriptDao(): TranscriptDao
     abstract fun crawlFrontierDao(): CrawlFrontierDao
+    abstract fun trainerDao(): TrainerDao
 }
 
 /** v1 → v2: the Raindrop-style library. Adds nullable columns only, so existing
@@ -311,5 +313,21 @@ val MIGRATION_22_23 = object : Migration(22, 23) {
 val MIGRATION_23_24 = object : Migration(23, 24) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE items ADD COLUMN durationSeconds INTEGER")
+    }
+}
+
+/** v24 → v25: the on-device training filter (NewsBlur-style focus/hide). One tiny new table; no
+ *  existing data is touched. */
+val MIGRATION_24_25 = object : Migration(24, 25) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS trainers (" +
+                "id TEXT NOT NULL PRIMARY KEY, " +
+                "kind TEXT NOT NULL, " +
+                "value TEXT NOT NULL, " +
+                "sentiment INTEGER NOT NULL, " +
+                "createdAt INTEGER NOT NULL)",
+        )
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_trainers_kind_value ON trainers(kind, value)")
     }
 }
