@@ -16,6 +16,7 @@ import app.parley.data.PhoneEnv
 import app.parley.telecom.CallerDisplay
 import app.parley.telecom.InCallAppearance
 import app.parley.telecom.TelecomDependencies
+import app.parley.ui.common.Format
 import app.parley.work.HistoryWorker
 import app.parley.telecom.ScreenOutcome
 import app.parley.telecom.PostCallAction
@@ -48,7 +49,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         c.contacts.lookup(number)?.let {
             if (it.work) {
                 // I9: a work-profile contact: its name and photo only (it can't be opened or noted from here).
-                return@withContext CallerDisplay(it.name, it.photoUri, it.numberLabel, null, null, null, last, subtitle = "Work profile")
+                return@withContext CallerDisplay(it.name, it.photoUri, it.numberLabel, null, null, null, last, subtitle = app.getString(R.string.caller_work_profile))
             }
             val note = it.lookupKey?.let { k -> c.meta.meta(k)?.pinnedNote }
             // I6: job and company under the name.
@@ -72,12 +73,12 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         val prev = c.callLog.calls.value.orEmpty().firstOrNull { PhoneNumbers.matchKey(it.number) == key } ?: return null
         val ago = android.text.format.DateUtils.getRelativeTimeSpanString(prev.date, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS)
         val kind = when (prev.type) {
-            CallType.MISSED -> "Missed call"
-            CallType.OUTGOING -> "You called"
-            else -> "Last call"
+            CallType.MISSED -> R.string.caller_last_missed
+            CallType.OUTGOING -> R.string.caller_last_outgoing
+            else -> R.string.caller_last_call
         }
-        val dur = prev.durationSec.takeIf { it > 0 }?.let { " · ${it / 60}m ${it % 60}s" }.orEmpty()
-        return "$kind $ago$dur"
+        val line = app.getString(kind, ago)
+        return prev.durationSec.takeIf { it > 0 }?.let { line + app.getString(R.string.main_separator) + Format.duration(it) } ?: line
     }
 
     override fun describeNumber(number: String): String? = NumberInfo.location(number, PhoneEnv.countryIso(app))
@@ -189,13 +190,13 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     override suspend fun savePrivately(number: String, name: String): String? = withContext(Dispatchers.IO) {
         val saved = runCatching { TemporaryContacts.save(c, name, number, private = true) }.getOrNull() ?: return@withContext null
         val days = TemporaryContacts.DEFAULT_DAYS
-        if (saved.private) "Saved privately. Deletes itself in $days days." else "Saved. Deletes itself in $days days."
+        app.resources.getQuantityString(if (saved.private) R.plurals.caller_saved_private_days else R.plurals.caller_saved_days, days, days)
     }
 
     override fun suggestedName(number: String): String {
         val iso = PhoneEnv.countryIso(app)
         val shown = TemporaryContact.suggestedName(number, null, iso.uppercase())
-        return NumberInfo.location(number, iso)?.let { "$it · $shown" } ?: shown
+        return NumberInfo.location(number, iso)?.let { it + app.getString(R.string.main_separator) + shown } ?: shown
     }
 
     override fun simRulesActive(): Boolean = c.screener.hasSimRules()

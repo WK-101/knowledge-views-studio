@@ -36,7 +36,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         setContent {
             val settings by vm.settings.collectAsStateWithLifecycle()
             val callPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-                if (!granted) vm.toast("Phone permission is needed to place calls")
+                if (!granted) vm.toast(getString(R.string.main_call_permission_needed))
             }
             LaunchedEffect(Unit) {
                 vm.uiEvents.collect { e ->

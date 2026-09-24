@@ -127,4 +127,223 @@
     <!-- Settings › Appearance › Language -->
     <string name="lang_title">Language</string>
     <string name="lang_system">System default</string>
+
+    <!-- In-call caller card (last call line, post-call card) -->
+    <string name="caller_work_profile">Work profile</string>
+    <!-- "Missed call 5 minutes ago"; the time span comes from Android, already translated. -->
+    <string name="caller_last_missed">Missed call %1$s</string>
+    <string name="caller_last_outgoing">You called %1$s</string>
+    <string name="caller_last_call">Last call %1$s</string>
+    <plurals name="caller_saved_private_days">
+        <item quantity="one">Saved privately. Deletes itself in %d day.</item>
+        <item quantity="other">Saved privately. Deletes itself in %d days.</item>
+    </plurals>
+    <plurals name="caller_saved_days">
+        <item quantity="one">Saved. Deletes itself in %d day.</item>
+        <item quantity="other">Saved. Deletes itself in %d days.</item>
+    </plurals>
+
+    <!-- Missed-call notifications -->
+    <string name="missed_channel">Missed calls</string>
+    <string name="missed_call_back">Call back</string>
+    <string name="missed_message_on">Message on…</string>
+    <string name="missed_more">+%1$d more</string>
+    <string name="missed_title_one">Missed call</string>
+    <plurals name="missed_title_many">
+        <item quantity="one">%d missed call</item>
+        <item quantity="other">%d missed calls</item>
+    </plurals>
+    <!-- "5 missed calls from 3 callers" -->
+    <plurals name="missed_summary">
+        <item quantity="one">%1$d missed call from %2$d callers</item>
+        <item quantity="other">%1$d missed calls from %2$d callers</item>
+    </plurals>
+    <!-- "3 missed calls · last 14:05" -->
+    <plurals name="missed_count_last">
+        <item quantity="one">%1$d missed call · last %2$s</item>
+        <item quantity="other">%1$d missed calls · last %2$s</item>
+    </plurals>
+    <string name="missed_one_at">Missed call · %1$s</string>
+    <!-- "Ana (3)" -->
+    <string name="missed_name_count">%1$s (%2$d)</string>
+
+    <!-- Voicemail player -->
+    <string name="vm_error_in_call">Can\'t play during a call</string>
+    <string name="vm_error_audio_busy">Another app is using the audio</string>
+    <string name="vm_error_play">Couldn\'t play this voicemail</string>
+    <string name="vm_error_not_downloaded">The audio hasn\'t been downloaded yet</string>
+    <string name="vm_error_open">Couldn\'t open this voicemail</string>
+
+    <!-- App-wide messages -->
+    <string name="main_call_permission_needed">Phone permission is needed to place calls</string>
+    <string name="pocket_title">Phone covered</string>
+    <string name="pocket_body">Your phone\'s proximity sensor is covered. Is it in a pocket or a bag? Call only if you meant to.</string>
+    <string name="vm_removed_after_sync">Removed from other apps after the next sync</string>
+    <string name="vm_couldnt_delete">Couldn\'t delete</string>
+    <plurals name="vm_contacts_deleted">
+        <item quantity="one">Contact deleted</item>
+        <item quantity="other">%d contacts deleted</item>
+    </plurals>
+    <plurals name="vm_calls_deleted">
+        <item quantity="one">Call deleted</item>
+        <item quantity="other">%d calls deleted</item>
+    </plurals>
+    <string name="vm_restored">Restored</string>
+    <string name="vm_blocked">Blocked %1$s</string>
+    <string name="vm_couldnt_block">Couldn\'t block. Make Parley your default phone app first.</string>
+    <string name="vm_unblocked">Unblocked %1$s</string>
+
+    <!-- Home: tabs, header and menus -->
+    <string name="tab_favorites">Favorites</string>
+    <string name="tab_recents">Recents</string>
+    <string name="tab_contacts">Contacts</string>
+    <string name="tab_keypad">Keypad</string>
+    <string name="home_search_favorites">Search favorites</string>
+    <string name="home_search_recents">Search call history</string>
+    <string name="home_search_contacts">Search contacts</string>
+    <string name="home_search_keypad">Search contacts by name or number</string>
+    <string name="home_create_contact">Create contact</string>
+    <string name="home_labels">Labels</string>
+    <string name="home_lock_now">Lock now</string>
+    <string name="home_speed_dial">Speed dial</string>
+    <string name="home_messaged_numbers">Messaged numbers</string>
+    <string name="home_history_settings">Call history settings</string>
+    <string name="home_select_all">Select all</string>
+    <string name="home_add_several">Add several numbers…</string>
+    <string name="home_duplicates">Find &amp; merge duplicates</string>
+    <string name="home_contacts_settings">Contacts settings</string>
+    <string name="home_sims">SIMs &amp; plan minutes</string>
+    <string name="home_keypad_settings">Keypad settings</string>
+    <string name="home_birthdays">Birthdays &amp; dates</string>
+    <string name="home_temporary">Temporary contacts</string>
+    <string name="home_recently_deleted">Recently deleted</string>
+    <string name="home_tidy_up">Tidy up contacts</string>
+    <string name="home_blocked_numbers">Blocked numbers</string>
+    <string name="home_settings">Settings</string>
+    <string name="home_more_options">More options</string>
+    <string name="home_close_search">Close search</string>
+    <string name="home_clear_search">Clear search</string>
+    <string name="main_open_contact">Open contact</string>
+
+    <!-- Favorites -->
+    <string name="fav_empty_title">No favorites yet</string>
+    <string name="fav_empty_body">Star a contact to keep it here. Tap a favorite to call, long-press to open it.</string>
+    <string name="fav_no_match">No favorites match “%1$s”</string>
+    <string name="fav_reorder">Reorder</string>
+    <string name="fav_reorder_hint">Drag favourites into the order you want. Pinch to change the size.</string>
+    <string name="fav_move_earlier">Move earlier</string>
+    <string name="fav_move_later">Move later</string>
+    <string name="fav_frequent">Frequent</string>
+    <string name="fav_sort_custom">Custom</string>
+    <string name="fav_sort_name">A–Z</string>
+    <string name="fav_sort_most_called">Most called</string>
+
+    <!-- Recents -->
+    <string name="recents_filter_all">All</string>
+    <string name="recents_filter_missed">Missed</string>
+    <string name="recents_filter_incoming">Incoming</string>
+    <string name="recents_filter_outgoing">Outgoing</string>
+    <string name="recents_filter_blocked">Blocked</string>
+    <string name="recents_filter_voicemail">Voicemail</string>
+    <plurals name="recents_voicemail_new">
+        <item quantity="one">Voicemail, %d new</item>
+        <item quantity="other">Voicemail, %d new</item>
+    </plurals>
+    <string name="recents_empty">No calls yet</string>
+    <string name="recents_nothing_here">Nothing here</string>
+    <string name="recents_day_summary">Day summary</string>
+    <string name="main_more_actions">More actions</string>
+    <string name="main_call_who">Call %1$s</string>
+    <string name="main_message_who">Message %1$s</string>
+    <string name="recents_send_message">Send message</string>
+    <string name="recents_edit_before_call">Edit number before calling</string>
+    <string name="recents_copy_number">Copy number</string>
+    <string name="recents_add_to_contact">Add to a contact</string>
+    <string name="recents_block_number">Block number</string>
+    <string name="recents_select">Select</string>
+    <string name="recents_delete_from_history">Delete from history</string>
+
+    <!-- Contacts list -->
+    <string name="contacts_no_private">No private contacts</string>
+    <string name="contacts_no_private_body">Private contacts are encrypted and only visible in Parley — other apps (messengers, keyboards) can\'t read them. Calls from them still show their name.</string>
+    <string name="contacts_no_matches">No matches for “%1$s”</string>
+    <string name="contacts_no_filter_match">No contacts match this filter</string>
+    <string name="contacts_none">No contacts</string>
+    <string name="contacts_selected">Selected</string>
+    <string name="contacts_alphabet_index">Alphabet index</string>
+
+    <!-- Contacts selection bar -->
+    <plurals name="sel_exported">
+        <item quantity="one">Exported %d contact</item>
+        <item quantity="other">Exported %d contacts</item>
+    </plurals>
+    <string name="sel_clear">Clear selection</string>
+    <plurals name="sel_count">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <string name="sel_star">Add to favorites</string>
+    <string name="sel_unstar">Remove from favorites</string>
+    <plurals name="sel_share_title">
+        <item quantity="one">Share %d contact</item>
+        <item quantity="other">Share %d contacts</item>
+    </plurals>
+    <string name="sel_add_to_label">Add to label</string>
+    <string name="sel_message_all">Message all</string>
+    <string name="sel_no_numbers">No phone numbers in the selection</string>
+    <string name="sel_introduce">Introduce myself…</string>
+    <string name="sel_merge">Merge into one</string>
+    <plurals name="sel_merged">
+        <item quantity="one">Merged %d contact</item>
+        <item quantity="other">Merged %d contacts</item>
+    </plurals>
+    <string name="sel_export_vcf">Export to .vcf</string>
+    <string name="sel_move_private">Move to private</string>
+    <plurals name="sel_delete_title">
+        <item quantity="one">Delete %d contact?</item>
+        <item quantity="other">Delete %d contacts?</item>
+    </plurals>
+    <string name="sel_delete_body">They go to Recently deleted, where you can restore them for 30 days.</string>
+    <string name="sel_no_labels">No labels yet. Create one from a contact\'s edit screen or in Google/CardDAV.</string>
+    <string name="sel_added_to">Added to %1$s</string>
+    <plurals name="sel_added_skipped">
+        <item quantity="one">Added; %d contact is stored in another account</item>
+        <item quantity="other">Added; %d contacts are stored in another account</item>
+    </plurals>
+
+    <!-- Keypad -->
+    <string name="keypad_hint_qwerty">Type a number, or letters of a name</string>
+    <string name="keypad_hint_t9">Type a number or letters of a name (T9)</string>
+    <string name="keypad_create_contact">Create new contact</string>
+    <!-- Messaging apps are brand names: keep them as they are. -->
+    <string name="keypad_message_apps">SMS, WhatsApp, Signal, Telegram, Viber</string>
+    <string name="keypad_hide">Hide on-screen keypad</string>
+    <string name="keypad_show">Show on-screen keypad</string>
+    <string name="keypad_speed_empty_title">Speed dial %1$d is empty</string>
+    <string name="keypad_speed_empty_body">Assign a number to key %1$d to call it with a long-press.</string>
+    <string name="keypad_set_up">Set up</string>
+    <string name="keypad_save_failed">Couldn\'t save the contact</string>
+    <!-- TalkBack for the number field: "Number: 0612345678" -->
+    <string name="keypad_number_description">Number: %1$s</string>
+    <string name="keypad_no_clip_number">No phone number on the clipboard</string>
+    <string name="keypad_paste_number">Paste number</string>
+    <string name="keypad_paste">Paste</string>
+    <string name="keypad_imei_title">IMEI and device identifiers</string>
+    <string name="keypad_imei_body">Android shows the IMEI only to the system, not to apps like Parley. You can find it in About phone.</string>
+    <string name="keypad_open_about">Open About phone</string>
+    <string name="keypad_long_plus">Type plus</string>
+    <string name="keypad_long_voicemail">Call voicemail</string>
+    <string name="keypad_long_pause">Type pause</string>
+    <string name="keypad_long_wait">Type wait</string>
+    <string name="keypad_key_voicemail">1, voicemail</string>
+    <!-- TalkBack for a key: "2, A B C" -->
+    <string name="keypad_key_letters">%1$s, %2$s</string>
+    <string name="keypad_call_with">Call with %1$s</string>
+    <string name="keypad_primary">Primary</string>
+    <string name="keypad_recent">Recent</string>
+    <string name="keypad_add_to_contacts">Add to contacts</string>
+    <string name="keypad_save_temporary">Save temporary contact</string>
+    <string name="keypad_add_to_existing">Add to existing contact</string>
+    <string name="keypad_search_body">Type a name, part of a name or a number.</string>
+    <string name="keypad_no_match">No contacts match “%1$s”</string>
 </resources>

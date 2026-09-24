@@ -42,9 +42,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.parley.R
 
 /**
  * The header of every home tab: the tab's title, its own actions, a search icon that turns the bar into a search
@@ -81,10 +83,10 @@ fun HomeHeader(
             TopAppBar(
                 title = { Text(title, style = MaterialTheme.typography.headlineSmall, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 actions = {
-                    IconButton({ onSearch(true) }) { Icon(Icons.Rounded.Search, "Search ${title.lowercase()}") }
+                    IconButton({ onSearch(true) }) { Icon(Icons.Rounded.Search, searchHint) }
                     actions()
                     Box {
-                        IconButton({ menuOpen = true }) { Icon(Icons.Rounded.MoreVert, "More options") }
+                        IconButton({ menuOpen = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.home_more_options)) }
                         DropdownMenu(menuOpen, { menuOpen = false }) { menu { menuOpen = false } }
                     }
                 },
@@ -101,7 +103,7 @@ private fun SearchBarHeader(query: String, hint: String, onQuery: (String) -> Un
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     TopAppBar(
-        navigationIcon = { IconButton(onClose) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Close search") } },
+        navigationIcon = { IconButton(onClose) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.home_close_search)) } },
         title = {
             TextField(
                 value = query,
@@ -112,7 +114,7 @@ private fun SearchBarHeader(query: String, hint: String, onQuery: (String) -> Un
                 keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
                 trailingIcon = {
                     // Clearing an empty field closes the search, like the back arrow.
-                    IconButton({ if (query.isEmpty()) onClose() else onQuery("") }) { Icon(Icons.Rounded.Close, if (query.isEmpty()) "Close search" else "Clear search") }
+                    IconButton({ if (query.isEmpty()) onClose() else onQuery("") }) { Icon(Icons.Rounded.Close, stringResource(if (query.isEmpty()) R.string.home_close_search else R.string.home_clear_search)) }
                 },
                 shape = RoundedCornerShape(28.dp),
                 colors = TextFieldDefaults.colors(

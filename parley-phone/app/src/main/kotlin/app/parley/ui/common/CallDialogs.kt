@@ -61,7 +61,7 @@ fun CallQuestions(
 ) {
     // Kept for the SIM dialog even when the guard sheet was answered first.
     var remember by remember(p.number) { mutableStateOf(false) }
-    val shownNumber = app.parley.ui.Bidi.ltr(Format.number(p.number, countryIso))
+    val shownNumber = Bidi.ltr(Format.number(p.number, countryIso))
     val who = p.name?.let { stringResource(R.string.call_who_with_number, it, shownNumber) } ?: shownNumber
 
     if (p.warnings.isNotEmpty()) {

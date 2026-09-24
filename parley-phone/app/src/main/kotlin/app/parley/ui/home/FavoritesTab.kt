@@ -43,6 +43,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
@@ -52,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.people.FavoriteOrder
 import app.parley.common.people.FavoriteSort
@@ -67,7 +69,7 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "") {
     val ps by vm.people.settings.collectAsStateWithLifecycle()
     var reordering by remember { mutableStateOf(false) }
     if (favorites.isEmpty() && frequents.isEmpty()) {
-        EmptyState(Icons.Rounded.StarOutline, "No favorites yet", "Star a contact to keep it here. Tap a favorite to call, long-press to open it.")
+        EmptyState(Icons.Rounded.StarOutline, stringResource(R.string.fav_empty_title), stringResource(R.string.fav_empty_body))
         return
     }
     // Local copy while dragging; written back (by lookup key) when the drag ends.
@@ -108,24 +110,26 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "") {
         },
     ) {
         if (q.isNotEmpty() && shownFavorites.isEmpty() && shownFrequents.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
-            EmptyState(Icons.Rounded.StarOutline, "No favorites match “$q”", modifier = Modifier.padding(top = 32.dp))
+            EmptyState(Icons.Rounded.StarOutline, stringResource(R.string.fav_no_match, q), modifier = Modifier.padding(top = 32.dp))
         }
         if (q.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 FavoriteSort.entries.forEach { s ->
-                    FilterChip(ps.favoriteSort == s, { vm.people.update { it.copy(favoriteSort = s) }; if (s != FavoriteSort.CUSTOM) reordering = false }, label = { Text(s.title) })
+                    FilterChip(ps.favoriteSort == s, { vm.people.update { it.copy(favoriteSort = s) }; if (s != FavoriteSort.CUSTOM) reordering = false }, label = { Text(stringResource(s.labelRes)) })
                 }
                 if (favorites.size > 1) TextButton({
                     if (!reordering && ps.favoriteSort != FavoriteSort.CUSTOM) vm.people.setFavoriteOrder(favorites.map { it.lookupKey })
                     reordering = !reordering
-                }) { Text(if (reordering) "Done" else "Reorder") }
+                }) { Text(stringResource(if (reordering) R.string.main_done else R.string.fav_reorder)) }
             }
         }
         if (reordering) item(span = { GridItemSpan(maxLineSpan) }) {
-            Text("Drag favourites into the order you want. Pinch to change the size.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
+            Text(stringResource(R.string.fav_reorder_hint), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
         }
         itemsIndexed(shownFavorites, key = { _, c -> "f" + c.id }) { i, c ->
             val dragging = dragKey == c.lookupKey
+            val moveEarlier = stringResource(R.string.fav_move_earlier)
+            val moveLater = stringResource(R.string.fav_move_later)
             val base = Modifier.animateItem(placementSpec = if (dragging) null else androidx.compose.animation.core.spring())
             if (reordering) {
                 Tile(
@@ -134,8 +138,8 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "") {
                         .graphicsLayer { if (dragging) { translationX = dragOffset.x; translationY = dragOffset.y; scaleX = 1.08f; scaleY = 1.08f } }
                         .semantics {
                             customActions = listOfNotNull(
-                                if (i > 0) CustomAccessibilityAction("Move earlier") { order = order.moved(i, i - 1); commit(); true } else null,
-                                if (i < order.size - 1) CustomAccessibilityAction("Move later") { order = order.moved(i, i + 1); commit(); true } else null,
+                                if (i > 0) CustomAccessibilityAction(moveEarlier) { order = order.moved(i, i - 1); commit(); true } else null,
+                                if (i < order.size - 1) CustomAccessibilityAction(moveLater) { order = order.moved(i, i + 1); commit(); true } else null,
                             )
                         }
                         .pointerInput(c.lookupKey) {
@@ -173,7 +177,7 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "") {
         }
         if (shownFrequents.isNotEmpty() && !reordering) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Text("Frequent", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp))
+                Text(stringResource(R.string.fav_frequent), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp))
             }
             items(shownFrequents, key = { "q" + it.key }) { g ->
                 Tile(g.title, g.contact?.photoUri, onClick = { vm.requestCall(g.number, g.contact?.displayName, source = app.parley.common.calls.CallSource.FAVORITE) }, onLong = {
@@ -183,6 +187,14 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "") {
         }
     }
 }
+
+/** Chip text of a favourites order ([FavoriteSort.title] is the English original). */
+private val FavoriteSort.labelRes: Int
+    get() = when (this) {
+        FavoriteSort.CUSTOM -> R.string.fav_sort_custom
+        FavoriteSort.NAME -> R.string.fav_sort_name
+        FavoriteSort.MOST_CALLED -> R.string.fav_sort_most_called
+    }
 
 private fun List<ContactSummary>.moved(from: Int, to: Int): List<ContactSummary> {
     if (from !in indices || to !in indices) return this
@@ -194,7 +206,7 @@ private fun List<ContactSummary>.moved(from: Int, to: Int): List<ContactSummary>
 private fun Tile(name: String, photo: String?, onClick: () -> Unit, onLong: () -> Unit, modifier: Modifier = Modifier, reorder: Boolean = false) {
     Column(
         modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
-            .then(if (reorder) Modifier else Modifier.combinedClickable(onClick = onClick, onLongClick = onLong, onClickLabel = "Call", onLongClickLabel = "Open contact"))
+            .then(if (reorder) Modifier else Modifier.combinedClickable(onClick = onClick, onLongClick = onLong, onClickLabel = stringResource(R.string.main_call), onLongClickLabel = stringResource(R.string.main_open_contact)))
             .padding(vertical = 12.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

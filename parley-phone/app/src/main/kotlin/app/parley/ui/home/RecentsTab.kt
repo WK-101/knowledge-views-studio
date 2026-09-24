@@ -44,11 +44,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import app.parley.R
+import app.parley.ui.Bidi
 import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -111,14 +115,15 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
                         selected = filter == f,
                         onClick = { vm.recentFilter.value = f },
                         label = {
-                            Text(f.name.lowercase().replaceFirstChar { it.uppercase() })
+                            Text(stringResource(f.labelRes))
                             if (f == RecentFilter.VOICEMAIL && voicemail.unheard > 0) {
                                 Spacer(Modifier.width(6.dp))
                                 androidx.compose.material3.Badge { Text(voicemail.unheard.toString()) }
                             }
                         },
                         modifier = if (f == RecentFilter.VOICEMAIL && voicemail.unheard > 0) {
-                            Modifier.semantics { contentDescription = "Voicemail, ${voicemail.unheard} new" }
+                            val spoken = pluralStringResource(R.plurals.recents_voicemail_new, voicemail.unheard, voicemail.unheard)
+                            Modifier.semantics { contentDescription = spoken }
                         } else {
                             Modifier
                         },
@@ -135,7 +140,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
         val list = groups
         if (list != null && list.isEmpty()) {
             item(key = "empty") {
-                EmptyState(Icons.Rounded.AccessTime, if (filter == RecentFilter.ALL) "No calls yet" else "Nothing here", modifier = Modifier.padding(top = 48.dp))
+                EmptyState(Icons.Rounded.AccessTime, stringResource(if (filter == RecentFilter.ALL) R.string.recents_empty else R.string.recents_nothing_here), modifier = Modifier.padding(top = 48.dp))
             }
         }
         var lastHeader: String? = null
@@ -146,7 +151,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
                 item(key = "h" + g.key) {
                     Text(
                         header, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.fillMaxWidth().clickable(onClickLabel = "Day summary") { daySummary = g.latest.date to header }
+                        modifier = Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(R.string.recents_day_summary)) { daySummary = g.latest.date to header }
                             .padding(start = 20.dp, top = 12.dp, bottom = 4.dp),
                     )
                 }
@@ -201,7 +206,7 @@ fun RecentRow(
     val (icon, tint) = callTypeIcon(e.type)
     val missed = e.type == CallType.MISSED || e.type == CallType.REJECTED
     ListItem(
-        modifier = Modifier.combinedClickable(onClick = onOpen, onLongClick = onLongClick, onLongClickLabel = "More actions")
+        modifier = Modifier.combinedClickable(onClick = onOpen, onLongClick = onLongClick, onLongClickLabel = stringResource(R.string.main_more_actions))
             .semantics { this.selected = selected },
         colors = if (selected) androidx.compose.material3.ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else androidx.compose.material3.ListItemDefaults.colors(),
         leadingContent = {
@@ -209,7 +214,7 @@ fun RecentRow(
         },
         headlineContent = {
             Text(
-                (if (g.vaultId != null) "🔒 " else "") + g.title + if (g.calls.size > 1) " (${g.calls.size})" else "",
+                (if (g.vaultId != null) "🔒 " else "") + (if (g.calls.size > 1) stringResource(R.string.missed_name_count, g.shownTitle, g.calls.size) else g.shownTitle),
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 color = if (missed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
             )
@@ -223,11 +228,11 @@ fun RecentRow(
                 val parts = listOfNotNull(
                     location,
                     if (g.contact != null) g.contact.phones.firstOrNull { p -> app.parley.common.PhoneNumbers.matchKey(p.number) == app.parley.common.PhoneNumbers.matchKey(e.number) }
-                        ?.let { p -> Format.phoneType(context.resources, p.type, p.label) } else if (!g.hidden && g.contact == null && g.cachedName != null) Format.number(e.number, countryIso) else null,
+                        ?.let { p -> Format.phoneType(context.resources, p.type, p.label) } else if (!g.hidden && g.contact == null && g.cachedName != null) Bidi.ltr(Format.number(e.number, countryIso)) else null,
                     e.accountId?.let { simLabels[it] },
                     Format.shortWhen(context, e.date),
                 )
-                Text(parts.joinToString(" · "), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(parts.joinToString(stringResource(R.string.main_separator)), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if (badge != null) {
                 Text(
@@ -239,11 +244,26 @@ fun RecentRow(
         },
         trailingContent = {
             if (!g.hidden && g.number.isNotBlank()) {
-                IconButton(onClick = onCall) { Icon(Icons.Rounded.Call, "Call ${g.title}", tint = MaterialTheme.colorScheme.primary) }
+                IconButton(onClick = onCall) { Icon(Icons.Rounded.Call, stringResource(R.string.main_call_who, g.title), tint = MaterialTheme.colorScheme.primary) }
             }
         },
     )
 }
+
+/** The row's title; a number (no name) stays left to right in right-to-left languages (L3). */
+private val RecentGroup.shownTitle: String
+    get() = if (contact == null && cachedName.isNullOrBlank() && number.isNotBlank()) Bidi.ltr(title) else title
+
+/** Chip text of a Recents filter. */
+private val RecentFilter.labelRes: Int
+    get() = when (this) {
+        RecentFilter.ALL -> R.string.recents_filter_all
+        RecentFilter.MISSED -> R.string.recents_filter_missed
+        RecentFilter.INCOMING -> R.string.recents_filter_incoming
+        RecentFilter.OUTGOING -> R.string.recents_filter_outgoing
+        RecentFilter.BLOCKED -> R.string.recents_filter_blocked
+        RecentFilter.VOICEMAIL -> R.string.recents_filter_voicemail
+    }
 
 @Composable
 fun callTypeIcon(type: CallType): Pair<ImageVector, Color> = when (type) {
@@ -265,25 +285,25 @@ private fun RecentActionsSheet(vm: AppViewModel, g: RecentGroup, open: (String) 
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     fun act(block: () -> Unit) { onDismiss(); block() }
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
-        Text(g.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+        Text(g.shownTitle, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         val hasNumber = !g.hidden && g.number.isNotBlank()
         @Composable
-        fun row(label: String, icon: ImageVector, enabled: Boolean = true, onClick: () -> Unit) {
-            if (enabled) ListItem(headlineContent = { Text(label) }, leadingContent = { Icon(icon, null) }, modifier = Modifier.clickable(onClick = onClick))
+        fun row(label: Int, icon: ImageVector, enabled: Boolean = true, onClick: () -> Unit) {
+            if (enabled) ListItem(headlineContent = { Text(stringResource(label)) }, leadingContent = { Icon(icon, null) }, modifier = Modifier.clickable(onClick = onClick))
         }
-        row("Call", Icons.Rounded.Call, hasNumber) { act { vm.requestCall(g.number, g.contact?.displayName) } }
-        row("Send message", Icons.AutoMirrored.Rounded.Message, hasNumber) { act { app.parley.ui.common.Intents.sms(context, g.number) } }
-        row("Message on…", Icons.AutoMirrored.Rounded.Chat, hasNumber) { act { onMessageOn(g.number) } }
-        row("Edit number before calling", Icons.Rounded.Dialpad, hasNumber) {
+        row(R.string.main_call, Icons.Rounded.Call, hasNumber) { act { vm.requestCall(g.number, g.contact?.displayName) } }
+        row(R.string.recents_send_message, Icons.AutoMirrored.Rounded.Message, hasNumber) { act { app.parley.ui.common.Intents.sms(context, g.number) } }
+        row(R.string.missed_message_on, Icons.AutoMirrored.Rounded.Chat, hasNumber) { act { onMessageOn(g.number) } }
+        row(R.string.recents_edit_before_call, Icons.Rounded.Dialpad, hasNumber) {
             act { vm.navigate(app.parley.NavEvent.Tab(app.parley.common.StartTab.KEYPAD, dial = g.number)) }
         }
-        row("Copy number", Icons.Rounded.ContentCopy, hasNumber) { act { app.parley.ui.common.Intents.copy(context, g.number) } }
-        row("Create contact", Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null) { act { open(Routes.edit(phone = g.number)) } }
-        row("Add to a contact", Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null) { act { open(Routes.pick(g.number)) } }
-        row("Block number", Icons.Rounded.Block, hasNumber) { act { vm.blockNumber(g.number) } }
-        row("Select", Icons.Rounded.Block, true) { act { vm.recentSelection.value = setOf(g.key) } }
+        row(R.string.recents_copy_number, Icons.Rounded.ContentCopy, hasNumber) { act { app.parley.ui.common.Intents.copy(context, g.number) } }
+        row(R.string.home_create_contact, Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null) { act { open(Routes.edit(phone = g.number)) } }
+        row(R.string.recents_add_to_contact, Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null) { act { open(Routes.pick(g.number)) } }
+        row(R.string.recents_block_number, Icons.Rounded.Block, hasNumber) { act { vm.blockNumber(g.number) } }
+        row(R.string.recents_select, Icons.Rounded.Block, true) { act { vm.recentSelection.value = setOf(g.key) } }
         if (hasNumber) app.parley.ui.blocking.RecentBlockingActions(vm, g.number, g.contact?.displayName, g.latest.type == CallType.BLOCKED, onDismiss)
-        row("Delete from history", Icons.Rounded.Delete) {
+        row(R.string.recents_delete_from_history, Icons.Rounded.Delete) {
             act {
                 scope.launch {
                     vm.c.history.delete(g.calls.filter { it.id > 0 })

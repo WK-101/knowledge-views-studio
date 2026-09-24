@@ -42,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.data.GroupInfo
 import app.parley.ui.Avatar
@@ -93,8 +95,8 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
             if (shown.isEmpty()) {
                 item {
                     EmptyState(
-                        androidx.compose.material.icons.Icons.Rounded.Lock, "No private contacts",
-                        "Private contacts are encrypted and only visible in Parley — other apps (messengers, keyboards) can't read them. Calls from them still show their name.",
+                        androidx.compose.material.icons.Icons.Rounded.Lock, stringResource(R.string.contacts_no_private),
+                        stringResource(R.string.contacts_no_private_body),
                         Modifier.padding(top = 32.dp),
                     )
                 }
@@ -146,9 +148,9 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
                     EmptyState(
                         Icons.Rounded.People,
                         when {
-                            query.isNotBlank() -> "No matches for “$query”"
-                            !filter.isEmpty -> "No contacts match this filter"
-                            else -> "No contacts"
+                            query.isNotBlank() -> stringResource(R.string.contacts_no_matches, query)
+                            !filter.isEmpty -> stringResource(R.string.contacts_no_filter_match)
+                            else -> stringResource(R.string.contacts_none)
                         },
                         modifier = Modifier.padding(top = 48.dp),
                     )
@@ -224,7 +226,7 @@ fun ContactRow(
     onClick: () -> Unit,
 ) {
     ListItem(
-        modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = "Select"),
+        modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = stringResource(R.string.recents_select)),
         colors = if (selected) androidx.compose.material3.ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else androidx.compose.material3.ListItemDefaults.colors(),
         leadingContent = {
             if (selectionMode) {
@@ -233,7 +235,7 @@ fun ContactRow(
                         .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (selected) androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Rounded.Check, "Selected", tint = MaterialTheme.colorScheme.onPrimary)
+                    if (selected) androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Rounded.Check, stringResource(R.string.contacts_selected), tint = MaterialTheme.colorScheme.onPrimary)
                 }
             } else {
                 Avatar(c.displayName, c.photoUri, avatarSize(), Modifier.shared("avatar-${c.id}"), isCompany = isCompany)
@@ -246,10 +248,10 @@ fun ContactRow(
             val n = (c.phones.firstOrNull { it.isPrimary } ?: c.phones.first()).number
             Row {
                 androidx.compose.material3.IconButton({ if (onMessage != null) onMessage(n) else app.parley.ui.common.Intents.sms(ctx, n) }) {
-                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Rounded.Message, "Message ${c.displayName}")
+                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Rounded.Message, stringResource(R.string.main_message_who, c.displayName))
                 }
                 androidx.compose.material3.IconButton({ onCall(n) }) {
-                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Rounded.Call, "Call ${c.displayName}", tint = MaterialTheme.colorScheme.primary)
+                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Rounded.Call, stringResource(R.string.main_call_who, c.displayName), tint = MaterialTheme.colorScheme.primary)
                 }
             }
         }) else null,
@@ -262,13 +264,14 @@ private fun FastScroller(letters: List<String>, modifier: Modifier, onLetter: (S
     // U7: letters as large as fit (8 to 13 sp), so a short alphabet isn't tiny and a long one doesn't overlap.
     val density = androidx.compose.ui.platform.LocalDensity.current
     val letterSp = with(density) { (height / letters.size.coerceAtLeast(1) * 0.62f).toSp().value }.coerceIn(8f, 13f)
+    val indexLabel = stringResource(R.string.contacts_alphabet_index)
     Column(
         modifier
             .fillMaxHeight()
             .width(28.dp)
             .padding(vertical = 8.dp)
             .onSizeChanged { height = it.height }
-            .semantics { contentDescription = "Alphabet index" }
+            .semantics { contentDescription = indexLabel }
             .pointerInput(letters) {
                 fun pick(y: Float) {
                     val i = ((y / height) * letters.size).toInt().coerceIn(0, letters.size - 1)
