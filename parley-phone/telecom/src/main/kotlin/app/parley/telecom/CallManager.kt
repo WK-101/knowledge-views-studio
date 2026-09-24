@@ -450,6 +450,8 @@ object CallManager {
             isEmergency = isEmergency(number),
             note = found?.note,
             lastCall = found?.lastCall,
+            subtitle = found?.subtitle,
+            context = found?.context,
             unknown = id in unknownCallers,
             location = if (id in unknownCallers && number != null) locations.getOrPut(id) { runCatching { TelecomGraph.dependencies.describeNumber(number) }.getOrNull().orEmpty() }.ifEmpty { null } else null,
             verdict = outcomes[id]?.verdict,

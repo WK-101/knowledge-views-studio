@@ -37,6 +37,10 @@ data class PeopleSettings(
     val pickerOneField: Boolean = false,
     /** Ringtone URI per label title. */
     val labelRingtones: Map<String, String> = emptyMap(),
+    /** U4: swipe actions on contact and Recents rows (off by default). */
+    val swipe: app.parley.common.people.SwipeConfig = app.parley.common.people.SwipeConfig(),
+    /** U6: how avatars without a photo look. */
+    val avatarStyle: app.parley.common.people.AvatarStyle = app.parley.common.people.AvatarStyle.COLOURFUL,
 )
 
 private val Context.peopleStore: DataStore<Preferences> by preferencesDataStore(name = "people")
@@ -64,9 +68,10 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
         store.edit { p ->
             map.forEach { (k, v) ->
                 when (k) {
-                    K.nickname.name, K.matchAll.name, K.privateDefault.name, K.pickerOne.name -> p[booleanPreferencesKey(k)] = v.toBoolean()
+                    K.nickname.name, K.matchAll.name, K.privateDefault.name, K.pickerOne.name, K.swipeOn.name -> p[booleanPreferencesKey(k)] = v.toBoolean()
                     K.columns.name -> v.toIntOrNull()?.let { p[intPreferencesKey(k)] = it }
-                    K.secondLine.name, K.favSort.name, K.favOrder.name, K.ringtones.name -> p[stringPreferencesKey(k)] = v
+                    K.secondLine.name, K.favSort.name, K.favOrder.name, K.ringtones.name, K.swipeRight.name, K.swipeLeft.name, K.avatar.name ->
+                        p[stringPreferencesKey(k)] = v
                 }
             }
         }
@@ -86,6 +91,12 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
             labelRingtones = this[K.ringtones]?.let { raw ->
                 runCatching { JSONObject(raw).let { o -> o.keys().asSequence().associateWith { o.getString(it) } } }.getOrNull()
             } ?: d.labelRingtones,
+            swipe = app.parley.common.people.SwipeConfig(
+                enabled = this[K.swipeOn] ?: d.swipe.enabled,
+                right = app.parley.common.people.SwipeAction.parse(this[K.swipeRight], d.swipe.right),
+                left = app.parley.common.people.SwipeAction.parse(this[K.swipeLeft], d.swipe.left),
+            ),
+            avatarStyle = this[K.avatar]?.let { v -> app.parley.common.people.AvatarStyle.entries.firstOrNull { it.name == v } } ?: d.avatarStyle,
         )
     }
 
@@ -99,6 +110,10 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
         this[K.privateDefault] = s.privateByDefault
         this[K.pickerOne] = s.pickerOneField
         this[K.ringtones] = JSONObject(s.labelRingtones).toString()
+        this[K.swipeOn] = s.swipe.enabled
+        this[K.swipeRight] = s.swipe.right.name
+        this[K.swipeLeft] = s.swipe.left.name
+        this[K.avatar] = s.avatarStyle.name
     }
 
     private object K {
@@ -111,6 +126,10 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
         val privateDefault = booleanPreferencesKey("private_by_default")
         val pickerOne = booleanPreferencesKey("picker_one_field")
         val ringtones = stringPreferencesKey("label_ringtones")
+        val swipeOn = booleanPreferencesKey("swipe_enabled")
+        val swipeRight = stringPreferencesKey("swipe_right")
+        val swipeLeft = stringPreferencesKey("swipe_left")
+        val avatar = stringPreferencesKey("avatar_style")
     }
 
     private companion object {

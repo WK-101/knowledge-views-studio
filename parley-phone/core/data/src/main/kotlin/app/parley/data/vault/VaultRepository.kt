@@ -42,6 +42,18 @@ data class VaultSummary(
     val purgeHistory: Boolean = false,
 )
 
+/**
+ * I6: what the call screen shows for a private contact, readable without unlocking (from the caller-ID copy):
+ * job/company, the "who is this" line, the note for calls, and whether an encrypted photo exists.
+ */
+data class VaultCallerCard(
+    val name: String,
+    val subtitle: String?,
+    val context: String?,
+    val note: String?,
+    val photoUri: String?,
+)
+
 data class PrivateCall(val id: Long, val vaultId: Long, val number: String, val name: String, val date: Long, val durationSec: Long, val type: Int)
 
 /**
@@ -81,7 +93,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     suspend fun details(id: Long): ContactDetails? = withContext(Dispatchers.IO) {
         val e = dao.get(id) ?: return@withContext null
         try {
-            ContactDetailsJson.decode(String(VaultCrypto.openDetail(e.detailBlob)))
+            // The photo is kept apart (encrypted, readable for caller ID); anything older in the record is stale.
+            ContactDetailsJson.decode(String(VaultCrypto.openDetail(e.detailBlob))).copy(photoUri = photoUri(id))
         } catch (_: VaultCrypto.KeyLostException) {
             // The screen lock was removed or reset, which destroys the unlock-bound key. Name, numbers and labels
             // survive in the caller-ID copy: rebuild from them and re-seal under a new key.
@@ -116,10 +129,16 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         val purge = purgeHistory ?: existing?.let { summarize(it)?.purgeHistory } ?: false
         val caller = JSONObject().put("name", name).put("numbers", JSONArray(numbers))
             .put("labels", JSONArray(d.phones.filter { it.value.isNotBlank() }.map { it.type }))
+            // I6: the caller card's extra lines, readable while the phone is locked like the name.
+            .apply {
+                app.parley.common.people.CallerCard.subtitle(d.title, d.company)?.let { put("sub", it) }
+                d.context.trim().ifEmpty { null }?.let { put("ctx", it) }
+                d.pinnedNote.trim().ifEmpty { null }?.let { put("note", it) }
+            }
             // F15: when it was last saved, so the newest of two entries sharing a number wins.
             .put("u", System.currentTimeMillis())
             .apply { if (purge) put("purge", true) }
-        val detailsJson = ContactDetailsJson.encode(d)
+        val detailsJson = ContactDetailsJson.encode(d.copy(photoUri = null))
         val detail = JSONObject(detailsJson)
         if (record != null) {
             val blobs = JSONObject()
@@ -191,6 +210,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     }
 
     suspend fun delete(id: Long) = withContext(Dispatchers.IO) {
+        photoFile(id).delete()
         dao.delete(id)
         dao.clearNumbers(id)
         dao.deletePrivateCalls(id)
@@ -223,6 +243,54 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             )
         }
         null
+    }
+
+    /** I6: the caller card of entry [id] (no unlock needed), or null. */
+    suspend fun callerCard(id: Long): VaultCallerCard? = withContext(Dispatchers.IO) {
+        val e = dao.get(id) ?: return@withContext null
+        runCatching {
+            val o = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
+            VaultCallerCard(
+                o.optString("name"), o.optString("sub").ifEmpty { null }, o.optString("ctx").ifEmpty { null },
+                o.optString("note").ifEmpty { null }, photoUri(id),
+            )
+        }.getOrNull()
+    }
+
+    // ---- I6: encrypted photo (the caller-ID key, so the call screen can show it while the phone is locked) ----
+
+    private fun photoDir() = java.io.File(context.filesDir, "vault_photos").apply { mkdirs() }
+    private fun photoFile(id: Long) = java.io.File(photoDir(), "$id.bin")
+
+    /**
+     * The in-app URI of entry [id]'s photo (served decrypted only inside Parley by the non-exported vault photo
+     * provider), or null when it has none. The file time is part of the URI so a new photo isn't served from cache.
+     */
+    fun photoUri(id: Long): String? {
+        val f = photoFile(id)
+        return if (f.isFile) "content://${context.packageName}.vaultphotos/$id/${f.lastModified()}" else null
+    }
+
+    /** The decrypted photo (JPEG) of entry [id], or null. */
+    fun photoBytes(id: Long): ByteArray? = runCatching {
+        val f = photoFile(id)
+        if (!f.isFile) null else VaultCrypto.openCallerId(f.readBytes())
+    }.getOrNull()
+
+    /** Stores [image] (any format Android decodes) as entry [id]'s photo, scaled down and encrypted. */
+    suspend fun setPhoto(id: Long, image: ByteArray): Boolean = withContext(Dispatchers.IO) {
+        val bmp = android.graphics.BitmapFactory.decodeByteArray(image, 0, image.size) ?: return@withContext false
+        val max = 512
+        val scale = minOf(1f, max.toFloat() / maxOf(bmp.width, bmp.height))
+        val scaled = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(bmp, (bmp.width * scale).toInt().coerceAtLeast(1), (bmp.height * scale).toInt().coerceAtLeast(1), true) else bmp
+        val jpeg = java.io.ByteArrayOutputStream().also { scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray()
+        val tmp = java.io.File(photoDir(), "$id.tmp")
+        tmp.writeBytes(VaultCrypto.sealCallerId(jpeg))
+        tmp.renameTo(photoFile(id))
+    }
+
+    fun removePhoto(id: Long) {
+        photoFile(id).delete()
     }
 
     /** Expired entries with what housekeeping needs to clean up after them (F5, F13). */

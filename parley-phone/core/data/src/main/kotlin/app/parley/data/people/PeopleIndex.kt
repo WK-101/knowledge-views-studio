@@ -5,6 +5,11 @@ import android.provider.ContactsContract.CommonDataKinds.Event
 import android.provider.ContactsContract.CommonDataKinds.GroupMembership
 import android.provider.ContactsContract.CommonDataKinds.Nickname
 import android.provider.ContactsContract.CommonDataKinds.Organization
+import android.provider.ContactsContract.CommonDataKinds.Im
+import android.provider.ContactsContract.CommonDataKinds.Note
+import android.provider.ContactsContract.CommonDataKinds.SipAddress
+import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
+import android.provider.ContactsContract.CommonDataKinds.Website
 import android.provider.ContactsContract.Data
 import android.provider.ContactsContract.Groups
 import android.provider.ContactsContract.RawContacts
@@ -32,6 +37,8 @@ data class PeopleIndexData(
     /** Contacts per label title. */
     val labelCounts: Map<String, Int> = emptyMap(),
     val loaded: Boolean = false,
+    /** I8: what the Contacts tab's search also looks at (addresses, notes, websites, handles…). */
+    val search: Map<Long, app.parley.common.people.BroadSearch.Extra> = emptyMap(),
 ) {
     fun countFor(a: AccountRef): Int = accountCounts[a] ?: 0
 
@@ -58,6 +65,10 @@ class PeopleIndex(private val context: Context, contacts: ContactsRepository, sc
         val accounts = LinkedHashSet<String>()
         val labels = HashSet<String>()
         var deceased = false
+        val addresses = ArrayList<String>(0)
+        var note = ""
+        val websites = ArrayList<String>(0)
+        val handles = ArrayList<String>(0)
     }
 
     private fun load(): PeopleIndexData {
@@ -83,8 +94,11 @@ class PeopleIndex(private val context: Context, contacts: ContactsRepository, sc
         query(
             Data.CONTENT_URI,
             arrayOf(Data.CONTACT_ID, Data.MIMETYPE, Data.DATA1, Data.DATA2, Data.DATA3, Data.DATA4),
-            "${Data.MIMETYPE} IN (?,?,?,?)",
-            arrayOf(Organization.CONTENT_ITEM_TYPE, Nickname.CONTENT_ITEM_TYPE, GroupMembership.CONTENT_ITEM_TYPE, Event.CONTENT_ITEM_TYPE),
+            "${Data.MIMETYPE} IN (?,?,?,?,?,?,?,?,?)",
+            arrayOf(
+                Organization.CONTENT_ITEM_TYPE, Nickname.CONTENT_ITEM_TYPE, GroupMembership.CONTENT_ITEM_TYPE, Event.CONTENT_ITEM_TYPE,
+                StructuredPostal.CONTENT_ITEM_TYPE, Note.CONTENT_ITEM_TYPE, Website.CONTENT_ITEM_TYPE, Im.CONTENT_ITEM_TYPE, SipAddress.CONTENT_ITEM_TYPE,
+            ),
         ) { c ->
             val a = acc(c.getLong(0))
             when (c.getString(1)) {
@@ -95,6 +109,11 @@ class PeopleIndex(private val context: Context, contacts: ContactsRepository, sc
                 Nickname.CONTENT_ITEM_TYPE -> if (a.nickname.isEmpty()) a.nickname = c.getString(2).orEmpty().trim()
                 GroupMembership.CONTENT_ITEM_TYPE -> c.getString(2)?.toLongOrNull()?.let { titles[it] }?.let { a.labels += it }
                 Event.CONTENT_ITEM_TYPE -> if (LifeEvents.isDeath(c.getInt(3), c.getString(4))) a.deceased = true
+                // I8: formatted address, note, website and handles are all DATA1.
+                StructuredPostal.CONTENT_ITEM_TYPE -> c.getString(2)?.takeIf { it.isNotBlank() }?.let { a.addresses += it }
+                Note.CONTENT_ITEM_TYPE -> if (a.note.isEmpty()) a.note = c.getString(2).orEmpty()
+                Website.CONTENT_ITEM_TYPE -> c.getString(2)?.takeIf { it.isNotBlank() }?.let { a.websites += it }
+                Im.CONTENT_ITEM_TYPE, SipAddress.CONTENT_ITEM_TYPE -> c.getString(2)?.takeIf { it.isNotBlank() }?.let { a.handles += it }
             }
         }
 
@@ -102,7 +121,10 @@ class PeopleIndex(private val context: Context, contacts: ContactsRepository, sc
         val labelCounts = HashMap<String, Int>()
         extras.values.forEach { e -> e.labels.forEach { labelCounts[it] = (labelCounts[it] ?: 0) + 1 } }
         titles.values.forEach { labelCounts.putIfAbsent(it, 0) }
-        return PeopleIndexData(extras, accountContacts.mapValues { it.value.size }, labelCounts, loaded = true)
+        val search = byId.mapValues { (_, a) ->
+            app.parley.common.people.BroadSearch.Extra(a.nickname, a.company, a.title, a.addresses, a.note, a.websites, a.handles)
+        }
+        return PeopleIndexData(extras, accountContacts.mapValues { it.value.size }, labelCounts, loaded = true, search = search)
     }
 
     private inline fun query(

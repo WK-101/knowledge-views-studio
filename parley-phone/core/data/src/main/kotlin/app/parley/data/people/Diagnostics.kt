@@ -91,6 +91,63 @@ class Diagnostics(private val context: Context) {
         }
     }
 
+    /**
+     * U10: the contacts tables as the provider holds them (raw contacts and their data rows), for problems that
+     * depend on how an account stored something. Content is never included: each value is replaced by its shape
+     * ("Aaaa +99 9923", see [app.parley.common.people.Reports.shape]); account names are masked like e-mail
+     * addresses. At most [maxRows] data rows.
+     */
+    fun rawDump(maxRows: Int = 3000): String = buildString {
+        val cr = context.contentResolver
+        fun shape(v: String?) = app.parley.common.people.Reports.shape(v)
+        appendLine("== Raw contacts (values masked: letters a/A, digits 9, only their shape is kept)")
+        try {
+            cr.query(
+                android.provider.ContactsContract.RawContacts.CONTENT_URI,
+                arrayOf("_id", "contact_id", "account_type", "account_name", "deleted", "dirty", "version", "sourceid", "starred", "data_set"),
+                null, null, "_id",
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    appendLine(
+                        "raw ${c.getLong(0)} contact=${c.getLong(1)} type=${c.getString(2) ?: "local"} account=${Masking.mask(c.getString(3).orEmpty()).let { if (it == c.getString(3)) shape(it) else it }} " +
+                            "deleted=${c.getInt(4)} dirty=${c.getInt(5)} v=${c.getInt(6)} synced=${!c.isNull(7)} starred=${c.getInt(8)} dataSet=${c.getString(9) ?: "-"}",
+                    )
+                }
+            } ?: appendLine("Not readable (contacts permission missing)")
+        } catch (e: Exception) {
+            appendLine("Not readable: ${e.javaClass.simpleName}")
+        }
+        appendLine()
+        appendLine("== Data rows")
+        val cols = (1..15).map { "data$it" }
+        try {
+            cr.query(
+                android.provider.ContactsContract.Data.CONTENT_URI,
+                arrayOf("_id", "raw_contact_id", "mimetype", "is_primary", "is_super_primary", "data_version") + cols,
+                null, null, "raw_contact_id, _id",
+            )?.use { c ->
+                var n = 0
+                while (c.moveToNext()) {
+                    if (n++ >= maxRows) {
+                        appendLine("… ${c.count - maxRows} more rows not shown")
+                        break
+                    }
+                    val values = cols.indices.mapNotNull { i ->
+                        val idx = 6 + i
+                        when {
+                            c.isNull(idx) -> null
+                            c.getType(idx) == android.database.Cursor.FIELD_TYPE_BLOB -> "${cols[i]}=<${c.getBlob(idx)?.size ?: 0} bytes>"
+                            else -> "${cols[i]}=${shape(c.getString(idx))}"
+                        }
+                    }
+                    appendLine("data ${c.getLong(0)} raw=${c.getLong(1)} ${c.getString(2)} p=${c.getInt(3)}/${c.getInt(4)} v=${c.getInt(5)} ${values.joinToString(" ")}")
+                }
+            } ?: appendLine("Not readable (contacts permission missing)")
+        } catch (e: Exception) {
+            appendLine("Not readable: ${e.javaClass.simpleName}")
+        }
+    }
+
     private fun reason(r: Int): String = if (Build.VERSION.SDK_INT < 30) r.toString() else when (r) {
         ApplicationExitInfo.REASON_CRASH -> "crash"
         ApplicationExitInfo.REASON_CRASH_NATIVE -> "native crash"

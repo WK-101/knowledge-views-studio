@@ -22,6 +22,10 @@ data class CallerDisplay(
     val lastCall: String? = null,
     /** Per-contact call-screen background (file URI in app storage), or null. See PeopleContainer.callBackgroundFor. */
     val backgroundUri: String? = null,
+    /** I6: "Engineer · Acme" (or "Work profile" for a work contact). */
+    val subtitle: String? = null,
+    /** I6: the "who is this" line of a private contact. */
+    val context: String? = null,
 )
 
 data class InCallAppearance(

@@ -32,6 +32,9 @@ class VaultMoves(
     suspend fun moveIn(contactId: Long, shown: ContactDetails): MovedIn = withContext(Dispatchers.IO) {
         val record = records.read(contactId, fullPhoto = true)?.let { capPhoto(contactId, it) }?.withoutMessengers()
         val id = vault.save(null, shown, record = record)
+        // I6: the contact's photo becomes the private contact's (encrypted) caller photo.
+        record?.raws?.asSequence()?.flatMap { it.rows }?.firstOrNull { it.mimeType == Mime.PHOTO && (it.blob?.size ?: 0) > 0 }?.blob
+            ?.let { runCatching { vault.setPhoto(id, it) } }
         val synced = contacts.purgeForVault(contactId)
         contacts.refresh()
         MovedIn(id, synced)
@@ -88,6 +91,7 @@ class VaultMoves(
             }
             val addrPool = original.addresses.toMutableList()
             val events = original.events.toMutableList()
+            val handlePool = original.handles.toMutableList()
             return original.copy(
                 prefix = d.prefix, given = d.given, middle = d.middle, family = d.family, suffix = d.suffix,
                 phoneticGiven = d.phoneticGiven, phoneticFamily = d.phoneticFamily, nickname = d.nickname,
@@ -101,6 +105,10 @@ class VaultMoves(
                 events = d.events.map { e ->
                     val i = events.indexOfFirst { it.date == e.date && it.type == e.type }
                     if (i >= 0) e.copy(id = events.removeAt(i).id) else e.copy(id = null)
+                },
+                handles = d.handles.map { h ->
+                    val i = handlePool.indexOfFirst { it.service == h.service && it.value.trim() == h.value.trim() }
+                    if (i >= 0) h.copy(id = handlePool.removeAt(i).id) else h.copy(id = null)
                 },
             )
         }

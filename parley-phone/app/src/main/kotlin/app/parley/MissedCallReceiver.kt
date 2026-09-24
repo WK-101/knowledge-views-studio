@@ -70,6 +70,8 @@ class MissedCallReceiver : BroadcastReceiver() {
                     .setNumber(count)
                     .build(),
             )
+        // I6: job or "who is this" for a single caller (private version only; see CallerCards).
+        if (count == 1 && !number.isNullOrBlank()) app.parley.data.people.CallerCards.missedCallLine(c, number, hideVault)?.let { b.setSubText(it) }
         // One-ring scams and premium lines: no one-tap call back from the notification (B10); the app asks first.
         val risky = count == 1 && !number.isNullOrBlank() && c.dialGuard.check(number).any { it.severe }
         if (count == 1 && !number.isNullOrBlank() && !risky) {

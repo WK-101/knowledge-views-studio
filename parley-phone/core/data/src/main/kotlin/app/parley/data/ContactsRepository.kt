@@ -17,6 +17,8 @@ import android.provider.ContactsContract.AggregationExceptions
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Event
 import android.provider.ContactsContract.CommonDataKinds.GroupMembership
+import android.provider.ContactsContract.CommonDataKinds.Im
+import android.provider.ContactsContract.CommonDataKinds.SipAddress
 import android.provider.ContactsContract.CommonDataKinds.Nickname
 import android.provider.ContactsContract.CommonDataKinds.Note
 import android.provider.ContactsContract.CommonDataKinds.Organization
@@ -211,29 +213,59 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     /** Every contact straight from the provider, without waiting for [contacts] to load (e.g. in a worker, F17). */
     suspend fun snapshot(): List<ContactSummary> = contacts.value ?: withContext(Dispatchers.IO) { loadAll() }
 
-    /** Fast indexed lookup used on incoming calls. */
+    /**
+     * Fast indexed lookup used on incoming calls. I9: when this user has a work profile, the enterprise lookup is
+     * used, which also finds work contacts when the work profile's policy allows caller ID across profiles (personal
+     * contacts come first). If that fails (policy, older OEM builds) the personal lookup is used, as before.
+     */
     fun lookup(number: String): CallerInfo? {
         if (number.isBlank() || !Permissions.has(context, android.Manifest.permission.READ_CONTACTS)) return null
-        val uri = Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number))
-        return cr.safeQuery(
-            uri,
-            arrayOf(
-                PhoneLookup._ID, PhoneLookup.LOOKUP_KEY, PhoneLookup.DISPLAY_NAME, PhoneLookup.PHOTO_URI,
-                PhoneLookup.TYPE, PhoneLookup.LABEL, PhoneLookup.CUSTOM_RINGTONE, PhoneLookup.SEND_TO_VOICEMAIL,
-            ),
-        )?.use { c ->
+        if (WorkProfile.exists(context)) {
+            try {
+                lookupIn(Uri.withAppendedPath(PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI, Uri.encode(number)), number, strict = true)?.let { return it }
+            } catch (_: Exception) {
+                // Fall back to the personal profile only.
+            }
+        }
+        return lookupIn(Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number)), number, strict = false)
+    }
+
+    private fun lookupIn(uri: Uri, number: String, strict: Boolean): CallerInfo? {
+        val projection = arrayOf(
+            PhoneLookup._ID, PhoneLookup.LOOKUP_KEY, PhoneLookup.DISPLAY_NAME, PhoneLookup.PHOTO_URI,
+            PhoneLookup.TYPE, PhoneLookup.LABEL, PhoneLookup.CUSTOM_RINGTONE, PhoneLookup.SEND_TO_VOICEMAIL,
+        )
+        val cursor = if (strict) cr.query(uri, projection, null, null, null) else cr.safeQuery(uri, projection)
+        return cursor?.use { c ->
             if (!c.moveToFirst()) return null
+            val id = c.getLong(0)
             CallerInfo(
-                contactId = c.getLong(0),
+                contactId = id,
                 lookupKey = c.getString(1),
                 name = c.getString(2) ?: number,
                 photoUri = c.getString(3),
                 numberLabel = Phone.getTypeLabel(context.resources, c.getInt(4), c.getString(5))?.toString(),
                 customRingtone = c.getString(6),
                 sendToVoicemail = c.getInt(7) != 0,
+                work = Contacts.isEnterpriseContactId(id),
             )
         }
     }
+
+    /** I6: (company, job title) of [contactId]'s first organization row, or null. */
+    fun organization(contactId: Long): Pair<String, String>? =
+        cr.safeQuery(
+            Data.CONTENT_URI, arrayOf(Organization.COMPANY, Organization.TITLE),
+            "${Data.CONTACT_ID}=? AND ${Data.MIMETYPE}=?", arrayOf(contactId.toString(), Organization.CONTENT_ITEM_TYPE),
+        )?.use { c ->
+            var out: Pair<String, String>? = null
+            while (out == null && c.moveToNext()) {
+                val company = c.getString(0)?.trim().orEmpty()
+                val title = c.getString(1)?.trim().orEmpty()
+                if (company.isNotEmpty() || title.isNotEmpty()) out = company to title
+            }
+            out
+        }
 
     /**
      * Whether [number] belongs to a contact: true / false, or null when it couldn't be checked (no permission,
@@ -322,6 +354,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         val emails = ArrayList<DataItem>()
         val sites = ArrayList<DataItem>()
         val relations = ArrayList<DataItem>()
+        val handles = ArrayList<HandleItem>()
         val addrs = ArrayList<PostalItem>()
         val events = ArrayList<EventItem>()
         val groups = HashSet<Long>()
@@ -348,7 +381,10 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
                     Organization.CONTENT_ITEM_TYPE -> if (base.orgId == null) base = base.copy(orgId = id, company = s(2), title = s(5))
                     Note.CONTENT_ITEM_TYPE -> if (base.noteId == null) base = base.copy(noteId = id, note = s(2))
                     Phone.CONTENT_ITEM_TYPE -> phones += DataItem(id, s(2), c.getInt(3), c.getString(4), c.getInt(12) != 0)
-                    Email.CONTENT_ITEM_TYPE -> emails += DataItem(id, s(2), c.getInt(3), c.getString(4))
+                    Email.CONTENT_ITEM_TYPE -> emails += DataItem(id, s(2), c.getInt(3), c.getString(4), c.getInt(12) != 0)
+                    Im.CONTENT_ITEM_TYPE, SipAddress.CONTENT_ITEM_TYPE ->
+                        app.parley.common.people.Handles.fromRow(c.getString(1), c.getString(2), c.getString(6), c.getString(7))
+                            ?.let { h -> handles += HandleItem(id, h.service, h.value, h.customProtocol) }
                     Website.CONTENT_ITEM_TYPE -> sites += DataItem(id, s(2), c.getInt(3), c.getString(4))
                     Relation.CONTENT_ITEM_TYPE -> relations += DataItem(id, s(2), c.getInt(3), c.getString(4))
                     StructuredPostal.CONTENT_ITEM_TYPE -> {
@@ -367,6 +403,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         base.copy(
             phones = if (forEdit) phones else phones.distinctBy { PhoneNumbers.lineKey(it.value, PhoneEnv.countryIso(context)) + it.type },
             emails = emails, websites = sites, relations = relations, addresses = addrs, events = events, groupIds = groups,
+            handles = if (forEdit) handles else handles.distinctBy { it.service to it.value.trim().lowercase() },
             readOnlyDataIds = if (forEdit) readOnlyDataIds(dataIds) else emptySet(),
         )
     }
@@ -592,6 +629,22 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
                 Event.CONTENT_ITEM_TYPE, Event.START_DATE, Event.TYPE, Event.LABEL,
             )
 
+            // I1: messenger handles. Only Im and SIP rows are planned, so no other row can be touched (see RowEdits).
+            fun handleRow(h: HandleItem) = app.parley.common.people.Handles.toColumns(h.handle).let { (m, v) -> app.parley.common.people.RowEdits.Row(h.id, m, v) }
+            val handleOps = app.parley.common.people.RowEdits.plan(
+                original?.handles.orEmpty().map(::handleRow), edited.handles.map(::handleRow),
+                setOf(Im.CONTENT_ITEM_TYPE, SipAddress.CONTENT_ITEM_TYPE), locked,
+            )
+            fun cv(m: Map<String, String?>) = ContentValues().apply { m.forEach { (k, v) -> put(k, v) } }
+            handleOps.forEach { op ->
+                when (op) {
+                    is app.parley.common.people.RowEdits.Op.Delete -> delete(op.id, op.mime)
+                    is app.parley.common.people.RowEdits.Op.Update -> update(op.id, op.mime, cv(op.values))
+                    // TYPE_OTHER (3) for both kinds, like other contacts apps.
+                    is app.parley.common.people.RowEdits.Op.Insert -> insert(op.mime, cv(op.values).apply { put(Data.DATA2, 3) })
+                }
+            }
+
             val keepAddr = edited.addresses.mapNotNull { it.id }.toSet()
             val addrBefore = original?.addresses.orEmpty().filter { it.id != null }.associateBy { it.id }
             original?.addresses.orEmpty().filter { it.id != null && it.id !in keepAddr }.forEach { delete(it.id!!, StructuredPostal.CONTENT_ITEM_TYPE) }
@@ -680,6 +733,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         Email.CONTENT_ITEM_TYPE -> "Email"
         Website.CONTENT_ITEM_TYPE -> "Website"
         Relation.CONTENT_ITEM_TYPE -> "Relation"
+        Im.CONTENT_ITEM_TYPE, SipAddress.CONTENT_ITEM_TYPE -> "Messenger handles"
         Event.CONTENT_ITEM_TYPE -> "Dates"
         StructuredPostal.CONTENT_ITEM_TYPE -> "Address"
         GroupMembership.CONTENT_ITEM_TYPE -> "Labels"

@@ -36,6 +36,19 @@ data class EventItem(
     val label: String? = null,
 )
 
+/**
+ * I1: a messenger handle row (Im or SipAddress). [id] is null for rows not yet saved. [customProtocol] keeps an
+ * unknown service's own name.
+ */
+data class HandleItem(
+    val id: Long? = null,
+    val service: app.parley.common.people.HandleService = app.parley.common.people.HandleService.SIGNAL,
+    val value: String = "",
+    val customProtocol: String? = null,
+) {
+    val handle: app.parley.common.people.Handle get() = app.parley.common.people.Handle(service, value, customProtocol)
+}
+
 data class AccountRef(val type: String?, val name: String?) {
     /** Phone-only storage: no account, or an OEM phone account such as Samsung's `vnd.sec.contact.phone` (F10). */
     val isLocal: Boolean get() = app.parley.common.record.AccountKinds.isLocalType(type)
@@ -96,6 +109,14 @@ data class ContactDetails(
      * locked and saving never changes or deletes them (F12).
      */
     val readOnlyDataIds: Set<Long> = emptySet(),
+    /** I1: messenger handles (Im and SIP rows). */
+    val handles: List<HandleItem> = emptyList(),
+    /**
+     * I6, private contacts only (kept in their encrypted record): a "who is this" line and a note shown when they
+     * call. Regular contacts keep their note for calls in Parley's contact metadata instead.
+     */
+    val context: String = "",
+    val pinnedNote: String = "",
 ) {
     val composedName: String
         get() = listOf(prefix, given, middle, family, suffix).filter { it.isNotBlank() }.joinToString(" ").trim()
@@ -109,6 +130,8 @@ data class CallerInfo(
     val numberLabel: String?,
     val customRingtone: String?,
     val sendToVoicemail: Boolean,
+    /** I9: found in the work profile (through the enterprise lookup); it can't be opened or edited from here. */
+    val work: Boolean = false,
 )
 
 /** A birthday / anniversary / other date of a contact, for the timeline and reminders. */

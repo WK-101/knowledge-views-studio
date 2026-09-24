@@ -61,7 +61,7 @@ object SecureQr {
     }
 
     fun encode(details: ContactDetails, passcode: String): String {
-        val json = ContactDetailsJson.encode(details.copy(photoUri = null)).toByteArray()
+        val json = ContactDetailsJson.encode(details.copy(photoUri = null, pinnedNote = "", context = "")).toByteArray()
         val zipped = ByteArrayOutputStream().also { o -> GZIPOutputStream(o).use { it.write(json) } }.toByteArray()
         val sealed = BackupCrypto.encryptBytes(zipped, listOf(Recipient.Passphrase(normalize(passcode))), ITERATIONS)
         return "parley://qr?v=1&d=" + Base64.encodeToString(sealed, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)

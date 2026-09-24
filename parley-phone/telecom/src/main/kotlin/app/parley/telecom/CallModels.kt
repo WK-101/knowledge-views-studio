@@ -34,6 +34,9 @@ data class CallUi(
     val isEmergency: Boolean,
     val note: String? = null,
     val lastCall: String? = null,
+    /** I6: job/company and the "who is this" line of the caller card. */
+    val subtitle: String? = null,
+    val context: String? = null,
     /** Caller lookup finished and found nobody. */
     val unknown: Boolean = false,
     val location: String? = null,

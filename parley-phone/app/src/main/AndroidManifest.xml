@@ -75,6 +75,21 @@
         <package android:name="org.telegram.messenger.web" />
         <package android:name="org.thunderdog.challegram" />
         <package android:name="com.viber.voip" />
+        <!-- I1: apps that open messenger handles (Threema, Matrix, XMPP…), and Message on… for private contacts. -->
+        <package android:name="ch.threema.app" />
+        <package android:name="ch.threema.app.libre" />
+        <package android:name="ch.threema.app.work" />
+        <package android:name="im.vector.app" />
+        <package android:name="de.spiritcroc.riotx" />
+        <package android:name="chat.fluffy.fluffychat" />
+        <package android:name="eu.siacs.conversations" />
+        <package android:name="im.quicksy.client" />
+        <package android:name="org.monocles.chat" />
+        <package android:name="com.discord" />
+        <package android:name="com.skype.raider" />
+        <package android:name="chat.simplex.app" />
+        <package android:name="org.telegram.plus" />
+        <package android:name="org.telegram.messenger.beta" />
         <!-- "Who can see your contacts": launcher apps only (never QUERY_ALL_PACKAGES). -->
         <intent>
             <action android:name="android.intent.action.MAIN" />
@@ -350,6 +365,27 @@
             android:permission="${lookupPermission}" />
         <receiver
             android:name=".privatenames.PrivateNameDecisionReceiver"
+            android:exported="false" />
+
+        <!-- I7: opt-in contacts Directory for private names. Disabled until turned on in Privacy › Private names;
+             the Contacts Provider (which holds READ_CONTACTS) discovers it and forwards approved phone apps'
+             lookups. It answers only "directories" and one exact number per phone_lookup. -->
+        <provider
+            android:name=".privatenames.PrivateDirectoryProvider"
+            android:authorities="${applicationId}.privatedirectory"
+            android:enabled="false"
+            android:exported="true"
+            android:readPermission="android.permission.READ_CONTACTS"
+            android:writePermission="android.permission.WRITE_CONTACTS">
+            <meta-data
+                android:name="android.content.ContactDirectory"
+                android:value="true" />
+        </provider>
+
+        <!-- I6: private contacts' photos, decrypted in memory for Parley's own screens only (not exported). -->
+        <provider
+            android:name=".privatenames.VaultPhotoProvider"
+            android:authorities="${applicationId}.vaultphotos"
             android:exported="false" />
     </application>
 </manifest>

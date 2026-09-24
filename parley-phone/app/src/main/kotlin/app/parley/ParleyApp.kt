@@ -12,6 +12,8 @@ class ParleyApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // U10: stores the last crash on this phone when "Keep crash reports" is on (it reads that flag at crash time).
+        app.parley.data.people.CrashStore(this).install()
         container = DataContainer(this)
         TelecomGraph.install(AppTelecomDependencies(this, container))
         app.parley.blocking.BlockingSetup.install(this, container)

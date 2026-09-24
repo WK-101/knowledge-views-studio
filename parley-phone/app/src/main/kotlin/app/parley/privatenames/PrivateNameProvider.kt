@@ -101,7 +101,7 @@ class PrivateNameProvider : ContentProvider() {
             runCatching { context.packageManager.resolveContentProvider(authority(context), 0)?.readPermission }
                 .getOrNull() ?: "app.parley.permission.LOOKUP_PRIVATE_NAME"
 
-        private fun askUser(ctx: Context, pkg: String) {
+        internal fun askUser(ctx: Context, pkg: String) {
             val pm = ctx.packageManager
             val label = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
             ctx.getSystemService(NotificationManager::class.java)

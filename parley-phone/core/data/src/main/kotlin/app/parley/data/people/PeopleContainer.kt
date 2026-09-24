@@ -37,6 +37,10 @@ class PeopleContainer(private val c: DataContainer) {
     val audit by lazy { ContactsAudit(c.appContext) }
     val privateNames by lazy { PrivateNameAccess(c.appContext) }
     val diagnostics by lazy { Diagnostics(c.appContext) }
+    /** I2: your own card. */
+    val me by lazy { MeCardStore(c.appContext) }
+    /** U10: opt-in local crash capture. */
+    val crashes by lazy { CrashStore(c.appContext) }
     val backupExtras: BackupExtras by lazy { PeopleBackupExtras(this, c) }
 
     /** True when any label has a ringtone, so incoming calls go through the path that plays it. */
@@ -68,6 +72,7 @@ private class PeopleBackupExtras(private val p: PeopleContainer, private val c: 
         val out = LinkedHashMap<String, String>()
         p.prefs.exportMap().forEach { (k, v) -> out["${BackupExtras.PREFIX}people.$k"] = v }
         out["${BackupExtras.PREFIX}privatenames.approvals"] = p.privateNames.exportApprovals()
+        p.me.exportJson()?.let { out["${BackupExtras.PREFIX}me.card"] = it }
         val stored = p.backgrounds.storedHashes()
         if (stored.isNotEmpty()) {
             val contacts = withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }.orEmpty()
@@ -91,6 +96,7 @@ private class PeopleBackupExtras(private val p: PeopleContainer, private val c: 
         val peoplePrefix = "${BackupExtras.PREFIX}people."
         p.prefs.importMap(values.filterKeys { it.startsWith(peoplePrefix) }.mapKeys { it.key.removePrefix(peoplePrefix) })
         values["${BackupExtras.PREFIX}privatenames.approvals"]?.let { p.privateNames.importApprovals(it) }
+        values["${BackupExtras.PREFIX}me.card"]?.let { p.me.importJson(it) }
         val bgs = values.filterKeys { it.startsWith("${BackupExtras.PREFIX}bg.") }
         if (bgs.isEmpty()) return
         val contacts = withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }.orEmpty()

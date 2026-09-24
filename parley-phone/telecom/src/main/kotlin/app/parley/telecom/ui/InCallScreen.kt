@@ -352,6 +352,9 @@ private fun CallerHeader(
         if (sub.isNotEmpty()) {
             Text(sub, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         }
+        // I6: job/company and "who is this".
+        call.subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        if (!compact) call.context?.let { Text(it, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp)) }
         Spacer(Modifier.height(8.dp))
         StatusLine(call, ended)
         if (!ended && call.state != CallState.RINGING) RemainingLine(timing)

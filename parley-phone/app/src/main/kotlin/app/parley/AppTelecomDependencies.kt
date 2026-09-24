@@ -3,6 +3,7 @@ package app.parley
 import android.content.Context
 import android.content.Intent
 import app.parley.common.Decision
+import app.parley.common.people.CallerCard
 import app.parley.common.CallType
 import app.parley.common.PhoneNumbers
 import app.parley.data.db.CallNoteEntity
@@ -38,9 +39,25 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     override suspend fun callerInfo(number: String, accountId: String?): CallerDisplay? = withContext(Dispatchers.IO) {
         val last = lastCallSummary(number)
         c.contacts.lookup(number)?.let {
+            if (it.work) {
+                // I9: a work-profile contact: its name and photo only (it can't be opened or noted from here).
+                return@withContext CallerDisplay(it.name, it.photoUri, it.numberLabel, null, null, null, last, subtitle = "Work profile")
+            }
             val note = it.lookupKey?.let { k -> c.meta.meta(k)?.pinnedNote }
-            CallerDisplay(it.name, it.photoUri, it.numberLabel, it.contactId, it.lookupKey, note, last, backgroundUri = c.people.backgrounds.forLookupKey(it.lookupKey))
-        } ?: c.vault.lookup(number, PhoneEnv.countryIso(app, accountId))?.let { (_, info) -> CallerDisplay(info.name, null, info.numberLabel, null, null, null, last) }
+            // I6: job and company under the name.
+            val org = c.contacts.organization(it.contactId)
+            CallerDisplay(
+                it.name, it.photoUri, it.numberLabel, it.contactId, it.lookupKey, note, last, backgroundUri = c.people.backgrounds.forLookupKey(it.lookupKey),
+                subtitle = CallerCard.subtitle(org?.second, org?.first),
+            )
+        } ?: c.vault.lookup(number, PhoneEnv.countryIso(app, accountId))?.let { (id, info) ->
+            // I6: a private contact's card comes from its caller-ID copy, so it shows while the phone is locked.
+            val card = c.vault.callerCard(id)
+            CallerDisplay(
+                info.name, card?.photoUri, info.numberLabel, null, null, card?.note, last,
+                subtitle = card?.subtitle, context = CallerCard.context(card?.context),
+            )
+        }
     }
 
     private fun lastCallSummary(number: String): String? {
