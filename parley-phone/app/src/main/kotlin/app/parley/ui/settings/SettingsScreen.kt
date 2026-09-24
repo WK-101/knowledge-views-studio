@@ -183,6 +183,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     if (b.lastBackupAt > 0) "Last backup ${app.parley.ui.common.Format.shortWhen(context, b.lastBackupAt)} · encrypted" else "Encrypted backups to a folder you choose",
                 ) { open(Routes.BACKUP) }
                 LinkRow("Recently deleted & changed", "Undo for 30 days") { open(Routes.JOURNAL) }
+                LinkRow("What changed (time machine)", "Daily snapshots for 6 months: see and undo changes from any app or sync") { open(Routes.CHANGES) }
             }
             item { Section("Contacts") }
             item {

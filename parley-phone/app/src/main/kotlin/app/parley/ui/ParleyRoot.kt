@@ -62,6 +62,9 @@ object Routes {
     const val HEALTH = "health"
     const val JOURNAL = "journal"
     const val BACKUP = "backup"
+    const val CHANGES = "changes"
+    const val VERSIONS = "versions/{id}"
+    fun versions(id: Long) = "versions/$id"
 
     fun contact(id: Long) = "contact/$id"
     fun history(number: String) = "history/" + Uri.encode(number)
@@ -210,6 +213,10 @@ fun ParleyRoot(vm: AppViewModel) {
             composable(Routes.BLOCKING) { BlockingScreen(vm, back = { nav.popBackStack() }) }
             composable(Routes.DUPLICATES) { DuplicatesScreen(vm, back = { nav.popBackStack() }) }
             composable(Routes.PRIVACY) { PrivacyScreen(vm, back = { nav.popBackStack() }) }
+            composable(Routes.CHANGES) { app.parley.ui.timemachine.ChangesScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
+            composable(Routes.VERSIONS, arguments = listOf(navArgument("id") { type = NavType.LongType })) {
+                app.parley.ui.timemachine.VersionHistoryScreen(vm, it.arguments!!.getLong("id"), back = { nav.popBackStack() }, open = { r -> nav.navigate(r) })
+            }
             composable(Routes.BACKUP) { app.parley.ui.backup.BackupScreen(vm, back = { nav.popBackStack() }) }
             composable(Routes.JOURNAL) { app.parley.ui.journal.JournalScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             composable(Routes.HEALTH) { app.parley.ui.health.HealthScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }

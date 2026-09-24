@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.AddToHomeScreen
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Videocam
@@ -159,6 +160,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             })
                             DropdownMenuItem({ Text("Show QR code") }, leadingIcon = { Icon(Icons.Rounded.QrCode2, null) }, onClick = { menu = false; showQr = true })
                             DropdownMenuItem({ Text("Share privately (encrypted QR)") }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = { menu = false; secureQr = true })
+                            DropdownMenuItem({ Text("Version history") }, leadingIcon = { Icon(Icons.Rounded.History, null) }, onClick = { menu = false; open(Routes.versions(contactId)) })
                             DropdownMenuItem({ Text("Add to home screen") }, leadingIcon = { Icon(Icons.Rounded.AddToHomeScreen, null) }, onClick = { menu = false; pinDialog = true })
                             DropdownMenuItem({ Text("Set ringtone") }, leadingIcon = { Icon(Icons.Rounded.MusicNote, null) }, onClick = {
                                 menu = false

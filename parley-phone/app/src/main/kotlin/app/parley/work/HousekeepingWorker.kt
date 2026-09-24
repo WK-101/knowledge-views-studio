@@ -56,6 +56,8 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
             }
             // 5. Journal older than 30 days
             c.meta.pruneJournal(now - TimeUnit.DAYS.toMillis(30))
+            // 6. Daily time-machine snapshot (incremental)
+            runCatching { c.timeMachine.snapshotIfDue() }
         }
     }
 }
