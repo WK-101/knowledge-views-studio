@@ -1,74 +1,75 @@
 package app.parley.ui.home
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AccessTime
+import androidx.compose.material.icons.automirrored.rounded.CallMerge
+import androidx.compose.material.icons.automirrored.rounded.Label
+import androidx.compose.material.icons.rounded.AutoDelete
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Cake
-import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.HealthAndSafety
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Dialpad
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.People
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.ManageHistory
 import androidx.compose.material.icons.rounded.PersonAdd
-import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
-import androidx.compose.animation.togetherWith
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.RecentFilter
+import app.parley.common.SettingsCategory
 import app.parley.common.StartTab
 import app.parley.ui.Routes
 
-private data class TabSpec(val tab: StartTab, val label: String, val icon: ImageVector)
-
-private val tabs = listOf(
-    TabSpec(StartTab.FAVORITES, "Favorites", Icons.Rounded.Star),
-    TabSpec(StartTab.RECENTS, "Recents", Icons.Rounded.AccessTime),
-    TabSpec(StartTab.CONTACTS, "Contacts", Icons.Rounded.People),
-    TabSpec(StartTab.KEYPAD, "Keypad", Icons.Rounded.Dialpad),
-)
-
+/**
+ * Home: one tab at a time under a shared header ([HomeHeader]), with a bottom bar on phones and a navigation rail on
+ * wide screens. The bar's order and visible tabs come from Settings › Appearance › Navigation bar; a tab hidden
+ * there still opens from links (ACTION_DIAL, missed calls…) and then shows in the bar until you leave it.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -78,11 +79,24 @@ fun HomeScreen(
     initialTab: StartTab,
     open: (String) -> Unit,
 ) {
+    val settings by vm.settings.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(initialTab) }
     // Tablets, foldables and landscape: navigation rail instead of a bottom bar.
-    val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
+    val wide = LocalConfiguration.current.screenWidthDp >= 600
     var searching by rememberSaveable { mutableStateOf(false) }
+    var favoriteQuery by rememberSaveable { mutableStateOf("") }
+    var keypadQuery by rememberSaveable { mutableStateOf("") }
     val missed by vm.missedCount.collectAsStateWithLifecycle()
+    val selection by vm.selection.collectAsStateWithLifecycle()
+    val scroll = TopAppBarDefaults.pinnedScrollBehavior()
+
+    fun closeSearch() {
+        searching = false
+        vm.contactQuery.value = ""
+        vm.recentQuery.value = ""
+        favoriteQuery = ""
+        keypadQuery = ""
+    }
 
     LaunchedEffect(tabRequest) {
         val r = tabRequest ?: return@LaunchedEffect
@@ -91,53 +105,69 @@ fun HomeScreen(
         if (r.missedOnly) vm.recentFilter.value = RecentFilter.MISSED
         onTabRequestHandled()
     }
+    var lastTab by rememberSaveable { mutableStateOf(tab) }
     LaunchedEffect(tab) {
         if (tab == StartTab.RECENTS && missed > 0) vm.markMissedSeen()
-        if (tab != StartTab.CONTACTS && tab != StartTab.RECENTS) searching = false
+        // A new tab starts without the previous tab's search (but rotation keeps an open search).
+        if (tab != lastTab) {
+            lastTab = tab
+            if (searching) closeSearch()
+        }
+        if (tab != StartTab.CONTACTS) vm.selection.value = emptySet()
+        scroll.state.contentOffset = 0f
     }
-    val selection by vm.selection.collectAsStateWithLifecycle()
     BackHandler(enabled = selection.isNotEmpty()) { vm.selection.value = emptySet() }
-    LaunchedEffect(tab) { if (tab != StartTab.CONTACTS) vm.selection.value = emptySet() }
-    BackHandler(enabled = searching) {
-        searching = false
-        vm.contactQuery.value = ""
-        vm.recentQuery.value = ""
-    }
+    BackHandler(enabled = searching) { closeSearch() }
+
+    val barTabs = settings.navTabs.barTabs(tab)
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
         topBar = {
             if (tab == StartTab.CONTACTS && selection.isNotEmpty()) {
                 SelectionBar(vm)
-            } else if (tab != StartTab.KEYPAD) {
-                HomeTopBar(
-                    title = tabs.first { it.tab == tab }.label,
-                    searchable = tab == StartTab.CONTACTS || tab == StartTab.RECENTS,
+            } else {
+                val query = when (tab) {
+                    StartTab.CONTACTS -> vm.contactQuery.collectAsStateWithLifecycle().value
+                    StartTab.RECENTS -> vm.recentQuery.collectAsStateWithLifecycle().value
+                    StartTab.FAVORITES -> favoriteQuery
+                    StartTab.KEYPAD -> keypadQuery
+                }
+                HomeHeader(
+                    title = tab.label,
                     searching = searching,
-                    query = if (tab == StartTab.CONTACTS) vm.contactQuery.collectAsStateWithLifecycle().value else vm.recentQuery.collectAsStateWithLifecycle().value,
-                    onQuery = { if (tab == StartTab.CONTACTS) vm.contactQuery.value = it else vm.recentQuery.value = it },
-                    onSearch = { searching = it; if (!it) { vm.contactQuery.value = ""; vm.recentQuery.value = "" } },
-                    open = open,
-                    actions = { if (tab == StartTab.RECENTS) app.parley.ui.history.RecentsInsightsAction(open) },
-                    menuItems = { close -> if (tab == StartTab.RECENTS) app.parley.ui.history.RecentsExportMenuItem(close) },
+                    query = query,
+                    searchHint = when (tab) {
+                        StartTab.FAVORITES -> "Search favorites"
+                        StartTab.RECENTS -> "Search call history"
+                        StartTab.CONTACTS -> "Search contacts"
+                        StartTab.KEYPAD -> "Search contacts by name or number"
+                    },
+                    onQuery = { q ->
+                        when (tab) {
+                            StartTab.CONTACTS -> vm.contactQuery.value = q
+                            StartTab.RECENTS -> vm.recentQuery.value = q
+                            StartTab.FAVORITES -> favoriteQuery = q
+                            StartTab.KEYPAD -> keypadQuery = q
+                        }
+                    },
+                    onSearch = { on -> if (on) searching = true else closeSearch() },
+                    scrollBehavior = scroll,
+                    actions = { TabActions(vm, tab, settings.appLock, open) },
+                    menu = { close -> TabMenu(vm, tab, settings.appLock, open, close) },
                 )
             }
         },
         bottomBar = {
-            Column {
+            Column(if (wide) Modifier.navigationBarsPadding() else Modifier) {
                 app.parley.ui.calltime.NotificationHealthBanner(vm)
                 app.parley.ui.calltime.ReturnToCallChip()
                 if (!wide) NavigationBar {
-                    tabs.forEach { t ->
+                    barTabs.forEach { t ->
                         NavigationBarItem(
-                            selected = tab == t.tab,
-                            onClick = { tab = t.tab },
-                            icon = {
-                                if (t.tab == StartTab.RECENTS && missed > 0) {
-                                    BadgedBox(badge = { Badge { Text(missed.toString()) } }) { Icon(t.icon, null) }
-                                } else {
-                                    Icon(t.icon, null)
-                                }
-                            },
+                            selected = tab == t,
+                            onClick = { tab = t },
+                            icon = { TabIcon(t, missed) },
                             label = { Text(t.label) },
                         )
                     }
@@ -145,27 +175,21 @@ fun HomeScreen(
             }
         },
         floatingActionButton = {
-            androidx.compose.animation.AnimatedVisibility(
-                tab == StartTab.CONTACTS && selection.isEmpty(),
-                enter = androidx.compose.animation.scaleIn(),
-                exit = androidx.compose.animation.scaleOut(),
-            ) {
+            AnimatedVisibility(tab == StartTab.CONTACTS && selection.isEmpty() && !searching, enter = scaleIn(), exit = scaleOut()) {
                 FloatingActionButton(onClick = { open(if (vm.showVault.value) Routes.edit(vault = 0) else Routes.edit()) }) { Icon(Icons.Rounded.PersonAdd, "Create contact") }
             }
         },
     ) { padding ->
         Row(Modifier.fillMaxSize().padding(padding)) {
             if (wide) {
-                androidx.compose.material3.NavigationRail {
+                // The Scaffold already pads for the system bars and the header.
+                NavigationRail(windowInsets = WindowInsets(0)) {
                     Spacer(Modifier.weight(1f))
-                    tabs.forEach { t ->
-                        androidx.compose.material3.NavigationRailItem(
-                            selected = tab == t.tab,
-                            onClick = { tab = t.tab },
-                            icon = {
-                                if (t.tab == StartTab.RECENTS && missed > 0) BadgedBox(badge = { Badge { Text(missed.toString()) } }) { Icon(t.icon, null) }
-                                else Icon(t.icon, null)
-                            },
+                    barTabs.forEach { t ->
+                        NavigationRailItem(
+                            selected = tab == t,
+                            onClick = { tab = t },
+                            icon = { TabIcon(t, missed) },
                             label = { Text(t.label) },
                         )
                     }
@@ -173,16 +197,12 @@ fun HomeScreen(
                 }
             }
             Box(Modifier.weight(1f).fillMaxSize()) {
-                androidx.compose.animation.AnimatedContent(
-                    tab,
-                    transitionSpec = { androidx.compose.animation.fadeIn() togetherWith androidx.compose.animation.fadeOut() },
-                    label = "tab",
-                ) { t ->
+                AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
                     when (t) {
-                        StartTab.FAVORITES -> FavoritesTab(vm, open)
+                        StartTab.FAVORITES -> FavoritesTab(vm, open, favoriteQuery)
                         StartTab.RECENTS -> RecentsTab(vm, open)
                         StartTab.CONTACTS -> ContactsTab(vm, open)
-                        StartTab.KEYPAD -> KeypadTab(vm, open)
+                        StartTab.KEYPAD -> KeypadTab(vm, open, keypadQuery.takeIf { searching })
                     }
                 }
             }
@@ -190,63 +210,65 @@ fun HomeScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HomeTopBar(
-    title: String,
-    searchable: Boolean,
-    searching: Boolean,
-    query: String,
-    onQuery: (String) -> Unit,
-    onSearch: (Boolean) -> Unit,
-    open: (String) -> Unit,
-    actions: @Composable () -> Unit = {},
-    menuItems: @Composable (close: () -> Unit) -> Unit = {},
-) {
-    var menu by rememberSaveable { mutableStateOf(false) }
-    Surface(color = MaterialTheme.colorScheme.surface) {
-        Row(
-            Modifier.fillMaxWidth().padding(top = 8.dp).padding(horizontal = 8.dp).then(Modifier.padding(top = 0.dp)),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            androidx.compose.foundation.layout.Spacer(Modifier.width(4.dp))
-            Box(Modifier.weight(1f).padding(vertical = 4.dp)) {
-                if (searchable) {
-                    TextField(
-                        value = query,
-                        onValueChange = { onQuery(it); if (!searching) onSearch(true) },
-                        placeholder = { Text("Search ${title.lowercase()}") },
-                        leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                        trailingIcon = {
-                            if (searching || query.isNotEmpty()) IconButton({ onSearch(false) }) { Icon(Icons.Rounded.Close, "Clear search") }
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(28.dp),
-                        colors = TextFieldDefaults.colors(
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        ),
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)),
-                    )
-                } else {
-                    Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp))
-                }
-            }
-            actions()
-            Box {
-                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, "More options") }
-                DropdownMenu(menu, { menu = false }) {
-                    menuItems { menu = false }
-                    DropdownMenuItem({ Text("Birthdays & dates") }, leadingIcon = { Icon(Icons.Rounded.Cake, null) }, onClick = { menu = false; open(Routes.BIRTHDAYS) })
-                    DropdownMenuItem({ Text("Recently deleted") }, leadingIcon = { Icon(Icons.Rounded.History, null) }, onClick = { menu = false; open(Routes.JOURNAL) })
-                    DropdownMenuItem({ Text("Tidy up contacts") }, leadingIcon = { Icon(Icons.Rounded.HealthAndSafety, null) }, onClick = { menu = false; open(Routes.HEALTH) })
-                    DropdownMenuItem({ Text("Blocked numbers") }, leadingIcon = { Icon(Icons.Rounded.Block, null) }, onClick = { menu = false; open(Routes.BLOCKING) })
-                    app.parley.ui.blocking.ExpectingCallMenuItem { menu = false }
-                    DropdownMenuItem({ Text("Settings") }, leadingIcon = { Icon(Icons.Rounded.Settings, null) }, onClick = { menu = false; open(Routes.SETTINGS) })
-                }
-            }
-        }
+private fun TabIcon(t: StartTab, missed: Int) {
+    if (t == StartTab.RECENTS && missed > 0) {
+        BadgedBox(badge = { Badge { Text(missed.toString()) } }) { Icon(t.icon, if (missed == 1) "1 missed call" else "$missed missed calls") }
+    } else {
+        Icon(t.icon, null)
     }
+}
+
+/** Icons next to the search icon: the tab's most used actions. */
+@Composable
+private fun TabActions(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: (String) -> Unit) {
+    when (tab) {
+        StartTab.RECENTS -> app.parley.ui.history.RecentsInsightsAction(open)
+        StartTab.CONTACTS -> {
+            IconButton({ open(app.parley.ui.people.PeopleRoutes.LABELS) }) { Icon(Icons.AutoMirrored.Rounded.Label, "Labels") }
+            // U8: lock Parley now, without waiting for the timeout.
+            if (appLock) IconButton({ app.parley.security.AppLock.lockNowByUser() }) { Icon(Icons.Rounded.Lock, "Lock now") }
+        }
+        StartTab.KEYPAD -> IconButton({ open(Routes.SPEED_DIAL) }) { Icon(Icons.Rounded.Speed, "Speed dial") }
+        StartTab.FAVORITES -> Unit
+    }
+}
+
+@Composable
+private fun MenuItem(text: String, icon: ImageVector, onClick: () -> Unit) {
+    DropdownMenuItem({ Text(text) }, leadingIcon = { Icon(icon, null) }, onClick = onClick)
+}
+
+/** "More options": the tab's own items first, then the ones every tab shares. */
+@Composable
+private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: (String) -> Unit, close: () -> Unit) {
+    fun go(route: String) { close(); open(route) }
+    when (tab) {
+        StartTab.RECENTS -> {
+            app.parley.ui.history.RecentsExportMenuItem(close)
+            MenuItem("Call history settings", Icons.Rounded.ManageHistory) { go(Routes.settingsPage(SettingsCategory.HISTORY)) }
+        }
+        StartTab.CONTACTS -> {
+            MenuItem("Select all", Icons.Rounded.SelectAll) {
+                close()
+                vm.selection.value = vm.people.filtered.value.orEmpty().map { it.id }.toSet()
+            }
+            MenuItem("Find & merge duplicates", Icons.AutoMirrored.Rounded.CallMerge) { go(Routes.DUPLICATES) }
+            MenuItem("Contacts settings", Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS)) }
+        }
+        StartTab.KEYPAD -> {
+            MenuItem("Speed dial", Icons.Rounded.Speed) { go(Routes.SPEED_DIAL) }
+            MenuItem("Keypad settings", Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.KEYPAD)) }
+        }
+        StartTab.FAVORITES -> Unit
+    }
+    if (tab != StartTab.FAVORITES) HorizontalDivider()
+    MenuItem("Birthdays & dates", Icons.Rounded.Cake) { go(Routes.BIRTHDAYS) }
+    MenuItem("Temporary contacts", Icons.Rounded.AutoDelete) { go(Routes.TEMPORARY) }
+    MenuItem("Recently deleted", Icons.Rounded.History) { go(Routes.JOURNAL) }
+    MenuItem("Tidy up contacts", Icons.Rounded.HealthAndSafety) { go(Routes.HEALTH) }
+    MenuItem("Blocked numbers", Icons.Rounded.Block) { go(Routes.BLOCKING) }
+    app.parley.ui.blocking.ExpectingCallMenuItem(close)
+    if (appLock) MenuItem("Lock now", Icons.Rounded.Lock) { close(); app.parley.security.AppLock.lockNowByUser() }
+    MenuItem("Settings", Icons.Rounded.Settings) { go(Routes.SETTINGS) }
 }

@@ -5,10 +5,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -18,7 +15,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
@@ -29,22 +25,39 @@ import app.parley.ui.settings.LinkRow
 import app.parley.ui.settings.SwitchRow
 import kotlinx.coroutines.launch
 
-/** Settings › Appearance additions: second line under names, prefer nickname. */
+/** Settings › Appearance: second line under names. */
 @Composable
-fun PeopleAppearanceRows(vm: AppViewModel) {
+fun SecondLineRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
     val s by vm.people.settings.collectAsStateWithLifecycle()
-    ChoiceRow(
-        "Second line under names", SecondLineMode.entries.map { it.title }, s.secondLine.ordinal,
+    app.parley.ui.settings.MenuRow(
+        app.parley.common.SettingsCatalog["second_line"].title, SecondLineMode.entries.map { it.title }, s.secondLine.ordinal, icon,
         sub = "People with the same name always show their company or number",
     ) { i -> vm.people.update { it.copy(secondLine = SecondLineMode.entries[i]) } }
-    SwitchRow("Prefer nicknames", "Show “Bob” instead of “Robert Jones” in lists when a nickname is saved", s.preferNickname) { v ->
+}
+
+/** Settings › Appearance: prefer nicknames. */
+@Composable
+fun PreferNicknameRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
+    val s by vm.people.settings.collectAsStateWithLifecycle()
+    SwitchRow(app.parley.common.SettingsCatalog["prefer_nickname"].title, "Show “Bob” instead of “Robert Jones” in lists when a nickname is saved", s.preferNickname, icon) { v ->
         vm.people.update { it.copy(preferNickname = v) }
     }
 }
 
-/** Settings › Contacts additions: labels, SIM import, export of one account (with per-account counts). */
+/** Settings › Contacts: labels. */
 @Composable
-fun PeopleContactsRows(vm: AppViewModel, open: (String) -> Unit) {
+fun LabelsRow(vm: AppViewModel, open: (String) -> Unit, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
+    val idx by vm.people.index.collectAsStateWithLifecycle()
+    LinkRow(app.parley.common.SettingsCatalog["labels"].title, "${idx.labelCounts.size} labels · rename, merge, ringtones", icon) { open(PeopleRoutes.LABELS) }
+}
+
+/** Whether "Export one account" applies (more than one account has contacts). */
+@Composable
+fun hasSeveralAccounts(vm: AppViewModel): Boolean = vm.people.index.collectAsStateWithLifecycle().value.accountCounts.size > 1
+
+/** Settings › Contacts: export the contacts of one account (with per-account counts). */
+@Composable
+fun ExportAccountRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
     val scope = rememberCoroutineScope()
     val idx by vm.people.index.collectAsStateWithLifecycle()
     var chooseAccount by remember { mutableStateOf(false) }
@@ -57,9 +70,7 @@ fun PeopleContactsRows(vm: AppViewModel, open: (String) -> Unit) {
             vm.toast("Exported ${r.exported} contacts from ${a.displayLabel}" + if (r.failures.isEmpty()) "" else " · ${r.failures.size} failed")
         }
     }
-    LinkRow("Labels", "${idx.labelCounts.size} labels · rename, merge, ringtones") { open(PeopleRoutes.LABELS) }
-    LinkRow("Import from SIM card", "Copy the SIM's phonebook into your contacts") { open(PeopleRoutes.SIM_IMPORT) }
-    if (idx.accountCounts.size > 1) LinkRow("Export one account to .vcf", idx.accountCounts.entries.joinToString(" · ") { "${it.key.displayLabel} (${it.value})" }) { chooseAccount = true }
+    LinkRow(app.parley.common.SettingsCatalog["export_account"].title, idx.accountCounts.entries.joinToString(" · ") { "${it.key.displayLabel} (${it.value})" }, icon) { chooseAccount = true }
     if (chooseAccount) {
         AlertDialog(
             onDismissRequest = { chooseAccount = false },
@@ -81,12 +92,6 @@ fun PeopleContactsRows(vm: AppViewModel, open: (String) -> Unit) {
     }
 }
 
-/** Settings › About addition. */
-@Composable
-fun PeopleAboutRows(open: (String) -> Unit) {
-    LinkRow("Export diagnostics", "App version, device and settings, with numbers masked. Nothing is sent: you choose where it goes.") { open(PeopleRoutes.DIAGNOSTICS) }
-}
-
 /** Privacy dashboard additions. */
 @Composable
 fun PrivacyLinks(vm: AppViewModel) {
@@ -102,20 +107,4 @@ fun PrivacyLinks(vm: AppViewModel) {
 fun AppViewModel.accountLabel(a: AccountRef): String {
     val idx = people.index.value
     return if (idx.loaded) idx.labelWithCount(a) else a.displayLabel
-}
-
-@Composable
-private fun ChoiceRow(title: String, options: List<String>, selected: Int, sub: String? = null, onPick: (Int) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    ListItem(
-        modifier = Modifier.clickable { open = true },
-        headlineContent = { Text(title) },
-        supportingContent = { Text(listOfNotNull(options.getOrElse(selected) { "" }, sub).joinToString(" · ")) },
-        trailingContent = {
-            DropdownMenu(open, { open = false }) {
-                options.forEachIndexed { i, o -> DropdownMenuItem({ Text(o) }, onClick = { open = false; onPick(i) }) }
-            }
-        },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-    )
 }

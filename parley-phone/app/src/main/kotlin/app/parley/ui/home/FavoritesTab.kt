@@ -61,7 +61,7 @@ import app.parley.ui.Routes
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit) {
+fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "") {
     val favorites by vm.people.favorites.collectAsStateWithLifecycle()
     val frequents by vm.frequents.collectAsStateWithLifecycle()
     val ps by vm.people.settings.collectAsStateWithLifecycle()
@@ -76,6 +76,11 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit) {
     var dragKey by remember { mutableStateOf<String?>(null) }
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
     val state = rememberLazyGridState()
+    // Search from the header filters favourites and frequent contacts (reordering pauses while searching).
+    val q = query.trim()
+    LaunchedEffect(q.isNotEmpty()) { if (q.isNotEmpty()) reordering = false }
+    val shownFavorites = if (q.isEmpty()) order else order.filter { app.parley.common.TextSearch.matches(q, it.displayName, it.phones.map { p -> p.number }) }
+    val shownFrequents = if (q.isEmpty()) frequents else frequents.filter { app.parley.common.TextSearch.matches(q, it.title, listOf(it.number)) }
     val cells = if (ps.favoriteColumns > 0) GridCells.Fixed(ps.favoriteColumns) else GridCells.Adaptive(104.dp)
     fun commit() = vm.people.setFavoriteOrder(order.map { it.lookupKey })
 
@@ -102,7 +107,10 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit) {
             }
         },
     ) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        if (q.isNotEmpty() && shownFavorites.isEmpty() && shownFrequents.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+            EmptyState(Icons.Rounded.StarOutline, "No favorites match “$q”", modifier = Modifier.padding(top = 32.dp))
+        }
+        if (q.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 FavoriteSort.entries.forEach { s ->
                     FilterChip(ps.favoriteSort == s, { vm.people.update { it.copy(favoriteSort = s) }; if (s != FavoriteSort.CUSTOM) reordering = false }, label = { Text(s.title) })
@@ -116,7 +124,7 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit) {
         if (reordering) item(span = { GridItemSpan(maxLineSpan) }) {
             Text("Drag favourites into the order you want. Pinch to change the size.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
         }
-        itemsIndexed(order, key = { _, c -> "f" + c.id }) { i, c ->
+        itemsIndexed(shownFavorites, key = { _, c -> "f" + c.id }) { i, c ->
             val dragging = dragKey == c.lookupKey
             val base = Modifier.animateItem(placementSpec = if (dragging) null else androidx.compose.animation.core.spring())
             if (reordering) {
@@ -163,11 +171,11 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit) {
                 }, onLong = { open(Routes.contact(c.id)) })
             }
         }
-        if (frequents.isNotEmpty() && !reordering) {
+        if (shownFrequents.isNotEmpty() && !reordering) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text("Frequent", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp))
             }
-            items(frequents, key = { "q" + it.key }) { g ->
+            items(shownFrequents, key = { "q" + it.key }) { g ->
                 Tile(g.title, g.contact?.photoUri, onClick = { vm.requestCall(g.number, g.contact?.displayName) }, onLong = {
                     g.contact?.let { open(Routes.contact(it.id)) } ?: open(Routes.history(g.number))
                 })

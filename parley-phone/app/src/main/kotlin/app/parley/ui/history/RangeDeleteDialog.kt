@@ -78,7 +78,7 @@ fun RangeDeleteDialog(vm: AppViewModel, number: String, onDeleted: (batchId: Lon
                     )
                 }
                 Text(
-                    "You can undo this for 30 days (Settings › Calls › Call history).",
+                    "You can undo this for 30 days (Settings › Recents & history › Kept calls & recently deleted).",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

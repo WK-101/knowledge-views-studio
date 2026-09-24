@@ -15,6 +15,9 @@ import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -53,6 +56,9 @@ import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.PersonAdd
+import androidx.compose.material.icons.rounded.PersonAddAlt
+import androidx.compose.material.icons.rounded.AutoDelete
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Voicemail
 import androidx.compose.material3.AlertDialog
@@ -141,7 +147,12 @@ private const val IMEI_CODE = "*#06#"
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun KeypadTab(vm: AppViewModel, open: (String) -> Unit) {
+fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = null) {
+    // Search from the header: contacts by name or number, in place of the keypad until the search closes.
+    if (searchQuery != null) {
+        KeypadContactSearch(vm, searchQuery, open)
+        return
+    }
     val context = LocalContext.current
     val input by vm.dialInput.collectAsStateWithLifecycle()
     val results by vm.dialResults.collectAsStateWithLifecycle()
@@ -152,6 +163,8 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit) {
     var unassigned by remember { mutableStateOf<Int?>(null) }
     var messageOn by remember { mutableStateOf<String?>(null) }
     var imeiSheet by remember { mutableStateOf(false) }
+    var saveTemporary by remember { mutableStateOf<String?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     /** Result row focused with the D-pad; Call/Enter calls it. */
     var focusedResult by remember { mutableStateOf<DialResult?>(null) }
 
@@ -330,15 +343,20 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit) {
                     }
                 }
                 Spacer(Modifier.height(8.dp))
+                // Actions for the typed number: message it (M2), or save it (as a contact, into one, or for a while).
+                val typedNumber = input.trim()
+                if (typedNumber.isNotEmpty() && !isTextSearch() && !PhoneNumbers.isServiceCode(typedNumber)) {
+                    val known = results.any { it.contact != null && PhoneNumbers.same(it.number, typedNumber, vm.countryIso) }
+                    NumberActionChips(
+                        canSave = !known && typedNumber.count { it.isDigit() } >= 3,
+                        onMessage = { messageOn = typedNumber },
+                        onAdd = { open(Routes.edit(phone = typedNumber)) },
+                        onTemporary = { saveTemporary = typedNumber },
+                        onAddToExisting = { open(Routes.pick(typedNumber)) },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // M2: message the typed number in a chat app.
-                    if (input.isNotEmpty() && !isTextSearch() && !PhoneNumbers.isServiceCode(input)) {
-                        AssistChip(
-                            onClick = { messageOn = input.trim() },
-                            label = { Text("Message") },
-                            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
-                        )
-                    }
                     if (sims.size >= 2 && input.isNotEmpty()) {
                         sims.take(2).forEach { sim -> app.parley.ui.history.SimPlanBadge(vm, sim.id) { CallButton(label = sim.label) { callWithSim(sim.id) } } }
                     } else {
@@ -359,6 +377,24 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit) {
         )
     }
     messageOn?.let { n -> MessageOnSheet(n, onDismiss = { messageOn = null }) }
+    saveTemporary?.let { n ->
+        app.parley.ui.temporary.SaveTemporaryDialog(
+            number = Format.number(n, vm.countryIso),
+            suggestedName = app.parley.messaging.TemporaryContact.suggestedName(n, null, vm.countryIso.uppercase()),
+            onDismiss = { saveTemporary = null },
+        ) { name, days, deleteHistory ->
+            saveTemporary = null
+            scope.launch {
+                val id = app.parley.ui.temporary.TemporaryContacts.save(vm, n, name, days, deleteHistory)
+                if (id != null) {
+                    field.clearText()
+                    vm.toast("Saved. Deletes itself in $days ${if (days == 1) "day" else "days"}.")
+                } else {
+                    vm.toast("Couldn't save the contact")
+                }
+            }
+        }
+    }
     if (imeiSheet) {
         ImeiSheet(onDismiss = {
             imeiSheet = false
@@ -612,4 +648,58 @@ private fun DialResultRow(r: DialResult, countryIso: String, modifier: Modifier 
         },
         trailingContent = { Icon(Icons.Rounded.Call, "Call", tint = MaterialTheme.colorScheme.primary) },
     )
+}
+
+/** Chips under the number: Message, and when the number isn't saved yet, the ways to save it. */
+@Composable
+private fun NumberActionChips(canSave: Boolean, onMessage: () -> Unit, onAdd: () -> Unit, onTemporary: () -> Unit, onAddToExisting: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AssistChip(onClick = onMessage, label = { Text("Message") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) })
+        if (canSave) {
+            AssistChip(onClick = onAdd, label = { Text("Add to contacts") }, leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) })
+            AssistChip(onClick = onTemporary, label = { Text("Save temporary contact") }, leadingIcon = { Icon(Icons.Rounded.AutoDelete, null) })
+            AssistChip(onClick = onAddToExisting, label = { Text("Add to existing contact") }, leadingIcon = { Icon(Icons.Rounded.PersonAddAlt, null) })
+        }
+    }
+}
+
+/** Keypad search from the header: every contact (and visible private contact) matching a name or number. */
+@Composable
+private fun KeypadContactSearch(vm: AppViewModel, query: String, open: (String) -> Unit) {
+    val contacts by vm.contacts.collectAsStateWithLifecycle()
+    val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val q = query.trim()
+    if (q.isEmpty()) {
+        app.parley.ui.EmptyState(Icons.Rounded.Search, "Search contacts", "Type a name, part of a name or a number.")
+        return
+    }
+    val found = remember(contacts, q) { contacts.orEmpty().filter { app.parley.common.TextSearch.matches(q, it.displayName, it.phones.map { p -> p.number }) } }
+    val foundVault = remember(vault, q, settings.hideVault) {
+        if (settings.hideVault) emptyList() else vault.filter { app.parley.common.TextSearch.matches(q, it.name, it.numbers) }
+    }
+    if (found.isEmpty() && foundVault.isEmpty()) {
+        app.parley.ui.EmptyState(Icons.Rounded.Search, "No contacts match \u201c$q\u201d")
+        return
+    }
+    LazyColumn(Modifier.fillMaxSize()) {
+        items(foundVault, key = { "v" + it.id }) { v ->
+            ListItem(
+                modifier = Modifier.clickable { open(Routes.vault(v.id)) },
+                leadingContent = { app.parley.ui.Avatar(v.name, null, app.parley.ui.avatarSize()) },
+                headlineContent = { Text("\uD83D\uDD12 " + v.name) },
+                supportingContent = v.numbers.firstOrNull()?.let { n -> { Text(Format.number(n, vm.countryIso)) } },
+                trailingContent = v.numbers.firstOrNull()?.let { n ->
+                    { IconButton({ vm.requestCall(n, v.name) }) { Icon(Icons.Rounded.Call, "Call ${v.name}", tint = MaterialTheme.colorScheme.primary) } }
+                },
+            )
+        }
+        items(found, key = { it.id }) { c ->
+            ContactRow(c, actions = true, onCall = { n -> vm.requestCall(n, c.displayName) }) { open(Routes.contact(c.id)) }
+        }
+    }
 }

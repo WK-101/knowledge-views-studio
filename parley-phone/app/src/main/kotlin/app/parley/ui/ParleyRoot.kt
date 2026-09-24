@@ -56,6 +56,10 @@ object Routes {
     const val HISTORY = "history/{number}"
     const val PICK = "pick/{number}"
     const val SETTINGS = "settings"
+    const val SETTINGS_PAGE = "settings/page/{category}?focus={focus}"
+    fun settingsPage(category: app.parley.common.SettingsCategory, focus: String? = null) =
+        "settings/page/${category.name}" + if (focus != null) "?focus=" + Uri.encode(focus) else ""
+    const val TEMPORARY = "temporary"
     const val BLOCKING = "blocking"
     const val DUPLICATES = "duplicates"
     const val PRIVACY = "privacy"
@@ -156,7 +160,7 @@ fun ParleyRoot(vm: AppViewModel) {
                     vm = vm,
                     tabRequest = tabRequest,
                     onTabRequestHandled = { tabRequest = null },
-                    initialTab = settings.startTab,
+                    initialTab = settings.navTabs.startTab(settings.startTab),
                     open = { route -> nav.navigate(route) },
                 )
               }
@@ -214,6 +218,16 @@ fun ParleyRoot(vm: AppViewModel) {
                 })
             }
             composable(Routes.SETTINGS) { SettingsScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
+            composable(
+                Routes.SETTINGS_PAGE,
+                arguments = listOf(navArgument("category") { type = NavType.StringType }, navArgument("focus") { nullable = true; defaultValue = null }),
+            ) {
+                val a = it.arguments!!
+                val category = app.parley.common.SettingsCategory.entries.firstOrNull { c -> c.name == a.getString("category") }
+                    ?: app.parley.common.SettingsCategory.APPEARANCE
+                app.parley.ui.settings.SettingsPageScreen(vm, category, a.getString("focus"), back = { nav.popBackStack() }, open = { r -> nav.navigate(r) })
+            }
+            composable(Routes.TEMPORARY) { app.parley.ui.temporary.TemporaryContactsScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             composable(Routes.BLOCKING) { BlockingScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             app.parley.ui.blocking.BlockingRoutes.register(this, vm) { nav.popBackStack() }
             composable(Routes.DUPLICATES) { DuplicatesScreen(vm, back = { nav.popBackStack() }) }

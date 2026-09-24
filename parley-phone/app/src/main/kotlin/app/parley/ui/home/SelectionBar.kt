@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.automirrored.rounded.Message
@@ -71,7 +73,13 @@ fun SelectionBar(vm: AppViewModel) {
     }
 
     Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp, start = 4.dp, end = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        // Same room for the status bar and cutout as the header it replaces.
+        @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+        val insets = androidx.compose.material3.TopAppBarDefaults.windowInsets
+        Row(
+            Modifier.fillMaxWidth().windowInsetsPadding(insets).heightIn(min = 64.dp).padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             IconButton({ vm.selection.value = emptySet() }) { Icon(Icons.Rounded.Close, "Clear selection") }
             Text("${selection.size} selected", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             IconButton({ vm.selection.value = all.orEmpty().map { it.id }.toSet() }) { Icon(Icons.Rounded.SelectAll, "Select all") }

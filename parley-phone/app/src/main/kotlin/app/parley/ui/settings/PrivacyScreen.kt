@@ -103,8 +103,8 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
                     headlineContent = { Text(if (s.callLogRetentionDays > 0) "Call history kept ${s.callLogRetentionDays} days" else "Parley never deletes call history on its own") },
                     supportingContent = {
                         Text(
-                            if (archiveOn.archiveEnabled) "Android may keep only recent calls on some phones, so Parley keeps its own encrypted copy on this phone. Change in Settings → Calls"
-                            else "Android itself may keep only recent calls on some phones; turn on “Keep full call history” in Settings → Calls to keep them all",
+                            if (archiveOn.archiveEnabled) "Android may keep only recent calls on some phones, so Parley keeps its own encrypted copy on this phone. Change in Settings › Recents & history"
+                            else "Android itself may keep only recent calls on some phones; turn on “Keep full call history” in Settings › Recents & history to keep them all",
                         )
                     },
                 )

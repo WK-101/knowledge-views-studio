@@ -192,6 +192,11 @@
                 <data android:mimeType="vnd.android.cursor.item/person" />
                 <data android:mimeType="vnd.android.cursor.item/raw_contact" />
             </intent-filter>
+            <!-- U9: the gear in Android's App info › "Parley" opens Parley's own Settings. -->
+            <intent-filter>
+                <action android:name="android.intent.action.APPLICATION_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <!-- Parley as the system contact picker (other apps choose contacts, numbers, e-mails, addresses). -->

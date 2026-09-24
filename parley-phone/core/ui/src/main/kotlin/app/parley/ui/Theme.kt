@@ -1,6 +1,7 @@
 package app.parley.ui
 
 import android.os.Build
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
@@ -90,6 +91,7 @@ fun ParleyTheme(
         else -> BrandLight
     }
     if (dark && amoled) scheme = scheme.amoled()
+    SystemBarsFollowTheme(dark)
     CompositionLocalProvider(LocalDensityPref provides density) {
         androidx.compose.material3.MaterialExpressiveTheme(
             colorScheme = scheme,
@@ -104,5 +106,27 @@ fun ParleyTheme(
             typography = androidx.compose.material3.Typography(),
             content = content,
         )
+    }
+}
+
+private val LightScrim = android.graphics.Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
+private val DarkScrim = android.graphics.Color.argb(0x80, 0x1b, 0x1b, 0x1b)
+
+/**
+ * Status- and navigation-bar icons follow Parley's theme, not only the system's: with "Dark" chosen in Parley on a
+ * phone in light mode, the icons turn light. Content still draws edge to edge (each screen pads for the bars).
+ */
+@Composable
+private fun SystemBarsFollowTheme(dark: Boolean) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    if (view.isInEditMode) return
+    androidx.compose.runtime.DisposableEffect(dark) {
+        var ctx = view.context
+        while (ctx is android.content.ContextWrapper && ctx !is androidx.activity.ComponentActivity) ctx = ctx.baseContext
+        (ctx as? androidx.activity.ComponentActivity)?.enableEdgeToEdge(
+            statusBarStyle = androidx.activity.SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { dark },
+            navigationBarStyle = androidx.activity.SystemBarStyle.auto(LightScrim, DarkScrim) { dark },
+        )
+        onDispose {}
     }
 }

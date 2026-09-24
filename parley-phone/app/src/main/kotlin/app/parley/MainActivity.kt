@@ -60,7 +60,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             app.parley.security.AppLock.onStart(s)
             // After a longer break, open on the preferred tab again; a quick app switch keeps your place.
             if (stoppedAt > 0 && android.os.SystemClock.elapsedRealtime() - stoppedAt > 5 * 60_000L && intent?.action == android.content.Intent.ACTION_MAIN) {
-                vm.navigate(NavEvent.Tab(s.startTab))
+                vm.navigate(NavEvent.Tab(s.navTabs.startTab(s.startTab)))
             }
         }
     }
@@ -115,7 +115,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 data != null -> openResolved(data)
             }
             Intent.ACTION_CALL_BUTTON -> vm.navigate(NavEvent.Tab(StartTab.RECENTS))
-            ACTION_OPEN_BACKUP -> vm.navigate(NavEvent.Route(app.parley.ui.Routes.BACKUP))
+            Intent.ACTION_APPLICATION_PREFERENCES -> vm.navigate(NavEvent.Route(app.parley.ui.Routes.SETTINGS))
+            ACTION_OPEN_BACKUP ->vm.navigate(NavEvent.Route(app.parley.ui.Routes.BACKUP))
             ACTION_OPEN_BLOCKING -> vm.navigate(NavEvent.Route(app.parley.ui.Routes.BLOCKING))
             ACTION_ADD_CALL -> vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
             ACTION_SHOW_MISSED -> {

@@ -60,7 +60,8 @@ object MessengerLauncher {
 object TemporaryContact {
     const val DEFAULT_DAYS = 7
 
-    suspend fun save(c: DataContainer, number: String, name: String, days: Int = DEFAULT_DAYS): Long? {
+    /** [purgeHistory]: also delete the number's call history when the contact expires. */
+    suspend fun save(c: DataContainer, number: String, name: String, days: Int = DEFAULT_DAYS, purgeHistory: Boolean = true): Long? {
         val details = ContactDetails(
             given = name.trim().ifEmpty { number },
             phones = listOf(DataItem(value = number, type = ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)),
@@ -68,7 +69,7 @@ object TemporaryContact {
         // Kept on this phone only (never synced to an account): it's meant to disappear.
         val id = c.contacts.save(null, details, null, null, false) ?: return null
         val key = c.contacts.details(id)?.lookupKey?.takeIf { it.isNotEmpty() } ?: return id
-        c.meta.setTemporary(TemporaryContactEntity(key, id, System.currentTimeMillis() + days * 86_400_000L, purgeHistory = true))
+        c.meta.setTemporary(TemporaryContactEntity(key, id, System.currentTimeMillis() + days * 86_400_000L, purgeHistory = purgeHistory))
         return id
     }
 

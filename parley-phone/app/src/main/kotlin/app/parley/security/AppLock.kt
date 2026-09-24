@@ -65,6 +65,7 @@ object AppLock {
     }
 
     fun onStart(settings: AppSettings) {
+        promptOnShow = true
         if (!settings.appLock) {
             locked.value = false
             return
@@ -74,6 +75,20 @@ object AppLock {
     }
 
     fun lockNow() {
+        locked.value = true
+    }
+
+    /**
+     * Whether the lock screen asks for the fingerprint as soon as it shows. Off after "Lock now" (U8): you locked
+     * Parley on purpose, so it waits for you to tap Unlock.
+     */
+    @Volatile
+    var promptOnShow = true
+        private set
+
+    /** "Lock now" from Parley's own menu. */
+    fun lockNowByUser() {
+        promptOnShow = false
         locked.value = true
     }
 
@@ -178,7 +193,7 @@ object VaultSession {
 
 @Composable
 fun LockScreen(onUnlock: () -> Unit) {
-    LaunchedEffect(Unit) { onUnlock() }
+    LaunchedEffect(Unit) { if (AppLock.promptOnShow) onUnlock() }
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Rounded.Lock, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)

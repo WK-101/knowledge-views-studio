@@ -27,25 +27,20 @@ import app.parley.messaging.MyDetailsDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Settings › Calls: "Keypad letters" (K6) and "My details" for messages (M5). */
+/** Settings › Keypad: "Keypad letters" (K6). */
 @Composable
-fun KeypadAndMessagingSettings(vm: AppViewModel) {
+fun KeypadLettersRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
     val store = vm.c.messaging
     val choice by store.keypadLayoutChoice.collectAsStateWithLifecycle()
-    val details by store.myDetails.collectAsStateWithLifecycle()
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     var pickLayout by remember { mutableStateOf(false) }
-    var editDetails by remember { mutableStateOf(false) }
     val phoneLanguage = remember { store.effectiveLayout(null) }
 
     LinkRow(
-        "Keypad letters",
+        entry("keypad_letters").title,
         (choice ?: phoneLanguage).label + if (choice == null) " · same as phone language" else "",
+        icon,
     ) { pickLayout = true }
-    LinkRow(
-        "My details for messages",
-        listOf(details.name, details.number).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { "Used by “Send my details”" },
-    ) { editDetails = true }
 
     if (pickLayout) {
         // Scripts found in your contacts' names, most common first.
@@ -75,6 +70,19 @@ fun KeypadAndMessagingSettings(vm: AppViewModel) {
             dismissButton = { TextButton({ pickLayout = false }) { Text("Cancel") } },
         )
     }
+}
+
+/** Settings › Messaging: "My details" for "Send my details" (M5). */
+@Composable
+fun MyDetailsRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
+    val store = vm.c.messaging
+    val details by store.myDetails.collectAsStateWithLifecycle()
+    var editDetails by remember { mutableStateOf(false) }
+    LinkRow(
+        entry("my_details").title,
+        listOf(details.name, details.number).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { "Used by “Send my details”" },
+        icon,
+    ) { editDetails = true }
     if (editDetails) {
         MyDetailsDialog(
             initial = details,

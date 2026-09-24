@@ -39,12 +39,14 @@ import kotlinx.coroutines.launch
 
 /** Settings › Calls entry: "Keep full call history" with its switch; tapping opens the details page. */
 @Composable
-fun KeepFullHistoryRow(vm: AppViewModel, open: (String) -> Unit) {
+fun KeepFullHistoryRow(vm: AppViewModel, open: (String) -> Unit, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
     val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
     var confirmOff by remember { mutableStateOf(false) }
     ListItem(
         modifier = Modifier.clickable { open(HistoryRoutes.SETTINGS) },
-        headlineContent = { Text("Keep full call history") },
+        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+        leadingContent = icon?.let { { Icon(it, null, tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant) } },
+        headlineContent = { Text(app.parley.common.SettingsCatalog["archive"].title) },
         supportingContent = {
             Text(
                 if (prefs.archiveEnabled) "On: Parley keeps its own encrypted copy, because Android may drop old calls"
