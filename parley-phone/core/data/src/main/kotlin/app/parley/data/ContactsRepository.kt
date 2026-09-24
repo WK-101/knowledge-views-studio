@@ -23,6 +23,7 @@ import android.provider.ContactsContract.CommonDataKinds.Nickname
 import android.provider.ContactsContract.CommonDataKinds.Note
 import android.provider.ContactsContract.CommonDataKinds.Organization
 import android.provider.ContactsContract.CommonDataKinds.Phone
+import android.provider.ContactsContract.CommonDataKinds.Relation
 import android.provider.ContactsContract.CommonDataKinds.Photo
 import android.provider.ContactsContract.CommonDataKinds.StructuredName
 import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
@@ -216,6 +217,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         val phones = ArrayList<DataItem>()
         val emails = ArrayList<DataItem>()
         val sites = ArrayList<DataItem>()
+        val relations = ArrayList<DataItem>()
         val addrs = ArrayList<PostalItem>()
         val events = ArrayList<EventItem>()
         val groups = HashSet<Long>()
@@ -242,6 +244,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
                     Phone.CONTENT_ITEM_TYPE -> phones += DataItem(id, s(2), c.getInt(3), c.getString(4), c.getInt(12) != 0)
                     Email.CONTENT_ITEM_TYPE -> emails += DataItem(id, s(2), c.getInt(3), c.getString(4))
                     Website.CONTENT_ITEM_TYPE -> sites += DataItem(id, s(2), c.getInt(3), c.getString(4))
+                    Relation.CONTENT_ITEM_TYPE -> relations += DataItem(id, s(2), c.getInt(3), c.getString(4))
                     StructuredPostal.CONTENT_ITEM_TYPE -> {
                         var p = PostalItem(
                             id, street = s(5), city = s(8), region = s(9), postcode = s(10), country = s(11).ifEmpty { "" },
@@ -257,7 +260,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         }
         base.copy(
             phones = if (forEdit) phones else phones.distinctBy { PhoneNumbers.matchKey(it.value) + it.type },
-            emails = emails, websites = sites, addresses = addrs, events = events, groupIds = groups,
+            emails = emails, websites = sites, relations = relations, addresses = addrs, events = events, groupIds = groups,
         )
     }
 
@@ -417,6 +420,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
             multi(original?.phones.orEmpty(), edited.phones, Phone.CONTENT_ITEM_TYPE, Phone.NUMBER, Phone.TYPE, Phone.LABEL)
             multi(original?.emails.orEmpty(), edited.emails, Email.CONTENT_ITEM_TYPE, Email.ADDRESS, Email.TYPE, Email.LABEL)
             multi(original?.websites.orEmpty(), edited.websites, Website.CONTENT_ITEM_TYPE, Website.URL, Website.TYPE, Website.LABEL)
+            multi(original?.relations.orEmpty(), edited.relations, Relation.CONTENT_ITEM_TYPE, Relation.NAME, Relation.TYPE, Relation.LABEL)
             multi(
                 original?.events.orEmpty().map { DataItem(it.id, it.date, it.type, it.label) },
                 edited.events.map { DataItem(it.id, it.date, it.type, it.label) },

@@ -4,6 +4,7 @@ import android.net.Uri
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Event
 import android.provider.ContactsContract.CommonDataKinds.Phone
+import android.provider.ContactsContract.CommonDataKinds.Relation
 import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
 import android.provider.ContactsContract.CommonDataKinds.Website
 import androidx.activity.compose.BackHandler
@@ -76,6 +77,10 @@ import kotlinx.coroutines.withContext
 private val phoneTypes = listOf(Phone.TYPE_MOBILE, Phone.TYPE_HOME, Phone.TYPE_WORK, Phone.TYPE_MAIN, Phone.TYPE_FAX_WORK, Phone.TYPE_OTHER)
 private val emailTypes = listOf(Email.TYPE_HOME, Email.TYPE_WORK, Email.TYPE_MOBILE, Email.TYPE_OTHER)
 private val postalTypes = listOf(StructuredPostal.TYPE_HOME, StructuredPostal.TYPE_WORK, StructuredPostal.TYPE_OTHER)
+private val relationTypes = listOf(
+    Relation.TYPE_SPOUSE, Relation.TYPE_PARTNER, Relation.TYPE_CHILD, Relation.TYPE_PARENT, Relation.TYPE_MOTHER, Relation.TYPE_FATHER,
+    Relation.TYPE_SISTER, Relation.TYPE_BROTHER, Relation.TYPE_FRIEND, Relation.TYPE_MANAGER, Relation.TYPE_ASSISTANT, Relation.TYPE_RELATIVE,
+)
 private val eventTypes = listOf(Event.TYPE_BIRTHDAY, Event.TYPE_ANNIVERSARY, Event.TYPE_OTHER)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -299,6 +304,11 @@ fun ContactEditScreen(
                 "Website", d.websites, listOf(Website.TYPE_HOMEPAGE, Website.TYPE_WORK, Website.TYPE_OTHER),
                 { t -> when (t) { Website.TYPE_HOMEPAGE -> "Homepage"; Website.TYPE_WORK -> "Work"; else -> "Other" } }, KeyboardType.Uri,
                 onChange = { list -> update { it.copy(websites = list) } }, newItem = { DataItem(type = Website.TYPE_HOMEPAGE) },
+            )
+
+            MultiSection(
+                "Relation", d.relations, relationTypes, { Relation.getTypeLabel(res, it, null).toString() }, KeyboardType.Text,
+                onChange = { list -> update { it.copy(relations = list) } }, newItem = { DataItem(type = Relation.TYPE_SPOUSE) },
             )
 
             val accountGroups = if (vaultId != null) emptyList() else groups.filter { it.account.type == account?.type && it.account.name == account?.name }

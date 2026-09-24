@@ -74,6 +74,8 @@ data class ContactDetails(
     val phones: List<DataItem> = emptyList(),
     val emails: List<DataItem> = emptyList(),
     val websites: List<DataItem> = emptyList(),
+    /** Relations (spouse, manager, …): value = the related person's name. */
+    val relations: List<DataItem> = emptyList(),
     val addresses: List<PostalItem> = emptyList(),
     val events: List<EventItem> = emptyList(),
     val groupIds: Set<Long> = emptySet(),

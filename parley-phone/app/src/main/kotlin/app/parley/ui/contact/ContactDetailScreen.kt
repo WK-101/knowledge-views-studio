@@ -34,6 +34,8 @@ import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.AddToHomeScreen
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Timer
@@ -107,6 +109,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     var showPhoto by remember { mutableStateOf(false) }
     var askExpiry by remember { mutableStateOf(false) }
     var pinDialog by remember { mutableStateOf(false) }
+    var reachOut by remember { mutableStateOf(false) }
+    val allNotes by vm.c.meta.allCallNotes().collectAsStateWithLifecycle(emptyList())
     var editNote by remember { mutableStateOf(false) }
     var messengers by remember { mutableStateOf<List<app.parley.data.MessengerAction>>(emptyList()) }
     var meta by remember { mutableStateOf<app.parley.data.db.ContactMetaEntity?>(null) }
@@ -204,6 +208,11 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     Text(d.displayName, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp).shared("name-$contactId", bounds = true))
                     val sub = listOf(d.nickname, listOf(d.title, d.company).filter { it.isNotBlank() }.joinToString(", ")).filter { it.isNotBlank() }
                     if (sub.isNotEmpty()) Text(sub.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val talked = history.firstOrNull { it.durationSec > 0 }
+                    Text(
+                        if (talked != null) "Last talked ${android.text.format.DateUtils.getRelativeTimeSpanString(talked.date, System.currentTimeMillis(), android.text.format.DateUtils.DAY_IN_MILLIS)}" else "No calls yet",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp),
+                    )
                     temp?.let { Text("Deletes itself on ${Format.fullDate(context, it.expiresAt)}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                     Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         d.rawContacts.map { it.account.displayLabel }.distinct().take(3).forEach { label ->
@@ -262,11 +271,19 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     Row0(Icons.Rounded.LocationOn, a.formatted, StructuredPostal.getTypeLabel(context.resources, a.type, a.label).toString()) { Intents.map(context, a.formatted) }
                 }
             }
-            if (d.events.isNotEmpty() || d.websites.isNotEmpty() || d.note.isNotBlank()) item { Section("About") }
+            if (d.events.isNotEmpty() || d.websites.isNotEmpty() || d.note.isNotBlank() || d.relations.isNotEmpty()) item { Section("About ${d.given.ifBlank { d.displayName }}") }
             d.events.forEach { ev ->
                 item { Row0(Icons.Rounded.Cake, describeEvent(ev.date, ev.type == Event.TYPE_BIRTHDAY), if (ev.type == 0 && !ev.label.isNullOrBlank()) ev.label!! else resources.getString(Event.getTypeResource(ev.type))) {} }
             }
             d.websites.forEach { w -> item { Row0(Icons.Rounded.Language, w.value, "Website") { Intents.web(context, w.value) } } }
+            d.relations.forEach { r ->
+                item {
+                    val match = all.orEmpty().firstOrNull { it.displayName.equals(r.value, true) }
+                    Row0(Icons.Rounded.People, r.value, android.provider.ContactsContract.CommonDataKinds.Relation.getTypeLabel(resources, r.type, r.label).toString()) {
+                        match?.let { open(Routes.contact(it.id)) }
+                    }
+                }
+            }
             if (d.note.isNotBlank()) item {
                 ListItem(
                     modifier = Modifier.combinedClickable(onClick = {}, onLongClick = { Intents.copy(context, d.note) }),
@@ -304,6 +321,15 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 )
             }
             item {
+                val every = meta?.reachOutDays
+                ListItem(
+                    modifier = Modifier.clickable { reachOut = true },
+                    leadingContent = { Icon(Icons.Rounded.NotificationsActive, null) },
+                    headlineContent = { Text("Remind me to keep in touch") },
+                    supportingContent = { Text(every?.let { "If you haven't talked in $it days" } ?: "Off") },
+                )
+            }
+            item {
                 val tone = d.customRingtone?.let { runCatching { RingtoneManager.getRingtone(context, Uri.parse(it))?.getTitle(context) }.getOrNull() }
                 Row0(Icons.Rounded.MusicNote, tone ?: "Default ringtone", "Ringtone") {
                     ringtonePicker.launch(Intent(RingtoneManager.ACTION_RINGTONE_PICKER).putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE))
@@ -311,6 +337,14 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             }
             item {
                 Row0(Icons.Rounded.Sync, d.rawContacts.joinToString("\n") { it.account.displayLabel }, if (d.rawContacts.size > 1) "Linked from ${d.rawContacts.size} sources" else "Saved in") {}
+            }
+            val keys = d.phones.map { PhoneNumbers.matchKey(it.value) }.toSet()
+            val notes = allNotes.filter { it.numberKey in keys }
+            if (notes.isNotEmpty()) {
+                item { Section("Call notes") }
+                notes.take(10).forEach { n ->
+                    item { ListItem(headlineContent = { LinkifiedText(n.text) }, supportingContent = { Text(Format.fullDate(context, n.callDate)) }, leadingContent = { Icon(Icons.Rounded.Notes, null) }) }
+                }
             }
             if (history.isNotEmpty()) {
                 item { Section("Recent calls") }
@@ -340,6 +374,21 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 text = { androidx.compose.material3.OutlinedTextField(text, { text = it }, placeholder = { Text("e.g. Ask about the invoice") }, minLines = 2) },
                 confirmButton = { TextButton({ editNote = false; saveMeta { it.copy(pinnedNote = text.trim().ifEmpty { null }) } }) { Text("Save") } },
                 dismissButton = { TextButton({ editNote = false }) { Text("Cancel") } },
+            )
+        }
+        if (reachOut) {
+            AlertDialog(
+                onDismissRequest = { reachOut = false },
+                title = { Text("Keep in touch") },
+                text = {
+                    Column {
+                        listOf(null to "Off", 7 to "Every week", 14 to "Every 2 weeks", 30 to "Every month", 90 to "Every 3 months", 180 to "Every 6 months").forEach { (days, label) ->
+                            ListItem(headlineContent = { Text(label) }, modifier = Modifier.clickable { reachOut = false; saveMeta { it.copy(reachOutDays = days, lastNudgedAt = null) } })
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = { TextButton({ reachOut = false }) { Text("Cancel") } },
             )
         }
         if (pinDialog) {

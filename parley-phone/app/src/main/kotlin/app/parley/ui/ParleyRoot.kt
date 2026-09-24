@@ -59,6 +59,7 @@ object Routes {
     const val PRIVACY = "privacy"
     const val SPEED_DIAL = "speeddial"
     const val BIRTHDAYS = "birthdays"
+    const val HEALTH = "health"
 
     fun contact(id: Long) = "contact/$id"
     fun history(number: String) = "history/" + Uri.encode(number)
@@ -194,6 +195,7 @@ fun ParleyRoot(vm: AppViewModel) {
             composable(Routes.BLOCKING) { BlockingScreen(vm, back = { nav.popBackStack() }) }
             composable(Routes.DUPLICATES) { DuplicatesScreen(vm, back = { nav.popBackStack() }) }
             composable(Routes.PRIVACY) { PrivacyScreen(vm, back = { nav.popBackStack() }) }
+            composable(Routes.HEALTH) { app.parley.ui.health.HealthScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             composable(Routes.BIRTHDAYS) { app.parley.ui.birthdays.BirthdaysScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             composable(Routes.SPEED_DIAL) { SpeedDialScreen(vm, back = { nav.popBackStack() }) }
         }
