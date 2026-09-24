@@ -37,9 +37,10 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
 /**
- * First-run tour (F1) — a calm, skippable walkthrough that actually shows off the breadth: the three
- * modules, the Do-Next engine, one-line capture and the command palette, habits, time statistics, the
- * cross-module reasoning that's ours alone, and the offline promise. Each page names concrete features.
+ * First-run tour (F1) — a calm, skippable walkthrough that actually shows off the breadth: the four
+ * modules (tasks, habits, time, notes), the Do-Next engine, one-line capture and the command palette,
+ * habit-building, a linked note vault, time & focus, the cross-module reasoning that's ours alone,
+ * home-screen widgets, and the offline promise. Each page names concrete features.
  */
 @Composable
 fun Onboarding(onDone: () -> Unit) {
@@ -53,9 +54,9 @@ fun Onboarding(onDone: () -> Unit) {
                 "✦  The icon is an aperture opening onto a guiding star: the opening is the moment, the star is what it reveals",
                 "🎯  Name and mark chosen to say one thing — act at the right time"),
             brand = true),
-        Page("🌱", "Three tools, one calm app",
-            "Tasks, habits and time tracking live together in one private place — turn on only what you need, add the rest later.",
-            listOf("✓  To-dos with dates, priority & subtasks", "↻  Habits with streaks & strength", "⧗  Time tracking with rich statistics")),
+        Page("🌱", "Four tools, one calm app",
+            "Tasks, habits, time and notes live together in one private place — make any one your home base, turn off what you don't need, and add the rest whenever you're ready.",
+            listOf("✓  To-dos with dates, priority & subtasks", "↻  Habits with streaks & a strength score", "⧗  Time tracking with rich statistics", "📝  Notes — a linked, offline knowledge base")),
         Page("⚡", "It decides what's next",
             "Set importance, urgency and dates — the Do-Next list computes the single most worthwhile thing to do right now. No manual re-sorting.",
             listOf("Filter by time available & energy", "Eisenhower matrix & board views", "Deadlines, workload forecast & auto-schedule")),
@@ -72,11 +73,18 @@ fun Onboarding(onDone: () -> Unit) {
             "Anchor habits to your values, keep yourself accountable without any account, and let years of your own data reveal what actually works for you.",
             listOf("Values → systems → habits, calm mode", "Commitment contracts + a local referee, self-forfeits", "On-device correlation engine: “meditate → mood +1.2”", "Weekly & annual integrity review · a permanent identity ledger")),
         Page("⧗", "See where your time goes",
-            "One tap starts a timer. A full Statistics screen shows a donut, Day/Week/Month/Year ranges and per-activity drill-downs — and time links to tasks & habits.",
-            listOf("Donut + ranked breakdowns + trends", "Link an activity to a task or a habit", "On-device automations & a live timer")),
-        Page("🧭", "It reasons across all three",
-            "Only a unified, on-device store can do this: keystone habits, honest capacity, unified goals, momentum, weekly recaps and a private annual review.",
-            listOf("Momentum across tasks, habits & time", "Any-period recap & “year in review”", "Cross-module goals & honest forecasting")),
+            "One tap starts a timer — or a distraction-free Focus session. A full Statistics screen shows a donut, Day/Week/Month/Year ranges and per-activity drill-downs, and every minute links back to your tasks & habits.",
+            listOf("Donut + ranked breakdowns + trends", "A Focus timer with a daily deep-work goal", "Link an activity to a task or a habit", "On-device automations & a live home-screen timer")),
+        Page("📝", "Your notes, a second brain",
+            "A full writing space that links up like a wiki: connect any two notes with [[wikilinks]], watch the web of ideas grow, and let old thinking resurface at the right moment. Everything stays plain text you own.",
+            listOf(
+                "Backlinks + a visual graph — a connected web of ideas",
+                "Daily & periodic notes, templates, and an ink canvas",
+                "Spaced-review cards resurface old notes so they stick",
+                "Properties, tags & saved queries · mirror to Markdown files")),
+        Page("🧭", "It reasons across everything",
+            "Only a unified, on-device store can do this: keystone habits, honest capacity, 12-week goals, a single momentum score, weekly recaps and a private annual review — connections a folder of separate apps can never see.",
+            listOf("Momentum across tasks, habits, time & focus", "12-week goals with key results & cycle pacing", "Any-period recap & a private “year in review”", "Cross-module correlations & honest forecasting")),
         // R68 — new since the last tour: the calendar moat, occasions, the record, the life-systems
         // gallery, and the home-screen surface. Each names screens you can actually open.
         Page("📅", "A calendar that plans your day",
@@ -92,7 +100,7 @@ fun Onboarding(onDone: () -> Unit) {
                 "Countdowns to any date (and a home-screen widget)",
                 "Keep-in-touch cadence + an “on this day” almanac",
                 "Import birthdays straight from a .vcf contact card",
-                "Share a occasion card; attach photos & files")),
+                "Share an occasion card; attach photos & files")),
         Page("🏆", "A record of everything you finish",
             "Every completed task becomes an achievement you can look back on — a living record with a heatmap, milestones and skills — and each day ends with a one-glance review.",
             listOf(
@@ -103,16 +111,17 @@ fun Onboarding(onDone: () -> Unit) {
         Page("🧰", "A workshop of life-systems tools",
             "Beyond habits, Kairo carries a gallery of on-device, science-backed tools for building a life on purpose. Open the Life Systems hub and pick one when you need it.",
             listOf(
+                "Guided routines — run a morning or wind-down sequence step-by-step",
                 "Grounding library — 5-4-3-2-1 & box breathing for hard moments",
                 "Temptation bundling & if-then plans, fired at the right cue",
                 "Rank your values (a card-sort) & self-escrow commitments",
                 "Fresh-start windows, a causal graph & your own correlations")),
         Page("🧩", "Home-screen widgets & one-tap capture",
-            "Put Kairo on your home screen — a shelf of widgets for every module, plus a tiny add-task button that pops a capture panel without ever opening the app. Keep areas of life apart with workspaces.",
+            "Put Kairo on your home screen — 22 widgets across every module, each themeable with its own size, opacity and light/dark, plus a tiny add-task button that pops a capture panel without ever opening the app.",
             listOf(
-                "14 widgets: Do-Next, Habits, Agenda, Matrix, Time, The Record, Momentum…",
+                "22 widgets: Do-Next, Agenda, Day, Matrix, Habits, Habit Insight, Goal Sprint, Focus, Time, Next Up, Routine Runner, Close the Day…",
                 "A 1×1 Quick-add button → a popup task panel, straight from home",
-                "Long-press the icon: Quick add · Today · Do-Next · Focus",
+                "A configurable Quick Actions island · long-press: Add · Today · Do-Next · Focus",
                 "Workspaces keep Work and Personal fully separate")),
         Page("🔒", "Yours, and only yours",
             "Fully offline — no account, no cloud, no ads, and no internet or location permission at all. Back up or sync through a folder you choose, whenever you like.",
