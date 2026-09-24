@@ -179,6 +179,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                     menu = false; d.phones.forEach { vm.blockNumber(it.value) }
                                 })
                             }
+                            app.parley.ui.blocking.ContactPrefixAllowMenuItem(d.composedName.ifBlank { null }, d.phones.map { it.value }) { menu = false }
                             if (d.rawContacts.size > 1) {
                                 DropdownMenuItem({ Text("Separate linked contacts") }, leadingIcon = { Icon(Icons.Rounded.CallSplit, null) }, onClick = {
                                     menu = false; scope.launch { vm.c.contacts.separate(contactId); back() }

@@ -367,6 +367,14 @@ private fun CallerHeader(
         if (call.unknown && call.state == CallState.RINGING) {
             Text(listOfNotNull("Not in your contacts", call.location).joinToString(" · "), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
         }
+        // Screening verdict (B2): "Likely spam · FTC list", "Allowed by 'Plumber'".
+        if (call.verdict != null && call.state == CallState.RINGING) {
+            Text(
+                call.verdict, style = MaterialTheme.typography.labelLarge,
+                color = if (call.verdictWarn) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = if (call.verdictWarn) FontWeight.Bold else null, modifier = Modifier.padding(top = 4.dp),
+            )
+        }
         Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // While dialling, the SIM already shows in the status line.
             if (call.state != CallState.DIALING && call.state != CallState.CONNECTING && call.state != CallState.NEW) call.accountLabel?.let { Chip(Icons.Rounded.SimCard, it) }

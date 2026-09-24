@@ -72,6 +72,8 @@ data class PendingCall(
     /** Why the call needs confirming beyond the usual question, e.g. a used-up call-time allowance. */
     val note: String? = null,
     val simId: String? = null,
+    /** Shown first in the shared dial-guard sheet (premium line, one-ring scam, listed number). */
+    val warnings: List<app.parley.data.DialWarning> = emptyList(),
 )
 
 sealed interface UiEvent {
@@ -205,6 +207,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- Recents ----------
 
     val recentFilter = MutableStateFlow(RecentFilter.ALL)
+
+    /** Recents rows selected for bulk actions (keys of [RecentGroup]). */
+    val recentSelection = MutableStateFlow<Set<String>>(emptySet())
     val recentQuery = MutableStateFlow("")
 
     /** System call log (plus Parley's archive) + private (vault) calls, newest first. */
@@ -343,12 +348,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val chooseSim = simCount >= 2 && remembered == null && withContext(Dispatchers.IO) { c.sims.defaultOutgoing() } == null &&
                 !PhoneNumbers.isServiceCode(number)
             val confirm = settings.value.confirmBeforeCall && !skipConfirm
-            if (confirm && !chooseSim) {
-                // One dialog for both questions: "Call Ana?" and a used-up allowance.
-                val note = callTime.outgoingWarning(number, remembered ?: withContext(Dispatchers.IO) { c.sims.defaultOutgoing() })
-                pendingCall.value = PendingCall(number, name, true, false, note)
-            } else if (chooseSim) {
-                pendingCall.value = PendingCall(number, name, confirm, true)
+            // Contacts never get the guard's warnings (they are checked inside); emergency numbers are skipped too.
+            val warnings = c.dialGuard.check(number)
+            // One dialog for every question: "Call Ana?", a used-up allowance and the dial guard's warnings.
+            val note = if (!chooseSim) callTime.outgoingWarning(number, remembered ?: withContext(Dispatchers.IO) { c.sims.defaultOutgoing() }) else null
+            if (confirm || chooseSim || warnings.isNotEmpty() || note != null) {
+                pendingCall.value = PendingCall(number, name, confirm || note != null, chooseSim, note, warnings = warnings)
             } else {
                 place(number, null)
             }

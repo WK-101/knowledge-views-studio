@@ -35,6 +35,13 @@ fun CallDialogs(vm: AppViewModel) {
     var remember by remember(p) { mutableStateOf(false) }
     val who = p.name?.let { "$it (${Format.number(p.number, vm.countryIso)})" } ?: Format.number(p.number, vm.countryIso)
 
+    if (p.warnings.isNotEmpty()) {
+        DialGuardSheet(who, p.warnings, onCall = {
+            if (p.chooseSim) vm.pendingCall.value = p.copy(warnings = emptyList(), needConfirm = false) else vm.place(p.number, null)
+        }, onCancel = { vm.pendingCall.value = null })
+        return
+    }
+
     if (p.chooseSim) {
         AlertDialog(
             onDismissRequest = { vm.pendingCall.value = null },

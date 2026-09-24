@@ -37,8 +37,11 @@ class ParleyCallScreeningService : CallScreeningService() {
             return
         }
         scope.launch {
-            val decision = withTimeoutOrNull(3000) { TelecomGraph.dependencies.screen(number, number.isNullOrBlank(), verification) }
-            ScreeningGuard.remember(number, decision ?: Decision.Allow)
+            // No SIM here: Android never gives the screening service the phone account (per-SIM rules run in CallManager).
+            val callerName = details.callerDisplayName?.takeIf { it.isNotBlank() }
+            val outcome = withTimeoutOrNull(3000) { TelecomGraph.dependencies.screenCall(number, number.isNullOrBlank(), verification, null, callerName) }
+            val decision = outcome?.decision
+            ScreeningGuard.remember(number, outcome ?: ScreenOutcome(Decision.Allow))
             val response = CallResponse.Builder()
             if (decision is Decision.Block) {
                 when (decision.action) {

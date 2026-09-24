@@ -17,6 +17,7 @@ class ParleyApp : Application() {
         app.parley.work.HistoryWorker.schedule(this)
         // Plaintext call-history exports never outlive the next start.
         container.scope.launch(kotlinx.coroutines.Dispatchers.IO) { app.parley.ui.history.ExportFiles.cleanup(this@ParleyApp) }
+        app.parley.blocking.BlockingSetup.install(this, container)
         // The process often starts for an incoming call: sync later, off the call path (the daily housekeeping
         // run takes the time-machine snapshot).
         val st = container.folderSync.status.value

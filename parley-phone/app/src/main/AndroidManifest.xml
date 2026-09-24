@@ -280,6 +280,21 @@
             </intent-filter>
         </service>
 
+        <!-- Quick Settings tile: "Expecting a call" lets unknown callers ring for a while. -->
+        <service
+            android:name=".blocking.ExpectingCallTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_expecting"
+            android:label="Expecting a call"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        <receiver
+            android:name=".blocking.BlockingActionReceiver"
+            android:exported="false" />
+
         <!-- Telecom delegates missed-call notifications to the default dialer. Only the system can send it. -->
         <receiver
             android:name=".MissedCallReceiver"

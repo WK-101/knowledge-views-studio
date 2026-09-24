@@ -46,6 +46,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -60,6 +62,7 @@ import app.parley.ui.Routes
 import app.parley.ui.avatarSize
 import app.parley.ui.common.Format
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
     val groups by vm.recentGroups.collectAsStateWithLifecycle()
@@ -75,8 +78,16 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
     var daySummary by remember { mutableStateOf<Pair<Long, String>?>(null) }
     daySummary?.let { (day, title) -> app.parley.ui.history.DaySummarySheet(vm, day, title) { daySummary = null } }
     app.parley.ui.history.RecentsExportHost(vm)
+    // Blocking: verdict / "Don't call back" badges and multi-select block (B2, B8, B10).
+    val badgeFor = app.parley.ui.blocking.rememberRecentBadges(vm)
+    val selected by vm.recentSelection.collectAsStateWithLifecycle()
+    androidx.activity.compose.BackHandler(enabled = selected.isNotEmpty()) { vm.recentSelection.value = emptySet() }
+    fun toggleSelected(g: RecentGroup) {
+        vm.recentSelection.value = selected.let { if (g.key in it) it - g.key else it + g.key }
+    }
 
     LazyColumn(Modifier.fillMaxWidth()) {
+        if (selected.isNotEmpty()) stickyHeader(key = "selection") { app.parley.ui.blocking.RecentsSelectionBar(vm, groups.orEmpty()) }
         item(key = "filters") {
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 RecentFilter.entries.forEach { f ->
@@ -111,10 +122,13 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
             item(key = g.key) {
                 RecentRow(
                     g, vm.countryIso, simLabels.takeIf { settings.showSimLabels }.orEmpty(),
-                    onLongClick = { menuFor = g },
+                    onLongClick = { if (selected.isNotEmpty()) toggleSelected(g) else menuFor = g },
+                    badge = badgeFor(g),
+                    selected = g.key in selected,
                     onOpen = {
                         val ct = g.contact
                         when {
+                            selected.isNotEmpty() -> toggleSelected(g)
                             g.vaultId != null -> open(Routes.vault(g.vaultId))
                             ct != null -> open(Routes.contact(ct.id))
                             !g.hidden -> open(Routes.history(g.number))
@@ -129,13 +143,18 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun RecentRow(g: RecentGroup, countryIso: String, simLabels: Map<String, String>, onLongClick: (() -> Unit)? = null, onOpen: () -> Unit, onCall: () -> Unit) {
+fun RecentRow(
+    g: RecentGroup, countryIso: String, simLabels: Map<String, String>, onLongClick: (() -> Unit)? = null,
+    badge: app.parley.ui.blocking.RecentBadge? = null, selected: Boolean = false, onOpen: () -> Unit, onCall: () -> Unit,
+) {
     val context = LocalContext.current
     val e = g.latest
     val (icon, tint) = callTypeIcon(e.type)
     val missed = e.type == CallType.MISSED || e.type == CallType.REJECTED
     ListItem(
-        modifier = Modifier.combinedClickable(onClick = onOpen, onLongClick = onLongClick, onLongClickLabel = "More actions"),
+        modifier = Modifier.combinedClickable(onClick = onOpen, onLongClick = onLongClick, onLongClickLabel = "More actions")
+            .semantics { this.selected = selected },
+        colors = if (selected) androidx.compose.material3.ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else androidx.compose.material3.ListItemDefaults.colors(),
         leadingContent = {
             if (g.hidden) MonoAvatar(avatarSize()) else Avatar(g.title, g.contact?.photoUri, avatarSize())
         },
@@ -147,6 +166,7 @@ fun RecentRow(g: RecentGroup, countryIso: String, simLabels: Map<String, String>
             )
         },
         supportingContent = {
+          androidx.compose.foundation.layout.Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
@@ -160,6 +180,13 @@ fun RecentRow(g: RecentGroup, countryIso: String, simLabels: Map<String, String>
                 )
                 Text(parts.joinToString(" · "), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            if (badge != null) {
+                Text(
+                    badge.text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelMedium,
+                    color = if (badge.warn) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+          }
         },
         trailingContent = {
             if (!g.hidden && g.number.isNotBlank()) {
@@ -205,6 +232,8 @@ private fun RecentActionsSheet(vm: AppViewModel, g: RecentGroup, open: (String) 
         row("Create contact", Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null) { act { open(Routes.edit(phone = g.number)) } }
         row("Add to a contact", Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null) { act { open(Routes.pick(g.number)) } }
         row("Block number", Icons.Rounded.Block, hasNumber) { act { vm.blockNumber(g.number) } }
+        row("Select", Icons.Rounded.Block, true) { act { vm.recentSelection.value = setOf(g.key) } }
+        if (hasNumber) app.parley.ui.blocking.RecentBlockingActions(vm, g.number, g.contact?.displayName, g.latest.type == CallType.BLOCKED, onDismiss)
         row("Delete from history", Icons.Rounded.Delete) {
             act {
                 scope.launch {

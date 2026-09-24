@@ -14,6 +14,16 @@ object CountryCodes {
 
     fun callingCode(iso: String): String? = MAP[iso.uppercase()]
 
+    /** Regions sharing a calling code ("1" → US, CA, …), sorted. */
+    fun regionsFor(callingCode: String): List<String> = MAP.filterValues { it == callingCode }.keys.sorted()
+
+    /** The calling code at the start of an E.164 number ("+4420…" → "44"), or null. */
+    fun callingCodeOf(e164: String): String? {
+        if (!e164.startsWith("+")) return null
+        val d = e164.substring(1)
+        return (1..3).map { d.take(it) }.firstOrNull { cc -> MAP.values.contains(cc) }
+    }
+
     /** Prefixes used to dial abroad, longest first. Default: 00. */
     fun internationalPrefixes(iso: String): List<String> {
         val i = iso.uppercase()

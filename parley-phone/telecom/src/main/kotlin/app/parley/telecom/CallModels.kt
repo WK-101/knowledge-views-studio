@@ -41,6 +41,9 @@ data class CallUi(
     val heldSinceElapsed: Long = 0,
     /** Why the call rings silently when it isn't a blocking rule (e.g. an allowance is used up). */
     val silenceReason: String? = null,
+    /** Screening verdict for the caller card: "Blocked by rule 'Telemarketing' · 7 calls", "Likely spam · FTC list". */
+    val verdict: String? = null,
+    val verdictWarn: Boolean = false,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: if (hidden) "Private number" else "Unknown"
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING
