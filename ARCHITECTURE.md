@@ -5,7 +5,7 @@ A single-module Android app, layered `ui → domain → data`, with Hilt wiring 
 ## Layers
 
 ### `data/`
-The source of truth. Room database (`CairnDatabase`, schema v14 with 13 checked-in,
+The source of truth. Room database (`CairnDatabase`, schema v24 with checked-in,
 additive migrations under `app/schemas/`) plus:
 - **DAOs** — `ItemDao`, `SourceDao`, `HighlightDao`, `TagDao`, `CollectionDao`, `RuleDao`,
   `InsightsDao`, `SyncDao`. List screens read flat JOIN projections (`ItemListRow`, …); no
@@ -48,7 +48,10 @@ in-place pane (drawer + bottom bar + one transition language); `CairnRoot` owns 
 and the reader route. State flows via `StateFlow` + `collectAsStateWithLifecycle` in a
 unidirectional pattern. `ui/theme/` holds the tokenised light/dark schemes, 12 accents,
 dynamic colour, and the Inter/Newsreader type scale. The reader (`ui/reader/`) renders
-sanitized article HTML as native Compose blocks — **no WebView**.
+sanitized article HTML as native Compose blocks (headings, paragraphs, images, quotes, code,
+lists, and tables) — **no WebView in the reading path**. A WebView appears only off the reading
+path: the offscreen `WebViewRenderer` JS-render extraction fallback, and the sandboxed in-app
+browser for opening an article's "Original".
 
 The largest screens are kept legible by splitting one screen into a thin composable plus
 sibling files in the same package: e.g. `ReaderScreen` + `ReaderSheets`, `SettingsScreen` +

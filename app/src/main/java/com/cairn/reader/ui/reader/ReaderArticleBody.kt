@@ -790,6 +790,35 @@ private fun BlockView(
                 }
             }
         }
+        is ReaderBlock.Table -> {
+            // A horizontally-scrollable native table: fixed-width cells keep columns aligned, the
+            // header row (if any) is tinted + semibold, and thin dividers separate rows. Ragged rows
+            // are padded so every row spans the same column count.
+            val cols = block.rows.maxOfOrNull { it.size } ?: 0
+            Box(
+                Modifier.padding(horizontal = ReaderHPad, vertical = 10.dp).fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp)).background(palette.text.copy(alpha = 0.04f))
+                    .horizontalScroll(rememberScrollState()),
+            ) {
+                Column {
+                    block.rows.forEachIndexed { r, row ->
+                        val isHeader = block.headerRow && r == 0
+                        val cellStyle = if (isHeader) bodyStyle.copy(fontWeight = FontWeight.SemiBold) else bodyStyle
+                        Row(Modifier.background(if (isHeader) palette.text.copy(alpha = 0.06f) else androidx.compose.ui.graphics.Color.Transparent)) {
+                            for (c in 0 until cols) {
+                                Text(
+                                    text = row.getOrNull(c) ?: androidx.compose.ui.text.AnnotatedString(""),
+                                    style = cellStyle.copy(fontSize = bodyStyle.fontSize * 0.86f),
+                                    color = palette.text,
+                                    modifier = Modifier.width(150.dp).padding(horizontal = 10.dp, vertical = 8.dp),
+                                )
+                            }
+                        }
+                        if (r < block.rows.size - 1) HorizontalDivider(color = palette.secondary.copy(alpha = 0.18f))
+                    }
+                }
+            }
+        }
         ReaderBlock.Rule -> HorizontalDivider(color = palette.secondary.copy(alpha = 0.25f), modifier = Modifier.padding(horizontal = ReaderHPad, vertical = 18.dp))
     }
 }

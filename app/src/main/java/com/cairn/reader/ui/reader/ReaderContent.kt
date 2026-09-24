@@ -25,6 +25,9 @@ sealed interface ReaderBlock {
     data class Quote(val text: AnnotatedString) : ReaderBlock
     data class Code(val text: String) : ReaderBlock
     data class BulletList(val items: List<AnnotatedString>, val ordered: Boolean) : ReaderBlock
+    /** A table, row-major. [headerRow] is true when the first row is a header (`<th>`), so it can
+     *  be styled distinctly. Rows are ragged-tolerant — the renderer pads short rows. */
+    data class Table(val rows: List<List<AnnotatedString>>, val headerRow: Boolean) : ReaderBlock
     data object Rule : ReaderBlock
 }
 
@@ -72,6 +75,7 @@ object HtmlLinearizer {
                     val code = el.wholeText().trimEnd()
                     if (code.isNotBlank()) out += ReaderBlock.Code(code)
                 }
+                "table" -> emitTable(el, out, link)
                 "hr" -> out += ReaderBlock.Rule
                 "figcaption", "script", "style", "noscript" -> Unit
                 "div", "section", "article", "main", "header", "footer", "aside" -> walk(el, out, link)
@@ -91,6 +95,24 @@ object HtmlLinearizer {
             return
         }
         inlineOrNull(el, link)?.let { out += ReaderBlock.Paragraph(it) }
+    }
+
+    private fun emitTable(table: Element, out: MutableList<ReaderBlock>, link: Color) {
+        // Row-major extraction; each <tr> maps to a list of cell strings (th or td). Empty cells are
+        // kept as blank AnnotatedStrings so columns stay aligned across rows.
+        val trs = table.select("tr")
+        if (trs.isEmpty()) return
+        val rows = trs.map { tr ->
+            tr.select("> th, > td").map { cell -> inlineOrNull(cell, link) ?: AnnotatedString("") }
+        }.filter { it.isNotEmpty() }
+        if (rows.isEmpty()) return
+        // A degenerate 1x1 table is just a paragraph — don't wrap a single value in table chrome.
+        if (rows.size == 1 && rows[0].size == 1) {
+            rows[0][0].takeIf { it.text.isNotBlank() }?.let { out += ReaderBlock.Paragraph(it) }
+            return
+        }
+        val headerRow = trs.first().select("> th").isNotEmpty()
+        out += ReaderBlock.Table(rows, headerRow)
     }
 
     private fun emitFigure(el: Element, out: MutableList<ReaderBlock>) {

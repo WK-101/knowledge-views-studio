@@ -983,8 +983,22 @@ class FeedRepository @Inject constructor(
     /** Run Readability for an already-saved item (the reader's "load full article"). */
     suspend fun extractFull(itemId: String) {
         val item = itemDao.getItem(itemId) ?: return
-        extractInto(itemId, item.url)
+        val outcome = extractInto(itemId, item.url)
+        // Auto-escalate when the static fetch produced nothing usable or a paywalled/thin teaser:
+        // re-render the SAME article URL with a headless WebView (client-side-rendered pages and soft
+        // walls often only yield their body this way). This contacts no new host — just the article's
+        // own URL, which the user already chose to read — so it needs no extra egress disclosure.
+        // Public-archive recovery stays user-initiated (a genuinely new third party), offered in the
+        // reader when even this fails.
+        val needsEscalation = outcome == null ||
+            com.cairn.reader.domain.archive.ArchiveResolver.looksPaywalled(outcome.plainText, outcome.wordCount)
+        if (needsEscalation && isOnline() && item.url.startsWith("http", ignoreCase = true)) {
+            coRunCatching { extractWithJs(itemId) }
+        }
     }
+
+    /** What [extractInto] recovered, so the caller can decide whether to escalate. */
+    private data class ExtractOutcome(val plainText: String, val wordCount: Int)
 
     /**
      * JS-render fallback (collector P5): re-render the item's page with a headless WebView so
@@ -1030,13 +1044,13 @@ class FeedRepository @Inject constructor(
         return true
     }
 
-    private suspend fun extractInto(itemId: String, url: String) {
+    private suspend fun extractInto(itemId: String, url: String): ExtractOutcome? {
         val res = coRunCatching { fetcher.fetch(url) }.getOrNull()
         val extracted = res?.body?.let { extractor.extract(res.finalUrl, it) }
         if (extracted == null) {
             // Keep whatever content we already have (e.g. the feed body); just record the failure.
             itemDao.setExtractStatus(itemId, "FAILED")
-            return
+            return null
         }
         val cleanHtml = if (sanitizeEnabled()) coRunCatching { sanitizer.sanitize(extracted.contentHtml, res.finalUrl).html }.getOrDefault(extracted.contentHtml) else extracted.contentHtml
         val blob = blobStore.writeArticle(itemId, cleanHtml)
@@ -1063,6 +1077,7 @@ class FeedRepository @Inject constructor(
         if (extracted.wordCount >= 200 && itemDao.getItem(itemId)?.type == ItemType.LINK.name) {
             itemDao.setType(itemId, ItemType.ARTICLE.name)
         }
+        return ExtractOutcome(extracted.plainText, extracted.wordCount)
     }
 
     /**
