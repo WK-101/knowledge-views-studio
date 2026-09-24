@@ -22,7 +22,7 @@ import java.util.zip.ZipOutputStream
 /*
  * Parley Backup archive: a plain, deterministic ZIP (usually wrapped in the BackupCrypto envelope).
  *
- * Entry order is fixed: contacts.jsonl, contacts.vcf, calllog.jsonl, blocking.json, speeddial.json,
+ * Entry order is fixed: contacts.jsonl, contacts.vcf, calllog.jsonl, callhistory.jsonl, blocking.json, speeddial.json,
  * numbersim.json, settings.json, vault/<name> (sorted), journal.jsonl, photos/<sha256>.bin (sorted),
  * manifest.json (last, because it holds the SHA-256 of every other entry). All entries use the DOS
  * epoch timestamp and DEFLATE level 9, so identical content gives an identical ZIP on the same JDK.
@@ -43,6 +43,16 @@ data class CallLogRecord(
     val name: String? = null,
     val isNew: Boolean = false,
     val isRead: Boolean = true,
+)
+
+/**
+ * One line of the call-history archive section: either an archived call that the system call log no longer
+ * holds, or a number whose history is kept forever. Optional section: older backups don't have it.
+ */
+@Serializable
+data class CallHistoryLine(
+    val call: CallLogRecord? = null,
+    val keepForever: String? = null,
 )
 
 @Serializable
@@ -126,6 +136,7 @@ object BackupArchive {
     const val CONTACTS = "contacts.jsonl"
     const val VCF = "contacts.vcf"
     const val CALLLOG = "calllog.jsonl"
+    const val CALLHISTORY = "callhistory.jsonl"
     const val BLOCKING = "blocking.json"
     const val SPEEDDIAL = "speeddial.json"
     const val NUMBERSIM = "numbersim.json"
@@ -140,6 +151,7 @@ object BackupArchive {
         const val PHOTOS = "photos"
         const val VCF_BYTES = "vcfBytes"
         const val CALLS = "calls"
+        const val ARCHIVED_CALLS = "archivedCalls"
         const val BLOCK_RULES = "blockRules"
         const val SYSTEM_BLOCKED = "systemBlocked"
         const val BLOCKED_CALLS = "blockedCalls"
@@ -152,7 +164,7 @@ object BackupArchive {
 
     internal val PHOTO_NAME = Regex("photos/[0-9a-f]{64}\\.bin")
     internal val VAULT_NAME = Regex("[A-Za-z0-9._-]{1,128}")
-    internal val FIXED = setOf(CONTACTS, VCF, CALLLOG, BLOCKING, SPEEDDIAL, NUMBERSIM, SETTINGS, JOURNAL)
+    internal val FIXED = setOf(CONTACTS, VCF, CALLLOG, CALLHISTORY, BLOCKING, SPEEDDIAL, NUMBERSIM, SETTINGS, JOURNAL)
     internal val DOS_EPOCH: LocalDateTime = LocalDateTime.of(1980, 1, 1, 0, 0, 0)
 
     internal fun isValidVaultName(n: String) = VAULT_NAME.matches(n) && n != "." && n != ".."
@@ -189,7 +201,7 @@ class BackupArchiveWriter private constructor(out: OutputStream?, private val me
     private var manifest: Manifest? = null
     private var closed = false
 
-    private enum class Section { CONTACTS, VCF, CALLLOG, BLOCKING, SPEEDDIAL, NUMBERSIM, SETTINGS, VAULT, JOURNAL }
+    private enum class Section { CONTACTS, VCF, CALLLOG, CALLHISTORY, BLOCKING, SPEEDDIAL, NUMBERSIM, SETTINGS, VAULT, JOURNAL }
 
     private fun enter(s: Section) {
         check(manifest == null) { "Archive already finished" }
@@ -269,6 +281,20 @@ class BackupArchiveWriter private constructor(out: OutputStream?, private val me
     }
 
     fun writeCallLog(records: Iterable<CallLogRecord>) = writeCallLog(records.asSequence())
+
+    /** Parley's call-history archive (calls the system log dropped, and "keep forever" numbers). */
+    fun writeCallHistory(lines: Sequence<CallHistoryLine>) {
+        enter(Section.CALLHISTORY)
+        var n = 0L
+        entry(BackupArchive.CALLHISTORY) { o ->
+            for (l in lines) {
+                o.write(jsonBytes(RecordJson.json.encodeToString(CallHistoryLine.serializer(), l))); o.write('\n'.code); n++
+            }
+        }
+        counts[BackupArchive.Counts.ARCHIVED_CALLS] = n
+    }
+
+    fun writeCallHistory(lines: Iterable<CallHistoryLine>) = writeCallHistory(lines.asSequence())
 
     fun writeBlocking(snapshot: BlockingSnapshot) {
         enter(Section.BLOCKING)
@@ -395,6 +421,11 @@ class BackupArchiveReader private constructor(
         block(seq.map { l -> parse { RecordJson.json.decodeFromString(CallLogRecord.serializer(), l) } })
     }
 
+    /** The call-history archive section, or null for backups made before it existed. */
+    fun <R> callHistory(block: (Sequence<CallHistoryLine>) -> R): R? = if (!has(BackupArchive.CALLHISTORY)) null else lines(BackupArchive.CALLHISTORY) { seq ->
+        block(seq.map { l -> parse { RecordJson.json.decodeFromString(CallHistoryLine.serializer(), l) } })
+    }
+
     fun <R> journal(block: (Sequence<String>) -> R): R = lines(BackupArchive.JOURNAL, block)
 
     /** Streams the interop vCard, or returns null if the archive has none. */
@@ -504,7 +535,7 @@ class BackupArchiveReader private constructor(
                             BackupArchive.PHOTO_NAME.matches(name) ||
                             (name.startsWith(BackupArchive.VAULT_PREFIX) && BackupArchive.isValidVaultName(name.removePrefix(BackupArchive.VAULT_PREFIX)))
                         if (!keep && name !in BackupArchive.FIXED) throw BackupIntegrityException("Unexpected entry $name")
-                        val countLines = name == BackupArchive.CONTACTS || name == BackupArchive.CALLLOG || name == BackupArchive.JOURNAL
+                        val countLines = name == BackupArchive.CONTACTS || name == BackupArchive.CALLLOG || name == BackupArchive.CALLHISTORY || name == BackupArchive.JOURNAL
                         val md = MessageDigest.getInstance("SHA-256")
                         val bo = if (keep) ByteArrayOutputStream() else null
                         var size = 0L
@@ -566,6 +597,7 @@ class BackupArchiveReader private constructor(
             }
             checkCount(BackupArchive.Counts.CONTACTS, lineCounts[BackupArchive.CONTACTS])
             checkCount(BackupArchive.Counts.CALLS, lineCounts[BackupArchive.CALLLOG])
+            checkCount(BackupArchive.Counts.ARCHIVED_CALLS, lineCounts[BackupArchive.CALLHISTORY])
             checkCount(BackupArchive.Counts.JOURNAL, lineCounts[BackupArchive.JOURNAL])
             checkCount(BackupArchive.Counts.PHOTOS, seen.keys.count { it.startsWith(BackupArchive.PHOTO_PREFIX) }.toLong())
             return BackupArchiveReader(source, manifest, kept, limits)

@@ -125,6 +125,8 @@ fun HomeScreen(
                     onQuery = { if (tab == StartTab.CONTACTS) vm.contactQuery.value = it else vm.recentQuery.value = it },
                     onSearch = { searching = it; if (!it) { vm.contactQuery.value = ""; vm.recentQuery.value = "" } },
                     open = open,
+                    actions = { if (tab == StartTab.RECENTS) app.parley.ui.history.RecentsInsightsAction(open) },
+                    menuItems = { close -> if (tab == StartTab.RECENTS) app.parley.ui.history.RecentsExportMenuItem(close) },
                 )
             }
         },
@@ -216,6 +218,8 @@ private fun HomeTopBar(
     onQuery: (String) -> Unit,
     onSearch: (Boolean) -> Unit,
     open: (String) -> Unit,
+    actions: @Composable () -> Unit = {},
+    menuItems: @Composable (close: () -> Unit) -> Unit = {},
 ) {
     var menu by rememberSaveable { mutableStateOf(false) }
     Surface(color = MaterialTheme.colorScheme.surface) {
@@ -248,9 +252,11 @@ private fun HomeTopBar(
                     Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp))
                 }
             }
+            actions()
             Box {
                 IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, "More options") }
                 DropdownMenu(menu, { menu = false }) {
+                    menuItems { menu = false }
                     DropdownMenuItem({ Text("Birthdays & dates") }, leadingIcon = { Icon(Icons.Rounded.Cake, null) }, onClick = { menu = false; open(Routes.BIRTHDAYS) })
                     DropdownMenuItem({ Text("Recently deleted") }, leadingIcon = { Icon(Icons.Rounded.History, null) }, onClick = { menu = false; open(Routes.JOURNAL) })
                     DropdownMenuItem({ Text("Tidy up contacts") }, leadingIcon = { Icon(Icons.Rounded.HealthAndSafety, null) }, onClick = { menu = false; open(Routes.HEALTH) })

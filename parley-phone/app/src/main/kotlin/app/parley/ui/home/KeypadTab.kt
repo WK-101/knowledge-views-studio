@@ -339,7 +339,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit) {
                         )
                     }
                     if (sims.size >= 2 && input.isNotEmpty()) {
-                        sims.take(2).forEach { sim -> CallButton(label = sim.label) { callWithSim(sim.id) } }
+                        sims.take(2).forEach { sim -> app.parley.ui.history.SimPlanBadge(vm, sim.id) { CallButton(label = sim.label) { callWithSim(sim.id) } } }
                     } else {
                         CallButton(label = null, onClick = ::callNow)
                     }

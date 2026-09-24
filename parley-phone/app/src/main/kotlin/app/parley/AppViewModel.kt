@@ -196,8 +196,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val recentFilter = MutableStateFlow(RecentFilter.ALL)
     val recentQuery = MutableStateFlow("")
 
-    /** System call log + private (vault) calls, newest first. */
-    private val allCalls = combine(c.callLog.calls, c.vault.privateCalls, settings.map { it.hideVault }.distinctUntilChanged()) { sys, priv, hidden ->
+    /** System call log (plus Parley's archive) + private (vault) calls, newest first. */
+    private val allCalls = combine(c.history.calls, c.vault.privateCalls, settings.map { it.hideVault }.distinctUntilChanged()) { sys, priv, hidden ->
         if (sys == null) return@combine null
         if (hidden || priv.isEmpty()) return@combine sys
         (sys + priv.map { p ->
@@ -207,7 +207,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val vaultByKey = c.vault.contacts.map { list -> list.flatMap { v -> v.numbers.map { PhoneNumbers.matchKey(it) to v.id } }.toMap() }
 
-    val recentGroups: StateFlow<List<RecentGroup>?> = combine(allCalls, numberIndex, recentFilter, recentQuery.debounce(80), vaultByKey) { calls, index, filter, q, vaults ->
+    /** [allCalls] with the Recents filter chips applied (SIM, type, period, duration). */
+    private val filteredCalls = combine(allCalls, c.history.activeFilter) { calls, f ->
+        if (calls == null || f.isEmpty) calls else calls.filter(f.matcher(System.currentTimeMillis(), java.time.ZoneId.systemDefault()))
+    }
+
+    val recentGroups: StateFlow<List<RecentGroup>?> = combine(filteredCalls, numberIndex, recentFilter, recentQuery.debounce(80), vaultByKey) { calls, index, filter, q, vaults ->
         calls?.let { group(it, index, filter, q).map { g -> if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneNumbers.matchKey(g.number)]) else g } }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 

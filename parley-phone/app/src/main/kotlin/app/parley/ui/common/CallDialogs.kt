@@ -42,9 +42,10 @@ fun CallDialogs(vm: AppViewModel) {
             text = {
                 Column {
                     sims.forEach { sim ->
+                        val plan = app.parley.ui.history.simPlanSummary(vm, sim.id)
                         ListItem(
                             headlineContent = { Text(sim.label) },
-                            supportingContent = sim.subtitle?.let { { Text(it) } },
+                            supportingContent = listOfNotNull(sim.subtitle, plan).joinToString("\n").ifEmpty { null }?.let { { Text(it) } },
                             leadingContent = { Icon(Icons.Rounded.SimCard, null, tint = if (sim.color != 0) Color(sim.color) else Color.Unspecified) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             modifier = Modifier.clickable { vm.place(p.number, sim.id, remember) },

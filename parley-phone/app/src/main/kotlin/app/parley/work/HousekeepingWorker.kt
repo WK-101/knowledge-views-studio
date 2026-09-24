@@ -41,7 +41,7 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
                 val id = c.contacts.resolve(t.lookupKey, t.contactId)
                 if (id == null) { c.meta.clearTemporary(t.lookupKey); continue }
                 if (t.purgeHistory) {
-                    c.contacts.details(id)?.phones?.forEach { p -> runCatching { c.callLog.deleteForNumber(p.value) } }
+                    c.contacts.details(id)?.phones?.forEach { p -> runCatching { c.history.deleteForNumber(p.value) } }
                 }
                 if (runCatching { c.contacts.delete(listOf(id)) }.isSuccess) c.meta.clearTemporary(t.lookupKey)
             }
@@ -49,7 +49,10 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
             c.vault.expired(now).forEach { c.vault.delete(it) }
             // 3. Private call history
             if (settings.privateVaultHistory) c.vault.sweepCallLog(now - TimeUnit.DAYS.toMillis(30))
-            // 4. Call-log retention
+            // 4. Call-log retention (the archive copies new calls first and then follows the same setting,
+            //    except numbers kept forever)
+            runCatching { c.history.sync(full = false) }
+            runCatching { c.history.applyRetention(settings.callLogRetentionDays) }
             if (settings.callLogRetentionDays > 0) {
                 val before = now - TimeUnit.DAYS.toMillis(settings.callLogRetentionDays.toLong())
                 runCatching {

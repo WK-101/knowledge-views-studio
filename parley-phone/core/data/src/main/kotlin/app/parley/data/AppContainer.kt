@@ -30,7 +30,9 @@ class DataContainer(context: Context) {
     val timeMachine by lazy { app.parley.data.backup.TimeMachine(appContext, records) }
     val backup by lazy {
         app.parley.data.backup.BackupRepository(appContext, contacts, records, blocks, prefs, db, settings, vault, app.parley.data.backup.BackupPrefs(appContext))
+            .apply { callHistory = history }
     }
+    val history by lazy { app.parley.data.history.CallHistory(appContext, callLog, contacts, vault, scope) }
 
     init {
         // Every delete/edit/merge made through Parley is journaled first (30-day undo).

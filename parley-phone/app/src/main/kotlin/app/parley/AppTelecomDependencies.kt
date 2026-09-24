@@ -13,6 +13,7 @@ import app.parley.data.PhoneEnv
 import app.parley.telecom.CallerDisplay
 import app.parley.telecom.InCallAppearance
 import app.parley.telecom.TelecomDependencies
+import app.parley.work.HistoryWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -63,6 +64,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     }
 
     override fun onCallEnded(number: String?, incoming: Boolean, connectTimeMillis: Long) {
+        // Archive the call and check plan minutes once Telecom has written the call log.
+        HistoryWorker.checkSoon(app)
         if (number.isNullOrBlank()) return
         c.scope.launch {
             if (!c.settings.current().privateVaultHistory) return@launch

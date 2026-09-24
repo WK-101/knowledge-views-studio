@@ -39,6 +39,7 @@ import app.parley.ui.contact.ContactEditScreen
 import app.parley.ui.contact.ContactPickerScreen
 import app.parley.ui.contact.DuplicatesScreen
 import app.parley.ui.history.NumberHistoryScreen
+import app.parley.ui.history.historyDestinations
 import app.parley.ui.home.HomeScreen
 import app.parley.ui.onboarding.OnboardingScreen
 import app.parley.ui.settings.PrivacyScreen
@@ -224,6 +225,7 @@ fun ParleyRoot(vm: AppViewModel) {
             composable(Routes.HEALTH) { app.parley.ui.health.HealthScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             composable(Routes.BIRTHDAYS) { app.parley.ui.birthdays.BirthdaysScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             composable(Routes.SPEED_DIAL) { SpeedDialScreen(vm, back = { nav.popBackStack() }) }
+            historyDestinations(vm, nav)
         }
        }
       }
