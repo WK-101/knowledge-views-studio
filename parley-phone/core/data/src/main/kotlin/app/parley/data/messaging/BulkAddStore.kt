@@ -80,6 +80,7 @@ class BulkAddStore(private val c: DataContainer) {
         val keys = ArrayList<String>()
         val vaultIds = ArrayList<Long>()
         val failed = ArrayList<String>()
+        val notSaved = c.appContext.getString(app.parley.data.R.string.data_write_failed)
         var done = 0
         when (destination) {
             is BulkDestination.Label -> {
@@ -88,7 +89,7 @@ class BulkAddStore(private val c: DataContainer) {
                     coroutineContext.ensureActive()
                     val results = c.records.insertAll(chunk.map { record(it, destination.label) }, destination.account, groups)
                     results.forEachIndexed { i, r ->
-                        if (r.contactId != null) rawIds += r.rawIds else failed += "${chunk[i].name}: ${r.error ?: "not saved"}"
+                        if (r.contactId != null) rawIds += r.rawIds else failed += "${chunk[i].name}: ${r.error ?: notSaved}"
                     }
                     done += chunk.size
                     progress(done, items.size)
@@ -100,7 +101,7 @@ class BulkAddStore(private val c: DataContainer) {
                     coroutineContext.ensureActive()
                     runCatching { c.vault.save(null, details(item)) }
                         .onSuccess { vaultIds += it; runCatching { c.messaging.forget(item.number) } }
-                        .onFailure { failed += "${item.name}: ${it.message ?: "not saved"}" }
+                        .onFailure { failed += "${item.name}: ${it.message ?: notSaved}" }
                 }
                 done += chunk.size
                 progress(done, items.size)
@@ -110,7 +111,7 @@ class BulkAddStore(private val c: DataContainer) {
                     coroutineContext.ensureActive()
                     val saved = runCatching { TemporaryContacts.save(c, item.name, item.number, destination.days, private = destination.private, now = now) }.getOrNull()
                     when {
-                        saved == null -> failed += "${item.name}: not saved"
+                        saved == null -> failed += "${item.name}: $notSaved"
                         saved.private -> vaultIds += saved.id
                         else -> {
                             // Only the raw contact Parley created: Android may have linked it with someone else's

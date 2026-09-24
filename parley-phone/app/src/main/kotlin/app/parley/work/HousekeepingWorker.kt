@@ -79,7 +79,12 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
                 }
             }
             // 3. Private call history
-            if (settings.privateVaultHistory) c.vault.sweepCallLog(now - TimeUnit.DAYS.toMillis(30))
+            if (settings.privateVaultHistory) {
+                c.vault.sweepCallLog(now - TimeUnit.DAYS.toMillis(30))
+                // Ring facts (V9) of private numbers leave no trace outside the vault either (numbers saved privately
+                // after their calls rang included).
+                runCatching { c.vault.allNumbers().forEach { n -> c.ringFacts.forget(n) } }
+            }
             // 4. Call-log retention (the archive copies new calls first and then follows the same setting,
             //    except numbers kept forever)
             runCatching { c.history.sync(full = false) }

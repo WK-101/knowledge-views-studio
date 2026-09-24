@@ -444,6 +444,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             // Nothing about the person stays outside the vault: notes, links, call background.
             runCatching { c.contactKeys.forget(d.lookupKey) }
         }
+        // With "Private call history" on, their ring facts go too (the calls themselves move into the vault).
+        if (c.settings.current().privateVaultHistory) {
+            withContext(Dispatchers.IO) { d.phones.forEach { p -> runCatching { c.ringFacts.forget(p.value) } } }
+        }
         when {
             moved.messengerCopies -> toast(str(R.string.vm_messenger_copies_remain))
             moved.removedAfterSync -> toast(str(R.string.vm_removed_after_sync))
