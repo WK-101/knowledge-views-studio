@@ -45,6 +45,35 @@ class SettingsSearchTest {
         assertTrue("theme" in keys("thème"))
     }
 
+    /** The app replaces titles with string resources; search then matches both languages. */
+    private val german = SettingsCatalog.entries.map { e ->
+        when (e.key) {
+            "theme" -> e.localized("Design", "System, hell oder dunkel", listOf("Dunkelmodus", "Nachtmodus"), "Darstellung")
+            "app_lock" -> e.localized("App-Sperre", "Fingerabdruck oder Displaysperre", listOf("Sperre", "Biometrie"), "Datenschutz & Sicherheit")
+            else -> e
+        }
+    }
+
+    private fun germanKeys(q: String) = SettingsSearch.search(q, german).map { it.key }
+
+    @Test fun localized_titles_and_keywords_are_found() {
+        assertEquals("theme", germanKeys("design").first())
+        assertTrue("theme" in germanKeys("dunkelmodus"))
+        assertEquals("app_lock", germanKeys("app-sperre").first())
+        assertTrue("app_lock" in germanKeys("datenschutz"))
+    }
+
+    @Test fun english_words_still_find_localized_entries() {
+        assertTrue("theme" in germanKeys("theme"))
+        assertTrue("theme" in germanKeys("dark mode"))
+        assertTrue("app_lock" in germanKeys("fingerprint"))
+        assertTrue("app_lock" in germanKeys("privacy"))
+        val theme = german.first { it.key == "theme" }
+        assertEquals("Design", theme.title)
+        assertTrue("Theme" in theme.keywords)
+        assertEquals(listOf("Darstellung", "Appearance"), theme.categoryTitles)
+    }
+
     @Test fun category_name_finds_its_settings() {
         val r = keys("privacy")
         assertTrue("privacy_dashboard" in r)

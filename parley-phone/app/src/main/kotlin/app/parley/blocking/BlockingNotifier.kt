@@ -10,6 +10,7 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import app.parley.MainActivity
+import app.parley.R
 import app.parley.common.BlockReason
 import app.parley.common.Decision
 import app.parley.common.NotifyLevel
@@ -34,7 +35,7 @@ object BlockingNotifier {
 
     fun channels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
-        nm.createNotificationChannelGroup(NotificationChannelGroup(GROUP, "Call screening"))
+        nm.createNotificationChannelGroup(NotificationChannelGroup(GROUP, context.getString(R.string.blk_ch_group)))
         fun ch(id: String, name: String, desc: String, importance: Int) = NotificationChannel(id, name, importance).apply {
             description = desc
             group = GROUP
@@ -42,10 +43,10 @@ object BlockingNotifier {
         }
         nm.createNotificationChannels(
             listOf(
-                ch(CH_BLOCKED, "Blocked calls", "A call was rejected or silenced by your rules", NotificationManager.IMPORTANCE_LOW),
-                ch(CH_REPORTED, "Reported by a spam list", "A call was blocked because a spam list you installed reports it", NotificationManager.IMPORTANCE_LOW),
-                ch(CH_LIKELY_SPAM, "Likely spam", "A call rang but a spam list you installed warns about it", NotificationManager.IMPORTANCE_DEFAULT),
-                ch(CH_BUSY, "Calls during quiet hours", "Someone you know called while off hours silenced them; reply in one tap", NotificationManager.IMPORTANCE_DEFAULT),
+                ch(CH_BLOCKED, context.getString(R.string.blk_ch_blocked), context.getString(R.string.blk_ch_blocked_desc), NotificationManager.IMPORTANCE_LOW),
+                ch(CH_REPORTED, context.getString(R.string.blk_notify_reported), context.getString(R.string.blk_ch_reported_desc), NotificationManager.IMPORTANCE_LOW),
+                ch(CH_LIKELY_SPAM, context.getString(R.string.blk_ch_likely), context.getString(R.string.blk_ch_likely_desc), NotificationManager.IMPORTANCE_DEFAULT),
+                ch(CH_BUSY, context.getString(R.string.blk_ch_busy), context.getString(R.string.blk_ch_busy_desc), NotificationManager.IMPORTANCE_DEFAULT),
             ),
         )
     }
@@ -62,7 +63,7 @@ object BlockingNotifier {
     private fun post(context: Context, e: ScreenedCall) {
         val s = e.settings
         val number = e.request.number?.takeIf { it.isNotBlank() && !e.request.hidden }
-        val who = e.contactName ?: number?.let { app.parley.ui.common.Format.number(it, PhoneEnv.countryIso(context)) } ?: "Private number"
+        val who = e.contactName ?: number?.let { app.parley.ui.settings.bidiLtr(app.parley.ui.common.Format.number(it, PhoneEnv.countryIso(context))) } ?: context.getString(R.string.blk_private_number)
         val decision = e.result.decision
         val nm = NotificationManagerCompat.from(context)
         if (!nm.areNotificationsEnabled()) return
@@ -77,12 +78,12 @@ object BlockingNotifier {
             )
             val b = NotificationCompat.Builder(context, CH_BUSY)
                 .setSmallIcon(app.parley.ui.R.drawable.ic_stat_missed)
-                .setContentTitle("$who called during quiet hours")
-                .setContentText("Reply \"${s.busyReplyText}\"")
+                .setContentTitle(context.getString(R.string.blk_n_quiet_hours_title, who))
+                .setContentText(context.getString(R.string.blk_n_reply_text, s.busyReplyText))
                 .setContentIntent(reply)
                 .setAutoCancel(true)
                 .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
-                .addAction(0, "Reply", reply)
+                .addAction(0, context.getString(R.string.blk_n_reply), reply)
             notify(nm, id, b)
             return
         }
@@ -97,9 +98,9 @@ object BlockingNotifier {
         if (lvl == NotifyLevel.NONE) return
         val blocked = decision is Decision.Block
         val title = when {
-            !blocked -> "Likely spam: $who"
-            (decision as Decision.Block).action == app.parley.common.BlockAction.SILENCE -> "Silenced call from $who"
-            else -> "Blocked call from $who"
+            !blocked -> context.getString(R.string.blk_n_likely_title, who)
+            (decision as Decision.Block).action == app.parley.common.BlockAction.SILENCE -> context.getString(R.string.blk_n_silenced_title, who)
+            else -> context.getString(R.string.blk_n_blocked_title, who)
         }
         val open = PendingIntent.getActivity(
             context, 30,
@@ -110,17 +111,17 @@ object BlockingNotifier {
         val b = NotificationCompat.Builder(context, channel)
             .setSmallIcon(app.parley.ui.R.drawable.ic_stat_block)
             .setContentTitle(title)
-            .setContentText(e.result.verdict?.text ?: "")
+            .setContentText(BlockingText.verdict(context, e.result.verdict?.text) ?: "")
             .setContentIntent(open)
             .setAutoCancel(true)
             .setSilent(lvl == NotifyLevel.QUIET)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setTimeoutAfter(if (blocked) 0 else 10 * 60_000L)
         if (blocked && number != null) {
-            b.addAction(action(context, "Not spam", BlockingActionReceiver.ACTION_NOT_SPAM, number, e.result.listHit?.packId, 31))
+            b.addAction(action(context, context.getString(R.string.blk_not_spam), BlockingActionReceiver.ACTION_NOT_SPAM, number, e.result.listHit?.packId, 31))
         }
         if (blocked && !s.snoozeActive(System.currentTimeMillis())) {
-            b.addAction(action(context, "Expecting a call (1 h)", BlockingActionReceiver.ACTION_SNOOZE, null, null, 32))
+            b.addAction(action(context, context.getString(R.string.blk_n_expecting_1h), BlockingActionReceiver.ACTION_SNOOZE, null, null, 32))
         }
         notify(nm, id, b)
     }

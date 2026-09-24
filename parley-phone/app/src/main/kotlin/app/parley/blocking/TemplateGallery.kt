@@ -1,6 +1,7 @@
 package app.parley.blocking
 
 import android.content.Context
+import app.parley.R
 import app.parley.common.ListMode
 import app.parley.common.spam.ListPack
 import app.parley.common.spam.PackOrigin
@@ -90,10 +91,9 @@ class TemplateGallery private constructor(context: Context) {
         write { s ->
             s.copy(installed = s.installed.filter { it.id != t.id } + InstalledTemplate(t.id, t.name, t.version, ruleIds, packId, before, System.currentTimeMillis()))
         }
-        buildString {
-            append("Installed ${t.name}")
-            if (skipped > 0) append(" ($skipped rules you already had were kept as they are)")
-        }
+        val name = TemplateText.name(app, t)
+        if (skipped > 0) app.resources.getQuantityString(R.plurals.blk_tpl_installed_skipped, skipped, name, skipped)
+        else app.getString(R.string.blk_tpl_installed, name)
     }
 
     suspend fun uninstall(c: DataContainer, id: String) = lock.withLock { uninstallLocked(c, id) }
@@ -109,11 +109,11 @@ class TemplateGallery private constructor(context: Context) {
     /** Keeps a template received from someone else. Returns a message for the user. */
     suspend fun import(opened: OpenedTemplate): String {
         val t = opened.template
-        if (builtIns.any { it.id == t.id }) return "You already have \"${t.name}\": it's built into Parley"
+        if (builtIns.any { it.id == t.id }) return app.getString(R.string.blk_tpl_already_built_in, TemplateText.name(app, t))
         write { s ->
             s.copy(imported = s.imported.filter { runCatching { RuleTemplates.parse(it.json).id }.getOrNull() != t.id } + ImportedTemplate(opened.json, opened.fingerprint, System.currentTimeMillis()))
         }
-        return "Added \"${t.name}\" to your templates"
+        return app.getString(R.string.blk_tpl_added, t.name)
     }
 
     suspend fun removeImported(c: DataContainer, id: String) {
@@ -130,6 +130,112 @@ class TemplateGallery private constructor(context: Context) {
         private var instance: TemplateGallery? = null
 
         fun get(context: Context): TemplateGallery = instance ?: synchronized(this) { instance ?: TemplateGallery(context).also { instance = it } }
+    }
+}
+
+/**
+ * Display texts of the built-in templates in the app's language, keyed by template id. The JSON assets stay the
+ * source of truth for the rules; imported templates show their own name and description.
+ */
+object TemplateText {
+    private val texts: Map<String, Pair<Int, Int>> = mapOf(
+        "de.premium-warn" to (R.string.blk_tpl_de_premium_name to R.string.blk_tpl_de_premium_desc),
+        "es.commercial-400" to (R.string.blk_tpl_es_400_name to R.string.blk_tpl_es_400_desc),
+        "fr.arcep-telemarketing" to (R.string.blk_tpl_fr_arcep_name to R.string.blk_tpl_fr_arcep_desc),
+        "general.contacts-at-night" to (R.string.blk_tpl_night_name to R.string.blk_tpl_night_desc),
+        "general.foreign-except-mine" to (R.string.blk_tpl_foreign_name to R.string.blk_tpl_foreign_desc),
+        "general.silence-invalid" to (R.string.blk_tpl_invalid_name to R.string.blk_tpl_invalid_desc),
+        "in.trai-140" to (R.string.blk_tpl_in_140_name to R.string.blk_tpl_in_140_desc),
+        "it.agcom-0843-0844" to (R.string.blk_tpl_it_agcom_name to R.string.blk_tpl_it_agcom_desc),
+        "uk.premium-personal-warn" to (R.string.blk_tpl_uk_premium_name to R.string.blk_tpl_uk_premium_desc),
+        "us.toll-free-warn" to (R.string.blk_tpl_us_toll_free_name to R.string.blk_tpl_us_toll_free_desc),
+    )
+
+    fun name(context: Context, t: app.parley.common.templates.RuleTemplate): String = texts[t.id]?.let { context.getString(it.first) } ?: t.name
+
+    fun description(context: Context, t: app.parley.common.templates.RuleTemplate): String = texts[t.id]?.let { context.getString(it.second) } ?: t.description
+
+    /** [RuleTemplates.describe] in the app's language: one line per rule, range and setting. */
+    fun describe(context: Context, t: app.parley.common.templates.RuleTemplate): List<String> {
+        val out = ArrayList<String>()
+        val german = context.resources.configuration.locales.get(0)?.language == "de"
+        RuleTemplates.toRules(t).forEach { r ->
+            val what = when (r.type) {
+                app.parley.common.RuleType.PREFIX -> context.getString(R.string.blk_tpl_what_prefix, r.pattern)
+                app.parley.common.RuleType.EXACT -> app.parley.ui.settings.bidiLtr(r.pattern)
+                app.parley.common.RuleType.WILDCARD -> context.getString(R.string.blk_tpl_what_wildcard, r.pattern)
+                // German capitalises nouns; elsewhere the title reads as part of the sentence.
+                else -> BlockingText.ruleTitle(context, r).let { if (german) it else it.replaceFirstChar { c -> c.lowercase() } }
+            }
+            val verb = when {
+                r.kind == app.parley.common.RuleKind.ALLOW -> R.string.blk_tpl_allow
+                r.action == app.parley.common.BlockAction.SILENCE -> R.string.blk_tpl_silence
+                else -> R.string.blk_tpl_reject
+            }
+            out += context.getString(verb, what) +
+                (r.schedule?.let { s -> " (" + app.parley.common.Schedule.hm(s.startMinute) + "–" + app.parley.common.Schedule.hm(s.endMinute) + ")" } ?: "") +
+                (r.note?.let { " · $it" } ?: "")
+        }
+        t.warnList?.let { l ->
+            val verb = if (l.mode == app.parley.common.ListMode.BLOCK) R.string.blk_tpl_range_block else R.string.blk_tpl_range_warn
+            l.ranges.forEach { r ->
+                out += context.getString(verb, app.parley.ui.settings.bidiLtr(r.prefix + "…"), l.categories[r.category.toString()] ?: context.getString(R.string.blk_res_listed))
+            }
+        }
+        t.settings?.let { s ->
+            fun action(a: app.parley.common.BlockAction) =
+                context.getString(if (a == app.parley.common.BlockAction.SILENCE) R.string.blk_tpl_silenced else R.string.blk_tpl_rejected)
+            s.blockInvalid?.let {
+                out += if (it) context.getString(R.string.blk_tpl_stop_invalid) + (s.invalidAction?.let { a -> " (${action(a)})" } ?: "")
+                else context.getString(R.string.blk_tpl_let_invalid)
+            }
+            s.blockFailedVerification?.let { out += context.getString(if (it) R.string.blk_tpl_stop_verification else R.string.blk_tpl_let_verification) }
+            s.offHours?.let { o ->
+                out += if (o.enabled) {
+                    val who = when (o.allow) {
+                        app.parley.common.OffHoursAllow.CONTACTS -> context.getString(R.string.blk_who_contacts)
+                        app.parley.common.OffHoursAllow.FAVOURITES -> context.getString(R.string.blk_who_favourites)
+                        app.parley.common.OffHoursAllow.LABEL -> o.labelTitle ?: context.getString(R.string.blk_who_label)
+                    }
+                    context.getString(
+                        R.string.blk_tpl_off_hours,
+                        app.parley.common.Schedule.hm(o.schedule.startMinute), app.parley.common.Schedule.hm(o.schedule.endMinute), who, action(o.action),
+                    )
+                } else {
+                    context.getString(R.string.blk_tpl_off_hours_off)
+                }
+            }
+        }
+        return out
+    }
+
+    private val errors = mapOf(
+        "This isn't a Parley template" to R.string.blk_tpl_err_not_template,
+        "This template needs a newer version of Parley" to R.string.blk_tpl_err_newer,
+        "The template has an invalid id" to R.string.blk_tpl_err_id,
+        "The template has no name" to R.string.blk_tpl_err_name,
+        "The template has too many rules" to R.string.blk_tpl_err_too_many,
+        "The template is empty" to R.string.blk_tpl_err_empty,
+        "Templates can't contain label rules" to R.string.blk_tpl_err_label,
+        "A rule in the template is too long" to R.string.blk_tpl_err_rule_long,
+        "A rule in the template has no pattern" to R.string.blk_tpl_err_no_pattern,
+        "The template's number list is empty or too long" to R.string.blk_tpl_err_list,
+        "The template's score is out of range" to R.string.blk_tpl_err_score,
+        "Template sources must be https links" to R.string.blk_tpl_err_sources,
+        "This isn't a Parley template file" to R.string.blk_tpl_err_not_file,
+        "The template's signature is missing" to R.string.blk_tpl_err_no_signature,
+        "The template's signature is not valid: it was changed after signing" to R.string.blk_tpl_err_signature,
+        "The code is damaged" to R.string.blk_tpl_err_damaged,
+        "The code is too large" to R.string.blk_tpl_err_code_large,
+    )
+    private val invalidRange = Regex("^The template has an invalid range: (.*)$")
+
+    /** A [app.parley.common.templates.TemplateException] message in the app's language. */
+    fun error(context: Context, message: String?): String {
+        val m = message ?: return context.getString(R.string.blk_fail_read_file)
+        errors[m]?.let { return context.getString(it) }
+        invalidRange.matchEntire(m)?.let { return context.getString(R.string.blk_tpl_err_range, it.groupValues[1]) }
+        return m
     }
 }
 

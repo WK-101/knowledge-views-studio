@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import app.parley.R
 import app.parley.common.BlockRule
 import app.parley.common.PhoneNumbers
 import app.parley.common.RuleKind
@@ -41,7 +42,7 @@ object BlockingActions {
 
     /** B3: "Not spam" on a blocked call: always allow it, and stop the list that reported it from doing so again. */
     suspend fun notSpam(c: DataContainer, number: String, packId: String?) {
-        allowNumber(c, number, note = "Not spam")
+        allowNumber(c, number, note = c.appContext.getString(R.string.blk_not_spam))
         c.lists.suppress(packId, number, PhoneEnv.countryIso(c.appContext))
     }
 
@@ -50,7 +51,7 @@ object BlockingActions {
         val iso = PhoneEnv.countryIso(c.appContext)
         val e = PhoneNumbers.toE164(number, iso) ?: PhoneNumbers.clean(number)
         val prefix = e.dropLast(dropDigits.coerceIn(1, 6))
-        c.blocks.saveRule(BlockRule(pattern = prefix, type = RuleType.PREFIX, kind = RuleKind.ALLOW, note = name?.let { "$it's other lines" } ?: "Office lines"))
+        c.blocks.saveRule(BlockRule(pattern = prefix, type = RuleType.PREFIX, kind = RuleKind.ALLOW, note = name?.let { c.appContext.getString(R.string.blk_note_other_lines, it) } ?: c.appContext.getString(R.string.blk_note_office_lines)))
     }
 
     suspend fun blockNumberRule(c: DataContainer, number: String, note: String? = null) {
@@ -64,7 +65,7 @@ object BlockingActions {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         true
     } catch (_: ActivityNotFoundException) {
-        Toast.makeText(context, "No app available for this action", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.blk_no_app), Toast.LENGTH_SHORT).show()
         false
     }
 

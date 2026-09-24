@@ -37,15 +37,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.RecentGroup
 import app.parley.blocking.BlockingActions
+import app.parley.blocking.BlockingText
 import app.parley.container
 import app.parley.common.PhoneNumbers
 import app.parley.common.TraceCodec
 import app.parley.ui.common.Format
+import app.parley.ui.settings.bidiLtr
+import app.parley.ui.settings.bidiLtrIfNumber
 import kotlinx.coroutines.launch
 
 /*
@@ -58,21 +65,23 @@ import kotlinx.coroutines.launch
 fun RecentBlockingActions(vm: AppViewModel, number: String, contactName: String?, blocked: Boolean, dismiss: () -> Unit) {
     if (number.isBlank()) return
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     @Composable
     fun row(label: String, icon: ImageVector, onClick: () -> Unit) =
         ListItem(headlineContent = { Text(label) }, leadingContent = { Icon(icon, null) }, modifier = Modifier.clickable { dismiss(); onClick() })
-    row(if (blocked) "Why was this blocked?" else "Why did this ring?", Icons.AutoMirrored.Rounded.HelpOutline) { BlockingDialogs.show(BlockingDialog.Why(number)) }
-    row("Test this call", Icons.Rounded.Science) { BlockingDialogs.show(BlockingDialog.Test(number)) }
+    row(stringResource(if (blocked) R.string.blk_why_blocked else R.string.blk_why_rang), Icons.AutoMirrored.Rounded.HelpOutline) { BlockingDialogs.show(BlockingDialog.Why(number)) }
+    row(stringResource(R.string.blk_why_test), Icons.Rounded.Science) { BlockingDialogs.show(BlockingDialog.Test(number)) }
     if (contactName == null) {
-        row("Always allow", Icons.Rounded.VerifiedUser) {
-            scope.launch { BlockingActions.allowNumber(vm.c, number); vm.toast("This number will always ring") }
+        row(stringResource(R.string.blk_always_allow), Icons.Rounded.VerifiedUser) {
+            scope.launch { BlockingActions.allowNumber(vm.c, number); vm.toast(res.getString(R.string.blk_always_allow_toast)) }
         }
-        row("Allow for 24 h", Icons.Rounded.HourglassTop) {
-            scope.launch { BlockingActions.allowNumber(vm.c, number, hours = 24); vm.toast("This number rings until this time tomorrow") }
+        row(stringResource(R.string.blk_allow_24h), Icons.Rounded.HourglassTop) {
+            scope.launch { BlockingActions.allowNumber(vm.c, number, hours = 24); vm.toast(res.getString(R.string.blk_allow_24h_toast)) }
         }
-        row("Report", Icons.Rounded.Flag) { BlockingDialogs.show(BlockingDialog.Report(number)) }
+        row(stringResource(R.string.blk_report), Icons.Rounded.Flag) { BlockingDialogs.show(BlockingDialog.Report(number)) }
     }
-    row("Search number on the web", Icons.Rounded.Search) { BlockingDialogs.show(BlockingDialog.WebSearch(number, contactName)) }
+    row(stringResource(R.string.blk_search_web_long), Icons.Rounded.Search) { BlockingDialogs.show(BlockingDialog.WebSearch(number, contactName)) }
 }
 
 /** Second-line badge for a Recents row (B2 verdict, B10 "Don't call back"). Null when there's nothing to say. */
@@ -87,6 +96,8 @@ fun rememberRecentBadges(vm: AppViewModel): (RecentGroup) -> RecentBadge? {
     val verdicts by vm.c.blocks.verdictIndex.collectAsStateWithLifecycle()
     val rings by vm.c.blocks.rings.collectAsStateWithLifecycle()
     val groups by vm.recentGroups.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val badges by androidx.compose.runtime.produceState(emptyMap<String, RecentBadge>(), groups, verdicts, rings) {
         value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
             val iso = vm.countryIso
@@ -95,10 +106,10 @@ fun rememberRecentBadges(vm: AppViewModel): (RecentGroup) -> RecentBadge? {
                 if (g.hidden || g.number.isBlank() || g.contact != null) continue
                 val e = g.latest
                 val badge = if (vm.c.dialGuard.isWangiri(e.type, g.number, e.date, rings, iso)) {
-                    RecentBadge("Don't call back", warn = true)
+                    RecentBadge(res.getString(R.string.blk_dont_call_back), warn = true)
                 } else {
                     verdicts[vm.c.blocks.verdictKey(g.number, e.accountId)]?.takeIf { kotlin.math.abs(it.time - e.date) < 10 * 60_000L || it.time > e.date }
-                        ?.let { v -> RecentBadge(v.text, warn = v.blocked || v.kind == "LIKELY_SPAM" || v.kind == "REPORTED") }
+                        ?.let { v -> RecentBadge(BlockingText.verdict(context, v.text) ?: v.text, warn = v.blocked || v.kind == "LIKELY_SPAM" || v.kind == "REPORTED") }
                 }
                 if (badge != null) out[g.key] = badge
             }
@@ -125,25 +136,26 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
     val numbers = unknown.map { it.number }
     Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton({ vm.recentSelection.value = emptySet() }) { Icon(Icons.Rounded.Close, "Clear selection") }
-            Text("${selected.size} selected", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            IconButton({ vm.recentSelection.value = emptySet() }) { Icon(Icons.Rounded.Close, stringResource(R.string.blk_clear_selection)) }
+            Text(pluralStringResource(R.plurals.blk_selected, selected.size, selected.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             TextButton({ confirming = true }, enabled = numbers.isNotEmpty()) {
                 Icon(Icons.Rounded.Block, null)
-                Text(" Block ${numbers.size}")
+                Text(" " + stringResource(R.string.blk_block_n, numbers.size))
             }
         }
     }
     if (confirming) {
+        val res = androidx.compose.ui.platform.LocalResources.current
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { confirming = false },
-            title = { Text(if (numbers.size == 1) "Block this number?" else "Block ${numbers.size} numbers?") },
+            title = { Text(pluralStringResource(R.plurals.blk_block_numbers_q, numbers.size, numbers.size)) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    unknown.take(MAX_LISTED).forEach { g -> Text("• " + g.title + if (g.title != g.number) " (${g.number})" else "") }
-                    if (unknown.size > MAX_LISTED) Text("…and ${unknown.size - MAX_LISTED} more")
+                    unknown.take(MAX_LISTED).forEach { g -> Text("• " + bidiLtrIfNumber(g.title) + if (g.title != g.number) " (${bidiLtr(g.number)})" else "") }
+                    if (unknown.size > MAX_LISTED) (unknown.size - MAX_LISTED).let { Text(pluralStringResource(R.plurals.set_and_more, it, it)) }
                     if (people.isNotEmpty()) {
                         Text(
-                            "Not blocked: " + people.joinToString(", ") { it.title } + ". Contacts are blocked from their own page.",
+                            stringResource(R.string.blk_not_blocked_people, people.joinToString(", ") { it.title }),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 8.dp),
                         )
@@ -156,12 +168,12 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
                     scope.launch {
                         // Without the phone-app role the system list is unavailable: rules do the job instead.
                         numbers.forEach { n -> if (!vm.c.blocks.blockNumber(n)) BlockingActions.blockNumberRule(vm.c, n) }
-                        vm.toast(if (numbers.size == 1) "Blocked 1 number" else "Blocked ${numbers.size} numbers")
+                        vm.toast(res.getQuantityString(R.plurals.blk_blocked_numbers, numbers.size, numbers.size))
                         vm.recentSelection.value = emptySet()
                     }
-                }) { Text("Block") }
+                }) { Text(stringResource(R.string.blk_block)) }
             },
-            dismissButton = { TextButton({ confirming = false }) { Text("Cancel") } },
+            dismissButton = { TextButton({ confirming = false }) { Text(stringResource(R.string.set_cancel)) } },
         )
     }
 }
@@ -176,18 +188,18 @@ fun ScreeningHistorySection(vm: AppViewModel, number: String, contactName: Strin
     val mine = remember(screened, number) { screened.filter { it.number != null && PhoneNumbers.same(it.number, number, vm.countryIso) }.take(10) }
     Column {
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AssistChip({ BlockingDialogs.show(BlockingDialog.Test(number)) }, { Text("Test this call") }, leadingIcon = { Icon(Icons.Rounded.Science, null) })
-            AssistChip({ BlockingDialogs.show(BlockingDialog.WebSearch(number, contactName)) }, { Text("Search web") }, leadingIcon = { Icon(Icons.Rounded.Search, null) })
-            if (contactName == null) AssistChip({ BlockingDialogs.show(BlockingDialog.Report(number)) }, { Text("Report") }, leadingIcon = { Icon(Icons.Rounded.Flag, null) })
+            AssistChip({ BlockingDialogs.show(BlockingDialog.Test(number)) }, { Text(stringResource(R.string.blk_why_test)) }, leadingIcon = { Icon(Icons.Rounded.Science, null) })
+            AssistChip({ BlockingDialogs.show(BlockingDialog.WebSearch(number, contactName)) }, { Text(stringResource(R.string.blk_search_web)) }, leadingIcon = { Icon(Icons.Rounded.Search, null) })
+            if (contactName == null) AssistChip({ BlockingDialogs.show(BlockingDialog.Report(number)) }, { Text(stringResource(R.string.blk_report)) }, leadingIcon = { Icon(Icons.Rounded.Flag, null) })
         }
         if (mine.isNotEmpty()) {
-            app.parley.ui.contact.Section("Screening")
+            app.parley.ui.contact.Section(stringResource(R.string.blk_screening))
             mine.forEach { e ->
                 ListItem(
                     modifier = Modifier.clickable { BlockingDialogs.show(BlockingDialog.Why(number)) },
                     leadingContent = { Icon(if (e.allowed) Icons.Rounded.Shield else Icons.Rounded.Block, null) },
-                    headlineContent = { Text((if (e.failedOpen) "! " else "") + (e.verdict ?: if (e.allowed) "Rang" else "Blocked")) },
-                    supportingContent = { Text(Format.fullDate(context, e.time) + " · " + TraceCodec.oneLine(TraceCodec.decode(e.trace)), maxLines = 2) },
+                    headlineContent = { Text((if (e.failedOpen) "! " else "") + (BlockingText.verdict(context, e.verdict) ?: stringResource(if (e.allowed) R.string.blk_rang else R.string.blk_blocked))) },
+                    supportingContent = { Text(Format.fullDate(context, e.time) + " · " + BlockingText.oneLine(context, TraceCodec.decode(e.trace)), maxLines = 2) },
                 )
             }
         }
@@ -199,7 +211,7 @@ fun ScreeningHistorySection(vm: AppViewModel, number: String, contactName: Strin
 fun ContactPrefixAllowMenuItem(name: String?, numbers: List<String>, closeMenu: () -> Unit) {
     if (numbers.isEmpty()) return
     DropdownMenuItem(
-        { Text("Also allow this office's other lines") },
+        { Text(stringResource(R.string.blk_prefix_title)) },
         leadingIcon = { Icon(Icons.Rounded.Business, null) },
         onClick = { closeMenu(); BlockingDialogs.show(BlockingDialog.PrefixAllow(name, numbers)) },
     )
@@ -209,7 +221,7 @@ fun ContactPrefixAllowMenuItem(name: String?, numbers: List<String>, closeMenu: 
 @Composable
 fun LabelBlockingMenuItem(title: String, closeMenu: () -> Unit) {
     DropdownMenuItem(
-        { Text("Screening for this label…") },
+        { Text(stringResource(R.string.blk_label_menu)) },
         leadingIcon = { Icon(Icons.Rounded.Shield, null) },
         onClick = { closeMenu(); BlockingDialogs.show(BlockingDialog.LabelRule(app.parley.common.LabelRefs.key(title))) },
     )
@@ -223,7 +235,7 @@ fun ExpectingCallMenuItem(closeMenu: () -> Unit) {
     val active = s.screening.snoozeActive(System.currentTimeMillis())
     val scope = rememberCoroutineScope()
     DropdownMenuItem(
-        { Text(if (active) "Stop letting unknown callers ring" else "Expecting a call…") },
+        { Text(stringResource(if (active) R.string.blk_snooze_stop else R.string.blk_snooze_menu)) },
         leadingIcon = { Icon(Icons.Rounded.HourglassTop, null) },
         onClick = {
             closeMenu()

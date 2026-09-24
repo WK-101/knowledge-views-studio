@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
 import android.telephony.TelephonyManager
+import app.parley.R
 import app.parley.common.SimAccount
 import app.parley.common.calltime.Ussd
 import app.parley.common.calltime.UssdEntry
@@ -49,26 +50,26 @@ class UssdSession(private val c: DataContainer, private val scope: CoroutineScop
         val base = c.appContext.getSystemService(TelephonyManager::class.java)
         val tm = c.sims.handle(simId)?.let { h -> runCatching { base?.createForPhoneAccountHandle(h) }.getOrNull() } ?: base
         if (tm == null) {
-            finish(code, "This phone can't send USSD codes.", false, simLabel, simId)
+            finish(code, c.appContext.getString(R.string.ct_ussd_unsupported), false, simLabel, simId)
             return
         }
         timeout?.cancel()
         timeout = scope.launch {
             delay(TIMEOUT_MS)
-            if (_state.value is UssdState.Sending && _state.value?.code == code) finish(code, "No reply from your carrier.", false, simLabel, simId)
+            if (_state.value is UssdState.Sending && _state.value?.code == code) finish(code, c.appContext.getString(R.string.ct_ussd_no_reply), false, simLabel, simId)
         }
         try {
             tm.sendUssdRequest(
                 code,
                 object : TelephonyManager.UssdResponseCallback() {
                     override fun onReceiveUssdResponse(telephonyManager: TelephonyManager, request: String, response: CharSequence) {
-                        finish(code, Ussd.tidy(response).ifEmpty { "(Empty reply)" }, true, simLabel, simId)
+                        finish(code, Ussd.tidy(response).ifEmpty { c.appContext.getString(R.string.ct_ussd_empty_reply) }, true, simLabel, simId)
                     }
 
                     override fun onReceiveUssdResponseFailed(telephonyManager: TelephonyManager, request: String, failureCode: Int) {
                         val why = when (failureCode) {
-                            TelephonyManager.USSD_ERROR_SERVICE_UNAVAIL -> "USSD isn't available right now (no network, or the SIM is busy)."
-                            else -> "Your carrier didn't accept this code."
+                            TelephonyManager.USSD_ERROR_SERVICE_UNAVAIL -> c.appContext.getString(R.string.ct_ussd_unavailable)
+                            else -> c.appContext.getString(R.string.ct_ussd_rejected)
                         }
                         finish(code, why, false, simLabel, simId)
                     }
@@ -76,9 +77,9 @@ class UssdSession(private val c: DataContainer, private val scope: CoroutineScop
                 Handler(Looper.getMainLooper()),
             )
         } catch (_: SecurityException) {
-            finish(code, "Phone permission missing.", false, simLabel, simId)
+            finish(code, c.appContext.getString(R.string.ct_ussd_no_permission), false, simLabel, simId)
         } catch (e: Exception) {
-            finish(code, e.message ?: "Couldn't send the code.", false, simLabel, simId)
+            finish(code, e.message ?: c.appContext.getString(R.string.ct_ussd_failed), false, simLabel, simId)
         }
     }
 

@@ -25,6 +25,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 import app.parley.AppViewModel
 import app.parley.common.TextSearch
 import kotlinx.coroutines.launch
@@ -37,17 +39,17 @@ fun SpeedDialScreen(vm: AppViewModel, back: () -> Unit) {
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<Int?>(null) }
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Speed dial") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+        TopAppBar(title = { Text(settingTitle("speed_dial")) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } })
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             items((2..9).toList()) { key ->
                 val e = entries.firstOrNull { it.key == key }
                 ListItem(
                     modifier = Modifier.clickable { editing = key },
-                    leadingContent = { Text("$key") },
-                    headlineContent = { Text(e?.label ?: e?.number ?: "Not set") },
-                    supportingContent = { e?.let { Text(it.number) } },
-                    trailingContent = { if (e != null) IconButton({ scope.launch { vm.c.prefs.clearSpeedDial(key) } }) { Icon(Icons.Rounded.Delete, "Clear") } },
+                    leadingContent = { Text("$key") }, // l10n-ok: digit
+                    headlineContent = { Text(e?.label ?: e?.number?.let(::bidiLtr) ?: stringResource(R.string.set_speed_dial_not_set)) },
+                    supportingContent = { e?.let { Text(bidiLtr(it.number)) } },
+                    trailingContent = { if (e != null) IconButton({ scope.launch { vm.c.prefs.clearSpeedDial(key) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.set_clear)) } },
                 )
             }
         }
@@ -57,13 +59,13 @@ fun SpeedDialScreen(vm: AppViewModel, back: () -> Unit) {
         val matches = contacts.orEmpty().filter { q.length >= 2 && it.phones.isNotEmpty() && TextSearch.matches(q, it.displayName, it.phones.map { p -> p.number }) }.take(5)
         AlertDialog(
             onDismissRequest = { editing = null },
-            title = { Text("Speed dial $key") },
+            title = { Text(stringResource(R.string.set_speed_dial_key, key)) },
             text = {
                 androidx.compose.foundation.layout.Column {
-                    OutlinedTextField(q, { q = it }, label = { Text("Name or number") }, singleLine = true)
+                    OutlinedTextField(q, { q = it }, label = { Text(stringResource(R.string.set_name_or_number)) }, singleLine = true)
                     matches.forEach { c ->
                         c.phones.forEach { ph ->
-                            ListItem(headlineContent = { Text(c.displayName) }, supportingContent = { Text(ph.number) }, modifier = Modifier.clickable {
+                            ListItem(headlineContent = { Text(c.displayName) }, supportingContent = { Text(bidiLtr(ph.number)) }, modifier = Modifier.clickable {
                                 scope.launch { vm.c.prefs.setSpeedDial(key, ph.number, c.displayName) }
                                 editing = null
                             })
@@ -75,9 +77,9 @@ fun SpeedDialScreen(vm: AppViewModel, back: () -> Unit) {
                 TextButton({
                     if (q.isNotBlank()) scope.launch { vm.c.prefs.setSpeedDial(key, q.trim(), null) }
                     editing = null
-                }) { Text("Use number") }
+                }) { Text(stringResource(R.string.set_use_number)) }
             },
-            dismissButton = { TextButton({ editing = null }) { Text("Cancel") } },
+            dismissButton = { TextButton({ editing = null }) { Text(stringResource(R.string.set_cancel)) } },
         )
     }
 }

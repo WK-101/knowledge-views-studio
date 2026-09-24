@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import app.parley.R
 import app.parley.common.spam.PackOrigin
 import app.parley.data.SpamListStore
 import kotlinx.coroutines.Dispatchers
@@ -20,9 +21,6 @@ import kotlinx.coroutines.withContext
 object ListsUpdaterClient {
     private const val PREFS = "lists_updater"
     private const val SUBS = "subscriptions"
-
-    /** Where users get the companion (no network call from Parley: this is only shown as text). */
-    const val WHERE_TO_GET = "F-Droid: search for \"Parley Lists\" (app.parley.lists), from the same developer as Parley"
 
     private fun debug(ctx: Context) = ctx.packageName.endsWith(".debug")
 
@@ -99,14 +97,14 @@ object ListsUpdaterClient {
         val result = try {
             val parsed = lists.parse(packUri(ctx, id))
             if (parsed.manifest.id != id) {
-                SpamListStore.InstallResult.Failed("The list's id doesn't match what the updater announced")
+                SpamListStore.InstallResult.Failed(ctx.getString(R.string.blk_fail_id_mismatch))
             } else {
                 lists.install(parsed, PackOrigin.UPDATER, force)
             }
         } catch (e: SecurityException) {
-            SpamListStore.InstallResult.Failed("Parley isn't allowed to read the updater (it's signed by a different developer)")
+            SpamListStore.InstallResult.Failed(ctx.getString(R.string.blk_fail_not_allowed))
         } catch (e: Exception) {
-            SpamListStore.InstallResult.Failed(e.message ?: "Couldn't read the list")
+            SpamListStore.InstallResult.Failed(e.message ?: ctx.getString(R.string.blk_fail_read_list))
         }
         setError(ctx, id, (result as? SpamListStore.InstallResult.Failed)?.reason)
         return result

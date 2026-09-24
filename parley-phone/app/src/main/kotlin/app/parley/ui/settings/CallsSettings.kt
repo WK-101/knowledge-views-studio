@@ -7,20 +7,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 import app.parley.AppViewModel
 import app.parley.calltime.CallTimePlanner
 import app.parley.common.calltime.LimitScope
 import app.parley.ui.Routes
 import app.parley.ui.calltime.UssdHistoryDialog
 import app.parley.ui.calltime.reminderText
+import app.parley.ui.calltime.reminderTextInline
 
 /** Settings › Calls: haptics on call events. */
 @Composable
 fun CallHapticsRow(vm: AppViewModel, icon: ImageVector? = null) {
     val config by vm.c.calling.config.collectAsStateWithLifecycle()
     SwitchRow(
-        entry("call_haptics").title,
-        "When a call connects, ends, is swapped or merged, and before a time limit. Not in silent mode.",
+        settingTitle("call_haptics"),
+        stringResource(R.string.set_call_haptics_sub),
         config.haptics, icon,
     ) { v -> vm.c.calling.update { it.copy(haptics = v) } }
 }
@@ -30,22 +35,23 @@ fun CallHapticsRow(vm: AppViewModel, icon: ImageVector? = null) {
 fun CallTimeRow(vm: AppViewModel, open: (String) -> Unit, icon: ImageVector? = null) {
     val config by vm.c.calling.config.collectAsStateWithLifecycle()
     val global = config.rule(LimitScope.GLOBAL, "")
+    val context = LocalContext.current
     val summary = listOfNotNull(
-        "Reminders: " + reminderText(config.reminders.everyMinutes).lowercase(),
+        stringResource(R.string.set_call_time_reminders, reminderTextInline(context, config.reminders.everyMinutes)),
         when {
-            global != null -> "all calls: " + CallTimePlanner.allowanceText(global)
-            config.rules.isNotEmpty() -> "${config.rules.size} limits"
-            else -> "no limits"
+            global != null -> stringResource(R.string.set_call_time_all_calls, CallTimePlanner.allowanceText(context, global))
+            config.rules.isNotEmpty() -> pluralStringResource(R.plurals.set_call_time_limits, config.rules.size, config.rules.size)
+            else -> stringResource(R.string.set_call_time_no_limits)
         },
-        "supervised".takeIf { config.supervised },
+        stringResource(R.string.set_call_time_supervised).takeIf { config.supervised },
     ).joinToString(" · ")
-    LinkRow(entry("call_time").title, summary, icon) { open(Routes.CALL_TIME) }
+    LinkRow(settingTitle("call_time"), summary, icon) { open(Routes.CALL_TIME) }
 }
 
 /** Settings › Keypad: saved USSD replies. */
 @Composable
 fun UssdRow(vm: AppViewModel, icon: ImageVector? = null) {
     var ussd by remember { mutableStateOf(false) }
-    LinkRow(entry("ussd").title, entry("ussd").summary, icon) { ussd = true }
+    LinkRow(settingTitle("ussd"), settingSummary("ussd"), icon) { ussd = true }
     if (ussd) UssdHistoryDialog(vm) { ussd = false }
 }

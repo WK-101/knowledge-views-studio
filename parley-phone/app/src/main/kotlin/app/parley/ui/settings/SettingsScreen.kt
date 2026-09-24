@@ -73,7 +73,11 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -137,9 +141,9 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     SettingsSearchBar(query, { query = it }) { searching = false; query = "" }
                 } else {
                     LargeTopAppBar(
-                        title = { Text("Settings") },
-                        navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
-                        actions = { IconButton({ searching = true }) { Icon(Icons.Rounded.Search, "Search settings") } },
+                        title = { Text(stringResource(R.string.set_settings)) },
+                        navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } },
+                        actions = { IconButton({ searching = true }) { Icon(Icons.Rounded.Search, stringResource(R.string.set_search_settings)) } },
                         scrollBehavior = scroll,
                     )
                 }
@@ -163,12 +167,12 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.onErrorContainer)
                         Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                            Text("Parley is not the default phone app", style = MaterialTheme.typography.titleSmall)
-                            Text("Needed to show calls, manage blocking and the call log.", style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(R.string.set_not_default), style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(R.string.set_not_default_body), style = MaterialTheme.typography.bodySmall)
                         }
                         FilledTonalButton({
                             context.getSystemService(RoleManager::class.java)?.let { role.launch(it.createRequestRoleIntent(RoleManager.ROLE_DIALER)) }
-                        }) { Text("Set") }
+                        }) { Text(stringResource(R.string.set_set_default)) }
                     }
                 }
             }
@@ -179,8 +183,8 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                             ListItem(
                                 modifier = Modifier.clickable { open(Routes.settingsPage(c)) },
                                 leadingContent = { TonalIcon(c.icon, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer) },
-                                headlineContent = { Text(c.title) },
-                                supportingContent = { Text(c.summary, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                headlineContent = { Text(c.localTitle()) },
+                                supportingContent = { Text(c.localSummary(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 colors = rowColors(),
                             )
                         }
@@ -198,16 +202,16 @@ private fun SettingsSearchBar(query: String, onQuery: (String) -> Unit, onClose:
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     TopAppBar(
-        navigationIcon = { IconButton(onClose) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Close search") } },
+        navigationIcon = { IconButton(onClose) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_close_search)) } },
         title = {
             TextField(
                 value = query,
                 onValueChange = onQuery,
-                placeholder = { Text("Search settings") },
+                placeholder = { Text(stringResource(R.string.set_search_settings)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
-                trailingIcon = { if (query.isNotEmpty()) IconButton({ onQuery("") }) { Icon(Icons.Rounded.Close, "Clear") } },
+                trailingIcon = { if (query.isNotEmpty()) IconButton({ onQuery("") }) { Icon(Icons.Rounded.Close, stringResource(R.string.set_clear)) } },
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
@@ -222,13 +226,17 @@ private fun SettingsSearchBar(query: String, onQuery: (String) -> Unit, onClose:
 
 @Composable
 private fun SearchResults(query: String, modifier: Modifier, onPick: (SettingEntry) -> Unit) {
-    val results = remember(query) { SettingsSearch.search(query).filter { it.key !in unavailableHere } }
+    val context = LocalContext.current
+    val locales = LocalConfiguration.current.locales
+    // Localised titles, summaries and keywords; English words keep matching (SettingEntry.localized).
+    val catalog = remember(locales) { SettingsText.localizedCatalog(context) }
+    val results = remember(query, catalog) { SettingsSearch.search(query, catalog).filter { it.key !in unavailableHere } }
     if (query.isBlank()) {
-        EmptyState(Icons.AutoMirrored.Rounded.ManageSearch, "Search all settings", "Try “dark”, “vibration”, “backup” or “spam”.", modifier)
+        EmptyState(Icons.AutoMirrored.Rounded.ManageSearch, stringResource(R.string.set_search_empty_title), stringResource(R.string.set_search_empty_body), modifier)
         return
     }
     if (results.isEmpty()) {
-        EmptyState(Icons.AutoMirrored.Rounded.ManageSearch, "No settings match “$query”", modifier = modifier)
+        EmptyState(Icons.AutoMirrored.Rounded.ManageSearch, stringResource(R.string.set_search_no_match, query), modifier = modifier)
         return
     }
     LazyColumn(modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)) {
@@ -242,7 +250,7 @@ private fun SearchResults(query: String, modifier: Modifier, onPick: (SettingEnt
                 ListItem(
                     modifier = Modifier.clickable { onPick(e) },
                     leadingContent = { Icon(e.category.icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    overlineContent = { Text(e.category.title) },
+                    overlineContent = { Text(e.category.localTitle()) },
                     headlineContent = { Text(e.title) },
                     supportingContent = { Text(e.summary, maxLines = 2, overflow = TextOverflow.Ellipsis) },
                     colors = rowColors(),
@@ -265,7 +273,7 @@ fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: Stri
         else -> focus
     }
     CompositionLocalProvider(LocalHighlightKey provides shown) {
-        SettingsScaffold(category.title, back) {
+        SettingsScaffold(category.localTitle(), back) {
             when (category) {
                 SettingsCategory.APPEARANCE -> AppearancePage(vm)
                 SettingsCategory.CALLS -> CallsPage(vm, open)
@@ -289,46 +297,63 @@ internal fun QuickRepliesDialog(current: List<String>, onDismiss: () -> Unit, on
     val items = remember { mutableStateListOf<String>().apply { addAll(current) } }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Quick replies") },
+        title = { Text(stringResource(R.string.set_quick_replies_dialog)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items.indices.forEach { i -> OutlinedTextField(items[i], { items[i] = it }, singleLine = true) }
             }
         },
-        confirmButton = { TextButton({ onSave(items.filter { t -> t.isNotBlank() }) }) { Text("Save") } },
-        dismissButton = { TextButton({ onSave(AppSettings.DEFAULT_QUICK_REPLIES) }) { Text("Reset") } },
+        confirmButton = { TextButton({ onSave(items.filter { t -> t.isNotBlank() }) }) { Text(stringResource(R.string.set_save)) } },
+        dismissButton = { TextButton({ onSave(AppSettings.DEFAULT_QUICK_REPLIES) }) { Text(stringResource(R.string.set_reset)) } },
     )
 }
 
-internal fun exportMessage(r: VCardIO.ExportResult): String =
-    "Exported ${r.exported} contacts" + if (r.failures.isEmpty()) "" else " · ${r.failures.size} failed: ${r.failures.first()}"
+internal fun exportMessage(context: android.content.Context, r: VCardIO.ExportResult): String {
+    val res = context.resources
+    val done = res.getQuantityString(R.plurals.set_exported_contacts, r.exported, r.exported)
+    return if (r.failures.isEmpty()) done else
+        res.getString(R.string.set_joined, done, res.getQuantityString(R.plurals.set_export_failed, r.failures.size, r.failures.size, r.failures.first()))
+}
+
+/** [ImportReport.summary] in the current language: "Imported 12 of 14 · 1 duplicate skipped · 1 failed". */
+@Composable
+internal fun importSummary(report: ImportReport): String = buildList {
+    add(stringResource(R.string.set_import_imported_of, report.imported, report.cardsParsed + report.cardsFailed))
+    if (report.skippedDuplicates > 0) add(pluralStringResource(R.plurals.set_import_duplicates_skipped, report.skippedDuplicates, report.skippedDuplicates))
+    if (report.cardsFailed > 0) add(pluralStringResource(R.plurals.set_import_failed, report.cardsFailed, report.cardsFailed))
+    val unmapped = report.unmappedProperties.values.sum()
+    if (unmapped > 0) add(pluralStringResource(R.plurals.set_import_unmapped, unmapped, unmapped))
+}.joinToString(" · ")
 
 /** What an import did: counts, then every failed card with its reason, then fields that had no place. */
 @Composable
 internal fun ImportReportDialog(report: ImportReport, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Import finished") },
+        title = { Text(stringResource(R.string.set_import_finished)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(report.summary(), style = MaterialTheme.typography.bodyLarge)
+                Text(importSummary(report), style = MaterialTheme.typography.bodyLarge)
                 if (report.failures.isNotEmpty()) {
-                    Text("Not imported", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.set_not_imported), style = MaterialTheme.typography.titleSmall)
                     report.failures.take(MAX_REPORT_ITEMS).forEach { f ->
                         Text(
-                            (if (f.index > 0) "Card ${f.index}: " else "") + f.reason + if (f.snippet.isNotEmpty()) "\n" + f.snippet.take(120) else "",
+                            (if (f.index > 0) stringResource(R.string.set_import_card_prefix, f.index) else "") + f.reason + if (f.snippet.isNotEmpty()) "\n" + f.snippet.take(120) else "",
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
-                    if (report.failures.size > MAX_REPORT_ITEMS) Text("…and ${report.failures.size - MAX_REPORT_ITEMS} more", style = MaterialTheme.typography.bodySmall)
+                    if (report.failures.size > MAX_REPORT_ITEMS) {
+                        val more = report.failures.size - MAX_REPORT_ITEMS
+                        Text(pluralStringResource(R.plurals.set_and_more, more, more), style = MaterialTheme.typography.bodySmall)
+                    }
                 }
                 if (report.unmappedProperties.isNotEmpty()) {
-                    Text("Fields with no place in a contact", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.set_unmapped_fields), style = MaterialTheme.typography.titleSmall)
                     Text(report.unmappedProperties.entries.joinToString("\n") { "${it.key} × ${it.value}" }, style = MaterialTheme.typography.bodySmall)
                 }
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text("OK") } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_ok)) } },
     )
 }
 

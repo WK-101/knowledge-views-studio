@@ -21,6 +21,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 import app.parley.AppViewModel
 import app.parley.common.KeypadLayout
 import app.parley.messaging.MyDetailsDialog
@@ -37,8 +39,8 @@ fun KeypadLettersRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector
     val phoneLanguage = remember { store.effectiveLayout(null) }
 
     LinkRow(
-        entry("keypad_letters").title,
-        (choice ?: phoneLanguage).label + if (choice == null) " · same as phone language" else "",
+        settingTitle("keypad_letters"),
+        (choice ?: phoneLanguage).localLabel().let { if (choice == null) stringResource(R.string.set_kl_same_as_phone_sub, it) else it },
         icon,
     ) { pickLayout = true }
 
@@ -48,26 +50,26 @@ fun KeypadLettersRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector
         val others = KeypadLayout.entries.filter { it !in suggested }
         AlertDialog(
             onDismissRequest = { pickLayout = false },
-            title = { Text("Keypad letters") },
+            title = { Text(settingTitle("keypad_letters")) },
             text = {
                 LazyColumn(Modifier.heightIn(max = 480.dp)) {
                     item {
                         Text(
-                            "Latin letters are always on the keys. Pick a second alphabet to show under them and to search names with.",
+                            stringResource(R.string.set_kl_help),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }
                     item {
-                        LayoutRow("Same as phone language", phoneLanguage.label, choice == null) { store.setKeypadLayout(null); pickLayout = false }
+                        LayoutRow(stringResource(R.string.set_kl_same_as_phone), phoneLanguage.localLabel(), choice == null) { store.setKeypadLayout(null); pickLayout = false }
                     }
-                    if (suggested.isNotEmpty()) item { Text("Suggested from your contacts", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary) }
-                    items(suggested) { l -> LayoutRow(l.label, null, choice == l) { store.setKeypadLayout(l); pickLayout = false } }
-                    if (suggested.isNotEmpty()) item { Text("All", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary) }
-                    items(others) { l -> LayoutRow(l.label, null, choice == l) { store.setKeypadLayout(l); pickLayout = false } }
+                    if (suggested.isNotEmpty()) item { Text(stringResource(R.string.set_kl_suggested), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary) }
+                    items(suggested) { l -> LayoutRow(l.localLabel(), null, choice == l) { store.setKeypadLayout(l); pickLayout = false } }
+                    if (suggested.isNotEmpty()) item { Text(stringResource(R.string.set_kl_all), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary) }
+                    items(others) { l -> LayoutRow(l.localLabel(), null, choice == l) { store.setKeypadLayout(l); pickLayout = false } }
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton({ pickLayout = false }) { Text("Cancel") } },
+            dismissButton = { TextButton({ pickLayout = false }) { Text(stringResource(R.string.set_cancel)) } },
         )
     }
 }
@@ -77,11 +79,27 @@ fun KeypadLettersRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector
 fun MyDetailsRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
     val details by vm.c.messaging.myDetails.collectAsStateWithLifecycle()
     LinkRow(
-        entry("my_details").title,
-        listOf(details.name, details.number).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { entry("my_details").summary },
+        settingTitle("my_details"),
+        listOf(details.name, details.number.takeIf { it.isNotBlank() }?.let(::bidiLtr).orEmpty()).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { settingSummary("my_details") },
         icon,
     ) { vm.navigate(app.parley.NavEvent.Route(app.parley.ui.people.PeopleRoutes.ME)) }
 }
+
+/** [KeypadLayout.label] in the current language (the alphabet sample in brackets stays as it is). */
+@Composable
+internal fun KeypadLayout.localLabel(): String = stringResource(
+    when (this) {
+        KeypadLayout.LATIN -> R.string.set_kl_latin
+        KeypadLayout.RUSSIAN -> R.string.set_kl_russian
+        KeypadLayout.UKRAINIAN -> R.string.set_kl_ukrainian
+        KeypadLayout.BELARUSIAN -> R.string.set_kl_belarusian
+        KeypadLayout.BULGARIAN -> R.string.set_kl_bulgarian
+        KeypadLayout.SERBIAN -> R.string.set_kl_serbian
+        KeypadLayout.GREEK -> R.string.set_kl_greek
+        KeypadLayout.HEBREW -> R.string.set_kl_hebrew
+        KeypadLayout.ARABIC -> R.string.set_kl_arabic
+    },
+)
 
 @Composable
 private fun LayoutRow(title: String, sub: String?, selected: Boolean, onClick: () -> Unit) {

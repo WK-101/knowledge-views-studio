@@ -29,11 +29,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import app.parley.AppViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.parley.R
+import app.parley.blocking.BlockingText
 import app.parley.data.Permissions
+import app.parley.ui.settings.bidiLtr
+import app.parley.ui.settings.bidiLtrIfNumber
 
 /** One gap in what screening can see, with its fix. */
 private data class Gap(val text: String, val fix: String?, val action: (() -> Unit)?)
@@ -70,23 +76,25 @@ fun ScreeningStatusCard(vm: AppViewModel) {
 
     val gaps = buildList {
         if (!dialer) add(Gap(
-            if (screener) "Hidden numbers and the SIM can't be seen in screening-only mode, so those rules are off." else "Calls aren't screened at all yet.",
-            "Make Parley your phone app", { requestRole(RoleManager.ROLE_DIALER) },
+            stringResource(if (screener) R.string.blk_status_screener_gap else R.string.blk_status_not_screened),
+            stringResource(R.string.blk_status_make_phone_app), { requestRole(RoleManager.ROLE_DIALER) },
         ))
-        if (!dialer && !screener) add(Gap("Or keep your phone app and let Parley only screen calls.", "Use for screening", { requestRole(RoleManager.ROLE_CALL_SCREENING) }))
-        if (dialer && !screener) add(Gap("Blocked calls may ring for a moment before Parley stops them.", "Screen before ringing", { requestRole(RoleManager.ROLE_CALL_SCREENING) }))
-        if (!contacts) add(Gap("Without contacts access Parley can't tell who you know, so it lets every call ring rather than risk blocking a contact.", "Allow contacts", { permission.launch(Manifest.permission.READ_CONTACTS) }))
-        if (!notifications) add(Gap("Notifications are off: you won't see blocked calls or quiet-hours replies.", "Turn on", {
+        if (!dialer && !screener) add(Gap(stringResource(R.string.blk_status_or_screen), stringResource(R.string.blk_status_use_for_screening), { requestRole(RoleManager.ROLE_CALL_SCREENING) }))
+        if (dialer && !screener) add(Gap(stringResource(R.string.blk_status_may_ring), stringResource(R.string.blk_status_screen_first), { requestRole(RoleManager.ROLE_CALL_SCREENING) }))
+        if (!contacts) add(Gap(stringResource(R.string.blk_status_no_contacts), stringResource(R.string.blk_status_allow_contacts), { permission.launch(Manifest.permission.READ_CONTACTS) }))
+        if (!notifications) add(Gap(stringResource(R.string.blk_status_no_notifications), stringResource(R.string.blk_status_turn_on), {
             roles.launch(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
         }))
-        if (Build.VERSION.SDK_INT < 29) add(Gap("This Android version can't screen calls.", null, null))
+        if (Build.VERSION.SDK_INT < 29) add(Gap(stringResource(R.string.blk_status_unsupported), null, null))
     }
     val ok = dialer && contacts
-    val title = when {
-        dialer -> "Parley is your phone app: every call is checked, including contacts, hidden numbers and the SIM."
-        screener -> "Screening only: Parley checks calls before your phone app rings."
-        else -> "Screening is off"
-    }
+    val title = stringResource(
+        when {
+            dialer -> R.string.blk_status_dialer
+            screener -> R.string.blk_status_screener
+            else -> R.string.blk_status_off
+        },
+    )
     Card(
         Modifier.fillMaxWidth().padding(16.dp),
         colors = CardDefaults.cardColors(containerColor = if (ok) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.tertiaryContainer),
@@ -94,9 +102,9 @@ fun ScreeningStatusCard(vm: AppViewModel) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(if (ok) Icons.Rounded.GppGood else Icons.Rounded.GppMaybe, null)
-                Text("  $title", style = MaterialTheme.typography.titleSmall)
+                Text("  $title", style = MaterialTheme.typography.titleSmall) // l10n-ok: no words
             }
-            Text("Works offline: numbers are checked on your phone, never sent anywhere.", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.blk_status_offline), style = MaterialTheme.typography.bodySmall)
             gaps.forEach { g ->
                 Text(g.text, style = MaterialTheme.typography.bodyMedium)
                 if (g.fix != null && g.action != null) TextButton(g.action) { Text(g.fix) }

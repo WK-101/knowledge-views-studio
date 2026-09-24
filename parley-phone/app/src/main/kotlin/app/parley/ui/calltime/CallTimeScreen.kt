@@ -33,10 +33,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.calltime.CallTimePlanner
 import app.parley.common.calltime.CallingConfig
 import app.parley.common.calltime.LimitRule
@@ -45,6 +48,8 @@ import app.parley.data.GroupInfo
 import app.parley.security.AppLock
 import app.parley.ui.contact.Section
 import app.parley.ui.settings.SwitchRow
+import app.parley.ui.settings.bidiLtr
+import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -56,6 +61,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val config by vm.c.calling.config.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
     val contacts by vm.contacts.collectAsStateWithLifecycle()
@@ -66,36 +72,37 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
     val gate = rememberSupervisedGate(config)
     LaunchedEffect(Unit) { groups = withContext(Dispatchers.IO) { runCatching { vm.c.contacts.groups() }.getOrDefault(emptyList()) } }
 
+    val unlockReason = stringResource(R.string.ct_unlock_limits)
+    val allCalls = stringResource(R.string.ct_all_calls)
+    val contactFallback = stringResource(R.string.ct_contact)
     fun set(f: (CallingConfig) -> CallingConfig) = vm.c.calling.update(f)
-    fun limits(f: (CallingConfig) -> CallingConfig) = gate("Unlock to change call limits") { set(f) }
-    fun edit(title: String, rule: LimitRule) = gate("Unlock to change call limits") { editing = title to rule }
+    fun limits(f: (CallingConfig) -> CallingConfig) = gate(unlockReason) { set(f) }
+    fun edit(title: String, rule: LimitRule) = gate(unlockReason) { editing = title to rule }
+    fun labelTitle(name: String) = res.getString(R.string.ct_label_title, name)
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Call time") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+        TopAppBar(title = { Text(stringResource(R.string.ct_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } })
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
-            item { Section("Talk-time reminders") }
+            item { Section(stringResource(R.string.ct_section_reminders)) }
             item {
-                Help("A soft beep in the earpiece and a vibration during long calls, for example every 30 minutes. It never ends a call.")
+                Help(stringResource(R.string.ct_reminders_help))
                 val choices = CallingConfig.REMINDER_CHOICES
-                ChoiceRow("Remind me", choices.map { reminderText(it) }, choices.indexOf(config.reminders.everyMinutes).coerceAtLeast(0)) { i ->
+                ChoiceRow(stringResource(R.string.ct_remind_me), choices.map { reminderText(context, it) }, choices.indexOf(config.reminders.everyMinutes).coerceAtLeast(0)) { i ->
                     set { it.copy(reminders = it.reminders.copy(everyMinutes = choices[i])) }
                 }
-                SwitchRow("Beep in the earpiece", "Only you hear it", config.reminders.beep) { v -> set { it.copy(reminders = it.reminders.copy(beep = v)) } }
-                SwitchRow("Vibrate", "Not in silent mode", config.reminders.vibrate) { v -> set { it.copy(reminders = it.reminders.copy(vibrate = v)) } }
+                SwitchRow(stringResource(R.string.ct_beep), stringResource(R.string.ct_beep_body), config.reminders.beep) { v -> set { it.copy(reminders = it.reminders.copy(beep = v)) } }
+                SwitchRow(stringResource(R.string.ct_vibrate), stringResource(R.string.ct_vibrate_body), config.reminders.vibrate) { v -> set { it.copy(reminders = it.reminders.copy(vibrate = v)) } }
                 if (config.reminders.perContact.isNotEmpty()) {
-                    Help("${config.reminders.perContact.size} contacts have their own reminder, set on their contact page.")
+                    Help(pluralStringResource(R.plurals.ct_contacts_own_reminder, config.reminders.perContact.size, config.reminders.perContact.size))
                 }
             }
 
-            item { Section("Call time limits") }
+            item { Section(stringResource(R.string.ct_section_limits)) }
             item {
-                Help(
-                    "Off unless you set one. A limit warns you ${warnText(config.warnSeconds)} before, then ends that call only. " +
-                        "Allowances per day or week are counted from your call history and never cut a call. Emergency calls are never limited.",
-                )
+                Help(stringResource(R.string.ct_limits_help, warnText(context, config.warnSeconds)))
                 val global = config.rule(LimitScope.GLOBAL, "") ?: LimitRule(LimitScope.GLOBAL, title = "All calls")
-                RuleRow(Icons.Rounded.Public, "All calls", global) { edit("All calls", global) }
+                RuleRow(Icons.Rounded.Public, allCalls, global) { edit(allCalls, global) }
                 if (sims.size >= 2) {
                     sims.forEach { sim ->
                         val r = config.rule(LimitScope.SIM, sim.id) ?: LimitRule(LimitScope.SIM, sim.id, sim.label)
@@ -106,39 +113,39 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
             val labelRules = config.rules.filter { it.scope == LimitScope.LABEL }
             items(labelRules, key = { it.id }) { r ->
                 val name = app.parley.common.LabelRefs.limitTitle(r)
-                RuleRow(Icons.AutoMirrored.Rounded.Label, "Label: $name", r) { edit("Label: $name", r.copy(title = name)) }
+                RuleRow(Icons.AutoMirrored.Rounded.Label, labelTitle(name), r) { edit(labelTitle(name), r.copy(title = name)) }
             }
             item {
                 if (groups.isNotEmpty()) {
                     ListItem(
                         leadingContent = { Icon(Icons.Rounded.Add, null) },
-                        headlineContent = { Text("Add a limit for a label") },
-                        modifier = Modifier.clickable { gate("Unlock to change call limits") { pickLabel = true } },
+                        headlineContent = { Text(stringResource(R.string.ct_add_label_limit)) },
+                        modifier = Modifier.clickable { gate(unlockReason) { pickLabel = true } },
                     )
                 }
             }
             val contactRules = config.rules.filter { it.scope == LimitScope.CONTACT }
             items(contactRules, key = { it.id }) { r ->
-                RuleRow(Icons.Rounded.Person, r.title.ifBlank { "Contact" }, r) { edit(r.title.ifBlank { "Contact" }, r) }
+                RuleRow(Icons.Rounded.Person, r.title.ifBlank { contactFallback }, r) { edit(r.title.ifBlank { contactFallback }, r) }
             }
             item {
-                Help("Set a limit for one person from their contact page (“Call time limit”). A person's own limit replaces label, SIM and all-call limits.")
+                Help(stringResource(R.string.ct_contact_limit_help))
                 val warn = CallingConfig.WARN_CHOICES
-                ChoiceRow("Warn before ending", warn.map { warnText(it).replaceFirstChar { c -> c.uppercase() } }, warn.indexOf(config.warnSeconds).coerceAtLeast(0)) { i ->
+                ChoiceRow(stringResource(R.string.ct_warn_before), warn.map { warnText(context, it) }, warn.indexOf(config.warnSeconds).coerceAtLeast(0)) { i ->
                     limits { it.copy(warnSeconds = warn[i]) }
                 }
-                SwitchRow("Silence incoming calls over the allowance", "They still ring silently and show on screen", config.silenceIncomingOverQuota) { v ->
+                SwitchRow(stringResource(R.string.ct_silence_over), stringResource(R.string.ct_silence_over_body), config.silenceIncomingOverQuota) { v ->
                     limits { it.copy(silenceIncomingOverQuota = v) }
                 }
             }
 
-            item { Section("Supervised mode") }
+            item { Section(stringResource(R.string.ct_supervised)) }
             item {
-                Help("For a relative's phone or for self-control: changing limits needs your fingerprint, face or screen lock, and calls can't be extended with “+5 min” or “Don't end”.")
+                Help(stringResource(R.string.ct_supervised_help))
                 ListItem(
                     leadingContent = { Icon(Icons.Rounded.Lock, null) },
-                    headlineContent = { Text("Supervised mode") },
-                    supportingContent = { Text(if (config.supervised) "On: limits are protected" else "Off") },
+                    headlineContent = { Text(stringResource(R.string.ct_supervised)) },
+                    supportingContent = { Text(stringResource(if (config.supervised) R.string.ct_supervised_on else R.string.set_off)) },
                     trailingContent = {
                         Switch(config.supervised, { v ->
                             val act = context as? FragmentActivity ?: return@Switch
@@ -146,15 +153,15 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
                                 noLock = true
                                 return@Switch
                             }
-                            AppLock.authenticate(act, if (v) "Turn on supervised mode" else "Turn off supervised mode") { ok -> if (ok) set { it.copy(supervised = v) } }
+                            AppLock.authenticate(act, res.getString(if (v) R.string.ct_supervised_turn_on else R.string.ct_supervised_turn_off)) { ok -> if (ok) set { it.copy(supervised = v) } }
                         })
                     },
                 )
             }
             val favourites = contacts.orEmpty().filter { it.starred }
             if (favourites.isNotEmpty()) {
-                item { Section("Never limit") }
-                item { Help("Favourites switched on here are never limited or silenced, like emergency numbers.") }
+                item { Section(stringResource(R.string.ct_never_limit)) }
+                item { Help(stringResource(R.string.ct_never_limit_help)) }
                 items(favourites, key = { "fav" + it.id }) { fav ->
                     val on = fav.lookupKey in config.neverLimit
                     SwitchRow(fav.displayName, null, on) { v ->
@@ -171,7 +178,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
     if (pickLabel) {
         AlertDialog(
             onDismissRequest = { pickLabel = false },
-            title = { Text("Limit calls with a label") },
+            title = { Text(stringResource(R.string.ct_limit_label_title)) },
             text = {
                 Column {
                     // One entry per label title: the limit covers that label in every account.
@@ -183,22 +190,22 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
                                 pickLabel = false
                                 val r = config.rules.firstOrNull { it.scope == LimitScope.LABEL && app.parley.common.LabelRefs.limitTitle(it) == title }
                                     ?: LimitRule(LimitScope.LABEL, title, title)
-                                editing = "Label: $title" to r
+                                editing = labelTitle(title) to r
                             },
                         )
                     }
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton({ pickLabel = false }) { Text("Cancel") } },
+            dismissButton = { TextButton({ pickLabel = false }) { Text(stringResource(R.string.set_cancel)) } },
         )
     }
     if (noLock) {
         AlertDialog(
             onDismissRequest = { noLock = false },
-            title = { Text("Set up a screen lock first") },
-            text = { Text("Supervised mode protects limits with your fingerprint, face or screen lock. This phone has none set up.") },
-            confirmButton = { TextButton({ noLock = false }) { Text("OK") } },
+            title = { Text(stringResource(R.string.ct_no_lock_title)) },
+            text = { Text(stringResource(R.string.ct_no_lock_body)) },
+            confirmButton = { TextButton({ noLock = false }) { Text(stringResource(R.string.set_ok)) } },
         )
     }
 }
@@ -208,7 +215,7 @@ private fun RuleRow(icon: ImageVector, title: String, rule: LimitRule, onClick: 
     ListItem(
         leadingContent = { Icon(icon, null) },
         headlineContent = { Text(title) },
-        supportingContent = { Text(if (rule.isEmpty) "No limit" else CallTimePlanner.allowanceText(rule)) },
+        supportingContent = { Text(if (rule.isEmpty) stringResource(R.string.ct_no_limit) else CallTimePlanner.allowanceText(LocalContext.current, rule)) },
         modifier = Modifier.clickable(onClick = onClick),
     )
 }
@@ -218,4 +225,5 @@ private fun Help(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
 }
 
-private fun warnText(sec: Int): String = if (sec % 60 == 0) "${sec / 60} min" else "$sec s"
+private fun warnText(context: android.content.Context, sec: Int): String =
+    if (sec % 60 == 0) context.getString(R.string.ct_minutes_short, sec / 60) else context.getString(R.string.ct_seconds_short, sec)

@@ -1,0 +1,831 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Screening decisions: reasons, verdicts and the decision trace (BlockingText maps CallPolicy's English) -->
+    <string name="blk_joined">%1$s · %2$s</string>
+    <string name="blk_reason_hidden">hidden number</string>
+    <string name="blk_reason_not_contact">not a contact</string>
+    <string name="blk_reason_neighbour">neighbour spoofing</string>
+    <string name="blk_reason_verification">failed caller verification</string>
+    <string name="blk_reason_system_list">blocked numbers list</string>
+    <string name="blk_reason_rule">your rule</string>
+    <string name="blk_reason_list">spam list</string>
+    <string name="blk_reason_invalid">invalid number</string>
+    <string name="blk_reason_off_hours">off hours</string>
+    <string name="blk_verdict_reported_by">Reported by %1$s</string>
+    <string name="blk_verdict_blocked_by_rule">Blocked by rule \'%1$s\'</string>
+    <plurals name="blk_calls">
+        <item quantity="one">%1$d call</item>
+        <item quantity="other">%1$d calls</item>
+    </plurals>
+    <string name="blk_verdict_blocked_reason">Blocked: %1$s</string>
+    <string name="blk_verdict_allowed_by">Allowed by \'%1$s\'</string>
+    <string name="blk_verdict_likely_spam">Likely spam · %1$s</string>
+    <string name="blk_verdict_expecting">Let through: expecting a call</string>
+    <string name="blk_verdict_called_recently">You called this number recently</string>
+    <string name="blk_verdict_talked_recently">You talked to this number recently</string>
+    <string name="blk_check_emergency">Emergency</string>
+    <string name="blk_check_number">Number</string>
+    <string name="blk_check_expecting">Expecting a call</string>
+    <string name="blk_check_block_hidden">Block hidden numbers</string>
+    <string name="blk_check_off_hours">Off hours</string>
+    <string name="blk_check_default">Default</string>
+    <string name="blk_check_system_list">Blocked numbers list</string>
+    <string name="blk_check_contact">Contact?</string>
+    <string name="blk_check_labels">Labels</string>
+    <string name="blk_check_label_rule">Label rule</string>
+    <string name="blk_check_allow_rule">Allow rule</string>
+    <string name="blk_check_you_called">You called this number</string>
+    <string name="blk_check_you_talked">You talked to this number</string>
+    <string name="blk_check_allow_rules">Allow rules</string>
+    <string name="blk_check_sim_rules">SIM rules</string>
+    <string name="blk_check_block_rule">Block rule</string>
+    <string name="blk_check_block_rules">Block rules</string>
+    <string name="blk_check_spam_lists">Spam lists</string>
+    <string name="blk_check_spam_list">Spam list</string>
+    <string name="blk_check_verification">Caller verification</string>
+    <string name="blk_check_neighbour">Neighbour spoofing</string>
+    <string name="blk_check_invalid">Invalid number</string>
+    <string name="blk_check_non_contacts">Block non-contacts</string>
+    <string name="blk_check_decision">Decision</string>
+    <string name="blk_check_sim_allow_rule">SIM allow rule</string>
+    <string name="blk_check_repeat">Repeat caller</string>
+    <string name="blk_res_emergency_number">emergency number</string>
+    <string name="blk_res_emergency_window">within an hour of an emergency call</string>
+    <string name="blk_res_hidden">hidden</string>
+    <string name="blk_res_on">on</string>
+    <string name="blk_res_hidden_caller">hidden caller</string>
+    <string name="blk_res_ring">ring</string>
+    <string name="blk_res_listed">listed</string>
+    <string name="blk_res_contact_failed">couldn\'t check, treated as a contact</string>
+    <string name="blk_res_yes">yes</string>
+    <string name="blk_res_no">no</string>
+    <string name="blk_res_labels_failed">couldn\'t check, label rules skipped</string>
+    <string name="blk_res_none">none</string>
+    <string name="blk_res_sim_skipped">SIM unknown here, skipped</string>
+    <string name="blk_res_lists_failed">couldn\'t be read</string>
+    <string name="blk_res_not_listed">not listed</string>
+    <string name="blk_res_failed">failed</string>
+    <string name="blk_res_own_number">looks like your own number</string>
+    <string name="blk_res_cant_exist">can\'t exist</string>
+    <string name="blk_res_not_assigned">not assigned</string>
+    <string name="blk_res_temporary">%1$s (temporary)</string>
+    <string name="blk_who_contacts">contacts</string>
+    <string name="blk_who_favourites">favourites</string>
+    <string name="blk_res_only_ring">only %1$s ring now</string>
+    <plurals name="blk_res_within_days">
+        <item quantity="one">within %1$d day</item>
+        <item quantity="other">within %1$d days</item>
+    </plurals>
+    <!-- %1$d seconds, %2$d days (the plural follows the days). -->
+    <plurals name="blk_res_talked_within">
+        <item quantity="one">≥ %1$d s within %2$d day</item>
+        <item quantity="other">≥ %1$d s within %2$d days</item>
+    </plurals>
+    <!-- %1$s list name, %2$s category, %3$d score (0–100). -->
+    <string name="blk_res_list_hit">%1$s: %2$s, score %3$d</string>
+    <string name="blk_res_list_warn">%1$s: %2$s, warn only</string>
+    <string name="blk_res_list_stale">%1$s (list out of date)</string>
+    <string name="blk_res_repeat_overrides">ring (repeat caller overrides %1$s)</string>
+    <string name="blk_res_sim_pending">%1$s: SIM unknown here, checked again when the call rings</string>
+    <plurals name="blk_res_called_again">
+        <item quantity="one">called again within %1$d min</item>
+        <item quantity="other">called again within %1$d min</item>
+    </plurals>
+    <string name="blk_res_too_fast">redialled too fast (under %1$d s), doesn\'t count</string>
+    <!-- One step of the decision trace: check and result. -->
+    <string name="blk_trace_step">%1$s: %2$s</string>
+    <string name="blk_action_reject">Reject</string>
+    <string name="blk_action_silence">Silence</string>
+    <string name="blk_action_reject_lower">reject</string>
+    <string name="blk_action_silence_lower">silence</string>
+
+    <!-- Schedules, line types, rule titles and descriptions (BlockingText) -->
+    <string name="blk_sched_all_day">%1$s, all day</string>
+    <!-- %1$s days, %2$s start time, %3$s end time: "Every day 22:00–07:00". -->
+    <string name="blk_sched_range">%1$s %2$s–%3$s</string>
+    <string name="blk_sched_every_day">Every day</string>
+    <string name="blk_sched_weekdays">Mon–Fri</string>
+    <string name="blk_sched_weekends">Weekends</string>
+    <string name="blk_sched_never">Never</string>
+    <string name="blk_line_voip">Internet calls (VoIP)</string>
+    <string name="blk_line_premium">Premium rate</string>
+    <string name="blk_line_shared_cost">Shared cost</string>
+    <string name="blk_line_toll_free">Toll free</string>
+    <string name="blk_line_personal">Personal numbers</string>
+    <string name="blk_line_uan">Company numbers (UAN)</string>
+    <string name="blk_line_mobile">Mobile</string>
+    <string name="blk_line_fixed">Fixed line</string>
+    <string name="blk_line_fixed_or_mobile">Fixed line or mobile</string>
+    <string name="blk_line_pager">Pager</string>
+    <string name="blk_line_voicemail">Voicemail</string>
+    <string name="blk_title_label">Label %1$s</string>
+    <string name="blk_title_not_my_country">Not from my country</string>
+    <string name="blk_title_name_contains">Name contains \"%1$s\"</string>
+    <string name="blk_title_from">From %1$s</string>
+    <string name="blk_desc_exact">This number</string>
+    <string name="blk_desc_prefix">Numbers starting with %1$s</string>
+    <string name="blk_desc_wildcard">Numbers like %1$s</string>
+    <string name="blk_desc_caller_name">Caller name contains \"%1$s\"</string>
+    <string name="blk_desc_region">Numbers from %1$s</string>
+    <string name="blk_desc_not_my_region">Numbers from other countries</string>
+    <string name="blk_desc_label">Contacts in \'%1$s\'</string>
+    <plurals name="blk_sugg_declined">
+        <item quantity="one">You declined %1$d call</item>
+        <item quantity="other">You declined %1$d calls</item>
+    </plurals>
+    <plurals name="blk_sugg_short">
+        <item quantity="one">%1$d call ended within 3 s</item>
+        <item quantity="other">%1$d calls ended within 3 s</item>
+    </plurals>
+    <string name="blk_replay_none">No calls from unknown numbers in this period</string>
+    <!-- %1$d blocked, %2$d unknown calls (the plural follows %2$d). -->
+    <plurals name="blk_replay_summary">
+        <item quantity="one">Would have blocked %1$d of %2$d call from unknown numbers</item>
+        <item quantity="other">Would have blocked %1$d of %2$d calls from unknown numbers</item>
+    </plurals>
+
+    <!-- Blocking screen -->
+    <string name="blk_title">Blocking &amp; screening</string>
+    <string name="blk_expanded">Expanded</string>
+    <string name="blk_collapsed">Collapsed</string>
+    <string name="blk_notify_default">Default</string>
+    <string name="blk_notify_none">None</string>
+    <string name="blk_notify_quiet">Quiet</string>
+    <string name="blk_notify_normal">Normal</string>
+    <string name="blk_notify_default_inline">default</string>
+    <string name="blk_notify_none_inline">none</string>
+    <string name="blk_notify_quiet_inline">quiet</string>
+    <string name="blk_notify_normal_inline">normal</string>
+    <!-- %1$d days, %2$d hours. -->
+    <string name="blk_left_days_hours">%1$d d %2$d h</string>
+    <string name="blk_help_allow">Numbers that always ring, even when strict mode is on. Example: your child\'s school, the plumber you\'re waiting for.</string>
+    <string name="blk_help_block">Your own rules. Example: block numbers starting with +1 900, or silence one pushy caller.</string>
+    <string name="blk_help_lists">Offline spam lists you add yourself. Parley looks numbers up on the phone; nothing is sent anywhere.</string>
+    <string name="blk_help_off_hours">Only the people who matter ring at night or at weekends. Everyone else is silenced and shows as a missed call.</string>
+    <string name="blk_help_more">Extra checks for tricks spammers use: numbers that look like yours, spoofed caller ID, numbers that can\'t exist.</string>
+    <string name="blk_help_sounds">Know who it is before you look: a different ringtone for repeat callers or likely spam, full volume for favourites.</string>
+    <string name="blk_help_emergency">After you call emergency services, nothing is blocked for an hour so they can call you back.</string>
+    <string name="blk_help_tools">Try a number, see what your rules would have done last week, import a list or share yours.</string>
+    <string name="blk_help_log">Calls Parley stopped. Tap one to see why; mark mistakes as \"Not spam\".</string>
+    <string name="blk_preset_known">Only people I know</string>
+    <string name="blk_preset_known_help">Strangers are silenced; they can still get through by calling twice, and numbers you called ring.</string>
+    <string name="blk_preset_telemarketers">Stop telemarketers</string>
+    <string name="blk_preset_telemarketers_help">Blocks spoofed and impossible numbers; strangers still ring.</string>
+    <string name="blk_preset_nights">Quiet nights</string>
+    <string name="blk_preset_nights_help">From 22:00 to 07:00 only contacts ring; others are silenced.</string>
+    <string name="blk_preset_everyone">Let everyone ring</string>
+    <string name="blk_preset_everyone_help">Turns the checks off. Your own rules and lists stay as they are.</string>
+    <string name="blk_need_own_number">Needed to know your own number</string>
+    <string name="blk_snooze_active">Unknown callers ring · %1$s left</string>
+    <string name="blk_stop">Stop</string>
+    <string name="blk_expecting_question">Expecting a call?</string>
+    <string name="blk_emergency_window">Emergency call-back window: nothing is blocked for %1$s</string>
+    <string name="blk_quick_setups">Quick setups</string>
+    <string name="blk_hidden">Silence or block hidden numbers</string>
+    <string name="blk_hidden_help">Private and withheld callers</string>
+    <string name="blk_hidden_needs_default">Needs Parley as your phone app: Android never shows hidden callers to screening apps.</string>
+    <string name="blk_non_contacts">Only people I know ring</string>
+    <string name="blk_non_contacts_help">Strict mode: numbers not in contacts are stopped, unless you allowed them</string>
+    <string name="blk_when_stopped">When a call is stopped</string>
+    <string name="blk_allow_section">Always let through</string>
+    <plurals name="blk_sum_allowed">
+        <item quantity="one">%1$d allowed</item>
+        <item quantity="other">%1$d allowed</item>
+    </plurals>
+    <string name="blk_repeat_callers">Repeat callers</string>
+    <string name="blk_numbers_you_called">Numbers you called</string>
+    <string name="blk_people_you_talked_to">People you talked to</string>
+    <!-- %1$d minutes, %2$d seconds. -->
+    <string name="blk_repeat_callers_help">Someone calling again within %1$d min is probably urgent. Redials within %2$d s don\'t count (bots redial instantly). Never overrides your own block rules.</string>
+    <string name="blk_repeat_window">Window: %1$d min</string>
+    <string name="blk_repeat_min_interval">Ignore redials faster than %1$d s</string>
+    <plurals name="blk_numbers_you_called_help">
+        <item quantity="one">In the last %1$d day (the garage you rang this morning).</item>
+        <item quantity="other">In the last %1$d days (the garage you rang this morning).</item>
+    </plurals>
+    <!-- %1$d seconds, %2$d days (the plural follows the days). -->
+    <plurals name="blk_people_you_talked_to_help">
+        <item quantity="one">Calls you answered for %1$d s or more in the last %2$d day.</item>
+        <item quantity="other">Calls you answered for %1$d s or more in the last %2$d days.</item>
+    </plurals>
+    <string name="blk_allow_number_or_range">Allow a number or range</string>
+    <string name="blk_your_rules">Your block rules</string>
+    <string name="blk_sum_on">%1$d on</string>
+    <plurals name="blk_sum_scheduled">
+        <item quantity="one">%1$d scheduled</item>
+        <item quantity="other">%1$d scheduled</item>
+    </plurals>
+    <plurals name="blk_sum_calls_stopped">
+        <item quantity="one">%1$d call stopped</item>
+        <item quantity="other">%1$d calls stopped</item>
+    </plurals>
+    <string name="blk_add_rule">Add rule</string>
+    <string name="blk_no_rules">No rules yet. Example: prefix +1 900, or pattern 0800* for all 0800 numbers.</string>
+    <string name="blk_no_lists">No lists yet</string>
+    <plurals name="blk_lists_count">
+        <item quantity="one">%1$d list</item>
+        <item quantity="other">%1$d lists</item>
+    </plurals>
+    <!-- %1$s is the formatted count ("12,345"). -->
+    <plurals name="blk_numbers_count">
+        <item quantity="one">%1$s number</item>
+        <item quantity="other">%1$s numbers</item>
+    </plurals>
+    <string name="blk_updated_ago">updated %1$s</string>
+    <plurals name="blk_out_of_date_count">
+        <item quantity="one">%1$d out of date</item>
+        <item quantity="other">%1$d out of date</item>
+    </plurals>
+    <string name="blk_suggested_for_sim">Suggested for your SIM: %1$s</string>
+    <string name="blk_added">Added: %1$s</string>
+    <string name="blk_add">Add</string>
+    <string name="blk_no_thanks">No thanks</string>
+    <string name="blk_off_hours">Off hours</string>
+    <string name="blk_only_who">Only %1$s</string>
+    <string name="blk_use_off_hours">Use off hours</string>
+    <string name="blk_all_day">All day</string>
+    <string name="blk_everyone_else">Everyone else</string>
+    <string name="blk_offer_reply">Offer a reply</string>
+    <string name="blk_offer_reply_help">When someone you know is silenced, a notification offers to text them \"%1$s\" (your SMS app opens; Parley never sends texts itself).</string>
+    <string name="blk_reply_text">Reply text</string>
+    <string name="blk_more_checks">More checks</string>
+    <string name="blk_neighbour">Neighbour spoofing</string>
+    <string name="blk_neighbour_help">Unknown numbers that differ from yours only in the last 4 digits</string>
+    <string name="blk_verification">Caller verification</string>
+    <string name="blk_invalid_numbers">Invalid numbers</string>
+    <string name="blk_failed_verification">Failed caller verification</string>
+    <string name="blk_failed_verification_help">The carrier says the caller ID is spoofed (STIR/SHAKEN, mostly US)</string>
+    <string name="blk_cant_exist">Numbers that can\'t exist</string>
+    <string name="blk_cant_exist_help">Wrong length or unassigned for their country. Silenced by default, in case a real caller\'s number is unusual.</string>
+    <string name="blk_invalid_are">Invalid numbers are</string>
+    <string name="blk_active">Active</string>
+    <string name="blk_hidden_numbers">Hidden numbers</string>
+    <string name="blk_sounds">Sounds &amp; notifications</string>
+    <string name="blk_sum_loud_favourites">Loud for favourites</string>
+    <string name="blk_sum_loud_repeat">Loud for repeat callers</string>
+    <string name="blk_sum_notify_blocked">Blocked: %1$s</string>
+    <string name="blk_emergency">Emergency</string>
+    <plurals name="blk_sum_extra_numbers">
+        <item quantity="one">%1$d extra number</item>
+        <item quantity="other">%1$d extra numbers</item>
+    </plurals>
+    <string name="blk_tools">Test, import &amp; share</string>
+    <string name="blk_test_a_number">Test a number</string>
+    <string name="blk_test">Test</string>
+    <string name="blk_tools_dry_run">What would today\'s rules have done?</string>
+    <string name="blk_tools_dry_run_help">Replays last week\'s calls. Nothing is blocked, logged or sent.</string>
+    <string name="blk_templates">Templates</string>
+    <string name="blk_tools_templates_help">Ready-made rule sets (country ranges, quiet nights), installed as a group; share yours by file or QR</string>
+    <string name="blk_tools_transfer">Import or share rules</string>
+    <string name="blk_tools_transfer_help">Call Blocker, YACB, NoPhoneSpam or any CSV; share yours as a signed list</string>
+    <string name="blk_system_list">Blocked numbers (system list)</string>
+    <string name="blk_system_list_help">Android\'s own list, shared with your other phone apps. Numbers here are rejected before Parley sees them.</string>
+    <string name="blk_block_a_number">Block a number</string>
+    <string name="blk_need_default">Make Parley your default phone app to manage the system block list.</string>
+    <string name="blk_unblock">Unblock</string>
+    <string name="blk_recent">Recently stopped by Parley</string>
+    <string name="blk_likely_spam_for_you">Likely spam for you</string>
+    <string name="blk_sugg_line">%1$s · last %2$s</string>
+    <string name="blk_dismiss">Dismiss</string>
+    <string name="blk_blocked_toast">Blocked</string>
+    <string name="blk_block">Block</string>
+    <string name="blk_nothing_yet">Nothing stopped yet.</string>
+    <string name="blk_clear_log">Clear log</string>
+    <string name="blk_use_this">Use this</string>
+    <string name="blk_phone_number">Phone number</string>
+    <string name="blk_who_label">label</string>
+    <string name="blk_always">Always</string>
+    <string name="blk_who_may_ring">Who may still ring</string>
+    <string name="blk_all_contacts">All contacts</string>
+    <string name="blk_favourites">Favourites</string>
+    <string name="blk_off_hours_still_through">Repeat callers and numbers you allowed still get through.</string>
+    <string name="blk_loud_favourites">Ring loud for favourites</string>
+    <string name="blk_loud_favourites_help">Full volume for starred contacts; your volume is put back afterwards, even if the phone restarts.</string>
+    <string name="blk_loud_repeat">Ring loud for repeat callers</string>
+    <string name="blk_loud_repeat_help">Full volume when someone calls again within %1$d min.</string>
+    <string name="blk_ringtone_repeat">Ringtone for repeat callers</string>
+    <string name="blk_ringtone_spam">Ringtone for likely spam</string>
+    <string name="blk_label_ringtones_help">Label ringtones: open a label\'s screening options, or add an \"Always allow\" rule of type Label.</string>
+    <string name="blk_notifications">Notifications</string>
+    <string name="blk_notify_blocked">Blocked by your rules</string>
+    <string name="blk_notify_reported">Reported by a spam list</string>
+    <string name="blk_notify_likely">Likely spam (rang)</string>
+    <string name="blk_notify_off_warning">With blocked-call notifications off you won\'t notice a mistake until you check the log.</string>
+    <string name="blk_channel_settings">Sound and style per channel…</string>
+    <string name="blk_emergency_extras_help">Calling one of these numbers also starts the one-hour window (your GP, your child\'s school), so their call-back always gets through.</string>
+    <string name="blk_add_a_number">Add a number</string>
+    <string name="blk_one_sim">one SIM</string>
+    <string name="blk_expired">expired</string>
+    <string name="blk_for_duration">for %1$s</string>
+    <string name="blk_last_ago">last %1$s</string>
+    <string name="blk_private_number">Private number</string>
+    <string name="blk_no_details">No details were stored for this call (it was blocked by an older version).</string>
+    <string name="blk_marked_not_spam">Marked as not spam: it will always ring</string>
+    <string name="blk_not_spam">Not spam</string>
+    <string name="blk_allowed_24h">Allowed for 24 h</string>
+    <string name="blk_allow_24h">Allow for 24 h</string>
+    <string name="blk_test_again">Test again</string>
+    <string name="blk_report">Report</string>
+    <string name="blk_delete">Delete</string>
+    <string name="blk_legacy_verification">failed verification</string>
+    <string name="blk_legacy_block_list">block list</string>
+    <string name="blk_legacy_rule">rule</string>
+
+    <!-- Blocking dialogs -->
+    <string name="blk_trace_failed_open">Couldn\'t check</string>
+    <string name="blk_trace_matched">Matched</string>
+    <string name="blk_why_test">Test this call</string>
+    <string name="blk_why_blocked">Why was this blocked?</string>
+    <string name="blk_why_rang">Why did this ring?</string>
+    <string name="blk_checking">Checking…</string>
+    <string name="blk_rang">Rang</string>
+    <string name="blk_blocked">Blocked</string>
+    <string name="blk_failed_open_note">! Something couldn\'t be checked, so Parley let the call ring rather than risk blocking someone you know.</string>
+    <string name="blk_outcome_blocked">blocked</string>
+    <string name="blk_outcome_ring">it would ring</string>
+    <string name="blk_if_called_now">If this number called now: %1$s</string>
+    <string name="blk_no_decision_stored">No decision was stored for this call. With today\'s rules: %1$s</string>
+    <string name="blk_only_a_test">Nothing was logged, counted or sent: this is only a test.</string>
+    <string name="blk_couldnt_check">Couldn\'t check this number.</string>
+    <string name="blk_test_today">Test with today\'s rules</string>
+    <string name="blk_web_title">Search this number on the web?</string>
+    <string name="blk_web_body">Your browser opens a search for %1$s. The search site will see the number; Parley itself sends nothing.</string>
+    <string name="blk_web_contact_warning">This is %1$s\'s number. Searching it tells the search site about one of your contacts.</string>
+    <string name="blk_search_anyway">Search anyway</string>
+    <string name="blk_search">Search</string>
+    <string name="blk_open_regulator">Open %1$s?</string>
+    <string name="blk_open_regulator_body">Your browser opens the official complaint page. The number is copied so you can paste it; Parley sends nothing itself.</string>
+    <string name="blk_open">Open</string>
+    <string name="blk_report_title">Report this number</string>
+    <string name="blk_report_body">Parley can\'t report anything by itself (it has no internet access). These open the right app with the details filled in.</string>
+    <string name="blk_report_carrier">To your carrier: a text to %1$s (US, UK, Canada, Ireland and others). Your SMS app opens; you press Send.</string>
+    <string name="blk_report_regulator">To %1$s: opens their complaint page in your browser.</string>
+    <string name="blk_regulator">Regulator</string>
+    <string name="blk_text_code">Text %1$s</string>
+    <string name="blk_prefix_title">Also allow this office\'s other lines</string>
+    <string name="blk_prefix_body_named">Calls from numbers that differ from %1$s\'s number only in the last digits will always ring (a clinic\'s or a school\'s other lines).</string>
+    <string name="blk_prefix_body">Calls from numbers that differ from this contact\'s number only in the last digits will always ring (a clinic\'s or a school\'s other lines).</string>
+    <string name="blk_prefix_digits">Digits that may differ</string>
+    <string name="blk_prefix_will_allow">Will allow %1$s</string>
+    <string name="blk_prefix_done_named">Other lines of %1$s will ring</string>
+    <string name="blk_prefix_done">Other lines of this office will ring</string>
+    <string name="blk_allow">Allow</string>
+    <string name="blk_label_block_all">Block everyone in \'%1$s\'</string>
+    <string name="blk_label_block_all_help">Their calls are rejected. The label syncs across your phones with your contacts account.</string>
+    <string name="blk_label_only_off_hours">Only \'%1$s\' rings during off hours</string>
+    <string name="blk_label_only_off_hours_help">At night or at weekends (set the hours in Blocking › Off hours), everyone else is silenced.</string>
+    <string name="blk_label_ringtone">Ringtone for \'%1$s\'</string>
+    <string name="blk_label_ringtone_help">Parley\'s ringer plays a tone you choose for these people (unless they have their own). The same tone as on the label\'s page.</string>
+    <string name="blk_label_title">Screening for \'%1$s\'</string>
+    <string name="blk_choose_ringtone">Choose ringtone</string>
+    <string name="blk_saved">Saved</string>
+    <string name="blk_snooze_body">Unknown numbers ring through your screening rules for a while (a delivery driver, a doctor\'s office). It switches itself off.</string>
+    <string name="blk_snooze_toast">Unknown callers will ring for %1$s</string>
+
+    <!-- Recents and number-history entry points (BlockingHooks) -->
+    <string name="blk_always_allow">Always allow</string>
+    <string name="blk_always_allow_toast">This number will always ring</string>
+    <string name="blk_allow_24h_toast">This number rings until this time tomorrow</string>
+    <string name="blk_search_web_long">Search number on the web</string>
+    <string name="blk_search_web">Search web</string>
+    <string name="blk_dont_call_back">Don\'t call back</string>
+    <string name="blk_clear_selection">Clear selection</string>
+    <plurals name="blk_selected">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
+    <string name="blk_block_n">Block %1$d</string>
+    <plurals name="blk_block_numbers_q">
+        <item quantity="one">Block this number?</item>
+        <item quantity="other">Block %1$d numbers?</item>
+    </plurals>
+    <string name="blk_not_blocked_people">Not blocked: %1$s. Contacts are blocked from their own page.</string>
+    <plurals name="blk_blocked_numbers">
+        <item quantity="one">Blocked %1$d number</item>
+        <item quantity="other">Blocked %1$d numbers</item>
+    </plurals>
+    <string name="blk_screening">Screening</string>
+    <string name="blk_label_menu">Screening for this label…</string>
+    <string name="blk_snooze_stop">Stop letting unknown callers ring</string>
+    <string name="blk_snooze_menu">Expecting a call…</string>
+
+    <!-- Screening status card -->
+    <string name="blk_status_screener_gap">Hidden numbers and the SIM can\'t be seen in screening-only mode, so those rules are off.</string>
+    <string name="blk_status_not_screened">Calls aren\'t screened at all yet.</string>
+    <string name="blk_status_make_phone_app">Make Parley your phone app</string>
+    <string name="blk_status_or_screen">Or keep your phone app and let Parley only screen calls.</string>
+    <string name="blk_status_use_for_screening">Use for screening</string>
+    <string name="blk_status_may_ring">Blocked calls may ring for a moment before Parley stops them.</string>
+    <string name="blk_status_screen_first">Screen before ringing</string>
+    <string name="blk_status_no_contacts">Without contacts access Parley can\'t tell who you know, so it lets every call ring rather than risk blocking a contact.</string>
+    <string name="blk_status_allow_contacts">Allow contacts</string>
+    <string name="blk_status_no_notifications">Notifications are off: you won\'t see blocked calls or quiet-hours replies.</string>
+    <string name="blk_status_turn_on">Turn on</string>
+    <string name="blk_status_unsupported">This Android version can\'t screen calls.</string>
+    <string name="blk_status_dialer">Parley is your phone app: every call is checked, including contacts, hidden numbers and the SIM.</string>
+    <string name="blk_status_screener">Screening only: Parley checks calls before your phone app rings.</string>
+    <string name="blk_status_off">Screening is off</string>
+    <string name="blk_status_offline">Works offline: numbers are checked on your phone, never sent anywhere.</string>
+
+    <!-- Schedule editor -->
+    <string name="blk_sched_nights">Nights 22–07</string>
+    <string name="blk_sched_work">Work hours</string>
+    <string name="blk_sched_custom">Custom</string>
+    <!-- %1$s is a day name: "Monday, on". -->
+    <string name="blk_day_on">%1$s, on</string>
+    <string name="blk_day_off">%1$s, off</string>
+    <string name="blk_sched_from">From %1$s</string>
+    <string name="blk_sched_to">To %1$s</string>
+    <string name="blk_sched_next_morning">(ends the next morning)</string>
+    <string name="blk_sched_starts_at">Starts at</string>
+    <string name="blk_sched_ends_at">Ends at</string>
+
+    <!-- Test a call / dry run -->
+    <string name="blk_dry_title">What would today\'s rules do?</string>
+    <string name="blk_dry_today">Today</string>
+    <string name="blk_dry_loading">Replaying your calls…</string>
+    <string name="blk_dry_failed">Couldn\'t read your call history.</string>
+    <string name="blk_dry_none">No calls from unknown numbers in this period.</string>
+    <!-- %1$d blocked, %2$d unknown calls (the plural follows %2$d). -->
+    <plurals name="blk_dry_summary">
+        <item quantity="one">Current rules would have blocked %1$d of %2$d call from unknown numbers.</item>
+        <item quantity="other">Current rules would have blocked %1$d of %2$d calls from unknown numbers.</item>
+    </plurals>
+    <string name="blk_dry_note">Only a replay: nothing is blocked, logged, counted or sent. Hidden numbers and SIM rules are replayed as the phone app would see them.</string>
+    <string name="blk_would_block">Would be blocked</string>
+    <string name="blk_would_ring">Would ring</string>
+
+    <!-- Parley Lists (optional updater app) -->
+    <string name="blk_list_updated">Updated %1$s</string>
+    <string name="blk_list_added">Added %1$s</string>
+    <string name="blk_list_newer">You already have a newer version</string>
+    <string name="blk_updater_title">Get automatic updates (optional app)</string>
+    <string name="blk_check_again">Check again</string>
+    <string name="blk_updater_body">Parley never touches the internet. The optional Parley Lists app downloads public lists (US FTC reported calls, regulator ranges, community lists) and never sees your contacts or calls. Parley copies the lists from it, checks their signatures, and refreshes them daily.</string>
+    <string name="blk_updater_where">F-Droid: search for \"Parley Lists\" (app.parley.lists), from the same developer as Parley</string>
+    <string name="blk_updater_not_installed">Not installed. Get it from %1$s.</string>
+    <string name="blk_updater_permissions">It asks only for internet access. Parley reads its lists only when both apps come from the same developer.</string>
+    <string name="blk_updater_other_developer">Parley Lists is installed, but it\'s signed by a different developer than this copy of Parley, so Parley can\'t read it. Install both apps from the same source.</string>
+    <string name="blk_updater_open">Open Parley Lists</string>
+    <string name="blk_updater_empty">No lists there yet. Open Parley Lists and tap Update now.</string>
+    <plurals name="blk_ranges_count">
+        <item quantity="one">%1$d range</item>
+        <item quantity="other">%1$d ranges</item>
+    </plurals>
+    <string name="blk_built_ago">built %1$s</string>
+    <string name="blk_signed">signed</string>
+    <string name="blk_unsigned">unsigned</string>
+    <string name="blk_up_to_date">up to date</string>
+    <string name="blk_update_pending">update pending</string>
+    <string name="blk_replace_list_q">Replace the list?</string>
+    <string name="blk_replace_list_body">This happens when Parley Lists was reinstalled, or you added the same list from another source. Replace only if you trust Parley Lists on this phone.</string>
+    <string name="blk_replace">Replace</string>
+    <string name="blk_keep_mine">Keep mine</string>
+    <string name="blk_fail_id_mismatch">The list\'s id doesn\'t match what the updater announced</string>
+    <string name="blk_fail_not_allowed">Parley isn\'t allowed to read the updater (it\'s signed by a different developer)</string>
+    <string name="blk_fail_read_list">Couldn\'t read the list</string>
+    <string name="blk_fail_read_file">Couldn\'t read the file</string>
+    <string name="blk_fail_install">Couldn\'t install the list</string>
+    <!-- %1$s new key (or "unsigned"), %2$s installed key. -->
+    <string name="blk_fail_different_key">This update is signed by a different key (%1$s) than the installed list (%2$s)</string>
+
+    <!-- Spam lists screen -->
+    <string name="blk_not_valid_list">Not a valid list</string>
+    <string name="blk_folder_subscribed">Folder subscribed</string>
+    <string name="blk_lists_intro">Lists are files you add yourself: a regulator\'s ranges, the US FTC\'s reported numbers, a list a friend shared. Parley looks numbers up on the phone and never sends them anywhere. Your contacts, allowed numbers and repeat callers always win.</string>
+    <string name="blk_add_list_file">Add a list file</string>
+    <string name="blk_folder">Folder</string>
+    <string name="blk_subscribed_folder">Subscribed folder</string>
+    <string name="blk_checked_ago">checked %1$s</string>
+    <string name="blk_never">never</string>
+    <string name="blk_folder_help">New .parleylist files there are added automatically, and re-checked daily.</string>
+    <string name="blk_no_new_lists">No new lists</string>
+    <string name="blk_updated_n">Updated %1$d</string>
+    <string name="blk_check_now">Check now</string>
+    <string name="blk_built_in_section">Built in</string>
+    <string name="blk_for_your_sim">%1$s · for your SIM</string>
+    <string name="blk_added_toast">Added</string>
+    <string name="blk_updated_toast">Updated</string>
+    <string name="blk_your_lists">Your lists</string>
+    <string name="blk_update_list_q">Update %1$s?</string>
+    <string name="blk_add_list_q">Add %1$s?</string>
+    <string name="blk_version">version %1$s</string>
+    <string name="blk_from">From %1$s</string>
+    <string name="blk_signed_key">Signed · key %1$s</string>
+    <string name="blk_unsigned_warning">Unsigned: the file is intact, but anyone could have made it.</string>
+    <!-- %1$d flagged, %2$d unknown calls (the plural follows %2$d). -->
+    <plurals name="blk_list_dry_result">
+        <item quantity="one">Last 7 days: it would have flagged %1$d of %2$d call from unknown numbers</item>
+        <item quantity="other">Last 7 days: it would have flagged %1$d of %2$d calls from unknown numbers</item>
+    </plurals>
+    <string name="blk_new_lists_warn">New lists only warn (\"Likely spam\" on the call screen). You can let a list block calls afterwards.</string>
+    <string name="blk_list_newer_version">You already have a newer version (%1$s)</string>
+    <string name="blk_update">Update</string>
+    <string name="blk_cant_add_list">Couldn\'t add the list</string>
+    <string name="blk_blocks_at_score">blocks at score ≥ %1$d</string>
+    <string name="blk_warns">warns</string>
+    <string name="blk_built_in">built in</string>
+    <string name="blk_from_parley_lists">from Parley Lists</string>
+    <plurals name="blk_out_of_date_days">
+        <item quantity="one">Out of date: no update for more than %1$d day</item>
+        <item quantity="other">Out of date: no update for more than %1$d days</item>
+    </plurals>
+    <string name="blk_less">Less</string>
+    <string name="blk_options">Options</string>
+    <string name="blk_publisher_key">Publisher key %1$s</string>
+    <string name="blk_warn_only">Warn only</string>
+    <string name="blk_score_threshold">Block when the list\'s score is at least %1$d (of 100)</string>
+    <string name="blk_match_ranges">Match ranges</string>
+    <string name="blk_match_ranges_help">Also match whole number blocks, not only listed numbers</string>
+    <string name="blk_notify">Notify</string>
+    <plurals name="blk_marked_not_spam_count">
+        <item quantity="one">%1$d marked \"Not spam\"</item>
+        <item quantity="other">%1$d marked \"Not spam\"</item>
+    </plurals>
+    <string name="blk_source">Source: %1$s</string>
+    <string name="blk_remove_list">Remove list</string>
+    <string name="blk_remove_list_q">Remove %1$s?</string>
+    <string name="blk_pack_fr_arcep_name">France: telemarketing ranges (ARCEP)</string>
+    <string name="blk_pack_fr_arcep_desc">Numbers ARCEP reserved for telemarketing platforms: 01 62, 01 63, 02 70, 02 71, 03 77, 03 78, 04 24, 04 25, 05 68, 05 69, 09 48, 09 49.</string>
+
+    <!-- Rule editor -->
+    <string name="blk_type_exact">Number</string>
+    <string name="blk_type_prefix">Starts with</string>
+    <string name="blk_type_wildcard">Pattern</string>
+    <string name="blk_type_caller_name">Caller name</string>
+    <string name="blk_type_region">Country</string>
+    <string name="blk_type_not_my_region">Other countries</string>
+    <string name="blk_type_line_type">Line type</string>
+    <string name="blk_type_label">Label</string>
+    <string name="blk_new_rule">New rule</string>
+    <string name="blk_edit_rule">Edit rule</string>
+    <string name="blk_delete_rule">Delete rule</string>
+    <string name="blk_editor_allow_help">Allowed calls ring even in strict mode and beat every block rule. Only emergencies and your contacts come first.</string>
+    <string name="blk_editor_block_help">Calls from your contacts are never blocked by these rules (label rules are the exception: they\'re about contacts).</string>
+    <string name="blk_editor_match">Match</string>
+    <string name="blk_field_name_contains">Name contains</string>
+    <string name="blk_field_country_codes">Country codes</string>
+    <string name="blk_help_exact">Matches this number however it\'s written.</string>
+    <string name="blk_help_prefix">e.g. +44 70 or 0900. Works for national and international forms.</string>
+    <string name="blk_help_wildcard">* = any digits, ? = one digit. e.g. +1 855* or 0800??????</string>
+    <string name="blk_help_caller_name">The name your carrier sends (CNAP), e.g. \"Survey\". Not every carrier sends one.</string>
+    <string name="blk_help_region">Two letters, comma separated, e.g. GB, IE</string>
+    <string name="blk_editor_not_my_region">Matches every number from outside %1$s.</string>
+    <string name="blk_editor_line_type_help">Worked out offline from the number itself (libphonenumber). Mobile and fixed lines can\'t always be told apart.</string>
+    <string name="blk_editor_no_labels">No labels yet. Create one in Contacts.</string>
+    <string name="blk_editor_label_allow_help">These contacts ring even during off hours. A label\'s ringtone is set on its page in Contacts.</string>
+    <string name="blk_editor_label_block_help">Everyone in this label is blocked, even though they\'re contacts. Labels sync with your contacts account.</string>
+    <string name="blk_editor_saved_as">Saved as %1$s</string>
+    <string name="blk_editor_will_match">Will match %1$s</string>
+    <string name="blk_editor_what_happens">What happens</string>
+    <string name="blk_editor_action_help">Silence lets it ring quietly and shows it as a missed call; reject ends it at once.</string>
+    <string name="blk_editor_sim">SIM</string>
+    <string name="blk_editor_any_sim">Any SIM</string>
+    <string name="blk_editor_sim_unavailable">Unavailable in screening-only mode: Android doesn\'t tell screening apps which SIM a call came in on. Make Parley your phone app to use this.</string>
+    <string name="blk_editor_when">When</string>
+    <string name="blk_editor_how_long">For how long</string>
+    <string name="blk_editor_until">Until %1$s</string>
+    <string name="blk_editor_ringtone">Ringtone</string>
+    <string name="blk_editor_notify_me">Notify me</string>
+    <string name="blk_editor_name">Name (optional)</string>
+    <string name="blk_editor_name_hint">e.g. Telemarketing</string>
+    <string name="blk_editor_dry_busy">Checking last week…</string>
+    <string name="blk_editor_dry_button">Try it on last week\'s calls</string>
+    <string name="blk_editor_dry_none">It wouldn\'t have blocked any call in the last 7 days.</string>
+    <!-- %1$d calls, %2$s the numbers. -->
+    <plurals name="blk_editor_dry_result">
+        <item quantity="one">It would have blocked %1$d call in the last 7 days: %2$s</item>
+        <item quantity="other">It would have blocked %1$d calls in the last 7 days: %2$s</item>
+    </plurals>
+    <string name="blk_editor_dry_note">Nothing was blocked, logged or counted: this only replays your call history.</string>
+    <string name="blk_save_rule">Save rule</string>
+    <string name="blk_delete_rule_q">Delete this rule?</string>
+    <!-- Messages from the rule check -->
+    <string name="blk_chk_empty">Enter something to match</string>
+    <string name="blk_chk_pick_label">Pick a label</string>
+    <string name="blk_chk_sql_wildcards" formatted="false">_ and % aren\'t wildcards here. Use * for any digits and ? for one digit (Pattern type).</string>
+    <string name="blk_chk_use_pattern">Use the Pattern type for * and ?</string>
+    <string name="blk_chk_digits">Enter some digits</string>
+    <string name="blk_chk_bad_pattern">Not a valid pattern</string>
+    <string name="blk_chk_short_prefix">A very short prefix matches a lot of numbers</string>
+    <string name="blk_chk_matches_all">This matches almost every number</string>
+    <string name="blk_chk_unknown_country">Unknown country code: %1$s (use two letters, e.g. GB)</string>
+    <string name="blk_chk_unknown_line_type">Unknown line type: %1$s</string>
+    <string name="blk_chk_bad_char">\'%1$s\' can\'t be part of a phone number</string>
+    <!-- %1$s "+44", %2$s regions "GB/GG", %3$s your country code "+1". -->
+    <string name="blk_chk_other_country">This is a %1$s number (%2$s), not your country (%3$s)</string>
+
+    <!-- Import and share rules -->
+    <string name="blk_preset_csv">Spreadsheet (CSV)</string>
+    <string name="blk_preset_csv_help">Pick the column with the numbers. Optional columns: a note, and whether each row is allowed or blocked.</string>
+    <string name="blk_preset_yacb">Yet Another Call Blocker blacklist</string>
+    <string name="blk_preset_yacb_help">The CSV exported from YACB\'s blacklist screen (name and pattern columns).</string>
+    <string name="blk_preset_nps">NoPhoneSpam list</string>
+    <string name="blk_preset_nps_help">One number or pattern per line; * at the end means \"starts with\".</string>
+    <string name="blk_import_err_json">This file isn\'t valid JSON</string>
+    <string name="blk_import_err_cbbk">Not a Call Blocker backup (.cbbk)</string>
+    <string name="blk_import_err_password">Wrong password, or the file is damaged</string>
+    <string name="blk_share_default_name">My blocked numbers</string>
+    <string name="blk_transfer_title">Import &amp; share</string>
+    <string name="blk_transfer_import_title">Import a block list</string>
+    <string name="blk_transfer_import_help">Your own lists only. Parley never imports crowd databases whose terms forbid it.</string>
+    <string name="blk_choose_file">Choose file…</string>
+    <string name="blk_transfer_call_blocker">Import from Call Blocker</string>
+    <string name="blk_transfer_call_blocker_help">Its JSON export, or an encrypted .cbbk backup with your password</string>
+    <string name="blk_transfer_share_title">Share your rules</string>
+    <string name="blk_transfer_share_help">Makes a signed .parleylist from your block rules (numbers and prefixes) that family can add under Spam lists, or put in a synced folder. Your key: %1$s. Allowed numbers and contacts are never included.</string>
+    <string name="blk_list_name">List name</string>
+    <string name="blk_shared_list">Shared list</string>
+    <string name="blk_nothing_to_share">No number or prefix rules to share</string>
+    <string name="blk_share_chooser">Share %1$s</string>
+    <plurals name="blk_share_skipped">
+        <item quantity="one">%1$d rule can\'t travel in a list (patterns, names, schedules) and was left out</item>
+        <item quantity="other">%1$d rules can\'t travel in a list (patterns, names, schedules) and were left out</item>
+    </plurals>
+    <string name="blk_share_as_list">Share as a list…</string>
+    <string name="blk_cbbk_password_title">Call Blocker backup password</string>
+    <string name="blk_password">Password</string>
+    <string name="blk_cant_import">Couldn\'t import</string>
+    <string name="blk_imported_from">Imported from %1$s</string>
+    <string name="blk_import_from">Import from %1$s</string>
+    <string name="blk_first_row_header">First row is a header</string>
+    <string name="blk_col_numbers">Numbers</string>
+    <string name="blk_col_note">Note</string>
+    <string name="blk_col_kind">Allow/block</string>
+    <plurals name="blk_rules_found">
+        <item quantity="one">%1$d rule found</item>
+        <item quantity="other">%1$d rules found</item>
+    </plurals>
+    <plurals name="blk_allowed_numbers_paren">
+        <item quantity="one">(%1$d allowed number)</item>
+        <item quantity="other">(%1$d allowed numbers)</item>
+    </plurals>
+    <plurals name="blk_skipped_n">
+        <item quantity="one">%1$d skipped</item>
+        <item quantity="other">%1$d skipped</item>
+    </plurals>
+    <string name="blk_not_duplicated">Rules you already have are not duplicated.</string>
+    <plurals name="blk_imported_rules">
+        <item quantity="one">Imported %1$d rule</item>
+        <item quantity="other">Imported %1$d rules</item>
+    </plurals>
+    <string name="blk_import">Import</string>
+    <string name="blk_column_n">Column %1$d</string>
+
+    <!-- Notifications, tile, actions -->
+    <string name="blk_ch_group">Call screening</string>
+    <string name="blk_ch_blocked">Blocked calls</string>
+    <string name="blk_ch_blocked_desc">A call was rejected or silenced by your rules</string>
+    <string name="blk_ch_reported_desc">A call was blocked because a spam list you installed reports it</string>
+    <string name="blk_ch_likely">Likely spam</string>
+    <string name="blk_ch_likely_desc">A call rang but a spam list you installed warns about it</string>
+    <string name="blk_ch_busy">Calls during quiet hours</string>
+    <string name="blk_ch_busy_desc">Someone you know called while off hours silenced them; reply in one tap</string>
+    <string name="blk_n_quiet_hours_title">%1$s called during quiet hours</string>
+    <string name="blk_n_reply_text">Reply \"%1$s\"</string>
+    <string name="blk_n_reply">Reply</string>
+    <string name="blk_n_likely_title">Likely spam: %1$s</string>
+    <string name="blk_n_silenced_title">Silenced call from %1$s</string>
+    <string name="blk_n_blocked_title">Blocked call from %1$s</string>
+    <string name="blk_n_expecting_1h">Expecting a call (1 h)</string>
+    <string name="blk_tile_on">Unknown callers ring · %1$s</string>
+    <string name="blk_tile_on_cd">Expecting a call, %1$s left</string>
+    <string name="blk_tile_off_cd">Expecting a call, off</string>
+    <!-- %1$d hours, %2$s minutes (two digits). -->
+    <string name="blk_tile_hours_minutes">%1$d h %2$s min</string>
+    <string name="blk_no_app">No app available for this action</string>
+    <string name="blk_note_other_lines">%1$s\'s other lines</string>
+    <string name="blk_note_office_lines">Office lines</string>
+
+    <!-- Rule templates -->
+    <string name="blk_tpl_installed">Installed %1$s</string>
+    <!-- %1$s template name, %2$d rules kept. -->
+    <plurals name="blk_tpl_installed_skipped">
+        <item quantity="one">Installed %1$s (%2$d rule you already had was kept as it is)</item>
+        <item quantity="other">Installed %1$s (%2$d rules you already had were kept as they are)</item>
+    </plurals>
+    <string name="blk_tpl_already_built_in">You already have \"%1$s\": it\'s built into Parley</string>
+    <string name="blk_tpl_added">Added \"%1$s\" to your templates</string>
+    <string name="blk_tpl_what_prefix">numbers starting %1$s</string>
+    <string name="blk_tpl_what_wildcard">numbers matching %1$s</string>
+    <string name="blk_tpl_allow">Allow %1$s</string>
+    <string name="blk_tpl_silence">Silence %1$s</string>
+    <string name="blk_tpl_reject">Reject %1$s</string>
+    <!-- %1$s prefix, %2$s category. -->
+    <string name="blk_tpl_range_block">Block: %1$s · %2$s</string>
+    <string name="blk_tpl_range_warn">Warn: %1$s · %2$s</string>
+    <string name="blk_tpl_silenced">silenced</string>
+    <string name="blk_tpl_rejected">rejected</string>
+    <string name="blk_tpl_stop_invalid">Stop numbers that can\'t exist</string>
+    <string name="blk_tpl_let_invalid">Let invalid numbers ring</string>
+    <string name="blk_tpl_stop_verification">Stop calls that fail caller verification</string>
+    <string name="blk_tpl_let_verification">Let calls that fail verification ring</string>
+    <!-- %1$s start, %2$s end, %3$s who ("contacts"), %4$s what happens to others ("silenced"). -->
+    <string name="blk_tpl_off_hours">Off hours %1$s–%2$s: only %3$s ring, others %4$s</string>
+    <string name="blk_tpl_off_hours_off">Off hours turned off</string>
+    <string name="blk_tpl_err_not_template">This isn\'t a Parley template</string>
+    <string name="blk_tpl_err_newer">This template needs a newer version of Parley</string>
+    <string name="blk_tpl_err_id">The template has an invalid id</string>
+    <string name="blk_tpl_err_name">The template has no name</string>
+    <string name="blk_tpl_err_too_many">The template has too many rules</string>
+    <string name="blk_tpl_err_empty">The template is empty</string>
+    <string name="blk_tpl_err_label">Templates can\'t contain label rules</string>
+    <string name="blk_tpl_err_rule_long">A rule in the template is too long</string>
+    <string name="blk_tpl_err_no_pattern">A rule in the template has no pattern</string>
+    <string name="blk_tpl_err_list">The template\'s number list is empty or too long</string>
+    <string name="blk_tpl_err_score">The template\'s score is out of range</string>
+    <string name="blk_tpl_err_sources">Template sources must be https links</string>
+    <string name="blk_tpl_err_not_file">This isn\'t a Parley template file</string>
+    <string name="blk_tpl_err_no_signature">The template\'s signature is missing</string>
+    <string name="blk_tpl_err_signature">The template\'s signature is not valid: it was changed after signing</string>
+    <string name="blk_tpl_err_damaged">The code is damaged</string>
+    <string name="blk_tpl_err_code_large">The code is too large</string>
+    <string name="blk_tpl_err_range">The template has an invalid range: %1$s</string>
+    <string name="blk_tpl_err_file_large">The file is too large</string>
+    <string name="blk_tpl_err_open_file">Couldn\'t open the file</string>
+    <string name="blk_tpl_share_chooser">Share \"%1$s\"</string>
+    <string name="blk_tpl_open_file">Open a template file</string>
+    <string name="blk_tpl_header">Ready-made rule sets</string>
+    <string name="blk_tpl_header_body">Each template adds a group of rules you can remove again in one tap. Country ranges come from the regulator\'s own pages (sources inside). Everything is on the phone: nothing is downloaded.</string>
+    <string name="blk_tpl_share_mine">Share my rules as a template</string>
+    <string name="blk_tpl_group_country">For your country</string>
+    <string name="blk_tpl_group_anywhere">Anywhere</string>
+    <string name="blk_tpl_group_other">Other countries</string>
+    <string name="blk_tpl_group_received">Received from others</string>
+    <string name="blk_tpl_incoming_title">Template: %1$s</string>
+    <string name="blk_tpl_signed_by">Signed by key %1$s</string>
+    <string name="blk_tpl_signed_by_you">Signed by key %1$s (yours)</string>
+    <string name="blk_tpl_check_fingerprint">Check this fingerprint with the sender before you install it.</string>
+    <string name="blk_tpl_add">Add to templates</string>
+    <string name="blk_tpl_cant_open">Couldn\'t open the template</string>
+    <string name="blk_tpl_installed_badge">Installed</string>
+    <string name="blk_tpl_from_key">From key %1$s</string>
+    <string name="blk_tpl_what_it_does">What it does</string>
+    <string name="blk_tpl_sources">Sources</string>
+    <string name="blk_tpl_source">Source</string>
+    <string name="blk_tpl_checked">(checked %1$s)</string>
+    <string name="blk_tpl_dry_none">Last 7 days: no calls from unknown numbers to test against.</string>
+    <!-- %1$d stopped or flagged, %2$d unknown calls (the plural follows %2$d). -->
+    <plurals name="blk_tpl_dry_result">
+        <item quantity="one">Last 7 days: it would have stopped or flagged %1$d of %2$d call from unknown numbers</item>
+        <item quantity="other">Last 7 days: it would have stopped or flagged %1$d of %2$d calls from unknown numbers</item>
+    </plurals>
+    <string name="blk_tpl_dry_failed">Couldn\'t replay your calls</string>
+    <string name="blk_tpl_dry_busy">Replaying last week…</string>
+    <string name="blk_tpl_dry_button">What would it have done last week?</string>
+    <string name="blk_tpl_removed">Removed %1$s</string>
+    <string name="blk_tpl_uninstall">Uninstall</string>
+    <string name="blk_tpl_install">Install</string>
+    <string name="blk_tpl_share_file">Share as a file</string>
+    <string name="blk_tpl_share_qr">Show as a QR code</string>
+    <string name="blk_preparing">Preparing…</string>
+    <string name="blk_tpl_qr_too_large">This template is too large for a QR code. Share it as a file instead.</string>
+    <string name="blk_tpl_qr_cd">Template QR code</string>
+    <string name="blk_tpl_qr_help">Scan it with the other phone\'s camera or QR app; it opens in Parley. Signed with your key %1$s.</string>
+    <string name="blk_tpl_my_rules">My rules</string>
+    <string name="blk_tpl_share_my_rules">Share my rules</string>
+    <string name="blk_tpl_name">Template name</string>
+    <plurals name="blk_tpl_share_count">
+        <item quantity="one">%1$d rule, including allow rules and schedules. Label, SIM and temporary rules stay on this phone. Your contacts are never included.</item>
+        <item quantity="other">%1$d rules, including allow rules and schedules. Label, SIM and temporary rules stay on this phone. Your contacts are never included.</item>
+    </plurals>
+    <string name="blk_qr_code">QR code</string>
+    <string name="blk_file">File</string>
+    <!-- Built-in templates, keyed by template id (the JSON assets keep the rules) -->
+    <string name="blk_tpl_de_premium_name">Germany: 0137, 0180 and 0900 numbers</string>
+    <string name="blk_tpl_de_premium_desc">Warns about calls from mass-traffic (0137), service (0180) and premium (0900) numbers, which cost extra to call back.</string>
+    <string name="blk_tpl_es_400_name">Spain: commercial calls (400 prefix)</string>
+    <string name="blk_tpl_es_400_desc">Warns about calls from numbers starting 400, which Spanish law reserves for commercial calls from 17 October 2026.</string>
+    <string name="blk_tpl_fr_arcep_name">France: telemarketing ranges (ARCEP)</string>
+    <string name="blk_tpl_fr_arcep_desc">Warns about calls from the numbers ARCEP reserved for automated calling platforms (Numéros Polyvalents Vérifiés): 01 62, 01 63, 02 70, 02 71, 03 77, 03 78, 04 24, 04 25, 05 68, 05 69, 09 48, 09 49.</string>
+    <string name="blk_tpl_night_name">Only contacts at night</string>
+    <string name="blk_tpl_night_desc">From 22:00 to 07:00 only your contacts ring and everyone else is silenced. Repeat callers still get through.</string>
+    <string name="blk_tpl_foreign_name">Silence foreign numbers</string>
+    <string name="blk_tpl_foreign_desc">Calls from any country other than your SIM\'s are silenced (they still appear in Recents). Contacts, allowed numbers and repeat callers still ring.</string>
+    <string name="blk_tpl_invalid_name">Silence invalid numbers</string>
+    <string name="blk_tpl_invalid_desc">Numbers that can\'t exist or aren\'t assigned in their country (a common sign of spoofing) are silenced.</string>
+    <string name="blk_tpl_in_140_name">India: 140-series promotional calls (TRAI)</string>
+    <string name="blk_tpl_in_140_desc">Warns about calls from the 140 series, which TRAI requires for promotional (telemarketing) voice calls. The 1600 series used for banking and government service calls is never touched.</string>
+    <string name="blk_tpl_it_agcom_name">Italy: call-centre prefixes 0843 and 0844 (AGCOM)</string>
+    <string name="blk_tpl_it_agcom_desc">Warns about calls from 0844 (market research, advertising and sales) and 0843 (statistical surveys), the codes AGCOM reserved for call centres.</string>
+    <string name="blk_tpl_uk_premium_name">UK: premium, service and 070 personal numbers</string>
+    <string name="blk_tpl_uk_premium_desc">Warns about calls from 070 personal numbers, 0843/0844/0845 and 087 service numbers, and 09 premium-rate numbers. Calling them back can be expensive.</string>
+    <string name="blk_tpl_us_toll_free_name">US: toll-free caller IDs</string>
+    <string name="blk_tpl_us_toll_free_desc">Gives a low-score warning for calls that show a toll-free number (800, 833, 844, 855, 866, 877, 888). Robocallers often spoof these, and real businesses rarely call from them.</string>
+    <!-- Dial guard warnings and call placement failures (core/data texts mapped in the app) -->
+    <string name="blk_dial_premium_title">Premium-rate number</string>
+    <string name="blk_dial_premium_body">Calls to this number can cost a lot per minute, on top of your plan.</string>
+    <string name="blk_dial_shared_title">Shared-cost number</string>
+    <string name="blk_dial_shared_body">This number is charged at a special rate that may not be in your plan.</string>
+    <string name="blk_dial_rule_title">Matches your block rule</string>
+    <string name="blk_dial_rule_body">“%1$s” blocks calls from this number.</string>
+    <string name="blk_dial_spam_title">Listed as spam</string>
+    <string name="blk_dial_spam_body">%1$s. Scam lines often charge you for calling back.</string>
+    <string name="blk_dial_wangiri_title">Don’t call back?</string>
+    <string name="blk_dial_wangiri_body">This number rang once and hung up. That’s a common trick to make you call an expensive line.</string>
+    <string name="blk_dial_wangiri_abroad_body">This number rang once and hung up from abroad. That’s a common trick to make you call an expensive line.</string>
+    <string name="blk_place_empty">Empty number</string>
+    <string name="blk_place_no_permission">Phone permission missing</string>
+    <string name="blk_place_failed">Could not place call</string>
+    <string name="blk_place_voicemail">Voicemail unavailable</string>
+</resources>

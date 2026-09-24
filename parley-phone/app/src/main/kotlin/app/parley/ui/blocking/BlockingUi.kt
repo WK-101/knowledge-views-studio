@@ -8,6 +8,7 @@ import android.net.Uri
 import android.text.format.DateUtils
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -36,13 +37,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import app.parley.R
+import app.parley.blocking.BlockingText
 import app.parley.common.BlockAction
 import app.parley.common.NotifyLevel
+import app.parley.ui.settings.bidiLtr
+import app.parley.ui.settings.settingTitle
 
 /** A switch row whose whole line is the touch target. */
 @Composable
@@ -61,12 +69,13 @@ fun ToggleRow(title: String, help: String?, value: Boolean, enabled: Boolean = t
  */
 @Composable
 fun CollapsibleSection(title: String, help: String, summary: List<String>, expanded: Boolean, onToggle: () -> Unit, icon: ImageVector? = null, content: @Composable () -> Unit) {
+    val state = stringResource(if (expanded) R.string.blk_expanded else R.string.blk_collapsed)
     // U2: each section is one inset card (M3 Expressive grouped surfaces).
     BlockingCard {
         ListItem(
             modifier = Modifier
                 .clickable(onClick = onToggle)
-                .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },
+                .semantics { stateDescription = state },
             leadingContent = icon?.let { { Icon(it, null, tint = MaterialTheme.colorScheme.primary) } },
             headlineContent = { Text(title, style = MaterialTheme.typography.titleMedium) },
             supportingContent = {
@@ -108,18 +117,32 @@ fun ActionChoice(value: BlockAction, onChange: (BlockAction) -> Unit, modifier: 
     SingleChoiceSegmentedButtonRow(modifier) {
         BlockAction.entries.forEachIndexed { i, a ->
             SegmentedButton(value == a, { onChange(a) }, SegmentedButtonDefaults.itemShape(i, BlockAction.entries.size)) {
-                Text(if (a == BlockAction.REJECT) "Reject" else "Silence")
+                Text(stringResource(if (a == BlockAction.REJECT) R.string.blk_action_reject else R.string.blk_action_silence))
             }
         }
     }
 }
 
-fun notifyLabel(n: NotifyLevel) = when (n) {
-    NotifyLevel.DEFAULT -> "Default"
-    NotifyLevel.NONE -> "None"
-    NotifyLevel.QUIET -> "Quiet"
-    NotifyLevel.NORMAL -> "Normal"
-}
+@Composable
+fun notifyLabel(n: NotifyLevel) = stringResource(
+    when (n) {
+        NotifyLevel.DEFAULT -> R.string.blk_notify_default
+        NotifyLevel.NONE -> R.string.blk_notify_none
+        NotifyLevel.QUIET -> R.string.blk_notify_quiet
+        NotifyLevel.NORMAL -> R.string.blk_notify_normal
+    },
+)
+
+/** [notifyLabel] inside a sentence ("Blocked: quiet"). */
+@Composable
+fun notifyLabelInline(n: NotifyLevel) = stringResource(
+    when (n) {
+        NotifyLevel.DEFAULT -> R.string.blk_notify_default_inline
+        NotifyLevel.NONE -> R.string.blk_notify_none_inline
+        NotifyLevel.QUIET -> R.string.blk_notify_quiet_inline
+        NotifyLevel.NORMAL -> R.string.blk_notify_normal_inline
+    },
+)
 
 @Composable
 fun NotifyChoice(value: NotifyLevel, allowDefault: Boolean, onChange: (NotifyLevel) -> Unit) {
@@ -157,24 +180,40 @@ fun rememberRingtonePicker(onPicked: (String?) -> Unit): (current: String?) -> U
 fun ago(millis: Long, now: Long = System.currentTimeMillis()): String =
     DateUtils.getRelativeTimeSpanString(millis, now, DateUtils.MINUTE_IN_MILLIS).toString()
 
-fun leftText(ms: Long): String {
+fun leftText(context: Context, ms: Long): String {
     val min = ((ms + 59_999) / 60_000).toInt()
     return when {
-        min >= 24 * 60 -> "${min / (24 * 60)} d ${(min / 60) % 24} h"
-        min >= 60 -> "${min / 60} h ${min % 60} min"
-        else -> "$min min"
+        min >= 24 * 60 -> context.getString(R.string.blk_left_days_hours, min / (24 * 60), (min / 60) % 24)
+        min >= 60 -> context.getString(R.string.ct_hours_minutes_short, min / 60, min % 60)
+        else -> context.getString(R.string.ct_minutes_short, min)
     }
 }
 
+/** Text style for number fields: digits stay left-to-right in Arabic and Urdu. */
+@Composable
+fun ltrTextStyle(): androidx.compose.ui.text.TextStyle =
+    androidx.compose.material3.LocalTextStyle.current.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr)
+
+/** A count for a plural resource. */
+fun Long.toPluralCount(): Int = coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
+
+/** "Expecting a call" durations: 30 min, 1 h, 2 h. */
+@Composable
+fun snoozeChoices(): List<Pair<Int, String>> = listOf(
+    30 to stringResource(R.string.ct_minutes_short, 30),
+    60 to stringResource(R.string.ct_hours_short, 1),
+    120 to stringResource(R.string.ct_hours_short, 2),
+)
+
 /** Help lines under each feature, with a real use case (not a mechanism). */
 object Help {
-    const val ALLOW = "Numbers that always ring, even when strict mode is on. Example: your child's school, the plumber you're waiting for."
-    const val BLOCK = "Your own rules. Example: block numbers starting with +1 900, or silence one pushy caller."
-    const val LISTS = "Offline spam lists you add yourself. Parley looks numbers up on the phone; nothing is sent anywhere."
-    const val OFF_HOURS = "Only the people who matter ring at night or at weekends. Everyone else is silenced and shows as a missed call."
-    const val MORE = "Extra checks for tricks spammers use: numbers that look like yours, spoofed caller ID, numbers that can't exist."
-    const val SOUNDS = "Know who it is before you look: a different ringtone for repeat callers or likely spam, full volume for favourites."
-    const val EMERGENCY = "After you call emergency services, nothing is blocked for an hour so they can call you back."
-    const val TOOLS = "Try a number, see what your rules would have done last week, import a list or share yours."
-    const val LOG = "Calls Parley stopped. Tap one to see why; mark mistakes as \"Not spam\"."
+    val ALLOW = R.string.blk_help_allow
+    val BLOCK = R.string.blk_help_block
+    val LISTS = R.string.blk_help_lists
+    val OFF_HOURS = R.string.blk_help_off_hours
+    val MORE = R.string.blk_help_more
+    val SOUNDS = R.string.blk_help_sounds
+    val EMERGENCY = R.string.blk_help_emergency
+    val TOOLS = R.string.blk_help_tools
+    val LOG = R.string.blk_help_log
 }

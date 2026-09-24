@@ -14,12 +14,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.calltime.CallTimePlanner
 import app.parley.common.calltime.CallingConfig
 import app.parley.common.calltime.LimitRule
 import app.parley.common.calltime.LimitScope
+import app.parley.ui.settings.bidiLtr
+import app.parley.ui.settings.settingTitle
 
 /**
  * Contact page rows "Talk-time reminder" (T1) and "Call time limit" (T5, T6). A favourite can also be marked
@@ -33,10 +39,14 @@ fun ContactCallTimeRows(vm: AppViewModel, lookupKey: String, name: String, starr
     val gate = rememberSupervisedGate(config)
     val own = config.reminders.perContact[lookupKey]
     val choices = listOf(-1) + CallingConfig.REMINDER_CHOICES
-    val labels = choices.map { if (it < 0) "Default (${reminderText(config.reminders.everyMinutes).lowercase()})" else reminderText(it) }
+    val context = LocalContext.current
+    val labels = choices.map {
+        if (it < 0) stringResource(R.string.ct_reminder_default, reminderTextInline(context, config.reminders.everyMinutes)) else reminderText(context, it)
+    }
+    val unlockReason = stringResource(R.string.ct_unlock_limits)
     Column {
         ChoiceRow(
-            "Talk-time reminder", labels, choices.indexOf(own ?: -1).coerceAtLeast(0),
+            stringResource(R.string.ct_talk_time_reminder), labels, choices.indexOf(own ?: -1).coerceAtLeast(0),
             leading = { Icon(Icons.Rounded.Timer, null) },
         ) { i ->
             val m = choices[i]
@@ -49,24 +59,24 @@ fun ContactCallTimeRows(vm: AppViewModel, lookupKey: String, name: String, starr
         val exempt = lookupKey in config.neverLimit
         ListItem(
             leadingContent = { Icon(Icons.Rounded.HourglassBottom, null) },
-            headlineContent = { Text("Call time limit") },
+            headlineContent = { Text(stringResource(R.string.ct_call_time_limit)) },
             supportingContent = {
                 Text(
                     when {
-                        exempt -> "Never limited"
-                        rule != null -> CallTimePlanner.allowanceText(rule)
-                        config.rules.any { it.scope != LimitScope.CONTACT } -> "Label, SIM or all-call limits apply"
-                        else -> "No limit"
+                        exempt -> stringResource(R.string.ct_never_limited)
+                        rule != null -> CallTimePlanner.allowanceText(context, rule)
+                        config.rules.any { it.scope != LimitScope.CONTACT } -> stringResource(R.string.ct_other_limits_apply)
+                        else -> stringResource(R.string.ct_no_limit)
                     },
                 )
             },
-            modifier = Modifier.clickable { gate("Unlock to change call limits") { editLimit = true } },
+            modifier = Modifier.clickable { gate(unlockReason) { editLimit = true } },
         )
     }
     if (editLimit) {
         var never by remember { mutableStateOf(lookupKey in config.neverLimit) }
         LimitRuleDialog(
-            title = "Call time with $name",
+            title = stringResource(R.string.ct_call_time_with, name),
             rule = config.rule(LimitScope.CONTACT, lookupKey)?.copy(title = name) ?: LimitRule(LimitScope.CONTACT, lookupKey, name),
             onSave = { r ->
                 vm.c.calling.update { c ->
@@ -75,7 +85,7 @@ fun ContactCallTimeRows(vm: AppViewModel, lookupKey: String, name: String, starr
             },
             onDismiss = { editLimit = false },
             extra = if (starred || never) {
-                { DialogSwitch("Never limit", "Like emergency numbers: no limit, no allowance, never silenced", never) { never = it } }
+                { DialogSwitch(stringResource(R.string.ct_never_limit), stringResource(R.string.ct_never_limit_body), never) { never = it } }
             } else {
                 null
             },

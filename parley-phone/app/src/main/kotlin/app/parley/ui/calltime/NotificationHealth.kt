@@ -4,6 +4,8 @@ import android.app.NotificationManager
 import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.core.net.toUri
 import android.os.Build
 import android.os.PowerManager
@@ -41,8 +43,11 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.data.Permissions
 import app.parley.ui.CallColors
+import app.parley.ui.settings.bidiLtr
+import app.parley.ui.settings.settingTitle
 
 /** One thing that decides whether calls reliably show up (A4). */
 data class HealthCheck(
@@ -62,11 +67,12 @@ object NotificationHealth {
         val fullScreen = Build.VERSION.SDK_INT < 34 || nm.canUseFullScreenIntent()
         val dialer = Permissions.isDefaultDialer(context)
         val battery = context.getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(context.packageName) == true
+        fun s(id: Int) = context.getString(id)
         return listOf(
-            HealthCheck("role", "Default phone app", dialer, "Parley can't show or answer calls until it is the default phone app.", "Set", critical = true),
-            HealthCheck("notif", "Notifications allowed", notifications, "Incoming and ongoing calls can't be shown.", "Allow", critical = true),
-            HealthCheck("fsi", "Full-screen incoming calls", fullScreen, "Calls may appear only as a notification, not over the lock screen.", "Allow", critical = true),
-            HealthCheck("battery", "Not battery-optimised", battery, "Some phones delay calls for optimised apps. Choose “Unrestricted” for Parley.", "Change", critical = false),
+            HealthCheck("role", s(R.string.ct_health_role), dialer, s(R.string.ct_health_role_off), s(R.string.set_set_default), critical = true),
+            HealthCheck("notif", s(R.string.ct_health_notif), notifications, s(R.string.ct_health_notif_off), s(R.string.ct_health_allow), critical = true),
+            HealthCheck("fsi", s(R.string.ct_health_fsi), fullScreen, s(R.string.ct_health_fsi_off), s(R.string.ct_health_allow), critical = true),
+            HealthCheck("battery", s(R.string.ct_health_battery), battery, s(R.string.ct_health_battery_off), s(R.string.set_action_change), critical = false),
         )
     }
 
@@ -122,7 +128,7 @@ fun NotificationHealthCard(vm: AppViewModel) {
     ) {
         Column(Modifier.padding(vertical = 8.dp)) {
             Text(
-                if (allOk) "Calls will reach you" else "Check how calls reach you",
+                stringResource(if (allOk) R.string.ct_health_all_ok else R.string.ct_health_check),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
@@ -163,16 +169,16 @@ fun NotificationHealthBanner(vm: AppViewModel, modifier: Modifier = Modifier) {
         Row(Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp), verticalAlignment = Alignment.Top) {
             Icon(Icons.Rounded.NotificationImportant, null, Modifier.padding(end = 12.dp, top = 2.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
             Column(Modifier.weight(1f)) {
-                Text("Calls may not reach you", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                Text(stringResource(R.string.ct_health_banner_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onErrorContainer)
                 Text(
-                    first.whyOff + (checks.count { it.critical && !it.ok }.takeIf { it > 1 }?.let { " (+${it - 1} more)" } ?: ""),
+                    first.whyOff + (checks.count { it.critical && !it.ok }.takeIf { it > 1 }?.let { " " + pluralStringResource(R.plurals.ct_health_more, it - 1, it - 1) } ?: ""),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onErrorContainer,
                 )
             }
         }
         Row(Modifier.fillMaxWidth().padding(end = 8.dp, bottom = 4.dp), horizontalArrangement = Arrangement.End) {
-            TextButton({ vm.c.calling.update { it.copy(healthBannerDismissed = key) } }) { Text("Not now") }
+            TextButton({ vm.c.calling.update { it.copy(healthBannerDismissed = key) } }) { Text(stringResource(R.string.ct_not_now)) }
             TextButton({ fix(first) }) { Text(first.fixLabel) }
         }
     }
