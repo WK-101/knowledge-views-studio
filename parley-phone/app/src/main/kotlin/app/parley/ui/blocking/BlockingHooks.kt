@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Block
@@ -32,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -43,7 +45,6 @@ import app.parley.blocking.BlockingActions
 import app.parley.container
 import app.parley.common.PhoneNumbers
 import app.parley.common.TraceCodec
-import app.parley.data.GroupInfo
 import app.parley.ui.common.Format
 import kotlinx.coroutines.launch
 
@@ -77,54 +78,95 @@ fun RecentBlockingActions(vm: AppViewModel, number: String, contactName: String?
 /** Second-line badge for a Recents row (B2 verdict, B10 "Don't call back"). Null when there's nothing to say. */
 data class RecentBadge(val text: String, val warn: Boolean)
 
+/**
+ * Badges for every Recents row, worked out off the main thread (number parsing per row is too slow for
+ * composition) whenever the rows, verdicts or ring records change. Rows show no badge until it's ready.
+ */
 @Composable
 fun rememberRecentBadges(vm: AppViewModel): (RecentGroup) -> RecentBadge? {
     val verdicts by vm.c.blocks.verdictIndex.collectAsStateWithLifecycle()
     val rings by vm.c.blocks.rings.collectAsStateWithLifecycle()
-    return remember(verdicts, rings) {
-        { g ->
-            if (g.hidden || g.number.isBlank() || g.contact != null) {
-                null
-            } else {
+    val groups by vm.recentGroups.collectAsStateWithLifecycle()
+    val badges by androidx.compose.runtime.produceState(emptyMap<String, RecentBadge>(), groups, verdicts, rings) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            val iso = vm.countryIso
+            val out = HashMap<String, RecentBadge>()
+            for (g in groups.orEmpty()) {
+                if (g.hidden || g.number.isBlank() || g.contact != null) continue
                 val e = g.latest
-                if (vm.c.dialGuard.isWangiri(e.type, g.number, e.date, rings, vm.countryIso)) {
+                val badge = if (vm.c.dialGuard.isWangiri(e.type, g.number, e.date, rings, iso)) {
                     RecentBadge("Don't call back", warn = true)
                 } else {
                     verdicts[PhoneNumbers.matchKey(g.number)]?.takeIf { kotlin.math.abs(it.time - e.date) < 10 * 60_000L || it.time > e.date }
                         ?.let { v -> RecentBadge(v.text, warn = v.blocked || v.kind == "LIKELY_SPAM" || v.kind == "REPORTED") }
                 }
+                if (badge != null) out[g.key] = badge
             }
+            out
         }
     }
+    return remember(badges) { { g -> badges[g.key] } }
 }
 
-/** Bar shown while Recents rows are selected (B8): block them all in one go. */
+/**
+ * Bar shown while Recents rows are selected (B8): block the unknown numbers in one go, after a confirmation that
+ * lists them. Contacts and private (vault) contacts are never blocked from here: they're left out and named, to
+ * be blocked from their own page if that's really meant.
+ */
 @Composable
 fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
     val selected by vm.recentSelection.collectAsStateWithLifecycle()
     if (selected.isEmpty()) return
     val scope = rememberCoroutineScope()
+    var confirming by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val chosen = groups.filter { it.key in selected }
-    val numbers = chosen.filter { !it.hidden && it.number.isNotBlank() }.map { it.number }.distinctBy { PhoneNumbers.matchKey(it) }
+    val people = chosen.filter { it.contact != null || it.vaultId != null }
+    val unknown = chosen.filter { it.contact == null && it.vaultId == null && !it.hidden && it.number.isNotBlank() }.distinctBy { PhoneNumbers.matchKey(it.number) }
+    val numbers = unknown.map { it.number }
     Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton({ vm.recentSelection.value = emptySet() }) { Icon(Icons.Rounded.Close, "Clear selection") }
             Text("${selected.size} selected", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            TextButton({
-                scope.launch {
-                    var system = 0
-                    numbers.forEach { n -> if (vm.c.blocks.blockNumber(n)) system++ else BlockingActions.blockNumberRule(vm.c, n) }
-                    // Without the phone-app role the system list is unavailable: rules do the job instead.
-                    vm.toast(if (numbers.size == 1) "Blocked 1 number" else "Blocked ${numbers.size} numbers")
-                    vm.recentSelection.value = emptySet()
-                }
-            }, enabled = numbers.isNotEmpty()) {
+            TextButton({ confirming = true }, enabled = numbers.isNotEmpty()) {
                 Icon(Icons.Rounded.Block, null)
                 Text(" Block ${numbers.size}")
             }
         }
     }
+    if (confirming) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirming = false },
+            title = { Text(if (numbers.size == 1) "Block this number?" else "Block ${numbers.size} numbers?") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    unknown.take(MAX_LISTED).forEach { g -> Text("• " + g.title + if (g.title != g.number) " (${g.number})" else "") }
+                    if (unknown.size > MAX_LISTED) Text("…and ${unknown.size - MAX_LISTED} more")
+                    if (people.isNotEmpty()) {
+                        Text(
+                            "Not blocked: " + people.joinToString(", ") { it.title } + ". Contacts are blocked from their own page.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton({
+                    confirming = false
+                    scope.launch {
+                        // Without the phone-app role the system list is unavailable: rules do the job instead.
+                        numbers.forEach { n -> if (!vm.c.blocks.blockNumber(n)) BlockingActions.blockNumberRule(vm.c, n) }
+                        vm.toast(if (numbers.size == 1) "Blocked 1 number" else "Blocked ${numbers.size} numbers")
+                        vm.recentSelection.value = emptySet()
+                    }
+                }) { Text("Block") }
+            },
+            dismissButton = { TextButton({ confirming = false }) { Text("Cancel") } },
+        )
+    }
 }
+
+private const val MAX_LISTED = 12
 
 /** Number-history section: every screening decision stored for this number, with its trace (§3.3). */
 @Composable
@@ -165,11 +207,11 @@ fun ContactPrefixAllowMenuItem(name: String?, numbers: List<String>, closeMenu: 
 
 /** Label page overflow item (B18/B24). Put it inside the label page's DropdownMenu. */
 @Composable
-fun LabelBlockingMenuItem(group: GroupInfo, closeMenu: () -> Unit) {
+fun LabelBlockingMenuItem(title: String, closeMenu: () -> Unit) {
     DropdownMenuItem(
         { Text("Screening for this label…") },
         leadingIcon = { Icon(Icons.Rounded.Shield, null) },
-        onClick = { closeMenu(); BlockingDialogs.show(BlockingDialog.LabelRule(group.id, group.title)) },
+        onClick = { closeMenu(); BlockingDialogs.show(BlockingDialog.LabelRule(app.parley.common.LabelRefs.key(title))) },
     )
 }
 

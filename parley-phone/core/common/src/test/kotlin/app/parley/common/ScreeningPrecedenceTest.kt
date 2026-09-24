@@ -150,20 +150,32 @@ class ScreeningPrecedenceTest {
     // ---- Labels, off hours, schedules ----
 
     @Test fun label_block_rule_blocks_contacts_in_label() {
-        val rule = BlockRule(id = 9, pattern = "7", type = RuleType.LABEL, label = "Spam")
-        val f = facts(contact = true).copy(contactLabels = setOf(7L))
+        val rule = BlockRule(id = 9, pattern = "Spam", type = RuleType.LABEL, label = "Spam")
+        val f = facts(contact = true).copy(contactLabels = setOf("Spam"))
         assertTrue(decide(f, listOf(rule)).blocked)
-        assertFalse(decide(facts(contact = true).copy(contactLabels = setOf(8L)), listOf(rule)).blocked)
+        assertFalse(decide(facts(contact = true).copy(contactLabels = setOf("Work")), listOf(rule)).blocked)
         // Label lookup failed: fail open.
         assertFalse(decide(f.copy(labelLookupFailed = true), listOf(rule)).blocked)
     }
 
+    @Test fun label_rules_match_by_title_in_every_account_and_old_id_rules_by_saved_title() {
+        // Regression: rules held one account's group id, so the same label in another account was missed.
+        val byTitle = BlockRule(id = 9, pattern = "Family", type = RuleType.LABEL, label = "Family")
+        val legacy = BlockRule(id = 10, pattern = "42", type = RuleType.LABEL, label = " Family ")
+        val inFamily = facts(contact = true).copy(contactLabels = setOf("Family "))
+        assertTrue(decide(inFamily, listOf(byTitle)).blocked)
+        assertTrue(decide(inFamily, listOf(legacy)).blocked)
+        assertEquals("Family", legacy.labelKey)
+        // A label that happens to be called "2024" is a title, not an id.
+        assertEquals("2024", BlockRule(pattern = "2024", type = RuleType.LABEL, label = "2024").labelKey)
+    }
+
     @Test fun off_hours_only_label_rings_across_midnight() {
-        val oh = OffHours(enabled = true, schedule = Schedule(Schedule.ALL_DAYS, 22 * 60, 7 * 60), allow = OffHoursAllow.LABEL, labelId = 3, labelTitle = "Family")
+        val oh = OffHours(enabled = true, schedule = Schedule(Schedule.ALL_DAYS, 22 * 60, 7 * 60), allow = OffHoursAllow.LABEL, labelTitle = "Family")
         val s = ScreeningSettings(offHours = oh)
         val night = PolicyClock(0, DayOfWeek.TUESDAY, 2 * 60)
-        val family = facts(contact = true).copy(contactLabels = setOf(3L))
-        val colleague = facts(contact = true).copy(contactLabels = setOf(4L))
+        val family = facts(contact = true).copy(contactLabels = setOf("Family"))
+        val colleague = facts(contact = true).copy(contactLabels = setOf("Work"))
         assertFalse(decide(family, s = s, clock = night).blocked)
         val r = decide(colleague, s = s, clock = night)
         assertEquals(BlockReason.OFF_HOURS, (r.decision as Decision.Block).reason)
@@ -196,6 +208,35 @@ class ScreeningPrecedenceTest {
         assertTrue(screeningPath.trace.any { it.mark == TraceMark.SKIPPED })
         assertTrue(decide(facts().copy(simId = "sim-work"), listOf(work)).blocked)
         assertFalse(decide(facts().copy(simId = "sim-home"), listOf(work)).blocked)
+    }
+
+    @Test fun sim_allow_rule_defers_on_the_screening_path_instead_of_blocking() {
+        // Regression: the screening service (no SIM) skipped the SIM allow rule and a soft block rejected the call.
+        val allowOnWork = allowThis.copy(simId = "sim-work")
+        val s = ScreeningSettings(blockNonContacts = true)
+        val screeningPath = decide(facts(), listOf(allowOnWork), s)
+        assertEquals(Decision.Allow, screeningPath.decision)
+        assertTrue(screeningPath.deferredToSim)
+        assertNull(screeningPath.rule)
+        // With the SIM known (InCallService) the rule decides for real.
+        assertEquals(AllowReason.RULE, decide(facts().copy(simId = "sim-work"), listOf(allowOnWork), s).allowedBy)
+        val other = decide(facts().copy(simId = "sim-home"), listOf(allowOnWork), s)
+        assertTrue(other.blocked)
+        assertFalse(other.deferredToSim)
+        // Also against an explicit block rule: deferred, then the block rule applies on the other SIM.
+        assertTrue(decide(facts(), listOf(blockAll, allowOnWork)).deferredToSim)
+        assertTrue(decide(facts().copy(simId = "sim-home"), listOf(blockAll, allowOnWork)).blocked)
+    }
+
+    @Test fun sim_label_allow_rule_defers_off_hours() {
+        val oh = OffHours(enabled = true, schedule = Schedule(Schedule.ALL_DAYS, 22 * 60, 7 * 60), allow = OffHoursAllow.FAVOURITES)
+        val night = PolicyClock(0, DayOfWeek.TUESDAY, 2 * 60)
+        val rule = BlockRule(pattern = "Family", type = RuleType.LABEL, label = "Family", kind = RuleKind.ALLOW, simId = "sim-home")
+        val f = facts(contact = true).copy(contactLabels = setOf("Family"))
+        val r = decide(f, listOf(rule), ScreeningSettings(offHours = oh), night)
+        assertFalse(r.blocked)
+        assertTrue(r.deferredToSim)
+        assertTrue(decide(f.copy(simId = "sim-work"), listOf(rule), ScreeningSettings(offHours = oh), night).blocked)
     }
 
     // ---- Name, region, line type, invalid ----

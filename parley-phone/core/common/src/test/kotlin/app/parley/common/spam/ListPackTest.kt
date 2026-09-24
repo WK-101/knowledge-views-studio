@@ -100,6 +100,32 @@ class ListPackTest {
         expectFailure(noManifest, "manifest")
     }
 
+    @Test fun dot_only_and_path_ids_are_rejected() {
+        // Regression: a pack with id ".." was stored at lists/.. and removing it deleted every pack.
+        for (bad in listOf(".", "..", "...", "a/b", "a\\b", "", " x")) {
+            assertFalse(bad, ListPack.isValidId(bad))
+            val zip = PackBuilder(PackManifest(id = bad, name = "Bad")).build(null)
+            expectFailure(zip, "invalid id")
+        }
+        assertTrue(ListPack.isValidId("gov.ftc"))
+        assertTrue(ListPack.isValidId(".hidden"))
+        // Storage folders are derived from the id and never equal it.
+        val dir = ListPack.storageName("..")
+        assertTrue(dir.matches(Regex("pack_[0-9a-f]{64}")))
+        assertFalse(ListPack.storageName("a") == ListPack.storageName("b"))
+    }
+
+    @Test fun replacement_compares_the_full_publisher_key() {
+        val sk = Ed25519.newSecret()
+        val key = java.util.Base64.getEncoder().encodeToString(Ed25519.publicKey(sk))
+        val same = ListPack.parse(PackBuilder(PackManifest(id = "p", name = "P", version = 2)).build(sk)).manifest
+        val other = ListPack.parse(PackBuilder(PackManifest(id = "p", name = "P", version = 2)).build(Ed25519.newSecret())).manifest
+        assertTrue(ListPack.sameKey(key, same))
+        assertFalse(ListPack.sameKey(key, other))
+        assertFalse(ListPack.sameKey(null, same))
+        assertFalse(ListPack.sameKey(key, same.copy(publicKey = null)))
+    }
+
     private fun expectFailure(zip: ByteArray, contains: String) {
         try {
             ListPack.parse(zip)

@@ -41,7 +41,9 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
                 val id = c.contacts.resolve(t.lookupKey, t.contactId)
                 if (id == null) { c.meta.clearTemporary(t.lookupKey); continue }
                 if (t.purgeHistory) {
-                    c.contacts.details(id)?.phones?.forEach { p -> runCatching { c.history.deleteForNumber(p.value) } }
+                    // Straight from the call log and the archive (Recents may never have loaded in this process),
+                    // and with no undo copy: the point is that nothing stays.
+                    c.contacts.details(id)?.phones?.forEach { p -> runCatching { c.history.purgeNumber(p.value) } }
                 }
                 if (runCatching { c.contacts.delete(listOf(id)) }.isSuccess) c.meta.clearTemporary(t.lookupKey)
             }

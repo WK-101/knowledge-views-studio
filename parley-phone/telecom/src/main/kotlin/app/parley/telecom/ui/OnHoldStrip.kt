@@ -38,17 +38,20 @@ import app.parley.ui.Avatar
 import app.parley.ui.CallColors
 
 /**
- * "Ana on hold · 02:10" with Swap, Merge and End inline (A2). Tapping the strip swaps. When the call in
- * front ends, [CallManager] resumes the held call by itself.
+ * "Ana on hold · 02:10" with Swap, Merge and End inline (A2). Tapping the strip swaps, only when the call in front
+ * can be held (or swapped as a conference); otherwise the strip offers Merge and End and tapping does nothing.
+ * When the call in front ends, [CallManager] resumes the held call by itself.
  */
 @Composable
 internal fun OnHoldStrip(held: CallUi, front: CallUi?, modifier: Modifier = Modifier) {
     val now by rememberElapsedNow()
     val heldFor = if (held.heldSinceElapsed > 0) (now - held.heldSinceElapsed) / 1000 else 0
-    // While another call is being dialled, switching would disturb it: only End is offered then.
-    val canSwap = front == null || front.state == CallState.ACTIVE
+    // While another call is being dialled, switching would disturb it: only End is offered then. Resuming the held
+    // call makes Telecom hold the active one, and end it if it can't be held: swap only when that's possible.
+    val frontActive = front == null || front.state == CallState.ACTIVE
+    val canSwap = front == null || (front.state == CallState.ACTIVE && (front.canHold || front.canSwap))
     val swap = { if (front != null) CallManager.swap(front.id) else CallManager.toggleHold(held.id) }
-    val canMerge = canSwap && front?.canMerge == true
+    val canMerge = frontActive && front?.canMerge == true
     Surface(
         color = MaterialTheme.colorScheme.secondaryContainer,
         shape = RoundedCornerShape(20.dp),

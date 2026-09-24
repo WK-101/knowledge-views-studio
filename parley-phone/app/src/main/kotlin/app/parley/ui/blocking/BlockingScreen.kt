@@ -478,8 +478,10 @@ private fun OffHoursWho(vm: AppViewModel, oh: OffHours, onChange: (OffHours) -> 
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             FilterChip(oh.allow == OffHoursAllow.CONTACTS, { onChange(oh.copy(allow = OffHoursAllow.CONTACTS)) }, label = { Text("All contacts") })
             FilterChip(oh.allow == OffHoursAllow.FAVOURITES, { onChange(oh.copy(allow = OffHoursAllow.FAVOURITES)) }, label = { Text("Favourites") })
-            groups.distinctBy { it.title }.forEach { g ->
-                FilterChip(oh.allow == OffHoursAllow.LABEL && oh.labelId == g.id, { onChange(oh.copy(allow = OffHoursAllow.LABEL, labelId = g.id, labelTitle = g.title)) }, label = { Text(g.title) })
+            // By title: the label in every account.
+            groups.map { app.parley.common.LabelRefs.key(it.title) }.distinct().forEach { t ->
+                val on = oh.allow == OffHoursAllow.LABEL && oh.labelTitle?.let { app.parley.common.LabelRefs.key(it) } == t
+                FilterChip(on, { onChange(oh.copy(allow = OffHoursAllow.LABEL, labelId = null, labelTitle = t)) }, label = { Text(t) })
             }
         }
         Text("Repeat callers and numbers you allowed still get through.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

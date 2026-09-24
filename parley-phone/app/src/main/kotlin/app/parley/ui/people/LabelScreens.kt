@@ -203,7 +203,11 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
             confirmButton = {
                 TextButton({
                     deleting = null
-                    scope.launch { runCatching { vm.c.people.labels.delete(t) }; vm.c.contacts.refresh(); round++ }
+                    scope.launch {
+                        runCatching { vm.c.people.labels.delete(t) }.getOrNull()?.let { vm.toast(it) }
+                        vm.c.contacts.refresh()
+                        round++
+                    }
                 }) { Text("Delete") }
             },
             dismissButton = { TextButton({ deleting = null }) { Text("Cancel") } },
@@ -269,9 +273,8 @@ private fun RenameLabelDialog(vm: AppViewModel, old: String, onDismiss: () -> Un
             TextButton({
                 onDismiss()
                 scope.launch {
+                    // Its ringtone, rules, limits and off-hours choice follow the label (see LabelReferences).
                     runCatching { vm.c.people.labels.rename(old, name) }.onFailure { vm.toast("Couldn't rename: ${it.message}") }
-                    // Renamed ringtone follows the label.
-                    vm.people.update { s -> s.labelRingtones[old]?.let { tone -> s.copy(labelRingtones = s.labelRingtones - old + (name.trim() to tone)) } ?: s }
                     vm.c.contacts.refresh()
                     onDone(name.trim())
                 }
@@ -296,9 +299,6 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
     var renaming by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val tone = s.labelRingtones[current]
-    val labelGroup by androidx.compose.runtime.produceState<app.parley.data.GroupInfo?>(null, current) {
-        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { vm.c.contacts.groups().firstOrNull { it.title == current } }.getOrNull() }
-    }
     val tonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         if (res.resultCode == Activity.RESULT_OK) {
             @Suppress("DEPRECATION")
@@ -336,7 +336,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
                     IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, "More") }
                     DropdownMenu(menu, { menu = false }) {
                         // Screening rules for everyone in this label (block, only-they-ring at night, ringtone).
-                        labelGroup?.let { g -> app.parley.ui.blocking.LabelBlockingMenuItem(g) { menu = false } }
+                        app.parley.ui.blocking.LabelBlockingMenuItem(current) { menu = false }
                         DropdownMenuItem({ Text("Rename") }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { menu = false; renaming = true })
                         DropdownMenuItem({ Text("Delete label") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
                     }
@@ -383,8 +383,8 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
                 TextButton({
                     confirmDelete = false
                     scope.launch {
-                        vm.c.people.labels.delete(current)
-                        vm.people.update { it.copy(labelRingtones = it.labelRingtones - current) }
+                        // Its ringtone, rules and limits go with it; a notice says when off hours had to change.
+                        runCatching { vm.c.people.labels.delete(current) }.getOrNull()?.let { vm.toast(it) }
                         vm.c.contacts.refresh()
                         back()
                     }

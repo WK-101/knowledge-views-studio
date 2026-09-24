@@ -35,7 +35,7 @@ object RuleTools {
                 val bad = names.filter { n -> LineType.entries.none { it.name == n } }
                 if (bad.isNotEmpty()) Checked(raw, "Unknown line type: ${bad.joinToString(", ")}") else Checked(names.distinct().joinToString(","))
             }
-            RuleType.LABEL -> if (raw.toLongOrNull() == null) Checked(raw, "Pick a label") else Checked(raw)
+            RuleType.LABEL -> if (raw.isBlank()) Checked(raw, "Pick a label") else Checked(LabelRefs.key(raw))
             RuleType.NOT_MY_REGION -> Checked("")
         }
     }

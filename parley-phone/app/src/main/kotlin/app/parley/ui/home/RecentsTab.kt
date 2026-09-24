@@ -100,6 +100,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
                 app.parley.ui.history.SavedFilterChips(vm)
             }
         }
+        item(key = "archive-notes") { app.parley.ui.history.ArchiveNotices(vm, open) }
         val list = groups
         if (list != null && list.isEmpty()) {
             item(key = "empty") {

@@ -23,6 +23,8 @@ import app.parley.common.blocking.ScreeningPipeline
 import app.parley.common.spam.ParsedPack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.ZoneId
 
 /** An incoming call to screen. [simId] is only known on the InCallService path (the screening service has none). */
@@ -61,6 +63,8 @@ class CallScreener(
     /** Logging happens here, after the decision is returned, so it never delays Telecom's answer. */
     private val scope: CoroutineScope,
     private val lists: SpamListStore? = null,
+    /** Ringtone per label title, from the label pages (the one store for label ringtones). */
+    private val labelRingtones: suspend () -> Map<String, String> = { emptyMap() },
 ) {
     /** Set by the app to post per-verdict notifications. Called off the call path. */
     @Volatile
@@ -74,31 +78,53 @@ class CallScreener(
     /**
      * True when any screening feature is on; lets the call path skip I/O entirely otherwise.
      * Numbers on the system block list are already rejected by Telecom before we see the call.
-     * Until settings have been read from disk we can't know, so we assume screening is on.
+     * Until settings and rules have been read from disk we can't know, so we assume screening is on.
+     * Memory only: [warm] reads both off the main thread at app start.
      */
     fun isActive(): Boolean {
         if (!settings.loaded.value) return true
+        val rules = blocks.rulesCache ?: return true
         val s = settings.settings.value.screening
         return s.blockHidden || s.blockNonContacts || s.blockNeighbourSpoofing || s.blockFailedVerification || s.blockInvalid ||
             s.offHours.enabled || s.ringLoudFavourites || s.ringLoudRepeat || s.likelySpamRingtone != null || s.repeatRingtone != null ||
-            s.busyReply || blocks.rules.value.any { it.enabled } || lists?.hasEnabledPacks() == true
+            s.busyReply || rules.isNotEmpty() || lists?.hasEnabledPacks() == true
     }
 
-    /** SIM rules need the phone account, which only the InCallService path has (B9). */
-    fun hasSimRules(): Boolean = blocks.rules.value.any { it.enabled && it.simId != null }
+    /**
+     * SIM rules need the phone account, which only the InCallService path has (B9). Before the rules have been
+     * read this says yes, so a decision made without the SIM is checked again rather than trusted.
+     */
+    fun hasSimRules(): Boolean = blocks.rulesCache?.any { it.simId != null } ?: true
+
+    /** Reads settings and rules once, off the main thread, so [isActive] and [hasSimRules] answer from memory. */
+    suspend fun warm() {
+        settings.current()
+        runCatching { blocks.enabledRules() }
+    }
 
     suspend fun screen(number: String?, hidden: Boolean, verification: Verification): Decision =
         screenCall(ScreenRequest(number, hidden, verification)).decision
 
-    /** Live screening: decide, then log, count and notify in the background. */
+    /**
+     * Live screening: decide, then log, count and notify in the background. The result's ringtone includes the
+     * caller's label ringtone (contact's own tone, then label, then default), from the same lookup.
+     */
     suspend fun screenCall(req: ScreenRequest): ScreeningResult {
         val s = currentSettings()
         val now = System.currentTimeMillis()
-        val g = gather(req, s, now, replayHistory = null)
+        // Rules from the database, not the flow: in a process just started for this call the flow is still empty.
         val rules = blocks.enabledRules()
+        val tones = runCatching { labelRingtones() }.getOrDefault(emptyMap())
+        val g = gather(req, s, now, replayHistory = null, rules = rules, tones = tones)
         val result = pipeline.screen(g.facts, rules, s, PolicyClock.of(now)).let {
-            // Contact, then label, then default: a contact's own ringtone is played by the system, so no label tone then.
-            if (g.contactHasRingtone && it.allowedBy == app.parley.common.AllowReason.CONTACT) it.copy(ringtone = null) else it
+            when {
+                it.blocked -> it
+                // A contact's own ringtone is played by the system, so no label tone then.
+                g.contactHasRingtone && it.allowedBy == app.parley.common.AllowReason.CONTACT -> it.copy(ringtone = null)
+                it.ringtone == null && g.facts.isContact && !g.contactHasRingtone ->
+                    it.copy(ringtone = app.parley.common.LabelRefs.ringtoneFor(g.facts.contactLabels, tones))
+                else -> it
+            }
         }
         scope.launch { runCatching { commit(req, g, result, s, now) } }
         return result
@@ -107,8 +133,9 @@ class CallScreener(
     /** "Test this call": the same decision with no log, no counters and no notification. */
     suspend fun test(number: String?, hidden: Boolean = number.isNullOrBlank(), at: Long = System.currentTimeMillis()): ScreeningResult {
         val s = currentSettings()
-        val g = gather(ScreenRequest(number, hidden), s, at, replayHistory = null)
-        return pipeline.test(g.facts, blocks.enabledRules(), s, PolicyClock.of(at))
+        val rules = blocks.enabledRules()
+        val g = gather(ScreenRequest(number, hidden), s, at, replayHistory = null, rules = rules)
+        return pipeline.test(g.facts, rules, s, PolicyClock.of(at))
     }
 
     /**
@@ -139,7 +166,7 @@ class CallScreener(
         val rules = blocks.enabledRules()
         val factsCache = HashMap<ReplayCall, IncomingCallFacts>()
         suspend fun factsFor(c: ReplayCall): IncomingCallFacts = factsCache.getOrPut(c) {
-            gather(ScreenRequest(c.number.takeIf { !c.hidden }, c.hidden), s, c.time, replayHistory = calls, knownContact = c.isContact).facts
+            gather(ScreenRequest(c.number.takeIf { !c.hidden }, c.hidden), s, c.time, replayHistory = calls, knownContact = c.isContact, rules = rules).facts
         }
         // Gather once (suspending), then replay purely.
         replay.forEach { factsFor(it) }
@@ -171,7 +198,15 @@ class CallScreener(
 
     private class Gathered(val facts: IncomingCallFacts, val contactName: String?, val contactHasRingtone: Boolean = false)
 
-    private suspend fun gather(req: ScreenRequest, s: ScreeningSettings, at: Long, replayHistory: List<app.parley.common.CallEntry>?, knownContact: Boolean? = null): Gathered {
+    private suspend fun gather(
+        req: ScreenRequest,
+        s: ScreeningSettings,
+        at: Long,
+        replayHistory: List<app.parley.common.CallEntry>?,
+        knownContact: Boolean? = null,
+        rules: List<BlockRule>,
+        tones: Map<String, String> = emptyMap(),
+    ): Gathered {
         val number = req.number?.takeIf { it.isNotBlank() }
         val iso = PhoneEnv.countryIso(context)
         if (number == null || req.hidden) {
@@ -189,19 +224,20 @@ class CallScreener(
             yes || lookupFailed
         }
         var starred = false
-        var labels = emptySet<Long>()
+        var labels = emptySet<String>()
         var labelFailed = false
         var contactName: String? = null
         var contactRingtone: String? = null
-        val rules = blocks.rules.value
-        val needLabels = rules.any { it.enabled && it.type == RuleType.LABEL } || (s.offHours.enabled && s.offHours.allow == OffHoursAllow.LABEL)
+        val needLabels = rules.any { it.enabled && it.type == RuleType.LABEL } || (s.offHours.enabled && s.offHours.allow == OffHoursAllow.LABEL) ||
+            tones.isNotEmpty()
         if (isContact && !lookupFailed) {
             try {
                 contactDetails(primary)?.let { d ->
                     starred = d.starred
                     contactName = d.name
                     contactRingtone = d.ringtone
-                    if (needLabels) labels = d.groups(context)
+                    // Titles in every account: label rules, off hours and ringtones name labels by title.
+                    if (needLabels) labels = contacts.labelTitlesOrNull(d.id) ?: throw IllegalStateException("contacts unavailable")
                 } ?: run {
                     // A vault contact: never starred, no labels.
                     contactName = runCatching { vault.lookup(primary)?.second?.name }.getOrNull()
@@ -270,17 +306,7 @@ class CallScreener(
         return out.sortedByDescending { it.time }
     }
 
-    private class ContactBits(val id: Long, val name: String?, val starred: Boolean, val ringtone: String?) {
-        fun groups(context: Context): Set<Long> {
-            val ids = HashSet<Long>()
-            context.contentResolver.query(
-                ContactsContract.Data.CONTENT_URI, arrayOf(ContactsContract.CommonDataKinds.GroupMembership.GROUP_ROW_ID),
-                "${ContactsContract.Data.CONTACT_ID}=? AND ${ContactsContract.Data.MIMETYPE}=?",
-                arrayOf(id.toString(), ContactsContract.CommonDataKinds.GroupMembership.CONTENT_ITEM_TYPE), null,
-            )?.use { c -> while (c.moveToNext()) ids += c.getLong(0) } ?: throw IllegalStateException("contacts unavailable")
-            return ids
-        }
-    }
+    private class ContactBits(val id: Long, val name: String?, val starred: Boolean, val ringtone: String?)
 
     private fun contactDetails(number: String): ContactBits? {
         if (!Permissions.has(context, android.Manifest.permission.READ_CONTACTS)) return null
@@ -291,20 +317,38 @@ class CallScreener(
         )?.use { c -> if (c.moveToFirst()) ContactBits(c.getLong(0), c.getString(1), c.getInt(2) != 0, c.getString(3)) else null }
     }
 
-    private var lastLog: Triple<String, Long, Long>? = null
+    /** What was already logged, counted and notified for a number screened moments ago. */
+    private class Committed(val at: Long, var logId: Long?, val hits: MutableSet<Long>, val notified: MutableSet<String>)
 
-    private suspend fun commit(req: ScreenRequest, g: Gathered, result: ScreeningResult, s: ScreeningSettings, now: Long) {
+    private val commitLock = Mutex()
+    private val committed = HashMap<String, Committed>()
+
+    /**
+     * Logs, counts and notifies once per call. The InCallService screens again what the screening service already
+     * screened (to apply per-SIM rules): within [RESCREEN_WINDOW_MS] of the same number, only the newer log entry
+     * is kept, a rule hit is counted once and the same verdict is notified once.
+     */
+    private suspend fun commit(req: ScreenRequest, g: Gathered, result: ScreeningResult, s: ScreeningSettings, now: Long) = commitLock.withLock {
         val number = g.facts.number
+        val key = if (number == null) "hidden" else PhoneNumbers.matchKey(number)
+        committed.entries.removeAll { now - it.value.at > RESCREEN_WINDOW_MS }
+        val prev = committed[key]
+        val entry = prev ?: Committed(now, null, HashSet(), HashSet()).also { committed[key] = it }
         val shouldLog = result.blocked || (!g.facts.isContact && result.allowedBy != app.parley.common.AllowReason.EMERGENCY)
         var logId: Long? = null
         if (shouldLog) {
-            val key = if (number == null) "hidden" else PhoneNumbers.matchKey(number)
-            // The InCallService may screen again with the SIM known: keep only the newer decision.
-            lastLog?.let { (k, id, t) -> if (k == key && now - t < 30_000) blocks.deleteScreened(id) }
+            entry.logId?.let { blocks.deleteScreened(it) }
             logId = blocks.logScreened(number, result, req.callerName, req.simId, now)
-            lastLog = Triple(key, logId, now)
+            entry.logId = logId
         }
-        result.rule?.takeIf { it.id > 0 }?.let { blocks.recordHit(it.id, now) }
-        onScreened?.invoke(ScreenedCall(req, result, g.facts.isContact, g.contactName, logId, s))
+        result.rule?.takeIf { it.id > 0 && entry.hits.add(it.id) }?.let { blocks.recordHit(it.id, now) }
+        // A decision deferred to the SIM-aware path isn't final: that path notifies.
+        if (result.deferredToSim) return@withLock
+        val signature = "${result.decision}|${result.verdict?.kind}|${result.rule?.id}"
+        if (entry.notified.add(signature)) onScreened?.invoke(ScreenedCall(req, result, g.facts.isContact, g.contactName, logId, s))
+    }
+
+    private companion object {
+        const val RESCREEN_WINDOW_MS = 30_000L
     }
 }

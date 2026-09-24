@@ -25,6 +25,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.PendingCall
+import app.parley.common.SimAccount
 
 /** Confirm-before-call and SIM chooser. Shown from the root so every screen can place calls. */
 @Composable
@@ -32,30 +34,54 @@ fun CallDialogs(vm: AppViewModel) {
     val pending by vm.pendingCall.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
     val p = pending ?: return
-    var remember by remember(p) { mutableStateOf(false) }
-    val who = p.name?.let { "$it (${Format.number(p.number, vm.countryIso)})" } ?: Format.number(p.number, vm.countryIso)
+    CallQuestions(
+        p, sims, vm.countryIso,
+        planSummary = { app.parley.ui.history.simPlanSummary(vm, it) },
+        onUpdate = { vm.pendingCall.value = it },
+        onPlace = { number, simId, remember, confirmed -> vm.place(number, simId, remember, confirmed) },
+    )
+}
+
+/**
+ * The questions of one [PendingCall] (see [app.parley.CallGate]), at most one dialog at a time: the dial guard's
+ * warnings with the allowance note, then the SIM choice, else "Call Ana?". Answering one never asks it again.
+ * [onUpdate] with null cancels; [onPlace] places the call.
+ */
+@Composable
+fun CallQuestions(
+    p: PendingCall,
+    sims: List<SimAccount>,
+    countryIso: String,
+    planSummary: @Composable (simId: String) -> String? = { null },
+    onUpdate: (PendingCall?) -> Unit,
+    onPlace: (number: String, simId: String?, remember: Boolean, confirmed: Boolean) -> Unit,
+) {
+    // Kept for the SIM dialog even when the guard sheet was answered first.
+    var remember by remember(p.number) { mutableStateOf(false) }
+    val who = p.name?.let { "$it (${Format.number(p.number, countryIso)})" } ?: Format.number(p.number, countryIso)
 
     if (p.warnings.isNotEmpty()) {
-        DialGuardSheet(who, p.warnings, onCall = {
-            if (p.chooseSim) vm.pendingCall.value = p.copy(warnings = emptyList(), needConfirm = false) else vm.place(p.number, null)
-        }, onCancel = { vm.pendingCall.value = null })
+        // The sheet is the confirmation: it also shows the allowance note, so "Call" means yes to both.
+        DialGuardSheet(who, p.warnings, note = p.note, onCall = {
+            if (p.chooseSim) onUpdate(p.copy(warnings = emptyList(), needConfirm = false)) else onPlace(p.number, p.simId, false, true)
+        }, onCancel = { onUpdate(null) })
         return
     }
 
     if (p.chooseSim) {
         AlertDialog(
-            onDismissRequest = { vm.pendingCall.value = null },
+            onDismissRequest = { onUpdate(null) },
             title = { Text("Call $who with") },
             text = {
                 Column {
                     sims.forEach { sim ->
-                        val plan = app.parley.ui.history.simPlanSummary(vm, sim.id)
+                        val plan = planSummary(sim.id)
                         ListItem(
                             headlineContent = { Text(sim.label) },
                             supportingContent = listOfNotNull(sim.subtitle, plan).joinToString("\n").ifEmpty { null }?.let { { Text(it) } },
                             leadingContent = { Icon(Icons.Rounded.SimCard, null, tint = if (sim.color != 0) Color(sim.color) else Color.Unspecified) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            modifier = Modifier.clickable { vm.place(p.number, sim.id, remember) },
+                            modifier = Modifier.clickable { onPlace(p.number, sim.id, remember, false) },
                         )
                     }
                     Row(Modifier.fillMaxWidth().clickable { remember = !remember }.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -65,15 +91,15 @@ fun CallDialogs(vm: AppViewModel) {
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton({ vm.pendingCall.value = null }) { Text("Cancel") } },
+            dismissButton = { TextButton({ onUpdate(null) }) { Text("Cancel") } },
         )
     } else {
         AlertDialog(
-            onDismissRequest = { vm.pendingCall.value = null },
+            onDismissRequest = { onUpdate(null) },
             title = { Text("Call $who?") },
             text = p.note?.let { { Text("$it Call anyway?") } },
-            confirmButton = { TextButton({ vm.place(p.number, p.simId, confirmed = true) }) { Text(if (p.note != null) "Call anyway" else "Call") } },
-            dismissButton = { TextButton({ vm.pendingCall.value = null }) { Text("Cancel") } },
+            confirmButton = { TextButton({ onPlace(p.number, p.simId, false, true) }) { Text(if (p.note != null) "Call anyway" else "Call") } },
+            dismissButton = { TextButton({ onUpdate(null) }) { Text("Cancel") } },
         )
     }
 }

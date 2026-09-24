@@ -113,20 +113,27 @@ object CallManager {
         val hidden = call.details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED
         val deps = TelecomGraph.dependencies
         val incoming = call.stateCompat() == Call.STATE_RINGING
-        if (calls.size == 1) RingBoost.restore(appContext) // a boost left behind by a crash
+        if (calls.size == 1) RingBoost.restoreAsync(appContext) // a boost left behind by a crash
         if (incoming) ringStartedAt[id] = System.currentTimeMillis()
 
         // Screening runs before we show any UI, bounded by a hard timeout so ringing is never held up.
         // Never screen right after an emergency call (call-backs must get through).
         val earlierOutcome = if (incoming) ScreeningGuard.recallOutcome(number) else null
         val accountId = call.details.accountHandle?.id
-        // The screening service decided without knowing the SIM: re-check when per-SIM rules exist (B9).
-        val earlier = earlierOutcome?.takeIf { !(it.decision == Decision.Allow && accountId != null && runCatching { deps.simRulesActive() }.getOrDefault(false)) }
-        if (incoming && !ScreeningGuard.inEmergencyWindow(context) && (earlier != null || earlierOutcome != null || hidden || deps.screeningActive())) {
+        // The screening service decided without knowing the SIM: re-check when per-SIM rules exist (B9), always when
+        // it only let the call through because a SIM-limited allow rule might apply.
+        val earlier = earlierOutcome?.takeIf {
+            !(it.decision == Decision.Allow && accountId != null && (it.deferredToSim || runCatching { deps.simRulesActive() }.getOrDefault(true)))
+        }
+        val active = runCatching { deps.screeningActive() }.getOrDefault(true)
+        if (incoming && !ScreeningGuard.inEmergencyWindow(context) && (earlier != null || earlierOutcome != null || hidden || active)) {
             screening += id
             scope.launch {
                 val callerName = call.details.callerDisplayName?.takeIf { it.isNotBlank() }
-                val outcome = earlier ?: withTimeoutOrNull(SCREEN_TIMEOUT_MS) { deps.screenCall(number, hidden, verificationOf(call), accountId, callerName) } ?: earlierOutcome
+                // Any failure lets the call ring (fail open), like a timeout.
+                val outcome = earlier ?: withTimeoutOrNull(SCREEN_TIMEOUT_MS) {
+                    runCatching { deps.screenCall(number, hidden, verificationOf(call), accountId, callerName) }.getOrNull()
+                } ?: earlierOutcome
                 val decision = outcome?.decision
                 outcome?.let { outcomes[id] = it }
                 screening -= id
@@ -140,7 +147,7 @@ object CallManager {
                     }
                 } else {
                     if (outcome?.ringLoud == true && calls.contains(call) && call.stateCompat() == Call.STATE_RINGING) {
-                        RingBoost.boost(appContext)
+                        RingBoost.boostAsync(appContext)
                         boostedFor = id
                     }
                     // The caller lookup may have finished first and held the custom tone back until screening allowed the call.
@@ -153,7 +160,7 @@ object CallManager {
         // Selecting a SIM automatically if the user pinned one for this number.
         if (call.stateCompat() == Call.STATE_SELECT_PHONE_ACCOUNT && number != null) {
             scope.launch {
-                val pref = deps.preferredAccountId(number)
+                val pref = runCatching { deps.preferredAccountId(number) }.getOrNull()
                 val handle = pref?.let { handleFor(it) }
                 if (handle != null) call.phoneAccountSelected(handle, false)
             }
@@ -162,7 +169,7 @@ object CallManager {
         // An incoming call whose allowance is used up rings silently when the user asked for that (T6).
         if (incoming && number != null && !hidden && !isEmergency(number) && !ScreeningGuard.inEmergencyWindow(context)) {
             scope.launch {
-                val silence = withTimeoutOrNull(SCREEN_TIMEOUT_MS) { deps.silenceOverQuota(number, call.details.accountHandle?.id) } == true
+                val silence = withTimeoutOrNull(SCREEN_TIMEOUT_MS) { runCatching { deps.silenceOverQuota(number, call.details.accountHandle?.id) }.getOrDefault(false) } == true
                 if (silence && calls.contains(call) && call.stateCompat() == Call.STATE_RINGING && id !in silenced) {
                     silenced += id
                     quotaSilenced += id
@@ -175,7 +182,7 @@ object CallManager {
 
         if (number != null && !hidden) {
             scope.launch {
-                val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { deps.callerInfo(number) }
+                val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { deps.callerInfo(number) }.getOrNull() }
                 if (found != null) {
                     info[id] = found
                 } else if (incoming) {
@@ -226,7 +233,7 @@ object CallManager {
 
     private fun restoreBoost() {
         boostedFor = null
-        if (::appContext.isInitialized) RingBoost.restore(appContext)
+        if (::appContext.isInitialized) RingBoost.restoreAsync(appContext)
     }
 
     private fun stopCustomRinger() {
@@ -295,12 +302,25 @@ object CallManager {
         }
     }
 
+    /** The InCallService unbound: no call is left, so nothing may keep ringing, stay boosted or linger in the maps. */
     internal fun clear() {
+        stopCustomRinger()
+        if (boostedFor != null) restoreBoost()
         calls.toList().forEach { it.unregisterCallback(callback) }
         calls.clear()
         accountLabels.clear()
         heldSince.clear()
         lastLiveState.clear()
+        outcomes.clear()
+        quotaSilenced.clear()
+        endedByLimit.clear()
+        ringStartedAt.clear()
+        silenced.clear()
+        screening.clear()
+        unknownCallers.clear()
+        info.clear()
+        locations.clear()
+        postDial.clear()
         publish()
     }
 
@@ -477,6 +497,8 @@ object CallManager {
         val st = mapState(call.stateCompat())
         if (st == CallState.RINGING || st == CallState.DISCONNECTED || st == CallState.DISCONNECTING) return
         if (isEmergency(call.details.handle?.schemeSpecificPart)) return
+        // Never during the emergency window: this may be the operator calling back.
+        if (::appContext.isInitialized && ScreeningGuard.inEmergencyWindow(appContext)) return
         endedByLimit += id
         call.disconnect()
     }

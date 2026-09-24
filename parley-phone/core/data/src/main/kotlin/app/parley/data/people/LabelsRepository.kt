@@ -21,7 +21,12 @@ data class Label(val title: String, val groups: List<GroupInfo>) {
  * Label management by title: list, create, rename, delete and merge. Labels with the same title in different
  * accounts are handled together, the way the Contacts tab shows them. Contacts are never deleted here.
  */
-class LabelsRepository(context: android.content.Context, private val contacts: ContactsRepository) {
+class LabelsRepository(
+    context: android.content.Context,
+    private val contacts: ContactsRepository,
+    /** Rules, off hours, limits and ringtones that name labels follow renames, merges and deletes. */
+    private val refs: LabelReferences? = null,
+) {
     private val cr = context.contentResolver
 
     suspend fun labels(): List<Label> = withContext(Dispatchers.IO) {
@@ -46,14 +51,20 @@ class LabelsRepository(context: android.content.Context, private val contacts: C
         val ops = source.groups.map {
             ContentProviderOperation.newUpdate(ContentUris.withAppendedId(Groups.CONTENT_URI, it.id)).withValue(Groups.TITLE, t).build()
         }
-        cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(ops)).size
+        val n = cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(ops)).size
+        refs?.renamed(mapOf(title to t))
+        n
     }
 
-    /** Deletes the label everywhere. Its contacts stay; only the membership goes. */
-    suspend fun delete(title: String): Int = withContext(Dispatchers.IO) {
-        val l = label(title) ?: return@withContext 0
+    /**
+     * Deletes the label everywhere. Its contacts stay; only the membership goes. Rules, limits and the ringtone
+     * for the label go too. Returns a sentence to show the user when a setting had to change, else null.
+     */
+    suspend fun delete(title: String): String? = withContext(Dispatchers.IO) {
+        val l = label(title) ?: return@withContext null
         val ops = l.groups.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(Groups.CONTENT_URI, it.id)).build() }
-        cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(ops)).size
+        cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(ops))
+        refs?.deleted(setOf(l.title))
     }
 
     /**
@@ -84,6 +95,7 @@ class LabelsRepository(context: android.content.Context, private val contacts: C
             }
         }
         if (deletes.isNotEmpty()) cr.applyBatch(ContactsContract.AUTHORITY, deletes)
+        refs?.renamed(sources.filter { it != target }.associateWith { target })
         added
     }
 

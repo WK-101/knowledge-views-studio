@@ -178,6 +178,16 @@ object BackupArchive {
     internal fun isValidVaultName(n: String) = VAULT_NAME.matches(n) && n != "." && n != ".."
 
     /**
+     * Optional sections added by later versions are named `x-<name>` (or `x-<dir>/<name>`). Readers verify them
+     * against the manifest like any entry but otherwise ignore them, so a new optional section never makes a
+     * backup unreadable for an older version.
+     */
+    const val OPTIONAL_PREFIX = "x-"
+    internal val OPTIONAL_NAME = Regex("x-[A-Za-z0-9._-]{1,64}(/[A-Za-z0-9._-]{1,128})?")
+
+    internal fun isOptional(n: String) = OPTIONAL_NAME.matches(n) && n.split('/').none { it == "." || it == ".." }
+
+    /**
      * Computes [Manifest.contentHash] for the content [build] would write, without compressing or
      * writing anything. Use the same calls as for the real backup.
      */
@@ -290,12 +300,18 @@ class BackupArchiveWriter private constructor(out: OutputStream?, private val me
 
     fun writeCallLog(records: Iterable<CallLogRecord>) = writeCallLog(records.asSequence())
 
-    /** Parley's call-history archive (calls the system log dropped, and "keep forever" numbers). */
+    /**
+     * Parley's call-history archive (calls the system log dropped, and "keep forever" numbers). Nothing is
+     * written when there are no lines, so backups of phones that don't use the archive stay readable by versions
+     * that predate this section.
+     */
     fun writeCallHistory(lines: Sequence<CallHistoryLine>) {
         enter(Section.CALLHISTORY)
+        val rest = lines.iterator()
+        if (!rest.hasNext()) return
         var n = 0L
         entry(BackupArchive.CALLHISTORY) { o ->
-            for (l in lines) {
+            for (l in rest) {
                 o.write(jsonBytes(RecordJson.json.encodeToString(CallHistoryLine.serializer(), l))); o.write('\n'.code); n++
             }
         }
@@ -542,7 +558,7 @@ class BackupArchiveReader private constructor(
                         val keep = isManifest || name in setOf(BackupArchive.BLOCKING, BackupArchive.SPEEDDIAL, BackupArchive.NUMBERSIM, BackupArchive.SETTINGS) ||
                             BackupArchive.PHOTO_NAME.matches(name) ||
                             (name.startsWith(BackupArchive.VAULT_PREFIX) && BackupArchive.isValidVaultName(name.removePrefix(BackupArchive.VAULT_PREFIX)))
-                        if (!keep && name !in BackupArchive.FIXED) throw BackupIntegrityException("Unexpected entry $name")
+                        if (!keep && name !in BackupArchive.FIXED && !BackupArchive.isOptional(name)) throw BackupIntegrityException("Unexpected entry $name")
                         val countLines = name == BackupArchive.CONTACTS || name == BackupArchive.CALLLOG || name == BackupArchive.CALLHISTORY || name == BackupArchive.JOURNAL
                         val md = MessageDigest.getInstance("SHA-256")
                         val bo = if (keep) ByteArrayOutputStream() else null

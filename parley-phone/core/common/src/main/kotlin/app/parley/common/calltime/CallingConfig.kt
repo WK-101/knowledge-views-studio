@@ -14,7 +14,10 @@ enum class LimitScope { CONTACT, LABEL, SIM, GLOBAL }
 @Serializable
 data class LimitRule(
     val scope: LimitScope,
-    /** Contact lookup key, label (group) id, phone-account id, or "" for [LimitScope.GLOBAL]. */
+    /**
+     * Contact lookup key, label title (older versions stored the group id: see [app.parley.common.LabelRefs]),
+     * phone-account id, or "" for [LimitScope.GLOBAL].
+     */
     val key: String = "",
     /** Shown in lists and in the call ("Ana", "Family", "Work SIM"). */
     val title: String = "",

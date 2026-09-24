@@ -360,6 +360,32 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         return out
     }
 
+    /**
+     * Trimmed titles of one contact's labels, in every account (the way rules and ringtones name labels), straight
+     * from the provider. Null when contacts can't be read.
+     */
+    fun labelTitlesOrNull(contactId: Long): Set<String>? = try {
+        val ids = HashSet<Long>()
+        cr.query(
+            Data.CONTENT_URI, arrayOf(GroupMembership.GROUP_ROW_ID),
+            "${Data.CONTACT_ID}=? AND ${Data.MIMETYPE}=?", arrayOf(contactId.toString(), GroupMembership.CONTENT_ITEM_TYPE), null,
+        )?.use { q -> while (q.moveToNext()) ids += q.getLong(0) } ?: throw IllegalStateException("contacts unavailable")
+        if (ids.isEmpty()) {
+            emptySet()
+        } else {
+            val out = HashSet<String>()
+            cr.query(
+                Groups.CONTENT_URI, arrayOf(Groups.TITLE),
+                "${Groups._ID} IN (${ids.joinToString(",")}) AND ${Groups.DELETED}=0 AND ${Groups.SYSTEM_ID} IS NULL AND ${Groups.AUTO_ADD}=0", null, null,
+            )?.use { q -> while (q.moveToNext()) q.getString(0)?.takeIf { it.isNotBlank() }?.let { out += it.trim() } } ?: throw IllegalStateException("contacts unavailable")
+            out
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+    fun labelTitlesOf(contactId: Long): Set<String> = labelTitlesOrNull(contactId).orEmpty()
+
     fun contactIdsInGroup(groupId: Long): Set<Long> {
         val ids = HashSet<Long>()
         cr.safeQuery(

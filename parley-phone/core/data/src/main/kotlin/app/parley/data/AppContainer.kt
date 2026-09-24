@@ -18,7 +18,19 @@ class DataContainer(context: Context) {
     val sims = SimRepository(appContext)
     val blocks by lazy { BlockRepository(appContext, db, scope) }
     val prefs by lazy { PrefsRepository(db) }
-    val screener by lazy { CallScreener(appContext, contacts, blocks, sims, settings, vault, scope, lists) }
+    val screener by lazy {
+        CallScreener(appContext, contacts, blocks, sims, settings, vault, scope, lists, labelRingtones = { peoplePrefs.current().labelRingtones })
+            .also { s -> s.onScreened = { e -> onScreened?.invoke(e) } }
+    }
+
+    /**
+     * Per-verdict notifications for screened calls, set at app start. Kept here so setting it doesn't build the
+     * screener (and its disk-backed parts) on the main thread.
+     */
+    @Volatile
+    var onScreened: ((ScreenedCall) -> Unit)? = null
+    /** Contacts preferences (label ringtones among them), shared by [people] and the call path. */
+    val peoplePrefs by lazy { app.parley.data.people.PeoplePrefs(appContext, scope) }
     /** Spam-list packs (device-protected storage). */
     val lists by lazy { SpamListStore(appContext) }
     val dialGuard by lazy { DialGuard(appContext, blocks, lists, callLog, contacts) }

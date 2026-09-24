@@ -64,7 +64,8 @@ class Diagnostics(private val context: Context) {
         appendLine("startTab=${settings.startTab} sortByFirstName=${settings.sortByFirstName} simLabels=${settings.showSimLabels} rowActions=${settings.contactRowActions}")
         appendLine("defaultAccount=${settings.defaultAccountType ?: "phone"} (name ${if (settings.defaultAccountName != null) "set" else "not set"})")
         appendLine("quickReplies=${settings.quickReplies.size} customised=${settings.quickReplies != AppSettings.DEFAULT_QUICK_REPLIES}")
-        appendLine("screening=${settings.screening}")
+        // Flags and counts only: the screening settings hold phone numbers, a reply text and ringtone URIs.
+        appendLine("screening: ${app.parley.common.ScreeningDiagnostics.describe(settings.screening)}")
         appendLine("appLock=${settings.appLock} lockAfter=${settings.lockAfterMinutes} secureScreen=${settings.secureScreen} hideVault=${settings.hideVault} privateHistory=${settings.privateVaultHistory}")
         appendLine("unknownRingtone=${if (settings.unknownRingtone != null) "set" else "default"} repeatCaller=${settings.repeatCallerRingsThrough}")
         appendLine("birthdays=${settings.birthdayReminders}@${settings.birthdayReminderHour} nudges=${settings.reachOutNudges} retentionDays=${settings.callLogRetentionDays}")

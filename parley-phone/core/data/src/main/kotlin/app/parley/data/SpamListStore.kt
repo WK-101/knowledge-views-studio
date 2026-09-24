@@ -111,10 +111,23 @@ class SpamListStore(context: Context) {
         return ListHit(parsed.manifest.id, parsed.manifest.name, parsed.manifest.categories[m.category.toString()], m.score, ListMode.BLOCK, 0, range = m.range)
     }
 
+    /**
+     * Where a pack's files live: `pack_<sha256 of id>`, so no id ("..", "/") can point outside [dir]. Packs
+     * installed by older versions used the id itself; that folder is still read until the pack is updated.
+     */
+    private fun packDir(id: String): File {
+        val hashed = File(dir, ListPack.storageName(id))
+        if (hashed.exists()) return hashed
+        return legacyDir(id) ?: hashed
+    }
+
+    private fun legacyDir(id: String): File? =
+        if (ListPack.isValidId(id) && !id.startsWith("pack_")) File(dir, id).takeIf { it.isDirectory } else null
+
     @Synchronized
     private fun index(id: String): PackIndex? {
         indexes[id]?.let { return it }
-        val pd = File(dir, id)
+        val pd = packDir(id)
         val numbers = File(pd, ListPack.NUMBERS)
         val ranges = File(pd, ListPack.RANGES)
         if (!numbers.exists() && !ranges.exists()) return null
@@ -169,39 +182,58 @@ class SpamListStore(context: Context) {
         InstallResult.Failed("Couldn't read the file")
     }
 
-    suspend fun install(p: ParsedPack, origin: PackOrigin, force: Boolean = false): InstallResult = lock.withLock {
-        withContext(Dispatchers.IO) {
-            val m = p.manifest
-            val existing = _state.value.packs.firstOrNull { it.id == m.id }
-            if (existing != null && existing.version > m.version && !force) return@withContext InstallResult.Older(existing.version, m.version)
-            // A signed pack can only be replaced by the same publisher key.
-            if (existing?.fingerprint != null && p.fingerprint != existing.fingerprint && !force) {
-                return@withContext InstallResult.Failed("This update is signed by a different key (${p.fingerprint ?: "unsigned"}) than the installed list (${existing.fingerprint})")
+    suspend fun install(p: ParsedPack, origin: PackOrigin, force: Boolean = false): InstallResult = try {
+        lock.withLock { withContext(Dispatchers.IO) { installLocked(p, origin, force) } }
+    } catch (e: PackException) {
+        InstallResult.Failed(e.message ?: "Not a valid list")
+    } catch (e: Exception) {
+        InstallResult.Failed("Couldn't install the list")
+    }
+
+    /** The full publisher key of an installed signed pack (read from its stored manifest for packs installed before it was kept). */
+    private fun installedKey(existing: PackState): String? = existing.publicKey
+        ?: runCatching { ListPack.readManifest(File(packDir(existing.id), ListPack.MANIFEST).readBytes())?.publicKey }.getOrNull()
+
+    private fun installLocked(p: ParsedPack, origin: PackOrigin, force: Boolean): InstallResult {
+        val m = p.manifest
+        // Parsed packs are checked already; this also covers packs built in memory. "." or ".." would name the lists folder itself.
+        if (!ListPack.isValidId(m.id)) throw PackException("The list has an invalid id")
+        val existing = _state.value.packs.firstOrNull { it.id == m.id }
+        if (existing != null && existing.version > m.version && !force) return InstallResult.Older(existing.version, m.version)
+        // A signed pack can only be replaced by the same publisher key: the whole 32-byte key, not its short fingerprint.
+        if (existing?.fingerprint != null && !force) {
+            val sameKey = p.signature == SignatureStatus.SIGNED && ListPack.sameKey(installedKey(existing), m)
+            if (!sameKey) {
+                return InstallResult.Failed("This update is signed by a different key (${p.fingerprint ?: "unsigned"}) than the installed list (${existing.fingerprint})")
             }
-            val target = File(dir, m.id)
-            val tmp = File(dir, m.id + ".tmp").apply { deleteRecursively(); mkdirs() }
-            File(tmp, ListPack.NUMBERS).writeBytes(p.numbers)
-            File(tmp, ListPack.RANGES).writeText(p.rangesText)
-            File(tmp, ListPack.MANIFEST).writeBytes(p.manifestBytes)
-            dropIndex(m.id)
-            target.deleteRecursively()
-            if (!tmp.renameTo(target)) {
-                tmp.copyRecursively(target, overwrite = true)
-                tmp.deleteRecursively()
-            }
-            val state = PackState(
-                id = m.id, name = m.name, publisher = m.publisher, source = m.source, licence = m.licence, version = m.version,
-                created = m.created, ttlDays = m.ttlDays, regions = m.regions, categories = m.categories, entries = p.numbers.size / ListPack.RECORD,
-                ranges = p.ranges.size, signed = p.signature == SignatureStatus.SIGNED, fingerprint = p.fingerprint,
-                installedAt = System.currentTimeMillis(), origin = origin,
-            ).let { fresh ->
-                // Keep the user's choices across updates.
-                existing?.let { fresh.copy(enabled = it.enabled, mode = it.mode, threshold = it.threshold, action = it.action, useRanges = it.useRanges, notify = it.notify, suppressed = it.suppressed) } ?: fresh
-            }
-            val s = _state.value
-            writeState(s.copy(packs = s.packs.filter { it.id != m.id } + state))
-            InstallResult.Installed(state, existing != null)
         }
+        val name = ListPack.storageName(m.id)
+        val target = File(dir, name)
+        val tmp = File(dir, "$name.tmp").apply { deleteRecursively(); mkdirs() }
+        File(tmp, ListPack.NUMBERS).writeBytes(p.numbers)
+        File(tmp, ListPack.RANGES).writeText(p.rangesText)
+        File(tmp, ListPack.MANIFEST).writeBytes(p.manifestBytes)
+        dropIndex(m.id)
+        target.deleteRecursively()
+        if (!tmp.renameTo(target)) {
+            tmp.copyRecursively(target, overwrite = true)
+            tmp.deleteRecursively()
+        }
+        // The folder an older version used for this pack.
+        legacyDir(m.id)?.deleteRecursively()
+        val state = PackState(
+            id = m.id, name = m.name, publisher = m.publisher, source = m.source, licence = m.licence, version = m.version,
+            created = m.created, ttlDays = m.ttlDays, regions = m.regions, categories = m.categories, entries = p.numbers.size / ListPack.RECORD,
+            ranges = p.ranges.size, signed = p.signature == SignatureStatus.SIGNED, fingerprint = p.fingerprint,
+            publicKey = if (p.signature == SignatureStatus.SIGNED) m.publicKey else null,
+            installedAt = System.currentTimeMillis(), origin = origin,
+        ).let { fresh ->
+            // Keep the user's choices across updates.
+            existing?.let { fresh.copy(enabled = it.enabled, mode = it.mode, threshold = it.threshold, action = it.action, useRanges = it.useRanges, notify = it.notify, suppressed = it.suppressed) } ?: fresh
+        }
+        val s = _state.value
+        writeState(s.copy(packs = s.packs.filter { it.id != m.id } + state))
+        return InstallResult.Installed(state, existing != null)
     }
 
     suspend fun installBuiltIn(b: BuiltInPacks.BuiltIn): InstallResult = install(ListPack.parse(BuiltInPacks.toPack(b)), PackOrigin.BUILTIN, force = true)
@@ -211,7 +243,10 @@ class SpamListStore(context: Context) {
     suspend fun remove(id: String) {
         update { s -> s.copy(packs = s.packs.filter { it.id != id }) }
         dropIndex(id)
-        withContext(Dispatchers.IO) { File(dir, id).deleteRecursively() }
+        withContext(Dispatchers.IO) {
+            File(dir, ListPack.storageName(id)).deleteRecursively()
+            legacyDir(id)?.deleteRecursively()
+        }
     }
 
     suspend fun dismissSuggestion(id: String) = update { it.copy(dismissedSuggestions = (it.dismissedSuggestions + id).distinct()) }

@@ -202,7 +202,8 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit) {
 
     fun callWithSim(simId: String) {
         val target = if (isTextSearch()) results.firstOrNull()?.number else input.trim()
-        if (!target.isNullOrEmpty()) vm.place(target, simId)
+        // Same checks as any call (dial guard, allowance, confirm), just without the SIM question.
+        if (!target.isNullOrEmpty()) vm.requestCall(target, results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, target, vm.countryIso) }?.contact?.displayName, simId = simId)
     }
 
     fun onKey(e: KeyEvent): Boolean {

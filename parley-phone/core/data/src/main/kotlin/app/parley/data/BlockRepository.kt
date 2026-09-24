@@ -36,8 +36,16 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
     private val dao = db.blockDao()
     private val cr = context.contentResolver
 
+    /**
+     * Enabled rules as last read from the database (by [enabledRules] or the [rules] flow), or null before the
+     * first read. Lets the call path answer "are there rules?" without disk access once warmed.
+     */
+    @Volatile
+    var rulesCache: List<BlockRule>? = null
+        private set
+
     val rules: StateFlow<List<BlockRule>> = dao.rules()
-        .map { list -> list.map { it.toRule() } }
+        .map { list -> list.map { it.toRule() }.also { all -> rulesCache = all.filter { it.enabled } } }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     /** Blocked calls only (the blocked log). */
@@ -81,7 +89,10 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
 
     suspend fun deleteRule(id: Long) = dao.deleteRule(id)
 
-    suspend fun enabledRules(): List<BlockRule> = dao.enabledRules().map { it.toRule() }
+    suspend fun enabledRules(): List<BlockRule> = dao.enabledRules().map { it.toRule() }.also { rulesCache = it }
+
+    /** Every rule, enabled or not, straight from the database. */
+    suspend fun allRules(): List<BlockRule> = dao.allRules().map { it.toRule() }
 
     suspend fun recordHit(ruleId: Long, time: Long = System.currentTimeMillis()) = dao.recordHit(ruleId, time)
 

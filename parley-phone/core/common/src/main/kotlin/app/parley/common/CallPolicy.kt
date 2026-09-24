@@ -22,7 +22,11 @@ enum class RuleType {
     /** Number is of a line type ([LineType] names, comma separated). */
     LINE_TYPE,
 
-    /** Contact belongs to the label whose id is the pattern (title in [BlockRule.label]). */
+    /**
+     * Contact has the label whose title is the pattern, in any account (the title is also kept in
+     * [BlockRule.label]). Rules saved by older versions kept the device-local group id in the pattern: see
+     * [BlockRule.labelKey].
+     */
     LABEL,
     ;
 
@@ -74,6 +78,12 @@ data class BlockRule(
     }
 
     fun isLive(nowMillis: Long): Boolean = enabled && (expiresAt == null || expiresAt > nowMillis)
+
+    /**
+     * The label title a [RuleType.LABEL] rule applies to, or null for other rules. Older rules stored the group
+     * row id in [pattern] and the title in [label]; those are read by their title.
+     */
+    val labelKey: String? get() = if (type != RuleType.LABEL) null else LabelRefs.ruleTitle(pattern, label)
 }
 
 fun lineTypeLabel(name: String): String = when (name) {
@@ -95,7 +105,9 @@ data class OffHours(
     val enabled: Boolean = false,
     val schedule: Schedule = Schedule(Schedule.ALL_DAYS, 22 * 60, 7 * 60),
     val allow: OffHoursAllow = OffHoursAllow.CONTACTS,
+    /** Group row id stored by older versions; device-local, so only [labelTitle] is used now. */
     val labelId: Long? = null,
+    /** Title of the label that may ring (all accounts). */
     val labelTitle: String? = null,
     val action: BlockAction = BlockAction.SILENCE,
 )
@@ -200,7 +212,8 @@ data class IncomingCallFacts(
     /** Contacts (or the vault) couldn't be checked; [isContact] is true because screening fails open. */
     val contactLookupFailed: Boolean = false,
     val contactStarred: Boolean = false,
-    val contactLabels: Set<Long> = emptySet(),
+    /** Titles of the contact's labels, in every account (compared with [LabelRefs.key]). */
+    val contactLabels: Set<String> = emptySet(),
     /** Label lookup failed: label block rules are skipped (fail open). */
     val labelLookupFailed: Boolean = false,
     /** Caller name sent by the network (CNAP). */
@@ -256,6 +269,11 @@ data class ScreeningResult(
     val ringtone: String? = null,
     val ringLoud: Boolean = false,
     val notify: NotifyLevel = NotifyLevel.DEFAULT,
+    /**
+     * Let through only because an allow rule limited to one SIM may apply and the SIM isn't known here (the
+     * screening service). The InCallService, which knows the SIM, must screen the call again.
+     */
+    val deferredToSim: Boolean = false,
 ) {
     val failedOpen: Boolean get() = trace.any { it.mark == TraceMark.FAILED_OPEN }
     val blocked: Boolean get() = decision is Decision.Block
@@ -354,7 +372,8 @@ object CallPolicy {
                 step("Contact?", "yes", TraceMark.MATCH)
                 val labelRules = rules.filter { it.type == RuleType.LABEL && live(it) }
                 if (labelRules.isNotEmpty() && f.labelLookupFailed) step("Labels", "couldn't check, label rules skipped", TraceMark.FAILED_OPEN)
-                val inLabel = if (f.labelLookupFailed) emptyList() else labelRules.filter { it.pattern.toLongOrNull() in f.contactLabels }
+                val titles = f.contactLabels.map { LabelRefs.key(it) }.toSet()
+                val inLabel = if (f.labelLookupFailed) emptyList() else labelRules.filter { it.labelKey in titles }
                 inLabel.firstOrNull { it.kind == RuleKind.BLOCK }?.let { r ->
                     step("Label rule", r.title, TraceMark.MATCH)
                     return block(r.action, BlockReason.RULE, r, notify = r.notify)
@@ -366,8 +385,10 @@ object CallPolicy {
                         OffHoursAllow.CONTACTS -> true
                         OffHoursAllow.FAVOURITES -> f.contactStarred
                         // Fail open when labels couldn't be read.
-                        OffHoursAllow.LABEL -> f.labelLookupFailed || (oh.labelId != null && oh.labelId in f.contactLabels)
+                        OffHoursAllow.LABEL -> f.labelLookupFailed || (oh.labelTitle != null && LabelRefs.key(oh.labelTitle) in titles)
                     }
+                    // An allow label rule limited to one SIM may still let this contact ring once the SIM is known.
+                    if (!ok && !f.labelLookupFailed) simPending { it.type == RuleType.LABEL && it.labelKey in titles }?.let { return deferToSim(it) }
                     if (!ok) {
                         step("Off hours", "only ${offHoursWho(oh)} ring now", TraceMark.MATCH)
                         return softBlock(oh.action, BlockReason.OFF_HOURS)
@@ -375,7 +396,8 @@ object CallPolicy {
                 }
                 allowLabel?.let { step("Label rule", it.title, TraceMark.MATCH) }
                 val loud = s.ringLoudFavourites && f.contactStarred
-                return allow(AllowReason.CONTACT, allowLabel, allowLabel?.ringtone, loud)
+                // Label ringtones come from the label's page (one store), added by the caller of the policy.
+                return allow(AllowReason.CONTACT, allowLabel, null, loud)
             }
             step("Contact?", "no")
 
@@ -385,6 +407,8 @@ object CallPolicy {
                 step("Allow rule", allowRule.title + if (allowRule.expiresAt != null) " (temporary)" else "", TraceMark.MATCH)
                 return allow(AllowReason.RULE, allowRule, allowRule.ringtone, verdict = Verdict(VerdictKind.ALLOWED, "Allowed by '${allowRule.title}'"))
             }
+            // The screening service never knows the SIM: an allow rule limited to one SIM is decided when the call rings.
+            simPending { it.type != RuleType.LABEL && factMatches(it, number) }?.let { return deferToSim(it) }
             if (snooze) {
                 step("Expecting a call", "on", TraceMark.MATCH)
                 return allow(AllowReason.SNOOZE, verdict = Verdict(VerdictKind.ALLOWED, "Let through: expecting a call"))
@@ -455,6 +479,20 @@ object CallPolicy {
             return allow(AllowReason.DEFAULT, ringtone = if (warn != null) s.likelySpamRingtone else null, verdict = warn)
         }
 
+        /**
+         * When this call's SIM is unknown: a live allow rule limited to one SIM that [matches] with the SIM
+         * ignored. Null when the SIM is known or no such rule matches.
+         */
+        fun simPending(matches: (BlockRule) -> Boolean): BlockRule? {
+            if (f.simId != null) return null
+            return rules.firstOrNull { it.kind == RuleKind.ALLOW && it.simId != null && it.isLive(clock.millis) && active(it.schedule) && matches(it) }
+        }
+
+        fun deferToSim(r: BlockRule): ScreeningResult {
+            step("SIM allow rule", "${r.title}: SIM unknown here, checked again when the call rings", TraceMark.SKIPPED)
+            return ScreeningResult(Decision.Allow, steps.toList(), null, AllowReason.DEFAULT, deferredToSim = true)
+        }
+
         /** Blocks for a soft reason unless this is a genuine repeat caller, who is let through instead. */
         fun softBlock(action: BlockAction, reason: BlockReason, hit: ListHit? = null, warn: Verdict? = null): ScreeningResult {
             if (repeatCaller()) {
@@ -510,7 +548,7 @@ object CallPolicy {
     private fun offHoursWho(o: OffHours) = when (o.allow) {
         OffHoursAllow.CONTACTS -> "contacts"
         OffHoursAllow.FAVOURITES -> "favourites"
-        OffHoursAllow.LABEL -> "'${o.labelTitle ?: "label"}'"
+        OffHoursAllow.LABEL -> "'${o.labelTitle?.trim() ?: "label"}'"
     }
 
     fun ruleMatches(rule: BlockRule, number: String, countryIso: String?): Boolean {

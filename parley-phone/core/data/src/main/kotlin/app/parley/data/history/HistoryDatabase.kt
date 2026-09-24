@@ -60,6 +60,15 @@ interface HistoryDao {
     @Query("SELECT * FROM archived_calls ORDER BY date DESC")
     suspend fun all(): List<ArchivedCallEntity>
 
+    @Query("SELECT id FROM archived_calls ORDER BY date DESC, id DESC")
+    suspend fun idsNewestFirst(): List<Long>
+
+    @Query("SELECT * FROM archived_calls WHERE id IN (:ids)")
+    suspend fun byIds(ids: List<Long>): List<ArchivedCallEntity>
+
+    @Query("DELETE FROM archived_calls WHERE personKey = :personKey")
+    suspend fun deleteByPerson(personKey: String): Int
+
     @Query("SELECT dedupeKey FROM archived_calls")
     suspend fun dedupeKeys(): List<String>
 
@@ -122,7 +131,9 @@ abstract class HistoryDatabase : RoomDatabase() {
     abstract fun dao(): HistoryDao
 
     companion object {
+        const val NAME = "parley-history.db"
+
         fun create(context: Context): HistoryDatabase =
-            Room.databaseBuilder(context.applicationContext, HistoryDatabase::class.java, "parley-history.db").build()
+            Room.databaseBuilder(context.applicationContext, HistoryDatabase::class.java, NAME).build()
     }
 }

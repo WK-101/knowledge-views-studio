@@ -418,6 +418,9 @@ class BackupRepository(
         if (o.settings) part("settings") {
             opened.reader.settings()?.let { all ->
                 settings.importMap(all.filterKeys { !it.startsWith(BackupExtras.PREFIX) })
+                // Off hours' "only this label" names a label of the old phone: keep it only if that title exists here.
+                val titles = labelTitlesHere()
+                settings.update { s -> s.copy(screening = s.screening.copy(offHours = app.parley.common.LabelRefs.restoreOffHours(s.screening.offHours, titles))) }
                 val x = all.filterKeys { it.startsWith(BackupExtras.PREFIX) }
                 if (x.isNotEmpty()) extras().forEach { it.import(x) }
             }
@@ -508,23 +511,29 @@ class BackupRepository(
         return n
     }
 
+    /** Label titles on this phone (the way label references are keyed; group row ids differ between phones). */
+    private fun labelTitlesHere(): Set<String> = runCatching { contacts.groups().map { app.parley.common.LabelRefs.key(it.title) }.toSet() }.getOrDefault(emptySet())
+
     private suspend fun restoreBlocking(opened: OpenedBackup): Int {
         val snap = opened.reader.blocking() ?: return 0
-        val existing = blocks.rules.value.map { it.kind.name + "|" + it.pattern + "|" + it.type.name }.toSet()
+        val existing = blocks.allRules().map { it.kind.name + "|" + it.pattern + "|" + it.type.name }.toHashSet()
+        val titles = labelTitlesHere()
         var n = 0
-        snap.rules.filter { it.kind + "|" + it.pattern + "|" + it.type !in existing }.forEach { r ->
-            blocks.saveRule(
-                BlockRule(
-                    pattern = r.pattern,
-                    type = runCatching { RuleType.valueOf(r.type) }.getOrDefault(RuleType.EXACT),
-                    action = runCatching { BlockAction.valueOf(r.action) }.getOrDefault(BlockAction.REJECT),
-                    enabled = r.enabled, note = r.note,
-                    kind = runCatching { app.parley.common.RuleKind.valueOf(r.kind) }.getOrDefault(app.parley.common.RuleKind.BLOCK),
-                    simId = r.simId, schedule = app.parley.common.Schedule.decode(r.schedule),
-                    notify = runCatching { app.parley.common.NotifyLevel.valueOf(r.notify) }.getOrDefault(app.parley.common.NotifyLevel.DEFAULT),
-                    ringtone = r.ringtone, expiresAt = r.expiresAt, label = r.label,
-                ),
+        snap.rules.forEach { r ->
+            val rule = BlockRule(
+                pattern = r.pattern,
+                type = runCatching { RuleType.valueOf(r.type) }.getOrDefault(RuleType.EXACT),
+                action = runCatching { BlockAction.valueOf(r.action) }.getOrDefault(BlockAction.REJECT),
+                enabled = r.enabled, note = r.note,
+                kind = runCatching { app.parley.common.RuleKind.valueOf(r.kind) }.getOrDefault(app.parley.common.RuleKind.BLOCK),
+                simId = r.simId, schedule = app.parley.common.Schedule.decode(r.schedule),
+                notify = runCatching { app.parley.common.NotifyLevel.valueOf(r.notify) }.getOrDefault(app.parley.common.NotifyLevel.DEFAULT),
+                ringtone = r.ringtone, expiresAt = r.expiresAt, label = r.label,
             )
+            // Label rules are remapped by title; a rule for a label that doesn't exist here is dropped.
+            val mapped = app.parley.common.LabelRefs.restoreRule(rule, titles) ?: return@forEach
+            if (!existing.add(mapped.kind.name + "|" + mapped.pattern.trim() + "|" + mapped.type.name)) return@forEach
+            blocks.saveRule(mapped)
             n++
         }
         snap.systemBlockedNumbers.forEach { blocks.blockNumber(it) }

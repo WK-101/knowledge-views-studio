@@ -31,6 +31,11 @@ data class HistorySettings(
     /** "simId|cycleStart" of plans already warned about. */
     val warnedCycles: Set<String> = emptySet(),
     val lastFullSync: Long = 0,
+    /** The one-time "calls cleared elsewhere stay in Parley" note was dismissed. */
+    val archiveIntroSeen: Boolean = false,
+    /** When the archive key was found lost and a new archive started (0 = never); shown once. */
+    val archiveResetAt: Long = 0,
+    val archiveResetSeen: Boolean = true,
 )
 
 /** Call-history settings in their own DataStore file (kept apart from the main settings). */
@@ -51,12 +56,18 @@ class HistoryPrefs(context: Context, scope: CoroutineScope) {
         plans = PlanConfig.decodeList(this[K.plans]),
         warnedCycles = this[K.warned].orEmpty(),
         lastFullSync = this[K.lastFull] ?: 0,
+        archiveIntroSeen = this[K.introSeen] ?: false,
+        archiveResetAt = this[K.resetAt] ?: 0,
+        archiveResetSeen = this[K.resetSeen] ?: true,
     )
 
     suspend fun setArchiveEnabled(v: Boolean) = store.edit { it[K.archive] = v }
     suspend fun setSavedFilters(list: List<HistoryFilter>) = store.edit { it[K.filters] = HistoryFilter.encodeList(list) }
     suspend fun setCsvBom(v: Boolean) = store.edit { it[K.bom] = v }
     suspend fun setLastFullSync(t: Long) = store.edit { it[K.lastFull] = t }
+    suspend fun setArchiveIntroSeen() = store.edit { it[K.introSeen] = true }
+    suspend fun setArchiveReset(at: Long) = store.edit { it[K.resetAt] = at; it[K.resetSeen] = false }
+    suspend fun setArchiveResetSeen() = store.edit { it[K.resetSeen] = true }
 
     suspend fun setPlan(p: PlanConfig) = store.edit { prefs ->
         val list = PlanConfig.decodeList(prefs[K.plans]).filter { it.simId != p.simId } + p
@@ -78,6 +89,9 @@ class HistoryPrefs(context: Context, scope: CoroutineScope) {
         val bom = booleanPreferencesKey("csv_bom")
         val plans = stringPreferencesKey("plans")
         val warned = stringSetPreferencesKey("plan_warned")
+        val introSeen = booleanPreferencesKey("archive_intro_seen")
+        val resetAt = longPreferencesKey("archive_reset_at")
+        val resetSeen = booleanPreferencesKey("archive_reset_seen")
         val lastFull = longPreferencesKey("last_full_sync")
     }
 }

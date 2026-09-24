@@ -24,6 +24,11 @@ data class RawRecord(
     val dataSet: String? = null,
     val sourceId: String? = null,
     val rows: List<DataRow>,
+    /**
+     * RawContacts._ID on this device when read from the provider, else null. Device-local: never written to
+     * backups or exports (RecordJson leaves it out), only used to act on this exact copy.
+     */
+    val rawId: Long? = null,
 )
 
 /**

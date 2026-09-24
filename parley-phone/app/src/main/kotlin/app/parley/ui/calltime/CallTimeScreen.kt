@@ -105,7 +105,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
             }
             val labelRules = config.rules.filter { it.scope == LimitScope.LABEL }
             items(labelRules, key = { it.id }) { r ->
-                val name = groups.firstOrNull { it.id.toString() == r.key }?.title ?: r.title
+                val name = app.parley.common.LabelRefs.limitTitle(r)
                 RuleRow(Icons.AutoMirrored.Rounded.Label, "Label: $name", r) { edit("Label: $name", r.copy(title = name)) }
             }
             item {
@@ -174,14 +174,16 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
             title = { Text("Limit calls with a label") },
             text = {
                 Column {
-                    groups.forEach { g ->
+                    // One entry per label title: the limit covers that label in every account.
+                    groups.groupBy { app.parley.common.LabelRefs.key(it.title) }.forEach { (title, gs) ->
                         ListItem(
-                            headlineContent = { Text(g.title) },
-                            supportingContent = { Text(g.account.displayLabel) },
+                            headlineContent = { Text(title) },
+                            supportingContent = { Text(gs.map { it.account.displayLabel }.distinct().joinToString(", ")) },
                             modifier = Modifier.clickable {
                                 pickLabel = false
-                                val r = config.rule(LimitScope.LABEL, g.id.toString()) ?: LimitRule(LimitScope.LABEL, g.id.toString(), g.title)
-                                editing = "Label: ${g.title}" to r.copy(title = g.title)
+                                val r = config.rules.firstOrNull { it.scope == LimitScope.LABEL && app.parley.common.LabelRefs.limitTitle(it) == title }
+                                    ?: LimitRule(LimitScope.LABEL, title, title)
+                                editing = "Label: $title" to r
                             },
                         )
                     }

@@ -11,10 +11,15 @@ data class CallFacts(
     val isEmergency: Boolean,
     /** Lookup key of the matching contact, or null for numbers that aren't contacts. */
     val contactKey: String? = null,
-    /** Labels (group ids) the contact belongs to. */
-    val labelIds: Set<Long> = emptySet(),
+    /** Titles of the labels the contact has, in any account. */
+    val labelTitles: Set<String> = emptySet(),
     /** Phone-account (SIM) id the call uses, when known. */
     val accountId: String? = null,
+    /**
+     * Within the hour after an emergency call, or a call to a number the user listed as starting that window
+     * (B23): the emergency operator's call-back must never be limited or silenced.
+     */
+    val inEmergencyWindow: Boolean = false,
 )
 
 /** One connected call from the history, for allowances. */
@@ -63,7 +68,7 @@ object CallLimits {
     private val specificity = listOf(LimitScope.CONTACT, LimitScope.LABEL, LimitScope.SIM, LimitScope.GLOBAL)
 
     fun isExempt(config: CallingConfig, facts: CallFacts): Boolean =
-        facts.isEmergency || (facts.contactKey != null && facts.contactKey in config.neverLimit)
+        facts.isEmergency || facts.inEmergencyWindow || (facts.contactKey != null && facts.contactKey in config.neverLimit)
 
     /** The single rule that governs this call, or null. The most specific scope wins; within a scope, the strictest. */
     fun ruleFor(config: CallingConfig, facts: CallFacts): LimitRule? {
@@ -78,7 +83,7 @@ object CallLimits {
 
     private fun matches(rule: LimitRule, facts: CallFacts): Boolean = when (rule.scope) {
         LimitScope.CONTACT -> facts.contactKey != null && rule.key == facts.contactKey
-        LimitScope.LABEL -> rule.key.toLongOrNull()?.let { it in facts.labelIds } == true
+        LimitScope.LABEL -> facts.labelTitles.any { app.parley.common.LabelRefs.key(it) == app.parley.common.LabelRefs.limitTitle(rule) }
         LimitScope.SIM -> facts.accountId != null && rule.key == facts.accountId
         LimitScope.GLOBAL -> true
     }
@@ -92,7 +97,7 @@ object CallLimits {
 
     /** Reminder interval in minutes for this call (0 = none). Emergency calls get none. */
     fun reminderMinutes(config: CallingConfig, facts: CallFacts): Int {
-        if (facts.isEmergency) return 0
+        if (facts.isEmergency || facts.inEmergencyWindow) return 0
         val own = facts.contactKey?.let { config.reminders.perContact[it] }
         return (own ?: config.reminders.everyMinutes).coerceAtLeast(0)
     }
