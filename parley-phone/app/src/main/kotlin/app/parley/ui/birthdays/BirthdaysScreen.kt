@@ -46,6 +46,7 @@ fun upcoming(events: List<ContactEvent>, today: LocalDate = LocalDate.now()): Li
 @Composable
 fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
+    val resources = androidx.compose.ui.platform.LocalResources.current
     val all by vm.contacts.collectAsStateWithLifecycle()
     val list by produceState<List<UpcomingEvent>?>(null, all) { value = withContext(Dispatchers.IO) { upcoming(vm.c.contacts.events()) } }
     Scaffold(topBar = {
@@ -72,7 +73,7 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
                     g.forEach { u ->
                         item {
                             val e = u.event
-                            val kind = if (e.type == Event.TYPE_CUSTOM && !e.label.isNullOrBlank()) e.label!! else context.getString(Event.getTypeResource(e.type))
+                            val kind = if (e.type == Event.TYPE_CUSTOM && !e.label.isNullOrBlank()) e.label!! else resources.getString(Event.getTypeResource(e.type))
                             ListItem(
                                 modifier = Modifier.clickable { open(Routes.contact(e.contactId)) },
                                 leadingContent = { Avatar(e.name, e.photoUri, 44.dp) },
