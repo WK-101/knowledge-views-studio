@@ -18,9 +18,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.common.TextSearch
 import app.parley.ui.home.ContactRow
 
@@ -30,11 +32,11 @@ fun ContactPickerScreen(vm: AppViewModel, back: () -> Unit, onPick: (Long) -> Un
     val all by vm.contacts.collectAsStateWithLifecycle()
     var q by remember { mutableStateOf("") }
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Add to contact") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+        TopAppBar(title = { Text(stringResource(R.string.picker_add_to_contact)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } })
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
-                OutlinedTextField(q, { q = it }, placeholder = { Text("Search") }, singleLine = true, modifier = Modifier.padding(16.dp))
+                OutlinedTextField(q, { q = it }, placeholder = { Text(stringResource(R.string.main_search)) }, singleLine = true, modifier = Modifier.padding(16.dp))
             }
             items(all.orEmpty().filter { TextSearch.matches(q, it.displayName) }, key = { it.id }) { c -> ContactRow(c) { onPick(c.id) } }
         }

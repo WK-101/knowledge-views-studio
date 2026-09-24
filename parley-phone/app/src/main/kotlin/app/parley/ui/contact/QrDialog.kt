@@ -21,7 +21,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.parley.R
 import app.parley.data.ContactDetails
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
@@ -48,11 +50,11 @@ fun QrDialog(details: ContactDetails, onDismiss: () -> Unit) {
     val bitmap = remember(vcard) { encode(vcard, 720) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Share ${details.displayName}") },
+        title = { Text(stringResource(R.string.qr_share_title, details.displayName)) },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                bitmap?.let { Image(it.asImageBitmap(), "QR code", Modifier.size(240.dp).background(Color.White).padding(8.dp)) }
-                Text("Scan with any camera app. Choose what to include:", modifier = Modifier.padding(vertical = 8.dp))
+                bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.qr_code), Modifier.size(240.dp).background(Color.White).padding(8.dp)) }
+                Text(stringResource(R.string.qr_scan_hint), modifier = Modifier.padding(vertical = 8.dp))
                 fields.forEachIndexed { i, (_, v) ->
                     Row(Modifier.fillMaxWidth().clickable { if (i in selected) selected.remove(i) else selected.add(i) }, verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(i in selected, { if (it) selected.add(i) else selected.remove(i) })
@@ -61,7 +63,7 @@ fun QrDialog(details: ContactDetails, onDismiss: () -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text("Done") } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_done)) } },
     )
 }
 

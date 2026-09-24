@@ -11,14 +11,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import app.parley.R
 import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
 import app.parley.data.TemporaryContacts
 import app.parley.data.messaging.OpenedChat
+import app.parley.ui.Bidi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -35,17 +38,18 @@ fun ChatThenDecideHost(snackbar: SnackbarHostState, openPrivate: (Long) -> Unit 
     val owner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     var asking by remember { mutableStateOf<Pair<OpenedChat, String>?>(null) }
+    val res = LocalResources.current
     LaunchedEffect(owner) {
         owner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             val c = context.container
             val chat = c.messaging.takeOpenedChat() ?: return@repeatOnLifecycle
             if (withContext(Dispatchers.IO) { ChatThenDecide.stillUnknown(c, chat) }.not()) return@repeatOnLifecycle
             val region = PhoneEnv.countryIso(context)
-            WhatsAppNotice.maybeShow(c, chat, snackbar)
+            WhatsAppNotice.maybeShow(res, c, chat, snackbar)
             val shown = TemporaryContact.suggestedName(chat.number, null, region)
             val r = snackbar.showSnackbar(
-                "Save $shown privately for ${TemporaryContact.DEFAULT_DAYS} days?",
-                actionLabel = "Save…", withDismissAction = true, duration = SnackbarDuration.Long,
+                res.getQuantityString(R.plurals.msg_save_privately_days, TemporaryContact.DEFAULT_DAYS, Bidi.ltr(shown), TemporaryContact.DEFAULT_DAYS),
+                actionLabel = res.getString(R.string.msg_save_more), withDismissAction = true, duration = SnackbarDuration.Long,
             )
             if (r == SnackbarResult.ActionPerformed) asking = chat to TemporaryContact.suggestedName(chat.number, chat.appLabel, region)
         }
@@ -56,7 +60,7 @@ fun ChatThenDecideHost(snackbar: SnackbarHostState, openPrivate: (Long) -> Unit 
             scope.launch {
                 val c = context.container
                 val saved = withContext(Dispatchers.IO) { runCatching { TemporaryContact.save(c, chat.number, name, private = !visible) }.getOrNull() }
-                val r = snackbar.showSnackbar(TemporaryContact.savedMessage(saved), actionLabel = saved?.let { "Open" })
+                val r = snackbar.showSnackbar(TemporaryContact.savedMessage(res, saved), actionLabel = saved?.let { res.getString(R.string.msg_open) })
                 if (saved != null && r == SnackbarResult.ActionPerformed) if (saved.private) openPrivate(saved.id) else openContact(saved.id)
             }
         }
@@ -78,14 +82,16 @@ object ChatThenDecide {
  * contacts before opening such a chat. That's WhatsApp's question, and declining is fine.
  */
 object WhatsAppNotice {
-    /** For "Who can see your contacts". */
+    /** For "Who can see your contacts" (English; [REVOKE_TEXT_RES] is the translated text). */
     const val REVOKE_TEXT = "You can revoke WhatsApp's Contacts permission and still start chats from Parley. Some WhatsApp versions may still refuse; Parley can't detect that."
+    val REVOKE_TEXT_RES = R.string.msg_whatsapp_revoke
 
-    const val TEXT = "WhatsApp may ask to sync your contacts before opening a chat. You can decline — Parley doesn't need it."
+    /** The notice text, [R.string.msg_whatsapp_sync]. */
+    val TEXT_RES = R.string.msg_whatsapp_sync
 
-    suspend fun maybeShow(c: DataContainer, chat: OpenedChat, snackbar: SnackbarHostState) {
+    suspend fun maybeShow(res: android.content.res.Resources, c: DataContainer, chat: OpenedChat, snackbar: SnackbarHostState) {
         if (!chat.appLabel.startsWith("WhatsApp") || c.messaging.whatsappSyncNoticeShown) return
         c.messaging.whatsappSyncNoticeShown = true
-        snackbar.showSnackbar(TEXT, actionLabel = "OK", duration = SnackbarDuration.Long)
+        snackbar.showSnackbar(res.getString(TEXT_RES), actionLabel = res.getString(R.string.main_ok), duration = SnackbarDuration.Long)
     }
 }

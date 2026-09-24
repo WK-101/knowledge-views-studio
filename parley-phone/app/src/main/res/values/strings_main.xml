@@ -564,4 +564,292 @@
     <string name="edit_add_relation">Add relation</string>
     <string name="edit_custom_label">Custom label</string>
     <string name="edit_custom_placeholder">e.g. Boat, Name day</string>
+
+    <!-- Contact messaging ("Message on…", video, handles) -->
+    <string name="msg_needs_country_code">Needs the number with its country code</string>
+    <string name="msg_incomplete_number">Not a complete international number (7 to 15 digits)</string>
+    <!-- "Install or enable WhatsApp" -->
+    <string name="msg_install_or_enable">Install or enable %1$s</string>
+    <string name="msg_cant_open_number">Can\'t open this number</string>
+    <string name="msg_no_sms_app">No SMS app is set up</string>
+    <plurals name="msg_saved_private_for">
+        <item quantity="one">Saved privately for %d day</item>
+        <item quantity="other">Saved privately for %d days</item>
+    </plurals>
+    <plurals name="msg_saved_visible_for">
+        <item quantity="one">Saved for %d day, visible to other apps</item>
+        <item quantity="other">Saved for %d days, visible to other apps</item>
+    </plurals>
+    <string name="msg_app_lost_contact">That app no longer lists this contact</string>
+    <string name="msg_app_unavailable">%1$s isn\'t available</string>
+    <string name="msg_no_app_opens">No app can open this</string>
+    <string name="msg_app_has_contact">%1$s has this contact</string>
+    <string name="msg_app_cant_see">%1$s can\'t see your contacts; you can still message them</string>
+    <string name="msg_message_on_title">Message %1$s on…</string>
+    <string name="msg_no_chat_apps">No chat apps found. Install or enable WhatsApp, Signal, Telegram or Viber to message from here.</string>
+    <string name="msg_sms">Text message (SMS)</string>
+    <string name="msg_always_use">Always use this for %1$s</string>
+    <string name="msg_note_private">Chats open by number, straight in the app. The messenger can\'t see your private contacts.</string>
+    <string name="msg_note_contact">Chats open straight in the app, never through a browser. Long-press Message to choose again.</string>
+    <string name="msg_video_with">Video call with…</string>
+    <string name="msg_video_note">Parley remembers your choice. Long-press Video to choose again.</string>
+    <string name="msg_open_browser_title">Open in a browser?</string>
+    <!-- %1$s is a website address such as matrix.to -->
+    <string name="msg_open_browser_body">No app on this phone opens %1$s directly. Opening it in a browser tells that website which profile you\'re looking at.</string>
+    <string name="msg_this_link">this link</string>
+    <string name="msg_open">Open</string>
+    <string name="detail_open_in_app">Open in app</string>
+    <string name="detail_contact_photo">Contact photo</string>
+
+    <!-- Duplicates -->
+    <string name="dup_title">Merge duplicates</string>
+    <string name="dup_none">No duplicates found</string>
+    <string name="dup_none_body">Contacts with the same number, e-mail or full name show up here.</string>
+    <string name="dup_explainer">Merging links the entries into one contact. Nothing is deleted, and you can separate them again from the contact\'s menu.</string>
+    <string name="dup_not">Not duplicates</string>
+    <string name="dup_merge">Merge</string>
+
+    <!-- Date picker -->
+    <string name="date_choose">Choose date</string>
+    <string name="date_day">Day</string>
+    <string name="date_month">Month</string>
+    <string name="date_include_year">Include year</string>
+    <string name="date_year">Year</string>
+
+    <!-- QR codes -->
+    <string name="qr_share_title">Share %1$s</string>
+    <string name="qr_code">QR code</string>
+    <string name="qr_scan_hint">Scan with any camera app. Choose what to include:</string>
+    <string name="sqr_title">Share privately</string>
+    <string name="sqr_code">Encrypted QR code</string>
+    <string name="sqr_passcode">Passcode</string>
+    <string name="sqr_hint">Scan with the other phone\'s camera or QR app; it opens in Parley. Tell them the passcode in person — the QR alone reveals nothing.</string>
+    <string name="sqr_encrypted_contact">Encrypted contact</string>
+    <string name="sqr_enter_passcode">Enter the passcode the sender gave you.</string>
+    <string name="sqr_wrong_passcode">Wrong passcode or damaged code</string>
+    <string name="sqr_contact">Contact</string>
+    <string name="sqr_saved_private">Saved to private contacts</string>
+    <string name="sqr_save_privately">Save privately</string>
+    <string name="sqr_save_phone">Save to phone</string>
+    <string name="picker_add_to_contact">Add to contact</string>
+
+    <!-- "Call / Message with Parley" sheet, chat-then-decide -->
+    <!-- "Save +1 555 0100 privately for 7 days?" -->
+    <plurals name="msg_save_privately_days">
+        <item quantity="one">Save %1$s privately for %2$d day?</item>
+        <item quantity="other">Save %1$s privately for %2$d days?</item>
+    </plurals>
+    <string name="msg_save_more">Save…</string>
+    <string name="msg_whatsapp_revoke">You can revoke WhatsApp\'s Contacts permission and still start chats from Parley. Some WhatsApp versions may still refuse; Parley can\'t detect that.</string>
+    <string name="msg_whatsapp_sync">WhatsApp may ask to sync your contacts before opening a chat. You can decline — Parley doesn\'t need it.</string>
+    <string name="num_none_title">No phone number found</string>
+    <string name="num_none_body">Parley couldn\'t find a phone number in this text.</string>
+    <string name="num_choose">Choose a number</string>
+    <plurals name="num_save_all">
+        <item quantity="one">Save %d number…</item>
+        <item quantity="other">Save all %d numbers…</item>
+    </plurals>
+    <string name="num_save_all_body">Review them, name them and save them at once</string>
+    <!-- “0612 345 678” in the text -->
+    <string name="num_in_text">“%1$s” in the text</string>
+    <string name="num_nothing_to_paste">Nothing to paste</string>
+    <string name="num_no_number_copied">No phone number in what you copied</string>
+    <string name="num_message_title">Message a number</string>
+    <string name="num_phone_number">Phone number</string>
+    <string name="num_type_or_paste">Type or paste a number. Parley reads the clipboard only when you tap Paste.</string>
+    <string name="num_keep_typing">Keep typing, or pick the number\'s country.</string>
+    <string name="num_country">Country: %1$s</string>
+    <string name="num_message_apps">WhatsApp, Signal, Telegram, Viber or SMS</string>
+    <string name="num_save_temporary">Save as a temporary contact</string>
+    <string name="num_save_temporary_question">Save as a temporary contact?</string>
+    <plurals name="num_private_deletes">
+        <item quantity="one">Private, deletes itself in %d day</item>
+        <item quantity="other">Private, deletes itself in %d days</item>
+    </plurals>
+    <plurals name="num_temp_visible_body">
+        <item quantity="one">Saved in your contacts on this phone only, where apps that can read contacts (WhatsApp included) see it. It deletes itself, with its call history, in %d day.</item>
+        <item quantity="other">Saved in your contacts on this phone only, where apps that can read contacts (WhatsApp included) see it. It deletes itself, with its call history, in %d days.</item>
+    </plurals>
+    <plurals name="num_temp_private_body">
+        <item quantity="one">Saved privately in Parley for %d day: other apps, WhatsApp included, can\'t see it. It then deletes itself with its call history. Keep it any time from its page.</item>
+        <item quantity="other">Saved privately in Parley for %d days: other apps, WhatsApp included, can\'t see it. It then deletes itself with its call history. Keep it any time from its page.</item>
+    </plurals>
+    <string name="num_save_visible">Save visible to other apps</string>
+    <string name="num_not_now">Not now</string>
+
+    <!-- "Message on…" sheet -->
+    <string name="msg_privacy_line">Opens the app directly, not through a browser. The messenger itself checks whether this number is registered.</string>
+    <string name="msg_copied_paste">Message copied. Paste it in the chat.</string>
+    <string name="msg_country_changed">Country: %1$s (changed)</string>
+    <string name="msg_only_sms">Chat apps need a full number with its country code. Only SMS is available for this number.</string>
+    <string name="msg_optional">Message (optional)</string>
+    <string name="msg_send_details">Send my details</string>
+    <string name="msg_edit_details">Edit my details</string>
+    <!-- "WhatsApp Business · long-press to change" -->
+    <string name="msg_long_press_change">%1$s · long-press to change</string>
+    <string name="msg_will_copy">Your message will be copied for pasting</string>
+    <string name="msg_more_actions_for">More %1$s actions</string>
+    <string name="msg_open_chat">Open chat</string>
+    <string name="msg_open_profile">Open profile</string>
+    <string name="msg_choose_whatsapp">Choose WhatsApp or WhatsApp Business</string>
+    <string name="msg_chat_or_profile">Open chat or profile</string>
+    <string name="msg_open_with">Open with</string>
+    <string name="msg_remember_whatsapp">Parley will remember your choice. Long-press WhatsApp to change it.</string>
+    <string name="msg_country_title">Country of this number</string>
+    <string name="msg_search_countries">Search countries or +code</string>
+    <string name="msg_my_details">My details</string>
+    <string name="msg_my_details_body">Used only to fill in “Send my details”. Stays on this phone.</string>
+    <string name="msg_your_name">Your name</string>
+    <string name="msg_your_number">Your number</string>
+    <!-- "Last messaged via Signal · 2 days ago"; the time span comes from Android. -->
+    <string name="msg_last_messaged">Last messaged via %1$s · %2$s</string>
+    <!-- "Send my details" message sent to the other person. -->
+    <string name="msg_details_name_number">Hi, this is %1$s. My number is %2$s.</string>
+    <string name="msg_details_name">Hi, this is %1$s.</string>
+    <string name="msg_details_number">Hi, my number is %1$s.</string>
+
+    <!-- Introduce myself -->
+    <string name="intro_progress">%1$d of %2$d</string>
+    <plurals name="intro_opened">
+        <item quantity="one">Opened %d chat</item>
+        <item quantity="other">Opened %d chats</item>
+    </plurals>
+    <plurals name="intro_skipped">
+        <item quantity="one">skipped %d</item>
+        <item quantity="other">skipped %d</item>
+    </plurals>
+    <plurals name="intro_not_reached">
+        <item quantity="one">%d not reached</item>
+        <item quantity="other">%d not reached</item>
+    </plurals>
+    <string name="intro_copied">Your details were copied. Paste them in the chat.</string>
+    <string name="intro_title">Introduce myself</string>
+    <string name="intro_empty">Nobody to introduce yourself to</string>
+    <string name="intro_empty_body">Select contacts and choose “Introduce myself…”, or add several numbers first.</string>
+    <string name="intro_explainer">Parley opens one chat at a time with your details filled in. You press Send in the messenger; when you come back, the next person is ready. Nothing is sent for you.</string>
+    <string name="intro_no_details">Your details aren\'t set up yet</string>
+    <string name="intro_the_message">The message</string>
+    <string name="intro_open_in">Open the chats in</string>
+    <string name="intro_no_apps">No chat apps found. Install or enable WhatsApp, Signal, Telegram or Viber.</string>
+    <string name="intro_filled_in">Your details are filled in</string>
+    <string name="intro_copied_for_pasting">Your details are copied for pasting</string>
+    <string name="intro_set_up_first">Set up your details first.</string>
+    <string name="intro_open_again">Open %1$s again</string>
+    <string name="intro_open_in_app">Open in %1$s</string>
+    <string name="intro_next">Next</string>
+    <string name="intro_skip">Skip</string>
+    <string name="intro_stop">Stop</string>
+    <string name="intro_change_app">Change app</string>
+
+    <!-- Messaged numbers record -->
+    <string name="rec_never">Never</string>
+    <plurals name="rec_after_days">
+        <item quantity="one">After %d day</item>
+        <item quantity="other">After %d days</item>
+    </plurals>
+    <string name="rec_keep_record">Keep a record of numbers you message</string>
+    <plurals name="rec_on_summary">
+        <item quantity="one">%d number. Shows “Last messaged via WhatsApp · 2 days ago” on a number\'s page. Encrypted, on this phone only; never private contacts;</item>
+        <item quantity="other">%d numbers. Shows “Last messaged via WhatsApp · 2 days ago” on a number\'s page. Encrypted, on this phone only; never private contacts;</item>
+    </plurals>
+    <plurals name="rec_forgotten_after">
+        <item quantity="one">forgotten after %d day.</item>
+        <item quantity="other">forgotten after %d days.</item>
+    </plurals>
+    <string name="rec_follows_retention">follows your call-history retention.</string>
+    <string name="rec_off_summary">Off: Parley doesn\'t note which numbers you open chats with.</string>
+    <string name="rec_see_delete">See, delete or forget them automatically</string>
+    <string name="rec_clear_all">Clear all</string>
+    <string name="rec_on_detail">Encrypted, on this phone only. Never private contacts. Used for “Last messaged via…” on a number\'s page.</string>
+    <string name="rec_off_detail">Off: nothing is noted. Turning it off also cleared the list.</string>
+    <string name="rec_forget_after">Forget messaged numbers after</string>
+    <plurals name="rec_retention_applies">
+        <item quantity="one">" · call-history retention (%d day) applies too; the shorter wins"</item>
+        <item quantity="other">" · call-history retention (%d days) applies too; the shorter wins"</item>
+    </plurals>
+    <string name="rec_empty">No messaged numbers</string>
+    <string name="rec_empty_body">Numbers you open a chat with from Parley (WhatsApp, Signal, Telegram, Viber, SMS) show up here.</string>
+    <plurals name="rec_clear_title">
+        <item quantity="one">Clear %d number?</item>
+        <item quantity="other">Clear all %d numbers?</item>
+    </plurals>
+    <string name="rec_clear_body">Only Parley\'s record goes; your chats in the messengers stay.</string>
+    <string name="rec_delete_number">Delete %1$s</string>
+
+    <!-- Add several numbers -->
+    <!-- Default name prefix: "Contact 1", "Contact 2"… -->
+    <string name="bulk_default_prefix">Contact</string>
+    <string name="bulk_none_found">No phone numbers found in this text</string>
+    <!-- Where a batch went: "Google (ana@example.com) · label Plumbers" -->
+    <string name="bulk_where_label">%1$s · label %2$s</string>
+    <string name="bulk_private_contacts">Private contacts</string>
+    <plurals name="bulk_where_temp">
+        <item quantity="one">Temporary for %d day</item>
+        <item quantity="other">Temporary for %d days</item>
+    </plurals>
+    <plurals name="bulk_where_temp_private">
+        <item quantity="one">Temporary for %d day, private</item>
+        <item quantity="other">Temporary for %d days, private</item>
+    </plurals>
+    <plurals name="bulk_saved">
+        <item quantity="one">Saved %d contact</item>
+        <item quantity="other">Saved %d contacts</item>
+    </plurals>
+    <string name="bulk_undo_batch">Undo this batch</string>
+    <string name="bulk_batch_undone">Batch undone</string>
+    <string name="bulk_title">Add several numbers</string>
+    <string name="bulk_saving">Saving…</string>
+    <string name="bulk_intro">Paste text with phone numbers: a list, a message, a spreadsheet column. You\'ll see each number before anything is saved.</string>
+    <string name="bulk_numbers_or_text">Numbers or text</string>
+    <string name="bulk_find_numbers">Find numbers</string>
+    <string name="bulk_recent_batches">Recent batches</string>
+    <string name="bulk_delete_batch">Delete this batch</string>
+    <string name="bulk_names">Names</string>
+    <string name="bulk_name_pattern">Name pattern</string>
+    <!-- {prefix}, {n} and {number} are placeholders the user types: keep them as they are. -->
+    <string name="bulk_pattern_hint">Use {prefix}, {n} and {number}</string>
+    <string name="bulk_first">First: %1$s</string>
+    <string name="bulk_back_to_text">Back to text</string>
+    <plurals name="bulk_save_n">
+        <item quantity="one">Save %d number</item>
+        <item quantity="other">Save %d numbers</item>
+    </plurals>
+    <string name="bulk_delete_title">Delete this batch?</string>
+    <plurals name="bulk_delete_body">
+        <item quantity="one">Deletes the %1$d contact this batch created (%2$s), even if you edited it since. Contacts in your address book can be restored from Recently deleted for 30 days; private ones can\'t.</item>
+        <item quantity="other">Deletes the %1$d contacts this batch created (%2$s), even if you edited them since. Contacts in your address book can be restored from Recently deleted for 30 days; private ones can\'t.</item>
+    </plurals>
+    <string name="bulk_batch_deleted">Batch deleted</string>
+    <string name="bulk_status_new">New</string>
+    <string name="bulk_status_contact">Already a contact</string>
+    <string name="bulk_status_private">Already a private contact</string>
+    <string name="bulk_status_duplicate">Repeated in this list</string>
+    <string name="bulk_status_invalid">Not a valid number</string>
+    <string name="bulk_pattern_numbered">Prefix and a number</string>
+    <string name="bulk_pattern_with_number">Prefix and the phone number</string>
+    <!-- One part of "3 new · 1 already a contact" -->
+    <string name="bulk_summary_item">%1$d %2$s</string>
+    <string name="bulk_already_contact">Already a contact: %1$s</string>
+    <string name="bulk_already_private">Already a private contact: %1$s</string>
+    <string name="bulk_contacts_sub">In an account, optionally in a label</string>
+    <string name="bulk_no_account">No account to save to</string>
+    <string name="bulk_account">Account</string>
+    <string name="bulk_choose_account">Choose the account</string>
+    <string name="bulk_label_optional">Label (optional)</string>
+    <string name="bulk_label_hint">An existing label, or a new one</string>
+    <string name="bulk_choose_label">Choose a label</string>
+    <string name="bulk_private_sub">Encrypted in Parley, invisible to other apps (WhatsApp included)</string>
+    <string name="bulk_temporary_sub">They delete themselves, with their call history</string>
+    <plurals name="bulk_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+    <string name="bulk_private">Private</string>
+    <string name="bulk_private_on">Other apps can\'t see them</string>
+    <string name="bulk_private_off">Saved on this phone, visible to apps that read contacts</string>
+    <string name="bulk_saved_of">Saved %1$d of %2$d · %3$s</string>
+    <string name="bulk_and_more">…and %1$d more</string>
+    <string name="bulk_remembered">This batch is remembered for 30 days: you can delete it from “Recent batches” on this screen.</string>
+    <string name="bulk_introduce_sub">Open each chat with your details filled in; you press Send</string>
+    <string name="bulk_add_more">Add more</string>
 </resources>

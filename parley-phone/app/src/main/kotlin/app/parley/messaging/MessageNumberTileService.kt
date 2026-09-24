@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import app.parley.R
 
 /**
  * Quick Settings tile (M8): "Message a number". Opens the number sheet with an empty field, a Paste chip (the
@@ -23,8 +24,8 @@ class MessageNumberTileService : TileService() {
         super.onStartListening()
         val tile = qsTile ?: return
         tile.state = Tile.STATE_INACTIVE
-        tile.label = "Message a number"
-        tile.contentDescription = "Message a number without saving it"
+        tile.label = getString(R.string.shortcut_message_number_short)
+        tile.contentDescription = getString(R.string.shortcut_message_number_long)
         tile.updateTile()
     }
 

@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
@@ -33,6 +34,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import app.parley.R
 import app.parley.common.EventDate
 import app.parley.ui.PhotoCache
 import java.time.LocalDate
@@ -108,7 +110,7 @@ fun PhotoViewer(uri: String, onDismiss: () -> Unit) {
         ) {
             image?.let {
                 Image(
-                    it, "Contact photo", contentScale = ContentScale.Fit,
+                    it, stringResource(R.string.detail_contact_photo), contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize().transformable(state).graphicsLayer(scaleX = scale, scaleY = scale, translationX = offset.x, translationY = offset.y),
                 )
             }
