@@ -22,8 +22,8 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * I7: an opt-in contacts Directory (`android.content.ContactDirectory`) so a phone app you approve (a car's or a
- * work-profile dialer, Google Phone…) can show a private contact's name when they call.
+ * I7: an opt-in contacts Directory (`android.content.ContactDirectory`) so a phone app you approve (Google Phone, also
+ * when it runs in the car) can show a private contact's name when they call.
  *
  * How Android uses it (verified against AOSP ContactsProvider2 / ContactDirectoryManager): the Contacts Provider
  * finds enabled providers carrying the meta-data, asks `content://<authority>/directories` once (with its own
@@ -38,8 +38,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  * logged without the number, nothing in discreet mode, and no other query is ever answered: no lists, no filters,
  * no photos, no lookup by key.
  *
- * Limits: only apps that query directories see the name (AOSP's dialer queries only local and work-profile
- * contacts); a work-profile dialer reaches it only when the work profile's policy allows cross-profile caller ID.
+ * Limits: only apps that look callers up in directories see the name (Google Phone does; others may look only in local
+ * contacts). A phone app inside a work profile can't reach it: Android lets the personal side look into the work profile, not
+ * the other way round.
  */
 class PrivateDirectoryProvider : ContentProvider() {
     override fun onCreate(): Boolean = true

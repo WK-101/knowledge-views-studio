@@ -138,7 +138,7 @@ object SettingsCatalog {
         e("privacy_dashboard", "Privacy dashboard", "What Parley can access and why", S, "permissions", "data", "internet", "tracking"),
         e("who_can_see", "Who can see your contacts", "Which apps can read your contacts", S, "apps", "access", "contact scopes", "grapheneos"),
         e("private_names", "Let apps show private names", "Approved apps can look up one private name at a time", S, "caller id", "lookup", "private names"),
-        e("private_directory", "Private names in other phone apps", "Off by default. An approved phone app (car, work profile) can show who is calling", S,
+        e("private_directory", "Private names in other phone apps", "Off by default. A phone app you approve (for example Google Phone, also in the car) can show who is calling", S,
             "directory", "car", "work profile", "android auto", "caller id", "dialer", "private names"),
         e("app_permissions", "App permissions (system)", "Android's settings for Parley", S, "permissions", "system", "app info"),
 

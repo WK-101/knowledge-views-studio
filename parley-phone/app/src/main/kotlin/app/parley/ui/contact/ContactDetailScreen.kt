@@ -286,6 +286,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                 scope.launchVault(context as? androidx.fragment.app.FragmentActivity, { e -> vm.toast("Couldn't move: ${e.message}") }) {
                                     // I6: the note for calls and the messaging choice go with them (encrypted).
                                     val id = vm.moveToVault(contactId, d.copy(pinnedNote = meta?.pinnedNote.orEmpty(), messengerPrefs = prefs.encode().orEmpty()))
+                                    // Now kept encrypted with them: no plaintext copy stays in Parley's metadata.
+                                    if (meta != null) vm.c.meta.deleteMeta(d.lookupKey)
                                     vm.toast("Moved to your private contacts")
                                     back()
                                     open(Routes.vault(id))

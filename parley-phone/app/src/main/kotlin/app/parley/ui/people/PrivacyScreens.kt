@@ -248,9 +248,9 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
                 ) { on -> app.parley.privatenames.PrivateDirectoryProvider.setEnabled(context, vm.c, on) }
                 Text(
                     "When this is on, Android lists Parley as a contacts directory. A phone app that looks callers up in directories " +
-                        "(for example a car's or a work-profile phone app) can then ask for the name of one number, and only after you allow " +
+                        "(for example Google Phone, also when it runs in your car) can then ask for the name of one number, and only after you allow " +
                         "that app. It never gets a list, a photo or a contact to open, and nothing is answered in discreet mode. " +
-                        "Not every phone app asks directories: Android's own phone app, for one, only looks in your contacts.",
+                        "Not every phone app asks directories: Google Phone does, others may only look in your contacts.",
                     Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
                 )
             }

@@ -53,6 +53,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -87,8 +88,11 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
     var deleting by remember { mutableStateOf<String?>(null) }
     var menu by remember { mutableStateOf(false) }
 
-    Scaffold(topBar = {
+    // U7: scroll-linked top-bar tint.
+    val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
+    Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(
+            scrollBehavior = barTint,
             title = { Text(if (merging) "${picked.size} selected" else "Labels") },
             navigationIcon = {
                 if (merging) IconButton({ merging = false; picked = emptySet() }) { Icon(Icons.Rounded.Close, "Stop merging") }
@@ -314,8 +318,11 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
             .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, tone?.let(Uri::parse)),
     )
 
-    Scaffold(topBar = {
+    // U7: scroll-linked top-bar tint.
+    val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
+    Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(
+            scrollBehavior = barTint,
             title = { Text(current) },
             navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
             actions = {
