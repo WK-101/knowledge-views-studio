@@ -39,13 +39,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.cairn.reader.data.db.SourceEntity
+import com.cairn.reader.ui.model.SourceUi
 
 /** Per-feed settings: which folder it lives in, whether to fetch full text on sync,
  *  notifications, and removing the feed. */
 @Composable
 fun FeedSettingsSheet(
-    source: SourceEntity,
+    source: SourceUi,
     folders: List<String>,
     onFolder: (String?) -> Unit,
     onFullText: (Boolean) -> Unit,

@@ -2,7 +2,8 @@ package com.cairn.reader.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.cairn.reader.data.db.SourceEntity
+import com.cairn.reader.ui.model.SourceUi
+import com.cairn.reader.ui.model.toUi
 import com.cairn.reader.data.prefs.AppPreferences
 import com.cairn.reader.data.prefs.PreferencesRepository
 import com.cairn.reader.data.prefs.ReaderFont
@@ -45,8 +46,9 @@ class SettingsViewModel @Inject constructor(
     itemRepository: com.cairn.reader.data.repo.ItemRepository,
 ) : ViewModel() {
 
-    val sources: StateFlow<List<SourceEntity>> =
-        sourceRepository.sources().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val sources: StateFlow<List<SourceUi>> =
+        sourceRepository.sources().map { list -> list.map { it.toUi() } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val highlightCount: StateFlow<Int> =
         highlightRepository.observeCount().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)

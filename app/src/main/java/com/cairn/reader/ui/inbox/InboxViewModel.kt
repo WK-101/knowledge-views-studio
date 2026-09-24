@@ -16,6 +16,7 @@ import com.cairn.reader.data.prefs.SwipeConfig
 import com.cairn.reader.data.prefs.swipeConfig
 import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.data.repo.ItemRepository
+import com.cairn.reader.ui.model.toUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -82,8 +83,8 @@ class InboxViewModel @Inject constructor(
     val folders: StateFlow<List<String>> =
         sourceRepository.folders().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    fun loadSource(id: String, onLoaded: (com.cairn.reader.data.db.SourceEntity?) -> Unit) =
-        viewModelScope.launch { onLoaded(sourceRepository.get(id)) }
+    fun loadSource(id: String, onLoaded: (com.cairn.reader.ui.model.SourceUi?) -> Unit) =
+        viewModelScope.launch { onLoaded(sourceRepository.get(id)?.toUi()) }
 
     fun renameFeed(id: String, title: String) = viewModelScope.launch { sourceRepository.setTitle(id, title) }
     fun setFeedFolder(id: String, folder: String?) = viewModelScope.launch { sourceRepository.setFolder(id, folder) }

@@ -67,7 +67,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cairn.reader.R
-import com.cairn.reader.data.db.SourceEntity
+import com.cairn.reader.ui.model.SourceUi
 import com.cairn.reader.data.prefs.AppPreferences
 import com.cairn.reader.data.prefs.ReaderFont
 import com.cairn.reader.data.prefs.ReaderTheme
@@ -208,7 +208,7 @@ internal fun FeedDefaultsSection(prefs: AppPreferences, viewModel: SettingsViewM
  * bars advance as the crawler stores each article.
  */
 @Composable
-internal fun SiteArchivesSection(sources: List<SourceEntity>, viewModel: SettingsViewModel) {
+internal fun SiteArchivesSection(sources: List<SourceUi>, viewModel: SettingsViewModel) {
     val scheme = MaterialTheme.colorScheme
     val active = sources.filter { it.backfillState == "PENDING" || it.backfillState == "RUNNING" }
     val done = sources.filter { it.backfillState == "DONE" }

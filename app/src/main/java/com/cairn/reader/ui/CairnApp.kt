@@ -166,7 +166,7 @@ fun CairnApp(
     onRestoreConsumed: () -> Unit = {},
 ) {
     var showAddFeed by remember { mutableStateOf(false) }
-    var manageFeed by remember { mutableStateOf<com.cairn.reader.data.db.SourceEntity?>(null) }
+    var manageFeed by remember { mutableStateOf<com.cairn.reader.ui.model.SourceUi?>(null) }
     val appViewModel: AppViewModel = hiltViewModel()
     val appPrefs by appViewModel.preferences.collectAsStateWithLifecycle()
     // The bar shows the user's chosen subset, in a fixed canonical order; never empty. Capped at

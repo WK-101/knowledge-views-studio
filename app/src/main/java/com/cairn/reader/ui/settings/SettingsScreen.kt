@@ -61,7 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cairn.reader.R
-import com.cairn.reader.data.db.SourceEntity
+import com.cairn.reader.ui.model.SourceUi
 import com.cairn.reader.ui.components.CairnSearchField
 import com.cairn.reader.ui.components.FeedSettingsSheet
 
@@ -315,7 +315,7 @@ private fun SettingsDetail(
     val folders by viewModel.folders.collectAsStateWithLifecycle()
     val highlightCount by viewModel.highlightCount.collectAsStateWithLifecycle()
     val ruleCount by viewModel.ruleCount.collectAsStateWithLifecycle()
-    var feedSettings by remember { mutableStateOf<SourceEntity?>(null) }
+    var feedSettings by remember { mutableStateOf<SourceUi?>(null) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -438,9 +438,9 @@ private fun SettingsDetail(
 /** The subscribed-feeds list with a "Sync now" action, in the shared grouped-card style. */
 @Composable
 private fun SourcesGroup(
-    sources: List<SourceEntity>,
+    sources: List<SourceUi>,
     onSyncNow: () -> Unit,
-    onOpenFeed: (SourceEntity) -> Unit,
+    onOpenFeed: (SourceUi) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     SettingsGroup("Sources · ${sources.size}") {

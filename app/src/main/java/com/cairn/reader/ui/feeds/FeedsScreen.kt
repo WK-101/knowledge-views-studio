@@ -81,7 +81,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.cairn.reader.data.db.SourceEntity
+import com.cairn.reader.ui.model.SourceUi
 import com.cairn.reader.ui.components.FeedSettingsSheet
 import com.cairn.reader.ui.util.formatAgo
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -109,7 +109,7 @@ fun FeedsScreen(
     val snackbar = remember { SnackbarHostState() }
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    var editing by remember { mutableStateOf<SourceEntity?>(null) }
+    var editing by remember { mutableStateOf<SourceUi?>(null) }
     var showAdd by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
     var sortMenu by remember { mutableStateOf(false) }
@@ -374,7 +374,7 @@ private fun FolderHeader(folder: String, count: Int, collapsed: Boolean, onToggl
 
 @Composable
 private fun FeedManageRow(
-    source: SourceEntity,
+    source: SourceUi,
     unread: Int,
     selected: Boolean,
     selectionActive: Boolean,

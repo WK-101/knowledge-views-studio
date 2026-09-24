@@ -5,7 +5,8 @@ import com.cairn.reader.util.MultiSelectStore
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.cairn.reader.data.db.SourceEntity
+import com.cairn.reader.ui.model.SourceUi
+import com.cairn.reader.ui.model.toUi
 import com.cairn.reader.data.repo.FeedRepository
 import com.cairn.reader.data.repo.ItemRepository
 import com.cairn.reader.data.repo.SourceRepository
@@ -39,8 +40,9 @@ class FeedsViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
 ) : ViewModel() {
 
-    private val sourcesRaw: StateFlow<List<SourceEntity>> =
-        sourceRepository.sources().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val sourcesRaw: StateFlow<List<SourceUi>> =
+        sourceRepository.sources().map { list -> list.map { it.toUi() } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val folders: StateFlow<List<String>> =
         sourceRepository.folders().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -75,10 +77,10 @@ class FeedsViewModel @Inject constructor(
     fun setFolderFilter(folder: String?) { _folderFilter.value = folder }
 
     /** Unexposed raw list (for total count in the title). */
-    val sources: StateFlow<List<SourceEntity>> = sourcesRaw
+    val sources: StateFlow<List<SourceUi>> = sourcesRaw
 
     /** The list actually shown: filtered by query / failing / folder, then sorted. */
-    val displayed: StateFlow<List<SourceEntity>> =
+    val displayed: StateFlow<List<SourceUi>> =
         combine(sourcesRaw, unread, _sort, _query, combine(_failingOnly, _folderFilter) { f, fd -> f to fd }) { list, unread, sort, q, (failingOnly, folder) ->
             val term = q.trim()
             list.asSequence()
