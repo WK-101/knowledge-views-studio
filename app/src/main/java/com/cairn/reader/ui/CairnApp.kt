@@ -162,6 +162,8 @@ fun CairnApp(
     onTeach: (String) -> Unit = {},
     openBrief: Boolean = false,
     onBriefConsumed: () -> Unit = {},
+    openRestore: Boolean = false,
+    onRestoreConsumed: () -> Unit = {},
 ) {
     var showAddFeed by remember { mutableStateOf(false) }
     var manageFeed by remember { mutableStateOf<com.cairn.reader.data.db.SourceEntity?>(null) }
@@ -217,6 +219,14 @@ fun CairnApp(
     // A daily-brief notification tap opens the Brief pane once.
     androidx.compose.runtime.LaunchedEffect(openBrief) {
         if (openBrief) { currentName = Destination.Brief.name; onBriefConsumed() }
+    }
+    // Onboarding's "Restore a backup or import feeds" lands the user on Settings → Backup & restore.
+    androidx.compose.runtime.LaunchedEffect(openRestore) {
+        if (openRestore) {
+            pendingSettingsCategory = com.cairn.reader.ui.settings.SettingsCategory.BACKUP.name
+            currentName = Destination.Settings.name
+            onRestoreConsumed()
+        }
     }
     val openDrawer: () -> Unit = { scope.launch { drawerState.open() } }
     // System Back from any secondary pane (Discover, Feeds, Settings, …) returns to the Inbox

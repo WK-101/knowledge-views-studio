@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -70,8 +71,15 @@ fun CairnRoot(
     val accent = runCatching { com.cairn.reader.ui.theme.AppAccent.valueOf(prefs.appAccent) }
         .getOrDefault(com.cairn.reader.ui.theme.AppAccent.DEFAULT)
     CairnTheme(darkTheme = dark, dynamicColor = prefs.dynamicColor, accent = accent, trueBlack = prefs.trueBlack, seedColor = prefs.appSeedColor) {
+        // A one-shot "open Backup & restore" signal set from onboarding, so someone arriving on a new
+        // device lands straight on restore/import instead of an empty library. Survives the recompose
+        // that markOnboardingSeen triggers because it lives on CairnRoot, which stays composed.
+        var openRestore by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
         if (!prefs.seenOnboarding) {
-            OnboardingScreen(onGetStarted = { appViewModel.markOnboardingSeen() })
+            OnboardingScreen(
+                onGetStarted = { appViewModel.markOnboardingSeen() },
+                onRestore = { openRestore = true; appViewModel.markOnboardingSeen() },
+            )
             return@CairnTheme
         }
         val navController = rememberNavController()
@@ -118,6 +126,8 @@ fun CairnRoot(
                     onTeach = { url -> navController.navigate("picker/${WebRoute.encode(url)}") },
                     openBrief = openBrief,
                     onBriefConsumed = onBriefConsumed,
+                    openRestore = openRestore,
+                    onRestoreConsumed = { openRestore = false },
                 )
             }
             composable(

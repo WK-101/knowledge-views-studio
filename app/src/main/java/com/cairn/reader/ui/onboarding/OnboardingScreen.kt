@@ -35,9 +35,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.cairn.reader.ui.theme.ReadingSerif
 
-/** First-run welcome: the three things Cairn is, and one button to begin. */
+/** First-run welcome: the three things Cairn is, one button to begin, and — for someone arriving on
+ *  a new device — a way to restore a backup or import feeds before they start fresh. */
 @Composable
-fun OnboardingScreen(onGetStarted: () -> Unit) {
+fun OnboardingScreen(onGetStarted: () -> Unit, onRestore: () -> Unit = onGetStarted) {
     val scheme = MaterialTheme.colorScheme
     Column(
         modifier = Modifier
@@ -87,7 +88,11 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
         ) {
             Text(stringResource(R.string.get_started), style = MaterialTheme.typography.titleMedium)
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.material3.TextButton(onClick = onRestore, modifier = Modifier.fillMaxWidth()) {
+            Text("Restore a backup or import feeds", style = MaterialTheme.typography.labelLarge)
+        }
+        Spacer(Modifier.height(4.dp))
         Text(stringResource(R.string.we_ve_added_a_few_sample),
             style = MaterialTheme.typography.labelMedium,
             color = scheme.onSurfaceVariant,
