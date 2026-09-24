@@ -1,0 +1,1632 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Shared actions (data area: history, people, backup, vault and friends) -->
+    <string name="dc_cancel">إلغاء</string>
+    <string name="dc_back">رجوع</string>
+    <string name="dc_close">إغلاق</string>
+    <string name="dc_ok">حسناً</string>
+    <string name="dc_got_it">فهمت</string>
+    <string name="dc_restore">استعادة</string>
+    <string name="dc_delete">حذف</string>
+    <string name="dc_save">حفظ</string>
+    <string name="dc_done">تم</string>
+    <string name="dc_next">التالي</string>
+    <string name="dc_off">إيقاف</string>
+    <string name="dc_on">تشغيل</string>
+
+    <!-- Call history: archive notices -->
+    <string name="hist_archive_reset_title">أُعيد تعيين أرشيف مكالمات Parley</string>
+    <string name="hist_archive_reset_text">لم يعد مفتاح تشفيره متاحاً على هذا الهاتف (قد يحدث هذا بعد تحديث للنظام أو تغيير في الأمان)، لذا بدأ أرشيف جديد. وُضع الأرشيف القديم جانباً ولم يُحذف.</string>
+    <string name="hist_archive_intro_title">يحتفظ Parley بنسخته الخاصة من مكالماتك</string>
+    <string name="hist_archive_intro_text">قد يحذف Android المكالمات القديمة، لذا يحتفظ Parley بنسخة مشفّرة على هذا الهاتف. تبقى المكالمات التي تمسحها في تطبيق آخر في Parley؛ احذفها هنا أو أوقف الأرشيف من إعداداته.</string>
+    <string name="hist_archive_settings">إعدادات الأرشيف</string>
+
+    <!-- Call history settings -->
+    <string name="hist_archive_on_summary">مفعّل: يحتفظ Parley بنسخته المشفّرة لأن Android قد يحذف المكالمات القديمة</string>
+    <string name="hist_archive_off_summary">متوقف: فقط ما يحتفظ به Android</string>
+    <string name="hist_archive_off_title">إيقاف أرشيف سجل المكالمات؟</string>
+    <string name="hist_archive_off_text">سيحذف Parley نسخته المشفّرة من مكالماتك. لن يتغير سجل مكالمات هاتفك نفسه، لكن المكالمات التي حذفها Android بالفعل ستضيع نهائياً.</string>
+    <string name="hist_archive_off_confirm">إيقاف وحذف</string>
+    <string name="hist_settings_title">سجل المكالمات</string>
+    <string name="hist_keep_full">الاحتفاظ بسجل المكالمات كاملاً</string>
+    <plurals name="hist_archive_count" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">%1$d مكالمة في أرشيف Parley</item>
+        <item quantity="one">مكالمة واحدة في أرشيف Parley</item>
+        <item quantity="two">%1$d مكالمة في أرشيف Parley</item>
+        <item quantity="few">%1$d مكالمة في أرشيف Parley</item>
+        <item quantity="many">%1$d مكالمة في أرشيف Parley</item>
+        <item quantity="other">%1$d مكالمة في أرشيف Parley</item>
+    </plurals>
+    <string name="hist_archive_explain">تحتفظ بعض الهواتف بأحدث المكالمات فقط. عند تفعيل هذا الخيار ينسخ Parley كل مكالمة إلى قاعدة بياناته على هذا الهاتف، مشفّرة بمفتاح محفوظ في مخزن المفاتيح الآمن في Android، ويعرضها في الأحدث. لا شيء يغادر الهاتف. المكالمات التي تحذفها في Parley تُزال من النسخة أيضاً، أما المحذوفة في تطبيقات أخرى فتبقى فيها.</string>
+    <plurals name="hist_retention_days" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">يحتفظ إعدادك بسجل المكالمات لمدة %1$d يوماً؛ تُحذف المكالمات الأقدم من كليهما، إلا الأرقام التي تحتفظ بها للأبد.</item>
+        <item quantity="one">يحتفظ إعدادك بسجل المكالمات ليوم واحد؛ تُحذف المكالمات الأقدم من كليهما، إلا الأرقام التي تحتفظ بها للأبد.</item>
+        <item quantity="two">يحتفظ إعدادك بسجل المكالمات لمدة %1$d يوماً؛ تُحذف المكالمات الأقدم من كليهما، إلا الأرقام التي تحتفظ بها للأبد.</item>
+        <item quantity="few">يحتفظ إعدادك بسجل المكالمات لمدة %1$d يوماً؛ تُحذف المكالمات الأقدم من كليهما، إلا الأرقام التي تحتفظ بها للأبد.</item>
+        <item quantity="many">يحتفظ إعدادك بسجل المكالمات لمدة %1$d يوماً؛ تُحذف المكالمات الأقدم من كليهما، إلا الأرقام التي تحتفظ بها للأبد.</item>
+        <item quantity="other">يحتفظ إعدادك بسجل المكالمات لمدة %1$d يوماً؛ تُحذف المكالمات الأقدم من كليهما، إلا الأرقام التي تحتفظ بها للأبد.</item>
+    </plurals>
+    <string name="hist_retention_forever">يحتفظ إعدادك بسجل المكالمات للأبد.</string>
+    <string name="hist_kept_forever">محفوظة للأبد</string>
+    <string name="hist_kept_forever_empty">افتح جهة اتصال أو سجل رقم وفعّل «الاحتفاظ بسجل المكالمات هذا للأبد» للاحتفاظ به مهما كان إعداد المدة.</string>
+    <string name="hist_stop_keeping">إيقاف الاحتفاظ للأبد</string>
+    <string name="hist_recently_deleted">المكالمات المحذوفة مؤخراً</string>
+    <string name="hist_recently_deleted_empty">لم يُحذف شيء خلال آخر 30 يوماً.</string>
+    <plurals name="hist_calls_deleted" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">حُذفت %1$d مكالمة</item>
+        <item quantity="one">حُذفت مكالمة واحدة</item>
+        <item quantity="two">حُذفت %1$d مكالمة</item>
+        <item quantity="few">حُذفت %1$d مكالمة</item>
+        <item quantity="many">حُذفت %1$d مكالمة</item>
+        <item quantity="other">حُذفت %1$d مكالمة</item>
+    </plurals>
+    <plurals name="hist_restored_calls" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">استُعيدت %1$d مكالمة</item>
+        <item quantity="one">استُعيدت مكالمة واحدة</item>
+        <item quantity="two">استُعيدت %1$d مكالمة</item>
+        <item quantity="few">استُعيدت %1$d مكالمة</item>
+        <item quantity="many">استُعيدت %1$d مكالمة</item>
+        <item quantity="other">استُعيدت %1$d مكالمة</item>
+    </plurals>
+    <string name="hist_restore_failed_default">تعذّرت الاستعادة. اجعل Parley تطبيق الهاتف الافتراضي أولاً.</string>
+    <string name="hist_export_import">التصدير والاستيراد</string>
+    <string name="hist_csv_bom">CSV متوافق مع Excel</string>
+    <string name="hist_csv_bom_summary">يضيف علامة ترتيب البايت لتظهر الأحرف المشكولة بشكل صحيح في Excel</string>
+    <string name="hist_import_csv">استيراد سجل المكالمات من CSV</string>
+    <string name="hist_import_csv_summary">من Parley أو Logger أو جدول بيانات</string>
+    <string name="hist_export_hint">للتصدير افتح الأحدث › ⋮ › تصدير، أو سجل رقم ما.</string>
+    <string name="dc_joined_dot">%1$s · %2$s</string>
+    <string name="dc_list_separator">"، "</string>
+
+    <!-- Call history: enums from core -->
+    <string name="hist_answers_morning">يرد عادة قبل الظهر</string>
+    <string name="hist_answers_afternoon">يرد عادة بين الظهر والسادسة مساءً</string>
+    <string name="hist_answers_evening">يرد عادة بعد السادسة مساءً</string>
+    <string name="hist_period_any">أي وقت</string>
+    <string name="hist_period_today">اليوم</string>
+    <string name="hist_period_7_days">آخر 7 أيام</string>
+    <string name="hist_period_30_days">آخر 30 يوماً</string>
+    <string name="hist_period_this_month">هذا الشهر</string>
+    <string name="hist_period_90_days">آخر 90 يوماً</string>
+    <string name="hist_period_this_year">هذا العام</string>
+    <string name="hist_type_incoming">واردة</string>
+    <string name="hist_type_outgoing">صادرة</string>
+    <string name="hist_type_missed">فائتة</string>
+    <string name="hist_type_rejected">مرفوضة</string>
+    <string name="hist_type_blocked">محظورة</string>
+    <string name="hist_type_voicemail">بريد صوتي</string>
+    <string name="hist_range_all">كل المكالمات</string>
+    <string name="hist_range_year">العام الماضي</string>
+    <string name="hist_range_month">الشهر الماضي</string>
+    <string name="hist_range_week">الأسبوع الماضي</string>
+    <string name="hist_range_day">آخر 24 ساعة</string>
+    <string name="hist_range_since_date">منذ تاريخ…</string>
+    <string name="hist_increment_second">بالثانية</string>
+    <string name="hist_increment_half_minute">كل 30 ثانية</string>
+    <string name="hist_increment_minute">بالدقيقة</string>
+    <string name="hist_category_mobile">أرقام الجوال</string>
+    <string name="hist_category_landline">الخطوط الأرضية</string>
+    <string name="hist_category_mobile_or_landline">جوال أو أرضي</string>
+    <string name="hist_category_international">دولية</string>
+    <string name="hist_category_toll_free">مجانية</string>
+    <string name="hist_category_other">أخرى (مميزة، تكلفة مشتركة، VoIP، أرقام قصيرة)</string>
+    <string name="hist_source_parley">تصدير Parley</string>
+    <string name="hist_source_logger">تصدير Logger</string>
+    <string name="hist_source_generic">CSV آخر</string>
+    <string name="hist_problem_empty_file">الملف فارغ</string>
+    <string name="hist_problem_need_columns">اختر الأعمدة التي تحتوي على الرقم والنوع والتاريخ</string>
+    <string name="hist_problem_unreadable_row">صف غير مقروء</string>
+    <string name="hist_problem_unknown_type">نوع مكالمة غير معروف «%1$s»</string>
+    <string name="hist_problem_unreadable_date">تاريخ غير مقروء «%1$s»</string>
+    <string name="hist_problem_unreadable_duration">مدة غير مقروءة «%1$s»</string>
+    <string name="hist_problem_not_a_number">ليس رقم هاتف «%1$s»</string>
+    <string name="hist_plan_used">استُخدمت %1$d من %2$d دقيقة</string>
+    <string name="hist_plan_last_day">اليوم الأخير</string>
+    <plurals name="hist_plan_days_left" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">بقي %1$d يوماً</item>
+        <item quantity="one">بقي يوم واحد</item>
+        <item quantity="two">بقي يومان</item>
+        <item quantity="few">بقيت %1$d أيام</item>
+        <item quantity="many">بقي %1$d يوماً</item>
+        <item quantity="other">بقي %1$d يوماً</item>
+    </plurals>
+    <string name="hist_minutes_short">%1$d د</string>
+    <string name="hist_seconds_short">%1$d ث</string>
+    <string name="hist_duration_between">%1$s–%2$s</string>
+    <string name="hist_duration_at_least">≥ %1$s</string>
+    <string name="hist_duration_at_most">≤ %1$s</string>
+    <string name="hist_all_calls">كل المكالمات</string>
+
+    <!-- Call insights (contact detail, number history) -->
+    <string name="hist_calls_section">المكالمات</string>
+    <string name="hist_last_call">آخر مكالمة %1$s</string>
+    <plurals name="hist_insight_totals">
+        <item quantity="zero">%1$d مكالمة · تحدثتما %2$s (%3$s صادرة، %4$s واردة) · نحو %5$s شهرياً</item>
+        <item quantity="one">%1$d مكالمة · تحدثتما %2$s (%3$s صادرة، %4$s واردة) · نحو %5$s شهرياً</item>
+        <item quantity="two">%1$d مكالمة · تحدثتما %2$s (%3$s صادرة، %4$s واردة) · نحو %5$s شهرياً</item>
+        <item quantity="few">%1$d مكالمة · تحدثتما %2$s (%3$s صادرة، %4$s واردة) · نحو %5$s شهرياً</item>
+        <item quantity="many">%1$d مكالمة · تحدثتما %2$s (%3$s صادرة، %4$s واردة) · نحو %5$s شهرياً</item>
+        <item quantity="other">%1$d مكالمة · تحدثتما %2$s (%3$s صادرة، %4$s واردة) · نحو %5$s شهرياً</item>
+    </plurals>
+    <string name="hist_trend_up">مكالمات أكثر مؤخراً</string>
+    <string name="hist_trend_down">مكالمات أقل مؤخراً</string>
+    <string name="hist_trend_steady">بنفس الوتيرة تقريباً</string>
+    <plurals name="hist_trend_detail">
+        <item quantity="zero">%1$d مكالمة في آخر 90 يوماً، و%2$d في الـ90 يوماً السابقة</item>
+        <item quantity="one">%1$d مكالمة في آخر 90 يوماً، و%2$d في الـ90 يوماً السابقة</item>
+        <item quantity="two">%1$d مكالمة في آخر 90 يوماً، و%2$d في الـ90 يوماً السابقة</item>
+        <item quantity="few">%1$d مكالمة في آخر 90 يوماً، و%2$d في الـ90 يوماً السابقة</item>
+        <item quantity="many">%1$d مكالمة في آخر 90 يوماً، و%2$d في الـ90 يوماً السابقة</item>
+        <item quantity="other">%1$d مكالمة في آخر 90 يوماً، و%2$d في الـ90 يوماً السابقة</item>
+    </plurals>
+    <plurals name="hist_rhythm" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">تتحدثان عادة كل %1$d يوم</item>
+        <item quantity="one">تتحدثان عادة كل يوم</item>
+        <item quantity="two">تتحدثان عادة كل %1$d يوم</item>
+        <item quantity="few">تتحدثان عادة كل %1$d يوم</item>
+        <item quantity="many">تتحدثان عادة كل %1$d يوم</item>
+        <item quantity="other">تتحدثان عادة كل %1$d يوم</item>
+    </plurals>
+    <string name="hist_last_talked_today">آخر حديث اليوم</string>
+    <plurals name="hist_last_talked_days" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">آخر حديث منذ %1$d يوماً</item>
+        <item quantity="one">آخر حديث منذ يوم واحد</item>
+        <item quantity="two">آخر حديث منذ يومين</item>
+        <item quantity="few">آخر حديث منذ %1$d أيام</item>
+        <item quantity="many">آخر حديث منذ %1$d يوماً</item>
+        <item quantity="other">آخر حديث منذ %1$d يوماً</item>
+    </plurals>
+    <string name="hist_answer_window_hint">بحسب عدد مرات الرد على مكالماتك</string>
+    <string name="hist_when_you_talk">متى تتحدثان</string>
+    <string name="hist_keep_forever">الاحتفاظ بسجل المكالمات هذا للأبد</string>
+    <string name="hist_keep_forever_summary">يحتفظ أرشيف Parley بهذه المكالمات حتى عند حذف السجل الأقدم من مدة الاحتفاظ</string>
+    <string name="hist_heatmap_peak">معظم المكالمات يوم %1$s نحو %2$s</string>
+    <string name="hist_no_calls">لا مكالمات</string>
+    <plurals name="hist_rhythm_if_not_talked" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">إذا لم تتحدثا منذ %1$d يوم</item>
+        <item quantity="one">إذا لم تتحدثا منذ يوم واحد</item>
+        <item quantity="two">إذا لم تتحدثا منذ %1$d يوم</item>
+        <item quantity="few">إذا لم تتحدثا منذ %1$d يوم</item>
+        <item quantity="many">إذا لم تتحدثا منذ %1$d يوم</item>
+        <item quantity="other">إذا لم تتحدثا منذ %1$d يوم</item>
+    </plurals>
+    <plurals name="hist_rhythm_suggested" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">مقترح: تتحدثان عادة كل %1$d يوم</item>
+        <item quantity="one">مقترح: تتحدثان عادة كل يوم</item>
+        <item quantity="two">مقترح: تتحدثان عادة كل %1$d يوم</item>
+        <item quantity="few">مقترح: تتحدثان عادة كل %1$d يوم</item>
+        <item quantity="many">مقترح: تتحدثان عادة كل %1$d يوم</item>
+        <item quantity="other">مقترح: تتحدثان عادة كل %1$d يوم</item>
+    </plurals>
+
+    <!-- Day summary -->
+    <plurals name="hist_day_calls_with">
+        <item quantity="zero">%1$d مكالمة مع %2$s</item>
+        <item quantity="one">مكالمة واحدة مع %2$s</item>
+        <item quantity="two">%1$d مكالمة مع %2$s</item>
+        <item quantity="few">%1$d مكالمة مع %2$s</item>
+        <item quantity="many">%1$d مكالمة مع %2$s</item>
+        <item quantity="other">%1$d مكالمة مع %2$s</item>
+    </plurals>
+    <plurals name="hist_people_count" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">%1$d شخصاً</item>
+        <item quantity="one">شخص واحد</item>
+        <item quantity="two">شخصان</item>
+        <item quantity="few">%1$d أشخاص</item>
+        <item quantity="many">%1$d شخصاً</item>
+        <item quantity="other">%1$d شخصاً</item>
+    </plurals>
+    <string name="hist_talk_time">مدة الحديث %1$s</string>
+    <string name="hist_talk_split">%1$s في مكالمات أجريتها · %2$s في مكالمات تلقيتها</string>
+    <string name="hist_stat_made">صادرة</string>
+    <string name="hist_stat_received">مستلمة</string>
+    <string name="hist_stat_missed">فائتة</string>
+    <string name="hist_stat_rejected">مرفوضة</string>
+    <string name="hist_stat_blocked">محظورة</string>
+    <string name="hist_type_answered_elsewhere">رُدّ عليها في مكان آخر</string>
+    <string name="hist_type_unknown">نوع غير معروف</string>
+
+    <!-- Export -->
+    <string name="hist_share_chooser">مشاركة سجل المكالمات</string>
+    <string name="hist_export_title">سجل المكالمات</string>
+    <string name="hist_export_title_subject">سجل المكالمات · %1$s</string>
+    <plurals name="hist_pdf_made_with">
+        <item quantity="zero">%1$d مكالمة · أُنشئ بواسطة Parley في %2$s</item>
+        <item quantity="one">%1$d مكالمة · أُنشئ بواسطة Parley في %2$s</item>
+        <item quantity="two">%1$d مكالمة · أُنشئ بواسطة Parley في %2$s</item>
+        <item quantity="few">%1$d مكالمة · أُنشئ بواسطة Parley في %2$s</item>
+        <item quantity="many">%1$d مكالمة · أُنشئ بواسطة Parley في %2$s</item>
+        <item quantity="other">%1$d مكالمة · أُنشئ بواسطة Parley في %2$s</item>
+    </plurals>
+    <string name="hist_pdf_col_date">التاريخ</string>
+    <string name="hist_pdf_col_type">النوع</string>
+    <string name="hist_pdf_col_who">الاسم / الرقم</string>
+    <string name="hist_pdf_col_duration">المدة</string>
+    <string name="hist_pdf_col_sim">الشريحة</string>
+    <string name="hist_private_number">رقم خاص</string>
+    <string name="hist_pdf_note">ملاحظة: %1$s</string>
+    <string name="hist_pdf_page">الصفحة %1$d من %2$d</string>
+    <string name="hist_export_failed">فشل التصدير: %1$s</string>
+    <plurals name="hist_export_count" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">تصدير %1$d مكالمة</item>
+        <item quantity="one">تصدير مكالمة واحدة</item>
+        <item quantity="two">تصدير %1$d مكالمة</item>
+        <item quantity="few">تصدير %1$d مكالمة</item>
+        <item quantity="many">تصدير %1$d مكالمة</item>
+        <item quantity="other">تصدير %1$d مكالمة</item>
+    </plurals>
+    <string name="hist_export_explain">تُنشأ الملفات على هذا الهاتف وتُحذف من ذاكرة Parley المؤقتة بعد المشاركة. المدد هي وقت الحديث الفعلي.</string>
+    <string name="hist_export_csv">CSV</string>
+    <string name="hist_export_csv_summary">لجداول البيانات؛ مع الملاحظات</string>
+    <string name="hist_export_json">JSON</string>
+    <string name="hist_export_json_summary">لبرامجك النصية</string>
+    <string name="hist_export_ics">تقويم (.ics)</string>
+    <string name="hist_export_ics_summary">حدث لكل مكالمة</string>
+    <string name="hist_export_pdf">PDF</string>
+    <string name="hist_export_pdf_summary">جدول قابل للطباعة للمشاركة</string>
+    <string name="hist_export_print">طباعة</string>
+    <string name="hist_export_print_summary">أو احفظه كـPDF من نافذة الطباعة في النظام</string>
+    <string name="hist_insights_action">رؤى المكالمات</string>
+    <string name="hist_export_menu">تصدير…</string>
+
+    <!-- Import call history -->
+    <string name="hist_import_reading">جارٍ قراءة الملف…</string>
+    <string name="hist_import_read_failed">تعذّرت قراءة الملف</string>
+    <string name="hist_import_title">استيراد سجل المكالمات</string>
+    <string name="hist_import_explain">يضيف مكالمات من ملف CSV إلى سجل مكالماتك: تصدير Parley نفسه أو تصدير Logger أو أي جدول بيانات فيه رقم ونوع وتاريخ. سترى ما سيحدث قبل كتابة أي شيء. تُتخطى المكالمات الموجودة في سجلك، ولا تظهر المكالمات المستوردة أبداً كمكالمات فائتة جديدة.</string>
+    <string name="hist_import_need_default">اجعل Parley تطبيق الهاتف الافتراضي أولاً: لا يسمح Android بكتابة سجل المكالمات إلا لتطبيق الهاتف.</string>
+    <string name="hist_import_choose">اختر ملف CSV</string>
+    <string name="hist_import_choose_another">اختر ملفاً آخر</string>
+    <string name="hist_import_dry_run">تجربة · %1$s</string>
+    <plurals name="hist_import_rows_read">
+        <item quantity="zero">قُرئ %1$d صف</item>
+        <item quantity="one">قُرئ %1$d صف</item>
+        <item quantity="two">قُرئ %1$d صف</item>
+        <item quantity="few">قُرئ %1$d صف</item>
+        <item quantity="many">قُرئ %1$d صف</item>
+        <item quantity="other">قُرئ %1$d صف</item>
+    </plurals>
+    <plurals name="hist_import_new_calls">
+        <item quantity="zero">%1$d مكالمة جديدة</item>
+        <item quantity="one">%1$d مكالمة جديدة</item>
+        <item quantity="two">%1$d مكالمة جديدة</item>
+        <item quantity="few">%1$d مكالمة جديدة</item>
+        <item quantity="many">%1$d مكالمة جديدة</item>
+        <item quantity="other">%1$d مكالمة جديدة</item>
+    </plurals>
+    <plurals name="hist_import_already">
+        <item quantity="zero">%1$d موجودة في سجلك بالفعل</item>
+        <item quantity="one">%1$d موجودة في سجلك بالفعل</item>
+        <item quantity="two">%1$d موجودة في سجلك بالفعل</item>
+        <item quantity="few">%1$d موجودة في سجلك بالفعل</item>
+        <item quantity="many">%1$d موجودة في سجلك بالفعل</item>
+        <item quantity="other">%1$d موجودة في سجلك بالفعل</item>
+    </plurals>
+    <plurals name="hist_import_rows_skipped">
+        <item quantity="zero">تُخطي %1$d صف</item>
+        <item quantity="one">تُخطي %1$d صف</item>
+        <item quantity="two">تُخطي %1$d صف</item>
+        <item quantity="few">تُخطي %1$d صف</item>
+        <item quantity="many">تُخطي %1$d صف</item>
+        <item quantity="other">تُخطي %1$d صف</item>
+    </plurals>
+    <string name="hist_import_columns">الأعمدة</string>
+    <string name="hist_import_day_first">اليوم أولاً في التواريخ</string>
+    <string name="hist_import_day_first_on">03/04/2025 هو 3 أبريل</string>
+    <string name="hist_import_day_first_off">03/04/2025 هو 4 مارس</string>
+    <string name="hist_import_first_calls">أولى المكالمات للاستيراد</string>
+    <string name="hist_importing">جارٍ الاستيراد…</string>
+    <string name="hist_import_nothing">لم يُستورد شيء. لم يقبل Android المكالمات: تحقق من أن Parley هو تطبيق الهاتف الافتراضي.</string>
+    <plurals name="hist_import_done" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">استُوردت %1$d مكالمة</item>
+        <item quantity="one">استُوردت مكالمة واحدة</item>
+        <item quantity="two">استُوردت %1$d مكالمة</item>
+        <item quantity="few">استُوردت %1$d مكالمة</item>
+        <item quantity="many">استُوردت %1$d مكالمة</item>
+        <item quantity="other">استُوردت %1$d مكالمة</item>
+    </plurals>
+    <plurals name="hist_import_done_dupes">
+        <item quantity="zero">%1$d موجودة في سجلك بالفعل، تم تخطيها</item>
+        <item quantity="one">%1$d موجودة في سجلك بالفعل، تم تخطيها</item>
+        <item quantity="two">%1$d موجودة في سجلك بالفعل، تم تخطيها</item>
+        <item quantity="few">%1$d موجودة في سجلك بالفعل، تم تخطيها</item>
+        <item quantity="many">%1$d موجودة في سجلك بالفعل، تم تخطيها</item>
+        <item quantity="other">%1$d موجودة في سجلك بالفعل، تم تخطيها</item>
+    </plurals>
+    <plurals name="hist_import_done_problems">
+        <item quantity="zero">تُخطي %1$d صف غير مقروء</item>
+        <item quantity="one">تُخطي %1$d صف غير مقروء</item>
+        <item quantity="two">تُخطي %1$d صف غير مقروء</item>
+        <item quantity="few">تُخطي %1$d صف غير مقروء</item>
+        <item quantity="many">تُخطي %1$d صف غير مقروء</item>
+        <item quantity="other">تُخطي %1$d صف غير مقروء</item>
+    </plurals>
+    <plurals name="hist_import_button" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">استيراد %1$d مكالمة</item>
+        <item quantity="one">استيراد مكالمة واحدة</item>
+        <item quantity="two">استيراد %1$d مكالمة</item>
+        <item quantity="few">استيراد %1$d مكالمة</item>
+        <item quantity="many">استيراد %1$d مكالمة</item>
+        <item quantity="other">استيراد %1$d مكالمة</item>
+    </plurals>
+    <string name="hist_import_problems">صفوف لا يمكن استيرادها</string>
+    <string name="hist_import_line">السطر %1$d: %2$s</string>
+    <string name="hist_import_more">…و%1$d أخرى</string>
+    <string name="hist_import_finished">انتهى الاستيراد</string>
+    <string name="hist_call">اتصال</string>
+    <string name="hist_col_number">الرقم</string>
+    <string name="hist_col_type">نوع المكالمة</string>
+    <string name="hist_col_date">التاريخ (أو التاريخ والوقت)</string>
+    <string name="hist_col_time">الوقت</string>
+    <string name="hist_col_timestamp">الطابع الزمني (Unix)</string>
+    <string name="hist_col_duration">المدة</string>
+    <string name="hist_col_name">الاسم</string>
+    <string name="hist_col_sim">الشريحة</string>
+    <string name="hist_col_missing">غير موجود في هذا الملف</string>
+    <string name="hist_col_n">العمود %1$d</string>
+
+    <!-- Insights -->
+    <string name="hist_insight_week">7 أيام</string>
+    <string name="hist_insight_month">30 يوماً</string>
+    <string name="hist_insight_quarter">90 يوماً</string>
+    <string name="hist_insight_year">هذا العام</string>
+    <string name="hist_insight_all">كل الأوقات</string>
+    <string name="hist_insights_title">رؤى</string>
+    <string name="hist_talk_time_label">مدة الحديث</string>
+    <string name="hist_calls_you_made">مكالمات أجريتها</string>
+    <string name="hist_calls_you_received">مكالمات تلقيتها</string>
+    <string name="hist_answered_rates">رُدّ على %1$d من %2$d مكالمة أجريتها · رُدّ على %3$d من %4$d مكالمة واردة</string>
+    <string name="hist_talk_per_week">مدة الحديث أسبوعياً</string>
+    <string name="hist_most_talk">أطول مدة حديث</string>
+    <plurals name="hist_talk_and_calls">
+        <item quantity="zero">%2$s · %1$d مكالمة</item>
+        <item quantity="one">%2$s · مكالمة واحدة</item>
+        <item quantity="two">%2$s · %1$d مكالمة</item>
+        <item quantity="few">%2$s · %1$d مكالمة</item>
+        <item quantity="many">%2$s · %1$d مكالمة</item>
+        <item quantity="other">%2$s · %1$d مكالمة</item>
+    </plurals>
+    <string name="hist_most_calls">أكثر المكالمات</string>
+    <plurals name="hist_calls_and_talk">
+        <item quantity="zero">%1$d مكالمة · %2$s</item>
+        <item quantity="one">مكالمة واحدة · %2$s</item>
+        <item quantity="two">%1$d مكالمة · %2$s</item>
+        <item quantity="few">%1$d مكالمة · %2$s</item>
+        <item quantity="many">%1$d مكالمة · %2$s</item>
+        <item quantity="other">%1$d مكالمة · %2$s</item>
+    </plurals>
+    <string name="hist_by_sim">حسب الشريحة</string>
+    <string name="hist_no_sim">لم تُسجّل شريحة</string>
+    <string name="hist_other_sim">شريحة أخرى</string>
+    <plurals name="hist_sim_totals">
+        <item quantity="zero">%1$d مكالمة · %2$d صادرة · %3$d مستلمة · %4$d فائتة · حديث %5$s</item>
+        <item quantity="one">%1$d مكالمة · %2$d صادرة · %3$d مستلمة · %4$d فائتة · حديث %5$s</item>
+        <item quantity="two">%1$d مكالمة · %2$d صادرة · %3$d مستلمة · %4$d فائتة · حديث %5$s</item>
+        <item quantity="few">%1$d مكالمة · %2$d صادرة · %3$d مستلمة · %4$d فائتة · حديث %5$s</item>
+        <item quantity="many">%1$d مكالمة · %2$d صادرة · %3$d مستلمة · %4$d فائتة · حديث %5$s</item>
+        <item quantity="other">%1$d مكالمة · %2$d صادرة · %3$d مستلمة · %4$d فائتة · حديث %5$s</item>
+    </plurals>
+    <string name="hist_unreturned">مكالمات لم تردّ عليها</string>
+    <string name="hist_unreturned_none">لا شيء. رائع.</string>
+    <plurals name="hist_missed_last">
+        <item quantity="zero">%1$d مكالمة فائتة · آخرها %2$s</item>
+        <item quantity="one">فائتة %2$s</item>
+        <item quantity="two">%1$d مكالمة فائتة · آخرها %2$s</item>
+        <item quantity="few">%1$d مكالمة فائتة · آخرها %2$s</item>
+        <item quantity="many">%1$d مكالمة فائتة · آخرها %2$s</item>
+        <item quantity="other">%1$d مكالمة فائتة · آخرها %2$s</item>
+    </plurals>
+    <string name="hist_call_back">معاودة الاتصال</string>
+    <string name="hist_insights_footer">حُسبت على هذا الهاتف من سجل مكالماتك.</string>
+    <string name="hist_insights_footer_no_contacts">حُسبت على هذا الهاتف من سجل مكالماتك. تعذّرت قراءة جهات الاتصال، لذا يظهر الأشخاص بأرقامهم.</string>
+    <string name="hist_weekly_desc">مدة الحديث الأسبوعية، أكثر أسبوع انشغالاً %1$s بـ%2$s</string>
+    <string name="hist_weekly_scale">الخط الأعلى = %1$s · النصف = %2$s</string>
+
+    <!-- Number history -->
+    <plurals name="hist_deleted_calls" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">حُذفت %1$d مكالمة</item>
+        <item quantity="one">حُذفت مكالمة واحدة</item>
+        <item quantity="two">حُذفت %1$d مكالمة</item>
+        <item quantity="few">حُذفت %1$d مكالمة</item>
+        <item quantity="many">حُذفت %1$d مكالمة</item>
+        <item quantity="other">حُذفت %1$d مكالمة</item>
+    </plurals>
+    <string name="dc_undo">تراجع</string>
+    <string name="dc_more_options">خيارات أخرى</string>
+    <string name="hist_delete_calls_menu">حذف مكالمات…</string>
+    <string name="hist_action_call">اتصال</string>
+    <string name="hist_action_message">رسالة</string>
+    <string name="hist_action_copy">نسخ</string>
+    <string name="hist_action_message_on">مراسلة عبر…</string>
+    <string name="hist_action_new_contact">جهة اتصال جديدة</string>
+    <string name="hist_action_add_to_contact">إضافة إلى جهة اتصال</string>
+    <string name="hist_action_view_contact">عرض جهة الاتصال</string>
+    <string name="hist_action_block">حظر</string>
+    <string name="hist_action_unblock">إلغاء الحظر</string>
+    <string name="hist_call_notes">ملاحظات المكالمة</string>
+    <string name="hist_delete_note">حذف الملاحظة</string>
+
+    <!-- Range delete -->
+    <string name="hist_range_title">حذف المكالمات مع هذا الرقم</string>
+    <string name="hist_range_since">منذ %1$s</string>
+    <plurals name="hist_n_calls" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">%1$d مكالمة</item>
+        <item quantity="one">مكالمة واحدة</item>
+        <item quantity="two">مكالمتان</item>
+        <item quantity="few">%1$d مكالمات</item>
+        <item quantity="many">%1$d مكالمة</item>
+        <item quantity="other">%1$d مكالمة</item>
+    </plurals>
+    <string name="hist_range_undo_hint">يمكنك التراجع عن هذا خلال 30 يوماً (الإعدادات › الأحدث والسجل › المكالمات المحفوظة والمحذوفة مؤخراً).</string>
+    <string name="hist_range_delete_n">حذف %1$d</string>
+
+    <!-- Saved filters -->
+    <string name="hist_filter">تصفية</string>
+    <string name="hist_filter_title">تصفية المكالمات</string>
+    <string name="hist_filter_type">النوع</string>
+    <string name="hist_filter_sim">الشريحة</string>
+    <string name="hist_filter_any">أي</string>
+    <string name="hist_filter_when">متى</string>
+    <string name="hist_filter_talk_time">مدة الحديث</string>
+    <string name="hist_filter_name">الاسم (للحفظ كشريحة تصفية)</string>
+    <string name="hist_filter_clear">مسح</string>
+    <string name="hist_filter_save">حفظ الشريحة</string>
+    <string name="hist_filter_apply">تطبيق</string>
+    <string name="hist_filter_saved">الشرائح المحفوظة</string>
+    <string name="hist_filter_delete">حذف %1$s</string>
+    <string name="hist_dur_not_answered">لم يُرد عليها</string>
+    <string name="hist_dur_under_1">أقل من دقيقة</string>
+    <string name="hist_dur_1_plus">دقيقة أو أكثر</string>
+    <string name="hist_dur_5_plus">5 دقائق أو أكثر</string>
+    <string name="hist_dur_30_plus">30 دقيقة أو أكثر</string>
+
+    <!-- SIMs and plan meter -->
+    <string name="hist_sims_title">الشرائح</string>
+    <string name="hist_sims_empty">لم يُعثر على شريحة. يجب أن يكون Parley تطبيق الهاتف الافتراضي ليعرض الشرائح.</string>
+    <string name="hist_no_plan">لم تُحدد باقة</string>
+    <string name="hist_plan_section">دقائق الباقة</string>
+    <string name="hist_plan_track">تتبّع دقائق الباقة</string>
+    <string name="hist_plan_track_summary">تُحسب من سجل مكالماتك على هذا الهاتف. فاتورة المشغّل هي المرجع.</string>
+    <plurals name="hist_plan_detail">
+        <item quantity="zero">%1$d مكالمة، %2$s من الحديث الفعلي، تُحتسب %3$d دقيقة. الدورة %4$s – %5$s.</item>
+        <item quantity="one">%1$d مكالمة، %2$s من الحديث الفعلي، تُحتسب %3$d دقيقة. الدورة %4$s – %5$s.</item>
+        <item quantity="two">%1$d مكالمة، %2$s من الحديث الفعلي، تُحتسب %3$d دقيقة. الدورة %4$s – %5$s.</item>
+        <item quantity="few">%1$d مكالمة، %2$s من الحديث الفعلي، تُحتسب %3$d دقيقة. الدورة %4$s – %5$s.</item>
+        <item quantity="many">%1$d مكالمة، %2$s من الحديث الفعلي، تُحتسب %3$d دقيقة. الدورة %4$s – %5$s.</item>
+        <item quantity="other">%1$d مكالمة، %2$s من الحديث الفعلي، تُحتسب %3$d دقيقة. الدورة %4$s – %5$s.</item>
+    </plurals>
+    <string name="hist_plan_minutes">الدقائق لكل دورة</string>
+    <string name="hist_plan_renews">يتجدد الرصيد في</string>
+    <string name="hist_plan_renews_day">اليوم %1$d من كل شهر</string>
+    <string name="hist_plan_renews_day_last">اليوم %1$d من كل شهر (أو آخر يوم)</string>
+    <string name="hist_plan_day">اليوم %1$d</string>
+    <string name="hist_plan_billing">الاحتساب</string>
+    <string name="hist_plan_billing_summary">كيف يقرّب المشغّل كل مكالمة. يُستخدم لهذا العدّاد فقط؛ يحتفظ سجل مكالماتك بالمدد الحقيقية.</string>
+    <string name="hist_plan_counted">المكالمات المحتسبة</string>
+    <string name="hist_plan_international">الأرقام الدولية</string>
+    <string name="hist_plan_international_summary">أرقام من بلد غير بلد شريحتك</string>
+    <string name="hist_plan_other">أرقام أخرى</string>
+    <string name="hist_plan_other_summary">أرقام مميزة وتكلفة مشتركة وVoIP وأرقام قصيرة</string>
+    <string name="hist_plan_incoming">المكالمات الواردة أيضاً</string>
+    <string name="hist_plan_incoming_summary">بعض الباقات تحتسب الدقائق المستلمة</string>
+    <string name="hist_plan_toll_free_note">لا تُحتسب الأرقام المجانية أبداً. ينبهك Parley مرة في كل دورة عند %1$d%% ويعرض نقطة على زر الاتصال لهذه الشريحة.</string>
+    <string name="hist_plan_warn_at">التنبيه عند</string>
+    <string name="hist_plan_warn_at_summary">%1$d%% من الرصيد</string>
+    <string name="hist_percent">%1$d%%</string>
+
+    <!-- Background work notifications -->
+    <string name="work_channel_backups">النسخ الاحتياطية</string>
+    <string name="work_backup_title">نسخة Parley الاحتياطية</string>
+    <string name="work_channel_plan">دقائق الباقة</string>
+    <string name="work_plan_used_up">%1$s: نفدت دقائق الباقة</string>
+    <string name="work_plan_used_percent">%1$s: استُخدم %2$d%% من دقائق الباقة</string>
+    <string name="work_channel_housekeeping">ترتيب جهات الاتصال</string>
+    <string name="work_temp_expired_title">انتهت صلاحية جهة اتصال مؤقتة</string>
+    <string name="work_temp_someone">جهة اتصال مؤقتة</string>
+    <string name="work_temp_expired_kept">انتهت صلاحية %1$s؛ احتُفظ بالتفاصيل التي دمجتها</string>
+    <string name="work_temp_expired_merged">انتهت صلاحية %1$s، لكنها دُمجت مع جهة اتصال أخرى، لذا لم يُحذف شيء</string>
+    <string name="work_channel_reminders">أعياد الميلاد والتذكيرات</string>
+    <string name="work_turns_today">يبلغ %1$s اليوم %2$d عاماً</string>
+    <string name="work_birthday_today">اليوم عيد ميلاد %1$s</string>
+    <string name="work_anniversary_years">ذكرى %1$s: %2$d عاماً</string>
+    <string name="work_anniversary_today">ذكرى %1$s اليوم</string>
+    <string name="work_special_date">تاريخ مميز</string>
+    <string name="work_event_today">%1$s: %2$s اليوم</string>
+    <string name="work_catch_up">تواصل مع %1$s</string>
+    <plurals name="work_catch_up_days">
+        <item quantity="zero">تواصل مع %2$s — آخر حديث منذ %1$d يوم</item>
+        <item quantity="one">تواصل مع %2$s — آخر حديث منذ يوم واحد</item>
+        <item quantity="two">تواصل مع %2$s — آخر حديث منذ %1$d يوم</item>
+        <item quantity="few">تواصل مع %2$s — آخر حديث منذ %1$d يوم</item>
+        <item quantity="many">تواصل مع %2$s — آخر حديث منذ %1$d يوم</item>
+        <item quantity="other">تواصل مع %2$s — آخر حديث منذ %1$d يوم</item>
+    </plurals>
+    <string name="work_action_call">اتصال</string>
+    <string name="work_action_message">رسالة</string>
+
+    <!-- Temporary contacts -->
+    <string name="temp_fallback_name">جهة اتصال مؤقتة</string>
+    <string name="temp_deletes_soon">تُحذف قريباً</string>
+    <plurals name="temp_days_left" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">بقي %1$d يوماً</item>
+        <item quantity="one">بقي يوم واحد</item>
+        <item quantity="two">بقي يومان</item>
+        <item quantity="few">بقيت %1$d أيام</item>
+        <item quantity="many">بقي %1$d يوماً</item>
+        <item quantity="other">بقي %1$d يوماً</item>
+    </plurals>
+    <plurals name="temp_hours_left" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">بقي %1$d ساعة</item>
+        <item quantity="one">بقيت ساعة واحدة</item>
+        <item quantity="two">بقيت ساعتان</item>
+        <item quantity="few">بقيت %1$d ساعات</item>
+        <item quantity="many">بقي %1$d ساعة</item>
+        <item quantity="other">بقي %1$d ساعة</item>
+    </plurals>
+    <string name="temp_within_hour">تُحذف خلال الساعة</string>
+    <string name="temp_title">جهات الاتصال المؤقتة</string>
+    <string name="temp_empty_title">لا جهات اتصال مؤقتة</string>
+    <string name="temp_empty_text">احفظ رقماً لفترة: السبّاك، أو توصيلة، أو بائع. اكتبه في لوحة الأرقام واختر «حفظ جهة اتصال مؤقتة»، أو اختر «حذف تلقائي» في صفحة جهة الاتصال.</string>
+    <string name="temp_intro">تحذف جهات الاتصال هذه نفسها عند انتهاء وقتها، مع سجل مكالماتها إن اخترت ذلك.</string>
+    <string name="temp_will_be_kept">سيُحتفظ بـ%1$s</string>
+    <string name="temp_keep_for">الاحتفاظ بـ%1$s لمدة</string>
+    <plurals name="temp_deletes_in_days" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">تُحذف تلقائياً بعد %1$d يوماً</item>
+        <item quantity="one">تُحذف تلقائياً بعد يوم واحد</item>
+        <item quantity="two">تُحذف تلقائياً بعد يومين</item>
+        <item quantity="few">تُحذف تلقائياً بعد %1$d أيام</item>
+        <item quantity="many">تُحذف تلقائياً بعد %1$d يوماً</item>
+        <item quantity="other">تُحذف تلقائياً بعد %1$d يوماً</item>
+    </plurals>
+    <string name="temp_delete_now_title">حذف %1$s الآن؟</string>
+    <string name="temp_delete_with_history">تُحذف جهة الاتصال وسجل مكالماتها.</string>
+    <string name="temp_delete_keep_history">تُحذف جهة الاتصال ويبقى سجل مكالماتها.</string>
+    <string name="temp_delete_restore_hint">يمكنك استعادة جهة الاتصال من المحذوفة مؤخراً خلال 30 يوماً.</string>
+    <string name="temp_private">خاصة</string>
+    <string name="temp_keep_longer">الاحتفاظ بـ%1$s مدة أطول</string>
+    <string name="temp_more_actions">إجراءات أخرى لـ%1$s</string>
+    <string name="temp_extend">تمديد…</string>
+    <string name="temp_keep_permanently">الاحتفاظ بشكل دائم</string>
+    <string name="temp_delete_now">حذف الآن</string>
+    <plurals name="temp_n_days" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">%1$d يوماً</item>
+        <item quantity="one">يوم واحد</item>
+        <item quantity="two">يومان</item>
+        <item quantity="few">%1$d أيام</item>
+        <item quantity="many">%1$d يوماً</item>
+        <item quantity="other">%1$d يوماً</item>
+    </plurals>
+    <string name="temp_custom">مخصص</string>
+    <string name="temp_days">الأيام</string>
+    <string name="temp_save_title">حفظ جهة اتصال مؤقتة</string>
+    <string name="temp_save_visible_text">تُحفظ %1$s في جهات اتصالك على هذا الهاتف فقط، حيث تراها التطبيقات التي يمكنها قراءة جهات الاتصال (ومنها WhatsApp)، وتُحذف تلقائياً عند انتهاء الوقت.</string>
+    <string name="temp_save_private_text">تُحفظ %1$s بشكل خاص في Parley، حيث لا تراها التطبيقات الأخرى، وتُحذف تلقائياً عند انتهاء الوقت.</string>
+    <string name="temp_name">الاسم</string>
+    <string name="temp_delete_after">الحذف بعد</string>
+    <string name="temp_also_history">حذف سجل مكالماتها أيضاً</string>
+    <string name="temp_visible">حفظ مرئي للتطبيقات الأخرى</string>
+    <string name="temp_save_privately">حفظ بشكل خاص</string>
+
+    <!-- Private contact (vault) page -->
+    <string name="vault_unlock_to_remember">افتح القفل لتذكّر هذا الاختيار</string>
+    <string name="vault_title">جهة اتصال خاصة</string>
+    <string name="dc_edit">تعديل</string>
+    <string name="dc_more">المزيد</string>
+    <string name="vault_move_out">نقل إلى جهات اتصال الهاتف</string>
+    <string name="vault_move_failed">تعذّر النقل: %1$s</string>
+    <string name="vault_moved_out">نُقلت إلى جهات اتصال الهاتف</string>
+    <string name="vault_share_qr">مشاركة بشكل خاص (QR)</string>
+    <string name="vault_expires">تنتهي صلاحيتها…</string>
+    <string name="vault_only_in_parley">مرئية في Parley فقط · مشفّرة</string>
+    <string name="vault_deletes_on">تُحذف تلقائياً في %1$s</string>
+    <string name="vault_call">اتصال</string>
+    <string name="vault_sms">رسالة SMS</string>
+    <string name="vault_message">رسالة</string>
+    <string name="vault_choose_message">اختر طريقة المراسلة</string>
+    <string name="vault_email">البريد الإلكتروني</string>
+    <string name="vault_shown_when_call">يظهر عند اتصالهم</string>
+    <string name="vault_unlock_all">افتح القفل لرؤية كل التفاصيل</string>
+    <string name="vault_unlock_all_summary">تعمل الأسماء والأرقام دون فتح القفل حتى تُظهر المكالمات هوية المتصل.</string>
+    <string name="vault_phone">الهاتف</string>
+    <string name="vault_message_number">مراسلة هذا الرقم</string>
+    <string name="vault_message_on">مراسلة عبر…</string>
+    <string name="vault_messengers">تطبيقات المراسلة</string>
+    <string name="vault_about">نبذة</string>
+    <string name="vault_address">العنوان</string>
+    <string name="vault_website">الموقع الإلكتروني</string>
+    <string name="vault_note">ملاحظة</string>
+    <string name="vault_call_history">سجل المكالمات الخاص</string>
+    <string name="vault_delete_title">حذف جهة الاتصال الخاصة هذه؟</string>
+    <string name="vault_delete_text">سيُحذف أيضاً سجل مكالماتها الخاص. لا يمكن التراجع عن ذلك.</string>
+    <string name="vault_expiry_title">الحذف تلقائياً بعد</string>
+    <string name="vault_expiry_1_day">يوم واحد</string>
+    <string name="vault_expiry_1_week">أسبوع واحد</string>
+    <string name="vault_expiry_30_days">30 يوماً</string>
+    <string name="vault_expiry_3_months">3 أشهر</string>
+    <string name="vault_expiry_1_year">سنة واحدة</string>
+    <string name="vault_expiry_never">أبداً (احتفاظ)</string>
+
+    <!-- Backup -->
+    <string name="bkp_backing_up">جارٍ النسخ الاحتياطي…</string>
+    <string name="bkp_vault_skipped">%1$s (تم تخطي جهات الاتصال الخاصة: افتح قفلها أولاً)</string>
+    <string name="bkp_preparing">جارٍ تجهيز الملف المشفّر…</string>
+    <string name="bkp_send_chooser">إرسال إلى هاتفك الجديد</string>
+    <string name="bkp_title">النسخ الاحتياطي والاستعادة</string>
+    <string name="bkp_last_backup">آخر نسخة احتياطية %1$s</string>
+    <string name="bkp_no_backup">لا نسخة احتياطية بعد</string>
+    <string name="bkp_verified">تم التحقق %1$s · مشفّرة</string>
+    <string name="bkp_verified_key">تم التحقق %1$s · مشفّرة · المفتاح %2$s</string>
+    <string name="bkp_rotation_paused">اختفت جهات اتصال كثيرة منذ آخر نسخة احتياطية، لذا يُحتفظ بالنسخ القديمة.</string>
+    <string name="bkp_resume_rotation">هذا متوقع، استئناف التدوير</string>
+    <string name="bkp_explain">جهات الاتصال بصورها الكاملة وسجل المكالمات وقواعد الحظر والاتصال السريع والإعدادات وجهات الاتصال الخاصة، في ملف مشفّر واحد داخل مجلد تختاره (زامنه عبر Syncthing أو Nextcloud أو ذاكرة USB).</string>
+    <string name="bkp_back_up_now">نسخ احتياطي الآن</string>
+    <string name="bkp_set_up">إعداد</string>
+    <string name="bkp_change_pass">تغيير عبارة مرور النسخ الاحتياطي</string>
+    <string name="bkp_set_pass">تعيين عبارة مرور للنسخ الاحتياطي</string>
+    <string name="bkp_change_pass_summary">لا تحتاجها النسخ المجدولة أبداً؛ الاستعادة فقط تحتاجها</string>
+    <string name="bkp_set_pass_summary">مطلوبة: النسخ الاحتياطية مشفّرة دائماً</string>
+    <string name="bkp_folder">مجلد النسخ الاحتياطي</string>
+    <string name="bkp_folder_none">لم يُختر</string>
+    <string name="bkp_automatic">نسخ احتياطي تلقائي</string>
+    <string name="bkp_schedule_off">متوقف</string>
+    <string name="bkp_schedule_daily">يومياً</string>
+    <string name="bkp_schedule_weekly">أسبوعياً</string>
+    <string name="bkp_keep">الاحتفاظ</string>
+    <string name="bkp_keep_smart">ذكي</string>
+    <string name="bkp_keep_smart_summary">الوضع الذكي يحتفظ بـ7 نسخ يومية و5 أسبوعية و12 شهرية و3 سنوية.</string>
+    <string name="bkp_restore">استعادة</string>
+    <string name="bkp_restore_file">استعادة من ملف…</string>
+    <string name="bkp_restore_file_summary">نسخة ‎.parley من هذا الهاتف أو هاتف آخر</string>
+    <string name="bkp_move_phone">الانتقال إلى هاتف جديد</string>
+    <string name="bkp_move_phone_summary">يرسل ملفاً مشفّراً واحداً عبر Quick Share أو Bluetooth أو أي تطبيق. على الهاتف الجديد: ثبّت Parley ← النسخ الاحتياطي ← استعادة من ملف، وأدخل عبارة المرور.</string>
+    <plurals name="bkp_undo_done" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">أُزيلت %1$d جهة اتصال أضافتها آخر استعادة</item>
+        <item quantity="one">أُزيلت جهة اتصال واحدة أضافتها آخر استعادة</item>
+        <item quantity="two">أُزيلت %1$d جهة اتصال أضافتها آخر استعادة</item>
+        <item quantity="few">أُزيلت %1$d جهة اتصال أضافتها آخر استعادة</item>
+        <item quantity="many">أُزيلت %1$d جهة اتصال أضافتها آخر استعادة</item>
+        <item quantity="other">أُزيلت %1$d جهة اتصال أضافتها آخر استعادة</item>
+    </plurals>
+    <string name="bkp_undo_restore">التراجع عن آخر استعادة</string>
+    <plurals name="bkp_undo_restore_summary" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">يزيل %1$d جهة اتصال أضافتها (تبقى في المحذوفة مؤخراً)</item>
+        <item quantity="one">يزيل جهة الاتصال الواحدة التي أضافتها (تبقى في المحذوفة مؤخراً)</item>
+        <item quantity="two">يزيل %1$d جهة اتصال أضافتها (تبقى في المحذوفة مؤخراً)</item>
+        <item quantity="few">يزيل %1$d جهة اتصال أضافتها (تبقى في المحذوفة مؤخراً)</item>
+        <item quantity="many">يزيل %1$d جهة اتصال أضافتها (تبقى في المحذوفة مؤخراً)</item>
+        <item quantity="other">يزيل %1$d جهة اتصال أضافتها (تبقى في المحذوفة مؤخراً)</item>
+    </plurals>
+    <string name="bkp_in_folder">النسخ الاحتياطية في المجلد</string>
+    <string name="bkp_pass_changed">تم تغيير عبارة المرور</string>
+    <string name="bkp_pass_wrong">عبارة المرور الحالية خاطئة</string>
+    <string name="bkp_recovery_title">مفتاح الاسترداد</string>
+    <string name="bkp_recovery_text">إذا نسيت عبارة المرور فهذا المفتاح هو الطريقة الأخرى الوحيدة لفتح نسخك الاحتياطية. دوّنه واحفظه في مكان آمن. لا يمكن لـParley عرضه مرة أخرى.</string>
+    <string name="bkp_recovery_saved">لقد حفظته</string>
+    <string name="bkp_copy">نسخ</string>
+    <string name="bkp_change_pass_title">تغيير عبارة المرور</string>
+    <string name="bkp_pass_title">عبارة مرور النسخ الاحتياطي</string>
+    <string name="bkp_current_pass">عبارة المرور الحالية</string>
+    <string name="bkp_new_pass">عبارة مرور جديدة (10 أحرف أو أكثر)</string>
+    <string name="bkp_repeat">أعد الكتابة</string>
+    <string name="bkp_pass_hint">بضع كلمات لا رابط بينها تصنع عبارة مرور قوية وسهلة التذكر.</string>
+
+    <!-- Restore flow -->
+    <string name="rst_open_title">فتح النسخة الاحتياطية</string>
+    <string name="rst_recovery_key">مفتاح الاسترداد</string>
+    <string name="rst_use_recovery">استخدام مفتاح الاسترداد بدلاً من ذلك</string>
+    <string name="rst_not_recovery">لا يبدو هذا مفتاح استرداد</string>
+    <string name="rst_decrypting">جارٍ فك تشفير النسخة الاحتياطية وفحصها…</string>
+    <string name="rst_wrong_recovery">مفتاح استرداد خاطئ</string>
+    <string name="rst_wrong_pass">عبارة مرور خاطئة</string>
+    <string name="rst_damaged">هذا الملف تالف أو ليس نسخة احتياطية من Parley (%1$s)</string>
+    <string name="rst_open">فتح</string>
+    <string name="rst_backup_from">نسخة احتياطية من %1$s</string>
+    <string name="rst_how">كيفية استعادة جهات الاتصال</string>
+    <string name="rst_mode_merge">دمج (مستحسن): إضافة الناقص دون حذف أي شيء</string>
+    <string name="rst_mode_add_all">إضافة الكل كجهات اتصال جديدة</string>
+    <string name="rst_mode_replace">استبدال: حذف جهات الاتصال الحالية أولاً (تُنشأ نسخة أمان تلقائياً)</string>
+    <string name="rst_what">ما الذي تريد استعادته</string>
+    <string name="rst_with_count">%1$s (%2$d)</string>
+    <string name="rst_contacts">جهات الاتصال</string>
+    <string name="rst_call_history">سجل المكالمات</string>
+    <string name="rst_blocking">قواعد الحظر والأرقام المحظورة</string>
+    <string name="rst_speed_dial">الاتصال السريع واختيارات الشرائح</string>
+    <string name="rst_private">جهات الاتصال الخاصة</string>
+    <string name="rst_settings">الإعدادات (المظهر، خيارات الحظر…)</string>
+    <string name="rst_comparing">جارٍ المقارنة مع جهات اتصالك الحالية…</string>
+    <string name="rst_ready">جاهز للاستعادة</string>
+    <plurals name="rst_new" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">ستُضاف %1$d جهة اتصال جديدة</item>
+        <item quantity="one">ستُضاف جهة اتصال جديدة واحدة</item>
+        <item quantity="two">ستُضاف %1$d جهة اتصال جديدة</item>
+        <item quantity="few">ستُضاف %1$d جهة اتصال جديدة</item>
+        <item quantity="many">ستُضاف %1$d جهة اتصال جديدة</item>
+        <item quantity="other">ستُضاف %1$d جهة اتصال جديدة</item>
+    </plurals>
+    <plurals name="rst_enrich">
+        <item quantity="zero">%1$d من جهات الاتصال الموجودة ستحصل على التفاصيل الناقصة (%2$d إجمالاً)</item>
+        <item quantity="one">%1$d من جهات الاتصال الموجودة ستحصل على التفاصيل الناقصة (%2$d إجمالاً)</item>
+        <item quantity="two">%1$d من جهات الاتصال الموجودة ستحصل على التفاصيل الناقصة (%2$d إجمالاً)</item>
+        <item quantity="few">%1$d من جهات الاتصال الموجودة ستحصل على التفاصيل الناقصة (%2$d إجمالاً)</item>
+        <item quantity="many">%1$d من جهات الاتصال الموجودة ستحصل على التفاصيل الناقصة (%2$d إجمالاً)</item>
+        <item quantity="other">%1$d من جهات الاتصال الموجودة ستحصل على التفاصيل الناقصة (%2$d إجمالاً)</item>
+    </plurals>
+    <plurals name="rst_identical">
+        <item quantity="zero">%1$d مطابقة بالفعل وستبقى كما هي</item>
+        <item quantity="one">%1$d مطابقة بالفعل وستبقى كما هي</item>
+        <item quantity="two">%1$d مطابقة بالفعل وستبقى كما هي</item>
+        <item quantity="few">%1$d مطابقة بالفعل وستبقى كما هي</item>
+        <item quantity="many">%1$d مطابقة بالفعل وستبقى كما هي</item>
+        <item quantity="other">%1$d مطابقة بالفعل وستبقى كما هي</item>
+    </plurals>
+    <plurals name="rst_conflict">
+        <item quantity="zero">%1$d تبدو للشخص نفسه لكنها تختلف (مثل الاسم أو الصورة)</item>
+        <item quantity="one">%1$d تبدو للشخص نفسه لكنها تختلف (مثل الاسم أو الصورة)</item>
+        <item quantity="two">%1$d تبدو للشخص نفسه لكنها تختلف (مثل الاسم أو الصورة)</item>
+        <item quantity="few">%1$d تبدو للشخص نفسه لكنها تختلف (مثل الاسم أو الصورة)</item>
+        <item quantity="many">%1$d تبدو للشخص نفسه لكنها تختلف (مثل الاسم أو الصورة)</item>
+        <item quantity="other">%1$d تبدو للشخص نفسه لكنها تختلف (مثل الاسم أو الصورة)</item>
+    </plurals>
+    <string name="rst_apply_conflicts">إضافة تفاصيلها الناقصة على أي حال</string>
+    <plurals name="rst_to_delete">
+        <item quantity="zero">سيُستبدل %1$d من جهات الاتصال الحالية (تبقى في المحذوفة مؤخراً لمدة 30 يوماً)</item>
+        <item quantity="one">سيُستبدل %1$d من جهات الاتصال الحالية (تبقى في المحذوفة مؤخراً لمدة 30 يوماً)</item>
+        <item quantity="two">سيُستبدل %1$d من جهات الاتصال الحالية (تبقى في المحذوفة مؤخراً لمدة 30 يوماً)</item>
+        <item quantity="few">سيُستبدل %1$d من جهات الاتصال الحالية (تبقى في المحذوفة مؤخراً لمدة 30 يوماً)</item>
+        <item quantity="many">سيُستبدل %1$d من جهات الاتصال الحالية (تبقى في المحذوفة مؤخراً لمدة 30 يوماً)</item>
+        <item quantity="other">سيُستبدل %1$d من جهات الاتصال الحالية (تبقى في المحذوفة مؤخراً لمدة 30 يوماً)</item>
+    </plurals>
+    <string name="rst_merge_note">لا يُحذف شيء في وضع الدمج، ويمكنك التراجع عن جهات الاتصال المضافة لاحقاً.</string>
+    <string name="rst_restoring">جارٍ الاستعادة…</string>
+    <string name="rst_finished">انتهت الاستعادة</string>
+    <string name="rst_undone">تم التراجع عن الاستعادة</string>
+
+    <!-- Folder sync -->
+    <string name="sync_failed">فشلت المزامنة: %1$s</string>
+    <string name="sync_title">المزامنة بين هواتفك</string>
+    <string name="sync_card_title">بلا خادم ولا حساب</string>
+    <string name="sync_card_text">يحتفظ Parley بملف ‎.vcf لكل جهة اتصال في مجلد تختاره. زامن هذا المجلد بين الأجهزة عبر Syncthing أو Nextcloud أو أي تطبيق لمزامنة المجلدات، واختر المجلد نفسه في Parley على هاتفك الآخر. تنتقل التعديلات في الاتجاهين؛ وإذا تغيرت جهة الاتصال نفسها على الهاتفين يُحتفظ بالنسختين.</string>
+    <string name="sync_folder">مجلد المزامنة</string>
+    <string name="sync_auto">المزامنة تلقائياً</string>
+    <string name="sync_auto_summary">عند فتح Parley وبعد التغييرات وكل ساعة</string>
+    <string name="sync_last">آخر مزامنة %1$s</string>
+    <string name="sync_never">لم تتم المزامنة بعد</string>
+    <plurals name="sync_apply_deletions" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">تطبيق %1$d عملية حذف</item>
+        <item quantity="one">تطبيق حذف واحد</item>
+        <item quantity="two">تطبيق %1$d عملية حذف</item>
+        <item quantity="few">تطبيق %1$d عملية حذف</item>
+        <item quantity="many">تطبيق %1$d عملية حذف</item>
+        <item quantity="other">تطبيق %1$d عملية حذف</item>
+    </plurals>
+    <string name="sync_now">مزامنة الآن</string>
+    <string name="sync_stop">إيقاف المزامنة</string>
+
+    <!-- Time machine (version history, what changed) -->
+    <string name="tm_row_name">الاسم: %1$s</string>
+    <string name="tm_row_phone">الهاتف: %1$s</string>
+    <string name="tm_row_email">البريد الإلكتروني: %1$s</string>
+    <string name="tm_row_address">العنوان: %1$s</string>
+    <string name="tm_row_work">العمل: %1$s</string>
+    <string name="tm_row_note">ملاحظة: %1$s</string>
+    <string name="tm_row_date">تاريخ: %1$s</string>
+    <string name="tm_row_website">الموقع: %1$s</string>
+    <string name="tm_row_nickname">اللقب: %1$s</string>
+    <string name="tm_row_relation">العلاقة: %1$s</string>
+    <string name="tm_row_photo">الصورة</string>
+    <string name="tm_history_title">سجل الإصدارات</string>
+    <string name="tm_no_versions">لا إصدارات سابقة بعد</string>
+    <plurals name="tm_no_versions_text" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">يحتفظ Parley بلقطة يومية لجهات اتصالك لمدة %1$d يوم. ستظهر هنا الإصدارات السابقة لجهة الاتصال هذه.</item>
+        <item quantity="one">يحتفظ Parley بلقطة يومية لجهات اتصالك ليوم واحد. ستظهر هنا الإصدارات السابقة لجهة الاتصال هذه.</item>
+        <item quantity="two">يحتفظ Parley بلقطة يومية لجهات اتصالك لمدة %1$d يوم. ستظهر هنا الإصدارات السابقة لجهة الاتصال هذه.</item>
+        <item quantity="few">يحتفظ Parley بلقطة يومية لجهات اتصالك لمدة %1$d يوم. ستظهر هنا الإصدارات السابقة لجهة الاتصال هذه.</item>
+        <item quantity="many">يحتفظ Parley بلقطة يومية لجهات اتصالك لمدة %1$d يوم. ستظهر هنا الإصدارات السابقة لجهة الاتصال هذه.</item>
+        <item quantity="other">يحتفظ Parley بلقطة يومية لجهات اتصالك لمدة %1$d يوم. ستظهر هنا الإصدارات السابقة لجهة الاتصال هذه.</item>
+    </plurals>
+    <string name="tm_now">الآن</string>
+    <string name="tm_didnt_exist">لم تكن موجودة</string>
+    <string name="tm_later">لاحقاً: ‎+%1$d / ‎−%2$d من التفاصيل</string>
+    <string name="tm_later_removed">لاحقاً: ‎+%1$d / ‎−%2$d من التفاصيل (أُزيلت %3$s)</string>
+    <string name="tm_restored_version">تمت استعادة هذا الإصدار</string>
+    <string name="tm_restore_version">استعادة هذا الإصدار</string>
+    <string name="tm_saved_copy">حُفظت كجهة اتصال منفصلة</string>
+    <string name="tm_save_copy">حفظ كنسخة</string>
+    <string name="tm_changes_title">ما الذي تغيّر</string>
+    <string name="tm_since_yesterday">منذ الأمس</string>
+    <string name="tm_last_week">الأسبوع الماضي</string>
+    <string name="tm_last_month">الشهر الماضي</string>
+    <string name="tm_6_months">6 أشهر</string>
+    <string name="tm_no_changes">لا تغييرات</string>
+    <string name="tm_no_changes_text">لم يُضف أو يُحذف أو يُعدّل شيء في هذه الفترة (أو لا توجد لقطة قديمة بما يكفي بعد).</string>
+    <string name="tm_removed">أُزيلت (%1$d)</string>
+    <string name="tm_restored_name">تمت استعادة %1$s</string>
+    <string name="tm_changed">تغيّرت (%1$d)</string>
+    <string name="tm_field_changed">تغيّر %1$s</string>
+    <string name="tm_field_name">الاسم</string>
+    <string name="tm_field_starred">المفضلة</string>
+    <string name="tm_field_ringtone">نغمة الرنين</string>
+    <string name="tm_field_voicemail">تحويل إلى البريد الصوتي</string>
+    <string name="tm_field_accounts">الحسابات</string>
+    <string name="tm_added">أُضيفت (%1$d)</string>
+
+    <!-- Recently deleted & changed (journal) -->
+    <string name="jr_deleted">محذوفة</string>
+    <string name="jr_edited">معدّلة (الإصدار قبل التغيير)</string>
+    <string name="jr_merged">مدموجة (الإصدار قبل الدمج)</string>
+    <string name="jr_separated">مفصولة</string>
+    <string name="jr_title">المحذوفة والمعدّلة مؤخراً</string>
+    <string name="jr_empty_title">لا شيء هنا</string>
+    <string name="jr_empty_text">يُحتفظ هنا لمدة 30 يوماً بجهات الاتصال التي تحذفها أو تعدّلها أو تدمجها في Parley، لتتمكن من التراجع.</string>
+    <string name="jr_restored_suffix">%1$s · مستعادة</string>
+    <string name="jr_restored_name">تمت استعادة %1$s</string>
+    <string name="jr_restored_copy">استُعيد الإصدار السابق كجهة اتصال منفصلة</string>
+    <string name="jr_restore_failed">تعذّرت الاستعادة</string>
+    <string name="jr_restore_copy">استعادة نسخة</string>
+
+    <!-- Contact health check -->
+    <string name="health_no_country">أرقام بلا رمز البلد</string>
+    <string name="health_title_company">المسمى الوظيفي يكرر الشركة</string>
+    <string name="health_no_name">جهات اتصال بلا اسم</string>
+    <string name="health_empty">جهات اتصال فارغة</string>
+    <string name="health_shared">الرقم نفسه في عدة جهات اتصال</string>
+    <string name="health_stale">لم يُتصل بها منذ أكثر من سنتين</string>
+    <plurals name="health_stale_confirm_title" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">حذف %1$d جهة اتصال بعد 30 يوماً؟</item>
+        <item quantity="one">حذف جهة اتصال واحدة بعد 30 يوماً؟</item>
+        <item quantity="two">حذف %1$d جهة اتصال بعد 30 يوماً؟</item>
+        <item quantity="few">حذف %1$d جهة اتصال بعد 30 يوماً؟</item>
+        <item quantity="many">حذف %1$d جهة اتصال بعد 30 يوماً؟</item>
+        <item quantity="other">حذف %1$d جهة اتصال بعد 30 يوماً؟</item>
+    </plurals>
+    <string name="health_stale_confirm_text">ما لم تحتفظ بها، ستُحذف جهات الاتصال هذه من كل الحسابات المذكورة بعد 30 يوماً من الآن. يمكنك التراجع عن كل واحدة من صفحتها.</string>
+    <plurals name="health_stale_done" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">ستحذف %1$d جهة اتصال نفسها بعد 30 يوماً ما لم تغيّر ذلك</item>
+        <item quantity="one">ستحذف جهة اتصال واحدة نفسها بعد 30 يوماً ما لم تغيّر ذلك</item>
+        <item quantity="two">ستحذف %1$d جهة اتصال نفسها بعد 30 يوماً ما لم تغيّر ذلك</item>
+        <item quantity="few">ستحذف %1$d جهة اتصال نفسها بعد 30 يوماً ما لم تغيّر ذلك</item>
+        <item quantity="many">ستحذف %1$d جهة اتصال نفسها بعد 30 يوماً ما لم تغيّر ذلك</item>
+        <item quantity="other">ستحذف %1$d جهة اتصال نفسها بعد 30 يوماً ما لم تغيّر ذلك</item>
+    </plurals>
+    <string name="health_delete_in_30">حذف بعد 30 يوماً</string>
+    <string name="health_title">فحص سلامة جهات الاتصال</string>
+    <string name="health_all_tidy">كل شيء مرتب</string>
+    <string name="health_all_tidy_text">لم يُعثر على مشكلات في جهات اتصالك.</string>
+    <string name="health_group">%1$s (%2$d)</string>
+    <plurals name="health_fixed" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">أُصلح %1$d إدخال</item>
+        <item quantity="one">أُصلح إدخال واحد</item>
+        <item quantity="two">أُصلح %1$d إدخال</item>
+        <item quantity="few">أُصلح %1$d إدخال</item>
+        <item quantity="many">أُصلح %1$d إدخال</item>
+        <item quantity="other">أُصلح %1$d إدخال</item>
+    </plurals>
+    <string name="health_fix_all">إصلاح الكل (%1$d)</string>
+    <string name="health_review_duplicates">مراجعة المكررات</string>
+    <string name="health_phone">الهاتف</string>
+    <string name="health_auto_delete">حذف هذه تلقائياً بعد 30 يوماً</string>
+    <string name="health_delete_all">حذف الكل (%1$d)</string>
+
+    <!-- Birthdays & dates -->
+    <string name="bday_title">أعياد الميلاد والتواريخ</string>
+    <string name="bday_empty_title">لا تواريخ بعد</string>
+    <string name="bday_empty_text">أضف أعياد الميلاد والذكريات إلى جهات الاتصال لتراها هنا وتحصل على تذكير في يومها.</string>
+    <string name="bday_today">اليوم</string>
+    <string name="bday_this_week">هذا الأسبوع</string>
+    <string name="bday_this_month">هذا الشهر</string>
+    <string name="bday_later">لاحقاً</string>
+    <string name="bday_would_have_turned">كان سيبلغ %1$d</string>
+    <string name="bday_message">مراسلة %1$s</string>
+    <string name="bday_call">الاتصال بـ%1$s</string>
+
+    <!-- Onboarding -->
+    <string name="onb_set_later">يمكنك ضبط هذا لاحقاً من الإعدادات</string>
+    <string name="onb_tagline">هاتفك وجهات اتصالك ومكالماتك — في تطبيق خاص واحد.</string>
+    <string name="onb_offline_title">يعمل بلا إنترنت</string>
+    <string name="onb_offline_text">ليس لدى Parley إذن الوصول إلى الإنترنت. لا شيء مما تخزنه أو تتصل به يغادر هاتفك.</string>
+    <string name="onb_spam_title">حظر المزعجين بقواعدك</string>
+    <string name="onb_spam_text">احظر الأرقام المخفية والبادئات والأنماط — والقرار يُتخذ على هاتفك.</string>
+    <string name="onb_open_title">مفتوح المصدر، بلا إعلانات ولا حسابات</string>
+    <string name="onb_open_text">برنامج حر بترخيص GPL-3.0. بلا أدوات تتبّع، أبداً.</string>
+    <string name="onb_prompt_title">طلب واحد من النظام</string>
+    <string name="onb_prompt_text">تعيين Parley كتطبيق الهاتف يمنحه كل ما يحتاجه — بلا متاهة أذونات.</string>
+    <string name="onb_set_default">تعيين كتطبيق الهاتف الافتراضي</string>
+    <string name="onb_not_now">ليس الآن — استخدام جهات الاتصال والاتصال فقط</string>
+
+    <!-- Contact picker -->
+    <string name="picker_link_with">ربط مع…</string>
+    <string name="picker_share_title">مشاركة %1$s</string>
+    <string name="picker_share_one">مشاركة رقم واحد فقط بدلاً من جهة الاتصال كاملة؟ قد لا تقبل بعض التطبيقات رقماً منفرداً.</string>
+    <string name="picker_only">%1$s فقط</string>
+    <string name="picker_whole">جهة الاتصال كاملة</string>
+    <string name="picker_choose_contacts">اختيار جهات اتصال</string>
+    <string name="picker_choose_contact">اختيار جهة اتصال</string>
+    <string name="picker_choose_phone">اختيار رقم هاتف</string>
+    <string name="picker_choose_email">اختيار بريد إلكتروني</string>
+    <string name="picker_choose_address">اختيار عنوان</string>
+    <string name="picker_done_n">تم (%1$d)</string>
+    <string name="picker_search">بحث</string>
+    <string name="picker_nothing">لم يُعثر على شيء</string>
+
+    <!-- App lock and quick settings tile -->
+    <string name="lock_unlock_parley">فتح قفل Parley</string>
+    <string name="lock_unlock_private">فتح قفل جهات الاتصال الخاصة</string>
+    <string name="lock_locked">Parley مقفل</string>
+    <string name="lock_calls_show">تظهر المكالمات الواردة بشكل طبيعي.</string>
+    <string name="lock_unlock">فتح القفل</string>
+    <string name="tile_private_hidden">الخاصة مخفية</string>
+    <string name="tile_private_shown">الخاصة ظاهرة</string>
+
+    <!-- Shortcuts and widget -->
+    <string name="shortcut_text_name">مراسلة %1$s</string>
+    <string name="shortcut_new_contact">جهة اتصال جديدة</string>
+    <string name="shortcut_call_confirm">الاتصال بـ%1$s؟</string>
+    <string name="shortcut_call">اتصال</string>
+    <string name="widget_call_name">الاتصال بـ%1$s</string>
+    <string name="widget_pick_title">أداة الاتصال المباشر</string>
+
+    <!-- Private names for other apps -->
+    <string name="privnames_directory">جهات اتصال Parley الخاصة</string>
+    <string name="privnames_channel">طلبات الأسماء الخاصة</string>
+    <string name="privnames_request_title">يريد %1$s عرض الأسماء الخاصة</string>
+    <string name="privnames_request_text">طلب %1$s من Parley اسم رقم هاتف قد يعود لإحدى جهات اتصالك الخاصة. إذا سمحت بذلك، يمكن لـ%1$s طلب اسم رقم واحد في كل مرة؛ ولن يحصل أبداً على قائمة.</string>
+    <string name="privnames_allow">السماح</string>
+    <string name="privnames_deny">عدم السماح</string>
+
+    <!-- People: account diagnostics -->
+    <string name="ppl_phone">الهاتف</string>
+    <string name="ppl_sync_settings_failed">تعذّر فتح إعدادات الحسابات في Android</string>
+    <string name="ppl_accounts">الحسابات</string>
+    <string name="ppl_master_sync_off">المزامنة التلقائية متوقفة على هذا الهاتف</string>
+    <string name="ppl_master_sync_off_text">لن يرفع أي حساب تغييرات جهات الاتصال أو ينزّلها حتى تُعاد.</string>
+    <string name="ppl_open_sync_settings">فتح إعدادات المزامنة</string>
+    <string name="ppl_sync_off">مزامنة جهات الاتصال متوقفة لـ%1$s</string>
+    <plurals name="ppl_sync_off_text" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">%1$d جهة اتصال. تبقى التغييرات على هذا الهاتف ولا تصل إلى أجهزتك الأخرى.</item>
+        <item quantity="one">جهة اتصال واحدة. تبقى التغييرات على هذا الهاتف ولا تصل إلى أجهزتك الأخرى.</item>
+        <item quantity="two">%1$d جهة اتصال. تبقى التغييرات على هذا الهاتف ولا تصل إلى أجهزتك الأخرى.</item>
+        <item quantity="few">%1$d جهة اتصال. تبقى التغييرات على هذا الهاتف ولا تصل إلى أجهزتك الأخرى.</item>
+        <item quantity="many">%1$d جهة اتصال. تبقى التغييرات على هذا الهاتف ولا تصل إلى أجهزتك الأخرى.</item>
+        <item quantity="other">%1$d جهة اتصال. تبقى التغييرات على هذا الهاتف ولا تصل إلى أجهزتك الأخرى.</item>
+    </plurals>
+    <plurals name="ppl_orphaned">
+        <item quantity="zero">%1$d جهة اتصال في %2$s</item>
+        <item quantity="one">جهة اتصال واحدة في %2$s</item>
+        <item quantity="two">%1$d جهة اتصال في %2$s</item>
+        <item quantity="few">%1$d جهة اتصال في %2$s</item>
+        <item quantity="many">%1$d جهة اتصال في %2$s</item>
+        <item quantity="other">%1$d جهة اتصال في %2$s</item>
+    </plurals>
+    <string name="ppl_orphaned_text">لم يعد ذلك الحساب مسجلاً على هذا الهاتف، فلا شيء يبقي جهات الاتصال هذه متزامنة. انقلها إلى حساب آخر أو صدّرها.</string>
+    <string name="ppl_show_them">عرضها</string>
+    <string name="ppl_no_contacts">لا توجد جهات اتصال في %1$s</string>
+    <string name="ppl_no_contacts_text">الحساب مسجّل ويمكنه حفظ جهات الاتصال، لكن لا شيء محفوظ فيه. إن كنت تتوقع وجود بعضها فتحقق من اكتمال مزامنة جهات الاتصال.</string>
+    <string name="ppl_local_missing">التخزين على الهاتف فقط غير مُعدّ</string>
+    <string name="ppl_local_missing_text">بعض التطبيقات لا تعرض «الهاتف» كمكان لحفظ جهات الاتصال إلا بعد أن ينشئه Android. يمكن لـParley إنشاؤه بإضافة إدخال فارغ ثم إزالته.</string>
+    <string name="ppl_fix">إصلاح</string>
+    <string name="ppl_local_ready">التخزين على الهاتف فقط جاهز</string>
+    <string name="ppl_local_failed">تعذّر إعداده</string>
+    <string name="ppl_accounts_fine">الحسابات تبدو سليمة</string>
+    <string name="ppl_accounts_fine_text">كل حساب مسجّل يزامن جهات اتصاله</string>
+    <string name="ppl_accounts_unknown">لم يسمح Android لـParley بفحص إعدادات المزامنة</string>
+    <string name="ppl_account_count">%1$s (%2$d)</string>
+    <string name="ppl_signed_in">مسجّل: %1$s</string>
+    <string name="ppl_signed_in_none">لا حسابات لجهات الاتصال</string>
+    <string name="ppl_holding">يحتوي على جهات اتصال: %1$s</string>
+    <string name="ppl_holding_none">لا شيء</string>
+
+    <!-- People: call screen background -->
+    <string name="ppl_bg_failed">تعذّر استخدام تلك الصورة كخلفية</string>
+    <string name="ppl_bg_title">شاشة المكالمة</string>
+    <string name="ppl_bg_text">صورة خلف مكالمات هذا الشخص. تُنسخ إلى Parley، فتبقى حتى إن حذفت الأصل.</string>
+    <string name="ppl_bg_choose">اختيار صورة</string>
+    <string name="ppl_bg_change">تغيير</string>
+    <string name="ppl_bg_remove">إزالة</string>
+    <string name="ppl_bg_desc">خلفية شاشة المكالمة</string>
+    <string name="ppl_bg_custom">صورة مخصصة لشاشة المكالمة</string>
+    <string name="ppl_bg_default">شاشة المكالمة الافتراضية</string>
+    <string name="ppl_bg_info">خلفية شاشة المكالمة · غيّرها من التعديل</string>
+
+    <!-- People: contacts filter chips -->
+    <string name="ppl_chip_all">الكل</string>
+    <string name="ppl_chip_private">خاصة</string>
+    <string name="ppl_chip_account">الحساب</string>
+    <string name="ppl_chip_all_accounts">كل الحسابات</string>
+    <string name="ppl_chip_unlabelled">بلا تصنيف</string>
+    <string name="ppl_chip_match_all">في جميعها</string>
+    <string name="ppl_chip_match_any">في أي منها</string>
+    <string name="ppl_chip_open">فتح %1$s</string>
+    <string name="ppl_chip_labels">التصنيفات</string>
+    <string name="ppl_chip_temporary">مؤقتة (%1$d)</string>
+
+    <!-- People: copy as text, crash report -->
+    <string name="ppl_copy_as_text">نسخ كنص</string>
+    <plurals name="ppl_copied" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">نُسخت %1$d جهة اتصال</item>
+        <item quantity="one">نُسخت جهة الاتصال</item>
+        <item quantity="two">نُسخت %1$d جهة اتصال</item>
+        <item quantity="few">نُسخت %1$d جهة اتصال</item>
+        <item quantity="many">نُسخت %1$d جهة اتصال</item>
+        <item quantity="other">نُسخت %1$d جهة اتصال</item>
+    </plurals>
+    <string name="ppl_crash_title">توقف Parley في المرة الماضية</string>
+    <string name="ppl_crash_text">حُفظ تقرير على هذا الهاتف، والأرقام وعناوين البريد فيه مخفية. أرسله إن أردت إصلاح المشكلة؛ لا يستطيع Parley إرسال أي شيء بنفسه.</string>
+    <string name="ppl_crash_subject">تقرير أعطال Parley</string>
+    <string name="ppl_crash_send_chooser">إرسال تقرير الأعطال</string>
+    <string name="ppl_crash_send">إرسال…</string>
+    <string name="ppl_crash_delete">حذف التقرير</string>
+
+    <!-- People: contact CSV column mapping -->
+    <string name="csv_no_table">لا يحتوي هذا الملف على أسطر يمكن لـParley قراءتها كجدول.</string>
+    <string name="csv_read_failed">تعذّرت قراءة الملف</string>
+    <string name="csv_title">اختيار الأعمدة</string>
+    <string name="csv_nothing_title">لا شيء للاستيراد</string>
+    <string name="csv_nothing_text">اختر ملفاً من الإعدادات › جهات الاتصال › استيراد.</string>
+    <string name="csv_sep_semicolons">فواصل منقوطة</string>
+    <string name="csv_sep_tabs">علامات جدولة</string>
+    <string name="csv_sep_commas">فواصل</string>
+    <string name="csv_layout_parley">Parley</string>
+    <string name="csv_layout_google">Google Contacts</string>
+    <string name="csv_layout_outlook">Outlook</string>
+    <string name="csv_intro">هذا الملف ليس بتنسيق Parley. أعمدته مفصولة بـ%1$s. تحقق مما يحتويه كل عمود؛ تُظهر جهات الاتصال الأولى أدناه كيف ستُحفظ.</string>
+    <string name="csv_intro_layout">هذا الملف ليس بتنسيق Parley، ويبدو أنه تصدير من %1$s. أعمدته مفصولة بـ%2$s. تحقق مما يحتويه كل عمود؛ تُظهر جهات الاتصال الأولى أدناه كيف ستُحفظ.</string>
+    <string name="csv_header">السطر الأول عناوين</string>
+    <string name="csv_header_on">أسماء أعمدة، وليس جهة اتصال</string>
+    <string name="csv_header_off">يُستورد كجهة اتصال</string>
+    <string name="csv_columns">الأعمدة</string>
+    <string name="csv_column_n">العمود %1$d</string>
+    <string name="csv_preview">معاينة</string>
+    <string name="csv_nothing_with_columns">لن يُستورد شيء بهذه الأعمدة.</string>
+    <string name="csv_into">إلى %1$s</string>
+    <string name="csv_into_skip">إلى %1$s · تُتخطى جهات الاتصال الموجودة لديك</string>
+    <string name="csv_import_failed">فشل الاستيراد: %1$s</string>
+    <string name="csv_import">استيراد</string>
+    <string name="csv_need_column">اختر على الأقل عمود الاسم أو الهاتف أو البريد أو الشركة.</string>
+    <string name="csv_change_column">تغيير محتوى «%1$s»</string>
+    <string name="csv_no_name">(بلا اسم)</string>
+    <string name="csv_labels">التصنيفات: %1$s</string>
+    <string name="csv_typed">%1$s (%2$s)</string>
+    <string name="csv_field_ignore">عدم الاستيراد</string>
+    <string name="csv_field_full_name">الاسم الكامل</string>
+    <string name="csv_field_prefix">بادئة الاسم</string>
+    <string name="csv_field_given">الاسم الأول</string>
+    <string name="csv_field_middle">الاسم الأوسط</string>
+    <string name="csv_field_family">اسم العائلة</string>
+    <string name="csv_field_suffix">لاحقة الاسم</string>
+    <string name="csv_field_nickname">اللقب</string>
+    <string name="csv_field_phone">الهاتف</string>
+    <string name="csv_field_phone_label">نوع الهاتف (للهاتف المجاور)</string>
+    <string name="csv_field_email">البريد الإلكتروني</string>
+    <string name="csv_field_email_label">نوع البريد (للبريد المجاور)</string>
+    <string name="csv_field_org">الشركة</string>
+    <string name="csv_field_title">المسمى الوظيفي</string>
+    <string name="csv_field_address">العنوان</string>
+    <string name="csv_field_website">الموقع الإلكتروني</string>
+    <string name="csv_field_birthday">عيد الميلاد</string>
+    <string name="csv_field_notes">ملاحظات</string>
+    <string name="csv_field_labels">التصنيفات</string>
+
+    <!-- People: account chips, provenance, life events -->
+    <string name="ppl_edit_copy">تعديل هذه النسخة</string>
+    <string name="ppl_move_to">نقل إلى…</string>
+    <string name="ppl_read_only">يديرها تطبيقها (للقراءة فقط)</string>
+    <string name="ppl_unlink">فك الربط</string>
+    <string name="ppl_move_title">نقل هذه النسخة إلى</string>
+    <string name="ppl_move_text">يُكتب كل ما في نسخة %1$s (الأرقام والصورة والتصنيفات…) في الحساب الجديد أولاً، ثم تُزال النسخة القديمة. يمكنك التراجع من المحذوفة والمعدّلة مؤخراً.</string>
+    <string name="ppl_moved_to">نُقلت إلى %1$s</string>
+    <string name="ppl_unlink_title">فك ربط نسخة %1$s؟</string>
+    <string name="ppl_unlink_text">تصبح جهة اتصال منفصلة. لا يُحذف شيء.</string>
+    <string name="ppl_unlinked">تم فك الربط</string>
+    <string name="ppl_version_history">سجل الإصدارات</string>
+    <string name="ppl_why_changed">لماذا تغيّر هذا؟ · انقر لكل الإصدارات</string>
+    <string name="prov_other_app_unsynced">غيّرها تطبيق آخر على هذا الهاتف بعد آخر حفظ لـParley (لم تُزامن بعد)</string>
+    <string name="prov_other_app_unsynced_at">غيّرها تطبيق آخر على هذا الهاتف في %1$s بعد آخر حفظ لـParley (لم تُزامن بعد)</string>
+    <string name="prov_sync">غيّرتها مزامنة %1$s بعد آخر حفظ لـParley</string>
+    <string name="prov_sync_at">غيّرتها مزامنة %1$s في %2$s بعد آخر حفظ لـParley</string>
+    <string name="prov_other_app">غيّرها تطبيق آخر بعد آخر حفظ لـParley</string>
+    <string name="prov_other_app_at">غيّرها تطبيق آخر في %1$s بعد آخر حفظ لـParley</string>
+    <string name="prov_parley">غيّرها Parley في %1$s</string>
+    <string name="prov_parley_fields">غيّرها Parley في %1$s · كُتبت الحقول المتغيرة فقط (%2$s)</string>
+    <string name="prov_other_copy_sync">%1$s. تُحدِّث مزامنتها نسخة %2$s</string>
+    <string name="prov_other_copy_apps">%1$s. تُحدِّث تطبيقات أخرى نسخة %2$s</string>
+    <string name="prov_last_other_app">آخر تغيير على هذا الهاتف بواسطة تطبيق آخر (لم تُزامن بعد)</string>
+    <string name="prov_last_other_app_at">آخر تغيير على هذا الهاتف بواسطة تطبيق آخر في %1$s (لم تُزامن بعد)</string>
+    <string name="prov_last_sync">آخر تغيير · متوافقة مع مزامنة %1$s</string>
+    <string name="prov_last_sync_at">آخر تغيير في %1$s · متوافقة مع مزامنة %2$s</string>
+    <string name="prov_last_unknown">آخر تغيير في %1$s، ليس بواسطة Parley</string>
+    <string name="prov_field_name">الاسم</string>
+    <string name="prov_field_nickname">اللقب</string>
+    <string name="prov_field_company">الشركة</string>
+    <string name="prov_field_note">ملاحظة</string>
+    <string name="prov_field_phone">الهاتف</string>
+    <string name="prov_field_email">البريد الإلكتروني</string>
+    <string name="prov_field_website">الموقع الإلكتروني</string>
+    <string name="prov_field_relation">العلاقة</string>
+    <string name="prov_field_handles">معرّفات المراسلة</string>
+    <string name="prov_field_dates">التواريخ</string>
+    <string name="prov_field_address">العنوان</string>
+    <string name="prov_field_labels">التصنيفات</string>
+    <string name="prov_field_other">أخرى</string>
+    <string name="life_aged">عن عمر %1$d</string>
+    <string name="life_would_have_turned">كان سيبلغ %1$d</string>
+    <string name="life_today">اليوم</string>
+    <string name="life_tomorrow">غداً</string>
+    <plurals name="life_in_days" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">بعد %1$d يوماً</item>
+        <item quantity="one">بعد يوم واحد</item>
+        <item quantity="two">بعد يومين</item>
+        <item quantity="few">بعد %1$d أيام</item>
+        <item quantity="many">بعد %1$d يوماً</item>
+        <item quantity="other">بعد %1$d يوماً</item>
+    </plurals>
+
+    <!-- People: diagnostics export -->
+    <string name="diag_saved">حُفظ التشخيص</string>
+    <string name="diag_save_failed">تعذّر حفظ الملف</string>
+    <string name="diag_title">تصدير التشخيص</string>
+    <string name="diag_intro">يساعد هذا التقرير في إيجاد المشكلة. لا يحتوي على جهات اتصال ولا سجل مكالمات. ليس لدى Parley وصول إلى الإنترنت، فلا يُرسل شيء: أنت تحفظه أو تشاركه مع من تختار.</string>
+    <string name="diag_mask">إخفاء الأرقام وعناوين البريد</string>
+    <string name="diag_mask_summary">يُبقي آخر رقمين فقط من الأرقام في رسائل الخطأ</string>
+    <string name="diag_tables">تضمين جداول جهات الاتصال (مخفية)</string>
+    <string name="diag_tables_summary">كيف خزّنت الحسابات كل جهة اتصال، مع استبدال كل اسم ورقم ونص بشكله (Aaaa 99 9923)</string>
+    <string name="diag_save_file">حفظ كملف</string>
+    <string name="diag_share">مشاركة</string>
+
+    <!-- People: duplicate warning in the editor -->
+    <string name="dup_private_name">%1$s موجودة بالفعل كجهة اتصال خاصة</string>
+    <string name="dup_private_has">جهة اتصالك الخاصة %1$s لديها %2$s بالفعل</string>
+    <string name="dup_exists">%1$s موجودة بالفعل</string>
+    <string name="dup_has">%1$s لديها %2$s بالفعل</string>
+    <string name="dup_open">فتح</string>
+    <string name="dup_add_to">إضافة هذه التفاصيل إلى %1$s</string>
+    <string name="dup_someone_else">إنه شخص آخر</string>
+
+    <!-- People: labels -->
+    <plurals name="lbl_selected">
+        <item quantity="zero">تم تحديد %1$d</item>
+        <item quantity="one">تم تحديد %1$d</item>
+        <item quantity="two">تم تحديد %1$d</item>
+        <item quantity="few">تم تحديد %1$d</item>
+        <item quantity="many">تم تحديد %1$d</item>
+        <item quantity="other">تم تحديد %1$d</item>
+    </plurals>
+    <string name="lbl_title">التصنيفات</string>
+    <string name="lbl_stop_merging">إيقاف الدمج</string>
+    <string name="lbl_merge">دمج</string>
+    <string name="lbl_new">تصنيف جديد</string>
+    <string name="lbl_merge_labels">دمج التصنيفات</string>
+    <string name="lbl_merge_intro">اختر التصنيفات المراد جمعها. ينتهي كل من فيها في تصنيف واحد؛ ولا تُزال أي جهة اتصال.</string>
+    <string name="lbl_unlabelled">بلا تصنيف</string>
+    <plurals name="lbl_unlabelled_count" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">%1$d جهة اتصال بلا تصنيف</item>
+        <item quantity="one">جهة اتصال واحدة بلا تصنيف</item>
+        <item quantity="two">%1$d جهة اتصال بلا تصنيف</item>
+        <item quantity="few">%1$d جهة اتصال بلا تصنيف</item>
+        <item quantity="many">%1$d جهة اتصال بلا تصنيف</item>
+        <item quantity="other">%1$d جهة اتصال بلا تصنيف</item>
+    </plurals>
+    <string name="lbl_empty_title">لا تصنيفات بعد</string>
+    <string name="lbl_empty_text">تجمع التصنيفات جهات الاتصال (العائلة، العمل…). وتُزامن مع حساب Google أو CardDAV.</string>
+    <plurals name="lbl_count_accounts">
+        <item quantity="zero">%1$d جهة اتصال · %2$s</item>
+        <item quantity="one">جهة اتصال واحدة · %2$s</item>
+        <item quantity="two">%1$d جهة اتصال · %2$s</item>
+        <item quantity="few">%1$d جهة اتصال · %2$s</item>
+        <item quantity="many">%1$d جهة اتصال · %2$s</item>
+        <item quantity="other">%1$d جهة اتصال · %2$s</item>
+    </plurals>
+    <string name="lbl_more_for">المزيد لـ%1$s</string>
+    <string name="lbl_rename">إعادة تسمية</string>
+    <string name="lbl_delete">حذف التصنيف</string>
+    <string name="lbl_merge_into">الدمج في</string>
+    <plurals name="lbl_n_contacts" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">%1$d جهة اتصال</item>
+        <item quantity="one">جهة اتصال واحدة</item>
+        <item quantity="two">جهتا اتصال</item>
+        <item quantity="few">%1$d جهات اتصال</item>
+        <item quantity="many">%1$d جهة اتصال</item>
+        <item quantity="other">%1$d جهة اتصال</item>
+    </plurals>
+    <string name="lbl_merge_note">تُزال التصنيفات الأخرى بعد انضمام جهات اتصالها إلى «%1$s».</string>
+    <string name="lbl_merge_failed">تعذّر الدمج: %1$s</string>
+    <string name="lbl_merged">دُمجت في %1$s</string>
+    <plurals name="lbl_merged_added">
+        <item quantity="zero">دُمجت في %2$s · أُضيفت %1$d</item>
+        <item quantity="one">دُمجت في %2$s · أُضيفت %1$d</item>
+        <item quantity="two">دُمجت في %2$s · أُضيفت %1$d</item>
+        <item quantity="few">دُمجت في %2$s · أُضيفت %1$d</item>
+        <item quantity="many">دُمجت في %2$s · أُضيفت %1$d</item>
+        <item quantity="other">دُمجت في %2$s · أُضيفت %1$d</item>
+    </plurals>
+    <string name="lbl_delete_title">حذف «%1$s»؟</string>
+    <string name="lbl_delete_text">يُزال التصنيف من كل الحسابات. ويُحتفظ بجهات الاتصال التي فيه.</string>
+    <string name="lbl_name">الاسم</string>
+    <string name="lbl_saved_in">محفوظ في</string>
+    <string name="lbl_created">أُنشئ التصنيف «%1$s»</string>
+    <string name="lbl_create_failed">تعذّر إنشاء التصنيف</string>
+    <string name="lbl_create">إنشاء</string>
+    <string name="lbl_rename_title">إعادة تسمية التصنيف</string>
+    <string name="lbl_rename_note">إذا كان لتصنيف آخر هذا الاسم بالفعل، فسيُدمج الاثنان.</string>
+    <string name="lbl_rename_failed">تعذّرت إعادة التسمية: %1$s</string>
+    <string name="lbl_ringtone_for">نغمة رنين لـ%1$s</string>
+    <string name="lbl_no_numbers">لا أرقام هواتف في هذا التصنيف</string>
+    <string name="lbl_no_sms_app">لا يتوفر تطبيق مراسلة</string>
+    <string name="lbl_message_all">مراسلة الجميع</string>
+    <string name="lbl_no_emails">لا عناوين بريد في هذا التصنيف</string>
+    <string name="lbl_no_email_app">لا يتوفر تطبيق بريد</string>
+    <string name="lbl_email_all">مراسلة الجميع بالبريد</string>
+    <string name="lbl_ringtone">نغمة الرنين لهذا التصنيف</string>
+    <string name="lbl_custom_ringtone">نغمة رنين مخصصة</string>
+    <string name="lbl_default_ringtone">نغمة الرنين الافتراضية</string>
+    <string name="lbl_ringtone_summary">تُشغّل للأشخاص في هذا التصنيف، ما لم تكن لهم نغمتهم الخاصة</string>
+    <string name="lbl_reset">إعادة تعيين</string>
+    <string name="lbl_nobody">لا أحد في هذا التصنيف بعد. حدد جهات اتصال في علامة تبويب جهات الاتصال واختر «إضافة إلى تصنيف».</string>
+    <string name="lbl_remove_from">إزالة من %1$s</string>
+    <plurals name="lbl_delete_text_n" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">يُزال التصنيف من كل الحسابات. ويُحتفظ بجهات الاتصال الـ%1$d التي فيه.</item>
+        <item quantity="one">يُزال التصنيف من كل الحسابات. ويُحتفظ بجهة الاتصال الواحدة التي فيه.</item>
+        <item quantity="two">يُزال التصنيف من كل الحسابات. ويُحتفظ بجهات الاتصال الـ%1$d التي فيه.</item>
+        <item quantity="few">يُزال التصنيف من كل الحسابات. ويُحتفظ بجهات الاتصال الـ%1$d التي فيه.</item>
+        <item quantity="many">يُزال التصنيف من كل الحسابات. ويُحتفظ بجهات الاتصال الـ%1$d التي فيه.</item>
+        <item quantity="other">يُزال التصنيف من كل الحسابات. ويُحتفظ بجهات الاتصال الـ%1$d التي فيه.</item>
+    </plurals>
+
+    <!-- People: swipe actions and avatars -->
+    <string name="swipe_none">لا شيء</string>
+    <string name="swipe_call">اتصال</string>
+    <string name="swipe_message">رسالة</string>
+    <string name="swipe_message_on">مراسلة عبر…</string>
+    <string name="swipe_block">حظر</string>
+    <string name="swipe_delete">حذف (مع إمكانية التراجع)</string>
+    <string name="swipe_delete_short">حذف</string>
+    <string name="swipe_right">السحب لليمين</string>
+    <string name="swipe_left">السحب لليسار</string>
+    <string name="swipe_try">جرّبه:</string>
+    <string name="swipe_tried">%1$s: هذا ما سيفعله السحب</string>
+    <string name="swipe_example_name">سامي مثال</string>
+    <string name="swipe_try_hint">اسحب هذا الصف لليسار أو لليمين</string>
+    <string name="swipe_note">يتيح الحذف دائماً التراجع. السحب في الأحدث يحذف مكالمات ذلك الصف؛ وفي جهات الاتصال يحذف جهة الاتصال (يمكن استعادتها من المحذوفة مؤخراً).</string>
+    <string name="avatar_colourful">أحرف ملونة</string>
+    <string name="avatar_grey">حرف أول رمادي</string>
+    <string name="avatar_emoji_hint">الأسماء التي تبدأ برمز تعبيري تعرضه</string>
+
+    <!-- People: my card -->
+    <string name="me_open">فتح بطاقتي</string>
+    <string name="me_short">أنا</string>
+    <string name="me_title">بطاقتي</string>
+    <string name="me_empty">أضف تفاصيلك لمشاركتها كرمز QR</string>
+    <string name="me_saved">حُفظت البطاقة</string>
+    <string name="me_your_name">اسمك</string>
+    <string name="me_qr">رمز QR</string>
+    <string name="me_share">مشاركة</string>
+    <string name="me_profile_title">يعرض أيضاً الملف الشخصي لهاتفك</string>
+    <string name="me_profile_text">تملأ تفاصيل جهة «أنا» في Android الخانات الفارغة هنا. لا يغيّر Parley ذلك الملف: كل ما فيه يمكن لأي تطبيق لديه إذن جهات الاتصال قراءته، لذا تبقى بطاقتك في Parley.</string>
+    <string name="me_you">أنت</string>
+    <string name="me_name">الاسم</string>
+    <string name="me_company">الشركة</string>
+    <string name="me_job_title">المسمى الوظيفي</string>
+    <string name="me_numbers">الأرقام</string>
+    <string name="me_number">الرقم</string>
+    <string name="me_email">البريد الإلكتروني</string>
+    <string name="me_email_address">عنوان البريد الإلكتروني</string>
+    <string name="me_websites">المواقع الإلكترونية</string>
+    <string name="me_website">الموقع الإلكتروني</string>
+    <string name="me_more">المزيد</string>
+    <string name="me_address">العنوان</string>
+    <string name="me_private_note">ملاحظة خاصة</string>
+    <string name="me_private_note_hint">لك وحدك: لا تُشارك أبداً</string>
+    <string name="me_footer">تُخزَّن بطاقتك على هذا الهاتف فقط، داخل Parley. يستخدم «إرسال تفاصيلي» اسمها وأول رقم فيها.</string>
+    <string name="me_remove">إزالة</string>
+    <string name="me_add_number">إضافة رقم</string>
+    <string name="me_add_email">إضافة عنوان بريد</string>
+    <string name="me_add_website">إضافة موقع</string>
+    <string name="me_share_chooser">مشاركة بطاقتي</string>
+    <string name="me_share_failed">تعذّرت مشاركة البطاقة</string>
+    <string name="me_qr_desc">رمز QR لبطاقتي</string>
+    <string name="me_scan">امسحه بأي تطبيق كاميرا. تضمين:</string>
+    <string name="me_part_work">الشركة والوظيفة</string>
+    <string name="me_share_file">مشاركة كملف</string>
+
+    <!-- People: settings rows -->
+    <string name="second_number">رقم الهاتف</string>
+    <string name="second_company">الشركة · المسمى</string>
+    <string name="second_nickname">اللقب</string>
+    <string name="second_account">الحساب</string>
+    <string name="second_none">لا شيء</string>
+    <string name="second_line_summary">الأشخاص ذوو الاسم نفسه يظهرون دائماً مع شركتهم أو رقمهم</string>
+    <string name="prefer_nickname_summary">عرض «بوب» بدلاً من «روبرت جونز» في القوائم عند حفظ لقب</string>
+    <plurals name="labels_row_summary" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">%1$d تصنيف · إعادة تسمية، دمج، نغمات رنين</item>
+        <item quantity="one">تصنيف واحد · إعادة تسمية، دمج، نغمات رنين</item>
+        <item quantity="two">%1$d تصنيف · إعادة تسمية، دمج، نغمات رنين</item>
+        <item quantity="few">%1$d تصنيف · إعادة تسمية، دمج، نغمات رنين</item>
+        <item quantity="many">%1$d تصنيف · إعادة تسمية، دمج، نغمات رنين</item>
+        <item quantity="other">%1$d تصنيف · إعادة تسمية، دمج، نغمات رنين</item>
+    </plurals>
+    <plurals name="export_account_done">
+        <item quantity="zero">صُدّرت %1$d جهة اتصال من %2$s</item>
+        <item quantity="one">صُدّرت جهة اتصال واحدة من %2$s</item>
+        <item quantity="two">صُدّرت %1$d جهة اتصال من %2$s</item>
+        <item quantity="few">صُدّرت %1$d جهة اتصال من %2$s</item>
+        <item quantity="many">صُدّرت %1$d جهة اتصال من %2$s</item>
+        <item quantity="other">صُدّرت %1$d جهة اتصال من %2$s</item>
+    </plurals>
+    <plurals name="export_account_failed">
+        <item quantity="zero">%1$s · فشل %2$d</item>
+        <item quantity="one">%1$s · فشل %2$d</item>
+        <item quantity="two">%1$s · فشل %2$d</item>
+        <item quantity="few">%1$s · فشل %2$d</item>
+        <item quantity="many">%1$s · فشل %2$d</item>
+        <item quantity="other">%1$s · فشل %2$d</item>
+    </plurals>
+    <string name="export_account_title">تصدير جهات الاتصال من</string>
+    <string name="privacy_section">جهات اتصالك والتطبيقات الأخرى</string>
+    <string name="privacy_who_can_see">من يمكنه رؤية جهات اتصالك</string>
+    <string name="privacy_who_can_see_summary">التطبيقات التي يمكنها قراءة جهات اتصالك، وما يمكن لـParley فعله حيال ذلك</string>
+    <string name="privacy_private_names">السماح للتطبيقات بعرض الأسماء الخاصة</string>
+
+    <!-- People: who can see your contacts -->
+    <string name="who_header">لا يسمح Android لأي تطبيق جهات اتصال بأن يقرر ما تراه التطبيقات الأخرى. أي تطبيق منحته إذن «جهات الاتصال» يمكنه قراءة كل جهة اتصال على هذا الهاتف ومن كل حساب. إليك ما يمكن لـParley فعله.</string>
+    <string name="who_apps">تستطيع هذه التطبيقات قراءة جميع جهات اتصالك، ولا يمكن لـParley تقييدها. انقر لتغيير إذنها في إعدادات Android.</string>
+    <string name="who_private">لا تُخزَّن جهات الاتصال الخاصة أبداً حيث يمكن للتطبيقات الأخرى قراءتها. Parley وحده يعرض أسماءها.</string>
+    <string name="who_pick">عندما يطلب منك تطبيق اختيار جهة اتصال، تُشارك تلك الجهة وحدها.</string>
+    <string name="who_settings_failed">تعذّر فتح إعدادات Android</string>
+    <string name="who_graphene">أنت تستخدم GrapheneOS</string>
+    <string name="who_graphene_text">نطاقات جهات الاتصال في GrapheneOS هي التحكم الحقيقي لكل تطبيق: يمكن منح التطبيق جهات الاتصال التي تختارها فقط، ولا يرى غيرها. افتح تطبيقاً أدناه، ثم الأذونات › جهات الاتصال › نطاقات جهات الاتصال.</string>
+    <string name="who_no_browser">لا يتوفر متصفح</string>
+    <string name="who_scopes_link">كيف تعمل نطاقات جهات الاتصال</string>
+    <string name="who_apps_section">تطبيقات لديها وصول إلى جهات اتصالك</string>
+    <string name="who_no_apps">لا يوجد تطبيق آخر على الشاشة الرئيسية لديه إذن جهات الاتصال</string>
+    <string name="who_can_read_all">يمكنه قراءة كل جهات الاتصال</string>
+    <string name="who_system">جزء من النظام</string>
+    <string name="who_scopes_tip">نصيحة: استخدم نطاقات جهات الاتصال لهذا التطبيق</string>
+    <string name="who_change">تغيير في الإعدادات</string>
+    <string name="who_unused">تطبيقات لم تستخدمها منذ مدة</string>
+    <string name="who_unused_text">يمكن لـAndroid إزالة الأذونات من التطبيقات التي لم تستخدمها لبضعة أشهر. تحقق من تفعيل «إيقاف نشاط التطبيق مؤقتاً إذا لم يُستخدم» في إعدادات كل تطبيق. لا تظهر هنا التطبيقات التي ليس لها رمز على الشاشة الرئيسية: لا يطلب Parley رؤية كل التطبيقات المثبتة.</string>
+    <string name="who_messengers">WhatsApp وتطبيقات المراسلة الأخرى</string>
+    <string name="who_private_default">خاصة افتراضياً</string>
+    <string name="who_save_private">حفظ جهات الاتصال الجديدة كخاصة</string>
+    <string name="who_save_private_summary">تذهب جهات الاتصال الجديدة إلى جهات اتصالك الخاصة بدلاً من حساب</string>
+    <string name="who_what_stops">ما الذي يتوقف عن عرض أسمائهم:\n• سيارتك وساعتك الذكية (عبر Bluetooth تقرآن جهات اتصال الهاتف)\n• التطبيقات الأخرى: تطبيقات المراسلة ولوحات المفاتيح وتطبيق هاتف آخر\n• سجل مكالمات Android، الذي يمكن للتطبيقات الأخرى قراءته (ترى الرقم فقط)\nلا تُزامن جهات الاتصال الخاصة مع Google أو CardDAV؛ بل تكون في نسخ Parley الاحتياطية المشفّرة.</string>
+    <string name="who_move_private">نقل جهات اتصال إلى الخاصة</string>
+    <string name="who_move_private_summary">حدد جهات اتصال في علامة تبويب جهات الاتصال، ثم المزيد › نقل إلى الخاصة</string>
+    <string name="who_move_private_hint">اضغط مطولاً على جهات الاتصال لتحديدها، ثم اختر المزيد › نقل إلى الخاصة</string>
+    <string name="who_share_one">مشاركة جهة اتصال واحدة فقط</string>
+    <string name="who_picker_text">Parley هو منتقي جهات الاتصال لديك: التطبيق الذي يطلب منك اختيار جهة اتصال يحصل على تلك الجهة فقط، لا على دفتر عناوينك، ولا يحتاج إذن جهات الاتصال لذلك.</string>
+    <string name="who_picker_text_37">Parley هو منتقي جهات الاتصال لديك: التطبيق الذي يطلب منك اختيار جهة اتصال يحصل على تلك الجهة فقط، لا على دفتر عناوينك، ولا يحتاج إذن جهات الاتصال لذلك. في هذا الإصدار من Android يمكن للتطبيقات أيضاً استخدام منتقي جهات الاتصال في Android، الذي يشارك ما تختاره فقط بالطريقة نفسها.</string>
+    <string name="who_one_number">عرض مشاركة رقم فقط</string>
+    <string name="who_one_number_summary">عندما يطلب تطبيق جهة اتصال كاملة، اختر مشاركة رقم هاتف واحد فقط معه. قد لا تقبل بعض التطبيقات ذلك.</string>
+    <string name="who_private_names_section">الأسماء الخاصة في التطبيقات الأخرى</string>
+    <plurals name="who_private_names_on" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">مفعّل · %1$d تطبيق مسموح</item>
+        <item quantity="one">مفعّل · تطبيق واحد مسموح</item>
+        <item quantity="two">مفعّل · %1$d تطبيق مسموح</item>
+        <item quantity="few">مفعّل · %1$d تطبيق مسموح</item>
+        <item quantity="many">مفعّل · %1$d تطبيق مسموح</item>
+        <item quantity="other">مفعّل · %1$d تطبيق مسموح</item>
+    </plurals>
+
+    <!-- People: private names for other apps -->
+    <string name="pn_title">الأسماء الخاصة في التطبيقات الأخرى</string>
+    <string name="pn_off_default">متوقف افتراضياً</string>
+    <string name="pn_intro">يمكن للتطبيقات التي توافق عليها أن تطلب من Parley اسم رقم هاتف واحد في كل مرة، مثلاً لعرض هوية المتصل. تحصل على ذلك الاسم فقط، لا على قائمة أبداً، وفقط بعد أن تسمح لكل تطبيق. يسألك Parley بإشعار في أول مرة يحاول فيها تطبيق ما، وكل طلب مدرج أدناه.</string>
+    <string name="pn_directory_section">تطبيقات الهاتف (دليل جهات الاتصال)</string>
+    <string name="pn_directory_summary">متوقف افتراضياً. يستخدم الموافقات والسجل نفسيهما المذكورين أعلاه</string>
+    <string name="pn_directory_text">عند التفعيل، يدرج Android تطبيق Parley كدليل لجهات الاتصال. يمكن عندها لتطبيق هاتف يبحث عن المتصلين في الأدلة (مثل Google Phone، وأيضاً عند تشغيله في سيارتك) أن يطلب اسم رقم واحد، وفقط بعد أن تسمح لذلك التطبيق. لا يحصل أبداً على قائمة أو صورة أو جهة اتصال لفتحها، ولا يُجاب على شيء في الوضع المتحفظ. لا تسأل كل تطبيقات الهاتف الأدلة: Google Phone يفعل، وقد تبحث تطبيقات أخرى في جهات اتصالك فقط.</string>
+    <string name="pn_apps">التطبيقات</string>
+    <string name="pn_no_app">لم يطلب أي تطبيق بعد</string>
+    <string name="pn_allowed">مسموح</string>
+    <string name="pn_not_allowed">غير مسموح</string>
+    <string name="pn_waiting">بانتظار ردك</string>
+    <string name="pn_forget">نسيان (السؤال مجدداً)</string>
+    <string name="pn_log">سجل الوصول</string>
+    <string name="pn_no_requests">لا طلبات بعد</string>
+    <string name="pn_directory_suffix">%1$s (الدليل)</string>
+    <string name="pn_clear_log">مسح السجل</string>
+    <string name="pn_developers">لمطوري التطبيقات: استعلم عن content://%1$s/lookup/&lt;number&gt; مع امتلاك الإذن %2$s. تحتوي النتيجة على صف واحد (display_name, photo_uri) أو لا شيء.</string>
+    <string name="pn_out_answered">عُرض اسم خاص</string>
+    <string name="pn_out_not_found">طُلب؛ لا توجد جهة اتصال خاصة بهذا الرقم</string>
+    <string name="pn_out_denied">محظور: رفضت</string>
+    <string name="pn_out_asked">بانتظار ردك</string>
+    <string name="pn_out_off">محظور: مشاركة الأسماء الخاصة متوقفة</string>
+    <string name="pn_out_rejected">مرفوض: ليس رقم هاتف واحداً</string>
+    <string name="pn_out_rate">محظور: عمليات بحث كثيرة جداً</string>
+    <plurals name="move_private_title">
+        <item quantity="zero">نقل %1$d إلى الخاصة؟</item>
+        <item quantity="one">نقل %1$d إلى الخاصة؟</item>
+        <item quantity="two">نقل %1$d إلى الخاصة؟</item>
+        <item quantity="few">نقل %1$d إلى الخاصة؟</item>
+        <item quantity="many">نقل %1$d إلى الخاصة؟</item>
+        <item quantity="other">نقل %1$d إلى الخاصة؟</item>
+    </plurals>
+    <string name="move_private_text">لا تُخزَّن جهات الاتصال الخاصة أبداً حيث يمكن للتطبيقات الأخرى قراءتها. Parley وحده يعرض أسماءها. تُزال من حساباتك (Google وCardDAV…) وتتوقف الهواتف الأخرى عن رؤيتها؛ وتعرض سيارتك وساعتك والتطبيقات الأخرى أرقامها فقط.</string>
+    <plurals name="move_private_done">
+        <item quantity="zero">نُقلت %1$d إلى جهات اتصالك الخاصة</item>
+        <item quantity="one">نُقلت %1$d إلى جهات اتصالك الخاصة</item>
+        <item quantity="two">نُقلت %1$d إلى جهات اتصالك الخاصة</item>
+        <item quantity="few">نُقلت %1$d إلى جهات اتصالك الخاصة</item>
+        <item quantity="many">نُقلت %1$d إلى جهات اتصالك الخاصة</item>
+        <item quantity="other">نُقلت %1$d إلى جهات اتصالك الخاصة</item>
+    </plurals>
+    <string name="move_private_move">نقل</string>
+
+    <!-- People: contacts search hints -->
+    <string name="search_matched">مطابقة: %1$s</string>
+    <string name="search_field_email">البريد الإلكتروني</string>
+    <string name="search_field_nickname">اللقب</string>
+    <string name="search_field_company">الشركة</string>
+    <string name="search_field_address">العنوان</string>
+    <string name="search_field_note">الملاحظة</string>
+    <string name="search_field_website">الموقع الإلكتروني</string>
+    <string name="search_field_handle">معرّف المراسلة</string>
+
+    <!-- People: SIM -->
+    <string name="sim_warning">تخزّن شريحة SIM اسماً فقط (نحو 14 حرفاً) ورقماً واحداً لكل إدخال.</string>
+    <string name="sim_copy_title">نسخ إلى الشريحة</string>
+    <string name="sim_none_see">لم يُعثر على شريحة SIM، أو لم يسمح Android لـParley برؤيتها.</string>
+    <plurals name="sim_free" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">%1$d إدخال متاح</item>
+        <item quantity="one">إدخال واحد متاح</item>
+        <item quantity="two">%1$d إدخال متاح</item>
+        <item quantity="few">%1$d إدخال متاح</item>
+        <item quantity="many">%1$d إدخال متاح</item>
+        <item quantity="other">%1$d إدخال متاح</item>
+    </plurals>
+    <string name="sim_full">هذه الشريحة ممتلئة.</string>
+    <string name="sim_copied">نُسخت إلى %1$s</string>
+    <string name="sim_copy">نسخ</string>
+    <string name="sim_issue_no_number">لا يوجد رقم هاتف للنسخ.</string>
+    <string name="sim_issue_invalid">لا يمكن تخزين هذا الرقم على شريحة SIM.</string>
+    <plurals name="sim_issue_too_long">
+        <item quantity="zero">الرقم أطول مما تسمح به الشريحة (%1$d رقم).</item>
+        <item quantity="one">الرقم أطول مما تسمح به الشريحة (%1$d رقم).</item>
+        <item quantity="two">الرقم أطول مما تسمح به الشريحة (%1$d رقم).</item>
+        <item quantity="few">الرقم أطول مما تسمح به الشريحة (%1$d رقم).</item>
+        <item quantity="many">الرقم أطول مما تسمح به الشريحة (%1$d رقم).</item>
+        <item quantity="other">الرقم أطول مما تسمح به الشريحة (%1$d رقم).</item>
+    </plurals>
+    <plurals name="sim_issue_left_out" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">يتسع رقم واحد فقط على الشريحة: يُستبعد %1$d رقم آخر.</item>
+        <item quantity="one">يتسع رقم واحد فقط على الشريحة: يُستبعد رقم آخر واحد.</item>
+        <item quantity="two">يتسع رقم واحد فقط على الشريحة: يُستبعد %1$d رقم آخر.</item>
+        <item quantity="few">يتسع رقم واحد فقط على الشريحة: يُستبعد %1$d رقم آخر.</item>
+        <item quantity="many">يتسع رقم واحد فقط على الشريحة: يُستبعد %1$d رقم آخر.</item>
+        <item quantity="other">يتسع رقم واحد فقط على الشريحة: يُستبعد %1$d رقم آخر.</item>
+    </plurals>
+    <string name="sim_issue_shortened">يُختصر الاسم إلى «%1$s».</string>
+    <string name="sim_issue_details">تبقى عناوين البريد والعناوين والصور والتفاصيل الأخرى على الهاتف فقط.</string>
+    <string name="sim_import_title">الاستيراد من الشريحة</string>
+    <string name="sim_import_n">استيراد %1$d</string>
+    <string name="sim_import_intro">تخزّن شريحة SIM اسماً فقط (نحو 14 حرفاً) ورقماً واحداً لكل إدخال. الإدخالات الموجودة لديك غير محددة.</string>
+    <string name="sim_none_read">لم يُعثر على شريحة SIM، أو لم يسمح Android لـParley بقراءتها.</string>
+    <string name="sim_section">الشريحة</string>
+    <plurals name="sim_entries" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">%1$d إدخال على الشريحة</item>
+        <item quantity="one">إدخال واحد على الشريحة</item>
+        <item quantity="two">%1$d إدخال على الشريحة</item>
+        <item quantity="few">%1$d إدخال على الشريحة</item>
+        <item quantity="many">%1$d إدخال على الشريحة</item>
+        <item quantity="other">%1$d إدخال على الشريحة</item>
+    </plurals>
+    <string name="sim_empty">دفتر هاتف الشريحة فارغ.</string>
+    <string name="sim_already">%1$s · موجودة في جهات اتصالك بالفعل</string>
+    <string name="sim_import_into">الاستيراد إلى</string>
+    <string name="sim_imported">استُورد %1$d من %2$d إلى %3$s</string>
+
+    <!-- Relation types (I5); the stored value stays English -->
+    <string name="rel_spouse">الزوج/الزوجة</string>
+    <string name="rel_partner">الشريك</string>
+    <string name="rel_domestic_partner">شريك المنزل</string>
+    <string name="rel_child">الابن/الابنة</string>
+    <string name="rel_parent">أحد الوالدين</string>
+    <string name="rel_mother">الأم</string>
+    <string name="rel_father">الأب</string>
+    <string name="rel_sister">الأخت</string>
+    <string name="rel_brother">الأخ</string>
+    <string name="rel_relative">قريب</string>
+    <string name="rel_friend">صديق</string>
+    <string name="rel_manager">المدير</string>
+    <string name="rel_assistant">المساعد</string>
+    <string name="rel_referred_by">بتوصية من</string>
+    <string name="rel_contact">جهة اتصال</string>
+    <string name="rel_acquaintance">معرفة</string>
+    <string name="rel_met">التقيته</string>
+    <string name="rel_co_worker">زميل عمل</string>
+    <string name="rel_colleague">زميل</string>
+    <string name="rel_co_resident">مقيم معي</string>
+    <string name="rel_neighbor">جار</string>
+    <string name="rel_sibling">أخ/أخت</string>
+    <string name="rel_kin">من الأهل</string>
+    <string name="rel_muse">مُلهِم</string>
+    <string name="rel_crush">إعجاب</string>
+    <string name="rel_date">موعد غرامي</string>
+    <string name="rel_sweetheart">الحبيب</string>
+    <string name="rel_me">أنا</string>
+    <string name="rel_agent">وكيل</string>
+    <string name="rel_emergency">جهة اتصال للطوارئ</string>
+    <string name="rel_wife">الزوجة</string>
+    <string name="rel_husband">الزوج</string>
+    <string name="rel_fiance">الخطيب/الخطيبة</string>
+    <string name="rel_girlfriend">الحبيبة</string>
+    <string name="rel_boyfriend">الحبيب</string>
+    <string name="rel_ex_partner">الشريك السابق</string>
+    <string name="rel_son">الابن</string>
+    <string name="rel_daughter">الابنة</string>
+    <string name="rel_grandparent">الجد/الجدة</string>
+    <string name="rel_grandmother">الجدة</string>
+    <string name="rel_grandfather">الجد</string>
+    <string name="rel_grandchild">الحفيد/الحفيدة</string>
+    <string name="rel_grandson">الحفيد</string>
+    <string name="rel_granddaughter">الحفيدة</string>
+    <string name="rel_aunt">العمة/الخالة</string>
+    <string name="rel_uncle">العم/الخال</string>
+    <string name="rel_niece">ابنة الأخ/الأخت</string>
+    <string name="rel_nephew">ابن الأخ/الأخت</string>
+    <string name="rel_cousin">ابن/ابنة العم أو الخال</string>
+    <string name="rel_stepmother">زوجة الأب</string>
+    <string name="rel_stepfather">زوج الأم</string>
+    <string name="rel_stepson">ابن الزوج/الزوجة</string>
+    <string name="rel_stepdaughter">ابنة الزوج/الزوجة</string>
+    <string name="rel_stepsister">الأخت غير الشقيقة</string>
+    <string name="rel_stepbrother">الأخ غير الشقيق</string>
+    <string name="rel_mother_in_law">الحماة</string>
+    <string name="rel_father_in_law">الحمو</string>
+    <string name="rel_son_in_law">زوج الابنة</string>
+    <string name="rel_daughter_in_law">زوجة الابن</string>
+    <string name="rel_sister_in_law">أخت الزوج/الزوجة</string>
+    <string name="rel_brother_in_law">أخو الزوج/الزوجة</string>
+    <string name="rel_godparent">العرّاب/العرّابة</string>
+    <string name="rel_godchild">الابن الروحي</string>
+    <string name="rel_guardian">الوصي</string>
+    <string name="rel_roommate">شريك السكن</string>
+    <string name="rel_classmate">زميل الدراسة</string>
+    <string name="rel_teacher">المعلم</string>
+    <string name="rel_student">الطالب</string>
+    <string name="rel_mentor">المرشد</string>
+    <string name="rel_boss">الرئيس</string>
+    <string name="rel_employee">الموظف</string>
+    <string name="rel_client">العميل</string>
+    <string name="rel_supplier">المورّد</string>
+    <string name="rel_doctor">الطبيب</string>
+    <string name="rel_caregiver">مقدم الرعاية</string>
+    <string name="rel_babysitter">جليسة الأطفال</string>
+    <string name="rel_landlord">المالك</string>
+    <string name="rel_tenant">المستأجر</string>
+    <string name="rel_group_family">العائلة</string>
+    <string name="rel_group_partner">الشريك</string>
+    <string name="rel_group_social">الأصدقاء وآخرون</string>
+    <string name="rel_group_work">العمل</string>
+    <string name="rel_group_other">أخرى</string>
+
+    <!-- I1: messenger handles (brand names stay as they are) -->
+    <string name="handle_signal">اسم مستخدم Signal</string>
+    <string name="handle_threema">معرّف Threema</string>
+    <string name="handle_sip">عنوان SIP</string>
+    <string name="handle_other">أخرى</string>
+    <string name="handle_generic">المعرّف</string>
+    <string name="handle_hint_matrix">معرّف Matrix الكامل مع الخادم</string>
+    <string name="handle_hint_signal">اسم المستخدم مع رقمه، مثل name.01</string>
+    <string name="handle_hint_telegram">اسم المستخدم دون @ (من 5 إلى 32 حرفاً أو رقماً أو _)</string>
+    <string name="handle_hint_threema">معرّف Threema المكوّن من 8 رموز</string>
+    <string name="handle_hint_discord">اسم المستخدم (أو معرّف المستخدم الرقمي لفتح الملف الشخصي)</string>
+    <string name="handle_hint_xmpp">عنوان مثل name@server</string>
+    <string name="handle_hint_sip">عنوان اتصال عبر الإنترنت مثل name@provider</string>
+    <string name="handle_hint_skype">اسم Skype</string>
+    <string name="handle_hint_wire">اسم المستخدم دون @</string>
+    <string name="handle_hint_session">معرّف Session المكوّن من 66 رمزاً</string>
+    <string name="handle_hint_simplex">الصق رابط جهة الاتصال</string>
+    <string name="handle_hint_mastodon">معرّف مثل @name@server</string>
+    <string name="handle_hint_aim">الاسم المعروض</string>
+    <string name="handle_hint_yahoo">معرّف Yahoo</string>
+    <string name="handle_hint_qq">رقم QQ</string>
+    <string name="handle_hint_icq">رقم ICQ</string>
+    <string name="handle_hint_address">العنوان</string>
+    <string name="handle_hint_other">أي معرّف</string>
+    <string name="handle_problem_telegram">أسماء مستخدمي Telegram من 5 إلى 32 حرفاً أو رقماً أو _</string>
+    <string name="handle_problem_threema">معرّف Threema من 8 أحرف وأرقام</string>
+    <string name="handle_problem_matrix">يحتاج إلى الخادم أيضاً، مثل @name:matrix.org</string>
+    <string name="handle_problem_server">يحتاج إلى الخادم أيضاً، مثل name@server</string>
+    <string name="handle_problem_signal">تنتهي أسماء مستخدمي Signal بنقطة وأرقام، مثل name.01</string>
+    <string name="life_date_of_death">تاريخ الوفاة</string>
+</resources>
