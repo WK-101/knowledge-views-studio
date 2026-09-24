@@ -22,7 +22,7 @@ Every roadmap item below is implemented, except:
 - **P3-23 Android Auto:** deferred to the Play release. Android Auto's built-in phone UI already reads the same contacts and call log; a calling-category Car App needs Play review.
 - **Animated multi-frame QR transfer:** replaced by an encrypted backup file plus a passcode, because receiving frames would need in-app camera access.
 
-Localisation covers en, de, es, fr, pt-BR, hi, ur and ar (machine-assisted; needs native review).
+Localisation is deferred: v2.0 ships in English. Partial de/es/fr/pt-BR/hi/ur translations are kept on a local branch for a later release (Arabic not started; all need native review).
 
 ## 1. One-paragraph verdict
 
