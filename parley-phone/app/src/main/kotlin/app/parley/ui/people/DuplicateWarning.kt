@@ -29,6 +29,9 @@ import app.parley.data.ContactDetails
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.res.stringResource
+import app.parley.R
+import app.parley.ui.DataL10n
 
 /**
  * New-contact editor: "Anna Smith already exists · Open / Add these details to her", checked as you type
@@ -62,22 +65,22 @@ fun DuplicateWarning(vm: AppViewModel, draft: ContactDetails, onOpen: (Long) -> 
                 Icon(Icons.Rounded.PersonSearch, null, Modifier.padding(end = 12.dp))
                 Text(
                     when {
-                        private && h.reason == DuplicateReason.NAME -> "${h.contact.displayName} is already a private contact"
-                        private -> "Your private contact ${h.contact.displayName} already has ${h.matched}"
-                        h.reason == DuplicateReason.NAME -> "${h.contact.displayName} already exists"
-                        else -> DuplicateLookup.describe(h)
+                        private && h.reason == DuplicateReason.NAME -> stringResource(R.string.dup_private_name, h.contact.displayName)
+                        private -> stringResource(R.string.dup_private_has, h.contact.displayName, DataL10n.ltr(h.matched))
+                        h.reason == DuplicateReason.NAME -> stringResource(R.string.dup_exists, h.contact.displayName)
+                        else -> stringResource(R.string.dup_has, h.contact.displayName, DataL10n.ltr(h.matched))
                     },
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
             Row {
                 if (private) {
-                    TextButton({ vm.navigate(app.parley.NavEvent.Vault(-h.contact.id)) }) { Text("Open") }
+                    TextButton({ vm.navigate(app.parley.NavEvent.Vault(-h.contact.id)) }) { Text(stringResource(R.string.dup_open)) }
                 } else {
-                    TextButton({ onOpen(h.contact.id) }) { Text("Open") }
-                    TextButton({ onAddTo(h.contact.id) }) { Text("Add these details to ${h.contact.displayName.substringBefore(' ')}") }
+                    TextButton({ onOpen(h.contact.id) }) { Text(stringResource(R.string.dup_open)) }
+                    TextButton({ onAddTo(h.contact.id) }) { Text(stringResource(R.string.dup_add_to, h.contact.displayName.substringBefore(' '))) }
                 }
-                TextButton({ dismissed = h.contact.id }) { Text("It's someone else") }
+                TextButton({ dismissed = h.contact.id }) { Text(stringResource(R.string.dup_someone_else)) }
             }
         }
     }

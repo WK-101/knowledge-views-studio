@@ -124,7 +124,9 @@ class PeopleLogicTest {
         assertEquals(DuplicateReason.NAME, lookup.find("smith anna", emptyList(), emptyList())?.reason)
         assertNull(lookup.find("Bob", emptyList(), emptyList())) // one word is too ambiguous
         assertNull(lookup.find("Carl Jones", listOf("123"), emptyList()))
-        assertEquals("Anna Smith already exists", DuplicateLookup.describe(lookup.find("Anna Smith", emptyList(), emptyList())!!))
+        val byName = lookup.find("Anna Smith", emptyList(), emptyList())!!
+        assertEquals(DuplicateReason.NAME, byName.reason)
+        assertEquals("Anna Smith", byName.contact.displayName)
     }
 
     // ---------------------------------------------------------------- C9 date of death

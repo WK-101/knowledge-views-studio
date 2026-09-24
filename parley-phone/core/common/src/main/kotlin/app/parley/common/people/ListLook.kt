@@ -3,13 +3,15 @@ package app.parley.common.people
 import app.parley.common.Initials
 
 /** U4: what a swipe on a contact or Recents row does. [DELETE] always comes with an Undo. */
-enum class SwipeAction(val label: String) {
-    NONE("Nothing"),
-    CALL("Call"),
-    MESSAGE("Message"),
-    MESSAGE_ON("Message on…"),
-    BLOCK("Block"),
-    DELETE("Delete (with undo)"),
+/** What a swipe on a list row does; the app shows a localised label for each value. */
+enum class SwipeAction {
+    NONE,
+    CALL,
+    MESSAGE,
+    MESSAGE_ON,
+    BLOCK,
+    /** Delete, with undo. */
+    DELETE,
     ;
 
     companion object {
@@ -31,9 +33,9 @@ data class SwipeConfig(val enabled: Boolean = false, val right: SwipeAction = Sw
 }
 
 /** U6: how avatars without a photo look. */
-enum class AvatarStyle(val label: String) {
-    COLOURFUL("Colourful letters"),
-    GREY("Grey monogram"),
+enum class AvatarStyle {
+    COLOURFUL,
+    GREY,
 }
 
 object AvatarText {

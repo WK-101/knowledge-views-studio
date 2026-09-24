@@ -26,6 +26,9 @@ import app.parley.ui.Avatar
 import app.parley.ui.LocalAvatarStyle
 import app.parley.ui.settings.MenuRow
 import app.parley.ui.settings.SwitchRow
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 /** U4: Settings › Appearance › Swipe actions, with a live preview row to try them on. */
 @Composable
@@ -34,28 +37,30 @@ fun SwipeSettings(vm: AppViewModel) {
     val entry = SettingsCatalog["swipe_actions"]
     val choices = SwipeAction.entries
     var tried by remember { mutableStateOf<String?>(null) }
+    val res = LocalContext.current.resources
     Column {
         SwitchRow(entry.title, entry.summary, s.swipe.enabled, Icons.Rounded.Swipe) { v -> vm.people.update { it.copy(swipe = it.swipe.copy(enabled = v)) } }
         if (s.swipe.enabled) {
-            MenuRow("Swipe right", choices.map { it.label }, choices.indexOf(s.swipe.right), Icons.Rounded.SwipeRight) { i ->
+            MenuRow(stringResource(R.string.swipe_right), choices.map { swipeLabel(res, it) }, choices.indexOf(s.swipe.right), Icons.Rounded.SwipeRight) { i ->
                 vm.people.update { it.copy(swipe = it.swipe.copy(right = choices[i])) }
             }
-            MenuRow("Swipe left", choices.map { it.label }, choices.indexOf(s.swipe.left), Icons.Rounded.SwipeLeft) { i ->
+            MenuRow(stringResource(R.string.swipe_left), choices.map { swipeLabel(res, it) }, choices.indexOf(s.swipe.left), Icons.Rounded.SwipeLeft) { i ->
                 vm.people.update { it.copy(swipe = it.swipe.copy(left = choices[i])) }
             }
-            Text("Try it:", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
+            Text(stringResource(R.string.swipe_try), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
             // A preview row: swiping it only says what would happen.
-            SwipeActionRow(s.swipe, hasNumber = true, canDelete = true, onAction = { a -> tried = "${a.label.substringBefore(" (")}: that's what a swipe would do" }) {
+            SwipeActionRow(s.swipe, hasNumber = true, canDelete = true, onAction = { a -> tried = res.getString(R.string.swipe_tried, swipeLabel(res, a, short = true)) }) {
                 app.parley.ui.OnGroupSurface {
+                    val example = stringResource(R.string.swipe_example_name)
                     ListItem(
-                        leadingContent = { Avatar("Alex Example", null, 40.dp) },
-                        headlineContent = { Text("Alex Example") },
-                        supportingContent = { Text(tried ?: "Swipe this row left or right") },
+                        leadingContent = { Avatar(example, null, 40.dp) },
+                        headlineContent = { Text(example) },
+                        supportingContent = { Text(tried ?: stringResource(R.string.swipe_try_hint)) },
                     )
                 }
             }
             Text(
-                "Delete always offers Undo. A swipe on Recents deletes that row's calls; on Contacts, the contact (restorable from Recently deleted).",
+                stringResource(R.string.swipe_note),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
@@ -70,7 +75,8 @@ fun AvatarStyleSetting(vm: AppViewModel) {
     val entry = SettingsCatalog["avatar_style"]
     val styles = AvatarStyle.entries
     Column {
-        MenuRow(entry.title, styles.map { it.label }, styles.indexOf(s.avatarStyle), Icons.Rounded.AccountCircle, sub = "Names starting with an emoji show it") { i ->
+        val avatarLabels = styles.map { st -> stringResource(if (st == AvatarStyle.GREY) R.string.avatar_grey else R.string.avatar_colourful) }
+        MenuRow(entry.title, avatarLabels, styles.indexOf(s.avatarStyle), Icons.Rounded.AccountCircle, sub = stringResource(R.string.avatar_emoji_hint)) { i ->
             vm.people.update { it.copy(avatarStyle = styles[i]) }
         }
         androidx.compose.runtime.CompositionLocalProvider(LocalAvatarStyle provides s.avatarStyle) {

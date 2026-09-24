@@ -32,6 +32,9 @@ import app.parley.common.people.SwipeAction
 import app.parley.common.people.SwipeConfig
 import app.parley.ui.CallColors
 import kotlinx.coroutines.launch
+import android.content.res.Resources
+import androidx.compose.ui.platform.LocalContext
+import app.parley.R
 
 fun SwipeAction.icon(): ImageVector = when (this) {
     SwipeAction.CALL -> Icons.Rounded.Call
@@ -70,11 +73,12 @@ fun SwipeActionRow(
     }
     val scope = rememberCoroutineScope()
     val state = rememberSwipeToDismissBoxState()
+    val res = LocalContext.current.resources
     SwipeToDismissBox(
         state = state,
         modifier = Modifier.semantics {
             customActions = listOf(towardsEnd, towardsStart).filter { it != SwipeAction.NONE }.distinct().map { a ->
-                CustomAccessibilityAction(a.label) { onAction(a); true }
+                CustomAccessibilityAction(swipeLabel(res, a)) { onAction(a); true }
             }
         },
         enableDismissFromStartToEnd = towardsEnd != SwipeAction.NONE,
@@ -102,9 +106,21 @@ fun SwipeActionRow(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(action.icon(), null, tint = fg)
-                    Text(action.label.substringBefore(" ("), color = fg, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 8.dp).width(120.dp))
+                    Text(swipeLabel(res, action, short = true), color = fg, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 8.dp).width(120.dp))
                 }
             }
         },
     ) { content() }
 }
+
+/** Localised name of a swipe action; [short] drops the "(with undo)" part for the swipe background. */
+internal fun swipeLabel(res: Resources, a: SwipeAction, short: Boolean = false): String = res.getString(
+    when (a) {
+        SwipeAction.NONE -> R.string.swipe_none
+        SwipeAction.CALL -> R.string.swipe_call
+        SwipeAction.MESSAGE -> R.string.swipe_message
+        SwipeAction.MESSAGE_ON -> R.string.swipe_message_on
+        SwipeAction.BLOCK -> R.string.swipe_block
+        SwipeAction.DELETE -> if (short) R.string.swipe_delete_short else R.string.swipe_delete
+    },
+)

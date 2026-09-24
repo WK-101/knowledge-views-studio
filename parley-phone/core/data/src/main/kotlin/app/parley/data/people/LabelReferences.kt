@@ -61,7 +61,7 @@ class LabelReferences(private val c: DataContainer, private val prefs: PeoplePre
         val oh = c.settings.current().screening.offHours
         if (oh.allow == OffHoursAllow.LABEL && LabelRefs.refersTo(oh.labelTitle, titles)) {
             c.settings.update { s -> s.copy(screening = s.screening.copy(offHours = LabelRefs.labelGone(s.screening.offHours))) }
-            if (oh.enabled) "Off hours let only “${oh.labelTitle?.trim()}” ring, so it's switched off. Turn it back on in Blocking › Off hours." else null
+            if (oh.enabled) c.appContext.getString(app.parley.data.R.string.data_label_offhours_off, oh.labelTitle?.trim().toString()) else null
         } else {
             null
         }

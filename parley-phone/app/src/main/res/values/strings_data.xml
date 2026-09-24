@@ -955,4 +955,147 @@
         <item quantity="one">in %1$d day</item>
         <item quantity="other">in %1$d days</item>
     </plurals>
+
+    <!-- People: diagnostics export -->
+    <string name="diag_saved">Diagnostics saved</string>
+    <string name="diag_save_failed">Couldn\'t save the file</string>
+    <string name="diag_title">Export diagnostics</string>
+    <string name="diag_intro">This report helps find a problem. It has no contacts and no call history. Parley has no internet access, so nothing is sent: you save it or share it with whoever you choose.</string>
+    <string name="diag_mask">Mask numbers and e-mail addresses</string>
+    <string name="diag_mask_summary">Keeps only the last two digits of numbers in error messages</string>
+    <string name="diag_tables">Include the contacts tables (masked)</string>
+    <string name="diag_tables_summary">How accounts stored each contact, with every name, number and text replaced by its shape (Aaaa 99 9923)</string>
+    <string name="diag_save_file">Save as file</string>
+    <string name="diag_share">Share</string>
+
+    <!-- People: duplicate warning in the editor -->
+    <string name="dup_private_name">%1$s is already a private contact</string>
+    <string name="dup_private_has">Your private contact %1$s already has %2$s</string>
+    <string name="dup_exists">%1$s already exists</string>
+    <string name="dup_has">%1$s already has %2$s</string>
+    <string name="dup_open">Open</string>
+    <string name="dup_add_to">Add these details to %1$s</string>
+    <string name="dup_someone_else">It\'s someone else</string>
+
+    <!-- People: labels -->
+    <plurals name="lbl_selected">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
+    <string name="lbl_title">Labels</string>
+    <string name="lbl_stop_merging">Stop merging</string>
+    <string name="lbl_merge">Merge</string>
+    <string name="lbl_new">New label</string>
+    <string name="lbl_merge_labels">Merge labels</string>
+    <string name="lbl_merge_intro">Choose the labels to combine. Everyone in them ends up in one label; no contact is removed.</string>
+    <string name="lbl_unlabelled">Unlabelled</string>
+    <plurals name="lbl_unlabelled_count">
+        <item quantity="one">%1$d contact without a label</item>
+        <item quantity="other">%1$d contacts without a label</item>
+    </plurals>
+    <string name="lbl_empty_title">No labels yet</string>
+    <string name="lbl_empty_text">Labels group contacts (Family, Work…). They sync with your Google or CardDAV account.</string>
+    <plurals name="lbl_count_accounts">
+        <item quantity="one">%1$d contact · %2$s</item>
+        <item quantity="other">%1$d contacts · %2$s</item>
+    </plurals>
+    <string name="lbl_more_for">More for %1$s</string>
+    <string name="lbl_rename">Rename</string>
+    <string name="lbl_delete">Delete label</string>
+    <string name="lbl_merge_into">Merge into</string>
+    <plurals name="lbl_n_contacts">
+        <item quantity="one">%1$d contact</item>
+        <item quantity="other">%1$d contacts</item>
+    </plurals>
+    <string name="lbl_merge_note">The other labels are removed after their contacts join “%1$s”.</string>
+    <string name="lbl_merge_failed">Couldn\'t merge: %1$s</string>
+    <string name="lbl_merged">Merged into %1$s</string>
+    <plurals name="lbl_merged_added">
+        <item quantity="one">Merged into %2$s · %1$d added</item>
+        <item quantity="other">Merged into %2$s · %1$d added</item>
+    </plurals>
+    <string name="lbl_delete_title">Delete “%1$s”?</string>
+    <string name="lbl_delete_text">The label is removed from every account. The contacts in it are kept.</string>
+    <string name="lbl_name">Name</string>
+    <string name="lbl_saved_in">Saved in</string>
+    <string name="lbl_created">Label “%1$s” created</string>
+    <string name="lbl_create_failed">Couldn\'t create the label</string>
+    <string name="lbl_create">Create</string>
+    <string name="lbl_rename_title">Rename label</string>
+    <string name="lbl_rename_note">If another label already has this name, the two are merged.</string>
+    <string name="lbl_rename_failed">Couldn\'t rename: %1$s</string>
+    <string name="lbl_ringtone_for">Ringtone for %1$s</string>
+    <string name="lbl_no_numbers">No phone numbers in this label</string>
+    <string name="lbl_no_sms_app">No messaging app available</string>
+    <string name="lbl_message_all">Message all</string>
+    <string name="lbl_no_emails">No e-mail addresses in this label</string>
+    <string name="lbl_no_email_app">No e-mail app available</string>
+    <string name="lbl_email_all">Email all</string>
+    <string name="lbl_ringtone">Ringtone for this label</string>
+    <string name="lbl_custom_ringtone">Custom ringtone</string>
+    <string name="lbl_default_ringtone">Default ringtone</string>
+    <string name="lbl_ringtone_summary">Plays for people in this label, unless they have their own ringtone</string>
+    <string name="lbl_reset">Reset</string>
+    <string name="lbl_nobody">Nobody has this label yet. Select contacts in the Contacts tab and choose “Add to label”.</string>
+    <string name="lbl_remove_from">Remove from %1$s</string>
+    <plurals name="lbl_delete_text_n">
+        <item quantity="one">The label is removed from every account. The %1$d contact in it is kept.</item>
+        <item quantity="other">The label is removed from every account. The %1$d contacts in it are kept.</item>
+    </plurals>
+
+    <!-- People: swipe actions and avatars -->
+    <string name="swipe_none">Nothing</string>
+    <string name="swipe_call">Call</string>
+    <string name="swipe_message">Message</string>
+    <string name="swipe_message_on">Message on…</string>
+    <string name="swipe_block">Block</string>
+    <string name="swipe_delete">Delete (with undo)</string>
+    <string name="swipe_delete_short">Delete</string>
+    <string name="swipe_right">Swipe right</string>
+    <string name="swipe_left">Swipe left</string>
+    <string name="swipe_try">Try it:</string>
+    <string name="swipe_tried">%1$s: that\'s what a swipe would do</string>
+    <string name="swipe_example_name">Alex Example</string>
+    <string name="swipe_try_hint">Swipe this row left or right</string>
+    <string name="swipe_note">Delete always offers Undo. A swipe on Recents deletes that row\'s calls; on Contacts, the contact (restorable from Recently deleted).</string>
+    <string name="avatar_colourful">Colourful letters</string>
+    <string name="avatar_grey">Grey monogram</string>
+    <string name="avatar_emoji_hint">Names starting with an emoji show it</string>
+
+    <!-- People: my card -->
+    <string name="me_open">Open my card</string>
+    <string name="me_short">Me</string>
+    <string name="me_title">My card</string>
+    <string name="me_empty">Add your details to share them as a QR code</string>
+    <string name="me_saved">Card saved</string>
+    <string name="me_your_name">Your name</string>
+    <string name="me_qr">QR code</string>
+    <string name="me_share">Share</string>
+    <string name="me_profile_title">Also shows your phone\'s profile</string>
+    <string name="me_profile_text">Details from Android\'s “Me” contact fill in what\'s empty here. Parley doesn\'t change that profile: anything in it can be read by every app with contacts access, so your card stays in Parley.</string>
+    <string name="me_you">You</string>
+    <string name="me_name">Name</string>
+    <string name="me_company">Company</string>
+    <string name="me_job_title">Job title</string>
+    <string name="me_numbers">Numbers</string>
+    <string name="me_number">Number</string>
+    <string name="me_email">E-mail</string>
+    <string name="me_email_address">E-mail address</string>
+    <string name="me_websites">Websites</string>
+    <string name="me_website">Website</string>
+    <string name="me_more">More</string>
+    <string name="me_address">Address</string>
+    <string name="me_private_note">Private note</string>
+    <string name="me_private_note_hint">Only for you: never shared</string>
+    <string name="me_footer">Your card is stored on this phone only, inside Parley. “Send my details” uses its name and first number.</string>
+    <string name="me_remove">Remove</string>
+    <string name="me_add_number">Add number</string>
+    <string name="me_add_email">Add e-mail address</string>
+    <string name="me_add_website">Add website</string>
+    <string name="me_share_chooser">Share my card</string>
+    <string name="me_share_failed">Couldn\'t share the card</string>
+    <string name="me_qr_desc">QR code of my card</string>
+    <string name="me_scan">Scan with any camera app. Include:</string>
+    <string name="me_part_work">Company and job</string>
+    <string name="me_share_file">Share as file</string>
 </resources>

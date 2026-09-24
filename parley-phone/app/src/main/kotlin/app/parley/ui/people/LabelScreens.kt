@@ -69,12 +69,16 @@ import app.parley.ui.home.ContactRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 /** Settings-like screen listing every label: open, create, rename, delete and merge. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val idx by vm.people.index.collectAsStateWithLifecycle()
     val all by vm.contacts.collectAsStateWithLifecycle()
     var labels by remember { mutableStateOf<List<Label>?>(null) }
@@ -93,20 +97,20 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(
             scrollBehavior = barTint,
-            title = { Text(if (merging) "${picked.size} selected" else "Labels") },
+            title = { Text(if (merging) pluralStringResource(R.plurals.lbl_selected, picked.size, picked.size) else stringResource(R.string.lbl_title)) },
             navigationIcon = {
-                if (merging) IconButton({ merging = false; picked = emptySet() }) { Icon(Icons.Rounded.Close, "Stop merging") }
-                else IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
+                if (merging) IconButton({ merging = false; picked = emptySet() }) { Icon(Icons.Rounded.Close, stringResource(R.string.lbl_stop_merging)) }
+                else IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) }
             },
             actions = {
                 if (merging) {
-                    TextButton({ mergeTarget = true }, enabled = picked.size >= 2) { Text("Merge") }
+                    TextButton({ mergeTarget = true }, enabled = picked.size >= 2) { Text(stringResource(R.string.lbl_merge)) }
                 } else {
-                    IconButton({ creating = true }) { Icon(Icons.Rounded.Add, "New label") }
+                    IconButton({ creating = true }) { Icon(Icons.Rounded.Add, stringResource(R.string.lbl_new)) }
                     Box {
-                        IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, "More") }
+                        IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more)) }
                         DropdownMenu(menu, { menu = false }) {
-                            DropdownMenuItem({ Text("Merge labels") }, leadingIcon = { Icon(Icons.Rounded.CallMerge, null) }, onClick = { menu = false; merging = true })
+                            DropdownMenuItem({ Text(stringResource(R.string.lbl_merge_labels)) }, leadingIcon = { Icon(Icons.Rounded.CallMerge, null) }, onClick = { menu = false; merging = true })
                         }
                     }
                 }
@@ -118,7 +122,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
         LazyColumn(Modifier.padding(p)) {
             if (merging) item {
                 Text(
-                    "Choose the labels to combine. Everyone in them ends up in one label; no contact is removed.",
+                    stringResource(R.string.lbl_merge_intro),
                     Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium,
                 )
             }
@@ -130,12 +134,12 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
                         vm.navigate(NavEvent.Tab(StartTab.CONTACTS))
                     },
                     leadingContent = { Icon(Icons.AutoMirrored.Rounded.LabelOff, null) },
-                    headlineContent = { Text("Unlabelled") },
-                    supportingContent = { Text("$unlabelled contacts without a label") },
+                    headlineContent = { Text(stringResource(R.string.lbl_unlabelled)) },
+                    supportingContent = { Text(pluralStringResource(R.plurals.lbl_unlabelled_count, unlabelled, unlabelled)) },
                 )
             }
             if (list.isEmpty()) item {
-                EmptyState(Icons.AutoMirrored.Rounded.Label, "No labels yet", "Labels group contacts (Family, Work…). They sync with your Google or CardDAV account.", Modifier.padding(top = 32.dp))
+                EmptyState(Icons.AutoMirrored.Rounded.Label, stringResource(R.string.lbl_empty_title), stringResource(R.string.lbl_empty_text), Modifier.padding(top = 32.dp))
             }
             items(list, key = { it.title }) { l ->
                 var rowMenu by remember { mutableStateOf(false) }
@@ -148,13 +152,13 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
                         else Icon(Icons.AutoMirrored.Rounded.Label, null)
                     },
                     headlineContent = { Text(l.title) },
-                    supportingContent = { Text("${idx.labelCounts[l.title] ?: 0} contacts · " + l.accounts.joinToString { it.displayLabel }) },
+                    supportingContent = { (idx.labelCounts[l.title] ?: 0).let { n -> Text(pluralStringResource(R.plurals.lbl_count_accounts, n, n, l.accounts.joinToString { it.displayLabel })) } },
                     trailingContent = if (merging) null else ({
                         Box {
-                            IconButton({ rowMenu = true }) { Icon(Icons.Rounded.MoreVert, "More for ${l.title}") }
+                            IconButton({ rowMenu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.lbl_more_for, l.title)) }
                             DropdownMenu(rowMenu, { rowMenu = false }) {
-                                DropdownMenuItem({ Text("Rename") }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { rowMenu = false; renaming = l.title })
-                                DropdownMenuItem({ Text("Delete label") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { rowMenu = false; deleting = l.title })
+                                DropdownMenuItem({ Text(stringResource(R.string.lbl_rename)) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { rowMenu = false; renaming = l.title })
+                                DropdownMenuItem({ Text(stringResource(R.string.lbl_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { rowMenu = false; deleting = l.title })
                             }
                         }
                     }),
@@ -167,7 +171,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
         var target by remember { mutableStateOf(picked.first()) }
         AlertDialog(
             onDismissRequest = { mergeTarget = false },
-            title = { Text("Merge into") },
+            title = { Text(stringResource(R.string.lbl_merge_into)) },
             text = {
                 Column {
                     picked.sorted().forEach { t ->
@@ -175,26 +179,26 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
                             modifier = Modifier.clickable { target = t },
                             leadingContent = { RadioButton(target == t, { target = t }) },
                             headlineContent = { Text(t) },
-                            supportingContent = { Text("${idx.labelCounts[t] ?: 0} contacts") },
+                            supportingContent = { (idx.labelCounts[t] ?: 0).let { n -> Text(pluralStringResource(R.plurals.lbl_n_contacts, n, n)) } },
                         )
                     }
-                    Text("The other labels are removed after their contacts join “$target”.", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.lbl_merge_note, target), style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = {
                 TextButton({
                     mergeTarget = false
                     scope.launch {
-                        val n = runCatching { vm.c.people.labels.merge(picked, target) }.getOrElse { vm.toast("Couldn't merge: ${it.message}"); return@launch }
-                        vm.toast("Merged into $target" + if (n > 0) " · $n added" else "")
+                        val n = runCatching { vm.c.people.labels.merge(picked, target) }.getOrElse { vm.toast(context.getString(R.string.lbl_merge_failed, it.message.toString())); return@launch }
+                        vm.toast(if (n > 0) context.resources.getQuantityString(R.plurals.lbl_merged_added, n, n, target) else context.getString(R.string.lbl_merged, target))
                         merging = false
                         picked = emptySet()
                         vm.c.contacts.refresh()
                         round++
                     }
-                }) { Text("Merge") }
+                }) { Text(stringResource(R.string.lbl_merge)) }
             },
-            dismissButton = { TextButton({ mergeTarget = false }) { Text("Cancel") } },
+            dismissButton = { TextButton({ mergeTarget = false }) { Text(stringResource(R.string.dc_cancel)) } },
         )
     }
     if (creating) CreateLabelDialog(vm, onDismiss = { creating = false }) { round++ }
@@ -202,8 +206,8 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
     deleting?.let { t ->
         AlertDialog(
             onDismissRequest = { deleting = null },
-            title = { Text("Delete “$t”?") },
-            text = { Text("The label is removed from every account. The contacts in it are kept.") },
+            title = { Text(stringResource(R.string.lbl_delete_title, t)) },
+            text = { Text(stringResource(R.string.lbl_delete_text)) },
             confirmButton = {
                 TextButton({
                     deleting = null
@@ -212,9 +216,9 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
                         vm.c.contacts.refresh()
                         round++
                     }
-                }) { Text("Delete") }
+                }) { Text(stringResource(R.string.dc_delete)) }
             },
-            dismissButton = { TextButton({ deleting = null }) { Text("Cancel") } },
+            dismissButton = { TextButton({ deleting = null }) { Text(stringResource(R.string.dc_cancel)) } },
         )
     }
 }
@@ -222,6 +226,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
 @Composable
 private fun CreateLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onCreated: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var name by remember { mutableStateOf("") }
     var accounts by remember { mutableStateOf<List<AccountRef>>(emptyList()) }
     var account by remember { mutableStateOf<AccountRef?>(null) }
@@ -233,11 +238,11 @@ private fun CreateLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onCreated
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("New label") },
+        title = { Text(stringResource(R.string.lbl_new)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
-                Text("Saved in", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
+                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.lbl_name)) }, singleLine = true)
+                Text(stringResource(R.string.lbl_saved_in), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
                 accounts.forEach { a ->
                     ListItem(
                         modifier = Modifier.clickable { account = a },
@@ -252,25 +257,26 @@ private fun CreateLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onCreated
                 val a = account ?: return@TextButton
                 onDismiss()
                 scope.launch {
-                    if (vm.c.people.labels.create(name, a) != null) { vm.toast("Label “${name.trim()}” created"); onCreated() } else vm.toast("Couldn't create the label")
+                    if (vm.c.people.labels.create(name, a) != null) { vm.toast(context.getString(R.string.lbl_created, name.trim())); onCreated() } else vm.toast(context.getString(R.string.lbl_create_failed))
                 }
-            }, enabled = name.isNotBlank() && account != null) { Text("Create") }
+            }, enabled = name.isNotBlank() && account != null) { Text(stringResource(R.string.lbl_create)) }
         },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 
 @Composable
 private fun RenameLabelDialog(vm: AppViewModel, old: String, onDismiss: () -> Unit, onDone: (String) -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var name by remember { mutableStateOf(old) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Rename label") },
+        title = { Text(stringResource(R.string.lbl_rename_title)) },
         text = {
             Column {
                 OutlinedTextField(name, { name = it }, singleLine = true)
-                Text("If another label already has this name, the two are merged.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(R.string.lbl_rename_note), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
             }
         },
         confirmButton = {
@@ -278,13 +284,13 @@ private fun RenameLabelDialog(vm: AppViewModel, old: String, onDismiss: () -> Un
                 onDismiss()
                 scope.launch {
                     // Its ringtone, rules, limits and off-hours choice follow the label (see LabelReferences).
-                    runCatching { vm.c.people.labels.rename(old, name) }.onFailure { vm.toast("Couldn't rename: ${it.message}") }
+                    runCatching { vm.c.people.labels.rename(old, name) }.onFailure { vm.toast(context.getString(R.string.lbl_rename_failed, it.message.toString())) }
                     vm.c.contacts.refresh()
                     onDone(name.trim())
                 }
-            }, enabled = name.isNotBlank() && name.trim() != old) { Text("Rename") }
+            }, enabled = name.isNotBlank() && name.trim() != old) { Text(stringResource(R.string.lbl_rename)) }
         },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 
@@ -314,7 +320,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
         Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
             .putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE)
             .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-            .putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Ringtone for $current")
+            .putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, context.getString(R.string.lbl_ringtone_for, current))
             .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, tone?.let(Uri::parse)),
     )
 
@@ -324,28 +330,28 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
         TopAppBar(
             scrollBehavior = barTint,
             title = { Text(current) },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
+            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
             actions = {
                 IconButton({
                     val numbers = members.mapNotNull { c -> (c.phones.firstOrNull { it.isPrimary } ?: c.phones.firstOrNull { it.type == 2 } ?: c.phones.firstOrNull())?.number }
-                    if (numbers.isEmpty()) vm.toast("No phone numbers in this label")
+                    if (numbers.isEmpty()) vm.toast(context.getString(R.string.lbl_no_numbers))
                     else runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + numbers.joinToString(";") { Uri.encode(it) }))) }
-                        .onFailure { vm.toast("No messaging app available") }
-                }) { Icon(Icons.AutoMirrored.Rounded.Message, "Message all") }
+                        .onFailure { vm.toast(context.getString(R.string.lbl_no_sms_app)) }
+                }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.lbl_message_all)) }
                 IconButton({
                     val emails = members.mapNotNull { it.emails.firstOrNull() }
-                    if (emails.isEmpty()) vm.toast("No e-mail addresses in this label")
+                    if (emails.isEmpty()) vm.toast(context.getString(R.string.lbl_no_emails))
                     else runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + emails.joinToString(",") { Uri.encode(it, "@") }))) }
-                        .onFailure { vm.toast("No e-mail app available") }
-                }) { Icon(Icons.Rounded.Email, "Email all") }
-                IconButton(::pickTone) { Icon(Icons.Rounded.MusicNote, "Ringtone for this label") }
+                        .onFailure { vm.toast(context.getString(R.string.lbl_no_email_app)) }
+                }) { Icon(Icons.Rounded.Email, stringResource(R.string.lbl_email_all)) }
+                IconButton(::pickTone) { Icon(Icons.Rounded.MusicNote, stringResource(R.string.lbl_ringtone)) }
                 Box {
-                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, "More") }
+                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more)) }
                     DropdownMenu(menu, { menu = false }) {
                         // Screening rules for everyone in this label (block, only-they-ring at night, ringtone).
                         app.parley.ui.blocking.LabelBlockingMenuItem(current) { menu = false }
-                        DropdownMenuItem({ Text("Rename") }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { menu = false; renaming = true })
-                        DropdownMenuItem({ Text("Delete label") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
+                        DropdownMenuItem({ Text(stringResource(R.string.lbl_rename)) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { menu = false; renaming = true })
+                        DropdownMenuItem({ Text(stringResource(R.string.lbl_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
                     }
                 }
             },
@@ -357,21 +363,21 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
                 ListItem(
                     modifier = Modifier.clickable(onClick = ::pickTone),
                     leadingContent = { Icon(Icons.Rounded.MusicNote, null) },
-                    headlineContent = { Text(name ?: if (tone != null) "Custom ringtone" else "Default ringtone") },
-                    supportingContent = { Text("Plays for people in this label, unless they have their own ringtone") },
-                    trailingContent = { if (tone != null) TextButton({ vm.people.update { it.copy(labelRingtones = it.labelRingtones - current) } }) { Text("Reset") } },
+                    headlineContent = { Text(name ?: if (tone != null) stringResource(R.string.lbl_custom_ringtone) else stringResource(R.string.lbl_default_ringtone)) },
+                    supportingContent = { Text(stringResource(R.string.lbl_ringtone_summary)) },
+                    trailingContent = { if (tone != null) TextButton({ vm.people.update { it.copy(labelRingtones = it.labelRingtones - current) } }) { Text(stringResource(R.string.lbl_reset)) } },
                 )
             }
-            item { Section("${members.size} contacts") }
+            item { Section(pluralStringResource(R.plurals.lbl_n_contacts, members.size, members.size)) }
             if (members.isEmpty()) item {
-                Text("Nobody has this label yet. Select contacts in the Contacts tab and choose “Add to label”.", Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.lbl_nobody), Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
             }
             items(members, key = { it.id }) { c ->
                 var rowMenu by remember { mutableStateOf(false) }
                 Box {
                     ContactRow(c, onLongClick = { rowMenu = true }) { open(Routes.contact(c.id)) }
                     DropdownMenu(rowMenu, { rowMenu = false }) {
-                        DropdownMenuItem({ Text("Remove from $current") }, onClick = {
+                        DropdownMenuItem({ Text(stringResource(R.string.lbl_remove_from, current)) }, onClick = {
                             rowMenu = false
                             scope.launch { vm.c.people.labels.removeMembers(current, listOf(c.id)); vm.c.contacts.refresh() }
                         })
@@ -384,8 +390,8 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete “$current”?") },
-            text = { Text("The label is removed from every account. The ${members.size} contacts in it are kept.") },
+            title = { Text(stringResource(R.string.lbl_delete_title, current)) },
+            text = { Text(pluralStringResource(R.plurals.lbl_delete_text_n, members.size, members.size)) },
             confirmButton = {
                 TextButton({
                     confirmDelete = false
@@ -395,9 +401,9 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
                         vm.c.contacts.refresh()
                         back()
                     }
-                }) { Text("Delete") }
+                }) { Text(stringResource(R.string.dc_delete)) }
             },
-            dismissButton = { TextButton({ confirmDelete = false }) { Text("Cancel") } },
+            dismissButton = { TextButton({ confirmDelete = false }) { Text(stringResource(R.string.dc_cancel)) } },
         )
     }
 }

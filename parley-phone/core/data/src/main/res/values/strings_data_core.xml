@@ -128,4 +128,7 @@
     </plurals>
     <string name="data_write_photo_failed">The photo could not be saved</string>
     <string name="data_write_not_found">The contact could not be found after writing</string>
+
+    <!-- Labels (core/data) -->
+    <string name="data_label_offhours_off">Off hours let only “%1$s” ring, so it\'s switched off. Turn it back on in Blocking › Off hours.</string>
 </resources>

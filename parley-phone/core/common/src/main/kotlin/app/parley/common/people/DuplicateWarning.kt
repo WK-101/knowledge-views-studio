@@ -32,12 +32,4 @@ class DuplicateLookup(contacts: List<ContactSummary>) {
         Duplicates.nameKey(name)?.let { k -> byName[k]?.let { return DuplicateHit(it, DuplicateReason.NAME, name.trim()) } }
         return null
     }
-
-    companion object {
-        fun describe(hit: DuplicateHit): String = when (hit.reason) {
-            DuplicateReason.NUMBER -> "${hit.contact.displayName} already has ${hit.matched}"
-            DuplicateReason.EMAIL -> "${hit.contact.displayName} already has ${hit.matched}"
-            DuplicateReason.NAME -> "${hit.contact.displayName} already exists"
-        }
-    }
 }

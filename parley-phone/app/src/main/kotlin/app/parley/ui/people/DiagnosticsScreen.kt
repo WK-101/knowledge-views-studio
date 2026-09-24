@@ -41,6 +41,8 @@ import app.parley.ui.settings.SwitchRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 /** Settings › About › "Export diagnostics": preview the report, then save it or share it yourself. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,29 +71,28 @@ fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
         if (uri != null) scope.launch {
             val ok = withContext(Dispatchers.IO) { runCatching { context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(report.toByteArray()) } }.isSuccess }
-            vm.toast(if (ok) "Diagnostics saved" else "Couldn't save the file")
+            vm.toast(context.getString(if (ok) R.string.diag_saved else R.string.diag_save_failed))
         }
     }
     // U7: scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        TopAppBar(title = { Text("Export diagnostics") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } }, scrollBehavior = barTint)
+        TopAppBar(title = { Text(stringResource(R.string.diag_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
     }) { p ->
         Column(Modifier.padding(p)) {
             Text(
-                "This report helps find a problem. It has no contacts and no call history. Parley has no internet access, so nothing is sent: " +
-                    "you save it or share it with whoever you choose.",
+                stringResource(R.string.diag_intro),
                 Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
             )
-            SwitchRow("Mask numbers and e-mail addresses", "Keeps only the last two digits of numbers in error messages", mask) { mask = it }
+            SwitchRow(stringResource(R.string.diag_mask), stringResource(R.string.diag_mask_summary), mask) { mask = it }
             SwitchRow(
-                "Include the contacts tables (masked)",
-                "How accounts stored each contact, with every name, number and text replaced by its shape (Aaaa 99 9923)",
+                stringResource(R.string.diag_tables),
+                stringResource(R.string.diag_tables_summary),
                 tables,
             ) { tables = it }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button({ saver.launch("parley-diagnostics.txt") }, enabled = report.isNotEmpty()) { Text("Save as file") }
-                OutlinedButton({ Intents.shareText(context, report) }, enabled = report.isNotEmpty()) { Text("Share") }
+                Button({ saver.launch("parley-diagnostics.txt") }, enabled = report.isNotEmpty()) { Text(stringResource(R.string.diag_save_file)) }
+                OutlinedButton({ Intents.shareText(context, report) }, enabled = report.isNotEmpty()) { Text(stringResource(R.string.diag_share)) }
             }
             SelectionContainer(Modifier.padding(16.dp).verticalScroll(rememberScrollState()).horizontalScroll(rememberScrollState())) {
                 Text(report, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
