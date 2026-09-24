@@ -167,6 +167,8 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     "Keep call history", listOf("Forever", "30 days", "90 days", "6 months", "1 year"),
                     listOf(0, 30, 90, 180, 365).indexOf(s.callLogRetentionDays).coerceAtLeast(0),
                 ) { i -> set { it.copy(callLogRetentionDays = listOf(0, 30, 90, 180, 365)[i]) } }
+                app.parley.ui.history.KeepFullHistoryRow(vm, open)
+                LinkRow("SIMs", "Plan minutes and settings for each SIM") { open(app.parley.ui.history.HistoryRoutes.SIMS) }
                 LinkRow("SIM & calling accounts", "Default SIM, Wi-Fi calling (system settings)") {
                     runCatching { context.startActivity(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
                 }
@@ -183,6 +185,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     if (b.lastBackupAt > 0) "Last backup ${app.parley.ui.common.Format.shortWhen(context, b.lastBackupAt)} · encrypted" else "Encrypted backups to a folder you choose",
                 ) { open(Routes.BACKUP) }
                 LinkRow("Sync between your phones", "Through a Syncthing / Nextcloud folder — no server") { open(Routes.SYNC) }
+                LinkRow("Import call history from CSV", "From Parley, Logger or a spreadsheet, with a dry run first") { open(app.parley.ui.history.HistoryRoutes.IMPORT) }
                 LinkRow("Recently deleted & changed", "Undo for 30 days") { open(Routes.JOURNAL) }
                 LinkRow("What changed (time machine)", "Daily snapshots for 6 months: see and undo changes from any app or sync") { open(Routes.CHANGES) }
             }

@@ -14,6 +14,8 @@ import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -50,7 +52,7 @@ import kotlinx.coroutines.launch
 fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val calls by vm.c.callLog.calls.collectAsStateWithLifecycle()
+    val calls by vm.c.history.calls.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
     val index by vm.numberIndex.collectAsStateWithLifecycle()
     val contact = index[PhoneNumbers.matchKey(number)]
@@ -60,13 +62,32 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     LaunchedEffect(number) { blocked = vm.c.blocks.isSystemBlocked(number) }
     val simLabels = sims.associate { it.id to it.label }.takeIf { sims.size > 1 }.orEmpty()
     val title = contact?.displayName ?: Format.number(number, vm.countryIso)
+    var menu by remember { mutableStateOf(false) }
+    var exporting by remember { mutableStateOf(false) }
+    var rangeDelete by remember { mutableStateOf(false) }
+    val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
+    if (exporting) ExportSheet(vm, history, subject = title) { exporting = false }
+    if (rangeDelete) {
+        RangeDeleteDialog(vm, number, onDismiss = { rangeDelete = false }, onDeleted = { batch, n ->
+            scope.launch {
+                val r = snackbar.showSnackbar("Deleted $n ${if (n == 1) "call" else "calls"}", actionLabel = "Undo", duration = androidx.compose.material3.SnackbarDuration.Long)
+                if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) vm.c.history.undoDelete(batch)
+            }
+        })
+    }
 
-    Scaffold(topBar = {
+    Scaffold(snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) }, topBar = {
         TopAppBar(
             title = { Text("Call history") },
             navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
             actions = {
-                IconButton({ scope.launch { vm.c.callLog.deleteForNumber(number); back() } }) { Icon(Icons.Rounded.Delete, "Delete history for this number") }
+                androidx.compose.foundation.layout.Box {
+                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, "More options") }
+                    androidx.compose.material3.DropdownMenu(menu, { menu = false }) {
+                        androidx.compose.material3.DropdownMenuItem({ Text("Export…") }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) }, onClick = { menu = false; exporting = true }, enabled = history.isNotEmpty())
+                        androidx.compose.material3.DropdownMenuItem({ Text("Delete calls…") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; rangeDelete = true }, enabled = history.isNotEmpty())
+                    }
+                }
             },
         )
     }) { p ->
@@ -99,6 +120,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     }
                 }
             }
+            item { CallInsightsSection(vm, listOf(number) + contact?.phones?.map { it.number }.orEmpty(), title = "Insights") }
             if (notes.isNotEmpty()) {
                 item { app.parley.ui.contact.Section("Call notes") }
                 items(notes, key = { "n" + it.id }) { n ->
@@ -108,8 +130,8 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                         trailingContent = { IconButton({ scope.launch { vm.c.meta.deleteCallNote(n.id) } }) { Icon(Icons.Rounded.Delete, "Delete note") } },
                     )
                 }
-                item { app.parley.ui.contact.Section("Calls") }
             }
+            if (history.isNotEmpty()) item { app.parley.ui.contact.Section("Calls") }
             items(history, key = { it.id }) { e ->
                 val (icon, tint) = callTypeIcon(e.type)
                 ListItem(

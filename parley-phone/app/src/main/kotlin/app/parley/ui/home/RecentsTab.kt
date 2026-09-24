@@ -69,6 +69,9 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
     val simLabels = remember(sims) { if (sims.size > 1) sims.associate { it.id to it.label } else emptyMap() }
     var menuFor by remember { mutableStateOf<RecentGroup?>(null) }
     menuFor?.let { g -> RecentActionsSheet(vm, g, open) { menuFor = null } }
+    var daySummary by remember { mutableStateOf<Pair<Long, String>?>(null) }
+    daySummary?.let { (day, title) -> app.parley.ui.history.DaySummarySheet(vm, day, title) { daySummary = null } }
+    app.parley.ui.history.RecentsExportHost(vm)
 
     LazyColumn(Modifier.fillMaxWidth()) {
         item(key = "filters") {
@@ -80,6 +83,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
                         label = { Text(f.name.lowercase().replaceFirstChar { it.uppercase() }) },
                     )
                 }
+                app.parley.ui.history.SavedFilterChips(vm)
             }
         }
         val list = groups
@@ -94,7 +98,11 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
             if (header != lastHeader) {
                 lastHeader = header
                 item(key = "h" + g.key) {
-                    Text(header, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 20.dp, top = 12.dp, bottom = 4.dp))
+                    Text(
+                        header, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth().clickable(onClickLabel = "Day summary") { daySummary = g.latest.date to header }
+                            .padding(start = 20.dp, top = 12.dp, bottom = 4.dp),
+                    )
                 }
             }
             item(key = g.key) {
@@ -196,7 +204,7 @@ private fun RecentActionsSheet(vm: AppViewModel, g: RecentGroup, open: (String) 
         row("Delete from history", Icons.Rounded.Delete) {
             act {
                 scope.launch {
-                    vm.c.callLog.delete(g.calls.filter { it.id > 0 }.map { it.id })
+                    vm.c.history.delete(g.calls.filter { it.id > 0 })
                     g.calls.filter { it.id < 0 }.forEach { vm.c.vault.deletePrivateCall(-it.id) }
                 }
             }

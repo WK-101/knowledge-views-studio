@@ -95,9 +95,15 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
                 val journalCount by androidx.compose.runtime.produceState(0) { value = vm.c.meta.journalCount() }
                 ListItem(headlineContent = { Text("${vault.size} private contacts") }, supportingContent = { Text("Encrypted; invisible to every other app") })
                 ListItem(headlineContent = { Text("${priv.size} private calls") }, supportingContent = { Text("Kept out of the system call log") })
+                val archiveOn by vm.c.history.prefs.state.collectAsStateWithLifecycle()
                 ListItem(
                     headlineContent = { Text(if (s.callLogRetentionDays > 0) "Call history kept ${s.callLogRetentionDays} days" else "Parley never deletes call history on its own") },
-                    supportingContent = { Text("Android itself may keep only recent calls on some phones. Change in Settings → Calls") },
+                    supportingContent = {
+                        Text(
+                            if (archiveOn.archiveEnabled) "Android may keep only recent calls on some phones, so Parley keeps its own encrypted copy on this phone. Change in Settings → Calls"
+                            else "Android itself may keep only recent calls on some phones; turn on “Keep full call history” in Settings → Calls to keep them all",
+                        )
+                    },
                 )
                 ListItem(headlineContent = { Text("$journalCount changes you can undo") }, supportingContent = { Text("Deleted and edited contacts are kept for 30 days on this phone only") })
                 ListItem(

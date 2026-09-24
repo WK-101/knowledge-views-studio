@@ -99,7 +99,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     val resources = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     val all by vm.contacts.collectAsStateWithLifecycle()
-    val calls by vm.c.callLog.calls.collectAsStateWithLifecycle()
+    val calls by vm.c.history.calls.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
     val simPrefs by vm.c.prefs.numberSims.collectAsStateWithLifecycle(emptyList())
     var details by remember { mutableStateOf<ContactDetails?>(null) }
@@ -350,6 +350,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     item { ListItem(headlineContent = { LinkifiedText(n.text) }, supportingContent = { Text(Format.fullDate(context, n.callDate)) }, leadingContent = { Icon(Icons.Rounded.Notes, null) }) }
                 }
             }
+            item { app.parley.ui.history.CallInsightsSection(vm, d.phones.map { it.value }) }
             if (history.isNotEmpty()) {
                 item { Section("Recent calls") }
                 history.take(5).forEach { e ->
@@ -387,6 +388,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 title = { Text("Keep in touch") },
                 text = {
                     Column {
+                        app.parley.ui.history.RhythmSuggestion(vm, d.phones.map { it.value }) { days -> reachOut = false; saveMeta { it.copy(reachOutDays = days, lastNudgedAt = null) } }
                         listOf(null to "Off", 7 to "Every week", 14 to "Every 2 weeks", 30 to "Every month", 90 to "Every 3 months", 180 to "Every 6 months").forEach { (days, label) ->
                             ListItem(headlineContent = { Text(label) }, modifier = Modifier.clickable { reachOut = false; saveMeta { it.copy(reachOutDays = days, lastNudgedAt = null) } })
                         }

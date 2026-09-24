@@ -196,7 +196,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit) {
                 if (sims.size >= 2 && input.isNotEmpty()) {
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         sims.take(2).forEach { sim ->
-                            CallButton(label = sim.label) { vm.place(input.trim(), sim.id) }
+                            app.parley.ui.history.SimPlanBadge(vm, sim.id) { CallButton(label = sim.label) { vm.place(input.trim(), sim.id) } }
                         }
                     }
                 } else {

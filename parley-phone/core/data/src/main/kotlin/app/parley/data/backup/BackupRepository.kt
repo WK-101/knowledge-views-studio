@@ -127,6 +127,9 @@ class BackupRepository(
     private val cr = context.contentResolver
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
+    /** Parley's call-history archive, backed up in its own optional section (set by the container). */
+    var callHistory: CallHistoryBackup? = null
+
     // ------------------------------------------------------------------ keys
 
     /** First-time setup: returns the recovery key to show the user once. */
@@ -186,6 +189,7 @@ class BackupRepository(
                 val writer = BackupArchiveWriter(enc, ArchiveMeta(now.toEpochMilli(), appVersion(), device()))
                 writer.writeContacts(records.readAll(fullPhoto = true).onEach { contactCount++ })
                 writer.writeCallLog(readCallLog().onEach { callCount++ })
+                callHistory?.let { h -> writer.writeCallHistory(h.backupLines()) }
                 writer.writeBlocking(blocking())
                 writer.writeSpeedDial(prefsRepo.speedDials.first().map { SpeedDialRecord(it.key, it.number, it.label) })
                 writer.writeNumberSims(prefsRepo.numberSims.first().map { NumberSimRecord(it.matchKey, it.phoneAccountId) })
@@ -393,7 +397,12 @@ class BackupRepository(
         } catch (e: Exception) {
             skipped += name
         }
-        if (o.callLog) part("call history") { r = r.copy(calls = restoreCallLog(opened)) }
+        if (o.callLog) part("call history") {
+            r = r.copy(calls = restoreCallLog(opened))
+            val h = callHistory
+            val archived = if (h != null) opened.reader.callHistory { it.toList() } else null
+            if (h != null && archived != null) r = r.copy(calls = r.calls + h.restoreLines(archived))
+        }
         if (o.blocking) part("blocking rules") { r = r.copy(rules = restoreBlocking(opened)) }
         if (o.speedDial) part("speed dial") {
             opened.reader.speedDial()?.forEach { prefsRepo.setSpeedDial(it.slot, it.number, it.label) }

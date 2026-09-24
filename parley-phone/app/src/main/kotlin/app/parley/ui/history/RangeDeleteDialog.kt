@@ -1,0 +1,119 @@
+package app.parley.ui.history
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import app.parley.AppViewModel
+import app.parley.common.history.DeleteRange
+import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+
+/**
+ * K10: delete one number's calls from a point in time until now. Deleted calls are kept sealed for 30 days;
+ * [onDeleted] gets the undo batch and the count.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RangeDeleteDialog(vm: AppViewModel, number: String, onDeleted: (batchId: Long, count: Int) -> Unit, onDismiss: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val zone = ZoneId.systemDefault()
+    var range by remember { mutableStateOf(DeleteRange.ALL) }
+    var picked by remember { mutableStateOf<LocalDate?>(null) }
+    var picking by remember { mutableStateOf(false) }
+    val now = remember { System.currentTimeMillis() }
+    val all = remember(number) { vm.c.history.callsFor(number) }
+    fun count(r: DeleteRange): Int? {
+        if (r == DeleteRange.SINCE_DATE && picked == null) return null
+        val since = r.since(now, zone, picked)
+        return all.count { it.date >= since }
+    }
+    val selected = count(range)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete calls with this number") },
+        text = {
+            Column {
+                DeleteRange.entries.forEach { r ->
+                    val n = count(r)
+                    val label = if (r == DeleteRange.SINCE_DATE && picked != null) {
+                        "Since " + picked!!.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+                    } else r.label
+                    ListItem(
+                        headlineContent = { Text(label) },
+                        supportingContent = n?.let { { Text("$it ${if (it == 1) "call" else "calls"}") } },
+                        leadingContent = { RadioButton(range == r, null) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable {
+                            range = r
+                            if (r == DeleteRange.SINCE_DATE) picking = true
+                        },
+                    )
+                }
+                Text(
+                    "You can undo this for 30 days (Settings › Calls › Call history).",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val r = range
+                    val p = picked
+                    onDismiss()
+                    scope.launch {
+                        val n = count(r) ?: 0
+                        val batch = vm.c.history.deleteRange(number, r, p)
+                        if (batch != null) onDeleted(batch, n)
+                    }
+                },
+                enabled = selected != null && selected > 0,
+            ) { Text(if (selected != null && selected > 0) "Delete $selected" else "Delete") }
+        },
+        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+    )
+
+    if (picking) {
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = picked?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli(),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= now
+            },
+        )
+        DatePickerDialog(
+            onDismissRequest = { picking = false },
+            confirmButton = {
+                TextButton({
+                    state.selectedDateMillis?.let { picked = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
+                    picking = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton({ picking = false }) { Text("Cancel") } },
+        ) { DatePicker(state) }
+    }
+}
