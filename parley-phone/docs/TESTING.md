@@ -113,3 +113,45 @@ Call the phone from another phone in each state below. For each one, check that 
 - [ ] "Call with Signal/WhatsApp" rows on a contact that uses those apps; long-press to make one the default Call action.
 - [ ] Contact health check → Fix all (country codes).
 - [ ] Tablet/foldable or landscape: navigation rail on the side.
+
+## 9. v3.0 features
+
+**Calls**
+- [ ] Call waiting on a real network: Hold & answer, End & answer, Decline; the held call resumes when the other ends (and doesn't resume twice).
+- [ ] Tap the on-hold strip only swaps when the active call can be held.
+- [ ] Leave the call screen → "Return to call" chip on Home; the notification countdown (with a limit set) runs without flicker and its "+5 min" / "Don't end" work.
+- [ ] Call-length limit with the screen off: warning beep in the earpiece, then only that call ends — even with a second call ringing or held. Call an emergency number and let it call back: never limited.
+- [ ] Daily allowance used up → outgoing asks "Call anyway?" once (single dialog, also with dial warnings); reboot doesn't reset it.
+- [ ] USSD `*100#`-style code on each SIM → reply dialog; failure → "Dial as a call".
+- [ ] Quick Settings "End call" tile ends the active call from the lock screen.
+- [ ] Notification health card on Android 14+ (full-screen permission) and its fix buttons. TalkBack on incoming, in-call and keypad.
+
+**Blocking**
+- [ ] Blocking screen status card in phone-app vs screening-only mode.
+- [ ] Two SIMs: an allow rule for one SIM lets its callers through even with "block non-contacts" on.
+- [ ] Label rules ("only Family rings at night") after a reboot, and after restoring a backup on another phone.
+- [ ] "Ring loud" for a favourite, switch to vibrate mid-ring → volume back to normal on the next call.
+- [ ] One-ring foreign missed call → "Don't call back" badge; calling back asks first.
+- [ ] Spam lists: import ARCEP, subscribe a folder, then install Parley Lists and subscribe to the FTC list; a list signed by another key asks "Replace?".
+- [ ] Templates: dry run, install, uninstall restores earlier settings; share by QR to another phone.
+- [ ] "Expecting a call" tile asks to unlock first.
+
+**Keypad & messaging**
+- [ ] Keypad letters for your alphabet; font size 200 % still fits; Chinese/Korean/kana names found.
+- [ ] Physical keyboard / flip phone: digits, Call, D-pad through results.
+- [ ] "Message on…" opens WhatsApp, Signal, Telegram, Viber directly for a local-format unknown number (right country); select a number in any app → "Call / Message with Parley".
+- [ ] Paste chip shows no "pasted from clipboard" toast.
+
+**History**
+- [ ] Archive keeps calls older than what the system log shows; "Keep forever"; delete a date range and undo.
+- [ ] Export CSV/ICS/PDF and open them in a spreadsheet, calendar and PDF viewer; print.
+- [ ] Import a Logger CSV (dry run, no duplicates, no missed-call badge).
+- [ ] Plan meter warning at 80 % on the right SIM.
+
+**Contacts & privacy**
+- [ ] SIM import/copy on Android 10–11 and 12+.
+- [ ] Move a contact between Google and another account (photo, labels, undo).
+- [ ] Favourites drag and pinch; label page actions and label ringtone.
+- [ ] Who can see your contacts list (and GrapheneOS pointer on GrapheneOS).
+- [ ] Private-name lookup from a test app: permission, approval notification, access log.
+- [ ] Diagnostics export contains no numbers.
