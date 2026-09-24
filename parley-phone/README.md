@@ -20,7 +20,7 @@ This project is independent of the rest of this repository.
 | **Works with other apps** | Parley is the system contact picker (contacts, numbers, e-mails, addresses; multi-select), handles insert/edit, quick contact, show-or-create and `.vcf` files |
 | **Privacy & security** | **Private vault**: encrypted contacts invisible to all other apps that still show their name when they call, private call history, discreet mode and Quick Settings tile; **app lock** (biometric/device credential; incoming calls always show); hide screen content; **temporary contacts** that delete themselves; call-history retention; privacy dashboard |
 | **Never lose a contact** | **Recently deleted & changed** (30-day undo of every delete, edit and merge); **time machine** (daily incremental snapshots for 6 months: see what changed and restore any version); **encrypted backups** to a folder you choose (scheduled, verified after writing, smart rotation, restore preview with merge, undo); **move to a new phone**; **sync between your phones** through a Syncthing/Nextcloud folder with no server |
-| **Blocking** | Fixed, predictable precedence (emergency › contacts › allow rules › block rules › spam lists › checks) with a stored **"why" trace** for every screened call; **allow rules** and "Allow for 24 h"; block rules by number, prefix, pattern, caller name, country, line type (VoIP, premium…) or **label**, each with a **schedule**, a SIM, a notification level and hit counters; **off hours** ("only Family rings at night") with a one-tap SMS reply; **"Expecting a call"** snooze (Quick Settings tile); numbers you called or talked to; repeat callers with a minimum redial interval; invalid numbers, neighbour spoofing, failed verification; offline **spam-list packs** (`.parleylist`, signed, folder subscription, built-in ARCEP ranges for France) that warn by default; **test a call** and **replay last week** with no side effects; one-ring "wangiri" and premium-rate warnings before you dial; import from Call Blocker, YACB, NoPhoneSpam or CSV, share your rules as a signed list; carrier/regulator reporting hand-off; ringtone per rule or label and "ring loud" with crash-safe volume restore |
+| **Blocking** | Fixed, predictable precedence (emergency › contacts › allow rules › block rules › spam lists › checks) with a stored **"why" trace** for every screened call; **allow rules** and "Allow for 24 h"; block rules by number, prefix, pattern, caller name, country, line type (VoIP, premium…) or **label**, each with a **schedule**, a SIM, a notification level and hit counters; **off hours** ("only Family rings at night") with a one-tap SMS reply; **"Expecting a call"** snooze (Quick Settings tile); numbers you called or talked to; repeat callers with a minimum redial interval; invalid numbers, neighbour spoofing, failed verification; offline **spam-list packs** (`.parleylist`, signed, folder subscription, built-in ARCEP ranges for France) that warn by default; **test a call** and **replay last week** with no side effects; one-ring "wangiri" and premium-rate warnings before you dial; import from Call Blocker, YACB, NoPhoneSpam or CSV, share your rules as a signed list; **rule templates** (regulator ranges for FR, UK, DE, IT, ES, IN and US toll-free, quiet nights, foreign or invalid numbers) installed and removed as a group, shared as signed files or QR codes; optional **Parley Lists** companion app for automatic FTC and community list updates; carrier/regulator reporting hand-off; ringtone per rule or label and "ring loud" with crash-safe volume restore |
 | **Look & feel** | Material 3 Expressive with dynamic colour; avatars and names animate into the contact page; navigation rail on tablets and foldables; light/dark/AMOLED; compact density; optional call/message buttons on contact rows |
 
 **Not included:**
@@ -74,6 +74,8 @@ core/data     ContactsContract, CallLog, SIMs, blocking, Room, DataStore, vault,
 core/ui       Theme, avatars, shared components
 telecom       InCallService, CallManager, notifications, in-call UI (no dependency on data/features)
 app           Main activity, navigation, all screens, missed-call notifications
+lists-updater Optional "Parley Lists" companion app (app.parley.lists): downloads public spam lists
+              (depends on core:common and core:ui only)
 ```
 
 ## Building
@@ -101,6 +103,16 @@ keyPassword=...
 or the environment variables `PARLEY_KEYSTORE`, `PARLEY_KEYSTORE_PASSWORD`, `PARLEY_KEY_ALIAS` and `PARLEY_KEY_PASSWORD`.
 
 The `checkReleasePermissions` / `checkDebugPermissions` tasks run before every assemble. They fail the build if the merged manifest contains INTERNET, location, camera, microphone, SMS, storage or ad-ID permissions.
+
+### Parley Lists (optional companion)
+
+`:lists-updater` builds a second app, **Parley Lists** (`app.parley.lists`, debug `app.parley.lists.debug`). It has INTERNET and no contacts, phone, call-log or SMS permission; its `check<Variant>UpdaterPermissions` task fails the build on anything beyond network access and WorkManager's scheduling permissions. It downloads only static public files, never sending a phone number:
+
+- **US FTC Do Not Call reported calls**: the key-less daily CSV `https://www.ftc.gov/sites/default/files/DNC_Complaint_Numbers_YYYY-MM-DD.csv` (weekdays; see the [FTC data page](https://www.ftc.gov/policy-notices/open-government/data-sets/do-not-call-data)). Each day is counted once and cached, then a 7/30/90-day window becomes a signed `.parleylist` using the same `core:common` builder as Parley (score from the report count; scam, robocall or telemarketing category by vote). The FTC's JSON API (`api.ftc.gov/v0/dnc-complaints`) needs an api.data.gov key and returns 50 records per request, so it isn't used.
+- **France ARCEP ranges**: built in.
+- **Community packs**: any HTTPS link to a `.parleylist`, kept byte for byte so the publisher's signature still verifies.
+
+Updates run through WorkManager (by default daily, on unmetered networks, while idle). Packs are served read-only by `content://app.parley.lists.packs/packs[/<id>]`, protected by the signature permission `app.parley.permission.READ_LISTS` (`..._DEBUG` in debug builds). Parley and Parley Lists both declare it, so it only works when both are signed with the same key: release builds use the same `keystore.properties` / environment variables, and debug builds use the debug key. Parley copies subscribed packs, verifies them like any list file, and refreshes them in its daily worker. There is no `sharedUserId`.
 
 ## Docs
 

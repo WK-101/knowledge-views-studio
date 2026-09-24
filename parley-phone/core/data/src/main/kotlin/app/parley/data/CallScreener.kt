@@ -115,7 +115,16 @@ class CallScreener(
      * Replays the incoming calls of the last [days] (B13). Pure reads: no log, counters, notifications or
      * rate-limit state are touched. With a [candidateRule] or [candidatePack], also reports what it would add.
      */
-    suspend fun dryRun(calls: List<app.parley.common.CallEntry>, days: Int = 7, candidateRule: BlockRule? = null, candidatePack: ParsedPack? = null): DryRun {
+    suspend fun dryRun(
+        calls: List<app.parley.common.CallEntry>,
+        days: Int = 7,
+        candidateRule: BlockRule? = null,
+        candidatePack: ParsedPack? = null,
+        /** A group of rules to try together (rule-pack templates). */
+        candidateRules: List<BlockRule> = emptyList(),
+        /** Setting changes to try (rule-pack templates); applied to a copy, never saved. */
+        candidateSettings: ((ScreeningSettings) -> ScreeningSettings)? = null,
+    ): DryRun {
         val s = currentSettings()
         val now = System.currentTimeMillis()
         val since = now - days * 86_400_000L
@@ -136,6 +145,15 @@ class CallScreener(
         replay.forEach { factsFor(it) }
         val base = pipeline.dryRun(replay, rules, s) { factsCache.getValue(it) }
         val candidate = when {
+            candidateRules.isNotEmpty() || candidateSettings != null -> {
+                val extra = listOfNotNull(candidateRule) + candidateRules
+                val cs = candidateSettings?.invoke(s) ?: s
+                pipeline.dryRun(replay, rules + extra, cs) { c ->
+                    val f = factsCache.getValue(c)
+                    val hit = if (candidatePack != null && lists != null) c.number.takeIf { !c.hidden }?.let { lists.lookupIn(candidatePack, it, iso) } else null
+                    if (hit == null) f else f.copy(listHits = f.listHits + hit)
+                }
+            }
             candidateRule != null -> pipeline.dryRun(replay, rules + candidateRule, s) { factsCache.getValue(it) }
             candidatePack != null && lists != null -> pipeline.dryRun(replay, rules, s) { c ->
                 val f = factsCache.getValue(c)

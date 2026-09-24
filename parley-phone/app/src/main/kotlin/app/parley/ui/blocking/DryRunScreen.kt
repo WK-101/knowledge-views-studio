@@ -103,6 +103,7 @@ object BlockingRoutes {
     const val LISTS = "blocking/lists"
     const val TRANSFER = "blocking/transfer"
     const val DRY_RUN = "blocking/dryrun"
+    const val TEMPLATES = "blocking/templates"
     const val RULE = "blocking/rule/{id}?kind={kind}&type={type}&pattern={pattern}"
 
     fun rule(id: Long, kind: app.parley.common.RuleKind = app.parley.common.RuleKind.BLOCK, type: app.parley.common.RuleType = app.parley.common.RuleType.PREFIX, pattern: String = "") =
@@ -114,6 +115,7 @@ object BlockingRoutes {
             composable(LISTS) { SpamListsScreen(vm, back) }
             composable(TRANSFER) { TransferScreen(vm, back) }
             composable(DRY_RUN) { DryRunScreen(vm, back) }
+            composable(TEMPLATES) { TemplatesScreen(vm, back) }
             composable(
                 RULE,
                 arguments = listOf(

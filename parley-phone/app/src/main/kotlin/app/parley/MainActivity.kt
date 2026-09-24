@@ -104,6 +104,10 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             SHOW_OR_CREATE -> showOrCreate(data)
             Intent.ACTION_DIAL, Intent.ACTION_VIEW -> when {
                 data?.scheme == "parley" && data.host == "qr" -> vm.navigate(NavEvent.SecureQr(data))
+                data?.scheme == "parley" && data.host == "template" -> {
+                    app.parley.blocking.TemplateInbox.pending.value = data
+                    vm.navigate(NavEvent.Route(app.parley.ui.blocking.BlockingRoutes.TEMPLATES))
+                }
                 data != null && data.scheme == "content" && isVcard(intent.type ?: contentResolver.getType(data)) -> vm.navigate(NavEvent.ImportVcf(data))
                 data?.scheme == "tel" -> vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = data.schemeSpecificPart.orEmpty()))
                 intent.type == "vnd.android.cursor.dir/calls" -> vm.navigate(NavEvent.Tab(StartTab.RECENTS))

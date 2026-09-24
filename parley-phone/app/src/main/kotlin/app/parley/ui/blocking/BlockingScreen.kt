@@ -364,6 +364,12 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
                         supportingContent = { Text("Replays last week's calls. Nothing is blocked, logged or sent.") },
                     )
                     ListItem(
+                        modifier = Modifier.clickable { open(BlockingRoutes.TEMPLATES) },
+                        leadingContent = { Icon(Icons.AutoMirrored.Rounded.PlaylistAddCheck, null) },
+                        headlineContent = { Text("Templates") },
+                        supportingContent = { Text("Ready-made rule sets (country ranges, quiet nights), installed as a group; share yours by file or QR") },
+                    )
+                    ListItem(
                         modifier = Modifier.clickable { open(BlockingRoutes.TRANSFER) },
                         leadingContent = { Icon(Icons.AutoMirrored.Rounded.PlaylistAddCheck, null) },
                         headlineContent = { Text("Import or share rules") },

@@ -26,6 +26,8 @@ import app.parley.common.spam.PackOrigin
 import app.parley.common.spam.PackState
 import app.parley.common.spam.ParsedPack
 import app.parley.common.spam.SignatureStatus
+import app.parley.common.templates.RuleTemplate
+import app.parley.common.templates.RuleTemplates
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -310,6 +312,9 @@ class SpamListStore(context: Context) {
     }
 
     fun shareFingerprint(): String = Ed25519.fingerprint(Ed25519.publicKey(shareKey()))
+
+    /** Signs a rule-pack template with the same personal key, so family sees one fingerprint for everything you share. */
+    fun signTemplate(t: RuleTemplate): String = RuleTemplates.sign(t, shareKey())
 
     data class Export(val bytes: ByteArray, val numbers: Int, val ranges: Int, val skipped: Int)
 
