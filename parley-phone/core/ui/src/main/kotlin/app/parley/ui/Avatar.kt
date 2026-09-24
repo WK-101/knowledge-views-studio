@@ -73,6 +73,9 @@ fun avatarColor(seed: String): Color = avatarPalette[(seed.hashCode() and 0x7fff
 /** F27: grapheme-aware (see [app.parley.common.Initials]). */
 fun initialsOf(name: String): String = app.parley.common.Initials.of(name)
 
+/** U6: how avatars without a photo look (Settings › Appearance › Avatars), provided at the app's root. */
+val LocalAvatarStyle = androidx.compose.runtime.staticCompositionLocalOf { app.parley.common.people.AvatarStyle.COLOURFUL }
+
 @Composable
 fun Avatar(name: String, photoUri: String?, size: Dp = 44.dp, modifier: Modifier = Modifier, isCompany: Boolean = false) {
     val ctx = LocalContext.current
@@ -81,22 +84,37 @@ fun Avatar(name: String, photoUri: String?, size: Dp = 44.dp, modifier: Modifier
     val image by produceState(initial, photoUri, px) {
         if (value == null && photoUri != null) value = PhotoCache.load(ctx, photoUri, px)?.asImageBitmap()
     }
+    val grey = LocalAvatarStyle.current == app.parley.common.people.AvatarStyle.GREY
+    val emoji = remember(name) { app.parley.common.people.AvatarText.leadingEmoji(name) }
+    // U6: the grey monogram is a soft vertical gradient in the theme's neutral tones.
+    val greyTop = MaterialTheme.colorScheme.surfaceContainerHighest
+    val greyBottom = MaterialTheme.colorScheme.outlineVariant
+    val background = when {
+        image != null -> Modifier.background(Color.Transparent)
+        emoji != null -> Modifier.background(MaterialTheme.colorScheme.secondaryContainer)
+        grey -> Modifier.background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(greyTop, greyBottom)))
+        else -> Modifier.background(avatarColor(name))
+    }
+    val ink = if (grey && image == null && emoji == null) MaterialTheme.colorScheme.onSurfaceVariant else Color.White
     Box(
-        modifier.size(size).clip(CircleShape).background(if (image == null) avatarColor(name) else Color.Transparent),
+        modifier.size(size).clip(CircleShape).then(background),
         contentAlignment = Alignment.Center,
     ) {
         val img = image
         if (img != null) {
             Image(img, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(size))
+        } else if (emoji != null && !isCompany) {
+            // U6: "🐶 Rex" shows the dog.
+            Text(emoji, fontSize = (size.value * 0.5f).sp)
         } else {
             val initials = if (isCompany) "" else initialsOf(name)
             if (isCompany) {
                 // F27: a contact that is only a company gets a building, not the company's initials.
-                Icon(Icons.Rounded.Business, null, tint = Color.White, modifier = Modifier.size(size * 0.55f))
+                Icon(Icons.Rounded.Business, null, tint = ink, modifier = Modifier.size(size * 0.55f))
             } else if (initials.isNotEmpty()) {
-                Text(initials, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = (size.value * 0.38f).sp)
+                Text(initials, color = ink, fontWeight = FontWeight.SemiBold, fontSize = (size.value * 0.38f).sp)
             } else {
-                Icon(Icons.Rounded.Person, null, tint = Color.White, modifier = Modifier.size(size * 0.6f))
+                Icon(Icons.Rounded.Person, null, tint = ink, modifier = Modifier.size(size * 0.6f))
             }
         }
     }

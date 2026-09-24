@@ -18,6 +18,7 @@ object ContactDetailsJson {
         }
         if (d.context.isNotBlank()) put("ctx", d.context)
         if (d.pinnedNote.isNotBlank()) put("pin", d.pinnedNote)
+        if (d.messengerPrefs.isNotBlank()) put("mp", d.messengerPrefs)
     }.toString()
 
     fun decode(s: String): ContactDetails {
@@ -37,7 +38,7 @@ object ContactDetailsJson {
                     }
                 }
             }.orEmpty(),
-            context = str("ctx"), pinnedNote = str("pin"),
+            context = str("ctx"), pinnedNote = str("pin"), messengerPrefs = str("mp"),
         ).let { it.copy(displayName = it.composedName.ifBlank { it.company.ifBlank { it.phones.firstOrNull()?.value.orEmpty() } }) }
     }
 

@@ -52,6 +52,19 @@ class SegmentedGroupScope internal constructor() {
     }
 }
 
+/**
+ * Shared components whose ListItem uses the theme's surface colour blend into a [SegmentedGroup]'s card when drawn
+ * inside this (the card's colour becomes "surface" for them).
+ */
+@Composable
+fun OnGroupSurface(content: @Composable () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    MaterialTheme(colorScheme = cs.copy(surface = cs.surfaceContainer), typography = MaterialTheme.typography, shapes = MaterialTheme.shapes, content = content)
+}
+
+/** A row of a [SegmentedGroup] drawn with [OnGroupSurface] (for rows that don't set a transparent colour). */
+fun SegmentedGroupScope.blended(key: String? = null, content: @Composable () -> Unit) = item(key) { OnGroupSurface(content) }
+
 /** Title above a group of rows ("Display", "Sounds"…). */
 @Composable
 fun GroupHeader(title: String, modifier: Modifier = Modifier) {

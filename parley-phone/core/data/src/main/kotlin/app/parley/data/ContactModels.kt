@@ -117,6 +117,8 @@ data class ContactDetails(
      */
     val context: String = "",
     val pinnedNote: String = "",
+    /** M7, private contacts only: their [app.parley.common.people.MessengerPrefs], encoded. */
+    val messengerPrefs: String = "",
 ) {
     val composedName: String
         get() = listOf(prefix, given, middle, family, suffix).filter { it.isNotBlank() }.joinToString(" ").trim()
