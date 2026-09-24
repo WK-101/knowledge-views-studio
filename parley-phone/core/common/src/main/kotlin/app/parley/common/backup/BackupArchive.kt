@@ -52,6 +52,14 @@ data class BlockRuleRecord(
     val action: String,
     val enabled: Boolean = true,
     val note: String? = null,
+    /** BLOCK or ALLOW; older backups only had block rules. */
+    val kind: String = "BLOCK",
+    val simId: String? = null,
+    val schedule: String? = null,
+    val notify: String = "DEFAULT",
+    val ringtone: String? = null,
+    val expiresAt: Long? = null,
+    val label: String? = null,
 )
 
 @Serializable

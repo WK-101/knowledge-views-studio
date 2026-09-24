@@ -2,6 +2,7 @@ package app.parley.data.db
 
 import android.content.Context
 import androidx.room.AutoMigration
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -23,8 +24,26 @@ data class BlockRuleEntity(
     val enabled: Boolean = true,
     val note: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
+    /** BLOCK or ALLOW (v3). */
+    @ColumnInfo(defaultValue = "BLOCK") val kind: String = "BLOCK",
+    /** Phone-account id the rule is limited to. */
+    val simId: String? = null,
+    /** Encoded [app.parley.common.Schedule], null = always. */
+    val schedule: String? = null,
+    @ColumnInfo(defaultValue = "DEFAULT") val notify: String = "DEFAULT",
+    val ringtone: String? = null,
+    /** Temporary rules ("Allow for 24 h"). */
+    val expiresAt: Long? = null,
+    @ColumnInfo(defaultValue = "0") val hitCount: Int = 0,
+    val lastHitAt: Long? = null,
+    /** Label title for label rules. */
+    val label: String? = null,
 )
 
+/**
+ * Screened calls: every blocked call, plus unknown callers that were let through (so "Why did this ring?" can
+ * show the stored decision trace). The table keeps its v1 name.
+ */
 @Entity(tableName = "blocked_calls")
 data class BlockedCallEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -32,6 +51,29 @@ data class BlockedCallEntity(
     val reason: String,
     val action: String,
     val time: Long,
+    /** True for calls that were let through (v3). */
+    @ColumnInfo(defaultValue = "0") val allowed: Boolean = false,
+    /** Decision trace, JSON (see [app.parley.common.TraceCodec]). */
+    val trace: String? = null,
+    /** One-line verdict ("Blocked by rule 'Telemarketing' · 7 calls"). */
+    val verdict: String? = null,
+    /** VerdictKind name. */
+    val verdictKind: String? = null,
+    val ruleId: Long? = null,
+    val packId: String? = null,
+    @ColumnInfo(defaultValue = "0") val failedOpen: Boolean = false,
+    val callerName: String? = null,
+    val simId: String? = null,
+)
+
+/** How long an incoming call rang before it was answered or given up (for the one-ring "wangiri" guard). */
+@Entity(tableName = "call_rings")
+data class CallRingEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val numberKey: String,
+    val startedAt: Long,
+    val ringMs: Long,
+    val answered: Boolean,
 )
 
 @Entity(tableName = "speed_dial")
@@ -241,14 +283,56 @@ interface BlockDao {
     @Insert
     suspend fun logBlocked(call: BlockedCallEntity)
 
-    @Query("SELECT * FROM blocked_calls ORDER BY time DESC LIMIT 500")
+    @Query("SELECT * FROM blocked_calls WHERE allowed = 0 ORDER BY time DESC LIMIT 500")
     fun blockedCalls(): Flow<List<BlockedCallEntity>>
 
     @Query("DELETE FROM blocked_calls")
     suspend fun clearBlocked()
 
-    @Query("SELECT MAX(time) FROM blocked_calls WHERE number = :number")
+    @Query("SELECT MAX(time) FROM blocked_calls WHERE number = :number AND allowed = 0")
     suspend fun lastBlocked(number: String): Long?
+
+    @Query("SELECT * FROM block_rules")
+    suspend fun allRules(): List<BlockRuleEntity>
+
+    @Insert
+    suspend fun insertRules(rules: List<BlockRuleEntity>)
+
+    @Query("UPDATE block_rules SET hitCount = hitCount + 1, lastHitAt = :time WHERE id = :id")
+    suspend fun recordHit(id: Long, time: Long)
+
+    @Query("DELETE FROM block_rules WHERE expiresAt IS NOT NULL AND expiresAt <= :now")
+    suspend fun deleteExpiredRules(now: Long): Int
+
+    @Insert
+    suspend fun logScreened(call: BlockedCallEntity): Long
+
+    @Query("SELECT * FROM blocked_calls ORDER BY time DESC LIMIT 1000")
+    fun screenedCalls(): Flow<List<BlockedCallEntity>>
+
+    @Query("SELECT * FROM blocked_calls WHERE time >= :since ORDER BY time DESC")
+    suspend fun screenedSince(since: Long): List<BlockedCallEntity>
+
+    @Query("SELECT time FROM blocked_calls WHERE allowed = 0 AND number IN (:numbers) AND time >= :since ORDER BY time DESC")
+    suspend fun blockedTimes(numbers: List<String>, since: Long): List<Long>
+
+    @Query("DELETE FROM blocked_calls WHERE id = :id")
+    suspend fun deleteScreened(id: Long)
+
+    @Query("DELETE FROM blocked_calls WHERE allowed = 1 AND time < :before")
+    suspend fun pruneAllowed(before: Long)
+
+    @Insert
+    suspend fun addRing(r: CallRingEntity)
+
+    @Query("SELECT * FROM call_rings WHERE startedAt >= :since ORDER BY startedAt DESC")
+    fun rings(since: Long): Flow<List<CallRingEntity>>
+
+    @Query("SELECT * FROM call_rings WHERE numberKey = :key ORDER BY startedAt DESC LIMIT 5")
+    suspend fun ringsFor(key: String): List<CallRingEntity>
+
+    @Query("DELETE FROM call_rings WHERE startedAt < :before")
+    suspend fun pruneRings(before: Long)
 }
 
 @Dao
@@ -283,10 +367,12 @@ interface PrefsDao {
         BlockRuleEntity::class, BlockedCallEntity::class, SpeedDialEntity::class, NumberSimEntity::class,
         JournalEntity::class, TemporaryContactEntity::class, ContactMetaEntity::class,
         VaultContactEntity::class, VaultNumberEntity::class, PrivateCallEntity::class, CallNoteEntity::class,
+        CallRingEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2)],
+    // v3: allow rules, schedules, SIM, hit counters, decision traces, ring lengths (blocking roadmap).
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun blockDao(): BlockDao

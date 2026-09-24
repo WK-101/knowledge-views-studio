@@ -271,7 +271,9 @@ class BackupRepository(
     }
 
     private suspend fun blocking(): BlockingSnapshot {
-        val rules = blocks.rules.value.map { BlockRuleRecord(it.pattern, it.type.name, it.action.name, it.enabled, it.note) }
+        val rules = blocks.rules.value.map {
+            BlockRuleRecord(it.pattern, it.type.name, it.action.name, it.enabled, it.note, it.kind.name, it.simId, it.schedule?.encode(), it.notify.name, it.ringtone, it.expiresAt, it.label)
+        }
         val system = blocks.loadSystemNow().map { it.number }
         val log = blocks.blockedCalls.first().map { BlockedCallRecord(it.number, it.reason, it.action, it.time) }
         return BlockingSnapshot(rules, system, log)
@@ -488,15 +490,19 @@ class BackupRepository(
 
     private suspend fun restoreBlocking(opened: OpenedBackup): Int {
         val snap = opened.reader.blocking() ?: return 0
-        val existing = blocks.rules.value.map { it.pattern + "|" + it.type.name }.toSet()
+        val existing = blocks.rules.value.map { it.kind.name + "|" + it.pattern + "|" + it.type.name }.toSet()
         var n = 0
-        snap.rules.filter { it.pattern + "|" + it.type !in existing }.forEach { r ->
+        snap.rules.filter { it.kind + "|" + it.pattern + "|" + it.type !in existing }.forEach { r ->
             blocks.saveRule(
                 BlockRule(
                     pattern = r.pattern,
                     type = runCatching { RuleType.valueOf(r.type) }.getOrDefault(RuleType.EXACT),
                     action = runCatching { BlockAction.valueOf(r.action) }.getOrDefault(BlockAction.REJECT),
                     enabled = r.enabled, note = r.note,
+                    kind = runCatching { app.parley.common.RuleKind.valueOf(r.kind) }.getOrDefault(app.parley.common.RuleKind.BLOCK),
+                    simId = r.simId, schedule = app.parley.common.Schedule.decode(r.schedule),
+                    notify = runCatching { app.parley.common.NotifyLevel.valueOf(r.notify) }.getOrDefault(app.parley.common.NotifyLevel.DEFAULT),
+                    ringtone = r.ringtone, expiresAt = r.expiresAt, label = r.label,
                 ),
             )
             n++

@@ -87,12 +87,14 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             defaultAccountType = this[K.accType]?.ifEmpty { null },
             defaultAccountName = this[K.accName]?.ifEmpty { null },
             quickReplies = this[K.replies]?.split(SEP)?.filter { it.isNotBlank() }?.takeIf { it.isNotEmpty() } ?: d.quickReplies,
-            screening = ScreeningSettings(
+            // v1 toggles keep their own keys; everything added later lives in one JSON value.
+            screening = ScreeningSettings.decode(this[K.screeningJson]).copy(
                 blockHidden = this[K.blockHidden] ?: false,
                 blockNonContacts = this[K.blockNonContacts] ?: false,
                 blockNeighbourSpoofing = this[K.blockNeighbour] ?: false,
                 blockFailedVerification = this[K.blockFailed] ?: false,
                 defaultAction = enumOr(this[K.blockAction], BlockAction.REJECT),
+                repeatCallers = this[K.repeatCaller] ?: d.repeatCallerRingsThrough,
             ),
             onboardingDone = this[K.onboarding] ?: false,
             appLock = this[K.appLock] ?: d.appLock,
@@ -130,6 +132,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         this[K.blockNeighbour] = s.screening.blockNeighbourSpoofing
         this[K.blockFailed] = s.screening.blockFailedVerification
         this[K.blockAction] = s.screening.defaultAction.name
+        this[K.screeningJson] = s.screening.encode()
         this[K.onboarding] = s.onboardingDone
         this[K.appLock] = s.appLock
         this[K.lockAfter] = s.lockAfterMinutes
@@ -168,6 +171,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val blockNeighbour = booleanPreferencesKey("block_neighbour")
         val blockFailed = booleanPreferencesKey("block_failed_verification")
         val blockAction = stringPreferencesKey("block_action")
+        val screeningJson = stringPreferencesKey("screening_v2")
         val onboarding = booleanPreferencesKey("onboarding_done")
         val appLock = booleanPreferencesKey("app_lock")
         val lockAfter = intPreferencesKey("lock_after_minutes")

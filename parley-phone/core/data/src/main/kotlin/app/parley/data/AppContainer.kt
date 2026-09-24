@@ -18,7 +18,10 @@ class DataContainer(context: Context) {
     val sims = SimRepository(appContext)
     val blocks by lazy { BlockRepository(appContext, db, scope) }
     val prefs by lazy { PrefsRepository(db) }
-    val screener by lazy { CallScreener(appContext, contacts, blocks, sims, settings, vault, scope) }
+    val screener by lazy { CallScreener(appContext, contacts, blocks, sims, settings, vault, scope, lists) }
+    /** Spam-list packs (device-protected storage). */
+    val lists by lazy { SpamListStore(appContext) }
+    val dialGuard by lazy { DialGuard(appContext, blocks, lists, callLog, contacts) }
     val placer by lazy { CallPlacer(appContext, sims, prefs) }
     val records by lazy { ContactRecordStore(appContext) }
     val vcards by lazy { VCardIO(appContext, contacts, records) }
