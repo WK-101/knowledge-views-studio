@@ -187,7 +187,7 @@ class ContactRecordStore(private val context: Context) {
                 starred = h.starred,
                 customRingtone = h.ringtone,
                 sendToVoicemail = h.voicemail,
-                raws = byContact[id].orEmpty().map { r -> RawRecord(r.type, r.name, r.dataSet, r.sourceId, r.rows.toList()) },
+                raws = byContact[id].orEmpty().map { r -> RawRecord(r.type, r.name, r.dataSet, r.sourceId, r.rows.toList(), rawId = r.id) },
             )
         }
     }

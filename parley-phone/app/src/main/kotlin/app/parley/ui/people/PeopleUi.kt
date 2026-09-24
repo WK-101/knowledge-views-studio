@@ -44,7 +44,10 @@ class PeopleUi(
     /** Label/account filter of the Contacts tab (AND/OR comes from the saved preference). */
     val filter = MutableStateFlow(LabelFilter())
 
-    private val collator = Collator.getInstance().apply { strength = Collator.PRIMARY }
+    /** Collators aren't thread-safe and the flows below run concurrently on Default: one per flow. */
+    private fun newCollator(): Collator = Collator.getInstance().apply { strength = Collator.PRIMARY }
+    private val filteredCollator = newCollator()
+    private val favoritesCollator = newCollator()
 
     /** Contacts with nickname display applied, filtered by search, labels and account. */
     val filtered: StateFlow<List<ContactSummary>?> = combine(contacts, query.debounce(80), filter, index, settings) { list, q, f, idx, s ->
@@ -57,7 +60,7 @@ class PeopleUi(
         }
         if (s.preferNickname) {
             shown = shown.map { ct -> ct.copy(displayName = SecondLines.displayName(ct, idx.extras[ct.id], true)) }
-                .sortedWith { a, b -> collator.compare(a.displayName, b.displayName) }
+                .sortedWith { a, b -> filteredCollator.compare(a.displayName, b.displayName) }
         }
         shown
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, null)
@@ -78,7 +81,7 @@ class PeopleUi(
 
     val favorites: StateFlow<List<ContactSummary>> = combine(contacts, settings, callCounts, index) { list, s, counts, idx ->
         val favs = list.orEmpty().filter { it.starred }.map { ct -> if (s.preferNickname) ct.copy(displayName = SecondLines.displayName(ct, idx.extras[ct.id], true)) else ct }
-        FavoriteOrder.sort(favs, s.favoriteSort, s.favoriteOrder, counts) { a, b -> collator.compare(a, b) }
+        FavoriteOrder.sort(favs, s.favoriteSort, s.favoriteOrder, counts) { a, b -> favoritesCollator.compare(a, b) }
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     fun extra(id: Long): PersonExtra? = index.value.extras[id]

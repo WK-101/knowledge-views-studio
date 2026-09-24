@@ -19,6 +19,11 @@ class ExpectingCallTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
+        // Letting unknown callers through is a screening change: never from the lock screen without unlocking.
+        if (isLocked) unlockAndRun { cycle() } else cycle()
+    }
+
+    private fun cycle() {
         val c = container
         val remaining = BlockingActions.snoozeRemaining(c)
         val next = when {

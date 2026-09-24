@@ -329,9 +329,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** USSD codes typed on the keypad (A13). */
     val ussd = UssdSession(c, viewModelScope)
-    private val callTime = CallTimePlanner(c)
+    private val gate = CallGate(c)
 
-    fun requestCall(number: String, name: String? = null, skipConfirm: Boolean = false) {
+    /**
+     * Every call starts here (see [CallGate]): one question for the dial guard, the allowance, confirm-before-call
+     * and the SIM, then the call. [simId]: a SIM the user already picked ("call with SIM").
+     */
+    fun requestCall(number: String, name: String? = null, skipConfirm: Boolean = false, simId: String? = null) {
         if (number.isBlank()) return
         if (Ussd.isUssd(number)) {
             ussd.start(number.trim(), sims.value, null)
@@ -343,20 +347,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         viewModelScope.launch {
-            val simCount = sims.value.size
-            val remembered = withContext(Dispatchers.IO) { c.prefs.simFor(number) }
-            val chooseSim = simCount >= 2 && remembered == null && withContext(Dispatchers.IO) { c.sims.defaultOutgoing() } == null &&
-                !PhoneNumbers.isServiceCode(number)
-            val confirm = settings.value.confirmBeforeCall && !skipConfirm
-            // Contacts never get the guard's warnings (they are checked inside); emergency numbers are skipped too.
-            val warnings = c.dialGuard.check(number)
-            // One dialog for every question: "Call Ana?", a used-up allowance and the dial guard's warnings.
-            val note = if (!chooseSim) callTime.outgoingWarning(number, remembered ?: withContext(Dispatchers.IO) { c.sims.defaultOutgoing() }) else null
-            if (confirm || chooseSim || warnings.isNotEmpty() || note != null) {
-                pendingCall.value = PendingCall(number, name, confirm || note != null, chooseSim, note, warnings = warnings)
-            } else {
-                place(number, null)
-            }
+            val p = gate.check(number, name, sims.value.size, simId, skipConfirm)
+            // Nothing to ask: the allowance was checked too.
+            if (p != null) pendingCall.value = p else place(number, simId, confirmed = true)
         }
     }
 
@@ -368,19 +361,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         viewModelScope.launch {
-            if (remember && simId != null) c.prefs.setSimFor(number, simId)
-            val chosen = simId ?: withContext(Dispatchers.IO) { c.prefs.simFor(number) ?: c.sims.defaultOutgoing() }
-            if (!confirmed) {
-                callTime.outgoingWarning(number, chosen)?.let { note ->
-                    pendingCall.value = PendingCall(number, contactFor(number)?.displayName, true, false, note, simId)
-                    return@launch
-                }
-            }
-            // "Calling via Work SIM…" until the call exists (A10).
-            CallManager.expectOutgoing(number, sims.value.takeIf { it.size >= 2 }?.firstOrNull { it.id == chosen }?.label)
-            when (val r = c.placer.call(number, simId)) {
-                is PlaceResult.Failed -> toast(r.reason)
-                else -> Unit
+            when (val r = gate.place(number, simId, contactFor(number)?.displayName, sims.value, remember, confirmed)) {
+                is CallGate.Placed.Ask -> pendingCall.value = r.pending
+                is CallGate.Placed.Done -> (r.result as? PlaceResult.Failed)?.let { toast(it.reason) }
             }
         }
     }

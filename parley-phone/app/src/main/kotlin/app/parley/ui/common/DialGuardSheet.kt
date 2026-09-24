@@ -30,12 +30,14 @@ import app.parley.data.DialWarning
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DialGuardSheet(who: String, warnings: List<DialWarning>, onCall: () -> Unit, onCancel: () -> Unit) {
-    val severe = warnings.any { it.severe }
+fun DialGuardSheet(who: String, warnings: List<DialWarning>, note: String? = null, onCall: () -> Unit, onCancel: () -> Unit) {
+    // A used-up call-time allowance (T6) is one more reason to think, shown with the others (one question, not two).
+    val all = warnings + listOfNotNull(note?.let { DialWarning("Call time used up", it) })
+    val severe = all.any { it.severe }
     ModalBottomSheet(onDismissRequest = onCancel) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).navigationBarsPadding().padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Call $who?", style = MaterialTheme.typography.titleLarge)
-            warnings.forEach { w ->
+            all.forEach { w ->
                 Row(verticalAlignment = Alignment.Top) {
                     Icon(
                         if (w.severe) Icons.Rounded.Warning else Icons.Rounded.Info, null,

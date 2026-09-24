@@ -32,10 +32,10 @@ class ContactMover(context: Context, private val contacts: ContactsRepository, p
      */
     suspend fun move(contactId: Long, rawId: Long, target: AccountRef): Result = withContext(Dispatchers.IO) {
         val raws = rawIds(contactId)
-        val index = raws.indexOf(rawId)
-        if (index < 0) return@withContext Result.Failed("That copy no longer exists")
+        if (rawId !in raws) return@withContext Result.Failed("That copy no longer exists")
         val record = records.read(contactId, fullPhoto = true) ?: return@withContext Result.Failed("Couldn't read the contact")
-        val raw = record.raws.getOrNull(index) ?: return@withContext Result.Failed("Couldn't read that copy")
+        // By id, not by position: the two reads may list the copies differently.
+        val raw = record.raws.firstOrNull { it.rawId == rawId } ?: return@withContext Result.Failed("Couldn't read that copy")
         if (raw.accountType == target.type && raw.accountName == target.name) return@withContext Result.Failed("It's already saved there")
 
         contacts.recordChange(listOf(contactId), "MOVE")
@@ -70,7 +70,7 @@ class ContactMover(context: Context, private val contacts: ContactsRepository, p
         Result.Done(contactIdForRaw(rawId))
     }
 
-    /** Same filter and order as [ContactRecordStore.read], so indexes line up with the record's raws. */
+    /** The contact's live raw contact ids. */
     private fun rawIds(contactId: Long): List<Long> = try {
         cr.query(
             RawContacts.CONTENT_URI, arrayOf(RawContacts._ID),

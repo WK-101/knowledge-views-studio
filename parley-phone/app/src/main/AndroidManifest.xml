@@ -294,6 +294,14 @@
         <receiver
             android:name=".blocking.BlockingActionReceiver"
             android:exported="false" />
+        <!-- Notification actions on Android 10-11: an activity, so the lock screen asks to unlock first. -->
+        <activity
+            android:name=".blocking.BlockingActionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay" />
 
         <!-- Telecom delegates missed-call notifications to the default dialer. Only the system can send it. -->
         <receiver

@@ -75,6 +75,12 @@ class NumberActionActivity : ComponentActivity() {
     }
 
     private var stage by mutableStateOf<Stage>(Stage.NoNumber)
+    /** The call's open questions (dial guard, allowance, confirm, SIM), as in Parley itself. */
+    private var pendingCall by mutableStateOf<app.parley.PendingCall?>(null)
+    private var callSims by mutableStateOf<List<app.parley.common.SimAccount>>(emptyList())
+    private val gate by lazy { app.parley.CallGate(container) }
+    /** Read from disk before anything is shown: the defaults would mean no app lock and no secure screen. */
+    private var appLock = true
     /** A chat with an unknown number was opened from here; offer a temporary contact when the user comes back. */
     private var awaitingReturn = false
     private var leftForChat = false
@@ -83,11 +89,16 @@ class NumberActionActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         stage = initialStage(intent)
-        val settings = container.settings.settings.value
-        if (settings.secureScreen) window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
-        setContent {
-            ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
-                Sheet()
+        // Secure until the settings say otherwise, so nothing is captured while they load.
+        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        lifecycleScope.launch {
+            val settings = container.settings.current()
+            appLock = settings.appLock
+            if (!settings.secureScreen) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            setContent {
+                ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
+                    Sheet()
+                }
             }
         }
     }
@@ -139,6 +150,14 @@ class NumberActionActivity : ComponentActivity() {
     @Composable
     private fun Sheet() {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        pendingCall?.let { p ->
+            app.parley.ui.common.CallQuestions(
+                p, callSims, PhoneEnv.countryIso(this),
+                onUpdate = { next -> pendingCall = next; if (next == null) finish() },
+                onPlace = { number, simId, remember, confirmed -> place(number, simId, remember, confirmed, p.name) },
+            )
+            return
+        }
         when (val s = stage) {
             is Stage.Offer -> OfferDialog(s)
             else -> ModalBottomSheet(onDismissRequest = { finish() }, sheetState = sheetState) {
@@ -188,10 +207,10 @@ class NumberActionActivity : ComponentActivity() {
         val e164 = remember(number) { NumberText.toE164(number, region) }
         var contactName by remember { mutableStateOf<String?>(null) }
         var askTemporary by remember { mutableStateOf(false) }
-        val appLock = remember { container.settings.settings.value.appLock }
+        val locked = remember { appLock }
         LaunchedEffect(number) {
             // With the app lock on, don't reveal who this is over another app.
-            if (!appLock) contactName = withContext(Dispatchers.IO) { container.contacts.lookup(number)?.name }
+            if (!locked) contactName = withContext(Dispatchers.IO) { container.contacts.lookup(number)?.name }
         }
         val where = remember(number) { NumberInfo.location(number, region) }
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
@@ -201,7 +220,7 @@ class NumberActionActivity : ComponentActivity() {
             ListItem(
                 headlineContent = { Text("Call") },
                 leadingContent = { Icon(Icons.Rounded.Call, null) },
-                modifier = Modifier.clickable { call(number) },
+                modifier = Modifier.clickable { call(number, contactName) },
             )
             ListItem(
                 headlineContent = { Text("Message on…") },
@@ -260,7 +279,8 @@ class NumberActionActivity : ComponentActivity() {
         finish()
     }
 
-    private fun call(number: String) {
+    /** Same path as calls made in Parley ([app.parley.CallGate]): dial guard, allowance and confirm-before-call apply. */
+    private fun call(number: String, name: String?) {
         if (checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
             // Not the phone app: hand the number to Parley's keypad instead.
             startActivity(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null)).setClass(this, MainActivity::class.java))
@@ -268,9 +288,23 @@ class NumberActionActivity : ComponentActivity() {
             return
         }
         lifecycleScope.launch {
-            val r = container.placer.call(number)
-            if (r is PlaceResult.Failed) Toast.makeText(this@NumberActionActivity, r.reason, Toast.LENGTH_LONG).show()
-            finish()
+            val sims = withContext(Dispatchers.IO) { container.sims.accounts() }
+            callSims = sims
+            val p = gate.check(number, name, sims.size)
+            if (p != null) pendingCall = p else place(number, null, remember = false, confirmed = true, name = name)
+        }
+    }
+
+    private fun place(number: String, simId: String?, remember: Boolean, confirmed: Boolean, name: String?) {
+        pendingCall = null
+        lifecycleScope.launch {
+            when (val r = gate.place(number, simId, name, callSims, remember, confirmed)) {
+                is app.parley.CallGate.Placed.Ask -> pendingCall = r.pending
+                is app.parley.CallGate.Placed.Done -> {
+                    (r.result as? PlaceResult.Failed)?.let { Toast.makeText(this@NumberActionActivity, it.reason, Toast.LENGTH_LONG).show() }
+                    finish()
+                }
+            }
         }
     }
 

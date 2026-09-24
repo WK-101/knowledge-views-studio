@@ -117,10 +117,10 @@ object BlockingNotifier {
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setTimeoutAfter(if (blocked) 0 else 10 * 60_000L)
         if (blocked && number != null) {
-            b.addAction(0, "Not spam", action(context, BlockingActionReceiver.ACTION_NOT_SPAM, number, e.result.listHit?.packId, 31))
+            b.addAction(action(context, "Not spam", BlockingActionReceiver.ACTION_NOT_SPAM, number, e.result.listHit?.packId, 31))
         }
         if (blocked && !s.snoozeActive(System.currentTimeMillis())) {
-            b.addAction(0, "Expecting a call (1 h)", action(context, BlockingActionReceiver.ACTION_SNOOZE, null, null, 32))
+            b.addAction(action(context, "Expecting a call (1 h)", BlockingActionReceiver.ACTION_SNOOZE, null, null, 32))
         }
         notify(nm, id, b)
     }
@@ -132,11 +132,28 @@ object BlockingNotifier {
         }
     }
 
-    private fun action(context: Context, action: String, number: String?, packId: String?, req: Int) = PendingIntent.getBroadcast(
-        context, req,
-        Intent(context, BlockingActionReceiver::class.java).setAction(action).putExtra(BlockingActionReceiver.EXTRA_NUMBER, number).putExtra(BlockingActionReceiver.EXTRA_PACK, packId),
-        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-    )
+    /**
+     * A notification action that changes screening. It needs the phone unlocked: on Android 12+ the system asks for
+     * it before sending the broadcast; before that, the action opens a (non-exported, invisible) activity, which the
+     * lock screen only starts after unlocking.
+     */
+    private fun action(context: Context, title: String, action: String, number: String?, packId: String?, req: Int): NotificationCompat.Action {
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            val pi = PendingIntent.getBroadcast(
+                context, req,
+                Intent(context, BlockingActionReceiver::class.java).setAction(action).putExtra(BlockingActionReceiver.EXTRA_NUMBER, number).putExtra(BlockingActionReceiver.EXTRA_PACK, packId),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            return NotificationCompat.Action.Builder(0, title, pi).setAuthenticationRequired(true).build()
+        }
+        val pi = PendingIntent.getActivity(
+            context, req,
+            Intent(context, BlockingActionActivity::class.java).setAction(action).putExtra(BlockingActionReceiver.EXTRA_NUMBER, number).putExtra(BlockingActionReceiver.EXTRA_PACK, packId)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_HISTORY),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        return NotificationCompat.Action.Builder(0, title, pi).build()
+    }
 
     const val ID_BLOCKED = 5101
     const val ID_LIKELY = 5102
@@ -146,16 +163,10 @@ object BlockingNotifier {
 /** Notification actions: "Not spam" and "Expecting a call". Not exported. */
 class BlockingActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val c = context.container
         val pending = goAsync()
-        c.scope.launch {
+        context.container.scope.launch {
             try {
-                when (intent.action) {
-                    ACTION_NOT_SPAM -> intent.getStringExtra(EXTRA_NUMBER)?.let { BlockingActions.notSpam(c, it, intent.getStringExtra(EXTRA_PACK)) }
-                    ACTION_SNOOZE -> BlockingActions.snooze(c, 60)
-                }
-                NotificationManagerCompat.from(context).cancel(BlockingNotifier.ID_BLOCKED)
-                ExpectingCallTileService.refresh(context)
+                perform(context, intent)
             } finally {
                 pending.finish()
             }
@@ -163,6 +174,18 @@ class BlockingActionReceiver : BroadcastReceiver() {
     }
 
     companion object {
+        /** Runs a notification action ("Not spam", "Expecting a call"), from the receiver or [BlockingActionActivity]. */
+        suspend fun perform(context: Context, intent: Intent) {
+            val c = context.container
+            when (intent.action) {
+                ACTION_NOT_SPAM -> intent.getStringExtra(EXTRA_NUMBER)?.let { BlockingActions.notSpam(c, it, intent.getStringExtra(EXTRA_PACK)) }
+                ACTION_SNOOZE -> BlockingActions.snooze(c, 60)
+                else -> return
+            }
+            NotificationManagerCompat.from(context).cancel(BlockingNotifier.ID_BLOCKED)
+            ExpectingCallTileService.refresh(context)
+        }
+
         const val ACTION_NOT_SPAM = "app.parley.blocking.NOT_SPAM"
         const val ACTION_SNOOZE = "app.parley.blocking.SNOOZE"
         const val EXTRA_NUMBER = "number"
