@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Parley Lists</string>
+    <string name="permission_read_lists_label">read Parley spam lists</string>
+    <string name="permission_read_lists_description">Lets Parley copy the spam lists this app downloaded.</string>
+</resources>

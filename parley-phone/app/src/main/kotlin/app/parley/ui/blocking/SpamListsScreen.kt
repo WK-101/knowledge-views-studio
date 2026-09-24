@@ -141,6 +141,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                     )
                 }
             }
+            item(key = "updater") { ListsUpdaterSection(vm) }
             val suggested = BuiltInPacks.all.filter { b -> state.packs.none { it.id == b.id } }
             if (suggested.isNotEmpty()) {
                 item { app.parley.ui.contact.Section("Built in") }
@@ -224,6 +225,7 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
                             "%,d numbers".format(pk.entries) + if (pk.ranges > 0) " · ${pk.ranges} ranges" else "",
                             if (pk.mode == ListMode.BLOCK) "blocks at score ≥ ${pk.threshold}" else "warns",
                             if (pk.signed) "signed" else if (pk.origin == PackOrigin.BUILTIN) "built in" else "unsigned",
+                            "from Parley Lists".takeIf { pk.origin == PackOrigin.UPDATER },
                             "updated ${ago(pk.installedAt, now)}",
                         ).joinToString(" · "),
                     )
@@ -267,7 +269,16 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
         AlertDialog(
             onDismissRequest = { confirmRemove = false },
             title = { Text("Remove ${pk.name}?") },
-            confirmButton = { TextButton({ scope.launch { vm.c.lists.remove(pk.id) }; confirmRemove = false }) { Text("Remove") } },
+            confirmButton = {
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                TextButton({
+                    scope.launch {
+                        // A list from Parley Lists would come back tomorrow: stop its updates too.
+                        if (pk.origin == PackOrigin.UPDATER) app.parley.blocking.ListsUpdaterClient.unsubscribe(ctx, vm.c.lists, pk.id) else vm.c.lists.remove(pk.id)
+                    }
+                    confirmRemove = false
+                }) { Text("Remove") }
+            },
             dismissButton = { TextButton({ confirmRemove = false }) { Text("Cancel") } },
         )
     }

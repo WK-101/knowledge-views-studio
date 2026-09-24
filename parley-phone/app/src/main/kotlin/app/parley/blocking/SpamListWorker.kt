@@ -14,11 +14,14 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Daily, offline: re-reads the subscribed spam-list folder, removes expired temporary allow rules
- * ("Allow for 24 h") and trims old screening traces. No network.
+ * ("Allow for 24 h") and trims old screening traces, and copies newer lists from the optional Parley Lists
+ * app. No network.
  */
 class SpamListWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         run(applicationContext.container)
+        // Lists subscribed from the optional "Parley Lists" app (read through its provider, no network here).
+        runCatching { ListsUpdaterClient.refresh(applicationContext, applicationContext.container.lists) }
         return Result.success()
     }
 

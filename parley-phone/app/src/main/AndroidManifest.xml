@@ -25,6 +25,10 @@
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
+    <!-- Reads packs from the optional "Parley Lists" companion app (B4c). A signature permission: only granted
+         when both apps are signed with the same key. Parley still has no network access. -->
+    <uses-permission android:name="${listsPermission}" />
+
     <!-- Parley has NO internet permission. The build fails if any library tries to add it. -->
     <!-- WorkManager asks for network state for network constraints, which Parley never uses. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
@@ -37,6 +41,13 @@
         android:description="@string/permission_lookup_private_name_description"
         android:label="@string/permission_lookup_private_name_label"
         android:protectionLevel="dangerous" />
+
+    <!-- Also declared by the companion app; declaring it here too makes the grant work whichever is installed first. -->
+    <permission
+        android:name="${listsPermission}"
+        android:description="@string/permission_read_lists_description"
+        android:label="@string/permission_read_lists_label"
+        android:protectionLevel="signature" />
 
     <queries>
         <intent>
@@ -75,6 +86,8 @@
         <package android:name="app.grapheneos.camera" />
         <package android:name="app.grapheneos.pdfviewer" />
         <package android:name="app.grapheneos.gmscompat" />
+        <!-- The optional list updater companion (B4c). -->
+        <package android:name="${listsPackage}" />
     </queries>
 
     <application
@@ -148,6 +161,13 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="parley" android:host="qr" />
+            </intent-filter>
+            <!-- Shared rule-pack templates (parley://template?d=...), signed, opened by any QR scanner. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="parley" android:host="template" />
             </intent-filter>
             <!-- Open or share a .vcf file to import it. -->
             <intent-filter>

@@ -6,7 +6,8 @@ import app.parley.common.NotifyLevel
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-enum class PackOrigin { FILE, FOLDER, BUILTIN }
+/** UPDATER: copied from the optional "Parley Lists" companion app (B4c). */
+enum class PackOrigin { FILE, FOLDER, BUILTIN, UPDATER }
 
 /** An installed pack and the user's choices for it. */
 @Serializable
