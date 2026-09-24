@@ -39,6 +39,9 @@ interface TelecomDependencies {
     /** Intent for the main app: [dialpad] opens the keypad (used by "Add call"). */
     fun mainIntent(context: Context, dialpad: Boolean): Intent
     fun contactIntent(context: Context, contactId: Long?, number: String?): Intent
+
+    /** Called when a call leaves Telecom (for private-history sweeps and call notes). */
+    fun onCallEnded(number: String?, incoming: Boolean, connectTimeMillis: Long) {}
 }
 
 object TelecomGraph {

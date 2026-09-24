@@ -46,7 +46,9 @@ import app.parley.ui.settings.SpeedDialScreen
 object Routes {
     const val HOME = "home"
     const val CONTACT = "contact/{id}"
-    const val EDIT = "edit?id={id}&name={name}&phone={phone}&email={email}&addPhone={addPhone}&prefill={prefill}"
+    const val EDIT = "edit?id={id}&name={name}&phone={phone}&email={email}&addPhone={addPhone}&prefill={prefill}&vault={vault}"
+    const val VAULT = "vault/{id}"
+    fun vault(id: Long) = "vault/$id"
     const val HISTORY = "history/{number}"
     const val PICK = "pick/{number}"
     const val SETTINGS = "settings"
@@ -58,9 +60,9 @@ object Routes {
     fun contact(id: Long) = "contact/$id"
     fun history(number: String) = "history/" + Uri.encode(number)
     fun pick(number: String) = "pick/" + Uri.encode(number)
-    fun edit(id: Long? = null, name: String? = null, phone: String? = null, email: String? = null, addPhone: String? = null, prefill: Boolean = false): String =
+    fun edit(id: Long? = null, name: String? = null, phone: String? = null, email: String? = null, addPhone: String? = null, prefill: Boolean = false, vault: Long? = null): String =
         "edit?id=${id ?: -1}&name=${Uri.encode(name.orEmpty())}&phone=${Uri.encode(phone.orEmpty())}" +
-            "&email=${Uri.encode(email.orEmpty())}&addPhone=${Uri.encode(addPhone.orEmpty())}&prefill=$prefill"
+            "&email=${Uri.encode(email.orEmpty())}&addPhone=${Uri.encode(addPhone.orEmpty())}&prefill=$prefill&vault=${vault ?: -1}"
 
     /** Picker for "add to existing contact"; the number (or "_" = use the pending prefill). */
     const val PREFILL_MARK = "_"
@@ -140,6 +142,7 @@ fun ParleyRoot(vm: AppViewModel) {
                     navArgument("email") { defaultValue = "" },
                     navArgument("addPhone") { defaultValue = "" },
                     navArgument("prefill") { type = NavType.BoolType; defaultValue = false },
+                    navArgument("vault") { type = NavType.LongType; defaultValue = -1L },
                 ),
             ) {
                 val a = it.arguments!!
@@ -151,11 +154,20 @@ fun ParleyRoot(vm: AppViewModel) {
                     prefillEmail = a.getString("email").orEmpty(),
                     addPhone = a.getString("addPhone").orEmpty(),
                     prefill = if (a.getBoolean("prefill")) vm.pendingPrefill.also { vm.pendingPrefill = null } else null,
+                    vaultId = a.getLong("vault").takeIf { it >= 0 },
                     done = { savedId ->
                         nav.popBackStack()
-                        if (savedId != null && nav.currentDestination?.route != Routes.CONTACT) nav.navigate(Routes.contact(savedId)) { launchSingleTop = true }
+                        val here = nav.currentDestination?.route
+                        when {
+                            savedId == null -> Unit
+                            savedId < 0 -> if (here != Routes.VAULT) nav.navigate(Routes.vault(-savedId)) { launchSingleTop = true }
+                            here != Routes.CONTACT -> nav.navigate(Routes.contact(savedId)) { launchSingleTop = true }
+                        }
                     },
                 )
+            }
+            composable(Routes.VAULT, arguments = listOf(navArgument("id") { type = NavType.LongType })) {
+                app.parley.ui.vault.VaultDetailScreen(vm, it.arguments!!.getLong("id"), back = { nav.popBackStack() }, open = { r -> nav.navigate(r) })
             }
             composable(Routes.HISTORY) {
                 NumberHistoryScreen(vm, Uri.decode(it.arguments!!.getString("number").orEmpty()), back = { nav.popBackStack() }, open = { r -> nav.navigate(r) })

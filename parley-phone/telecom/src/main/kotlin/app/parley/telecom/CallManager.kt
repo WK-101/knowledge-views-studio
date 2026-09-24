@@ -141,6 +141,7 @@ object CallManager {
         val ended = toUi(call)
         _lastEnded.value = ended
         if (ended.isEmergency && ::appContext.isInitialized) ScreeningGuard.noteEmergencyCall(appContext)
+        runCatching { TelecomGraph.dependencies.onCallEnded(ended.number, ended.incoming, ended.connectTimeMillis) }
         call.unregisterCallback(callback)
         calls -= call
         info.remove(id)

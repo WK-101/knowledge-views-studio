@@ -31,6 +31,8 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
@@ -98,6 +100,9 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     var showQr by remember { mutableStateOf(false) }
     var simFor by remember { mutableStateOf<String?>(null) }
     var showPhoto by remember { mutableStateOf(false) }
+    var askExpiry by remember { mutableStateOf(false) }
+    val temps by vm.c.meta.temporaryContacts().collectAsStateWithLifecycle(emptyList())
+    val temp = details?.lookupKey?.let { k -> temps.firstOrNull { it.lookupKey == k } }
 
     LaunchedEffect(contactId, all) {
         details = vm.c.contacts.details(contactId)
@@ -148,6 +153,17 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                     menu = false; scope.launch { vm.c.contacts.separate(contactId); back() }
                                 })
                             }
+                            DropdownMenuItem({ Text("Move to private vault") }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = {
+                                menu = false
+                                scope.launch {
+                                    val id = vm.c.vault.save(null, d)
+                                    vm.c.contacts.delete(listOf(contactId))
+                                    vm.toast("Moved to your private contacts")
+                                    back()
+                                    open(Routes.vault(id))
+                                }
+                            })
+                            DropdownMenuItem({ Text(if (temp != null) "Change auto-delete" else "Delete after…") }, leadingIcon = { Icon(Icons.Rounded.Timer, null) }, onClick = { menu = false; askExpiry = true })
                             DropdownMenuItem({ Text("Delete") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
                         }
                     }
@@ -168,6 +184,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     Text(d.displayName, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp))
                     val sub = listOf(d.nickname, listOf(d.title, d.company).filter { it.isNotBlank() }.joinToString(", ")).filter { it.isNotBlank() }
                     if (sub.isNotEmpty()) Text(sub.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    temp?.let { Text("Deletes itself on ${Format.fullDate(context, it.expiresAt)}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                     Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         d.rawContacts.map { it.account.displayLabel }.distinct().take(3).forEach { label ->
                             androidx.compose.material3.SuggestionChip(onClick = {}, label = { Text(label, style = MaterialTheme.typography.labelSmall) }, icon = { Icon(Icons.Rounded.Sync, null, Modifier.size(14.dp)) })
@@ -264,6 +281,14 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
 
         if (showQr) QrDialog(d) { showQr = false }
+        if (askExpiry) app.parley.ui.vault.ExpiryDialog(onDismiss = { askExpiry = false }) { days ->
+            askExpiry = false
+            scope.launch {
+                if (days == null) vm.c.meta.clearTemporary(d.lookupKey)
+                else vm.c.meta.setTemporary(app.parley.data.db.TemporaryContactEntity(d.lookupKey, contactId, System.currentTimeMillis() + days * 86_400_000L, purgeHistory = true))
+                vm.toast(if (days == null) "Contact will be kept" else "Contact deletes itself in $days days")
+            }
+        }
         d.photoUri?.takeIf { showPhoto }?.let { PhotoViewer(it) { showPhoto = false } }
         if (confirmDelete) {
             AlertDialog(

@@ -47,7 +47,7 @@ enum class PickKind(val mime: String) {
  * other apps can use Parley as the system contact picker. Also handles JOIN_CONTACT.
  * Returns aggregate contact lookup URIs or Data row URIs, with a read grant.
  */
-class PickerActivity : ComponentActivity() {
+class PickerActivity : androidx.fragment.app.FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -57,7 +57,13 @@ class PickerActivity : ComponentActivity() {
         val c = container
         setContent {
             val s by c.settings.settings.collectAsStateWithLifecycle()
+            val locked by app.parley.security.AppLock.locked.collectAsStateWithLifecycle()
+            androidx.compose.runtime.LaunchedEffect(s.secureScreen) { app.parley.security.AppLock.applySecureFlag(this@PickerActivity, s.secureScreen) }
             ParleyTheme(s.themeMode, s.amoledBlack, s.dynamicColor, s.density) {
+                if (locked && s.appLock) {
+                    app.parley.security.LockScreen { app.parley.security.AppLock.authenticate(this@PickerActivity) }
+                    return@ParleyTheme
+                }
                 PickerScreen(
                     kind = if (joinTarget != null) PickKind.CONTACT else kind,
                     multiple = multiple && joinTarget == null,
@@ -68,6 +74,16 @@ class PickerActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        lifecycleScope.launch { app.parley.security.AppLock.onStart(container.settings.current()) }
+    }
+
+    override fun onStop() {
+        app.parley.security.AppLock.onStop()
+        super.onStop()
     }
 
     private fun join(target: Long, picks: List<Pick>) {

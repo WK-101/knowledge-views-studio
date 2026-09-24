@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
@@ -75,6 +76,51 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
     val all by vm.contacts.collectAsStateWithLifecycle()
     LaunchedEffect(all?.size) { groups = withContext(Dispatchers.IO) { vm.c.contacts.groups() } }
 
+    val showVault by vm.showVault.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val vaultList by vm.c.vault.contacts.collectAsStateWithLifecycle()
+    val chips: @Composable () -> Unit = {
+        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selectedGroup == null && !showVault, { vm.showVault.value = false; vm.selectGroup(null) }, label = { Text("All") })
+            if (!settings.hideVault) {
+                FilterChip(
+                    showVault, { vm.showVault.value = !showVault; vm.selectGroup(null) },
+                    label = { Text("Private") },
+                    leadingIcon = { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Rounded.Lock, null, Modifier.size(16.dp)) },
+                )
+            }
+            groups.distinctBy { it.title }.forEach { g ->
+                FilterChip(selectedGroup == g.id && !showVault, { vm.showVault.value = false; vm.selectGroup(if (selectedGroup == g.id) null else g.id) }, label = { Text(g.title) })
+            }
+        }
+    }
+    if (showVault && !settings.hideVault) {
+        LazyColumn(Modifier.fillMaxSize()) {
+            item { chips() }
+            val shown = vaultList.filter { app.parley.common.TextSearch.matches(query, it.name, it.numbers) }
+            if (shown.isEmpty()) {
+                item {
+                    EmptyState(
+                        androidx.compose.material.icons.Icons.Rounded.Lock, "No private contacts",
+                        "Private contacts are encrypted and only visible in Parley — other apps (messengers, keyboards) can't read them. Calls from them still show their name.",
+                        Modifier.padding(top = 32.dp),
+                    )
+                }
+            }
+            shown.forEach { v ->
+                item(key = "v" + v.id) {
+                    ListItem(
+                        modifier = Modifier.clickable { open(Routes.vault(v.id)) },
+                        leadingContent = { Avatar(v.name, null, avatarSize()) },
+                        headlineContent = { Text(v.name) },
+                        supportingContent = v.numbers.firstOrNull()?.let { n -> { Text(app.parley.ui.common.Format.number(n, vm.countryIso)) } },
+                    )
+                }
+            }
+        }
+        return
+    }
+
     val contacts = list
     if (contacts == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -99,16 +145,7 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
-            item(key = "groups") {
-                if (groups.isNotEmpty()) {
-                    Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selectedGroup == null, { vm.selectGroup(null) }, label = { Text("All") })
-                        groups.distinctBy { it.title }.forEach { g ->
-                            FilterChip(selectedGroup == g.id, { vm.selectGroup(if (selectedGroup == g.id) null else g.id) }, label = { Text(g.title) })
-                        }
-                    }
-                }
-            }
+            item(key = "groups") { chips() }
             if (contacts.isEmpty()) {
                 item(key = "empty") {
                     EmptyState(Icons.Rounded.People, if (query.isBlank()) "No contacts" else "No matches for “$query”", modifier = Modifier.padding(top = 48.dp))

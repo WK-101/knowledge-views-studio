@@ -12,6 +12,7 @@ class ParleyApp : Application() {
         super.onCreate()
         container = DataContainer(this)
         TelecomGraph.install(AppTelecomDependencies(this, container))
+        app.parley.work.HousekeepingWorker.schedule(this)
     }
 }
 

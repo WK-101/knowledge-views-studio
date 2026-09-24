@@ -37,7 +37,9 @@ class MissedCallReceiver : BroadcastReceiver() {
             return
         }
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Missed calls", NotificationManager.IMPORTANCE_DEFAULT))
-        val name = number?.let { context.container.contacts.lookup(it)?.name } ?: number?.takeIf { it.isNotBlank() }
+        val name = number?.let { context.container.contacts.lookup(it)?.name }
+            ?: number?.let { kotlinx.coroutines.runBlocking { context.container.vault.lookup(it)?.second?.name } }
+            ?: number?.takeIf { it.isNotBlank() }
         val title = if (count == 1) "Missed call" else "$count missed calls"
         val text = if (count == 1) (name ?: "Private number") else name?.let { "Latest: $it" } ?: ""
         val open = PendingIntent.getActivity(

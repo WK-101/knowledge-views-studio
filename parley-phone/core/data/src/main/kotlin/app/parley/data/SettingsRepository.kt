@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.parley.common.AnswerGesture
@@ -70,6 +71,17 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
                 defaultAction = enumOr(this[K.blockAction], BlockAction.REJECT),
             ),
             onboardingDone = this[K.onboarding] ?: false,
+            appLock = this[K.appLock] ?: d.appLock,
+            lockAfterMinutes = this[K.lockAfter] ?: d.lockAfterMinutes,
+            secureScreen = this[K.secure] ?: d.secureScreen,
+            hideVault = this[K.hideVault] ?: d.hideVault,
+            privateVaultHistory = this[K.privateHistory] ?: d.privateVaultHistory,
+            unknownRingtone = this[K.unknownRingtone]?.ifEmpty { null },
+            repeatCallerRingsThrough = this[K.repeatCaller] ?: d.repeatCallerRingsThrough,
+            birthdayReminders = this[K.birthdays] ?: d.birthdayReminders,
+            birthdayReminderHour = this[K.birthdayHour] ?: d.birthdayReminderHour,
+            reachOutNudges = this[K.nudges] ?: d.reachOutNudges,
+            callLogRetentionDays = this[K.retention] ?: d.callLogRetentionDays,
         )
     }
 
@@ -94,6 +106,17 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         this[K.blockFailed] = s.screening.blockFailedVerification
         this[K.blockAction] = s.screening.defaultAction.name
         this[K.onboarding] = s.onboardingDone
+        this[K.appLock] = s.appLock
+        this[K.lockAfter] = s.lockAfterMinutes
+        this[K.secure] = s.secureScreen
+        this[K.hideVault] = s.hideVault
+        this[K.privateHistory] = s.privateVaultHistory
+        this[K.unknownRingtone] = s.unknownRingtone.orEmpty()
+        this[K.repeatCaller] = s.repeatCallerRingsThrough
+        this[K.birthdays] = s.birthdayReminders
+        this[K.birthdayHour] = s.birthdayReminderHour
+        this[K.nudges] = s.reachOutNudges
+        this[K.retention] = s.callLogRetentionDays
     }
 
     private inline fun <reified E : Enum<E>> enumOr(value: String?, default: E): E =
@@ -120,6 +143,17 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val blockFailed = booleanPreferencesKey("block_failed_verification")
         val blockAction = stringPreferencesKey("block_action")
         val onboarding = booleanPreferencesKey("onboarding_done")
+        val appLock = booleanPreferencesKey("app_lock")
+        val lockAfter = intPreferencesKey("lock_after_minutes")
+        val secure = booleanPreferencesKey("secure_screen")
+        val hideVault = booleanPreferencesKey("hide_vault")
+        val privateHistory = booleanPreferencesKey("private_vault_history")
+        val unknownRingtone = stringPreferencesKey("unknown_ringtone")
+        val repeatCaller = booleanPreferencesKey("repeat_caller")
+        val birthdays = booleanPreferencesKey("birthday_reminders")
+        val birthdayHour = intPreferencesKey("birthday_hour")
+        val nudges = booleanPreferencesKey("reach_out_nudges")
+        val retention = intPreferencesKey("call_log_retention_days")
     }
 
     private companion object {

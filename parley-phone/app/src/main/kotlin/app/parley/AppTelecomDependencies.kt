@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class AppTelecomDependencies(private val app: Context, private val c: DataContainer) : TelecomDependencies {
@@ -23,6 +24,20 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override suspend fun callerInfo(number: String): CallerDisplay? = withContext(Dispatchers.IO) {
         c.contacts.lookup(number)?.let { CallerDisplay(it.name, it.photoUri, it.numberLabel, it.contactId, it.lookupKey) }
+            ?: c.vault.lookup(number)?.let { (_, info) -> CallerDisplay(info.name, null, info.numberLabel, null, null) }
+    }
+
+    override fun onCallEnded(number: String?, incoming: Boolean, connectTimeMillis: Long) {
+        if (number.isNullOrBlank()) return
+        c.scope.launch {
+            if (!c.settings.current().privateVaultHistory) return@launch
+            if (c.vault.lookup(number) == null) return@launch
+            // Telecom writes the call log shortly after the call ends; sweep a few times.
+            repeat(3) {
+                kotlinx.coroutines.delay(2500)
+                c.vault.sweepCallLog(System.currentTimeMillis() - 6 * 60 * 60 * 1000L)
+            }
+        }
     }
 
     override fun screeningActive(): Boolean = c.screener.isActive()

@@ -88,6 +88,8 @@ fun ContactEditScreen(
     prefillEmail: String,
     addPhone: String,
     prefill: ContactDetails? = null,
+    /** Private vault mode: 0 = new vault contact, > 0 = edit that vault contact. */
+    vaultId: Long? = null,
     done: (Long?) -> Unit,
 ) {
     val context = LocalContext.current
@@ -111,6 +113,23 @@ fun ContactEditScreen(
         val s = vm.settings.value
         account = accounts.firstOrNull { it.type == s.defaultAccountType && it.name == s.defaultAccountName }
             ?: accounts.firstOrNull { it.type == "com.google" } ?: accounts.firstOrNull()
+        if (vaultId != null) {
+            var e = if (vaultId > 0) {
+                try {
+                    vm.c.vault.details(vaultId)
+                } catch (_: app.parley.data.vault.VaultCrypto.LockedException) {
+                    vm.toast("Unlock the private contact first")
+                    done(null)
+                    return@LaunchedEffect
+                } ?: ContactDetails()
+            } else {
+                prefill ?: ContactDetails()
+            }
+            if (e.phones.isEmpty()) e = e.copy(phones = listOf(DataItem(type = Phone.TYPE_MOBILE)))
+            draft = e
+            start = e
+            return@LaunchedEffect
+        }
         if (contactId != null) {
             val d = vm.c.contacts.editable(contactId)
             original = d
@@ -153,7 +172,12 @@ fun ContactEditScreen(
         saving = true
         scope.launch {
             val id = try {
-                vm.c.contacts.save(original, e, account, photo, removePhoto)
+                if (vaultId != null) {
+                    val id = vm.c.vault.save(vaultId.takeIf { it > 0 }, e)
+                    -id // negative ids mark vault contacts for the caller
+                } else {
+                    vm.c.contacts.save(original, e, account, photo, removePhoto)
+                }
             } catch (ex: Exception) {
                 vm.toast("Couldn't save: ${ex.message}")
                 null
@@ -166,7 +190,7 @@ fun ContactEditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (contactId == null) "New contact" else "Edit contact") },
+                title = { Text(if (vaultId != null) (if (vaultId > 0) "Edit private contact" else "New private contact") else if (contactId == null) "New contact" else "Edit contact") },
                 navigationIcon = { IconButton({ if (dirty) confirmDiscard = true else done(null) }) { Icon(Icons.Rounded.Close, "Cancel") } },
                 actions = { Button(onClick = ::save, enabled = !saving && d != null, modifier = Modifier.padding(end = 8.dp)) { Text("Save") } },
             )
@@ -178,18 +202,26 @@ fun ContactEditScreen(
             Modifier.padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+            if (vaultId != null) {
+                Text(
+                    "Private contact: stored encrypted inside Parley only. Other apps can't see it; calls from it still show its name.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (vaultId == null) Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
                 val shownPhoto = photo?.toString() ?: d.photoUri.takeUnless { removePhoto }
                 Avatar(d.composedName.ifBlank { "?" }, shownPhoto, 104.dp, Modifier.clickable {
                     photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 })
                 Icon(Icons.Rounded.AddAPhoto, "Change photo", Modifier.align(Alignment.BottomCenter).padding(start = 80.dp).size(24.dp), tint = MaterialTheme.colorScheme.primary)
             }
-            if (photo != null || (d.photoUri != null && !removePhoto)) {
+            if (vaultId == null && (photo != null || (d.photoUri != null && !removePhoto))) {
                 TextButton({ photo = null; removePhoto = true }, Modifier.align(Alignment.CenterHorizontally)) { Text("Remove photo") }
             }
 
-            if (original == null) {
+            if (vaultId != null) {
+                // no account for vault contacts
+            } else if (original == null) {
                 Dropdown("Save to", account?.displayLabel ?: "Phone only", accounts.map { it.displayLabel }) { i -> account = accounts[i] }
             } else {
                 Text("Saved in ${account?.displayLabel ?: "Phone"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -269,7 +301,7 @@ fun ContactEditScreen(
                 onChange = { list -> update { it.copy(websites = list) } }, newItem = { DataItem(type = Website.TYPE_HOMEPAGE) },
             )
 
-            val accountGroups = groups.filter { it.account.type == account?.type && it.account.name == account?.name }
+            val accountGroups = if (vaultId != null) emptyList() else groups.filter { it.account.type == account?.type && it.account.name == account?.name }
             if (accountGroups.isNotEmpty()) {
                 SectionTitle("Labels")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

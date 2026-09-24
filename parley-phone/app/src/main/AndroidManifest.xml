@@ -24,6 +24,8 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
     <!-- Parley has NO internet permission. The build fails if any library tries to add it. -->
+    <!-- WorkManager asks for network state for network constraints, which Parley never uses. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
 
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
 

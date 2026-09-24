@@ -91,7 +91,11 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
                     g, vm.countryIso, simLabels.takeIf { settings.showSimLabels }.orEmpty(),
                     onOpen = {
                         val ct = g.contact
-                        if (ct != null) open(Routes.contact(ct.id)) else if (!g.hidden) open(Routes.history(g.number))
+                        when {
+                            g.vaultId != null -> open(Routes.vault(g.vaultId))
+                            ct != null -> open(Routes.contact(ct.id))
+                            !g.hidden -> open(Routes.history(g.number))
+                        }
                     },
                     onCall = { vm.requestCall(g.number, g.contact?.displayName) },
                 )
@@ -113,7 +117,7 @@ fun RecentRow(g: RecentGroup, countryIso: String, simLabels: Map<String, String>
         },
         headlineContent = {
             Text(
-                g.title + if (g.calls.size > 1) " (${g.calls.size})" else "",
+                (if (g.vaultId != null) "🔒 " else "") + g.title + if (g.calls.size > 1) " (${g.calls.size})" else "",
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 color = if (missed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
             )

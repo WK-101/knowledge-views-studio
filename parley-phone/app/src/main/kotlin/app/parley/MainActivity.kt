@@ -13,11 +13,13 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import app.parley.common.StartTab
 import app.parley.ui.ParleyRoot
 import app.parley.ui.ParleyTheme
 
-class MainActivity : ComponentActivity() {
+class MainActivity : androidx.fragment.app.FragmentActivity() {
     private val vm: AppViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,10 +36,26 @@ class MainActivity : ComponentActivity() {
                     if (e is UiEvent.RequestCallPermission) callPermission.launch(Manifest.permission.CALL_PHONE)
                 }
             }
+            val locked by app.parley.security.AppLock.locked.collectAsStateWithLifecycle()
+            LaunchedEffect(settings.secureScreen) { app.parley.security.AppLock.applySecureFlag(this@MainActivity, settings.secureScreen) }
             ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
-                ParleyRoot(vm)
+                if (locked && settings.appLock) {
+                    app.parley.security.LockScreen { app.parley.security.AppLock.authenticate(this@MainActivity) }
+                } else {
+                    ParleyRoot(vm)
+                }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        lifecycleScope.launch { app.parley.security.AppLock.onStart(vm.c.settings.current()) }
+    }
+
+    override fun onStop() {
+        app.parley.security.AppLock.onStop()
+        super.onStop()
     }
 
     override fun onResume() {

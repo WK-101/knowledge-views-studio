@@ -10,10 +10,12 @@ import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneEntry
 import app.parley.common.SimAccount
 import app.parley.common.T9
 import app.parley.common.TextSearch
 import app.parley.data.Permissions
+import app.parley.data.CallLogRepository
 import app.parley.data.PhoneEnv
 import app.parley.data.PlaceResult
 import kotlinx.coroutines.Dispatchers
@@ -43,6 +45,8 @@ data class RecentGroup(
     val cachedName: String?,
     val calls: List<CallEntry>,
     val hidden: Boolean,
+    /** Set for calls with private (vault) contacts; they live only in Parley's encrypted history. */
+    val vaultId: Long? = null,
 ) {
     val latest: CallEntry get() = calls.first()
     val title: String get() = contact?.displayName ?: cachedName?.takeIf { it.isNotBlank() } ?: number.ifBlank { if (hidden) "Private number" else "Unknown" }
@@ -147,6 +151,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     val contactQuery = MutableStateFlow("")
 
+    /** Contacts tab shows the private vault instead of phone contacts. */
+    val showVault = MutableStateFlow(false)
+
     /** Contacts selected in the Contacts tab (multi-select mode when non-empty). */
     val selection = MutableStateFlow<Set<Long>>(emptySet())
 
@@ -180,8 +187,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val recentFilter = MutableStateFlow(RecentFilter.ALL)
     val recentQuery = MutableStateFlow("")
 
-    val recentGroups: StateFlow<List<RecentGroup>?> = combine(c.callLog.calls, numberIndex, recentFilter, recentQuery.debounce(80)) { calls, index, filter, q ->
-        calls?.let { group(it, index, filter, q) }
+    /** System call log + private (vault) calls, newest first. */
+    private val allCalls = combine(c.callLog.calls, c.vault.privateCalls, settings.map { it.hideVault }.distinctUntilChanged()) { sys, priv, hidden ->
+        if (sys == null) return@combine null
+        if (hidden || priv.isEmpty()) return@combine sys
+        (sys + priv.map { p ->
+            CallEntry(-p.id, p.number, p.name, CallLogRepository.mapType(p.type), p.date, p.durationSec, null, false, false)
+        }).sortedByDescending { it.date }
+    }
+
+    private val vaultByKey = c.vault.contacts.map { list -> list.flatMap { v -> v.numbers.map { PhoneNumbers.matchKey(it) to v.id } }.toMap() }
+
+    val recentGroups: StateFlow<List<RecentGroup>?> = combine(allCalls, numberIndex, recentFilter, recentQuery.debounce(80), vaultByKey) { calls, index, filter, q, vaults ->
+        calls?.let { group(it, index, filter, q).map { g -> if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneNumbers.matchKey(g.number)]) else g } }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private fun group(calls: List<CallEntry>, index: Map<String, ContactSummary>, filter: RecentFilter, q: String): List<RecentGroup> {
@@ -248,7 +266,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val encoded = contacts.map { list -> list.orEmpty().map { it to T9.Encoded(it.displayName) } }
         .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    val dialResults: StateFlow<List<DialResult>> = combine(dialInput, encoded, c.callLog.calls) { input, enc, calls ->
+    private val encodedVault = combine(c.vault.contacts, settings.map { it.hideVault }.distinctUntilChanged()) { list, hidden ->
+        if (hidden) emptyList() else list.map { v ->
+            ContactSummary(id = -v.id, lookupKey = "", displayName = v.name, photoUri = null, starred = false, phones = v.numbers.map { PhoneEntry(it, 2, null) }) to T9.Encoded(v.name)
+        }
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val dialResults: StateFlow<List<DialResult>> = combine(dialInput, combine(encoded, encodedVault) { a, b -> a + b }, c.callLog.calls) { input, enc, calls ->
         val q = PhoneNumbers.clean(input).removePrefix("+")
         if (q.isEmpty() || q.any { it == '*' || it == '#' }) return@combine emptyList()
         val results = ArrayList<DialResult>()

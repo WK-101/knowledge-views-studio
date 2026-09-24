@@ -13,6 +13,7 @@ class CallScreener(
     private val blocks: BlockRepository,
     private val sims: SimRepository,
     private val settings: SettingsRepository,
+    private val vault: app.parley.data.vault.VaultRepository,
 ) {
     /**
      * True when any screening feature is on; lets the call path skip I/O entirely otherwise.
@@ -32,7 +33,7 @@ class CallScreener(
         val facts = IncomingCallFacts(
             number = number,
             hidden = hidden,
-            isContact = !number.isNullOrBlank() && contacts.lookup(number) != null,
+            isContact = !number.isNullOrBlank() && (contacts.lookup(number) != null || vault.lookup(number) != null),
             verification = verification,
             countryIso = PhoneEnv.countryIso(context),
             ownNumbers = if (s.blockNeighbourSpoofing) sims.ownNumbers() else emptyList(),

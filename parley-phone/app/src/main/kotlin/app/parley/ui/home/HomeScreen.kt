@@ -160,7 +160,7 @@ fun HomeScreen(
                 enter = androidx.compose.animation.scaleIn(),
                 exit = androidx.compose.animation.scaleOut(),
             ) {
-                FloatingActionButton(onClick = { open(Routes.edit()) }) { Icon(Icons.Rounded.PersonAdd, "Create contact") }
+                FloatingActionButton(onClick = { open(if (vm.showVault.value) Routes.edit(vault = 0) else Routes.edit()) }) { Icon(Icons.Rounded.PersonAdd, "Create contact") }
             }
         },
     ) { padding ->
