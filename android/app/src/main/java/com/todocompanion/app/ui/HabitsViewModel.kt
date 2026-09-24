@@ -110,7 +110,7 @@ class HabitsViewModel(
      *  habit strength). Public so the parent's still-there check-in/Focus bridges reach it through a shim. */
     fun refreshHabitWidgets() {
         com.todocompanion.app.widget.HabitsWidget.refresh(app.appCtx)
-        com.todocompanion.app.widget.HabitStatsWidget.refresh(app.appCtx)
+        com.todocompanion.app.widget.HabitZeroWidget.refresh(app.appCtx)
         com.todocompanion.app.widget.WeekRowWidget.refresh(app.appCtx)
         // R106 — Habit Insight (keystone / streaks / strength / correlation) folds in the former standalone widgets.
         com.todocompanion.app.widget.HabitInsightWidget.refresh(app.appCtx)

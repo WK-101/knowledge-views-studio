@@ -30,7 +30,6 @@ object Widgets {
         runCatching { MomentumWidget.refresh(context) }
         runCatching { CountdownWidget.refresh(context) }
         runCatching { HabitsWidget.refresh(context) }
-        runCatching { HabitStatsWidget.refresh(context) }
         runCatching { HabitZeroWidget.refresh(context) }
         runCatching { WeekRowWidget.refresh(context) }
         runCatching { HabitInsightWidget.refresh(context) }
@@ -40,7 +39,6 @@ object Widgets {
     /** Re-render every habit widget after a check-in / habit change. Safe from any thread. */
     fun refreshHabitWidgets(context: Context) {
         runCatching { HabitsWidget.refresh(context) }
-        runCatching { HabitStatsWidget.refresh(context) }
         runCatching { HabitZeroWidget.refresh(context) }
         runCatching { WeekRowWidget.refresh(context) }
         runCatching { HabitInsightWidget.refresh(context) }

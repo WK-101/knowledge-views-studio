@@ -91,7 +91,6 @@ class WidgetConfigActivity : ComponentActivity() {
             suffix("DoNextWidget") -> "Do Next widget"
             suffix("RecordWidget") -> "The Record widget"
             suffix("HabitsWidget") -> "Habits widget"
-            suffix("HabitStatsWidget") -> "Habit Ring widget"
             suffix("HabitZeroWidget") -> "Habit Zero widget"
             suffix("WeekRowWidget") -> "Habit Week widget"
             suffix("HabitInsightWidget") -> "Habit Insight widget"
@@ -129,6 +128,7 @@ class WidgetConfigActivity : ComponentActivity() {
                 var habitPin by remember { mutableStateOf(WidgetPrefs.habitId(this, widgetId)) }
                 var groupPin by remember { mutableStateOf(WidgetPrefs.group(this, widgetId)) }
                 var insightMode by remember { mutableStateOf(WidgetPrefs.insightMode(this, widgetId)) }
+                var habitStyle by remember { mutableStateOf(WidgetPrefs.habitStyle(this, widgetId)) }
                 val isMatrix = suffix("MatrixWidget")
                 var mxRows by remember { mutableIntStateOf(WidgetPrefs.matrixRows(this, widgetId)) }
                 val isQuickBar = suffix("QuickBarWidget")
@@ -149,7 +149,7 @@ class WidgetConfigActivity : ComponentActivity() {
                             val previewKind = when {
                                 isQuickBar -> "cluster"
                                 isMatrix -> "matrix"
-                                suffix("HabitStatsWidget") || suffix("HabitZeroWidget") || suffix("WeekRowWidget") ||
+                                suffix("HabitZeroWidget") || suffix("WeekRowWidget") ||
                                     isHabitInsight -> "ring"
                                 suffix("TimeWidget") -> "timer"
                                 suffix("CountdownWidget") || suffix("MomentumWidget") ||
@@ -190,6 +190,13 @@ class WidgetConfigActivity : ComponentActivity() {
                                     ChoiceRow((h.emoji?.plus(" ") ?: "") + h.name, habitPin == h.id) { habitPin = h.id }
                                 }
                                 if (habits.isEmpty()) Text("No habits yet — add one first.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.size(18.dp))
+                            }
+
+                            if (isHabitZero) {
+                                SectionLabel("Style")
+                                ChoiceRow("Vanishing list — habits leave as you finish", habitStyle == "auto") { habitStyle = "auto" }
+                                ChoiceRow("Progress ring — today at a glance + coach move", habitStyle == "ring") { habitStyle = "ring" }
                                 Spacer(Modifier.size(18.dp))
                             }
 
@@ -249,7 +256,10 @@ class WidgetConfigActivity : ComponentActivity() {
                                 else WidgetPrefs.saveTheme(this@WidgetConfigActivity, widgetId, theme)
                                 if (isSingleHabit || isHabitInsight) WidgetPrefs.saveHabit(this@WidgetConfigActivity, widgetId, habitPin)
                                 if (isHabitInsight) WidgetPrefs.saveInsightMode(this@WidgetConfigActivity, widgetId, insightMode)
-                                if (isHabitZero) WidgetPrefs.saveGroup(this@WidgetConfigActivity, widgetId, groupPin)
+                                if (isHabitZero) {
+                                    WidgetPrefs.saveGroup(this@WidgetConfigActivity, widgetId, groupPin)
+                                    WidgetPrefs.saveHabitStyle(this@WidgetConfigActivity, widgetId, habitStyle)
+                                }
                                 if (isMatrix) WidgetPrefs.saveMatrixRows(this@WidgetConfigActivity, widgetId, mxRows)
                                 if (isQuickBar) WidgetPrefs.saveQuick(this@WidgetConfigActivity, widgetId, qcCount, qcSlots.toList())
                                 WidgetPrefs.saveAppearance(this@WidgetConfigActivity, widgetId, opacity, fontPct, compact, true)
@@ -270,7 +280,6 @@ class WidgetConfigActivity : ComponentActivity() {
             providerClass.endsWith("DoNextWidget") -> DoNextWidget.updateOne(this, widgetId)
             providerClass.endsWith("RecordWidget") -> RecordWidget.refresh(this)
             providerClass.endsWith("HabitsWidget") -> HabitsWidget.updateOne(this, widgetId)
-            providerClass.endsWith("HabitStatsWidget") -> HabitStatsWidget.refresh(this)
             providerClass.endsWith("HabitZeroWidget") -> HabitZeroWidget.updateOne(this, widgetId)
             providerClass.endsWith("WeekRowWidget") -> WeekRowWidget.updateOne(this, widgetId)
             providerClass.endsWith("HabitInsightWidget") -> HabitInsightWidget.updateOne(this, widgetId)

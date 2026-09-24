@@ -47,7 +47,7 @@ class TimeTrackingController(
     /** Keep the habit-facing widgets live when a tracked interval credits a linked habit (was onRefreshHabits). */
     private fun refreshHabitWidgets() {
         com.todocompanion.app.widget.HabitsWidget.refresh(context)
-        com.todocompanion.app.widget.HabitStatsWidget.refresh(context)
+        com.todocompanion.app.widget.HabitZeroWidget.refresh(context)
         com.todocompanion.app.widget.MomentumWidget.refresh(context)
     }
 

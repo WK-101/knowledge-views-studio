@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlin.math.roundToInt
 
 /**
  * Habit Zero — the "vanishing" widget. It shows only the habits still due today; each one you finish
@@ -51,6 +52,12 @@ class HabitZeroWidget : AppWidgetProvider() {
                     val group = WidgetPrefs.group(context, id)
                     val r = HabitZeroData.compute(app, today, group)
                     val style = WidgetStyle.resolve(context, id)
+                    // The "ring" style (the former Habit Ring widget) is a fixed read-only progress card,
+                    // independent of the placed size; "auto" keeps the size-responsive vanishing behaviour.
+                    if (WidgetPrefs.habitStyle(context, id) == "ring") {
+                        renderRing(context, manager, id, r, style, app, today, zone)
+                        return@forEach
+                    }
                     // Size-responsive: pick the density from the placed cell size. The list stays for tall
                     // widgets; smaller sizes collapse to a dot grid, a strip, or just the meter.
                     val opts = runCatching { manager.getAppWidgetOptions(id) }.getOrNull()
@@ -136,6 +143,57 @@ class HabitZeroWidget : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.hz_header, openHabits(context))
         manager.updateAppWidget(id, views)
         manager.notifyAppWidgetViewDataChanged(id, R.id.hz_list)
+    }
+
+    /**
+     * The "ring" style — the former Habit Ring widget, folded in as a config choice: today's practice
+     * as a big progress ring with done/left/skipped, best streak, and the on-device coach's top move.
+     * Read-only (taps open Habits); size-independent.
+     */
+    private suspend fun renderRing(
+        context: Context, manager: AppWidgetManager, id: Int,
+        r: HabitZeroData.Result, style: WidgetStyle, app: App, today: Long, zone: ZoneId,
+    ) {
+        val due = r.due; val done = r.done; val skipped = r.skipped
+        val left = (due - done - skipped).coerceAtLeast(0)
+        val progress = if (due > 0) done.toFloat() / due else 0f
+
+        // The coach brief — the top move for the day (the moat read no standalone tracker can give).
+        val brief = runCatching {
+            val habits = app.repository.wsHabitsOnce()
+            val checkins = app.repository.getHabitCheckinsOnce()
+            val tasks = app.repository.wsTasksOnce()
+            HabitInsights.dailyBrief(habits, checkins, tasks, today, zone)?.moves?.firstOrNull()?.let { "${it.emoji} ${it.text}" }
+        }.getOrNull()
+
+        val views = RemoteViews(context.packageName, R.layout.widget_habitstats)
+        WidgetStyle.applyListCard(views, R.id.hs_card, context, id)
+
+        val edge = WidgetBitmaps.dp(context, 132f).toInt()
+        val stroke = WidgetBitmaps.dp(context, 11f)
+        val fill = if (due > 0 && done >= due) style.success else style.teal
+        views.setImageViewBitmap(R.id.hs_ring, WidgetBitmaps.ring(edge, stroke, progress, style.chip, fill))
+
+        views.setTextViewText(R.id.hs_done, if (due == 0) "—" else "$done/$due")
+        views.setTextColor(R.id.hs_done, style.textPrimary)
+        views.setTextViewText(R.id.hs_pct, if (due == 0) "no habits due" else "${(progress * 100).roundToInt()}%")
+        views.setTextColor(R.id.hs_pct, style.textSecondary)
+
+        val counts = buildString {
+            append("✓ $done")
+            if (left > 0) append("  ·  $left left")
+            if (skipped > 0) append("  ·  $skipped skipped")
+            if (r.bestStreak >= 2) append("  ·  🔥 ${r.bestStreak}")
+        }
+        views.setTextViewText(R.id.hs_counts, if (due == 0) "" else counts)
+        views.setTextColor(R.id.hs_counts, style.textSecondary)
+
+        views.setTextViewText(R.id.hs_brief, brief ?: "")
+        views.setTextColor(R.id.hs_brief, style.textPrimary)
+        views.setViewVisibility(R.id.hs_brief, if (brief.isNullOrBlank()) View.GONE else View.VISIBLE)
+
+        views.setOnClickPendingIntent(R.id.hs_root, openHabits(context))
+        manager.updateAppWidget(id, views)
     }
 
     /** 1×1 "meter": just the whole-habits donut with the remaining count in the middle. */

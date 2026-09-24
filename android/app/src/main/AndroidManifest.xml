@@ -437,13 +437,6 @@
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_next7_info" />
         </receiver>
 
-        <receiver android:name=".widget.HabitStatsWidget" android:label="@string/widget_habitstats_name" android:exported="false">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_habitstats_info" />
-        </receiver>
-
         <!-- One habit's week as 7 tappable day cells. Offline. -->
         <receiver android:name=".widget.WeekRowWidget" android:label="@string/widget_weekrow_name" android:exported="false">
             <intent-filter>

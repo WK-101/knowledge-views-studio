@@ -92,6 +92,15 @@ object WidgetPrefs {
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putString("group_$id", group).apply()
     }
 
+    /** Habits hub (Habit Zero) — render style: "auto" (size-responsive vanishing list/meter) or
+     *  "ring" (a today-progress ring with the coach's top move, the former Habit Ring widget). */
+    fun habitStyle(ctx: Context, id: Int): String =
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getString("hstyle_$id", "auto") ?: "auto"
+
+    fun saveHabitStyle(ctx: Context, id: Int, style: String) {
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putString("hstyle_$id", style).apply()
+    }
+
     // Quick-bar widget: how many buttons (4–7) and which action each slot fires. Slot 0 is the centre;
     // it defaults to "app" — the brand mark that opens Kairo — but every slot (centre included) is a
     // freely assignable action, so "app" is just the first option in the pool.
@@ -137,7 +146,8 @@ object WidgetPrefs {
             .remove("scope_$id").remove("title_$id").remove("theme_$id")
             .remove("energy_$id").remove("time_$id")
             .remove("opacity_$id").remove("font_$id").remove("compact_$id").remove("toolbar_$id")
-            .remove("dayoff_$id").remove("habit_$id").remove("group_$id").remove("mxrows_$id").remove("imode_$id")
+            .remove("dayoff_$id").remove("habit_$id").remove("group_$id").remove("mxrows_$id")
+            .remove("imode_$id").remove("hstyle_$id")
             .remove("qccount_$id").remove("qcslots_$id").remove("qcappmig_$id").remove("qcctrapp2_$id")
             .apply()
     }
