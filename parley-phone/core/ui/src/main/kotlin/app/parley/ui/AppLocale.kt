@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
 import android.os.LocaleList
+import androidx.core.content.edit
 import java.util.Locale
 
 /**
@@ -41,9 +42,10 @@ object AppLocale {
                 if (tag == null) LocaleList.getEmptyLocaleList() else LocaleList.forLanguageTags(tag)
             return
         }
-        activity.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().apply {
+        // Written at once: the activity is recreated right after and reads it in attachBaseContext.
+        activity.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit(commit = true) {
             if (tag == null) remove(KEY_TAG) else putString(KEY_TAG, tag)
-        }.commit()
+        }
         val locale = tag?.let(Locale::forLanguageTag) ?: systemLocale()
         Locale.setDefault(locale)
         // The application context was wrapped at start: bring its resources to the new language too.

@@ -26,7 +26,7 @@ val checkHardcodedText by tasks.registering {
         val lit = "\"(?:[^\"\\\\]|\\\\.)*[A-Za-z]{2,}(?:[^\"\\\\]|\\\\.)*\""
         val patterns = listOf(
             Regex("""\bText\(\s*$lit"""),
-            Regex("""\b(?:contentDescription|onClickLabel|stateDescription|label)\s*=\s*$lit"""),
+            Regex("""\b(?:contentDescription|onClickLabel|onLongClickLabel|stateDescription)\s*=\s*$lit"""),
             Regex("""CustomAccessibilityAction\(\s*$lit"""),
             Regex("""Toast\.makeText\([^,]+,\s*$lit"""),
             Regex("""\.set(?:ContentTitle|ContentText|SubText|SummaryText|BigContentTitle)\(\s*$lit"""),

@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.parley.R
@@ -157,12 +158,13 @@ private data class SheetRow(val key: String, val label: String, val sub: String?
 @Composable
 fun ContactMessageSheet(r: Reach, onDismiss: () -> Unit, onRemember: (MessengerPrefs) -> Unit) {
     val context = LocalContext.current
+    val res = LocalResources.current
     val installed = remember { MessengerLauncher.installed(context) }
     var number by rememberSaveable { mutableStateOf(r.prefs.number?.takeIf { n -> r.numbers.any { it.first == n } } ?: r.defaultNumber ?: r.numbers.firstOrNull()?.first) }
     var remember by rememberSaveable { mutableStateOf(true) }
     val region = remember { PhoneEnv.countryIso(context) }
     val e164 = remember(number) { number?.let { NumberText.toE164(it, region) } }
-    val unavailable = remember(e164) { app.parley.messaging.MessagingText.unavailable(context.resources, e164) }
+    val unavailable = remember(e164) { app.parley.messaging.MessagingText.unavailable(res, e164) }
     val linked = r.linked
 
     val rows = buildList {
@@ -170,9 +172,9 @@ fun ContactMessageSheet(r: Reach, onDismiss: () -> Unit, onRemember: (MessengerP
         installed.filter { it != MessengerApp.TELEGRAM_WEB || MessengerApp.TELEGRAM !in installed }.forEach { app ->
             val isLinked = app.packageName in linked
             val hint = when {
-                isLinked -> context.getString(R.string.msg_app_has_contact, app.label)
+                isLinked -> res.getString(R.string.msg_app_has_contact, app.label)
                 MessageRoutes.showUnlinkedHint(app.packageName, linked, installed.map { it.packageName }.toSet()) ->
-                    context.getString(R.string.msg_app_cant_see, app.label)
+                    res.getString(R.string.msg_app_cant_see, app.label)
                 else -> null
             }
             add(

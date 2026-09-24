@@ -41,8 +41,11 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
-/** "12 March 1990 · 35 years · in 6 days" for birthdays, shorter for other dates. */
-fun describeEvent(raw: String, birthday: Boolean, today: LocalDate = LocalDate.now()): String {
+/**
+ * "12 March 1990 · 35 years · in 6 days" for birthdays, shorter for other dates. With [res] the words are in the
+ * user's language (L1); without, English. The parts are always joined with " · ".
+ */
+fun describeEvent(raw: String, birthday: Boolean, today: LocalDate = LocalDate.now(), res: android.content.res.Resources? = null): String {
     val e = EventDate.parse(raw) ?: return raw
     val y = e.year
     val shown = if (y != null) {
@@ -51,12 +54,23 @@ fun describeEvent(raw: String, birthday: Boolean, today: LocalDate = LocalDate.n
         java.time.MonthDay.of(e.month, e.day).format(DateTimeFormatter.ofPattern("d MMMM"))
     }
     val days = e.daysUntil(today)
-    val whenText = when (days) {
-        0L -> "today"
-        1L -> "tomorrow"
+    val whenText = when {
+        res != null -> when (days) {
+            0L -> res.getString(R.string.event_today)
+            1L -> res.getString(R.string.event_tomorrow)
+            else -> res.getQuantityString(R.plurals.event_in_days, days.toInt(), days.toInt())
+        }
+        days == 0L -> "today"
+        days == 1L -> "tomorrow"
         else -> "in $days days"
     }
-    val age = if (birthday) e.age(today)?.let { "$it years" } else e.age(today)?.let { "$it years ago" }
+    val age = e.age(today)?.let { a ->
+        when {
+            res != null -> res.getQuantityString(if (birthday) R.plurals.event_years else R.plurals.event_years_ago, a, a)
+            birthday -> "$a years"
+            else -> "$a years ago"
+        }
+    }
     return listOfNotNull(shown, age, whenText).joinToString(" · ")
 }
 

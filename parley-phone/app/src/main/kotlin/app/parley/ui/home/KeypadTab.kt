@@ -541,6 +541,7 @@ private enum class ClipHint { NONE, TEXT, NUMBER }
 @Composable
 private fun PasteChip(countryIso: String, onPaste: (String) -> Unit) {
     val context = LocalContext.current
+    val res = LocalResources.current
     val cm = remember { context.getSystemService(ClipboardManager::class.java) }
     var hint by remember { mutableStateOf(ClipHint.NONE) }
     val focused = LocalWindowInfo.current.isWindowFocused
@@ -556,7 +557,7 @@ private fun PasteChip(countryIso: String, onPaste: (String) -> Unit) {
         onClick = {
             val text = runCatching { cm?.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() }.getOrNull().orEmpty()
             val number = NumberText.find(text, countryIso).firstOrNull()?.raw?.let(DialText::sanitize)
-            if (number.isNullOrEmpty()) Toast.makeText(context, context.getString(R.string.keypad_no_clip_number), Toast.LENGTH_SHORT).show()
+            if (number.isNullOrEmpty()) Toast.makeText(context, res.getString(R.string.keypad_no_clip_number), Toast.LENGTH_SHORT).show()
             else onPaste(number)
         },
         label = { Text(stringResource(if (hint == ClipHint.NUMBER) R.string.keypad_paste_number else R.string.keypad_paste)) },

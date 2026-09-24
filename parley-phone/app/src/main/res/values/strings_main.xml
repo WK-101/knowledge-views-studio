@@ -5,7 +5,7 @@
 -->
 <resources>
     <!-- Generic -->
-    <string name="main_separator">" · "</string>
+    <string name="main_separator" translatable="false">" · "</string>
     <string name="main_cancel">Cancel</string>
     <string name="main_ok">OK</string>
     <string name="main_save">Save</string>
@@ -20,11 +20,8 @@
     <string name="main_message">Message</string>
     <string name="main_more">More</string>
     <string name="main_search">Search</string>
-    <string name="main_clear">Clear</string>
-    <string name="main_add">Add</string>
     <string name="main_remove">Remove</string>
     <string name="main_block">Block</string>
-    <string name="main_unblock">Unblock</string>
     <string name="main_private_number">Private number</string>
     <string name="main_unknown">Unknown</string>
 
@@ -852,4 +849,20 @@
     <string name="bulk_remembered">This batch is remembered for 30 days: you can delete it from “Recent batches” on this screen.</string>
     <string name="bulk_introduce_sub">Open each chat with your details filled in; you press Send</string>
     <string name="bulk_add_more">Add more</string>
+
+    <!-- Dates of a contact: "12 March 1990 · 35 years · in 6 days" -->
+    <string name="event_today">today</string>
+    <string name="event_tomorrow">tomorrow</string>
+    <plurals name="event_in_days">
+        <item quantity="one">in %d day</item>
+        <item quantity="other">in %d days</item>
+    </plurals>
+    <plurals name="event_years">
+        <item quantity="one">%d year</item>
+        <item quantity="other">%d years</item>
+    </plurals>
+    <plurals name="event_years_ago">
+        <item quantity="one">%d year ago</item>
+        <item quantity="other">%d years ago</item>
+    </plurals>
 </resources>

@@ -48,11 +48,13 @@ fun LanguageRow() {
         Icons.Rounded.Language,
         external = Build.VERSION.SDK_INT >= 33,
     ) {
-        if (Build.VERSION.SDK_INT < 33 || !openSystemSettings(context)) picker = true
+        val opened = Build.VERSION.SDK_INT >= 33 && openSystemSettings(context)
+        if (!opened) picker = true
     }
     if (picker) LanguagePickerDialog(current) { picker = false }
 }
 
+@androidx.annotation.RequiresApi(33)
 private fun openSystemSettings(context: Context): Boolean = runCatching {
     context.startActivity(Intent(Settings.ACTION_APP_LOCALE_SETTINGS, Uri.fromParts("package", context.packageName, null)))
 }.isSuccess

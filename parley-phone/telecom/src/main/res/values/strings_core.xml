@@ -8,7 +8,7 @@
     <string name="tc_on">on</string>
     <string name="tc_off">off</string>
     <!-- Joins parts of one line, e.g. "Work · +1 555 0100". -->
-    <string name="tc_separator">" · "</string>
+    <string name="tc_separator" translatable="false">" · "</string>
 
     <!-- Caller identity -->
     <string name="call_private_number">Private number</string>

@@ -55,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -129,6 +130,7 @@ private fun rows(installed: List<MessengerApp>, lastApp: String?): List<Messenge
 @Composable
 fun MessageOnContent(number: String, accountId: String? = null, onLaunched: (MessengerApp?) -> Unit) {
     val context = LocalContext.current
+    val res = LocalResources.current
     val c = context.container
     val store = c.messaging
     // F19: the country of the SIM that took the call (when the number comes from Recents or a notification), which
@@ -138,7 +140,7 @@ fun MessageOnContent(number: String, accountId: String? = null, onLaunched: (Mes
     var pickCountry by remember { mutableStateOf(false) }
     val region = regionOverride ?: simRegion
     val e164 = remember(number, region) { NumberText.toE164(number, region) }
-    val unavailable = remember(e164) { MessagingText.unavailable(context.resources, e164) }
+    val unavailable = remember(e164) { MessagingText.unavailable(res, e164) }
     val nationalForm = remember(number) { !PhoneNumbers.clean(number).startsWith("+") }
     val installed = remember { MessengerLauncher.installed(context) }
     val rows = remember(installed) { rows(installed, store.lastApp) }
@@ -161,7 +163,7 @@ fun MessageOnContent(number: String, accountId: String? = null, onLaunched: (Mes
                 clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
             }
             context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
-            Toast.makeText(context, context.getString(R.string.msg_copied_paste), Toast.LENGTH_LONG).show()
+            Toast.makeText(context, res.getString(R.string.msg_copied_paste), Toast.LENGTH_LONG).show()
         }
         val error = MessengerLauncher.open(context, link, app)
         if (error != null) {
@@ -213,7 +215,7 @@ fun MessageOnContent(number: String, accountId: String? = null, onLaunched: (Mes
         Row(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AssistChip(
                 onClick = {
-                    val text = MessagingText.myDetails(context.resources, details.name, details.number)
+                    val text = MessagingText.myDetails(res, details.name, details.number)
                     if (text == null) editDetails = true else draft = text
                 },
                 label = { Text(stringResource(R.string.msg_send_details)) },
@@ -255,7 +257,7 @@ fun MessageOnContent(number: String, accountId: String? = null, onLaunched: (Mes
                                 rowMenu = false
                                 val profile = e164?.let { MessengerLinks.telegramProfile(row.apps[0], it) }
                                 // Older Telegram versions ignore "profile" and open the chat instead, which is fine too.
-                                val error = if (profile == null) unavailable ?: context.getString(R.string.msg_cant_open_number) else MessengerLauncher.open(context, profile, row.apps[0])
+                                val error = if (profile == null) unavailable ?: res.getString(R.string.msg_cant_open_number) else MessengerLauncher.open(context, profile, row.apps[0])
                                 if (error != null) Toast.makeText(context, error, Toast.LENGTH_LONG).show()
                             })
                         }
