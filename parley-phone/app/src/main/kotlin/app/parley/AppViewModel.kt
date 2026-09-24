@@ -386,6 +386,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // Declared last: needs [favorites] initialised.
     init {
+        // Folder sync shortly after local contact changes (no-op when nothing changed).
+        viewModelScope.launch(Dispatchers.IO) {
+            c.contacts.contacts.debounce(20_000).collect {
+                val st = c.folderSync.status.value
+                if (it != null && st.folderUri != null && st.auto) runCatching { c.folderSync.syncNow() }
+            }
+        }
         viewModelScope.launch(Dispatchers.Default) {
             favorites.debounce(1000).distinctUntilChanged().collect { Shortcuts.updateDynamic(getApplication(), it) }
         }

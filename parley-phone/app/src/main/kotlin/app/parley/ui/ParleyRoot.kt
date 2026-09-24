@@ -63,6 +63,7 @@ object Routes {
     const val JOURNAL = "journal"
     const val BACKUP = "backup"
     const val CHANGES = "changes"
+    const val SYNC = "sync"
     const val VERSIONS = "versions/{id}"
     fun versions(id: Long) = "versions/$id"
 
@@ -213,6 +214,7 @@ fun ParleyRoot(vm: AppViewModel) {
             composable(Routes.BLOCKING) { BlockingScreen(vm, back = { nav.popBackStack() }) }
             composable(Routes.DUPLICATES) { DuplicatesScreen(vm, back = { nav.popBackStack() }) }
             composable(Routes.PRIVACY) { PrivacyScreen(vm, back = { nav.popBackStack() }) }
+            composable(Routes.SYNC) { app.parley.ui.sync.FolderSyncScreen(vm, back = { nav.popBackStack() }) }
             composable(Routes.CHANGES) { app.parley.ui.timemachine.ChangesScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             composable(Routes.VERSIONS, arguments = listOf(navArgument("id") { type = NavType.LongType })) {
                 app.parley.ui.timemachine.VersionHistoryScreen(vm, it.arguments!!.getLong("id"), back = { nav.popBackStack() }, open = { r -> nav.navigate(r) })

@@ -15,6 +15,10 @@ class ParleyApp : Application() {
         TelecomGraph.install(AppTelecomDependencies(this, container))
         app.parley.work.HousekeepingWorker.schedule(this)
         container.scope.launch { runCatching { container.timeMachine.snapshotIfDue() } }
+        container.scope.launch {
+            val st = container.folderSync.status.value
+            if (st.folderUri != null && st.auto) runCatching { container.folderSync.syncNow() }
+        }
         container.scope.launch { app.parley.work.RemindersWorker.schedule(this@ParleyApp, container.settings.current().birthdayReminderHour) }
     }
 }

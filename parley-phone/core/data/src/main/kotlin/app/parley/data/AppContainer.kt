@@ -25,6 +25,7 @@ class DataContainer(context: Context) {
     val vault by lazy { app.parley.data.vault.VaultRepository(appContext, db, scope) }
     val meta by lazy { db.metaDao() }
     val journal by lazy { JournalRepository(meta, records) }
+    val folderSync by lazy { app.parley.data.sync.FolderSync(appContext, contacts, records) }
     val timeMachine by lazy { app.parley.data.backup.TimeMachine(appContext, records) }
     val backup by lazy {
         app.parley.data.backup.BackupRepository(appContext, contacts, records, blocks, prefs, db, settings, vault, app.parley.data.backup.BackupPrefs(appContext))
