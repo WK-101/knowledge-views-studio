@@ -91,7 +91,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override fun callHaptics(): Boolean = c.calling.config.value.haptics
 
-    override fun screeningActive(): Boolean = c.screener.isActive()
+    override fun screeningActive(): Boolean = c.screener.isActive() || c.people.hasLabelRingtones()
 
     override suspend fun screen(number: String?, hidden: Boolean, verification: Verification): Decision =
         withContext(Dispatchers.IO) { c.screener.screen(number, hidden, verification) }
@@ -105,7 +105,10 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 decision = r.decision,
                 verdict = r.verdict?.text,
                 warn = r.verdict?.kind == VerdictKind.LIKELY_SPAM,
-                ringtone = r.ringtone,
+                // Rule or label rule first, then a ringtone set on the label page, unless the contact has its own.
+                ringtone = r.ringtone ?: number?.takeIf { r.decision !is Decision.Block }?.let { n ->
+                    runCatching { if (c.contacts.lookup(n)?.customRingtone == null) c.people.ringtoneForNumber(n) else null }.getOrNull()
+                },
                 ringLoud = r.ringLoud,
             )
         }

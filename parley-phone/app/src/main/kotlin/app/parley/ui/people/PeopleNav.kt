@@ -22,27 +22,8 @@ object PeopleRoutes {
     const val WHO_CAN_SEE = "whocansee"
     const val PRIVATE_NAMES = "privatenames"
     const val DIAGNOSTICS = "diagnostics"
-
-    /**
-     * Label page overflow → Blocking screen, prefilled: "blocking?label=Family&mode=block" (or mode=allow).
-     * The same request is also left in [LabelBlockingRequest.pending] for the Blocking screen to consume.
-     */
-    fun blockLabel(title: String, allow: Boolean): String {
-        LabelBlockingRequest.pending.value = LabelBlockingRequest(title, allow)
-        return Routes.BLOCKING + "?label=" + Uri.encode(title) + "&mode=" + if (allow) "allow" else "block"
-    }
 }
 
-/**
- * "Block everyone in this label" / "Always let this label through", handed to the Blocking screen. The Blocking
- * screen reads (and clears) [pending], or the `label` and `mode` navigation arguments, to open its rule editor
- * prefilled with a label rule.
- */
-data class LabelBlockingRequest(val label: String, val allow: Boolean) {
-    companion object {
-        val pending = MutableStateFlow<LabelBlockingRequest?>(null)
-    }
-}
 
 /** Adds the contacts/privacy screens to the app's navigation graph. */
 fun NavGraphBuilder.peopleRoutes(vm: AppViewModel, nav: NavController) {

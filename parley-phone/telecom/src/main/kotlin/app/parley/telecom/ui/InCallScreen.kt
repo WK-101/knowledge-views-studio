@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.telecom.TelecomManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -130,6 +131,8 @@ fun InCallScreen(
             .background(Brush.verticalGradient(listOf(scheme.primaryContainer.copy(alpha = 0.55f), scheme.surface, scheme.surface))),
     ) {
         // Landscape phones and unfolded foldables: caller on the left, controls on the right (A9).
+        // The caller's own call-screen picture (C14), under a theme-coloured scrim so every control stays legible.
+        CallBackground(primary?.backgroundUri, scheme.surface)
         val twoPane = maxWidth > maxHeight && maxWidth >= 560.dp
         val short = maxHeight < 480.dp
         val insets = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().displayCutoutPadding()
@@ -620,4 +623,27 @@ fun routeIcon(r: AudioRoute): ImageVector = when (r.type) {
     RouteType.SPEAKER -> Icons.AutoMirrored.Rounded.VolumeUp
     RouteType.EARPIECE -> Icons.Rounded.PhoneInTalk
     RouteType.STREAMING -> Icons.Rounded.PhoneInTalk
+}
+
+@Composable
+private fun CallBackground(uri: String?, scrim: androidx.compose.ui.graphics.Color) {
+    if (uri == null) return
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val image by androidx.compose.runtime.produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, uri) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                val u = android.net.Uri.parse(uri)
+                val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                context.contentResolver.openInputStream(u)?.use { android.graphics.BitmapFactory.decodeStream(it, null, opts) }
+                var sample = 1
+                while (opts.outWidth / (sample * 2) >= 1080 && opts.outHeight / (sample * 2) >= 1080) sample *= 2
+                context.contentResolver.openInputStream(u)?.use {
+                    android.graphics.BitmapFactory.decodeStream(it, null, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+                }?.asImageBitmap()
+            }.getOrNull()
+        }
+    }
+    val bmp = image ?: return
+    androidx.compose.foundation.Image(bmp, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+    Box(Modifier.fillMaxSize().background(scrim.copy(alpha = 0.72f)))
 }

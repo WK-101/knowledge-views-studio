@@ -38,6 +38,9 @@ class PeopleContainer(private val c: DataContainer) {
     val diagnostics by lazy { Diagnostics(c.appContext) }
     val backupExtras: BackupExtras by lazy { PeopleBackupExtras(this, c) }
 
+    /** True when any label has a ringtone, so incoming calls go through the path that plays it. */
+    fun hasLabelRingtones(): Boolean = prefs.settings.value.labelRingtones.isNotEmpty()
+
     /** Ringtone chosen for a label (by title), or null. */
     fun ringtoneForLabel(label: String): String? = prefs.settings.value.labelRingtones[label]
 

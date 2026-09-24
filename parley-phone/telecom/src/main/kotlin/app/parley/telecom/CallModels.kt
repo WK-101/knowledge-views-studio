@@ -12,6 +12,8 @@ data class CallUi(
     val name: String?,
     val label: String?,
     val photoUri: String?,
+    /** The caller's call-screen background (C14), a file in Parley's storage, or null. */
+    val backgroundUri: String? = null,
     val contactId: Long?,
     val incoming: Boolean,
     val connectTimeMillis: Long,

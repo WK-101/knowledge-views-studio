@@ -296,6 +296,9 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
     var renaming by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val tone = s.labelRingtones[current]
+    val labelGroup by androidx.compose.runtime.produceState<app.parley.data.GroupInfo?>(null, current) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { vm.c.contacts.groups().firstOrNull { it.title == current } }.getOrNull() }
+    }
     val tonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         if (res.resultCode == Activity.RESULT_OK) {
             @Suppress("DEPRECATION")
@@ -332,12 +335,8 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
                 Box {
                     IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, "More") }
                     DropdownMenu(menu, { menu = false }) {
-                        DropdownMenuItem({ Text("Block this label") }, leadingIcon = { Icon(Icons.Rounded.Block, null) }, onClick = {
-                            menu = false; open(PeopleRoutes.blockLabel(current, allow = false))
-                        })
-                        DropdownMenuItem({ Text("Always let through") }, leadingIcon = { Icon(Icons.Rounded.VerifiedUser, null) }, onClick = {
-                            menu = false; open(PeopleRoutes.blockLabel(current, allow = true))
-                        })
+                        // Screening rules for everyone in this label (block, only-they-ring at night, ringtone).
+                        labelGroup?.let { g -> app.parley.ui.blocking.LabelBlockingMenuItem(g) { menu = false } }
                         DropdownMenuItem({ Text("Rename") }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { menu = false; renaming = true })
                         DropdownMenuItem({ Text("Delete label") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
                     }

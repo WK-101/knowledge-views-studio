@@ -349,6 +349,7 @@ object CallManager {
             name = found?.name ?: d.contactDisplayNameCompat() ?: d.callerDisplayName?.takeIf { it.isNotBlank() },
             label = found?.label,
             photoUri = found?.photoUri,
+            backgroundUri = found?.backgroundUri,
             contactId = found?.contactId,
             incoming = d.callDirection == Call.Details.DIRECTION_INCOMING,
             connectTimeMillis = d.connectTimeMillis,
