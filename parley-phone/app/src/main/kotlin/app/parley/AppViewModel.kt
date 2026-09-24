@@ -64,6 +64,7 @@ data class PendingCall(
 
 sealed interface UiEvent {
     data class Message(val text: String) : UiEvent
+    data class Undo(val text: String, val journalIds: List<Long>) : UiEvent
     data object RequestCallPermission : UiEvent
 }
 
@@ -355,7 +356,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteContacts(ids: List<Long>) {
         viewModelScope.launch {
             c.contacts.delete(ids)
-            toast(if (ids.size == 1) "Contact deleted" else "${ids.size} contacts deleted")
+            val journal = c.contacts.lastJournalIds
+            val text = if (ids.size == 1) "Contact deleted" else "${ids.size} contacts deleted"
+            if (journal.isNotEmpty()) events.trySend(UiEvent.Undo(text, journal)) else toast(text)
+        }
+    }
+
+    fun undo(journalIds: List<Long>) {
+        viewModelScope.launch {
+            journalIds.forEach { c.journal.restore(it) }
+            toast("Restored")
         }
     }
 

@@ -433,8 +433,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             AlertDialog(
                 onDismissRequest = { confirmDelete = false },
                 title = { Text("Delete ${d.displayName}?") },
-                text = { Text("This removes the contact from every account it is saved in.") },
-                confirmButton = { TextButton({ confirmDelete = false; scope.launch { vm.c.contacts.delete(listOf(contactId)); back() } }) { Text("Delete") } },
+                text = { Text("This removes the contact from every account it is saved in. You can restore it from Recently deleted for 30 days.") },
+                confirmButton = { TextButton({ confirmDelete = false; vm.deleteContacts(listOf(contactId)); back() }) { Text("Delete") } },
                 dismissButton = { TextButton({ confirmDelete = false }) { Text("Cancel") } },
             )
         }

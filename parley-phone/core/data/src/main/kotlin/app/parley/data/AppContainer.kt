@@ -24,4 +24,10 @@ class DataContainer(context: Context) {
     val vcards by lazy { VCardIO(appContext, contacts, records) }
     val vault by lazy { app.parley.data.vault.VaultRepository(appContext, db, scope) }
     val meta by lazy { db.metaDao() }
+    val journal by lazy { JournalRepository(meta, records) }
+
+    init {
+        // Every delete/edit/merge made through Parley is journaled first (30-day undo).
+        contacts.beforeChange = { ids, action -> journal.snapshot(ids, action) }
+    }
 }

@@ -60,6 +60,7 @@ object Routes {
     const val SPEED_DIAL = "speeddial"
     const val BIRTHDAYS = "birthdays"
     const val HEALTH = "health"
+    const val JOURNAL = "journal"
 
     fun contact(id: Long) = "contact/$id"
     fun history(number: String) = "history/" + Uri.encode(number)
@@ -118,7 +119,16 @@ fun ParleyRoot(vm: AppViewModel) {
         }
     }
     LaunchedEffect(Unit) {
-        vm.uiEvents.collect { e -> if (e is UiEvent.Message) snackbar.showSnackbar(e.text) }
+        vm.uiEvents.collect { e ->
+            when (e) {
+                is UiEvent.Message -> snackbar.showSnackbar(e.text)
+                is UiEvent.Undo -> {
+                    val r = snackbar.showSnackbar(e.text, actionLabel = "Undo", duration = androidx.compose.material3.SnackbarDuration.Long)
+                    if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) vm.undo(e.journalIds)
+                }
+                else -> Unit
+            }
+        }
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -198,6 +208,7 @@ fun ParleyRoot(vm: AppViewModel) {
             composable(Routes.BLOCKING) { BlockingScreen(vm, back = { nav.popBackStack() }) }
             composable(Routes.DUPLICATES) { DuplicatesScreen(vm, back = { nav.popBackStack() }) }
             composable(Routes.PRIVACY) { PrivacyScreen(vm, back = { nav.popBackStack() }) }
+            composable(Routes.JOURNAL) { app.parley.ui.journal.JournalScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             composable(Routes.HEALTH) { app.parley.ui.health.HealthScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             composable(Routes.BIRTHDAYS) { app.parley.ui.birthdays.BirthdaysScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             composable(Routes.SPEED_DIAL) { SpeedDialScreen(vm, back = { nav.popBackStack() }) }

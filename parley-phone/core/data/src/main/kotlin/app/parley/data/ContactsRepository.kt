@@ -69,6 +69,17 @@ fun ContentResolver.changes(uri: Uri): Flow<Unit> = callbackFlow {
 class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     private val cr: ContentResolver = context.contentResolver
 
+    /** Called before Parley changes existing contacts (set by the container to journal them). */
+    var beforeChange: (suspend (ids: List<Long>, action: String) -> List<Long>)? = null
+
+    /** Journal ids of the most recent change, for "Undo". */
+    var lastJournalIds: List<Long> = emptyList()
+        private set
+
+    private suspend fun journal(ids: List<Long>, action: String) {
+        lastJournalIds = runCatching { beforeChange?.invoke(ids, action) }.getOrNull().orEmpty()
+    }
+
     /** Bumped after permission changes so observers reload. */
     private val reload = MutableStateFlow(0)
 
@@ -345,6 +356,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
      */
     suspend fun save(original: ContactDetails?, edited: ContactDetails, account: AccountRef?, photo: Uri?, removePhoto: Boolean): Long? =
         withContext(Dispatchers.IO) {
+            if (original != null && original.id > 0) journal(listOf(original.id), "EDIT")
             val ops = ArrayList<ContentProviderOperation>()
             val rawId: Long?
             val insertTarget: (ContentProviderOperation.Builder) -> ContentProviderOperation.Builder
@@ -512,6 +524,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     }
 
     suspend fun delete(contactIds: Collection<Long>) = withContext(Dispatchers.IO) {
+        journal(contactIds.toList(), "DELETE")
         val ops = contactIds.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(Contacts.CONTENT_URI, it)).build() }
         if (ops.isNotEmpty()) cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(ops))
     }
@@ -522,12 +535,14 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
 
     /** Merges several contacts into one (platform "join"). */
     suspend fun join(contactIds: List<Long>) = withContext(Dispatchers.IO) {
+        journal(contactIds, "MERGE")
         val raws = contactIds.flatMap { rawIds(it) }.distinct()
         setAggregation(raws, AggregationExceptions.TYPE_KEEP_TOGETHER)
     }
 
     /** Splits a merged contact back into its raw contacts. */
     suspend fun separate(contactId: Long) = withContext(Dispatchers.IO) {
+        journal(listOf(contactId), "SEPARATE")
         setAggregation(rawIds(contactId), AggregationExceptions.TYPE_KEEP_SEPARATE)
     }
 
