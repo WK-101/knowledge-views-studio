@@ -20,7 +20,7 @@ This project is independent of the rest of this repository.
 | **Works with other apps** | Parley is the system contact picker (contacts, numbers, e-mails, addresses; multi-select), handles insert/edit, quick contact, show-or-create and `.vcf` files |
 | **Privacy & security** | **Private vault**: encrypted contacts invisible to all other apps that still show their name when they call, private call history, discreet mode and Quick Settings tile; **app lock** (biometric/device credential; incoming calls always show); hide screen content; **temporary contacts** that delete themselves; call-history retention; privacy dashboard |
 | **Never lose a contact** | **Recently deleted & changed** (30-day undo of every delete, edit and merge); **time machine** (daily incremental snapshots for 6 months: see what changed and restore any version); **encrypted backups** to a folder you choose (scheduled, verified after writing, smart rotation, restore preview with merge, undo); **move to a new phone**; **sync between your phones** through a Syncthing/Nextcloud folder with no server |
-| **Blocking** | Offline rules (exact, prefix, wildcard), hidden numbers, non-contacts, neighbour spoofing, failed caller verification; reject or silence; repeat callers let through; system block list; blocked log; optional screening role |
+| **Blocking** | Fixed, predictable precedence (emergency › contacts › allow rules › block rules › spam lists › checks) with a stored **"why" trace** for every screened call; **allow rules** and "Allow for 24 h"; block rules by number, prefix, pattern, caller name, country, line type (VoIP, premium…) or **label**, each with a **schedule**, a SIM, a notification level and hit counters; **off hours** ("only Family rings at night") with a one-tap SMS reply; **"Expecting a call"** snooze (Quick Settings tile); numbers you called or talked to; repeat callers with a minimum redial interval; invalid numbers, neighbour spoofing, failed verification; offline **spam-list packs** (`.parleylist`, signed, folder subscription, built-in ARCEP ranges for France) that warn by default; **test a call** and **replay last week** with no side effects; one-ring "wangiri" and premium-rate warnings before you dial; import from Call Blocker, YACB, NoPhoneSpam or CSV, share your rules as a signed list; carrier/regulator reporting hand-off; ringtone per rule or label and "ring loud" with crash-safe volume restore |
 | **Look & feel** | Material 3 Expressive with dynamic colour; avatars and names animate into the contact page; navigation rail on tablets and foldables; light/dark/AMOLED; compact density; optional call/message buttons on contact rows |
 
 **Not included:**
@@ -53,6 +53,7 @@ Requirements:
 echo "sdk.dir=/path/to/android-sdk" > local.properties
 ./gradlew :core:common:test lint assembleDebug      # tests, lint, debug APK
 ./gradlew assembleRelease                          # signed if keystore.properties exists
+./gradlew :core:common:buildSpamPack --args="--ftc dnc.csv --out ftc.parleylist --id gov.ftc.dnc --name 'FTC reported calls' --key my.key"
 ```
 
 Signing uses a `keystore.properties` file, which is never committed:
