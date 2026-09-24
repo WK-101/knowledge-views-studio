@@ -1,0 +1,22 @@
+{
+  "id": "de.premium-warn",
+  "name": "Germany: 0137, 0180 and 0900 numbers",
+  "description": "Warns about calls from mass-traffic (0137), service (0180) and premium (0900) numbers, which cost extra to call back.",
+  "country": "DE",
+  "version": 20260924,
+  "author": "Parley",
+  "sources": [
+    {"url": "https://www.bundesnetzagentur.de/DE/Fachthemen/Telekommunikation/Nummerierung/0137/start.html", "title": "Bundesnetzagentur: (0)137 Massenverkehrs-Dienste", "accessed": "2026-09-24"},
+    {"url": "https://www.bundesnetzagentur.de/DE/Fachthemen/Telekommunikation/Nummerierung/0180/start.html", "title": "Bundesnetzagentur: (0)180 Service-Dienste-Rufnummern", "accessed": "2026-09-24"},
+    {"url": "https://www.bundesnetzagentur.de/DE/Fachthemen/Telekommunikation/Nummerierung/0900/start.html", "title": "Bundesnetzagentur: (0)900 Rufnummern für Premium-Dienste", "accessed": "2026-09-24"}
+  ],
+  "warnList": {
+    "categories": {"1": "Mass-traffic number (0137)", "2": "Service number (0180)", "3": "Premium number (0900)"},
+    "score": 60,
+    "ranges": [
+      {"prefix": "+49137", "category": 1},
+      {"prefix": "+49180", "category": 2},
+      {"prefix": "+49900", "category": 3}
+    ]
+  }
+}

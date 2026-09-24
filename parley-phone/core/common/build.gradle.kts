@@ -37,3 +37,8 @@ tasks.register<JavaExec>("buildSpamPack") {
     mainClass.set("app.parley.common.spam.PackTool")
     workingDir = rootProject.projectDir
 }
+
+// RuleTemplateTest validates the templates shipped in the app's assets.
+tasks.named<Test>("test") {
+    inputs.dir(rootProject.file("app/src/main/assets/templates")).withPropertyName("templateAssets")
+}

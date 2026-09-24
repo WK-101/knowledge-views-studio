@@ -1,0 +1,11 @@
+{
+  "id": "general.foreign-except-mine",
+  "name": "Silence foreign numbers",
+  "description": "Calls from any country other than your SIM's are silenced (they still appear in Recents). Contacts, allowed numbers and repeat callers still ring.",
+  "version": 1,
+  "author": "Parley",
+  "notes": "Travelling, or expecting a call from abroad? Use \"Expecting a call\", or uninstall the template.",
+  "rules": [
+    {"kind": "BLOCK", "type": "NOT_MY_REGION", "action": "SILENCE", "note": "Foreign numbers (template)"}
+  ]
+}

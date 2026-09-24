@@ -1,0 +1,19 @@
+{
+  "id": "in.trai-140",
+  "name": "India: 140-series promotional calls (TRAI)",
+  "description": "Warns about calls from the 140 series, which TRAI requires for promotional (telemarketing) voice calls. The 1600 series used for banking and government service calls is never touched.",
+  "country": "IN",
+  "version": 20260924,
+  "author": "Parley",
+  "sources": [
+    {"url": "https://trai.gov.in/sites/default/files/2025-02/PR_No.11of2025.pdf", "title": "TRAI Press Release No. 11/2025 (140 series for promotional calls, 1600 series for service calls)", "accessed": "2026-09-24"},
+    {"url": "https://www.trai.gov.in/sites/default/files/2026-07/PR_No91of2026.pdf", "title": "TRAI Press Release No. 91/2026 (clarification on the 140 and 1600 series)", "accessed": "2026-09-24"},
+    {"url": "https://trai.gov.in/ucc", "title": "TRAI: Unsolicited Commercial Communication", "accessed": "2026-09-24"}
+  ],
+  "notes": "TRAI's rules say networks and apps must not tag or filter 140-series calls on their own. This template is a choice you make on your own phone, and it only warns. The official way to stop these calls is the Do Not Disturb registry (dial or text 1909).",
+  "warnList": {
+    "categories": {"1": "Promotional call (140 series)"},
+    "score": 80,
+    "ranges": [{"prefix": "+91140"}]
+  }
+}

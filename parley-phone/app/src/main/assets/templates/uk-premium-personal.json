@@ -1,0 +1,24 @@
+{
+  "id": "uk.premium-personal-warn",
+  "name": "UK: premium, service and 070 personal numbers",
+  "description": "Warns about calls from 070 personal numbers, 0843/0844/0845 and 087 service numbers, and 09 premium-rate numbers. Calling them back can be expensive.",
+  "country": "GB",
+  "version": 20260924,
+  "author": "Parley",
+  "sources": [
+    {"url": "https://www.ofcom.org.uk/phones-and-broadband/phone-numbers/numbering", "title": "Ofcom: telecoms numbering (070 personal numbering; 084, 087 and 09 unbundled-tariff ranges)", "accessed": "2026-09-24"},
+    {"url": "https://www.ofcom.org.uk/phones-telecoms-and-internet/information-for-industry/numbering/070-guidance", "title": "Ofcom: guidance on the acceptable use of 070 numbers", "accessed": "2026-09-24"},
+    {"url": "https://www.ofcom.org.uk/siteassets/resources/documents/phones-telecoms-and-internet/information-for-industry/numbering/other/national-numbering-plan.pdf", "title": "Ofcom: The National Telephone Numbering Plan (22 April 2025)", "accessed": "2026-09-24"}
+  ],
+  "notes": "Businesses use 084 and 087 numbers legitimately, so this only warns.",
+  "warnList": {
+    "categories": {"1": "Personal number (070)", "2": "Service number (084/087)", "3": "Premium rate (09)"},
+    "score": 60,
+    "ranges": [
+      {"prefix": "+4470", "category": 1},
+      {"prefix": "+44843", "category": 2}, {"prefix": "+44844", "category": 2}, {"prefix": "+44845", "category": 2},
+      {"prefix": "+4487", "category": 2},
+      {"prefix": "+449", "category": 3}
+    ]
+  }
+}

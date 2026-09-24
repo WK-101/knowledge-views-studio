@@ -1,0 +1,17 @@
+{
+  "id": "es.commercial-400",
+  "name": "Spain: commercial calls (400 prefix)",
+  "description": "Warns about calls from numbers starting 400, which Spanish law reserves for commercial calls from 17 October 2026.",
+  "country": "ES",
+  "version": 20260924,
+  "author": "Parley",
+  "sources": [
+    {"url": "https://www.lamoncloa.gob.es/serviciosdeprensa/notasprensa/transformacion-digital-y-funcion-publica/paginas/2026/160426-prefijo-400-llamadas-comerciales.aspx", "title": "La Moncloa (16/04/2026): las llamadas comerciales deberán usar el prefijo 400 desde octubre", "accessed": "2026-09-24"},
+    {"url": "https://blog.cnmc.es/2026/04/27/arranca-la-asignacion-de-numeracion-400-un-paso-mas-para-identificar-las-llamadas-comerciales/", "title": "CNMC: arranca la asignación de numeración 400", "accessed": "2026-09-24"}
+  ],
+  "warnList": {
+    "categories": {"1": "Commercial call (400)"},
+    "score": 85,
+    "ranges": [{"prefix": "+34400"}]
+  }
+}

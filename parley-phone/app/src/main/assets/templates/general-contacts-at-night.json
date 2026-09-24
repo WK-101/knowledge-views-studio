@@ -1,0 +1,15 @@
+{
+  "id": "general.contacts-at-night",
+  "name": "Only contacts at night",
+  "description": "From 22:00 to 07:00 only your contacts ring and everyone else is silenced. Repeat callers still get through.",
+  "version": 1,
+  "author": "Parley",
+  "settings": {
+    "offHours": {
+      "enabled": true,
+      "schedule": {"days": 127, "startMinute": 1320, "endMinute": 420},
+      "allow": "CONTACTS",
+      "action": "SILENCE"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "it.agcom-0843-0844",
+  "name": "Italy: call-centre prefixes 0843 and 0844 (AGCOM)",
+  "description": "Warns about calls from 0844 (market research, advertising and sales) and 0843 (statistical surveys), the codes AGCOM reserved for call centres.",
+  "country": "IT",
+  "version": 20260924,
+  "author": "Parley",
+  "sources": [
+    {"url": "https://www.agcom.it/provvedimenti/delibera-156-18-cir", "title": "AGCOM Delibera 156/18/CIR", "accessed": "2026-09-24"}
+  ],
+  "notes": "Call centres may use any identifiable number that can be called back instead, so this catches only some of them.",
+  "warnList": {
+    "categories": {"1": "Commercial call (0844)", "2": "Statistical survey (0843)"},
+    "score": 85,
+    "ranges": [
+      {"prefix": "+390844", "category": 1},
+      {"prefix": "+390843", "category": 2}
+    ]
+  }
+}

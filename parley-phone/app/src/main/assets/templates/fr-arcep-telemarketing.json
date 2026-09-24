@@ -1,0 +1,22 @@
+{
+  "id": "fr.arcep-telemarketing",
+  "name": "France: telemarketing ranges (ARCEP)",
+  "description": "Warns about calls from the numbers ARCEP reserved for automated calling platforms (Numéros Polyvalents Vérifiés): 01 62, 01 63, 02 70, 02 71, 03 77, 03 78, 04 24, 04 25, 05 68, 05 69, 09 48, 09 49.",
+  "country": "FR",
+  "version": 20260924,
+  "author": "Parley",
+  "sources": [
+    {"url": "https://www.arcep.fr/mes-demarches-et-services/entreprises/fiches-pratiques/plan-numerotation-professionnels.html", "title": "Arcep: plan de numérotation pour les professionnels (NPV ranges)", "accessed": "2026-09-24"},
+    {"url": "https://www.arcep.fr/la-regulation/grands-dossiers-thematiques-transverses/la-numerotation.html", "title": "Arcep: la numérotation (décision n° 2022-1583)", "accessed": "2026-09-24"}
+  ],
+  "notes": "Call centres also use these ranges for customer service and debt collection, so the list only warns.",
+  "warnList": {
+    "categories": {"1": "Telemarketing platform (ARCEP range)"},
+    "score": 90,
+    "ranges": [
+      {"prefix": "+33162"}, {"prefix": "+33163"}, {"prefix": "+33270"}, {"prefix": "+33271"},
+      {"prefix": "+33377"}, {"prefix": "+33378"}, {"prefix": "+33424"}, {"prefix": "+33425"},
+      {"prefix": "+33568"}, {"prefix": "+33569"}, {"prefix": "+33948"}, {"prefix": "+33949"}
+    ]
+  }
+}

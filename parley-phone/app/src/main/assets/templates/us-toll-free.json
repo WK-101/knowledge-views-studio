@@ -1,0 +1,20 @@
+{
+  "id": "us.toll-free-warn",
+  "name": "US: toll-free caller IDs",
+  "description": "Gives a low-score warning for calls that show a toll-free number (800, 833, 844, 855, 866, 877, 888). Robocallers often spoof these, and real businesses rarely call from them.",
+  "country": "US",
+  "version": 20260924,
+  "author": "Parley",
+  "sources": [
+    {"url": "https://www.fcc.gov/consumers/guides/what-toll-free-number-and-how-does-it-work", "title": "FCC: What is a toll-free number and how does it work? (codes 800, 888, 877, 866, 855, 844, 833)", "accessed": "2026-09-24"}
+  ],
+  "notes": "Android doesn't let Parley combine this with the network's caller verification result, so it warns on every toll-free caller ID. To use verification, turn on \"Stop calls that fail verification\" in Blocking.",
+  "warnList": {
+    "categories": {"1": "Toll-free caller ID (often spoofed)"},
+    "score": 30,
+    "ranges": [
+      {"prefix": "+1800"}, {"prefix": "+1833"}, {"prefix": "+1844"}, {"prefix": "+1855"},
+      {"prefix": "+1866"}, {"prefix": "+1877"}, {"prefix": "+1888"}
+    ]
+  }
+}
