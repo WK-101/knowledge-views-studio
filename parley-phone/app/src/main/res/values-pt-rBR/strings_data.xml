@@ -1,0 +1,1315 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Shared actions (data area: history, people, backup, vault and friends) -->
+    <string name="dc_cancel">Cancelar</string>
+    <string name="dc_back">Voltar</string>
+    <string name="dc_close">Fechar</string>
+    <string name="dc_ok">OK</string>
+    <string name="dc_got_it">Entendi</string>
+    <string name="dc_restore">Restaurar</string>
+    <string name="dc_delete">Excluir</string>
+    <string name="dc_save">Salvar</string>
+    <string name="dc_done">Concluído</string>
+    <string name="dc_next">Avançar</string>
+    <string name="dc_off">Desativado</string>
+    <string name="dc_on">Ativado</string>
+
+    <!-- Call history: archive notices -->
+    <string name="hist_archive_reset_title">O arquivo de chamadas do Parley foi redefinido</string>
+    <string name="hist_archive_reset_text">A chave de criptografia dele não estava mais disponível neste celular (isso pode acontecer após uma atualização do sistema ou uma mudança de segurança), então um novo arquivo foi iniciado. O antigo foi deixado de lado, não excluído.</string>
+    <string name="hist_archive_intro_title">O Parley mantém a própria cópia das suas chamadas</string>
+    <string name="hist_archive_intro_text">O Android pode descartar chamadas antigas, então o Parley mantém uma cópia criptografada neste celular. Chamadas apagadas em outro app continuam no Parley; exclua-as aqui ou desative o arquivo nas configurações dele.</string>
+    <string name="hist_archive_settings">Configurações do arquivo</string>
+
+    <!-- Call history settings -->
+    <string name="hist_archive_on_summary">Ativado: o Parley mantém a própria cópia criptografada, porque o Android pode descartar chamadas antigas</string>
+    <string name="hist_archive_off_summary">Desativado: só o que o Android mantém</string>
+    <string name="hist_archive_off_title">Desativar o arquivo de chamadas?</string>
+    <string name="hist_archive_off_text">O Parley exclui a cópia criptografada das suas chamadas. O histórico do próprio celular não muda, mas as chamadas que o Android já descartou se perdem de vez.</string>
+    <string name="hist_archive_off_confirm">Desativar e excluir</string>
+    <string name="hist_settings_title">Histórico de chamadas</string>
+    <string name="hist_keep_full">Manter o histórico completo de chamadas</string>
+    <plurals name="hist_archive_count">
+        <item quantity="one">%1$d chamada no arquivo do Parley</item>
+        <item quantity="many">%1$d chamadas no arquivo do Parley</item>
+        <item quantity="other">%1$d chamadas no arquivo do Parley</item>
+    </plurals>
+    <string name="hist_archive_explain">Alguns celulares mantêm só as chamadas mais recentes. Com isto ativado, o Parley copia cada chamada para um banco de dados próprio neste celular, criptografado com uma chave guardada no armazenamento seguro de chaves do Android, e mostra essas chamadas em Recentes. Nada sai do celular. Chamadas que você exclui no Parley também saem da cópia; as excluídas em outros apps ficam nela.</string>
+    <plurals name="hist_retention_days">
+        <item quantity="one">Sua configuração mantém o histórico de chamadas por %1$d dia; chamadas mais antigas são excluídas dos dois, exceto os números que você mantém para sempre.</item>
+        <item quantity="many">Sua configuração mantém o histórico de chamadas por %1$d dias; chamadas mais antigas são excluídas dos dois, exceto os números que você mantém para sempre.</item>
+        <item quantity="other">Sua configuração mantém o histórico de chamadas por %1$d dias; chamadas mais antigas são excluídas dos dois, exceto os números que você mantém para sempre.</item>
+    </plurals>
+    <string name="hist_retention_forever">Sua configuração mantém o histórico de chamadas para sempre.</string>
+    <string name="hist_kept_forever">Mantidos para sempre</string>
+    <string name="hist_kept_forever_empty">Abra um contato ou o histórico de um número e ative “Manter este histórico para sempre” para guardá-lo independentemente da configuração de retenção.</string>
+    <string name="hist_stop_keeping">Parar de manter para sempre</string>
+    <string name="hist_recently_deleted">Chamadas excluídas recentemente</string>
+    <string name="hist_recently_deleted_empty">Nada foi excluído nos últimos 30 dias.</string>
+    <plurals name="hist_calls_deleted">
+        <item quantity="one">%1$d chamada excluída</item>
+        <item quantity="many">%1$d chamadas excluídas</item>
+        <item quantity="other">%1$d chamadas excluídas</item>
+    </plurals>
+    <plurals name="hist_restored_calls">
+        <item quantity="one">%1$d chamada restaurada</item>
+        <item quantity="many">%1$d chamadas restauradas</item>
+        <item quantity="other">%1$d chamadas restauradas</item>
+    </plurals>
+    <string name="hist_restore_failed_default">Não foi possível restaurar. Primeiro torne o Parley seu app de telefone padrão.</string>
+    <string name="hist_export_import">Exportar e importar</string>
+    <string name="hist_csv_bom">CSV compatível com o Excel</string>
+    <string name="hist_csv_bom_summary">Adiciona uma marca de ordem de bytes para que os acentos apareçam corretamente no Excel</string>
+    <string name="hist_import_csv">Importar histórico de chamadas de CSV</string>
+    <string name="hist_import_csv_summary">Do Parley, do Logger ou de uma planilha</string>
+    <string name="hist_export_hint">Para exportar, abra Recentes › ⋮ › Exportar, ou o histórico de um número.</string>
+    <string name="dc_joined_dot">%1$s · %2$s</string>
+    <string name="dc_list_separator">", "</string>
+
+    <!-- Call history: enums from core -->
+    <string name="hist_answers_morning">Costuma atender antes do meio-dia</string>
+    <string name="hist_answers_afternoon">Costuma atender entre o meio-dia e as 18h</string>
+    <string name="hist_answers_evening">Costuma atender depois das 18h</string>
+    <string name="hist_period_any">Qualquer data</string>
+    <string name="hist_period_today">Hoje</string>
+    <string name="hist_period_7_days">Últimos 7 dias</string>
+    <string name="hist_period_30_days">Últimos 30 dias</string>
+    <string name="hist_period_this_month">Este mês</string>
+    <string name="hist_period_90_days">Últimos 90 dias</string>
+    <string name="hist_period_this_year">Este ano</string>
+    <string name="hist_type_incoming">Recebida</string>
+    <string name="hist_type_outgoing">Feita</string>
+    <string name="hist_type_missed">Perdida</string>
+    <string name="hist_type_rejected">Recusada</string>
+    <string name="hist_type_blocked">Bloqueada</string>
+    <string name="hist_type_voicemail">Correio de voz</string>
+    <string name="hist_range_all">Todas as chamadas</string>
+    <string name="hist_range_year">O último ano</string>
+    <string name="hist_range_month">O último mês</string>
+    <string name="hist_range_week">A última semana</string>
+    <string name="hist_range_day">As últimas 24 horas</string>
+    <string name="hist_range_since_date">Desde uma data…</string>
+    <string name="hist_increment_second">Por segundo</string>
+    <string name="hist_increment_half_minute">Por 30 segundos</string>
+    <string name="hist_increment_minute">Por minuto</string>
+    <string name="hist_category_mobile">Números de celular</string>
+    <string name="hist_category_landline">Fixos</string>
+    <string name="hist_category_mobile_or_landline">Celular ou fixo</string>
+    <string name="hist_category_international">Internacional</string>
+    <string name="hist_category_toll_free">Gratuitos</string>
+    <string name="hist_category_other">Outros (tarifados, custo compartilhado, VoIP, números curtos)</string>
+    <string name="hist_source_parley">Exportação do Parley</string>
+    <string name="hist_source_logger">Exportação do Logger</string>
+    <string name="hist_source_generic">Outro CSV</string>
+    <string name="hist_problem_empty_file">O arquivo está vazio</string>
+    <string name="hist_problem_need_columns">Escolha quais colunas têm o número, o tipo e a data</string>
+    <string name="hist_problem_unreadable_row">Linha ilegível</string>
+    <string name="hist_problem_unknown_type">Tipo de chamada desconhecido “%1$s”</string>
+    <string name="hist_problem_unreadable_date">Data ilegível “%1$s”</string>
+    <string name="hist_problem_unreadable_duration">Duração ilegível “%1$s”</string>
+    <string name="hist_problem_not_a_number">Não é um número de telefone “%1$s”</string>
+    <string name="hist_plan_used">%1$d de %2$d min usados</string>
+    <string name="hist_plan_last_day">último dia</string>
+    <plurals name="hist_plan_days_left">
+        <item quantity="one">falta %1$d dia</item>
+        <item quantity="many">faltam %1$d dias</item>
+        <item quantity="other">faltam %1$d dias</item>
+    </plurals>
+    <string name="hist_minutes_short">%1$d min</string>
+    <string name="hist_seconds_short">%1$d s</string>
+    <string name="hist_duration_between">%1$s–%2$s</string>
+    <string name="hist_duration_at_least">≥ %1$s</string>
+    <string name="hist_duration_at_most">≤ %1$s</string>
+    <string name="hist_all_calls">Todas as chamadas</string>
+
+    <!-- Call insights (contact detail, number history) -->
+    <string name="hist_calls_section">Chamadas</string>
+    <string name="hist_last_call">Última chamada %1$s</string>
+    <plurals name="hist_insight_totals">
+        <item quantity="one">%1$d chamada · conversa %2$s (%3$s feitas, %4$s recebidas) · cerca de %5$s por mês</item>
+        <item quantity="many">%1$d chamadas · conversa %2$s (%3$s feitas, %4$s recebidas) · cerca de %5$s por mês</item>
+        <item quantity="other">%1$d chamadas · conversa %2$s (%3$s feitas, %4$s recebidas) · cerca de %5$s por mês</item>
+    </plurals>
+    <string name="hist_trend_up">Mais chamadas ultimamente</string>
+    <string name="hist_trend_down">Menos chamadas ultimamente</string>
+    <string name="hist_trend_steady">Mais ou menos como antes</string>
+    <plurals name="hist_trend_detail">
+        <item quantity="one">%1$d chamada nos últimos 90 dias, %2$d nos 90 dias anteriores</item>
+        <item quantity="many">%1$d chamadas nos últimos 90 dias, %2$d nos 90 dias anteriores</item>
+        <item quantity="other">%1$d chamadas nos últimos 90 dias, %2$d nos 90 dias anteriores</item>
+    </plurals>
+    <plurals name="hist_rhythm" tools:ignore="ImpliedQuantity">
+        <item quantity="one">Vocês costumam se falar todo dia</item>
+        <item quantity="many">Vocês costumam se falar a cada %1$d dias</item>
+        <item quantity="other">Vocês costumam se falar a cada %1$d dias</item>
+    </plurals>
+    <string name="hist_last_talked_today">Última conversa hoje</string>
+    <plurals name="hist_last_talked_days">
+        <item quantity="one">Última conversa há %1$d dia</item>
+        <item quantity="many">Última conversa há %1$d dias</item>
+        <item quantity="other">Última conversa há %1$d dias</item>
+    </plurals>
+    <string name="hist_answer_window_hint">Com base em quantas vezes suas chamadas são atendidas</string>
+    <string name="hist_when_you_talk">Quando vocês se falam</string>
+    <string name="hist_keep_forever">Manter este histórico para sempre</string>
+    <string name="hist_keep_forever_summary">O arquivo do Parley guarda essas chamadas mesmo quando o histórico mais antigo que sua retenção é excluído</string>
+    <string name="hist_heatmap_peak">Mais chamadas: %1$s por volta das %2$s</string>
+    <string name="hist_no_calls">Nenhuma chamada</string>
+    <plurals name="hist_rhythm_if_not_talked">
+        <item quantity="one">Se vocês não se falarem há %1$d dia</item>
+        <item quantity="many">Se vocês não se falarem há %1$d dias</item>
+        <item quantity="other">Se vocês não se falarem há %1$d dias</item>
+    </plurals>
+    <plurals name="hist_rhythm_suggested" tools:ignore="ImpliedQuantity">
+        <item quantity="one">Sugestão: vocês costumam se falar todo dia</item>
+        <item quantity="many">Sugestão: vocês costumam se falar a cada %1$d dias</item>
+        <item quantity="other">Sugestão: vocês costumam se falar a cada %1$d dias</item>
+    </plurals>
+
+    <!-- Day summary -->
+    <plurals name="hist_day_calls_with">
+        <item quantity="one">%1$d chamada com %2$s</item>
+        <item quantity="many">%1$d chamadas com %2$s</item>
+        <item quantity="other">%1$d chamadas com %2$s</item>
+    </plurals>
+    <plurals name="hist_people_count">
+        <item quantity="one">%1$d pessoa</item>
+        <item quantity="many">%1$d pessoas</item>
+        <item quantity="other">%1$d pessoas</item>
+    </plurals>
+    <string name="hist_talk_time">Tempo de conversa %1$s</string>
+    <string name="hist_talk_split">%1$s em chamadas feitas · %2$s em chamadas recebidas</string>
+    <string name="hist_stat_made">Feitas</string>
+    <string name="hist_stat_received">Recebidas</string>
+    <string name="hist_stat_missed">Perdida</string>
+    <string name="hist_stat_rejected">Recusada</string>
+    <string name="hist_stat_blocked">Bloqueada</string>
+    <string name="hist_type_answered_elsewhere">Atendida em outro aparelho</string>
+    <string name="hist_type_unknown">Tipo desconhecido</string>
+
+    <!-- Export -->
+    <string name="hist_share_chooser">Compartilhar histórico de chamadas</string>
+    <string name="hist_export_title">Histórico de chamadas</string>
+    <string name="hist_export_title_subject">Histórico de chamadas · %1$s</string>
+    <plurals name="hist_pdf_made_with">
+        <item quantity="one">%1$d chamada · feito com o Parley em %2$s</item>
+        <item quantity="many">%1$d chamadas · feito com o Parley em %2$s</item>
+        <item quantity="other">%1$d chamadas · feito com o Parley em %2$s</item>
+    </plurals>
+    <string name="hist_pdf_col_date">Data</string>
+    <string name="hist_pdf_col_type">Tipo</string>
+    <string name="hist_pdf_col_who">Nome / número</string>
+    <string name="hist_pdf_col_duration">Duração</string>
+    <string name="hist_pdf_col_sim">SIM</string>
+    <string name="hist_private_number">Número privado</string>
+    <string name="hist_pdf_note">Nota: %1$s</string>
+    <string name="hist_pdf_page">Página %1$d de %2$d</string>
+    <string name="hist_export_failed">Falha ao exportar: %1$s</string>
+    <plurals name="hist_export_count">
+        <item quantity="one">Exportar %1$d chamada</item>
+        <item quantity="many">Exportar %1$d chamadas</item>
+        <item quantity="other">Exportar %1$d chamadas</item>
+    </plurals>
+    <string name="hist_export_explain">Os arquivos são criados neste celular e apagados do cache do Parley depois de compartilhados. As durações são o tempo real de conversa.</string>
+    <string name="hist_export_csv">CSV</string>
+    <string name="hist_export_csv_summary">Para planilhas; com notas</string>
+    <string name="hist_export_json">JSON</string>
+    <string name="hist_export_json_summary">Para seus próprios scripts</string>
+    <string name="hist_export_ics">Agenda (.ics)</string>
+    <string name="hist_export_ics_summary">Um evento por chamada</string>
+    <string name="hist_export_pdf">PDF</string>
+    <string name="hist_export_pdf_summary">Uma tabela para imprimir e compartilhar</string>
+    <string name="hist_export_print">Imprimir</string>
+    <string name="hist_export_print_summary">Ou salvar como PDF com a caixa de impressão do sistema</string>
+    <string name="hist_insights_action">Estatísticas de chamadas</string>
+    <string name="hist_export_menu">Exportar…</string>
+
+    <!-- Import call history -->
+    <string name="hist_import_reading">Lendo o arquivo…</string>
+    <string name="hist_import_read_failed">Não foi possível ler o arquivo</string>
+    <string name="hist_import_title">Importar histórico de chamadas</string>
+    <string name="hist_import_explain">Adiciona chamadas de um arquivo CSV ao seu histórico: a exportação do Parley, a do Logger ou qualquer planilha com número, tipo e data. Você vê o que aconteceria antes de qualquer coisa ser gravada. Chamadas que já estão no histórico são ignoradas, e as importadas nunca aparecem como novas chamadas perdidas.</string>
+    <string name="hist_import_need_default">Primeiro torne o Parley seu app de telefone padrão: o Android só deixa o app de telefone gravar o histórico de chamadas.</string>
+    <string name="hist_import_choose">Escolher um arquivo CSV</string>
+    <string name="hist_import_choose_another">Escolher outro arquivo</string>
+    <string name="hist_import_dry_run">Simulação · %1$s</string>
+    <plurals name="hist_import_rows_read">
+        <item quantity="one">%1$d linha lida</item>
+        <item quantity="many">%1$d linhas lidas</item>
+        <item quantity="other">%1$d linhas lidas</item>
+    </plurals>
+    <plurals name="hist_import_new_calls">
+        <item quantity="one">%1$d chamada nova</item>
+        <item quantity="many">%1$d chamadas novas</item>
+        <item quantity="other">%1$d chamadas novas</item>
+    </plurals>
+    <plurals name="hist_import_already">
+        <item quantity="one">%1$d já no seu histórico</item>
+        <item quantity="many">%1$d já no seu histórico</item>
+        <item quantity="other">%1$d já no seu histórico</item>
+    </plurals>
+    <plurals name="hist_import_rows_skipped">
+        <item quantity="one">%1$d linha ignorada</item>
+        <item quantity="many">%1$d linhas ignoradas</item>
+        <item quantity="other">%1$d linhas ignoradas</item>
+    </plurals>
+    <string name="hist_import_columns">Colunas</string>
+    <string name="hist_import_day_first">As datas começam pelo dia</string>
+    <string name="hist_import_day_first_on">03/04/2025 é 3 de abril</string>
+    <string name="hist_import_day_first_off">03/04/2025 é 4 de março</string>
+    <string name="hist_import_first_calls">Primeiras chamadas a importar</string>
+    <string name="hist_importing">Importando…</string>
+    <string name="hist_import_nothing">Nada foi importado. O Android não aceitou as chamadas: confira se o Parley é seu app de telefone padrão.</string>
+    <plurals name="hist_import_done">
+        <item quantity="one">%1$d chamada importada</item>
+        <item quantity="many">%1$d chamadas importadas</item>
+        <item quantity="other">%1$d chamadas importadas</item>
+    </plurals>
+    <plurals name="hist_import_done_dupes">
+        <item quantity="one">%1$d já no seu histórico, ignorada</item>
+        <item quantity="many">%1$d já no seu histórico, ignoradas</item>
+        <item quantity="other">%1$d já no seu histórico, ignoradas</item>
+    </plurals>
+    <plurals name="hist_import_done_problems">
+        <item quantity="one">%1$d linha ilegível ignorada</item>
+        <item quantity="many">%1$d linhas ilegíveis ignoradas</item>
+        <item quantity="other">%1$d linhas ilegíveis ignoradas</item>
+    </plurals>
+    <plurals name="hist_import_button">
+        <item quantity="one">Importar %1$d chamada</item>
+        <item quantity="many">Importar %1$d chamadas</item>
+        <item quantity="other">Importar %1$d chamadas</item>
+    </plurals>
+    <string name="hist_import_problems">Linhas que não podem ser importadas</string>
+    <string name="hist_import_line">Linha %1$d: %2$s</string>
+    <string name="hist_import_more">…e mais %1$d</string>
+    <string name="hist_import_finished">Importação concluída</string>
+    <string name="hist_call">Ligar</string>
+    <string name="hist_col_number">Número</string>
+    <string name="hist_col_type">Tipo de chamada</string>
+    <string name="hist_col_date">Data (ou data e hora)</string>
+    <string name="hist_col_time">Hora</string>
+    <string name="hist_col_timestamp">Carimbo de data/hora (Unix)</string>
+    <string name="hist_col_duration">Duração</string>
+    <string name="hist_col_name">Nome</string>
+    <string name="hist_col_sim">SIM</string>
+    <string name="hist_col_missing">Não está neste arquivo</string>
+    <string name="hist_col_n">Coluna %1$d</string>
+
+    <!-- Insights -->
+    <string name="hist_insight_week">7 dias</string>
+    <string name="hist_insight_month">30 dias</string>
+    <string name="hist_insight_quarter">90 dias</string>
+    <string name="hist_insight_year">Este ano</string>
+    <string name="hist_insight_all">Todo o período</string>
+    <string name="hist_insights_title">Estatísticas</string>
+    <string name="hist_talk_time_label">Tempo de conversa</string>
+    <string name="hist_calls_you_made">Chamadas feitas</string>
+    <string name="hist_calls_you_received">Chamadas recebidas</string>
+    <string name="hist_answered_rates">%1$d de %2$d chamadas feitas foram atendidas · %3$d de %4$d chamadas recebidas atendidas</string>
+    <string name="hist_talk_per_week">Tempo de conversa por semana</string>
+    <string name="hist_most_talk">Mais tempo de conversa</string>
+    <plurals name="hist_talk_and_calls">
+        <item quantity="one">%2$s · %1$d chamada</item>
+        <item quantity="many">%2$s · %1$d chamadas</item>
+        <item quantity="other">%2$s · %1$d chamadas</item>
+    </plurals>
+    <string name="hist_most_calls">Mais chamadas</string>
+    <plurals name="hist_calls_and_talk">
+        <item quantity="one">%1$d chamada · %2$s</item>
+        <item quantity="many">%1$d chamadas · %2$s</item>
+        <item quantity="other">%1$d chamadas · %2$s</item>
+    </plurals>
+    <string name="hist_by_sim">Por SIM</string>
+    <string name="hist_no_sim">Nenhum SIM registrado</string>
+    <string name="hist_other_sim">Outro SIM</string>
+    <plurals name="hist_sim_totals">
+        <item quantity="one">%1$d chamada · %2$d feitas · %3$d recebidas · %4$d perdidas · conversa %5$s</item>
+        <item quantity="many">%1$d chamadas · %2$d feitas · %3$d recebidas · %4$d perdidas · conversa %5$s</item>
+        <item quantity="other">%1$d chamadas · %2$d feitas · %3$d recebidas · %4$d perdidas · conversa %5$s</item>
+    </plurals>
+    <string name="hist_unreturned">Chamadas que você não retornou</string>
+    <string name="hist_unreturned_none">Nenhuma. Ótimo.</string>
+    <plurals name="hist_missed_last">
+        <item quantity="one">Perdida %2$s</item>
+        <item quantity="many">%1$d chamadas perdidas · última %2$s</item>
+        <item quantity="other">%1$d chamadas perdidas · última %2$s</item>
+    </plurals>
+    <string name="hist_call_back">Retornar chamada</string>
+    <string name="hist_insights_footer">Calculado neste celular a partir do seu histórico de chamadas.</string>
+    <string name="hist_insights_footer_no_contacts">Calculado neste celular a partir do seu histórico de chamadas. Não foi possível ler os contatos, então as pessoas aparecem pelo número.</string>
+    <string name="hist_weekly_desc">Tempo de conversa semanal; semana mais movimentada %1$s com %2$s</string>
+    <string name="hist_weekly_scale">Linha de cima = %1$s · metade = %2$s</string>
+
+    <!-- Number history -->
+    <plurals name="hist_deleted_calls">
+        <item quantity="one">%1$d chamada excluída</item>
+        <item quantity="many">%1$d chamadas excluídas</item>
+        <item quantity="other">%1$d chamadas excluídas</item>
+    </plurals>
+    <string name="dc_undo">Desfazer</string>
+    <string name="dc_more_options">Mais opções</string>
+    <string name="hist_delete_calls_menu">Excluir chamadas…</string>
+    <string name="hist_action_call">Ligar</string>
+    <string name="hist_action_message">Mensagem</string>
+    <string name="hist_action_copy">Copiar</string>
+    <string name="hist_action_message_on">Mensagem por…</string>
+    <string name="hist_action_new_contact">Novo contato</string>
+    <string name="hist_action_add_to_contact">Adicionar a um contato</string>
+    <string name="hist_action_view_contact">Ver contato</string>
+    <string name="hist_action_block">Bloquear</string>
+    <string name="hist_action_unblock">Desbloquear</string>
+    <string name="hist_call_notes">Notas de chamadas</string>
+    <string name="hist_delete_note">Excluir nota</string>
+
+    <!-- Range delete -->
+    <string name="hist_range_title">Excluir chamadas com este número</string>
+    <string name="hist_range_since">Desde %1$s</string>
+    <plurals name="hist_n_calls">
+        <item quantity="one">%1$d chamada</item>
+        <item quantity="many">%1$d chamadas</item>
+        <item quantity="other">%1$d chamadas</item>
+    </plurals>
+    <string name="hist_range_undo_hint">Você pode desfazer por 30 dias (Configurações › Recentes e histórico › Chamadas mantidas e excluídas recentemente).</string>
+    <string name="hist_range_delete_n">Excluir %1$d</string>
+
+    <!-- Saved filters -->
+    <string name="hist_filter">Filtro</string>
+    <string name="hist_filter_title">Filtrar chamadas</string>
+    <string name="hist_filter_type">Tipo</string>
+    <string name="hist_filter_sim">SIM</string>
+    <string name="hist_filter_any">Qualquer</string>
+    <string name="hist_filter_when">Quando</string>
+    <string name="hist_filter_talk_time">Tempo de conversa</string>
+    <string name="hist_filter_name">Nome (para salvar como chip)</string>
+    <string name="hist_filter_clear">Limpar</string>
+    <string name="hist_filter_save">Salvar chip</string>
+    <string name="hist_filter_apply">Aplicar</string>
+    <string name="hist_filter_saved">Chips salvos</string>
+    <string name="hist_filter_delete">Excluir %1$s</string>
+    <string name="hist_dur_not_answered">Não atendidas</string>
+    <string name="hist_dur_under_1">Menos de 1 min</string>
+    <string name="hist_dur_1_plus">1 min ou mais</string>
+    <string name="hist_dur_5_plus">5 min ou mais</string>
+    <string name="hist_dur_30_plus">30 min ou mais</string>
+
+    <!-- SIMs and plan meter -->
+    <string name="hist_sims_title">SIMs</string>
+    <string name="hist_sims_empty">Nenhum SIM encontrado. O Parley precisa ser o app de telefone padrão para listar os SIMs.</string>
+    <string name="hist_no_plan">Nenhum plano definido</string>
+    <string name="hist_plan_section">Minutos do plano</string>
+    <string name="hist_plan_track">Acompanhar minutos do plano</string>
+    <string name="hist_plan_track_summary">Contados a partir do seu histórico neste celular. O que vale é a conta da sua operadora.</string>
+    <plurals name="hist_plan_detail">
+        <item quantity="one">%1$d chamada, %2$s de conversa real, cobrada como %3$d min. Ciclo %4$s – %5$s.</item>
+        <item quantity="many">%1$d chamadas, %2$s de conversa real, cobradas como %3$d min. Ciclo %4$s – %5$s.</item>
+        <item quantity="other">%1$d chamadas, %2$s de conversa real, cobradas como %3$d min. Ciclo %4$s – %5$s.</item>
+    </plurals>
+    <string name="hist_plan_minutes">Minutos por ciclo</string>
+    <string name="hist_plan_renews">A franquia renova em</string>
+    <string name="hist_plan_renews_day">Dia %1$d de cada mês</string>
+    <string name="hist_plan_renews_day_last">Dia %1$d de cada mês (ou o último dia)</string>
+    <string name="hist_plan_day">Dia %1$d</string>
+    <string name="hist_plan_billing">Cobrança</string>
+    <string name="hist_plan_billing_summary">Como sua operadora arredonda cada chamada. Usado só neste contador; seu histórico mantém as durações reais.</string>
+    <string name="hist_plan_counted">Chamadas contadas</string>
+    <string name="hist_plan_international">Números internacionais</string>
+    <string name="hist_plan_international_summary">Números de outro país que não o do seu SIM</string>
+    <string name="hist_plan_other">Outros números</string>
+    <string name="hist_plan_other_summary">Números tarifados, de custo compartilhado, VoIP e curtos</string>
+    <string name="hist_plan_incoming">Chamadas recebidas também</string>
+    <string name="hist_plan_incoming_summary">Alguns planos contam os minutos recebidos</string>
+    <string name="hist_plan_toll_free_note">Números gratuitos nunca são contados. O Parley avisa você uma vez por ciclo aos %1$d%% e mostra um ponto no botão de chamada deste SIM.</string>
+    <string name="hist_plan_warn_at">Avisar aos</string>
+    <string name="hist_plan_warn_at_summary">%1$d%% da franquia</string>
+    <string name="hist_percent">%1$d%%</string>
+
+    <!-- Background work notifications -->
+    <string name="work_channel_backups">Backups</string>
+    <string name="work_backup_title">Backup do Parley</string>
+    <string name="work_channel_plan">Minutos do plano</string>
+    <string name="work_plan_used_up">%1$s: minutos do plano esgotados</string>
+    <string name="work_plan_used_percent">%1$s: %2$d%% dos minutos do plano usados</string>
+    <string name="work_channel_housekeeping">Manutenção dos contatos</string>
+    <string name="work_temp_expired_title">Contato temporário expirou</string>
+    <string name="work_temp_someone">Um contato temporário</string>
+    <string name="work_temp_expired_kept">%1$s expirou; os dados que você mesclou foram mantidos</string>
+    <string name="work_temp_expired_merged">%1$s expirou, mas estava mesclado com outro contato, então nada foi excluído</string>
+    <string name="work_channel_reminders">Aniversários e lembretes</string>
+    <string name="work_turns_today">%1$s faz %2$d anos hoje</string>
+    <string name="work_birthday_today">Hoje é aniversário de %1$s</string>
+    <string name="work_anniversary_years">Aniversário de %1$s: %2$d anos</string>
+    <string name="work_anniversary_today">%1$s: data comemorativa hoje</string>
+    <string name="work_special_date">data especial</string>
+    <string name="work_event_today">%1$s: %2$s hoje</string>
+    <string name="work_catch_up">Fale com %1$s</string>
+    <plurals name="work_catch_up_days">
+        <item quantity="one">Fale com %2$s — última conversa há %1$d dia</item>
+        <item quantity="many">Fale com %2$s — última conversa há %1$d dias</item>
+        <item quantity="other">Fale com %2$s — última conversa há %1$d dias</item>
+    </plurals>
+    <string name="work_action_call">Ligar</string>
+    <string name="work_action_message">Mensagem</string>
+
+    <!-- Temporary contacts -->
+    <string name="temp_fallback_name">Contato temporário</string>
+    <string name="temp_deletes_soon">Será excluído em breve</string>
+    <plurals name="temp_days_left">
+        <item quantity="one">falta %1$d dia</item>
+        <item quantity="many">faltam %1$d dias</item>
+        <item quantity="other">faltam %1$d dias</item>
+    </plurals>
+    <plurals name="temp_hours_left">
+        <item quantity="one">falta %1$d hora</item>
+        <item quantity="many">faltam %1$d horas</item>
+        <item quantity="other">faltam %1$d horas</item>
+    </plurals>
+    <string name="temp_within_hour">Será excluído em menos de uma hora</string>
+    <string name="temp_title">Contatos temporários</string>
+    <string name="temp_empty_title">Nenhum contato temporário</string>
+    <string name="temp_empty_text">Salve um número por um tempo: o encanador, uma entrega, um vendedor. Digite-o no teclado e escolha “Salvar contato temporário”, ou escolha “Excluir automaticamente” na página de um contato.</string>
+    <string name="temp_intro">Estes contatos se excluem sozinhos quando o tempo acaba, com o histórico de chamadas se você escolheu assim.</string>
+    <string name="temp_will_be_kept">%1$s será mantido</string>
+    <string name="temp_keep_for">Manter %1$s por</string>
+    <plurals name="temp_deletes_in_days">
+        <item quantity="one">Será excluído em %1$d dia</item>
+        <item quantity="many">Será excluído em %1$d dias</item>
+        <item quantity="other">Será excluído em %1$d dias</item>
+    </plurals>
+    <string name="temp_delete_now_title">Excluir %1$s agora?</string>
+    <string name="temp_delete_with_history">O contato e o histórico de chamadas dele são excluídos.</string>
+    <string name="temp_delete_keep_history">O contato é excluído; o histórico de chamadas fica.</string>
+    <string name="temp_delete_restore_hint">Você pode restaurar o contato em “Excluídos recentemente” por 30 dias.</string>
+    <string name="temp_private">Privados</string>
+    <string name="temp_keep_longer">Manter %1$s por mais tempo</string>
+    <string name="temp_more_actions">Mais ações para %1$s</string>
+    <string name="temp_extend">Prolongar…</string>
+    <string name="temp_keep_permanently">Manter permanentemente</string>
+    <string name="temp_delete_now">Excluir agora</string>
+    <plurals name="temp_n_days">
+        <item quantity="one">%1$d dia</item>
+        <item quantity="many">%1$d dias</item>
+        <item quantity="other">%1$d dias</item>
+    </plurals>
+    <string name="temp_custom">Personalizado</string>
+    <string name="temp_days">Dias</string>
+    <string name="temp_save_title">Salvar contato temporário</string>
+    <string name="temp_save_visible_text">%1$s é salvo apenas nos contatos deste celular, onde apps que podem ler contatos (incluindo o WhatsApp) o veem, e se exclui quando o tempo acabar.</string>
+    <string name="temp_save_private_text">%1$s é salvo de forma privada no Parley, onde outros apps não o veem, e se exclui quando o tempo acabar.</string>
+    <string name="temp_name">Nome</string>
+    <string name="temp_delete_after">Excluir após</string>
+    <string name="temp_also_history">Excluir também o histórico de chamadas</string>
+    <string name="temp_visible">Salvar visível para outros apps</string>
+    <string name="temp_save_privately">Salvar como privado</string>
+
+    <!-- Private contact (vault) page -->
+    <string name="vault_unlock_to_remember">Desbloqueie para lembrar esta escolha</string>
+    <string name="vault_title">Contato privado</string>
+    <string name="dc_edit">Editar</string>
+    <string name="dc_more">Mais</string>
+    <string name="vault_move_out">Mover para os contatos do telefone</string>
+    <string name="vault_move_failed">Não foi possível mover: %1$s</string>
+    <string name="vault_moved_out">Movido para os contatos do telefone</string>
+    <string name="vault_share_qr">Compartilhar de forma privada (QR)</string>
+    <string name="vault_expires">Expira…</string>
+    <string name="vault_only_in_parley">Visível só no Parley · criptografado</string>
+    <string name="vault_deletes_on">Será excluído em %1$s</string>
+    <string name="vault_call">Ligar</string>
+    <string name="vault_sms">SMS</string>
+    <string name="vault_message">Mensagem</string>
+    <string name="vault_choose_message">Escolher como enviar mensagem</string>
+    <string name="vault_email">E-mail</string>
+    <string name="vault_shown_when_call">Aparece quando a pessoa liga</string>
+    <string name="vault_unlock_all">Desbloqueie para ver todos os detalhes</string>
+    <string name="vault_unlock_all_summary">Nomes e números funcionam sem desbloquear, para que as chamadas continuem mostrando quem está ligando.</string>
+    <string name="vault_phone">Telefone</string>
+    <string name="vault_message_number">Enviar mensagem a este número</string>
+    <string name="vault_message_on">Mensagem por…</string>
+    <string name="vault_messengers">Mensageiros</string>
+    <string name="vault_about">Sobre</string>
+    <string name="vault_address">Endereço</string>
+    <string name="vault_website">Site</string>
+    <string name="vault_note">Nota</string>
+    <string name="vault_call_history">Histórico de chamadas privado</string>
+    <string name="vault_delete_title">Excluir este contato privado?</string>
+    <string name="vault_delete_text">Isso também exclui o histórico de chamadas privado dele. Não é possível desfazer.</string>
+    <string name="vault_expiry_title">Excluir automaticamente após</string>
+    <string name="vault_expiry_1_day">1 dia</string>
+    <string name="vault_expiry_1_week">1 semana</string>
+    <string name="vault_expiry_30_days">30 dias</string>
+    <string name="vault_expiry_3_months">3 meses</string>
+    <string name="vault_expiry_1_year">1 ano</string>
+    <string name="vault_expiry_never">Nunca (manter)</string>
+
+    <!-- Backup -->
+    <string name="bkp_backing_up">Fazendo backup…</string>
+    <string name="bkp_vault_skipped">%1$s (contatos privados ignorados: desbloqueie-os primeiro)</string>
+    <string name="bkp_preparing">Preparando arquivo criptografado…</string>
+    <string name="bkp_send_chooser">Enviar para seu novo telefone</string>
+    <string name="bkp_title">Backup e restauração</string>
+    <string name="bkp_last_backup">Último backup %1$s</string>
+    <string name="bkp_no_backup">Nenhum backup ainda</string>
+    <string name="bkp_verified">Verificado %1$s · criptografado</string>
+    <string name="bkp_verified_key">Verificado %1$s · criptografado · chave %2$s</string>
+    <string name="bkp_rotation_paused">Muitos contatos sumiram desde o último backup, então os backups antigos estão sendo mantidos.</string>
+    <string name="bkp_resume_rotation">É esperado, retomar a rotação</string>
+    <string name="bkp_explain">Contatos com fotos completas, histórico de chamadas, regras de bloqueio, discagem rápida, configurações e contatos privados, em um arquivo criptografado numa pasta que você escolhe (sincronize-a com Syncthing, Nextcloud ou um pendrive).</string>
+    <string name="bkp_back_up_now">Fazer backup agora</string>
+    <string name="bkp_set_up">Configurar</string>
+    <string name="bkp_change_pass">Alterar frase secreta do backup</string>
+    <string name="bkp_set_pass">Definir uma frase secreta do backup</string>
+    <string name="bkp_change_pass_summary">Backups agendados nunca precisam dela; só a restauração</string>
+    <string name="bkp_set_pass_summary">Obrigatória: os backups são sempre criptografados</string>
+    <string name="bkp_folder">Pasta de backup</string>
+    <string name="bkp_folder_none">Não escolhida</string>
+    <string name="bkp_automatic">Backups automáticos</string>
+    <string name="bkp_schedule_off">Desativado</string>
+    <string name="bkp_schedule_daily">Diário</string>
+    <string name="bkp_schedule_weekly">Semanal</string>
+    <string name="bkp_keep">Manter</string>
+    <string name="bkp_keep_smart">Inteligente</string>
+    <string name="bkp_keep_smart_summary">Inteligente mantém 7 backups diários, 5 semanais, 12 mensais e 3 anuais.</string>
+    <string name="bkp_restore">Restaurar</string>
+    <string name="bkp_restore_file">Restaurar de um arquivo…</string>
+    <string name="bkp_restore_file_summary">Um backup .parley deste ou de outro telefone</string>
+    <string name="bkp_move_phone">Mudar para um novo telefone</string>
+    <string name="bkp_move_phone_summary">Envia um arquivo criptografado por Quick Share, Bluetooth ou qualquer app. No novo telefone: instale o Parley → Backup → Restaurar de um arquivo, e digite sua frase secreta.</string>
+    <plurals name="bkp_undo_done">
+        <item quantity="one">%1$d contato adicionado pela última restauração foi removido</item>
+        <item quantity="many">%1$d contatos adicionados pela última restauração foram removidos</item>
+        <item quantity="other">%1$d contatos adicionados pela última restauração foram removidos</item>
+    </plurals>
+    <string name="bkp_undo_restore">Desfazer última restauração</string>
+    <plurals name="bkp_undo_restore_summary">
+        <item quantity="one">Remove o %1$d contato que ela adicionou (ele fica em “Excluídos recentemente”)</item>
+        <item quantity="many">Remove os %1$d contatos que ela adicionou (eles ficam em “Excluídos recentemente”)</item>
+        <item quantity="other">Remove os %1$d contatos que ela adicionou (eles ficam em “Excluídos recentemente”)</item>
+    </plurals>
+    <string name="bkp_in_folder">Backups na pasta</string>
+    <string name="bkp_pass_changed">Frase secreta alterada</string>
+    <string name="bkp_pass_wrong">A frase secreta atual está errada</string>
+    <string name="bkp_recovery_title">Sua chave de recuperação</string>
+    <string name="bkp_recovery_text">Se você esquecer sua frase secreta, esta chave é a única outra forma de abrir seus backups. Anote-a e guarde-a em um lugar seguro. O Parley não pode mostrá-la de novo.</string>
+    <string name="bkp_recovery_saved">Já anotei</string>
+    <string name="bkp_copy">Copiar</string>
+    <string name="bkp_change_pass_title">Alterar frase secreta</string>
+    <string name="bkp_pass_title">Frase secreta do backup</string>
+    <string name="bkp_current_pass">Frase secreta atual</string>
+    <string name="bkp_new_pass">Nova frase secreta (10+ caracteres)</string>
+    <string name="bkp_repeat">Repetir</string>
+    <string name="bkp_pass_hint">Algumas palavras sem relação entre si formam uma frase secreta forte e fácil de lembrar.</string>
+
+    <!-- Restore flow -->
+    <string name="rst_open_title">Abrir backup</string>
+    <string name="rst_recovery_key">Chave de recuperação</string>
+    <string name="rst_use_recovery">Usar a chave de recuperação</string>
+    <string name="rst_not_recovery">Isso não parece uma chave de recuperação</string>
+    <string name="rst_decrypting">Descriptografando e verificando o backup…</string>
+    <string name="rst_wrong_recovery">Chave de recuperação incorreta</string>
+    <string name="rst_wrong_pass">Frase secreta incorreta</string>
+    <string name="rst_damaged">Este arquivo está danificado ou não é um backup do Parley (%1$s)</string>
+    <string name="rst_open">Abrir</string>
+    <string name="rst_backup_from">Backup de %1$s</string>
+    <string name="rst_how">Como restaurar os contatos</string>
+    <string name="rst_mode_merge">Mesclar (recomendado): adicionar o que falta, nunca excluir</string>
+    <string name="rst_mode_add_all">Adicionar tudo como novos contatos</string>
+    <string name="rst_mode_replace">Substituir: excluir os contatos atuais primeiro (um backup de segurança é feito automaticamente)</string>
+    <string name="rst_what">O que restaurar</string>
+    <string name="rst_with_count">%1$s (%2$d)</string>
+    <string name="rst_contacts">Contatos</string>
+    <string name="rst_call_history">Histórico de chamadas</string>
+    <string name="rst_blocking">Regras de bloqueio e números bloqueados</string>
+    <string name="rst_speed_dial">Discagem rápida e escolhas de chip</string>
+    <string name="rst_private">Contatos privados</string>
+    <string name="rst_settings">Configurações (tema, opções de bloqueio…)</string>
+    <string name="rst_comparing">Comparando com seus contatos atuais…</string>
+    <string name="rst_ready">Pronto para restaurar</string>
+    <plurals name="rst_new">
+        <item quantity="one">%1$d contato novo será adicionado</item>
+        <item quantity="many">%1$d contatos novos serão adicionados</item>
+        <item quantity="other">%1$d contatos novos serão adicionados</item>
+    </plurals>
+    <plurals name="rst_enrich">
+        <item quantity="one">%1$d contato existente recebe os dados que faltam (%2$d no total)</item>
+        <item quantity="many">%1$d contatos existentes recebem os dados que faltam (%2$d no total)</item>
+        <item quantity="other">%1$d contatos existentes recebem os dados que faltam (%2$d no total)</item>
+    </plurals>
+    <plurals name="rst_identical">
+        <item quantity="one">%1$d já é idêntico e fica como está</item>
+        <item quantity="many">%1$d já são idênticos e ficam como estão</item>
+        <item quantity="other">%1$d já são idênticos e ficam como estão</item>
+    </plurals>
+    <plurals name="rst_conflict">
+        <item quantity="one">%1$d parece a mesma pessoa, mas é diferente (por ex., nome ou foto)</item>
+        <item quantity="many">%1$d parecem a mesma pessoa, mas são diferentes (por ex., nome ou foto)</item>
+        <item quantity="other">%1$d parecem a mesma pessoa, mas são diferentes (por ex., nome ou foto)</item>
+    </plurals>
+    <string name="rst_apply_conflicts">Adicionar os detalhes que faltam mesmo assim</string>
+    <plurals name="rst_to_delete">
+        <item quantity="one">%1$d contato atual será substituído (fica 30 dias em “Excluídos recentemente”)</item>
+        <item quantity="many">%1$d contatos atuais serão substituídos (ficam 30 dias em “Excluídos recentemente”)</item>
+        <item quantity="other">%1$d contatos atuais serão substituídos (ficam 30 dias em “Excluídos recentemente”)</item>
+    </plurals>
+    <string name="rst_merge_note">Nada é excluído no modo Mesclar, e você pode desfazer os contatos adicionados depois.</string>
+    <string name="rst_restoring">Restaurando…</string>
+    <string name="rst_finished">Restauração concluída</string>
+    <string name="rst_undone">Restauração desfeita</string>
+
+    <!-- Folder sync -->
+    <string name="sync_failed">Falha na sincronização: %1$s</string>
+    <string name="sync_title">Sincronizar entre seus telefones</string>
+    <string name="sync_card_title">Sem servidor, sem conta</string>
+    <string name="sync_card_text">O Parley mantém um arquivo .vcf por contato em uma pasta que você escolhe. Sincronize essa pasta entre dispositivos com Syncthing, Nextcloud ou qualquer app de sincronização de pastas e configure a mesma pasta no Parley do seu outro telefone. As alterações fluem nos dois sentidos; se o mesmo contato mudou nos dois telefones, as duas versões são mantidas.</string>
+    <string name="sync_folder">Pasta de sincronização</string>
+    <string name="sync_auto">Sincronizar automaticamente</string>
+    <string name="sync_auto_summary">Ao abrir o Parley, após alterações e a cada hora</string>
+    <string name="sync_last">Última sincronização %1$s</string>
+    <string name="sync_never">Ainda não sincronizado</string>
+    <plurals name="sync_apply_deletions">
+        <item quantity="one">Aplicar %1$d exclusão</item>
+        <item quantity="many">Aplicar %1$d exclusões</item>
+        <item quantity="other">Aplicar %1$d exclusões</item>
+    </plurals>
+    <string name="sync_now">Sincronizar agora</string>
+    <string name="sync_stop">Parar de sincronizar</string>
+
+    <!-- Time machine (version history, what changed) -->
+    <string name="tm_row_name">Nome: %1$s</string>
+    <string name="tm_row_phone">Telefone: %1$s</string>
+    <string name="tm_row_email">E-mail: %1$s</string>
+    <string name="tm_row_address">Endereço: %1$s</string>
+    <string name="tm_row_work">Trabalho: %1$s</string>
+    <string name="tm_row_note">Nota: %1$s</string>
+    <string name="tm_row_date">Data: %1$s</string>
+    <string name="tm_row_website">Site: %1$s</string>
+    <string name="tm_row_nickname">Apelido: %1$s</string>
+    <string name="tm_row_relation">Parentesco: %1$s</string>
+    <string name="tm_row_photo">Foto</string>
+    <string name="tm_history_title">Histórico de versões</string>
+    <string name="tm_no_versions">Nenhuma versão anterior ainda</string>
+    <plurals name="tm_no_versions_text">
+        <item quantity="one">O Parley guarda um retrato diário dos seus contatos por %1$d dia. As versões anteriores deste contato vão aparecer aqui.</item>
+        <item quantity="many">O Parley guarda um retrato diário dos seus contatos por %1$d dias. As versões anteriores deste contato vão aparecer aqui.</item>
+        <item quantity="other">O Parley guarda um retrato diário dos seus contatos por %1$d dias. As versões anteriores deste contato vão aparecer aqui.</item>
+    </plurals>
+    <string name="tm_now">Agora</string>
+    <string name="tm_didnt_exist">Não existia</string>
+    <string name="tm_later">Depois: +%1$d / −%2$d detalhes</string>
+    <string name="tm_later_removed">Depois: +%1$d / −%2$d dados (removido: %3$s)</string>
+    <string name="tm_restored_version">Esta versão foi restaurada</string>
+    <string name="tm_restore_version">Restaurar esta versão</string>
+    <string name="tm_saved_copy">Salvo como um contato separado</string>
+    <string name="tm_save_copy">Salvar como cópia</string>
+    <string name="tm_changes_title">O que mudou</string>
+    <string name="tm_since_yesterday">Desde ontem</string>
+    <string name="tm_last_week">Última semana</string>
+    <string name="tm_last_month">Último mês</string>
+    <string name="tm_6_months">6 meses</string>
+    <string name="tm_no_changes">Nenhuma alteração</string>
+    <string name="tm_no_changes_text">Nada foi adicionado, removido ou editado neste período (ou ainda não há um instantâneo antigo o bastante).</string>
+    <string name="tm_removed">Removidos (%1$d)</string>
+    <string name="tm_restored_name">%1$s restaurado</string>
+    <string name="tm_changed">Alterados (%1$d)</string>
+    <string name="tm_field_changed">%1$s alterado</string>
+    <string name="tm_field_name">Nome</string>
+    <string name="tm_field_starred">Favorito</string>
+    <string name="tm_field_ringtone">Toque</string>
+    <string name="tm_field_voicemail">Enviar para o correio de voz</string>
+    <string name="tm_field_accounts">Contas</string>
+    <string name="tm_added">Adicionados (%1$d)</string>
+
+    <!-- Recently deleted & changed (journal) -->
+    <string name="jr_deleted">Excluído</string>
+    <string name="jr_edited">Editado (versão antes da alteração)</string>
+    <string name="jr_merged">Mesclado (versão antes da mesclagem)</string>
+    <string name="jr_separated">Separado</string>
+    <string name="jr_title">Excluídos e alterados recentemente</string>
+    <string name="jr_empty_title">Nada aqui</string>
+    <string name="jr_empty_text">Contatos que você exclui, edita ou mescla no Parley ficam aqui por 30 dias para que você possa desfazer.</string>
+    <string name="jr_restored_suffix">%1$s · restaurado</string>
+    <string name="jr_restored_name">%1$s restaurado</string>
+    <string name="jr_restored_copy">A versão anterior foi restaurada como um contato separado</string>
+    <string name="jr_restore_failed">Não foi possível restaurar</string>
+    <string name="jr_restore_copy">Restaurar cópia</string>
+
+    <!-- Contact health check -->
+    <string name="health_no_country">Números sem código do país</string>
+    <string name="health_title_company">O cargo repete a empresa</string>
+    <string name="health_no_name">Contatos sem nome</string>
+    <string name="health_empty">Contatos vazios</string>
+    <string name="health_shared">Mesmo número em vários contatos</string>
+    <string name="health_stale">Sem ligações há mais de 2 anos</string>
+    <plurals name="health_stale_confirm_title">
+        <item quantity="one">Excluir %1$d contato em 30 dias?</item>
+        <item quantity="many">Excluir %1$d contatos em 30 dias?</item>
+        <item quantity="other">Excluir %1$d contatos em 30 dias?</item>
+    </plurals>
+    <string name="health_stale_confirm_text">A menos que você os mantenha, estes contatos serão excluídos de todas as contas listadas daqui a 30 dias. Você pode desfazer cada um na página dele.</string>
+    <plurals name="health_stale_done">
+        <item quantity="one">%1$d contato vai se excluir em 30 dias, a menos que você mude isso</item>
+        <item quantity="many">%1$d contatos vão se excluir em 30 dias, a menos que você mude isso</item>
+        <item quantity="other">%1$d contatos vão se excluir em 30 dias, a menos que você mude isso</item>
+    </plurals>
+    <string name="health_delete_in_30">Excluir em 30 dias</string>
+    <string name="health_title">Verificação dos contatos</string>
+    <string name="health_all_tidy">Tudo em ordem</string>
+    <string name="health_all_tidy_text">Nenhum problema encontrado nos seus contatos.</string>
+    <string name="health_group">%1$s (%2$d)</string>
+    <plurals name="health_fixed">
+        <item quantity="one">%1$d entrada corrigida</item>
+        <item quantity="many">%1$d entradas corrigidas</item>
+        <item quantity="other">%1$d entradas corrigidas</item>
+    </plurals>
+    <string name="health_fix_all">Corrigir todos (%1$d)</string>
+    <string name="health_review_duplicates">Revisar duplicados</string>
+    <string name="health_phone">Telefone</string>
+    <string name="health_auto_delete">Excluir automaticamente em 30 dias</string>
+    <string name="health_delete_all">Excluir todos (%1$d)</string>
+
+    <!-- Birthdays & dates -->
+    <string name="bday_title">Aniversários e datas</string>
+    <string name="bday_empty_title">Nenhuma data ainda</string>
+    <string name="bday_empty_text">Adicione aniversários e datas comemorativas aos contatos para vê-los aqui e receber um lembrete no dia.</string>
+    <string name="bday_today">Hoje</string>
+    <string name="bday_this_week">Esta semana</string>
+    <string name="bday_this_month">Este mês</string>
+    <string name="bday_later">Mais tarde</string>
+    <string name="bday_would_have_turned">faria %1$d anos</string>
+    <string name="bday_message">Enviar mensagem para %1$s</string>
+    <string name="bday_call">Ligar para %1$s</string>
+
+    <!-- Onboarding -->
+    <string name="onb_set_later">Você pode definir isso depois nas Configurações</string>
+    <string name="onb_tagline">Seu telefone, contatos e chamadas — em um app privado.</string>
+    <string name="onb_offline_title">Funciona sem internet</string>
+    <string name="onb_offline_text">O Parley não tem permissão de internet. Nada do que você salva ou liga sai do seu telefone.</string>
+    <string name="onb_spam_title">Bloqueio de spam com suas regras</string>
+    <string name="onb_spam_text">Bloqueie números ocultos, prefixos e padrões — decidido no seu telefone.</string>
+    <string name="onb_open_title">Código aberto, sem anúncios, sem contas</string>
+    <string name="onb_open_text">Software livre sob GPL-3.0. Sem rastreadores, nunca.</string>
+    <string name="onb_prompt_title">Uma única solicitação do sistema</string>
+    <string name="onb_prompt_text">Definir o Parley como app de telefone dá a ele tudo o que precisa — sem labirinto de permissões.</string>
+    <string name="onb_set_default">Definir como app de telefone padrão</string>
+    <string name="onb_not_now">Agora não — usar só contatos e chamadas</string>
+
+    <!-- Contact picker -->
+    <string name="picker_link_with">Vincular com…</string>
+    <string name="picker_share_title">Compartilhar %1$s</string>
+    <string name="picker_share_one">Compartilhar só um número em vez do contato inteiro? Alguns apps podem não aceitar um número sozinho.</string>
+    <string name="picker_only">Só %1$s</string>
+    <string name="picker_whole">Contato inteiro</string>
+    <string name="picker_choose_contacts">Escolher contatos</string>
+    <string name="picker_choose_contact">Escolher um contato</string>
+    <string name="picker_choose_phone">Escolher um número de telefone</string>
+    <string name="picker_choose_email">Escolher um e-mail</string>
+    <string name="picker_choose_address">Escolher um endereço</string>
+    <string name="picker_done_n">Concluído (%1$d)</string>
+    <string name="picker_search">Pesquisar</string>
+    <string name="picker_nothing">Nada encontrado</string>
+
+    <!-- App lock and quick settings tile -->
+    <string name="lock_unlock_parley">Desbloquear o Parley</string>
+    <string name="lock_unlock_private">Desbloquear contatos privados</string>
+    <string name="lock_locked">O Parley está bloqueado</string>
+    <string name="lock_calls_show">As chamadas recebidas continuam aparecendo normalmente.</string>
+    <string name="lock_unlock">Desbloquear</string>
+    <string name="tile_private_hidden">Privados ocultos</string>
+    <string name="tile_private_shown">Privados visíveis</string>
+
+    <!-- Shortcuts and widget -->
+    <string name="shortcut_text_name">Mensagem para %1$s</string>
+    <string name="shortcut_new_contact">Novo contato</string>
+    <string name="shortcut_call_confirm">Ligar para %1$s?</string>
+    <string name="shortcut_call">Ligar</string>
+    <string name="widget_call_name">Ligar para %1$s</string>
+    <string name="widget_pick_title">Widget de discagem direta</string>
+
+    <!-- Private names for other apps -->
+    <string name="privnames_directory">Contatos privados do Parley</string>
+    <string name="privnames_channel">Pedidos de nomes privados</string>
+    <string name="privnames_request_title">%1$s quer mostrar nomes privados</string>
+    <string name="privnames_request_text">%1$s pediu ao Parley o nome de um número que pode ser de um dos seus contatos privados. Se você permitir, %1$s poderá pedir o nome de um número por vez; ele nunca recebe uma lista.</string>
+    <string name="privnames_allow">Permitir</string>
+    <string name="privnames_deny">Não permitir</string>
+
+    <!-- People: account diagnostics -->
+    <string name="ppl_phone">Telefone</string>
+    <string name="ppl_sync_settings_failed">Não foi possível abrir as configurações de conta do Android</string>
+    <string name="ppl_accounts">Contas</string>
+    <string name="ppl_master_sync_off">A sincronização automática está desativada neste celular</string>
+    <string name="ppl_master_sync_off_text">Nenhuma conta envia nem recebe alterações de contatos até ela ser reativada.</string>
+    <string name="ppl_open_sync_settings">Abrir configurações de sincronização</string>
+    <string name="ppl_sync_off">A sincronização de contatos está desativada para %1$s</string>
+    <plurals name="ppl_sync_off_text">
+        <item quantity="one">%1$d contato. As alterações ficam neste celular e não chegam aos seus outros dispositivos.</item>
+        <item quantity="many">%1$d contatos. As alterações ficam neste celular e não chegam aos seus outros dispositivos.</item>
+        <item quantity="other">%1$d contatos. As alterações ficam neste celular e não chegam aos seus outros dispositivos.</item>
+    </plurals>
+    <plurals name="ppl_orphaned">
+        <item quantity="one">%1$d contato em %2$s</item>
+        <item quantity="many">%1$d contatos em %2$s</item>
+        <item quantity="other">%1$d contatos em %2$s</item>
+    </plurals>
+    <string name="ppl_orphaned_text">Essa conta não está mais conectada neste celular, então nada mantém estes contatos sincronizados. Mova-os para outra conta ou exporte-os.</string>
+    <string name="ppl_show_them">Mostrar</string>
+    <string name="ppl_no_contacts">%1$s não tem contatos</string>
+    <string name="ppl_no_contacts_text">A conta está conectada e pode guardar contatos, mas não há nenhum nela. Se você esperava algum, verifique se a sincronização de contatos dela terminou.</string>
+    <string name="ppl_local_missing">O armazenamento “Só no celular” não está configurado</string>
+    <string name="ppl_local_missing_text">Alguns apps só oferecem “Telefone” como lugar para salvar contatos depois que o Android o cria. O Parley pode criá-lo adicionando e removendo uma entrada vazia.</string>
+    <string name="ppl_fix">Corrigir</string>
+    <string name="ppl_local_ready">O armazenamento “Só no celular” está pronto</string>
+    <string name="ppl_local_failed">Não foi possível configurar</string>
+    <string name="ppl_accounts_fine">As contas parecem ok</string>
+    <string name="ppl_accounts_fine_text">Todas as contas conectadas sincronizam os contatos</string>
+    <string name="ppl_accounts_unknown">O Android não deixou o Parley verificar as configurações de sincronização</string>
+    <string name="ppl_account_count">%1$s (%2$d)</string>
+    <string name="ppl_signed_in">Conectadas: %1$s</string>
+    <string name="ppl_signed_in_none">nenhuma conta de contatos</string>
+    <string name="ppl_holding">Com contatos: %1$s</string>
+    <string name="ppl_holding_none">nenhuma</string>
+
+    <!-- People: call screen background -->
+    <string name="ppl_bg_failed">Essa imagem não pôde ser usada como plano de fundo</string>
+    <string name="ppl_bg_title">Tela de chamada</string>
+    <string name="ppl_bg_text">Uma imagem atrás das chamadas desta pessoa. Ela é copiada para o Parley, então continua mesmo que você apague a original.</string>
+    <string name="ppl_bg_choose">Escolher imagem</string>
+    <string name="ppl_bg_change">Mudar</string>
+    <string name="ppl_bg_remove">Remover</string>
+    <string name="ppl_bg_desc">Plano de fundo da tela de chamada</string>
+    <string name="ppl_bg_custom">Imagem personalizada na tela de chamada</string>
+    <string name="ppl_bg_default">Tela de chamada padrão</string>
+    <string name="ppl_bg_info">Plano de fundo da tela de chamada · mude em Editar</string>
+
+    <!-- People: contacts filter chips -->
+    <string name="ppl_chip_all">Todas</string>
+    <string name="ppl_chip_private">Privados</string>
+    <string name="ppl_chip_account">Conta</string>
+    <string name="ppl_chip_all_accounts">Todas as contas</string>
+    <string name="ppl_chip_unlabelled">Sem marcador</string>
+    <string name="ppl_chip_match_all">Em todos eles</string>
+    <string name="ppl_chip_match_any">Em qualquer um deles</string>
+    <string name="ppl_chip_open">Abrir %1$s</string>
+    <string name="ppl_chip_labels">Marcadores</string>
+    <string name="ppl_chip_temporary">Temporários (%1$d)</string>
+
+    <!-- People: copy as text, crash report -->
+    <string name="ppl_copy_as_text">Copiar como texto</string>
+    <plurals name="ppl_copied" tools:ignore="ImpliedQuantity">
+        <item quantity="one">Contato copiado</item>
+        <item quantity="many">%1$d contatos copiados</item>
+        <item quantity="other">%1$d contatos copiados</item>
+    </plurals>
+    <string name="ppl_crash_title">O Parley parou da última vez</string>
+    <string name="ppl_crash_text">Um relatório foi guardado neste celular. Os números e e-mails nele estão mascarados. Envie-o se quiser que o problema seja corrigido; o Parley não pode enviar nada sozinho.</string>
+    <string name="ppl_crash_subject">Relatório de falha do Parley</string>
+    <string name="ppl_crash_send_chooser">Enviar relatório de falha</string>
+    <string name="ppl_crash_send">Enviar…</string>
+    <string name="ppl_crash_delete">Excluir relatório</string>
+
+    <!-- People: contact CSV column mapping -->
+    <string name="csv_no_table">Este arquivo não tem linhas que o Parley consiga ler como tabela.</string>
+    <string name="csv_read_failed">Não foi possível ler o arquivo</string>
+    <string name="csv_title">Escolher colunas</string>
+    <string name="csv_nothing_title">Nada para importar</string>
+    <string name="csv_nothing_text">Escolha um arquivo em Configurações › Contatos › Importar.</string>
+    <string name="csv_sep_semicolons">ponto e vírgula</string>
+    <string name="csv_sep_tabs">tabulações</string>
+    <string name="csv_sep_commas">vírgulas</string>
+    <string name="csv_layout_parley">Parley</string>
+    <string name="csv_layout_google">Google Contatos</string>
+    <string name="csv_layout_outlook">Outlook</string>
+    <string name="csv_intro">Este arquivo não está no formato próprio do Parley. As colunas são separadas por %1$s. Confira o que cada coluna contém; os primeiros contatos abaixo mostram como serão salvos.</string>
+    <string name="csv_intro_layout">Este arquivo não está no formato próprio do Parley; parece uma exportação do %1$s. As colunas são separadas por %2$s. Confira o que cada coluna contém; os primeiros contatos abaixo mostram como serão salvos.</string>
+    <string name="csv_header">A primeira linha é um cabeçalho</string>
+    <string name="csv_header_on">Nomes de colunas, não um contato</string>
+    <string name="csv_header_off">Importada como contato</string>
+    <string name="csv_columns">Colunas</string>
+    <string name="csv_column_n">Coluna %1$d</string>
+    <string name="csv_preview">Prévia</string>
+    <string name="csv_nothing_with_columns">Nada seria importado com estas colunas.</string>
+    <string name="csv_into">Em %1$s</string>
+    <string name="csv_into_skip">Em %1$s · contatos que você já tem são ignorados</string>
+    <string name="csv_import_failed">Falha na importação: %1$s</string>
+    <string name="csv_import">Importar</string>
+    <string name="csv_need_column">Escolha pelo menos uma coluna de nome, telefone, e-mail ou empresa.</string>
+    <string name="csv_change_column">Mudar o que “%1$s” contém</string>
+    <string name="csv_no_name">(sem nome)</string>
+    <string name="csv_labels">Marcadores: %1$s</string>
+    <string name="csv_typed">%1$s (%2$s)</string>
+    <string name="csv_field_ignore">Não importar</string>
+    <string name="csv_field_full_name">Nome completo</string>
+    <string name="csv_field_prefix">Prefixo do nome</string>
+    <string name="csv_field_given">Nome</string>
+    <string name="csv_field_middle">Nome do meio</string>
+    <string name="csv_field_family">Sobrenome</string>
+    <string name="csv_field_suffix">Sufixo do nome</string>
+    <string name="csv_field_nickname">Apelido</string>
+    <string name="csv_field_phone">Telefone</string>
+    <string name="csv_field_phone_label">Tipo de telefone (para o telefone ao lado)</string>
+    <string name="csv_field_email">E-mail</string>
+    <string name="csv_field_email_label">Tipo de e-mail (para o e-mail ao lado)</string>
+    <string name="csv_field_org">Empresa</string>
+    <string name="csv_field_title">Cargo</string>
+    <string name="csv_field_address">Endereço</string>
+    <string name="csv_field_website">Site</string>
+    <string name="csv_field_birthday">Aniversário</string>
+    <string name="csv_field_notes">Notas</string>
+    <string name="csv_field_labels">Marcadores</string>
+
+    <!-- People: account chips, provenance, life events -->
+    <string name="ppl_edit_copy">Editar esta cópia</string>
+    <string name="ppl_move_to">Mover para…</string>
+    <string name="ppl_read_only">Gerenciado pelo app dele (somente leitura)</string>
+    <string name="ppl_unlink">Desvincular</string>
+    <string name="ppl_move_title">Mover esta cópia para</string>
+    <string name="ppl_move_text">Tudo o que há na cópia de %1$s (números, foto, marcadores…) é gravado primeiro na nova conta; só então a cópia antiga é removida. Você pode desfazer em “Excluídos e alterados recentemente”.</string>
+    <string name="ppl_moved_to">Movido para %1$s</string>
+    <string name="ppl_unlink_title">Desvincular a cópia de %1$s?</string>
+    <string name="ppl_unlink_text">Ela vira um contato separado. Nada é excluído.</string>
+    <string name="ppl_unlinked">Desvinculado</string>
+    <string name="ppl_version_history">Histórico de versões</string>
+    <string name="ppl_why_changed">Por que mudou? · Toque para ver todas as versões</string>
+    <string name="prov_other_app_unsynced">Alterado neste celular por outro app, depois do último salvamento do Parley (ainda não sincronizado)</string>
+    <string name="prov_other_app_unsynced_at">Alterado neste celular por outro app em %1$s, depois do último salvamento do Parley (ainda não sincronizado)</string>
+    <string name="prov_sync">Alterado pela sincronização de %1$s, depois do último salvamento do Parley</string>
+    <string name="prov_sync_at">Alterado pela sincronização de %1$s em %2$s, depois do último salvamento do Parley</string>
+    <string name="prov_other_app">Alterado por outro app, depois do último salvamento do Parley</string>
+    <string name="prov_other_app_at">Alterado por outro app em %1$s, depois do último salvamento do Parley</string>
+    <string name="prov_parley">Alterado pelo Parley em %1$s</string>
+    <string name="prov_parley_fields">Alterado pelo Parley em %1$s · só os campos alterados foram gravados (%2$s)</string>
+    <string name="prov_other_copy_sync">%1$s. A cópia de %2$s é mantida atualizada pela sincronização dela</string>
+    <string name="prov_other_copy_apps">%1$s. A cópia de %2$s é mantida atualizada por outros apps</string>
+    <string name="prov_last_other_app">Última alteração neste celular por outro app (ainda não sincronizada)</string>
+    <string name="prov_last_other_app_at">Última alteração neste celular por outro app em %1$s (ainda não sincronizada)</string>
+    <string name="prov_last_sync">Última alteração · em dia com a sincronização de %1$s</string>
+    <string name="prov_last_sync_at">Última alteração em %1$s · em dia com a sincronização de %2$s</string>
+    <string name="prov_last_unknown">Última alteração em %1$s, não pelo Parley</string>
+    <string name="prov_field_name">Nome</string>
+    <string name="prov_field_nickname">Apelido</string>
+    <string name="prov_field_company">Empresa</string>
+    <string name="prov_field_note">Nota</string>
+    <string name="prov_field_phone">Telefone</string>
+    <string name="prov_field_email">E-mail</string>
+    <string name="prov_field_website">Site</string>
+    <string name="prov_field_relation">Parentesco</string>
+    <string name="prov_field_handles">Identificadores de mensageiros</string>
+    <string name="prov_field_dates">Datas</string>
+    <string name="prov_field_address">Endereço</string>
+    <string name="prov_field_labels">Marcadores</string>
+    <string name="prov_field_other">Outro</string>
+    <string name="life_aged">aos %1$d anos</string>
+    <string name="life_would_have_turned">faria %1$d anos</string>
+    <string name="life_today">hoje</string>
+    <string name="life_tomorrow">amanhã</string>
+    <plurals name="life_in_days">
+        <item quantity="one">em %1$d dia</item>
+        <item quantity="many">em %1$d dias</item>
+        <item quantity="other">em %1$d dias</item>
+    </plurals>
+
+    <!-- People: diagnostics export -->
+    <string name="diag_saved">Diagnóstico salvo</string>
+    <string name="diag_save_failed">Não foi possível salvar o arquivo</string>
+    <string name="diag_title">Exportar diagnóstico</string>
+    <string name="diag_intro">Este relatório ajuda a encontrar um problema. Ele não tem contatos nem histórico de chamadas. O Parley não tem acesso à internet, então nada é enviado: você salva ou compartilha com quem quiser.</string>
+    <string name="diag_mask">Mascarar números e e-mails</string>
+    <string name="diag_mask_summary">Mantém só os dois últimos dígitos dos números nas mensagens de erro</string>
+    <string name="diag_tables">Incluir as tabelas de contatos (mascaradas)</string>
+    <string name="diag_tables_summary">Como as contas guardaram cada contato, com cada nome, número e texto trocado pelo seu formato (Aaaa 99 9923)</string>
+    <string name="diag_save_file">Salvar como arquivo</string>
+    <string name="diag_share">Compartilhar</string>
+
+    <!-- People: duplicate warning in the editor -->
+    <string name="dup_private_name">%1$s já é um contato privado</string>
+    <string name="dup_private_has">Seu contato privado %1$s já tem %2$s</string>
+    <string name="dup_exists">%1$s já existe</string>
+    <string name="dup_has">%1$s já tem %2$s</string>
+    <string name="dup_open">Abrir</string>
+    <string name="dup_add_to">Adicionar estes dados a %1$s</string>
+    <string name="dup_someone_else">É outra pessoa</string>
+
+    <!-- People: labels -->
+    <plurals name="lbl_selected">
+        <item quantity="one">%1$d selecionado</item>
+        <item quantity="many">%1$d selecionados</item>
+        <item quantity="other">%1$d selecionados</item>
+    </plurals>
+    <string name="lbl_title">Marcadores</string>
+    <string name="lbl_stop_merging">Parar de mesclar</string>
+    <string name="lbl_merge">Mesclar</string>
+    <string name="lbl_new">Novo marcador</string>
+    <string name="lbl_merge_labels">Mesclar marcadores</string>
+    <string name="lbl_merge_intro">Escolha os marcadores a combinar. Todos que estão neles acabam num só marcador; nenhum contato é removido.</string>
+    <string name="lbl_unlabelled">Sem marcador</string>
+    <plurals name="lbl_unlabelled_count">
+        <item quantity="one">%1$d contato sem marcador</item>
+        <item quantity="many">%1$d contatos sem marcador</item>
+        <item quantity="other">%1$d contatos sem marcador</item>
+    </plurals>
+    <string name="lbl_empty_title">Ainda não há marcadores</string>
+    <string name="lbl_empty_text">Os marcadores agrupam contatos (Família, Trabalho…). Eles sincronizam com sua conta Google ou CardDAV.</string>
+    <plurals name="lbl_count_accounts">
+        <item quantity="one">%1$d contato · %2$s</item>
+        <item quantity="many">%1$d contatos · %2$s</item>
+        <item quantity="other">%1$d contatos · %2$s</item>
+    </plurals>
+    <string name="lbl_more_for">Mais para %1$s</string>
+    <string name="lbl_rename">Renomear</string>
+    <string name="lbl_delete">Excluir marcador</string>
+    <string name="lbl_merge_into">Mesclar em</string>
+    <plurals name="lbl_n_contacts">
+        <item quantity="one">%1$d contato</item>
+        <item quantity="many">%1$d contatos</item>
+        <item quantity="other">%1$d contatos</item>
+    </plurals>
+    <string name="lbl_merge_note">Os outros marcadores são removidos depois que os contatos deles entram em “%1$s”.</string>
+    <string name="lbl_merge_failed">Não foi possível mesclar: %1$s</string>
+    <string name="lbl_merged">Mesclado em %1$s</string>
+    <plurals name="lbl_merged_added">
+        <item quantity="one">Mesclado em %2$s · %1$d adicionado</item>
+        <item quantity="many">Mesclado em %2$s · %1$d adicionados</item>
+        <item quantity="other">Mesclado em %2$s · %1$d adicionados</item>
+    </plurals>
+    <string name="lbl_delete_title">Excluir “%1$s”?</string>
+    <string name="lbl_delete_text">O marcador é removido de todas as contas. Os contatos nele são mantidos.</string>
+    <string name="lbl_name">Nome</string>
+    <string name="lbl_saved_in">Salvo em</string>
+    <string name="lbl_created">Marcador “%1$s” criado</string>
+    <string name="lbl_create_failed">Não foi possível criar o marcador</string>
+    <string name="lbl_create">Criar</string>
+    <string name="lbl_rename_title">Renomear marcador</string>
+    <string name="lbl_rename_note">Se outro marcador já tiver este nome, os dois serão mesclados.</string>
+    <string name="lbl_rename_failed">Não foi possível renomear: %1$s</string>
+    <string name="lbl_ringtone_for">Toque para %1$s</string>
+    <string name="lbl_no_numbers">Nenhum número de telefone neste marcador</string>
+    <string name="lbl_no_sms_app">Nenhum app de mensagens disponível</string>
+    <string name="lbl_message_all">Enviar mensagem para todos</string>
+    <string name="lbl_no_emails">Nenhum e-mail neste marcador</string>
+    <string name="lbl_no_email_app">Nenhum app de e-mail disponível</string>
+    <string name="lbl_email_all">Enviar e-mail para todos</string>
+    <string name="lbl_ringtone">Toque para este marcador</string>
+    <string name="lbl_custom_ringtone">Toque personalizado</string>
+    <string name="lbl_default_ringtone">Toque padrão</string>
+    <string name="lbl_ringtone_summary">Toca para as pessoas deste marcador, a menos que tenham o próprio toque</string>
+    <string name="lbl_reset">Redefinir</string>
+    <string name="lbl_nobody">Ninguém tem este marcador ainda. Selecione contatos na aba Contatos e escolha “Adicionar ao marcador”.</string>
+    <string name="lbl_remove_from">Remover de %1$s</string>
+    <plurals name="lbl_delete_text_n">
+        <item quantity="one">O marcador é removido de todas as contas. O %1$d contato nele é mantido.</item>
+        <item quantity="many">O marcador é removido de todas as contas. Os %1$d contatos nele são mantidos.</item>
+        <item quantity="other">O marcador é removido de todas as contas. Os %1$d contatos nele são mantidos.</item>
+    </plurals>
+
+    <!-- People: swipe actions and avatars -->
+    <string name="swipe_none">Nada</string>
+    <string name="swipe_call">Ligar</string>
+    <string name="swipe_message">Mensagem</string>
+    <string name="swipe_message_on">Mensagem por…</string>
+    <string name="swipe_block">Bloquear</string>
+    <string name="swipe_delete">Excluir (com desfazer)</string>
+    <string name="swipe_delete_short">Excluir</string>
+    <string name="swipe_right">Deslizar para a direita</string>
+    <string name="swipe_left">Deslizar para a esquerda</string>
+    <string name="swipe_try">Experimente:</string>
+    <string name="swipe_tried">%1$s: é isso que um deslize faria</string>
+    <string name="swipe_example_name">Alex Exemplo</string>
+    <string name="swipe_try_hint">Deslize esta linha para a esquerda ou a direita</string>
+    <string name="swipe_note">Excluir sempre oferece Desfazer. Um deslize em Recentes exclui as chamadas da linha; em Contatos, o contato (que pode ser restaurado em “Excluídos recentemente”).</string>
+    <string name="avatar_colourful">Letras coloridas</string>
+    <string name="avatar_grey">Monograma cinza</string>
+    <string name="avatar_emoji_hint">Nomes que começam com um emoji o mostram</string>
+
+    <!-- People: my card -->
+    <string name="me_open">Abrir meu cartão</string>
+    <string name="me_short">Eu</string>
+    <string name="me_title">Meu cartão</string>
+    <string name="me_empty">Adicione seus dados para compartilhá-los como QR code</string>
+    <string name="me_saved">Cartão salvo</string>
+    <string name="me_your_name">Seu nome</string>
+    <string name="me_qr">QR code</string>
+    <string name="me_share">Compartilhar</string>
+    <string name="me_profile_title">Também mostra o perfil do seu celular</string>
+    <string name="me_profile_text">Os dados do contato “Eu” do Android completam o que está vazio aqui. O Parley não altera esse perfil: qualquer app com acesso aos contatos pode lê-lo, então seu cartão fica no Parley.</string>
+    <string name="me_you">Você</string>
+    <string name="me_name">Nome</string>
+    <string name="me_company">Empresa</string>
+    <string name="me_job_title">Cargo</string>
+    <string name="me_numbers">Números</string>
+    <string name="me_number">Número</string>
+    <string name="me_email">E-mail</string>
+    <string name="me_email_address">Endereço de e-mail</string>
+    <string name="me_websites">Sites</string>
+    <string name="me_website">Site</string>
+    <string name="me_more">Mais</string>
+    <string name="me_address">Endereço</string>
+    <string name="me_private_note">Nota privada</string>
+    <string name="me_private_note_hint">Só para você: nunca é compartilhada</string>
+    <string name="me_footer">Seu cartão fica só neste celular, dentro do Parley. “Enviar meus dados” usa o nome e o primeiro número dele.</string>
+    <string name="me_remove">Remover</string>
+    <string name="me_add_number">Adicionar número</string>
+    <string name="me_add_email">Adicionar endereço de e-mail</string>
+    <string name="me_add_website">Adicionar site</string>
+    <string name="me_share_chooser">Compartilhar meu cartão</string>
+    <string name="me_share_failed">Não foi possível compartilhar o cartão</string>
+    <string name="me_qr_desc">QR code do meu cartão</string>
+    <string name="me_scan">Leia com qualquer app de câmera. Incluir:</string>
+    <string name="me_part_work">Empresa e cargo</string>
+    <string name="me_share_file">Compartilhar como arquivo</string>
+
+    <!-- People: settings rows -->
+    <string name="second_number">Número de telefone</string>
+    <string name="second_company">Empresa · cargo</string>
+    <string name="second_nickname">Apelido</string>
+    <string name="second_account">Conta</string>
+    <string name="second_none">Nada</string>
+    <string name="second_line_summary">Pessoas com o mesmo nome sempre mostram a empresa ou o número</string>
+    <string name="prefer_nickname_summary">Mostrar “Bob” em vez de “Robert Jones” nas listas quando houver um apelido salvo</string>
+    <plurals name="labels_row_summary">
+        <item quantity="one">%1$d marcador · renomear, mesclar, toques</item>
+        <item quantity="many">%1$d marcadores · renomear, mesclar, toques</item>
+        <item quantity="other">%1$d marcadores · renomear, mesclar, toques</item>
+    </plurals>
+    <plurals name="export_account_done">
+        <item quantity="one">%1$d contato exportado de %2$s</item>
+        <item quantity="many">%1$d contatos exportados de %2$s</item>
+        <item quantity="other">%1$d contatos exportados de %2$s</item>
+    </plurals>
+    <plurals name="export_account_failed">
+        <item quantity="one">%1$s · %2$d com falha</item>
+        <item quantity="many">%1$s · %2$d com falha</item>
+        <item quantity="other">%1$s · %2$d com falha</item>
+    </plurals>
+    <string name="export_account_title">Exportar contatos de</string>
+    <string name="privacy_section">Seus contatos e outros apps</string>
+    <string name="privacy_who_can_see">Quem pode ver seus contatos</string>
+    <string name="privacy_who_can_see_summary">Quais apps podem ler seus contatos e o que o Parley pode fazer sobre isso</string>
+    <string name="privacy_private_names">Deixar apps mostrarem nomes privados</string>
+
+    <!-- People: who can see your contacts -->
+    <string name="who_header">O Android não deixa nenhum app de contatos decidir o que outros apps veem. Qualquer app a que você permitiu “Contatos” pode ler todos os contatos deste celular, de todas as contas. Veja o que o Parley pode fazer.</string>
+    <string name="who_apps">Estes apps podem ler todos os seus contatos. O Parley não pode limitá-los. Toque para mudar a permissão deles nas Configurações do Android.</string>
+    <string name="who_private">Contatos privados nunca são guardados onde outros apps possam lê-los. Só o Parley mostra os nomes deles.</string>
+    <string name="who_pick">Quando um app pede para você escolher um contato, só esse contato é compartilhado.</string>
+    <string name="who_settings_failed">Não foi possível abrir as Configurações do Android</string>
+    <string name="who_graphene">Você está usando o GrapheneOS</string>
+    <string name="who_graphene_text">Os Contact Scopes do GrapheneOS são o verdadeiro controle por app: um app pode receber só os contatos que você escolher e não vê mais nada. Abra um app abaixo e depois Permissões › Contatos › Contact Scopes.</string>
+    <string name="who_no_browser">Nenhum navegador disponível</string>
+    <string name="who_scopes_link">Como funcionam os Contact Scopes</string>
+    <string name="who_apps_section">Apps com acesso aos seus contatos</string>
+    <string name="who_no_apps">Nenhum outro app na sua tela inicial tem acesso aos contatos</string>
+    <string name="who_can_read_all">Pode ler todos os contatos</string>
+    <string name="who_system">Parte do sistema</string>
+    <string name="who_scopes_tip">Dica: use Contact Scopes para este app</string>
+    <string name="who_change">Mudar nas Configurações</string>
+    <string name="who_unused">Apps que você não usa há algum tempo</string>
+    <string name="who_unused_text">O Android pode remover permissões de apps que você não usa há alguns meses. Confira se “Pausar atividade no app se não usado” está ativado nas configurações de cada app. Apps sem ícone na tela inicial não aparecem aqui: o Parley não pede para ver todos os apps instalados.</string>
+    <string name="who_messengers">WhatsApp e outros mensageiros</string>
+    <string name="who_private_default">Privado por padrão</string>
+    <string name="who_save_private">Salvar contatos novos como privados</string>
+    <string name="who_save_private_summary">Contatos novos vão para seus contatos privados em vez de uma conta</string>
+    <string name="who_what_stops">O que deixa de mostrar os nomes deles:\n• seu carro e seu smartwatch (pelo Bluetooth eles leem os contatos do celular)\n• outros apps: mensageiros, teclados, outro app de telefone\n• o registro de chamadas do Android, que outros apps podem ler (eles só veem o número)\nContatos privados não sincronizam com o Google nem com o CardDAV; eles ficam nos backups criptografados do Parley.</string>
+    <string name="who_move_private">Mover contatos para privados</string>
+    <string name="who_move_private_summary">Selecione contatos na aba Contatos e depois Mais › Mover para privados</string>
+    <string name="who_move_private_hint">Toque e segure nos contatos para selecioná-los e depois escolha Mais › Mover para privados</string>
+    <string name="who_share_one">Compartilhar só um contato</string>
+    <string name="who_picker_text">O Parley é o seu seletor de contatos: um app que pede para você escolher um contato recebe só esse contato, não sua agenda, e não precisa da permissão de Contatos para isso.</string>
+    <string name="who_picker_text_37">O Parley é o seu seletor de contatos: um app que pede para você escolher um contato recebe só esse contato, não sua agenda, e não precisa da permissão de Contatos para isso. Nesta versão do Android, os apps também podem usar o seletor de contatos do próprio Android, que também compartilha só o que você escolhe.</string>
+    <string name="who_one_number">Oferecer compartilhar só um número</string>
+    <string name="who_one_number_summary">Quando um app pedir um contato inteiro, escolha compartilhar só um número de telefone com ele. Alguns apps podem não aceitar isso.</string>
+    <string name="who_private_names_section">Nomes privados em outros apps</string>
+    <plurals name="who_private_names_on">
+        <item quantity="one">Ativado · %1$d app permitido</item>
+        <item quantity="many">Ativado · %1$d apps permitidos</item>
+        <item quantity="other">Ativado · %1$d apps permitidos</item>
+    </plurals>
+
+    <!-- People: private names for other apps -->
+    <string name="pn_title">Nomes privados em outros apps</string>
+    <string name="pn_off_default">Desativado por padrão</string>
+    <string name="pn_intro">Apps que você aprovar podem pedir ao Parley o nome de um número por vez, por exemplo para mostrar quem está ligando. Eles recebem só esse nome, nunca uma lista, e só depois que você permitir cada app. O Parley pergunta por uma notificação na primeira vez que um app tenta, e cada pedido aparece abaixo.</string>
+    <string name="pn_directory_section">Apps de telefone (diretório de contatos)</string>
+    <string name="pn_directory_summary">Desativado por padrão. Usa as mesmas aprovações e o mesmo registro de cima</string>
+    <string name="pn_directory_text">Com isto ativado, o Android lista o Parley como um diretório de contatos. Um app de telefone que procura quem liga em diretórios (por exemplo o Telefone do Google, inclusive no carro) pode então pedir o nome de um número, e só depois que você permitir esse app. Ele nunca recebe uma lista, uma foto nem um contato para abrir, e nada é respondido no modo discreto. Nem todo app de telefone consulta diretórios: o Telefone do Google consulta, outros podem procurar só nos seus contatos.</string>
+    <string name="pn_apps">Apps</string>
+    <string name="pn_no_app">Nenhum app pediu ainda</string>
+    <string name="pn_allowed">Permitido</string>
+    <string name="pn_not_allowed">Não permitido</string>
+    <string name="pn_waiting">Aguardando sua resposta</string>
+    <string name="pn_forget">Esquecer (perguntar de novo)</string>
+    <string name="pn_log">Registro de acessos</string>
+    <string name="pn_no_requests">Nenhum pedido ainda</string>
+    <string name="pn_directory_suffix">%1$s (diretório)</string>
+    <string name="pn_clear_log">Limpar registro</string>
+    <string name="pn_developers">Para desenvolvedores: consulte content://%1$s/lookup/&lt;número&gt; com a permissão %2$s. O resultado tem uma linha (display_name, photo_uri) ou nenhuma.</string>
+    <string name="pn_out_answered">Mostrou um nome privado</string>
+    <string name="pn_out_not_found">Pediu; nenhum contato privado tem esse número</string>
+    <string name="pn_out_denied">Bloqueado: você disse não</string>
+    <string name="pn_out_asked">Aguardando sua resposta</string>
+    <string name="pn_out_off">Bloqueado: compartilhar nomes privados está desativado</string>
+    <string name="pn_out_rejected">Recusado: não é um único número de telefone</string>
+    <string name="pn_out_rate">Bloqueado: consultas demais</string>
+    <plurals name="move_private_title">
+        <item quantity="one">Mover %1$d para privados?</item>
+        <item quantity="many">Mover %1$d para privados?</item>
+        <item quantity="other">Mover %1$d para privados?</item>
+    </plurals>
+    <string name="move_private_text">Contatos privados nunca são guardados onde outros apps possam lê-los. Só o Parley mostra os nomes deles. Eles são removidos das suas contas (Google, CardDAV…) e outros celulares deixam de vê-los; seu carro, seu relógio e outros apps mostram só os números.</string>
+    <plurals name="move_private_done">
+        <item quantity="one">%1$d movido para seus contatos privados</item>
+        <item quantity="many">%1$d movidos para seus contatos privados</item>
+        <item quantity="other">%1$d movidos para seus contatos privados</item>
+    </plurals>
+    <string name="move_private_move">Mover</string>
+
+    <!-- People: contacts search hints -->
+    <string name="search_matched">Encontrado em: %1$s</string>
+    <string name="search_field_email">e-mail</string>
+    <string name="search_field_nickname">apelido</string>
+    <string name="search_field_company">empresa</string>
+    <string name="search_field_address">endereço</string>
+    <string name="search_field_note">nota</string>
+    <string name="search_field_website">site</string>
+    <string name="search_field_handle">identificador de mensageiro</string>
+
+    <!-- People: SIM -->
+    <string name="sim_warning">Um cartão SIM guarda só um nome (umas 14 letras) e um número por entrada.</string>
+    <string name="sim_copy_title">Copiar para o SIM</string>
+    <string name="sim_none_see">Nenhum cartão SIM encontrado, ou o Android não deixou o Parley vê-lo.</string>
+    <plurals name="sim_free">
+        <item quantity="one">%1$d entrada livre</item>
+        <item quantity="many">%1$d entradas livres</item>
+        <item quantity="other">%1$d entradas livres</item>
+    </plurals>
+    <string name="sim_full">Este SIM está cheio.</string>
+    <string name="sim_copied">Copiado para %1$s</string>
+    <string name="sim_copy">Copiar</string>
+    <string name="sim_issue_no_number">Não há número de telefone para copiar.</string>
+    <string name="sim_issue_invalid">O número não pode ser guardado num SIM.</string>
+    <plurals name="sim_issue_too_long">
+        <item quantity="one">O número é maior do que o SIM permite (%1$d dígito).</item>
+        <item quantity="many">O número é maior do que o SIM permite (%1$d dígitos).</item>
+        <item quantity="other">O número é maior do que o SIM permite (%1$d dígitos).</item>
+    </plurals>
+    <plurals name="sim_issue_left_out">
+        <item quantity="one">Só cabe um número num SIM: %1$d outro número fica de fora.</item>
+        <item quantity="many">Só cabe um número num SIM: %1$d outros números ficam de fora.</item>
+        <item quantity="other">Só cabe um número num SIM: %1$d outros números ficam de fora.</item>
+    </plurals>
+    <string name="sim_issue_shortened">O nome é encurtado para “%1$s”.</string>
+    <string name="sim_issue_details">E-mails, endereços, fotos e outros dados ficam só no celular.</string>
+    <string name="sim_import_title">Importar do SIM</string>
+    <string name="sim_import_n">Importar %1$d</string>
+    <string name="sim_import_intro">Um cartão SIM guarda só um nome (umas 14 letras) e um número por entrada. As entradas que você já tem estão desmarcadas.</string>
+    <string name="sim_none_read">Nenhum cartão SIM encontrado, ou o Android não deixou o Parley lê-lo.</string>
+    <string name="sim_section">SIM</string>
+    <plurals name="sim_entries">
+        <item quantity="one">%1$d entrada no SIM</item>
+        <item quantity="many">%1$d entradas no SIM</item>
+        <item quantity="other">%1$d entradas no SIM</item>
+    </plurals>
+    <string name="sim_empty">A agenda do SIM está vazia.</string>
+    <string name="sim_already">%1$s · já está nos seus contatos</string>
+    <string name="sim_import_into">Importar para</string>
+    <string name="sim_imported">%1$d de %2$d importados para %3$s</string>
+</resources>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Machine-assisted translation — needs native review -->
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Shared actions (data area: history, people, backup, vault and friends) -->
     <string name="dc_cancel">Abbrechen</string>
     <string name="dc_back">Zurück</string>
@@ -132,7 +132,7 @@
         <item quantity="one">%1$d Anruf in den letzten 90 Tagen, %2$d in den 90 Tagen davor</item>
         <item quantity="other">%1$d Anrufe in den letzten 90 Tagen, %2$d in den 90 Tagen davor</item>
     </plurals>
-    <plurals name="hist_rhythm">
+    <plurals name="hist_rhythm" tools:ignore="ImpliedQuantity">
         <item quantity="one">Ihr sprecht meist jeden Tag</item>
         <item quantity="other">Ihr sprecht meist alle %1$d Tage</item>
     </plurals>
@@ -151,7 +151,7 @@
         <item quantity="one">Wenn ihr seit %1$d Tag nicht gesprochen habt</item>
         <item quantity="other">Wenn ihr seit %1$d Tagen nicht gesprochen habt</item>
     </plurals>
-    <plurals name="hist_rhythm_suggested">
+    <plurals name="hist_rhythm_suggested" tools:ignore="ImpliedQuantity">
         <item quantity="one">Vorschlag: ihr sprecht meist jeden Tag</item>
         <item quantity="other">Vorschlag: ihr sprecht meist alle %1$d Tage</item>
     </plurals>
@@ -846,7 +846,7 @@
 
     <!-- People: copy as text, crash report -->
     <string name="ppl_copy_as_text">Als Text kopieren</string>
-    <plurals name="ppl_copied">
+    <plurals name="ppl_copied" tools:ignore="ImpliedQuantity">
         <item quantity="one">Kontakt kopiert</item>
         <item quantity="other">%1$d Kontakte kopiert</item>
     </plurals>
