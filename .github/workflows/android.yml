@@ -43,6 +43,12 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The default (`tools platform-tools`) fails: the legacy `tools` package no longer
+          # exists in the SDK repo, so sdkmanager exits 1 and the whole build dies at setup.
+          # Install exactly what the build needs instead (aapt2 for the permission gate lives
+          # in build-tools). No `tools`.
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
       - name: Configure signing (if secrets are present)
         env:
