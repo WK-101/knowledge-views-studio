@@ -1,0 +1,16 @@
+Parley is a contacts app, phone dialer and in-call screen in one, built for privacy.
+
+<b>Parley <i>is</i> your phone app, so a blocked call can't ring anyway.</b> It never blocks a contact, even when the phone is busy, and it edits only what you changed.
+
+<b>Contacts</b>: labels you can filter together, favourites in your own order, birthdays and dates (including a date of death, with no reminders), duplicate warnings as you type, copying to and from the SIM, and a note on each contact saying who changed it last.
+
+<b>Privacy</b>: private contacts kept out of the system address book, an honest page showing which apps can read your contacts (Parley can't limit them, and says so), encrypted backups and a time machine for every change.
+
+<b>Permissions Parley doesn't ask for, and why</b>
+• Internet: nothing is sent anywhere. No internet, so no leaks.
+• Microphone: Android doesn't allow call recording for apps like Parley.
+• Camera, location, SMS and storage: not needed. Messages open in your SMS app; files go through Android's file picker.
+• A list of every installed app: not needed.
+The build fails if any of these permissions appear, so this can't change by accident. No permission it doesn't use.
+
+Free and open source (GPL-3.0). No ads, no trackers, no accounts.

@@ -31,6 +31,39 @@ This project is independent of the rest of this repository.
 - **A separate Android Auto app.** Android Auto's own phone screen already shows the same contacts and call history; a car app for calling needs Google Play review, so it's planned for the Play release.
 - **Whole-address-book transfer by animated QR.** That would need Parley to have camera access. "Move to a new phone" sends one encrypted file instead.
 
+## Permissions Parley doesn't ask for, and why
+
+The build fails if any of these appear in the merged manifest (`checkReleasePermissions` / `checkDebugPermissions`), so this list is enforced, not promised.
+
+| Permission | Why Parley doesn't need it |
+|---|---|
+| Internet, network state | Nothing is sent anywhere: no spam lookups, no analytics, no crash reports, no ads. Backups and sync go to a folder you choose. |
+| Microphone (RECORD_AUDIO) | Android doesn't let non-system apps record calls, and Parley doesn't pretend to. |
+| Camera | QR codes are shown by Parley and scanned by your own camera app. |
+| Location | Caller location comes from an offline number database, not from where you are. |
+| SMS (read or send) | "Message" opens your SMS app with the text prefilled; you press Send. |
+| Storage | Files go through Android's file picker, one file at a time, only when you choose one. |
+| See all installed apps (QUERY_ALL_PACKAGES) | "Who can see your contacts" lists only apps with a home-screen icon. |
+| Advertising ID | There are no ads. |
+
+The permissions Parley does use, and what each one is for, are listed in Settings › Privacy dashboard. `READ_SYNC_SETTINGS` (granted at install, no personal data) lets the health check tell you when contacts sync is off for an account.
+
+**Store listing lines** (from COMPETITIVE_ANALYSIS_3 §7; use each only once its feature has shipped, never to claim a missing one)
+
+- "Parley *is* your phone app, so a blocked call can't ring anyway."
+- "Never blocks a contact, even when the phone is busy."
+- "Edits only what you changed."
+- "No permission it doesn't use. No internet, so no leaks."
+- "Message any number on Signal, WhatsApp or Telegram without saving it, and without reading your clipboard."
+- "Call time limits and plan minutes, with no extra permissions and nothing running between calls."
+- "Search names on the keypad in your alphabet, including Ukrainian, Hebrew, Arabic and Chinese."
+
+## Who can see your contacts
+
+Android doesn't let any contacts app decide what other apps see: any app you've allowed "Contacts" can read every contact on the phone, from every account. Settings › Privacy › "Who can see your contacts" lists those apps and links to Android's settings to change them, explains private contacts (kept out of the system address book, so only Parley shows their names), notes that picking a contact for another app shares only that contact (optionally just one number), and on GrapheneOS points to Contact Scopes.
+
+**Private-name lookup for other apps** (off by default): an app that declares and is granted the `app.parley.permission.LOOKUP_PRIVATE_NAME` permission can query `content://app.parley.phone.privatenames/lookup/<number>` and gets at most one row (`display_name`, `photo_uri`) for that exact number. Lists, prefixes and wildcards are refused; each app must also be approved in Parley (it asks with a notification the first time), queries are rate-limited, and every request is logged in Privacy without the number. Debug builds use `...LOOKUP_PRIVATE_NAME_DEBUG` and `app.parley.phone.debug.privatenames`.
+
 ## Project layout
 
 ```

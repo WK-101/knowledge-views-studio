@@ -42,6 +42,7 @@ import app.parley.ui.history.NumberHistoryScreen
 import app.parley.ui.history.historyDestinations
 import app.parley.ui.home.HomeScreen
 import app.parley.ui.onboarding.OnboardingScreen
+import app.parley.ui.people.peopleRoutes
 import app.parley.ui.settings.PrivacyScreen
 import app.parley.ui.settings.SettingsScreen
 import app.parley.ui.settings.SpeedDialScreen
@@ -228,6 +229,7 @@ fun ParleyRoot(vm: AppViewModel) {
             composable(Routes.SPEED_DIAL) { SpeedDialScreen(vm, back = { nav.popBackStack() }) }
             historyDestinations(vm, nav)
             composable(Routes.CALL_TIME) { app.parley.ui.calltime.CallTimeScreen(vm, back = { nav.popBackStack() }) }
+            peopleRoutes(vm, nav)
         }
        }
       }

@@ -70,6 +70,9 @@ import app.parley.data.EventItem
 import app.parley.data.GroupInfo
 import app.parley.data.PostalItem
 import app.parley.ui.Avatar
+import app.parley.common.people.LifeEvents
+import app.parley.ui.people.applyBackground
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -98,6 +101,8 @@ fun ContactEditScreen(
     prefill: ContactDetails? = null,
     /** Private vault mode: 0 = new vault contact, > 0 = edit that vault contact. */
     vaultId: Long? = null,
+    /** Edit one specific copy (raw contact) of the contact ("Edit this copy" on the contact page). */
+    rawId: Long? = null,
     done: (Long?) -> Unit,
 ) {
     val context = LocalContext.current
@@ -114,8 +119,14 @@ fun ContactEditScreen(
     var saving by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var start by remember { mutableStateOf<ContactDetails?>(null) }
+    // New contacts go to the private vault when "Private by default" is on (the Save-to menu can change it).
+    var privateNew by remember { mutableStateOf(false) }
+    val isVault = vaultId != null || privateNew
+    var bgChange by remember { mutableStateOf<app.parley.ui.people.BackgroundChange>(app.parley.ui.people.BackgroundChange.None) }
+    val idx by vm.people.index.collectAsStateWithLifecycle()
 
     LaunchedEffect(contactId) {
+        if (contactId == null && vaultId == null) privateNew = vm.c.people.prefs.current().privateByDefault
         accounts = withContext(Dispatchers.IO) { vm.c.contacts.accounts() }
         groups = withContext(Dispatchers.IO) { vm.c.contacts.groups() }
         val s = vm.settings.value
@@ -139,7 +150,7 @@ fun ContactEditScreen(
             return@LaunchedEffect
         }
         if (contactId != null) {
-            val d = vm.c.contacts.editable(contactId)
+            val d = if (rawId != null) vm.c.contacts.editableRaw(contactId, rawId) else vm.c.contacts.editable(contactId)
             original = d
             var e = d ?: ContactDetails()
             if (addPhone.isNotBlank()) e = e.copy(phones = e.phones + DataItem(value = addPhone, type = Phone.TYPE_MOBILE))
@@ -168,7 +179,7 @@ fun ContactEditScreen(
         if (uri != null) { photo = uri; removePhoto = false }
     }
     val d = draft
-    val dirty = d != start || photo != null || removePhoto
+    val dirty = d != start || photo != null || removePhoto || bgChange != app.parley.ui.people.BackgroundChange.None
     BackHandler(enabled = dirty) { confirmDiscard = true }
 
     fun save() {
@@ -180,11 +191,13 @@ fun ContactEditScreen(
         saving = true
         scope.launch {
             val id = try {
-                if (vaultId != null) {
-                    val id = vm.c.vault.save(vaultId.takeIf { it > 0 }, e)
+                if (isVault) {
+                    val id = vm.c.vault.save(vaultId?.takeIf { it > 0 }, e)
                     -id // negative ids mark vault contacts for the caller
                 } else {
-                    vm.c.contacts.save(original, e, account, photo, removePhoto)
+                    vm.c.contacts.save(original, e, account, photo, removePhoto).also {
+                        original?.lookupKey?.let { key -> vm.applyBackground(key, bgChange) }
+                    }
                 }
             } catch (ex: Exception) {
                 vm.toast("Couldn't save: ${ex.message}")
@@ -198,7 +211,7 @@ fun ContactEditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (vaultId != null) (if (vaultId > 0) "Edit private contact" else "New private contact") else if (contactId == null) "New contact" else "Edit contact") },
+                title = { Text(if (isVault) (if ((vaultId ?: 0) > 0) "Edit private contact" else "New private contact") else if (contactId == null) "New contact" else if (rawId != null) "Edit this copy" else "Edit contact") },
                 navigationIcon = { IconButton({ if (dirty) confirmDiscard = true else done(null) }) { Icon(Icons.Rounded.Close, "Cancel") } },
                 actions = { Button(onClick = ::save, enabled = !saving && d != null, modifier = Modifier.padding(end = 8.dp)) { Text("Save") } },
             )
@@ -211,27 +224,39 @@ fun ContactEditScreen(
             Modifier.padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (vaultId != null) {
+            if (isVault) {
                 Text(
                     "Private contact: stored encrypted inside Parley only. Other apps can't see it; calls from it still show its name.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (vaultId == null) Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+            if (contactId == null && vaultId == null) {
+                app.parley.ui.people.DuplicateWarning(vm, d, onOpen = { id -> vm.navigate(app.parley.NavEvent.Contact(id)) }) { id ->
+                    // "Add these details to her": continue in the existing contact's editor with this draft appended.
+                    vm.pendingPrefill = d
+                    done(null)
+                    vm.navigate(app.parley.NavEvent.Route(app.parley.ui.Routes.edit(id = id, prefill = true)))
+                }
+            }
+            if (!isVault) Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
                 val shownPhoto = photo?.toString() ?: d.photoUri.takeUnless { removePhoto }
                 Avatar(d.composedName.ifBlank { "?" }, shownPhoto, 104.dp, Modifier.clickable {
                     photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 })
                 Icon(Icons.Rounded.AddAPhoto, "Change photo", Modifier.align(Alignment.BottomCenter).padding(start = 80.dp).size(24.dp), tint = MaterialTheme.colorScheme.primary)
             }
-            if (vaultId == null && (photo != null || (d.photoUri != null && !removePhoto))) {
+            if (!isVault && (photo != null || (d.photoUri != null && !removePhoto))) {
                 TextButton({ photo = null; removePhoto = true }, Modifier.align(Alignment.CenterHorizontally)) { Text("Remove photo") }
             }
 
             if (vaultId != null) {
                 // no account for vault contacts
             } else if (original == null) {
-                Dropdown("Save to", account?.displayLabel ?: "Phone only", accounts.map { it.displayLabel }) { i -> account = accounts[i] }
+                val privateLabel = "Private (only in Parley)"
+                Dropdown(
+                    "Save to", if (privateNew) privateLabel else account?.let { idx.labelWithCount(it) } ?: "Phone only",
+                    listOf(privateLabel) + accounts.map { idx.labelWithCount(it) },
+                ) { i -> if (i == 0) privateNew = true else { privateNew = false; account = accounts[i - 1] } }
             } else {
                 Text("Saved in ${account?.displayLabel ?: "Phone"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -288,7 +313,18 @@ fun ContactEditScreen(
                 fun set(n: EventItem) = update { it.copy(events = it.events.toMutableList().also { l -> l[i] = n }) }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(Modifier.weight(0.45f)) {
-                        Dropdown("Type", res.getString(Event.getTypeResource(ev.type)), eventTypes.map { res.getString(Event.getTypeResource(it)) }) { t -> set(ev.copy(type = eventTypes[t])) }
+                        var customLabel by remember { mutableStateOf(false) }
+                        Dropdown(
+                            "Type", app.parley.ui.people.eventLabel(res, ev),
+                            eventTypes.map { res.getString(Event.getTypeResource(it)) } + LifeEvents.DEATH_LABEL + "Custom…",
+                        ) { t ->
+                            when (t) {
+                                in eventTypes.indices -> set(ev.copy(type = eventTypes[t], label = null))
+                                eventTypes.size -> set(ev.copy(type = Event.TYPE_CUSTOM, label = LifeEvents.DEATH_LABEL))
+                                else -> customLabel = true
+                            }
+                        }
+                        if (customLabel) CustomLabelDialog(ev.label.takeIf { ev.type == Event.TYPE_CUSTOM }, { customLabel = false }) { set(ev.copy(type = Event.TYPE_CUSTOM, label = it)) }
                     }
                     Box(Modifier.weight(0.55f)) {
                         var picking by remember { mutableStateOf(false) }
@@ -315,7 +351,7 @@ fun ContactEditScreen(
                 onChange = { list -> update { it.copy(relations = list) } }, newItem = { DataItem(type = Relation.TYPE_SPOUSE) },
             )
 
-            val accountGroups = if (vaultId != null) emptyList() else groups.filter { it.account.type == account?.type && it.account.name == account?.name }
+            val accountGroups = if (isVault) emptyList() else groups.filter { it.account.type == account?.type && it.account.name == account?.name }
             if (accountGroups.isNotEmpty()) {
                 SectionTitle("Labels")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -331,6 +367,10 @@ fun ContactEditScreen(
                 modifier = Modifier.fillMaxWidth(), minLines = 2,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             )
+            val key = original?.lookupKey
+            if (!isVault && !key.isNullOrEmpty()) {
+                app.parley.ui.people.CallBackgroundEditor(vm, key, bgChange) { bgChange = it }
+            }
             Spacer(Modifier.height(48.dp))
         }
         }
@@ -396,14 +436,31 @@ private fun MultiSection(
                 keyboardOptions = KeyboardOptions(keyboardType = keyboard),
             )
             Box(Modifier.weight(0.4f)) {
-                Dropdown("Type", if (item.type == 0) item.label ?: "Custom" else typeLabel(item.type), types.map(typeLabel)) { t ->
-                    onChange(items.toMutableList().also { it[i] = item.copy(type = types[t], label = null) })
+                var customLabel by remember { mutableStateOf(false) }
+                Dropdown("Type", if (item.type == 0) item.label ?: "Custom" else typeLabel(item.type), types.map(typeLabel) + "Custom…") { t ->
+                    if (t in types.indices) onChange(items.toMutableList().also { it[i] = item.copy(type = types[t], label = null) }) else customLabel = true
+                }
+                if (customLabel) CustomLabelDialog(item.label.takeIf { item.type == 0 }, { customLabel = false }) { l ->
+                    onChange(items.toMutableList().also { it[i] = item.copy(type = 0, label = l) })
                 }
             }
             IconButton({ onChange(items.filterIndexed { j, _ -> j != i }) }) { Icon(Icons.Rounded.Close, "Remove") }
         }
     }
     AddButton("Add ${title.lowercase()}") { onChange(items + newItem()) }
+}
+
+/** Free-text label for a phone, e-mail, date… (stored as TYPE_CUSTOM with this label; survives export). */
+@Composable
+private fun CustomLabelDialog(initial: String?, onDismiss: () -> Unit, onDone: (String) -> Unit) {
+    var text by remember { mutableStateOf(initial.orEmpty()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Custom label") },
+        text = { OutlinedTextField(text, { text = it }, singleLine = true, placeholder = { Text("e.g. Boat, Name day") }) },
+        confirmButton = { TextButton({ onDismiss(); onDone(text.trim()) }, enabled = text.isNotBlank()) { Text("OK") } },
+        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

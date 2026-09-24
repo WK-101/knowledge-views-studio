@@ -29,9 +29,11 @@ class DataContainer(context: Context) {
     val folderSync by lazy { app.parley.data.sync.FolderSync(appContext, contacts, records) }
     val messaging by lazy { app.parley.data.messaging.MessagingStore(appContext) }
     val timeMachine by lazy { app.parley.data.backup.TimeMachine(appContext, records) }
+    val people by lazy { app.parley.data.people.PeopleContainer(this) }
     val backup by lazy {
         app.parley.data.backup.BackupRepository(appContext, contacts, records, blocks, prefs, db, settings, vault, app.parley.data.backup.BackupPrefs(appContext))
             .apply { callHistory = history }
+            .also { it.extras = { listOf(people.backupExtras) } }
     }
     val history by lazy { app.parley.data.history.CallHistory(appContext, callLog, contacts, vault, scope) }
 

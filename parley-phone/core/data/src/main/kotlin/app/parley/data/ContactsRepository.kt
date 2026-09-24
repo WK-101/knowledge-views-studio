@@ -204,6 +204,9 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
      */
     suspend fun editable(contactId: Long): ContactDetails? = load(contactId, forEdit = true)
 
+    /** Editable view of one specific copy (raw contact) of a contact ("Edit this copy"). */
+    suspend fun editableRaw(contactId: Long, rawId: Long): ContactDetails? = load(contactId, forEdit = true, preferRaw = rawId)
+
     private fun writableTypes(): Set<String> = try {
         ContentResolver.getSyncAdapterTypes()
             .filter { it.authority == ContactsContract.AUTHORITY && it.supportsUploading() }
@@ -215,7 +218,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     private fun isWritable(a: AccountRef, types: Set<String>, local: AccountRef): Boolean =
         a.type == null || a.type == local.type || a.type in types
 
-    private suspend fun load(contactId: Long, forEdit: Boolean): ContactDetails? = withContext(Dispatchers.IO) {
+    private suspend fun load(contactId: Long, forEdit: Boolean, preferRaw: Long? = null): ContactDetails? = withContext(Dispatchers.IO) {
         var base: ContactDetails = cr.safeQuery(
             ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId),
             arrayOf(
@@ -243,7 +246,8 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         val types = writableTypes()
         val local = localAccount()
         val writable = raws.filter { isWritable(it.account, types, local) }
-        val target = writable.firstOrNull { it.account.type == "com.google" } ?: writable.firstOrNull { !it.account.isLocal } ?: writable.firstOrNull()
+        val target = preferRaw?.let { p -> writable.firstOrNull { it.id == p } }
+            ?: writable.firstOrNull { it.account.type == "com.google" } ?: writable.firstOrNull { !it.account.isLocal } ?: writable.firstOrNull()
         base = base.copy(rawContacts = raws, editRawId = target?.id, writableRawIds = writable.map { it.id })
         if (forEdit && target == null) {
             // Nothing writable: start from the aggregated name only; save() adds a linked device entry.
@@ -400,23 +404,30 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
                 insertTarget = { it.withValue(Data.RAW_CONTACT_ID, rawId) }
             }
 
+            // Only rows that really changed are written, so a sync adapter uploads (and other apps see) just the edit.
+            val changed = LinkedHashSet<String>()
             fun insert(mime: String, values: ContentValues) {
                 ops += insertTarget(ContentProviderOperation.newInsert(Data.CONTENT_URI))
                     .withValue(Data.MIMETYPE, mime).withValues(values).build()
+                changed += fieldName(mime)
             }
-            fun update(id: Long, values: ContentValues) {
+            fun update(id: Long, mime: String, values: ContentValues) {
                 ops += ContentProviderOperation.newUpdate(ContentUris.withAppendedId(Data.CONTENT_URI, id)).withValues(values).build()
+                changed += fieldName(mime)
             }
-            fun delete(id: Long) {
+            fun delete(id: Long, mime: String) {
                 ops += ContentProviderOperation.newDelete(ContentUris.withAppendedId(Data.CONTENT_URI, id)).build()
+                changed += fieldName(mime)
             }
-            fun single(id: Long?, mime: String, blank: Boolean, values: ContentValues) {
+            fun single(id: Long?, mime: String, blank: Boolean, values: ContentValues, same: Boolean = false) {
                 when {
-                    id != null && blank -> delete(id)
-                    id != null -> update(id, values)
+                    id != null && blank -> delete(id, mime)
+                    id != null && same -> Unit
+                    id != null -> update(id, mime, values)
                     !blank -> insert(mime, values)
                 }
             }
+            fun t(s: String?) = s.orEmpty().trim()
 
             val nameValues = ContentValues().apply {
                 put(StructuredName.DISPLAY_NAME, edited.composedName.ifBlank { null })
@@ -428,29 +439,41 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
                 put(StructuredName.PHONETIC_GIVEN_NAME, edited.phoneticGiven.trim().ifEmpty { null })
                 put(StructuredName.PHONETIC_FAMILY_NAME, edited.phoneticFamily.trim().ifEmpty { null })
             }
-            single(original?.nameId, StructuredName.CONTENT_ITEM_TYPE, edited.composedName.isBlank() && edited.phoneticGiven.isBlank() && edited.phoneticFamily.isBlank(), nameValues)
-            single(original?.nicknameId, Nickname.CONTENT_ITEM_TYPE, edited.nickname.isBlank(), ContentValues().apply { put(Nickname.NAME, edited.nickname.trim()) })
+            val o = original
+            val sameName = o != null && listOf(o.prefix, o.given, o.middle, o.family, o.suffix, o.phoneticGiven, o.phoneticFamily).map(::t) ==
+                listOf(edited.prefix, edited.given, edited.middle, edited.family, edited.suffix, edited.phoneticGiven, edited.phoneticFamily).map(::t)
+            single(original?.nameId, StructuredName.CONTENT_ITEM_TYPE, edited.composedName.isBlank() && edited.phoneticGiven.isBlank() && edited.phoneticFamily.isBlank(), nameValues, sameName)
+            single(
+                original?.nicknameId, Nickname.CONTENT_ITEM_TYPE, edited.nickname.isBlank(), ContentValues().apply { put(Nickname.NAME, edited.nickname.trim()) },
+                o != null && t(o.nickname) == t(edited.nickname),
+            )
             single(
                 original?.orgId, Organization.CONTENT_ITEM_TYPE, edited.company.isBlank() && edited.title.isBlank(),
                 ContentValues().apply {
                     put(Organization.COMPANY, edited.company.trim().ifEmpty { null })
                     put(Organization.TITLE, edited.title.trim().ifEmpty { null })
                 },
+                o != null && t(o.company) == t(edited.company) && t(o.title) == t(edited.title),
             )
-            single(original?.noteId, Note.CONTENT_ITEM_TYPE, edited.note.isBlank(), ContentValues().apply { put(Note.NOTE, edited.note.trim()) })
+            single(original?.noteId, Note.CONTENT_ITEM_TYPE, edited.note.isBlank(), ContentValues().apply { put(Note.NOTE, edited.note.trim()) }, o != null && t(o.note) == t(edited.note))
 
             fun multi(orig: List<DataItem>, now: List<DataItem>, mime: String, valueCol: String, typeCol: String, labelCol: String) {
                 val keep = now.mapNotNull { it.id }.toSet()
-                orig.filter { it.id != null && it.id !in keep }.forEach { delete(it.id!!) }
+                val before = orig.filter { it.id != null }.associateBy { it.id }
+                orig.filter { it.id != null && it.id !in keep }.forEach { delete(it.id!!, mime) }
                 now.forEach { item ->
                     val v = ContentValues().apply {
                         put(valueCol, item.value.trim())
                         put(typeCol, item.type)
                         put(labelCol, item.label?.takeIf { item.type == 0 })
                     }
+                    val prev = item.id?.let { before[it] }
+                    val same = prev != null && t(prev.value) == t(item.value) && prev.type == item.type &&
+                        prev.label?.takeIf { prev.type == 0 } == item.label?.takeIf { item.type == 0 }
                     when {
-                        item.id != null && item.value.isBlank() -> delete(item.id)
-                        item.id != null -> update(item.id, v)
+                        item.id != null && item.value.isBlank() -> delete(item.id, mime)
+                        item.id != null && same -> Unit
+                        item.id != null -> update(item.id, mime, v)
                         item.value.isNotBlank() -> insert(mime, v)
                     }
                 }
@@ -466,7 +489,8 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
             )
 
             val keepAddr = edited.addresses.mapNotNull { it.id }.toSet()
-            original?.addresses.orEmpty().filter { it.id != null && it.id !in keepAddr }.forEach { delete(it.id!!) }
+            val addrBefore = original?.addresses.orEmpty().filter { it.id != null }.associateBy { it.id }
+            original?.addresses.orEmpty().filter { it.id != null && it.id !in keepAddr }.forEach { delete(it.id!!, StructuredPostal.CONTENT_ITEM_TYPE) }
             edited.addresses.forEach { a ->
                 val v = ContentValues().apply {
                     put(StructuredPostal.STREET, a.street.trim())
@@ -478,9 +502,13 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
                     put(StructuredPostal.TYPE, a.type)
                     put(StructuredPostal.LABEL, a.label?.takeIf { a.type == 0 })
                 }
+                val prev = a.id?.let { addrBefore[it] }
+                val same = prev != null && prev.type == a.type && prev.label?.takeIf { prev.type == 0 } == a.label?.takeIf { a.type == 0 } &&
+                    listOf(prev.street, prev.city, prev.region, prev.postcode, prev.country).map(::t) == listOf(a.street, a.city, a.region, a.postcode, a.country).map(::t)
                 when {
-                    a.id != null && a.isBlank -> delete(a.id)
-                    a.id != null -> update(a.id, v)
+                    a.id != null && a.isBlank -> delete(a.id, StructuredPostal.CONTENT_ITEM_TYPE)
+                    a.id != null && same -> Unit
+                    a.id != null -> update(a.id, StructuredPostal.CONTENT_ITEM_TYPE, v)
                     !a.isBlank -> insert(StructuredPostal.CONTENT_ITEM_TYPE, v)
                 }
             }
@@ -495,8 +523,10 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
                             "${Data.RAW_CONTACT_ID}=? AND ${Data.MIMETYPE}=? AND ${GroupMembership.GROUP_ROW_ID}=?",
                             arrayOf(rawId.toString(), GroupMembership.CONTENT_ITEM_TYPE, g.toString()),
                         ).build()
+                    changed += fieldName(GroupMembership.CONTENT_ITEM_TYPE)
                 }
             }
+            if (photo != null || removePhoto) changed += "Photo"
             if (removePhoto) {
                 (original?.writableRawIds.orEmpty() + listOfNotNull(rawId)).distinct().forEach { rid ->
                     ops += ContentProviderOperation.newDelete(Data.CONTENT_URI)
@@ -505,12 +535,36 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
                 }
             }
 
-            val results = cr.applyBatch(ContactsContract.AUTHORITY, ops)
+            val results = if (ops.isEmpty()) emptyArray<android.content.ContentProviderResult>() else cr.applyBatch(ContactsContract.AUTHORITY, ops)
             val finalRawId = rawId ?: results.firstOrNull()?.uri?.let { ContentUris.parseId(it) } ?: return@withContext null
             if (linkTo.isNotEmpty()) setAggregation(linkTo + finalRawId, AggregationExceptions.TYPE_KEEP_TOGETHER)
             if (photo != null) writePhoto(finalRawId, photo)
-            contactIdForRaw(finalRawId)
+            val contactId = contactIdForRaw(finalRawId)
+            // Remember what Parley wrote (and the version it left), for "Why did this change?" and the journal.
+            runCatching {
+                val key = contactId?.let { id -> cr.safeQuery(ContentUris.withAppendedId(Contacts.CONTENT_URI, id), arrayOf(Contacts.LOOKUP_KEY))?.use { c -> if (c.moveToFirst()) c.getString(0) else null } }
+                writeLog.version(cr, finalRawId)?.let { v -> writeLog.record(finalRawId, key ?: original?.lookupKey.orEmpty(), v, changed.toList()) }
+            }
+            contactId
         }
+
+    /** Parley's own saves, per raw contact ("Why did this change?"). */
+    val writeLog by lazy { app.parley.data.people.ParleyWriteLog(context) }
+
+    private fun fieldName(mime: String): String = when (mime) {
+        StructuredName.CONTENT_ITEM_TYPE -> "Name"
+        Nickname.CONTENT_ITEM_TYPE -> "Nickname"
+        Organization.CONTENT_ITEM_TYPE -> "Company"
+        Note.CONTENT_ITEM_TYPE -> "Note"
+        Phone.CONTENT_ITEM_TYPE -> "Phone"
+        Email.CONTENT_ITEM_TYPE -> "Email"
+        Website.CONTENT_ITEM_TYPE -> "Website"
+        Relation.CONTENT_ITEM_TYPE -> "Relation"
+        Event.CONTENT_ITEM_TYPE -> "Dates"
+        StructuredPostal.CONTENT_ITEM_TYPE -> "Address"
+        GroupMembership.CONTENT_ITEM_TYPE -> "Labels"
+        else -> "Other"
+    }
 
     private fun localAccount(): AccountRef {
         if (Build.VERSION.SDK_INT >= 35) {

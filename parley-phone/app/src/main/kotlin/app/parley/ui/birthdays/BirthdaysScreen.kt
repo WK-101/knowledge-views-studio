@@ -57,6 +57,7 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
             EmptyState(Icons.Rounded.Cake, "No dates yet", "Add birthdays and anniversaries to contacts to see them here and get a reminder on the day.", Modifier.padding(p))
             return@Scaffold
         }
+        val deceased = items.orEmpty().filter { app.parley.common.people.LifeEvents.isDeath(it.event.type, it.event.label) }.map { it.event.contactId }.toSet()
         LazyColumn(Modifier.padding(p)) {
             val groups = items.orEmpty().groupBy {
                 when {
@@ -78,7 +79,18 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
                                 modifier = Modifier.clickable { open(Routes.contact(e.contactId)) },
                                 leadingContent = { Avatar(e.name, e.photoUri, 44.dp) },
                                 headlineContent = { Text(e.name) },
-                                supportingContent = { Text("$kind · " + describeEvent(e.date, e.type == Event.TYPE_BIRTHDAY)) },
+                                supportingContent = {
+                                    val birth = EventDate.parse(e.date)
+                                    Text(
+                                        "$kind · " + if (e.type == Event.TYPE_BIRTHDAY && e.contactId in deceased && birth != null) {
+                                            describeEvent(e.date, false).substringBefore(" ·") +
+                                                (app.parley.common.people.LifeEvents.wouldHaveTurned(birth, java.time.LocalDate.now())?.let { " · would have turned $it" } ?: "") +
+                                                " · " + describeEvent(e.date, false).substringAfterLast(" · ")
+                                        } else {
+                                            describeEvent(e.date, e.type == Event.TYPE_BIRTHDAY)
+                                        },
+                                    )
+                                },
                                 trailingContent = {
                                     e.phone?.let { n ->
                                         androidx.compose.foundation.layout.Row {

@@ -22,6 +22,8 @@ android {
         targetSdk = 36
         versionCode = 2
         versionName = "2.0.0"
+        // Custom permission guarding the private-name lookup provider (differs in debug so both builds can be installed).
+        manifestPlaceholders["lookupPermission"] = "app.parley.permission.LOOKUP_PRIVATE_NAME"
     }
 
     signingConfigs {
@@ -47,6 +49,7 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+            manifestPlaceholders["lookupPermission"] = "app.parley.permission.LOOKUP_PRIVATE_NAME_DEBUG"
         }
     }
 

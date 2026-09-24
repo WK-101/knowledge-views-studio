@@ -64,6 +64,7 @@ import app.parley.data.VCardIO
 import app.parley.ui.CallColors
 import app.parley.ui.Routes
 import app.parley.ui.contact.Section
+import app.parley.ui.people.accountLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -140,6 +141,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                 MenuRow("Open on", listOf("Favorites", "Recents", "Contacts", "Keypad"), s.startTab.ordinal) { i -> set { it.copy(startTab = StartTab.entries[i]) } }
                 SwitchRow("Call & message buttons on contacts", "Tapping a contact still opens it", s.contactRowActions) { v -> set { it.copy(contactRowActions = v) } }
                 MenuRow("Sort and show names by", listOf("First name", "Last name"), if (s.sortByFirstName) 0 else 1) { i -> set { it.copy(sortByFirstName = i == 0) } }
+                app.parley.ui.people.PeopleAppearanceRows(vm)
             }
 
             item { Section("Calls") }
@@ -194,7 +196,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             item { Section("Contacts") }
             item {
                 val current = accounts.indexOfFirst { it.type == s.defaultAccountType && it.name == s.defaultAccountName }.coerceAtLeast(0)
-                MenuRow("Save new contacts to", accounts.map { it.displayLabel }, current) { i ->
+                MenuRow("Save new contacts to", accounts.map { vm.accountLabel(it) }, current) { i ->
                     val a = accounts[i]
                     set { it.copy(defaultAccountType = a.type, defaultAccountName = a.name) }
                 }
@@ -204,6 +206,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                 LinkRow("Export all to .vcf file", "Plain-text backup you control") { exporter.launch("contacts.vcf") }
                 LinkRow("Export all to .csv file", "For spreadsheets") { csvExporter.launch("contacts.csv") }
                 LinkRow("Find & merge duplicates", null) { open(Routes.DUPLICATES) }
+                app.parley.ui.people.PeopleContactsRows(vm, open)
                 LinkRow("Contact health check", "Fix numbers without country code, empty and stale contacts") { open(Routes.HEALTH) }
                 LinkRow("Birthdays & dates", null) { open(Routes.BIRTHDAYS) }
                 SwitchRow("Birthday reminders", "A notification on the day, at ${s.birthdayReminderHour}:00", s.birthdayReminders) { v -> set { it.copy(birthdayReminders = v) } }
@@ -263,6 +266,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     headlineContent = { Text("Parley ${BuildConfigInfo.versionName(context)}") },
                     supportingContent = { Text("Free and open source (GPL-3.0). No internet access, no ads, no trackers, no accounts.") },
                 )
+                app.parley.ui.people.PeopleAboutRows(open)
             }
         }
     }
@@ -289,7 +293,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                 Column {
                     SwitchRow("Skip contacts I already have", "Same number or e-mail", skipDuplicates) { skipDuplicates = it }
                     accs.forEach { a ->
-                        ListItem(headlineContent = { Text(a.displayLabel) }, modifier = Modifier.clickable {
+                        ListItem(headlineContent = { Text(vm.accountLabel(a)) }, modifier = Modifier.clickable {
                             importAccounts = null
                             scope.launch {
                                 progress = "Importing…"

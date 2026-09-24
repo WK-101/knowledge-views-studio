@@ -18,6 +18,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Health check: tells you when contacts sync is off for an account. -->
+    <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
 
     <!-- Optional, requested only when the user turns on the feature that needs it. -->
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
@@ -28,6 +30,13 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
 
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
+
+    <!-- "Let apps show private names": other apps request this to query one number at a time (see PrivateNameProvider). -->
+    <permission
+        android:name="${lookupPermission}"
+        android:description="@string/permission_lookup_private_name_description"
+        android:label="@string/permission_lookup_private_name_label"
+        android:protectionLevel="dangerous" />
 
     <queries>
         <intent>
@@ -55,6 +64,17 @@
         <package android:name="org.telegram.messenger.web" />
         <package android:name="org.thunderdog.challegram" />
         <package android:name="com.viber.voip" />
+        <!-- "Who can see your contacts": launcher apps only (never QUERY_ALL_PACKAGES). -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <!-- GrapheneOS detection (to point to Contact Scopes). -->
+        <package android:name="app.grapheneos.apps" />
+        <package android:name="app.grapheneos.info" />
+        <package android:name="app.grapheneos.camera" />
+        <package android:name="app.grapheneos.pdfviewer" />
+        <package android:name="app.grapheneos.gmscompat" />
     </queries>
 
     <application
@@ -272,6 +292,16 @@
         </receiver>
         <receiver
             android:name=".MissedCallActionReceiver"
+            android:exported="false" />
+
+        <!-- Protected private-name lookup: one number per query, only for approved apps holding the permission. -->
+        <provider
+            android:name=".privatenames.PrivateNameProvider"
+            android:authorities="${applicationId}.privatenames"
+            android:exported="true"
+            android:permission="${lookupPermission}" />
+        <receiver
+            android:name=".privatenames.PrivateNameDecisionReceiver"
             android:exported="false" />
     </application>
 </manifest>

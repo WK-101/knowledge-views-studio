@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import app.parley.AppViewModel
 import app.parley.data.AccountRef
+import app.parley.ui.people.accountLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -45,7 +46,7 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                     }
                     else -> accounts.forEach { a ->
                         ListItem(
-                            headlineContent = { Text(a.displayLabel) },
+                            headlineContent = { Text(vm.accountLabel(a)) },
                             modifier = Modifier.clickable {
                                 running = true
                                 scope.launch {

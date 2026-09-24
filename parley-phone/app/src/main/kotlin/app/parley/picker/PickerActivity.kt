@@ -14,6 +14,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import app.parley.container
@@ -66,6 +67,12 @@ class PickerActivity : androidx.fragment.app.FragmentActivity() {
                     app.parley.security.LockScreen { app.parley.security.AppLock.authenticate(this@PickerActivity) }
                     return@ParleyTheme
                 }
+                oneField?.let { (pick, phones) ->
+                    OneFieldDialog(pick, phones, onWhole = { oneField = null; deliver(listOf(pick), ask = false) }, onNumber = { uri ->
+                        oneField = null
+                        deliver(listOf(pick.copy(uri = uri)), ask = false)
+                    }, onDismiss = { oneField = null })
+                }
                 PickerScreen(
                     kind = if (joinTarget != null) PickKind.CONTACT else kind,
                     multiple = multiple && joinTarget == null,
@@ -97,10 +104,23 @@ class PickerActivity : androidx.fragment.app.FragmentActivity() {
         }
     }
 
-    private fun deliver(picks: List<Pick>) {
+    /** Pending "share the whole contact or only one number?" question (Privacy › Share just one contact). */
+    private var oneField by androidx.compose.runtime.mutableStateOf<Pair<Pick, List<Pair<String, Uri>>>?>(null)
+
+    private fun deliver(picks: List<Pick>, ask: Boolean = true) {
         if (picks.isEmpty()) {
             setResult(Activity.RESULT_CANCELED)
             finish()
+            return
+        }
+        val single = picks.singleOrNull()
+        if (ask && single != null && PickKind.from(intent) == PickKind.CONTACT && intent.action != ACTION_JOIN_CONTACT &&
+            container.people.prefs.settings.value.pickerOneField
+        ) {
+            lifecycleScope.launch {
+                val phones = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { phonesOf(single.contactId) }
+                if (phones.isEmpty()) deliver(picks, ask = false) else oneField = single to phones
+            }
             return
         }
         val uris = picks.map { it.uri }
@@ -114,6 +134,16 @@ class PickerActivity : androidx.fragment.app.FragmentActivity() {
         finish()
     }
 
+    /** The contact's numbers as Data row URIs: an app given one of them can read that number and the name only. */
+    private fun phonesOf(contactId: Long): List<Pair<String, Uri>> = try {
+        contentResolver.query(
+            Phone.CONTENT_URI, arrayOf(Phone._ID, Phone.NUMBER), "${Phone.CONTACT_ID}=?", arrayOf(contactId.toString()), null,
+        )?.use { c -> buildList { while (c.moveToNext()) add(c.getString(1).orEmpty() to ContentUris.withAppendedId(ContactsContract.Data.CONTENT_URI, c.getLong(0))) } }
+            .orEmpty().distinctBy { app.parley.common.PhoneNumbers.matchKey(it.first) }
+    } catch (_: Exception) {
+        emptyList()
+    }
+
     companion object {
         const val ACTION_JOIN_CONTACT = "com.android.contacts.action.JOIN_CONTACT"
         const val EXTRA_JOIN_TARGET = "com.android.contacts.action.CONTACT_ID"
@@ -121,3 +151,21 @@ class PickerActivity : androidx.fragment.app.FragmentActivity() {
 }
 
 data class Pick(val contactId: Long, val uri: Uri, val title: String, val subtitle: String?, val photoUri: String?)
+
+@androidx.compose.runtime.Composable
+private fun OneFieldDialog(pick: Pick, phones: List<Pair<String, Uri>>, onWhole: () -> Unit, onNumber: (Uri) -> Unit, onDismiss: () -> Unit) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { androidx.compose.material3.Text("Share ${pick.title}") },
+        text = {
+            androidx.compose.foundation.layout.Column {
+                androidx.compose.material3.Text("Share only one number instead of the whole contact? Some apps may not accept a single number.")
+                phones.forEach { (n, uri) ->
+                    androidx.compose.material3.TextButton({ onNumber(uri) }) { androidx.compose.material3.Text("Only $n") }
+                }
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onWhole) { androidx.compose.material3.Text("Whole contact") } },
+        dismissButton = { androidx.compose.material3.TextButton(onDismiss) { androidx.compose.material3.Text("Cancel") } },
+    )
+}
