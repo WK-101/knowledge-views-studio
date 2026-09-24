@@ -21,6 +21,9 @@ Cairn contacts only:
   - *Broken-link checking* (contacts publishers to detect link rot) — **off by default**,
     enabled in Settings.
   - *Dictionary lookups* (`api.dictionaryapi.dev`) — only when you tap "Define"; **off by default**.
+  - *Offline dictionary pack* (public-domain Webster's, from `raw.githubusercontent.com`) — a
+    one-time ~22 MB download you start in Settings; once installed, "Define" works fully offline and
+    contacts nothing. Only the download itself touches the network.
   - *Wayback healing* (`archive.org`) — only when you ask to heal a broken link, and the
     paywall/archive recovery you trigger in the reader (`archive.today` / `archive.org`).
   - *Media & transcript features* — **governed by one setting** ("Media & transcript features
@@ -69,4 +72,4 @@ Everything Cairn holds can leave it, in open formats you control:
 When something fails, Cairn records it to Logcat and a small rotating log file in its own
 private storage (`util/AppLog`). That log stays on your device and is never uploaded.
 
-*Last reviewed: as of app version 3.99.22.*
+*Last reviewed: as of app version 3.99.28.*

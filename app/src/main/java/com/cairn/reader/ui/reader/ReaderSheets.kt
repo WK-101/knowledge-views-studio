@@ -173,6 +173,7 @@ internal fun LookupSheet(
     onDefine: suspend (String) -> Result<com.cairn.reader.domain.lookup.DictionaryEntry>,
     onEnableOnline: () -> Unit,
     onDismiss: () -> Unit,
+    offlineAvailable: Boolean = false,
 ) {
     val scheme = MaterialTheme.colorScheme
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
@@ -186,8 +187,9 @@ internal fun LookupSheet(
                 .padding(bottom = 28.dp),
         ) {
             // Online look-up is the one reader feature that sends selected text off-device, so it is
-            // disclosed and opt-in. Until enabled, the sheet explains exactly what will be sent.
-            if (!onlineEnabled) {
+            // disclosed and opt-in. The prompt shows only when there's no way to define at all — an
+            // installed offline pack answers with no network, so we skip straight to the definition.
+            if (!onlineEnabled && !offlineAvailable) {
                 val firstWord = remember(term) {
                     term.trim().split(Regex("\\s+")).firstOrNull().orEmpty()
                 }

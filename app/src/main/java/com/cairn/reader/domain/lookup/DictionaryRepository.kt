@@ -38,6 +38,7 @@ data class DictionaryEntry(
 @Singleton
 class DictionaryRepository @Inject constructor(
     client: OkHttpClient,
+    private val offline: OfflineDictionary,
 ) {
     private val http: OkHttpClient = client.newBuilder()
         .connectTimeout(6, TimeUnit.SECONDS)
@@ -50,7 +51,13 @@ class DictionaryRepository @Inject constructor(
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, DictionaryEntry>?) = size > 200
     }
 
-    suspend fun define(raw: String): Result<DictionaryEntry> = withContext(Dispatchers.IO) {
+    /**
+     * Define [raw]. The installed offline pack is consulted first (works with no network at all);
+     * only if it has no entry — or isn't installed — and [allowOnline] is true do we reach the
+     * network. So a downloaded pack makes "Define" work fully offline, and the online sources stay a
+     * fallback the caller gates on the user's opt-in.
+     */
+    suspend fun define(raw: String, allowOnline: Boolean = true): Result<DictionaryEntry> = withContext(Dispatchers.IO) {
         // Only a single word makes sense for a dictionary; take the first token of a selection.
         val word = raw.trim().split(Regex("\\s+")).firstOrNull()
             ?.trim { !it.isLetterOrDigit() && it != '-' && it != '\'' }
@@ -60,7 +67,12 @@ class DictionaryRepository @Inject constructor(
 
         synchronized(cache) { cache[word] }?.let { return@withContext Result.success(it) }
 
-        // 1. dictionaryapi.dev (rich), then 2. Wiktionary (reliable fallback).
+        // 0. Offline pack (no network), then — only if allowed — 1. dictionaryapi.dev, 2. Wiktionary.
+        offline.lookup(word)?.let { entry ->
+            synchronized(cache) { cache[word] = entry }
+            return@withContext Result.success(entry)
+        }
+        if (!allowOnline) return@withContext Result.failure(IOException("No offline definition for “$word”"))
         primaryDefine(word).recoverCatching { wiktionaryDefine(word).getOrThrow() }
             .onSuccess { entry -> synchronized(cache) { cache[word] = entry } }
     }
@@ -158,4 +170,7 @@ class DictionaryRepository @Inject constructor(
         if (arr == null) return
         for (i in 0 until arr.length()) arr.optString(i).takeIf { it.isNotBlank() }?.let { into.add(it) }
     }
+
+    /** Whether the offline dictionary pack is installed (a cheap file check). */
+    fun offlineInstalled(): Boolean = offline.isInstalled()
 }

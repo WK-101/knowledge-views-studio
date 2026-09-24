@@ -451,15 +451,21 @@ class ReaderViewModel @Inject constructor(
     val dictionaryOnline: StateFlow<Boolean> =
         preferences.map { it.dictionaryOnline }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
+    /** Whether the offline dictionary pack is installed, so Define works with no network. Resolved
+     *  once off the main thread (a cheap file check); the reader opens after any Settings download. */
+    val offlineDictionaryInstalled: StateFlow<Boolean> =
+        kotlinx.coroutines.flow.flow { emit(dictionaryRepository.offlineInstalled()) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     /** Opt in (or out) of online look-ups. Persisted; the reader's "Look up" sheet reads it live. */
     fun setDictionaryOnline(enabled: Boolean) =
         viewModelScope.launch { preferencesRepository.setDictionaryOnline(enabled) }
 
-    /** Defense-in-depth: even if a caller reaches this while the pref is off, no request leaves the
-     *  device. The UI already gates on [dictionaryOnline], but the network call is refused here too. */
+    /** The installed offline dictionary pack always answers (no network); the online sources are
+     *  reached only when the user's opt-in [dictionaryOnline] is on. So Define works fully offline
+     *  once the pack is downloaded, and no request leaves the device when online look-up is off. */
     suspend fun define(word: String): Result<com.cairn.reader.domain.lookup.DictionaryEntry> =
-        if (preferences.value.dictionaryOnline) dictionaryRepository.define(word)
-        else Result.failure(IllegalStateException("Online dictionary look-up is off"))
+        dictionaryRepository.define(word, allowOnline = preferences.value.dictionaryOnline)
 
     // -- Images / media --------------------------------------------------------
 

@@ -876,9 +876,11 @@ fun ReaderScreen(
 
     lookup?.let { term ->
         val onlineEnabled by viewModel.dictionaryOnline.collectAsStateWithLifecycle()
+        val offlineDict by viewModel.offlineDictionaryInstalled.collectAsStateWithLifecycle()
         LookupSheet(
             term = term,
             onlineEnabled = onlineEnabled,
+            offlineAvailable = offlineDict,
             // Keep the reader's full-screen while the definition sheet is open — the sheet's own
             // window would otherwise re-show the system bars (and shunt the article) on focus.
             keepImmersive = hideSystemBars,

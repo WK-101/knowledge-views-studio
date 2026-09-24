@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.GridOn
+import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
@@ -53,6 +54,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -701,6 +703,23 @@ internal fun PrivacySection(prefs: AppPreferences, viewModel: SettingsViewModel)
         SettingSwitchRow(stringResource(R.string.check_saved_links_for_rot), stringResource(R.string.off_by_default_when_on_cairn), prefs.linkCheckEnabled, viewModel::setLinkCheckEnabled)
         SettingDivider()
         SettingSwitchRow(stringResource(R.string.online_dictionary_lookups), stringResource(R.string.online_dictionary_lookups_desc), prefs.dictionaryOnline, viewModel::setDictionaryOnline)
+        SettingDivider()
+        // Offline dictionary pack — a one-time download, then Define works with no network at all.
+        val dictInstalled by viewModel.offlineDictInstalled.collectAsStateWithLifecycle()
+        val dictProgress by viewModel.offlineDictProgress.collectAsStateWithLifecycle()
+        SettingActionRow(
+            title = "Offline dictionary",
+            subtitle = when {
+                dictProgress != null -> "Downloading… ${((dictProgress ?: 0f) * 100).toInt()}%"
+                dictInstalled -> "Installed — “Define” works offline. Tap to remove."
+                else -> "Download ~${viewModel.offlineDictApproxMb} MB once; then “Define” works with no network."
+            },
+            icon = Icons.Outlined.MenuBook,
+            onClick = {
+                if (dictProgress != null) return@SettingActionRow
+                if (dictInstalled) viewModel.removeOfflineDictionary() else viewModel.downloadOfflineDictionary()
+            },
+        )
         SettingDivider()
         SettingSwitchRow(stringResource(R.string.media_online), stringResource(R.string.media_online_desc), prefs.mediaOnline, viewModel::setMediaOnline)
         SettingCaption(stringResource(R.string.no_account_no_trackers_no_ads))

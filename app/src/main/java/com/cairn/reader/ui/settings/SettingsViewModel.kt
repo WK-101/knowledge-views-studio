@@ -38,6 +38,7 @@ class SettingsViewModel @Inject constructor(
     private val blobStore: BlobStore,
     private val storageManager: com.cairn.reader.data.blob.StorageManager,
     private val bookmarkImporter: com.cairn.reader.domain.importer.BookmarkImporter,
+    private val offlineDictionary: com.cairn.reader.domain.lookup.OfflineDictionary,
     @ApplicationContext private val context: Context,
     highlightRepository: HighlightRepository,
     ruleRepository: com.cairn.reader.data.repo.RuleRepository,
@@ -255,6 +256,30 @@ class SettingsViewModel @Inject constructor(
     }
     fun setSanitizeArticles(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setSanitizeArticles(enabled) }
     fun setDictionaryOnline(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setDictionaryOnline(enabled) }
+
+    // -- Offline dictionary pack (downloadable; Define then works with no network) ----------------
+    private val _offlineDictInstalled = kotlinx.coroutines.flow.MutableStateFlow(offlineDictionary.isInstalled())
+    val offlineDictInstalled: StateFlow<Boolean> = _offlineDictInstalled
+    /** 0f..1f while the pack is downloading/importing, else null. */
+    private val _offlineDictProgress = kotlinx.coroutines.flow.MutableStateFlow<Float?>(null)
+    val offlineDictProgress: StateFlow<Float?> = _offlineDictProgress
+    val offlineDictApproxMb: Int = offlineDictionary.approxMb
+
+    fun downloadOfflineDictionary() {
+        if (_offlineDictProgress.value != null) return
+        viewModelScope.launch {
+            _offlineDictProgress.value = 0f
+            coRunCatching { offlineDictionary.install { f -> _offlineDictProgress.value = f } }
+            _offlineDictProgress.value = null
+            // installed reflects the real outcome; a failed download simply leaves it not-installed.
+            _offlineDictInstalled.value = offlineDictionary.isInstalled()
+        }
+    }
+
+    fun removeOfflineDictionary() {
+        offlineDictionary.delete()
+        _offlineDictInstalled.value = offlineDictionary.isInstalled()
+    }
     fun setMediaOnline(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setMediaOnline(enabled) }
     fun setAutoOfflinePack(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setAutoOfflinePack(enabled) }
     fun setDailyBriefNotify(enabled: Boolean) = viewModelScope.launch {
