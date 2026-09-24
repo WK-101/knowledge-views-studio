@@ -5,16 +5,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.core.net.toUri
-import android.provider.ContactsContract
 import android.provider.Telephony
 import app.parley.common.MessengerApp
 import app.parley.common.MessengerLink
 import app.parley.common.MessengerLinks
 import app.parley.common.NumberText
-import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
-import app.parley.data.DataItem
-import app.parley.data.db.TemporaryContactEntity
 
 /** Starts messenger links. Every link goes to its app directly; nothing is ever handed to a browser. */
 object MessengerLauncher {
@@ -56,21 +52,20 @@ object MessengerLauncher {
     }
 }
 
-/** "Save as a temporary contact": a phone-only contact that deletes itself (and its call history) after [days]. */
+/**
+ * "Save as a temporary contact": a contact that deletes itself (and its call history) after [DEFAULT_DAYS] days.
+ * A thin wrapper over [app.parley.data.people.TemporaryContacts.create], the one API for temporary contacts.
+ */
 object TemporaryContact {
-    const val DEFAULT_DAYS = 7
+    const val DEFAULT_DAYS = app.parley.data.people.TemporaryContacts.DEFAULT_DAYS
 
-    suspend fun save(c: DataContainer, number: String, name: String, days: Int = DEFAULT_DAYS): Long? {
-        val details = ContactDetails(
-            given = name.trim().ifEmpty { number },
-            phones = listOf(DataItem(value = number, type = ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)),
-        )
-        // Kept on this phone only (never synced to an account): it's meant to disappear.
-        val id = c.contacts.save(null, details, null, null, false) ?: return null
-        val key = c.contacts.details(id)?.lookupKey?.takeIf { it.isNotEmpty() } ?: return id
-        c.meta.setTemporary(TemporaryContactEntity(key, id, System.currentTimeMillis() + days * 86_400_000L, purgeHistory = true))
-        return id
-    }
+    /**
+     * Saves [number] as a temporary contact. Returns the phone contact's id, or, when [private] (a vault contact,
+     * invisible to other apps), the negative vault id (`-vaultId`, as the editor does); null if nothing was saved.
+     * Callers open `Routes.vault(-id)` for negative ids.
+     */
+    suspend fun save(c: DataContainer, number: String, name: String, days: Int = DEFAULT_DAYS, private: Boolean = false): Long? =
+        c.temporaries.create(number, name, days, private)?.id
 
     /** Suggested name for a number met through a messenger ("WhatsApp · +92 300 1234567"). */
     fun suggestedName(number: String, via: String?, region: String): String {

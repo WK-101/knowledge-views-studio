@@ -6,6 +6,7 @@ import android.content.Context
 import android.provider.ContactsContract
 import android.provider.ContactsContract.AggregationExceptions
 import android.provider.ContactsContract.RawContacts
+import app.parley.common.people.Batches
 import app.parley.common.record.ContactRecord
 import app.parley.data.AccountRef
 import app.parley.data.ContactsRepository
@@ -37,6 +38,10 @@ class ContactMover(context: Context, private val contacts: ContactsRepository, p
         // By id, not by position: the two reads may list the copies differently.
         val raw = record.raws.firstOrNull { it.rawId == rawId } ?: return@withContext Result.Failed("Couldn't read that copy")
         if (raw.accountType == target.type && raw.accountName == target.name) return@withContext Result.Failed("It's already saved there")
+        if (AccountRef(raw.accountType, raw.accountName).isLocal && target.isLocal) return@withContext Result.Failed("It's already saved on this phone")
+        // The original is deleted after copying, so the copy must land somewhere it can live (F3).
+        if (!contacts.isWritableAccount(target)) return@withContext Result.Failed("Contacts can't be saved to that account")
+        val oldKey = contacts.lookupKeyOf(contactId)
 
         contacts.recordChange(listOf(contactId), "MOVE")
         if (contacts.lastJournalIds.isEmpty()) return@withContext Result.Failed("Couldn't keep an undo copy, so nothing was moved")
@@ -48,8 +53,11 @@ class ContactMover(context: Context, private val contacts: ContactsRepository, p
         val others = raws.filter { it != rawId }
         if (others.isNotEmpty()) setAggregation(listOf(newRaw) + others, AggregationExceptions.TYPE_KEEP_TOGETHER)
         cr.delete(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawId), null, null)
+        val newId = contactIdForRaw(newRaw)
+        // Notes, backgrounds and other Parley data follow the contact to its new key (F8).
+        if (oldKey != null && newId != null) contacts.notifyRelinked(listOf(contactId to oldKey), "MOVE:$newId")
         contacts.refresh()
-        Result.Done(contactIdForRaw(newRaw))
+        Result.Done(newId)
     }
 
     /** Separates one copy from the others, so it becomes its own contact. Returns that contact's id. */
@@ -57,6 +65,7 @@ class ContactMover(context: Context, private val contacts: ContactsRepository, p
         val raws = rawIds(contactId)
         if (rawId !in raws || raws.size < 2) return@withContext Result.Failed("There's nothing to unlink")
         contacts.recordChange(listOf(contactId), "SEPARATE")
+        val oldKey = contacts.lookupKeyOf(contactId)
         val ops = ArrayList<ContentProviderOperation>()
         raws.filter { it != rawId }.forEach { other ->
             ops += ContentProviderOperation.newUpdate(AggregationExceptions.CONTENT_URI)
@@ -65,7 +74,8 @@ class ContactMover(context: Context, private val contacts: ContactsRepository, p
                 .withValue(AggregationExceptions.RAW_CONTACT_ID2, other)
                 .build()
         }
-        cr.applyBatch(ContactsContract.AUTHORITY, ops)
+        Batches.chunks(ops).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
+        oldKey?.let { contacts.notifyRelinked(listOf(contactId to it), "SEPARATE") }
         contacts.refresh()
         Result.Done(contactIdForRaw(rawId))
     }
@@ -80,16 +90,16 @@ class ContactMover(context: Context, private val contacts: ContactsRepository, p
         emptyList()
     }
 
+    /** Every pair, in batches the provider accepts however many copies there are (F16). */
     private fun setAggregation(raws: List<Long>, type: Int) {
-        val ops = ArrayList<ContentProviderOperation>()
-        for (i in raws.indices) for (j in i + 1 until raws.size) {
-            ops += ContentProviderOperation.newUpdate(AggregationExceptions.CONTENT_URI)
+        val ops = Batches.pairs(raws).map { (a, b) ->
+            ContentProviderOperation.newUpdate(AggregationExceptions.CONTENT_URI)
                 .withValue(AggregationExceptions.TYPE, type)
-                .withValue(AggregationExceptions.RAW_CONTACT_ID1, raws[i])
-                .withValue(AggregationExceptions.RAW_CONTACT_ID2, raws[j])
+                .withValue(AggregationExceptions.RAW_CONTACT_ID1, a)
+                .withValue(AggregationExceptions.RAW_CONTACT_ID2, b)
                 .build()
         }
-        if (ops.isNotEmpty()) cr.applyBatch(ContactsContract.AUTHORITY, ops)
+        Batches.chunks(ops).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
     }
 
     private fun contactIdForRaw(rawId: Long): Long? = try {

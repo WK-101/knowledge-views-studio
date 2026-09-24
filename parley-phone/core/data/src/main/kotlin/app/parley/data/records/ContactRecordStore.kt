@@ -9,7 +9,6 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
 import android.net.Uri
-import android.os.Build
 import android.os.TransactionTooLargeException
 import android.provider.ContactsContract
 import android.provider.ContactsContract.AggregationExceptions
@@ -18,13 +17,17 @@ import android.provider.ContactsContract.Data
 import android.provider.ContactsContract.Groups
 import android.provider.ContactsContract.RawContacts
 import android.util.Log
+import app.parley.common.people.Batches
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
+import app.parley.common.record.ContentDiff
 import app.parley.common.record.DataRow
 import app.parley.common.record.Messengers
 import app.parley.common.record.Mime
+import app.parley.common.record.PrimaryFlags
 import app.parley.common.record.RawRecord
 import app.parley.data.AccountRef
+import app.parley.data.DeviceAccounts
 
 /** Maps a group-membership row to a group row id in [account], or null to drop the membership. */
 fun interface GroupResolver {
@@ -53,11 +56,12 @@ class ContactRecordStore(private val context: Context) {
         val out = ArrayList<GroupRef>()
         query(
             Groups.CONTENT_URI,
-            arrayOf(Groups._ID, Groups.TITLE, Groups.ACCOUNT_TYPE, Groups.ACCOUNT_NAME, Groups.SYSTEM_ID, Groups.AUTO_ADD, Groups.GROUP_IS_READ_ONLY),
+            arrayOf(Groups._ID, Groups.TITLE, Groups.ACCOUNT_TYPE, Groups.ACCOUNT_NAME, Groups.SYSTEM_ID, Groups.AUTO_ADD, Groups.GROUP_IS_READ_ONLY, Groups.FAVORITES),
             "${Groups.DELETED}=0",
         )?.use { c ->
             while (c.moveToNext()) {
-                val system = c.getString(4) != null || c.getInt(5) != 0 || c.getInt(6) != 0
+                // System, auto-add, read-only and favourites groups are account plumbing, never user labels (F1, F11).
+                val system = !ContentDiff.isUserGroup(c.getString(1) ?: "?", c.getString(4), c.getInt(5) != 0, c.getInt(6) != 0, c.getInt(7) != 0)
                 out += GroupRef(c.getLong(0), c.getString(1)?.takeIf { it.isNotBlank() }, AccountRef(c.getString(2), c.getString(3)), system)
             }
         }
@@ -231,9 +235,11 @@ class ContactRecordStore(private val context: Context) {
         includeReadOnly: Boolean = false,
     ): List<InsertResult> {
         val results = arrayOfNulls<InsertResult>(records.size)
-        val available = if (target == null) availableAccounts() else emptySet()
+        // Never write into a SIM, messenger or read-only account, whatever the caller picked (F3).
+        val safeTarget = target?.let { if (isWritableAccount(it)) it else localAccount() }
+        val available = if (safeTarget == null) availableAccounts() else emptySet()
         val plans = records.mapIndexed { i, r ->
-            val plan = plan(r, target, available, groups, includeReadOnly)
+            val plan = plan(r, safeTarget, available, groups, includeReadOnly)
             if (plan.raws.isEmpty()) results[i] = InsertResult(null, "Nothing to import (only read-only messenger data)")
             plan
         }
@@ -274,19 +280,30 @@ class ContactRecordStore(private val context: Context) {
                 (if (a.type == null || a in available) a else local) to listOf(raw)
             }
         }
-        val planned = grouped.mapNotNull { (account, raws) ->
-            val keepDataSet = target == null && raws.size == 1 && AccountRef(raws[0].accountType, raws[0].accountName) == account
+        // Rows each new raw contact gets, de-duplicated; photos are written separately.
+        val photos = arrayOfNulls<ByteArray>(grouped.size)
+        val kept = grouped.mapIndexed { gi, (_, raws) ->
             val seen = HashSet<String>()
             var name = false
-            var photo: ByteArray? = null
-            val rows = ArrayList<ContentValues>()
+            val out = ArrayList<DataRow>()
             for (raw in raws) for (row in raw.rows) {
                 if (!includeReadOnly && Messengers.isMessengerMime(row.mimeType)) continue
                 when (row.mimeType) {
-                    Mime.PHOTO -> { if (photo == null) photo = row.blob?.takeIf { it.isNotEmpty() }; continue }
+                    Mime.PHOTO -> { if (photos[gi] == null) photos[gi] = row.blob?.takeIf { it.isNotEmpty() }; continue }
                     Mime.NAME -> { if (name) continue; name = true }
                 }
                 if (!seen.add(row.canonicalKey + "|" + row[Col.GROUP_TITLE])) continue
+                out += row
+            }
+            out
+        }
+        // Copies merged into one raw contact must not end up with several defaults per kind (F26).
+        val flagged = PrimaryFlags.normalize(kept)
+        val planned = grouped.mapIndexedNotNull { gi, (account, raws) ->
+            val keepDataSet = target == null && raws.size == 1 && AccountRef(raws[0].accountType, raws[0].accountName) == account
+            val photo = photos[gi]
+            val rows = ArrayList<ContentValues>()
+            for (row in flagged[gi]) {
                 val v = ContentValues()
                 v.put(Data.MIMETYPE, row.mimeType)
                 if (row.mimeType == Mime.GROUP) {
@@ -397,74 +414,108 @@ class ContactRecordStore(private val context: Context) {
     }
 
     /**
-     * Makes the writable part of an existing contact match [record] in place: rows are diffed by content,
-     * unchanged rows keep their ids, removed rows are deleted from every writable raw contact and new rows go
-     * to [targetRaw]. Read-only raws (messengers) and the contact's id, links and history stay untouched.
-     * Returns false if nothing could be written.
+     * Makes the writable part of an existing contact match [record] in place (folder sync). Both sides are compared
+     * in canonical form ([ContentDiff]), so unchanged rows keep their ids and sync state and nothing is re-uploaded
+     * needlessly (F9); memberships of system, auto-add, read-only and favourites groups are never removed, since a
+     * vCard only carries user labels (F1); read-only rows are never deleted (F12). New rows go to [targetRaw].
+     * Read-only raws (messengers) and the contact's id, links and history stay untouched. The rows and flags are
+     * written in one batch when it fits (atomic), and the photo only once they are. Returns false if nothing could
+     * be written.
      */
     fun replaceContent(contactId: Long, record: ContactRecord, targetRaw: Long, writableRaws: List<Long>, groups: GroupResolver = groupResolver()): Boolean {
         val raws = (writableRaws + targetRaw).distinct()
         val account = query(ContentUris.withAppendedId(RawContacts.CONTENT_URI, targetRaw), arrayOf(RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME))
             ?.use { c -> if (c.moveToFirst()) AccountRef(c.getString(0), c.getString(1)) else null } ?: return false
-        // Current rows: canonical key -> data ids (multiset).
-        val current = HashMap<String, ArrayDeque<Long>>()
+        val current = ArrayList<ContentDiff.Existing>()
         query(
             Data.CONTENT_URI, arrayOf(Data._ID, Data.MIMETYPE, *DATA_COLUMNS),
             "${Data.RAW_CONTACT_ID} IN (${raws.joinToString(",")})",
         )?.use { c ->
             while (c.moveToNext()) {
                 val mime = c.getString(1) ?: continue
-                if (Messengers.isMessengerMime(mime)) continue
-                if (mime == Mime.PHOTO) continue
-                val key = if (mime == Mime.GROUP) "g|" + c.getString(2) else DataRow(mime, Col.ALL.mapIndexed { i, col -> col to c.getString(2 + i) }.toMap()).canonicalKey
-                current.getOrPut(key) { ArrayDeque() }.add(c.getLong(0))
+                if (Messengers.isMessengerMime(mime) || mime == Mime.PHOTO) continue
+                val values = LinkedHashMap<String, String?>()
+                for (i in DATA_COLUMNS.indices) c.getString(2 + i)?.let { values[Col.ALL[i]] = it }
+                current += ContentDiff.Existing(c.getLong(0), DataRow(mime, values))
             }
-        }
-        record.raws.firstNotNullOfOrNull { r -> r.rows.firstOrNull { it.mimeType == Mime.PHOTO }?.blob }?.let { remotePhoto ->
-            val currentPhoto = read(contactId, fullPhoto = true)?.raws?.firstNotNullOfOrNull { r -> r.rows.firstOrNull { it.mimeType == Mime.PHOTO }?.blob }
-            if (currentPhoto?.contentEquals(remotePhoto) != true) writePhoto(targetRaw, remotePhoto)
-        }
-        val ops = ArrayList<ContentProviderOperation>()
-        var name = false
-        val seen = HashSet<String>()
+        } ?: return false
+        val readOnly = readOnlyIds(current.map { it.id })
+        val existing = current.map { if (it.id in readOnly) it.copy(readOnly = true) else it }
+
+        // Remote rows, with labels resolved to group ids of the target account (created there when missing).
+        val desired = ArrayList<DataRow>()
         for (raw in record.raws) {
             if (Messengers.isMessengerAccount(raw.accountType)) continue
             for (row in raw.rows) {
                 if (Messengers.isMessengerMime(row.mimeType) || row.mimeType == Mime.PHOTO) continue
-                if (row.mimeType == Mime.NAME) { if (name) continue; name = true }
-                val v = ContentValues()
-                val key = if (row.mimeType == Mime.GROUP) {
+                desired += if (row.mimeType == Mime.GROUP) {
                     val id = groups.resolve(row, account) ?: continue
-                    v.put(Data.DATA1, id)
-                    "g|$id"
+                    DataRow(Mime.GROUP, mapOf(Col.D1 to id.toString()))
                 } else {
-                    Col.ALL.forEach { col -> row[col]?.let { v.put(col, it) } }
-                    row.blob?.let { v.put(Data.DATA15, it) }
-                    row.canonicalKey
+                    row
                 }
-                if (!seen.add(key)) continue
-                val existing = current[key]
-                if (existing != null && existing.isNotEmpty()) { existing.removeFirst(); continue }
-                v.put(Data.MIMETYPE, row.mimeType)
-                v.put(Data.RAW_CONTACT_ID, targetRaw)
-                if (row.isPrimary) v.put(Data.IS_PRIMARY, 1)
-                if (row.isSuperPrimary) v.put(Data.IS_SUPER_PRIMARY, 1)
-                ops += ContentProviderOperation.newInsert(Data.CONTENT_URI).withValues(v).build()
             }
         }
-        current.values.flatten().forEach { id -> ops += ContentProviderOperation.newDelete(ContentUris.withAppendedId(Data.CONTENT_URI, id)).build() }
+        val groupIds = (existing + desired.map { ContentDiff.Existing(-1, it) })
+            .filter { it.row.mimeType == Mime.GROUP }.mapNotNull { it.row[Col.D1]?.toLongOrNull() }
+        val plan = ContentDiff.plan(existing, desired, userGroupIds(groupIds))
+
+        val ops = ArrayList<ContentProviderOperation>()
+        for (row in plan.inserts) {
+            val v = ContentValues()
+            v.put(Data.MIMETYPE, row.mimeType)
+            v.put(Data.RAW_CONTACT_ID, targetRaw)
+            if (row.mimeType == Mime.GROUP) {
+                v.put(Data.DATA1, row[Col.D1]!!.toLong())
+            } else {
+                Col.ALL.forEach { col -> row[col]?.let { v.put(col, it) } }
+                row.blob?.let { v.put(Data.DATA15, it) }
+                if (row.isPrimary) v.put(Data.IS_PRIMARY, 1)
+                if (row.isSuperPrimary) v.put(Data.IS_SUPER_PRIMARY, 1)
+            }
+            ops += ContentProviderOperation.newInsert(Data.CONTENT_URI).withValues(v).build()
+        }
+        plan.deletes.forEach { id -> ops += ContentProviderOperation.newDelete(ContentUris.withAppendedId(Data.CONTENT_URI, id)).build() }
         ops += ContentProviderOperation.newUpdate(ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId))
             .withValue(Contacts.STARRED, if (record.starred) 1 else 0)
             .withValue(Contacts.SEND_TO_VOICEMAIL, if (record.sendToVoicemail) 1 else 0)
             .withValue(Contacts.CUSTOM_RINGTONE, record.customRingtone)
             .build()
-        return try {
-            ops.chunked(MAX_BATCH_OPS).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
-            true
+        try {
+            // One transaction when it fits under the provider's limit; only a very large edit is split.
+            Batches.chunks(ops, MAX_BATCH_OPS).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
         } catch (e: Exception) {
             Log.w(TAG, "In-place update failed", e)
-            false
+            return false
         }
+        record.raws.firstNotNullOfOrNull { r -> r.rows.firstOrNull { it.mimeType == Mime.PHOTO }?.blob }?.let { remotePhoto ->
+            val currentPhoto = read(contactId, fullPhoto = true)?.raws?.firstNotNullOfOrNull { r -> r.rows.firstOrNull { it.mimeType == Mime.PHOTO }?.blob }
+            if (currentPhoto?.contentEquals(remotePhoto) != true) writePhoto(targetRaw, remotePhoto)
+        }
+        return true
+    }
+
+    /** Group ids among [ids] that are user labels (see [ContentDiff.isUserGroup]). */
+    private fun userGroupIds(ids: Collection<Long>): Set<Long> {
+        if (ids.isEmpty()) return emptySet()
+        val out = HashSet<Long>()
+        query(
+            Groups.CONTENT_URI, arrayOf(Groups._ID, Groups.TITLE, Groups.SYSTEM_ID, Groups.AUTO_ADD, Groups.GROUP_IS_READ_ONLY, Groups.FAVORITES),
+            "${Groups._ID} IN (${ids.distinct().joinToString(",")}) AND ${Groups.DELETED}=0",
+        )?.use { c ->
+            while (c.moveToNext()) if (ContentDiff.isUserGroup(c.getString(1), c.getString(2), c.getInt(3) != 0, c.getInt(4) != 0, c.getInt(5) != 0)) out += c.getLong(0)
+        }
+        return out
+    }
+
+    /** Data rows among [ids] marked IS_READ_ONLY (the column can only be selected on, not projected). */
+    private fun readOnlyIds(ids: Collection<Long>): Set<Long> {
+        val out = HashSet<Long>()
+        for (chunk in ids.distinct().chunked(500)) {
+            query(Data.CONTENT_URI, arrayOf(Data._ID), "${Data._ID} IN (${chunk.joinToString(",")}) AND ${Data.IS_READ_ONLY}=1")
+                ?.use { c -> while (c.moveToNext()) out += c.getLong(0) }
+        }
+        return out
     }
 
     /** Writes a full-resolution photo; the provider derives the display size and thumbnail. */
@@ -493,17 +544,17 @@ class ContactRecordStore(private val context: Context) {
         query(Data.CONTENT_URI, arrayOf(Data._ID), "${Data.RAW_CONTACT_ID}=? AND ${Data.MIMETYPE}=?", arrayOf(rawId.toString(), Mime.PHOTO))
             ?.use { it.count > 0 } ?: false
 
+    /** Links raw contacts, in batches small enough for the provider however many copies there are (F16). */
     private fun keepTogether(rawIds: List<Long>) {
-        val ops = ArrayList<ContentProviderOperation>()
-        for (i in rawIds.indices) for (j in i + 1 until rawIds.size) {
-            ops += ContentProviderOperation.newUpdate(AggregationExceptions.CONTENT_URI)
+        val ops = Batches.pairs(rawIds).map { (a, b) ->
+            ContentProviderOperation.newUpdate(AggregationExceptions.CONTENT_URI)
                 .withValue(AggregationExceptions.TYPE, AggregationExceptions.TYPE_KEEP_TOGETHER)
-                .withValue(AggregationExceptions.RAW_CONTACT_ID1, rawIds[i])
-                .withValue(AggregationExceptions.RAW_CONTACT_ID2, rawIds[j])
+                .withValue(AggregationExceptions.RAW_CONTACT_ID1, a)
+                .withValue(AggregationExceptions.RAW_CONTACT_ID2, b)
                 .build()
         }
         try {
-            cr.applyBatch(ContactsContract.AUTHORITY, ops)
+            Batches.chunks(ops).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
         } catch (e: Exception) {
             Log.w(TAG, "Could not link raw contacts", e)
         }
@@ -514,7 +565,10 @@ class ContactRecordStore(private val context: Context) {
             if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null
         }
 
-    /** Accounts that can hold contacts on this device (so a restored raw can keep its account). */
+    /**
+     * Accounts a restored raw contact may keep: writable ones present on this device (signed in or holding contacts),
+     * never SIM, messenger or read-only accounts; everything else goes to the device account (F3).
+     */
     fun availableAccounts(): Set<AccountRef> {
         val set = HashSet<AccountRef>()
         try {
@@ -525,16 +579,15 @@ class ContactRecordStore(private val context: Context) {
             while (c.moveToNext()) c.getString(0)?.let { set += AccountRef(it, c.getString(1)) }
         }
         set += localAccount()
-        return set
+        val uploading = DeviceAccounts.uploadingTypes()
+        val local = localAccount()
+        return set.filter { DeviceAccounts.isWritable(it, uploading, local) }.toSet()
     }
 
-    private fun localAccount(): AccountRef {
-        if (Build.VERSION.SDK_INT >= 35) {
-            val type = RawContacts.getLocalAccountType(context)
-            if (type != null) return AccountRef(type, RawContacts.getLocalAccountName(context))
-        }
-        return AccountRef(null, null)
-    }
+    /** Whether Parley may write raw contacts into [account] (F3). */
+    fun isWritableAccount(account: AccountRef): Boolean = DeviceAccounts.isWritable(account, DeviceAccounts.uploadingTypes(), localAccount())
+
+    private fun localAccount(): AccountRef = DeviceAccounts.localAccount(context)
 
     private fun query(uri: Uri, projection: Array<String>, selection: String? = null, args: Array<String>? = null, sort: String? = null): Cursor? =
         try {

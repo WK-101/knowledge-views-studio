@@ -110,6 +110,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     var simFor by remember { mutableStateOf<String?>(null) }
     var showPhoto by remember { mutableStateOf(false) }
     var askExpiry by remember { mutableStateOf(false) }
+    var relationChoice by remember { mutableStateOf<List<Long>?>(null) }
     var pinDialog by remember { mutableStateOf(false) }
     var reachOut by remember { mutableStateOf(false) }
     var secureQr by remember { mutableStateOf(false) }
@@ -121,10 +122,11 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     LaunchedEffect(contactId, all) {
         messengers = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { app.parley.data.Messengers.actions(context, contactId) }
     }
-    LaunchedEffect(details?.lookupKey) { details?.lookupKey?.let { meta = vm.c.meta.meta(it) } }
+    LaunchedEffect(details) { details?.lookupKey?.let { meta = vm.c.meta.meta(it) } }
     fun saveMeta(f: (app.parley.data.db.ContactMetaEntity) -> app.parley.data.db.ContactMetaEntity) {
         val key = details?.lookupKey ?: return
-        val next = f(meta ?: app.parley.data.db.ContactMetaEntity(key))
+        // The contact id is kept beside the key so the row can follow a key change (F8).
+        val next = f(meta ?: app.parley.data.db.ContactMetaEntity(key)).copy(contactId = contactId)
         meta = next
         scope.launch { vm.c.meta.setMeta(next) }
     }
@@ -284,9 +286,22 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             d.websites.forEach { w -> item { Row0(Icons.Rounded.Language, w.value, "Website") { Intents.web(context, w.value) } } }
             d.relations.forEach { r ->
                 item {
-                    val match = all.orEmpty().firstOrNull { it.displayName.equals(r.value, true) }
                     Row0(Icons.Rounded.People, r.value, android.provider.ContactsContract.CommonDataKinds.Relation.getTypeLabel(resources, r.type, r.label).toString()) {
-                        match?.let { open(Routes.contact(it.id)) }
+                        // By the remembered lookup key first, then by name; several namesakes: ask (F23).
+                        scope.launch {
+                            val link = app.parley.common.people.RelationLinks.decode(meta?.relationLinks)[app.parley.common.people.RelationLinks.nameKey(r.value)]
+                            val target = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                app.parley.common.people.RelationLinks.resolve(
+                                    r.value, link, { l -> vm.c.contacts.currentOf(l.lookupKey, l.contactId)?.first },
+                                    all.orEmpty().map { it.id to it.displayName }, self = contactId,
+                                )
+                            }
+                            when (target) {
+                                is app.parley.common.people.RelationLinks.Target.Contact -> open(Routes.contact(target.id))
+                                is app.parley.common.people.RelationLinks.Target.Choose -> relationChoice = target.ids
+                                app.parley.common.people.RelationLinks.Target.None -> vm.toast("No contact named ${r.value}")
+                            }
+                        }
                     }
                 }
             }
@@ -430,11 +445,33 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 dismissButton = { TextButton({ pinDialog = false }) { Text("Cancel") } },
             )
         }
+        relationChoice?.let { ids ->
+            AlertDialog(
+                onDismissRequest = { relationChoice = null },
+                title = { Text("Which contact?") },
+                text = {
+                    Column {
+                        ids.forEach { id ->
+                            val ct = all.orEmpty().firstOrNull { it.id == id } ?: return@forEach
+                            ListItem(
+                                modifier = Modifier.clickable {
+                                    relationChoice = null
+                                    open(Routes.contact(id))
+                                },
+                                headlineContent = { Text(ct.displayName) },
+                                supportingContent = { ct.phones.firstOrNull()?.let { Text(Format.number(it.number, vm.countryIso)) } },
+                            )
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = { TextButton({ relationChoice = null }) { Text("Cancel") } },
+            )
+        }
         if (askExpiry) app.parley.ui.vault.ExpiryDialog(onDismiss = { askExpiry = false }) { days ->
             askExpiry = false
             scope.launch {
-                if (days == null) vm.c.meta.clearTemporary(d.lookupKey)
-                else vm.c.meta.setTemporary(app.parley.data.db.TemporaryContactEntity(d.lookupKey, contactId, System.currentTimeMillis() + days * 86_400_000L, purgeHistory = true))
+                if (days == null) vm.c.temporaries.clear(d.lookupKey) else vm.c.temporaries.mark(contactId, days, purgeHistory = true)
                 vm.toast(if (days == null) "Contact will be kept" else "Contact deletes itself in $days days")
             }
         }

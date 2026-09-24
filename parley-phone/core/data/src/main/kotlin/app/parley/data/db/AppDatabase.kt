@@ -106,13 +106,25 @@ data class JournalEntity(
 
 data class JournalRow(val id: Long, val contactKey: String, val displayName: String, val action: String, val time: Long, val restored: Boolean)
 
-/** Contacts that delete themselves after a date (plumber, delivery driver…). */
+/**
+ * Contacts that delete themselves after a date (plumber, delivery driver…). Create and change them through
+ * [app.parley.data.people.TemporaryContacts], never directly.
+ */
 @Entity(tableName = "temporary_contacts")
 data class TemporaryContactEntity(
     @PrimaryKey val lookupKey: String,
     val contactId: Long,
     val expiresAt: Long,
     val purgeHistory: Boolean,
+    /**
+     * The raw contacts that make up the temporary contact, comma-separated (v4). Only these are ever deleted; null
+     * for entries made before v4, which are only deleted while they are still a single raw contact (F2).
+     */
+    val rawIds: String? = null,
+    /** Name at the time it was made temporary, for the "expired" notice (v4). */
+    val name: String? = null,
+    /** "Keep this contact?" was already asked after an edit (v4). */
+    @ColumnInfo(defaultValue = "0") val keepAsked: Boolean = false,
 )
 
 /** Parley-only information about a contact that has no ContactsContract home. */
@@ -126,6 +138,10 @@ data class ContactMetaEntity(
     /** "Reach out every N days" nudge; null = off. */
     val reachOutDays: Int? = null,
     val lastNudgedAt: Long? = null,
+    /** Last known contact id, so the key can be re-resolved after it changes (v4, F8). */
+    val contactId: Long? = null,
+    /** Relation name -> related contact's lookup key ([app.parley.common.people.RelationLinks], v4, F23). */
+    val relationLinks: String? = null,
 )
 
 /** Private vault contact. All personal fields are AES-GCM encrypted by the app. */
@@ -202,14 +218,26 @@ interface MetaDao {
     @Query("DELETE FROM temporary_contacts WHERE lookupKey = :key")
     suspend fun clearTemporary(key: String)
 
+    @Query("SELECT * FROM temporary_contacts")
+    suspend fun allTemporary(): List<TemporaryContactEntity>
+
+    @Query("SELECT * FROM temporary_contacts WHERE lookupKey = :key")
+    suspend fun temporary(key: String): TemporaryContactEntity?
+
     @Query("SELECT * FROM contact_meta WHERE lookupKey = :key")
     suspend fun meta(key: String): ContactMetaEntity?
 
     @Query("SELECT * FROM contact_meta")
     fun allMeta(): Flow<List<ContactMetaEntity>>
 
+    @Query("SELECT * FROM contact_meta")
+    suspend fun allMetaNow(): List<ContactMetaEntity>
+
     @Upsert
     suspend fun setMeta(e: ContactMetaEntity)
+
+    @Query("DELETE FROM contact_meta WHERE lookupKey = :key")
+    suspend fun deleteMeta(key: String)
 
     @Insert
     suspend fun addCallNote(n: CallNoteEntity): Long
@@ -369,10 +397,12 @@ interface PrefsDao {
         VaultContactEntity::class, VaultNumberEntity::class, PrivateCallEntity::class, CallNoteEntity::class,
         CallRingEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
     // v3: allow rules, schedules, SIM, hit counters, decision traces, ring lengths (blocking roadmap).
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
+    // v4: temporary contacts remember their raw contact ids; contact metadata remembers the contact id and relation
+    //     links (round-4 data-safety fixes F2, F8, F23). Added columns only, all nullable or defaulted.
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun blockDao(): BlockDao

@@ -190,6 +190,16 @@ class ContactsSafetyTest {
         assertEquals(listOf(MetaRekey.Move("b", "c"), MetaRekey.Move("e", "c")), moves)
     }
 
+    @Test fun f8_a_sweep_never_hands_metadata_to_a_namesake() {
+        // Same contact, key changed (first Google sync): follow it.
+        assertTrue(MetaRekey.plausible("0r5-4E4E", "1234i5", storedId = 7, resolvedId = 7))
+        // Linked by another app: the new key contains the old raw's segment.
+        assertTrue(MetaRekey.plausible("0r5-4E4E", "0r5-4E4E.0r9-5A5A", storedId = 7, resolvedId = 12))
+        // A different contact that merely has the same name: stay put.
+        assertFalse(MetaRekey.plausible("0r5-4E4E", "0r9-4E4E", storedId = 7, resolvedId = 12))
+        assertFalse(MetaRekey.plausible("0r5-4E4E", "0r9-4E4E", storedId = null, resolvedId = 12))
+    }
+
     @Test fun f8_merging_two_rows_keeps_what_the_user_wrote() {
         val into = MetaRekey.Values(pinnedNote = "Gate code 1234", preferredMessenger = "org.thoughtcrime.securesms", reachOutDays = 30)
         val from = MetaRekey.Values(pinnedNote = "Allergic to nuts", preferredMessenger = "com.whatsapp", reachOutDays = 14, lastNudgedAt = 5)

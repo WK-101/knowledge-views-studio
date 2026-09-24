@@ -236,7 +236,7 @@ fun ParleyRoot(vm: AppViewModel) {
       }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 80.dp))
     }
-    app.parley.messaging.ChatThenDecideHost(snackbar) { id -> nav.navigate(Routes.contact(id)) { launchSingleTop = true } }
+    app.parley.messaging.ChatThenDecideHost(snackbar) { id -> nav.navigate(if (id < 0) Routes.vault(-id) else Routes.contact(id)) { launchSingleTop = true } }
     CallDialogs(vm)
     app.parley.ui.calltime.UssdDialog(vm)
     app.parley.ui.blocking.BlockingDialogHost(vm)

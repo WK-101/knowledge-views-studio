@@ -33,7 +33,7 @@ import app.parley.AppViewModel
 import app.parley.data.HealthIssue
 import app.parley.data.HealthKind
 import app.parley.data.HealthScanner
-import app.parley.data.db.TemporaryContactEntity
+import androidx.compose.foundation.layout.heightIn
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
 import app.parley.ui.contact.Section
@@ -58,6 +58,34 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     var issues by remember { mutableStateOf<List<HealthIssue>?>(null) }
     var round by remember { mutableIntStateOf(0) }
     LaunchedEffect(contacts, round) { issues = scanner.scan(contacts.orEmpty(), calls.orEmpty(), vm.countryIso) }
+    var confirmStale by remember { mutableStateOf<List<Triple<HealthIssue, String, String>>?>(null) }
+    confirmStale?.let { list ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmStale = null },
+            title = { Text("Delete ${list.size} contacts in 30 days?") },
+            text = {
+                androidx.compose.foundation.layout.Column {
+                    Text("Unless you keep them, these contacts are deleted from every account listed, 30 days from now. You can undo each one from its page.")
+                    LazyColumn(Modifier.padding(top = 8.dp).heightIn(max = 320.dp)) {
+                        items(list.size) { k ->
+                            val (_, name, where) = list[k]
+                            ListItem(headlineContent = { Text(name) }, supportingContent = { Text(where) })
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton({
+                    confirmStale = null
+                    scope.launch {
+                        list.forEach { (i, _, _) -> vm.c.temporaries.mark(i.contactId, 30, purgeHistory = false) }
+                        vm.toast("${list.size} contacts will delete themselves in 30 days unless you change it")
+                    }
+                }) { Text("Delete in 30 days") }
+            },
+            dismissButton = { TextButton({ confirmStale = null }) { Text("Cancel") } },
+        )
+    }
 
     Scaffold(topBar = {
         TopAppBar(title = { Text("Contact health check") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
@@ -88,9 +116,14 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                         ) { Text("Fix all ${group.size}") }
                         HealthKind.SHARED_NUMBER -> TextButton({ open(Routes.DUPLICATES) }, Modifier.padding(horizontal = 8.dp)) { Text("Review duplicates") }
                         HealthKind.STALE -> TextButton({
+                            // Never with one tap: list who and where first (F18).
                             scope.launch {
-                                group.forEach { vm.c.meta.setTemporary(TemporaryContactEntity(it.lookupKey, it.contactId, System.currentTimeMillis() + 30 * 86_400_000L, purgeHistory = false)) }
-                                vm.toast("${group.size} contacts will delete themselves in 30 days unless you change it")
+                                confirmStale = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    group.map { i ->
+                                        val where = vm.c.contacts.details(i.contactId)?.rawContacts.orEmpty().map { it.account.displayLabel }.distinct()
+                                        Triple(i, i.name, where.joinToString(", ").ifEmpty { "Phone" })
+                                    }
+                                }
                             }
                         }, Modifier.padding(horizontal = 8.dp)) { Text("Auto-delete these in 30 days") }
                         HealthKind.EMPTY -> TextButton({ vm.deleteContacts(group.map { it.contactId }); round++ }, Modifier.padding(horizontal = 8.dp)) { Text("Delete all ${group.size}") }

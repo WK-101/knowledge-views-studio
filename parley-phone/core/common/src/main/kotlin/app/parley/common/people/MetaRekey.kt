@@ -18,6 +18,21 @@ object MetaRekey {
     fun plan(resolved: Map<String, String?>): List<Move> =
         resolved.entries.filter { (from, to) -> !to.isNullOrEmpty() && to != from }.sortedBy { it.key }.map { Move(it.key, it.value!!) }
 
+    /**
+     * Whether a key found by a background sweep (not right after Parley's own link/unlink/move) really is the same
+     * person. Android's lookup falls back to matching display names, so a deleted contact's key could otherwise
+     * "resolve" to a namesake and hand them its pinned note. Accepted: the same contact id as stored (a rename or a
+     * first sync changed the key), or keys sharing a per-raw-contact segment (lookup keys of linked contacts are the
+     * '.'-joined keys of their raw contacts).
+     */
+    fun plausible(from: String, to: String, storedId: Long?, resolvedId: Long): Boolean {
+        if (storedId != null && storedId == resolvedId) return true
+        val a = segments(from)
+        return segments(to).any { it in a }
+    }
+
+    private fun segments(key: String): Set<String> = key.split('.').map { it.trim() }.filter { it.length > 1 }.toSet()
+
     /** The fields of one stored row, independent of the database entity. */
     data class Values(
         val pinnedNote: String? = null,
