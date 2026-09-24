@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -49,8 +50,10 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
     val resources = androidx.compose.ui.platform.LocalResources.current
     val all by vm.contacts.collectAsStateWithLifecycle()
     val list by produceState<List<UpcomingEvent>?>(null, all) { value = withContext(Dispatchers.IO) { upcoming(vm.c.contacts.events()) } }
-    Scaffold(topBar = {
-        TopAppBar(title = { Text("Birthdays & dates") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+    // U7: scroll-linked top-bar tint.
+    val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
+    Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
+        TopAppBar(title = { Text("Birthdays & dates") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } }, scrollBehavior = barTint)
     }) { p ->
         val items = list
         if (items != null && items.isEmpty()) {

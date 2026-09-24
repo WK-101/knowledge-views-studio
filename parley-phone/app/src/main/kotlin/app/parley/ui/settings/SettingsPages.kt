@@ -150,6 +150,8 @@ internal fun AppearancePage(vm: AppViewModel) {
     SegmentedGroup("Lists") {
         choiceRow("density", listOf("Comfortable", "Compact"), s.density.ordinal, Icons.Rounded.DensityMedium) { i -> set { it.copy(density = ListDensity.entries[i]) } }
         switchRow("row_actions", s.contactRowActions, Icons.Rounded.TouchApp) { v -> set { it.copy(contactRowActions = v) } }
+        item("swipe_actions") { app.parley.ui.people.SwipeSettings(vm) }
+        item("avatar_style") { app.parley.ui.people.AvatarStyleSetting(vm) }
     }
     SegmentedGroup("Names") {
         menuRow("sort_names", listOf("First name", "Last name"), if (s.sortByFirstName) 0 else 1, Icons.Rounded.SortByAlpha) { i -> set { it.copy(sortByFirstName = i == 0) } }
@@ -441,6 +443,7 @@ internal fun PrivacyPage(vm: AppViewModel, open: (String) -> Unit) {
         linkRow("privacy_dashboard", Icons.Rounded.PrivacyTip) { open(Routes.PRIVACY) }
         linkRow("who_can_see", Icons.Rounded.Apps) { open(PeopleRoutes.WHO_CAN_SEE) }
         linkRow("private_names", Icons.Rounded.Badge, sub = if (pn.enabled) "On" else "Off") { open(PeopleRoutes.PRIVATE_NAMES) }
+        linkRow("private_directory", Icons.Rounded.PhoneLocked, sub = if (pn.directory) "On" else "Off") { open(PeopleRoutes.PRIVATE_NAMES) }
         linkRow("app_permissions", Icons.Rounded.AdminPanelSettings, external = true) {
             context.startSafely(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)))
         }
@@ -506,7 +509,7 @@ internal fun NotificationsPage(vm: AppViewModel) {
 // ---------------------------------------------------------------- About
 
 @Composable
-internal fun AboutPage(open: (String) -> Unit) {
+internal fun AboutPage(open: (String) -> Unit, vm: AppViewModel? = null) {
     val context = LocalContext.current
     SegmentedGroup {
         item("version") {
@@ -517,6 +520,7 @@ internal fun AboutPage(open: (String) -> Unit) {
         linkRow("diagnostics", Icons.Rounded.BugReport, sub = "App version, device and settings, with numbers masked. Nothing is sent: you choose where it goes.") {
             open(PeopleRoutes.DIAGNOSTICS)
         }
+        if (vm != null) item("crash_reports") { app.parley.ui.people.CrashReportsRow(vm) }
     }
     Text(
         "Parley has no internet permission: Android itself stops it from sending anything anywhere.",

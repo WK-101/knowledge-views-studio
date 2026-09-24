@@ -33,6 +33,7 @@ import app.parley.common.StartTab
 import app.parley.ui.blocking.BlockingScreen
 import app.parley.ui.LocalNavAnimScope
 import app.parley.ui.LocalSharedScope
+import app.parley.ui.LocalAvatarStyle
 import app.parley.ui.common.CallDialogs
 import app.parley.ui.contact.ContactDetailScreen
 import app.parley.ui.contact.ContactEditScreen
@@ -139,11 +140,18 @@ fun ParleyRoot(vm: AppViewModel) {
                     val r = snackbar.showSnackbar(e.text, actionLabel = "Undo", duration = androidx.compose.material3.SnackbarDuration.Long)
                     if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) vm.undo(e.journalIds)
                 }
+                is UiEvent.UndoCalls -> {
+                    val r = snackbar.showSnackbar(e.text, actionLabel = "Undo", duration = androidx.compose.material3.SnackbarDuration.Long)
+                    if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) vm.c.history.undoDelete(e.batchId)
+                }
                 else -> Unit
             }
         }
     }
 
+    // U6: avatar style for every list and page.
+    val avatarStyle = vm.people.settings.collectAsStateWithLifecycle().value.avatarStyle
+    androidx.compose.runtime.CompositionLocalProvider(LocalAvatarStyle provides avatarStyle) {
     Box(Modifier.fillMaxSize()) {
       androidx.compose.animation.SharedTransitionLayout {
        androidx.compose.runtime.CompositionLocalProvider(LocalSharedScope provides this) {
@@ -250,6 +258,9 @@ fun ParleyRoot(vm: AppViewModel) {
       }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 80.dp))
     }
+    }
+    // U10: a crash report kept from last time is offered once.
+    app.parley.ui.people.CrashReportHost(vm)
     app.parley.messaging.ChatThenDecideHost(snackbar, openPrivate = { id -> nav.navigate(Routes.vault(id)) { launchSingleTop = true } }) { id -> nav.navigate(Routes.contact(id)) { launchSingleTop = true } }
     CallDialogs(vm)
     app.parley.ui.calltime.UssdDialog(vm)

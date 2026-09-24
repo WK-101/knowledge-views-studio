@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -48,7 +49,8 @@ fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var mask by remember { mutableStateOf(true) }
-    val report by produceState("", mask) {
+    var tables by remember { mutableStateOf(false) }
+    val report by produceState("", mask, tables) {
         value = withContext(Dispatchers.IO) {
             val extra = linkedMapOf(
                 "defaultPhoneApp" to vm.isDefaultDialer.value.toString(),
@@ -59,7 +61,9 @@ fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
                 "sims" to vm.sims.value.size.toString(),
                 "privateNameLookup" to vm.c.people.privateNames.state.value.enabled.toString(),
             )
-            vm.c.people.diagnostics.report(vm.settings.value, vm.people.settings.value, extra, mask)
+            vm.c.people.diagnostics.report(vm.settings.value, vm.people.settings.value, extra, mask) +
+                // U10: the contacts tables with every value reduced to its shape (always masked).
+                if (tables) "\n" + vm.c.people.diagnostics.rawDump() else ""
         }
     }
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
@@ -68,8 +72,10 @@ fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
             vm.toast(if (ok) "Diagnostics saved" else "Couldn't save the file")
         }
     }
-    Scaffold(topBar = {
-        TopAppBar(title = { Text("Export diagnostics") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+    // U7: scroll-linked top-bar tint.
+    val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
+    Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
+        TopAppBar(title = { Text("Export diagnostics") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } }, scrollBehavior = barTint)
     }) { p ->
         Column(Modifier.padding(p)) {
             Text(
@@ -78,6 +84,11 @@ fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
                 Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
             )
             SwitchRow("Mask numbers and e-mail addresses", "Keeps only the last two digits of numbers in error messages", mask) { mask = it }
+            SwitchRow(
+                "Include the contacts tables (masked)",
+                "How accounts stored each contact, with every name, number and text replaced by its shape (Aaaa 99 9923)",
+                tables,
+            ) { tables = it }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button({ saver.launch("parley-diagnostics.txt") }, enabled = report.isNotEmpty()) { Text("Save as file") }
                 OutlinedButton({ Intents.shareText(context, report) }, enabled = report.isNotEmpty()) { Text("Share") }

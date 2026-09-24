@@ -22,6 +22,7 @@ object PeopleRoutes {
     const val WHO_CAN_SEE = "whocansee"
     const val PRIVATE_NAMES = "privatenames"
     const val DIAGNOSTICS = "diagnostics"
+    const val ME = "me"
 }
 
 
@@ -49,4 +50,5 @@ fun NavGraphBuilder.peopleRoutes(vm: AppViewModel, nav: NavController) {
     composable(PeopleRoutes.WHO_CAN_SEE) { WhoCanSeeScreen(vm, back, open) }
     composable(PeopleRoutes.PRIVATE_NAMES) { PrivateNamesScreen(vm, back) }
     composable(PeopleRoutes.DIAGNOSTICS) { DiagnosticsScreen(vm, back) }
+    composable(PeopleRoutes.ME) { MeCardScreen(vm, back) }
 }

@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -54,8 +55,10 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
     val groups by produceState<List<List<ContactSummary>>?>(null, all) {
         value = withContext(Dispatchers.Default) { Duplicates.find(all.orEmpty()) }
     }
-    Scaffold(topBar = {
-        TopAppBar(title = { Text("Merge duplicates") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+    // U7: scroll-linked top-bar tint.
+    val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
+    Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
+        TopAppBar(title = { Text("Merge duplicates") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } }, scrollBehavior = barTint)
     }) { p ->
         val list = groups?.filter { g -> g.first().id !in dismissed }
         when {

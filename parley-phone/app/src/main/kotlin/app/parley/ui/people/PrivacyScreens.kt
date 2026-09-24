@@ -42,6 +42,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -79,8 +80,10 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
         context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg")))
     }.onFailure { vm.toast("Couldn't open Android Settings") }
 
-    Scaffold(topBar = {
-        TopAppBar(title = { Text("Who can see your contacts") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+    // U7: scroll-linked top-bar tint.
+    val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
+    Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
+        TopAppBar(title = { Text("Who can see your contacts") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } }, scrollBehavior = barTint)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
@@ -220,8 +223,10 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
     val pm = context.packageManager
     fun label(pkg: String) = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
 
-    Scaffold(topBar = {
-        TopAppBar(title = { Text("Private names in other apps") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+    // U7: scroll-linked top-bar tint.
+    val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
+    Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
+        TopAppBar(title = { Text("Private names in other apps") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } }, scrollBehavior = barTint)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
@@ -230,6 +235,22 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
                     "Apps you approve can ask Parley for the name of one phone number at a time, for example to show who is calling. " +
                         "They get only that name, never a list, and only after you allow each app. Parley asks you with a notification the first " +
                         "time an app tries, and every request is listed below.",
+                    Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            item {
+                // I7: the opt-in contacts Directory (same approvals, limit and log as the lookup above).
+                Section("Phone apps (contacts directory)")
+                SwitchRow(
+                    app.parley.common.SettingsCatalog["private_directory"].title,
+                    "Off by default. Uses the same approvals and log as above",
+                    st.directory,
+                ) { on -> app.parley.privatenames.PrivateDirectoryProvider.setEnabled(context, vm.c, on) }
+                Text(
+                    "When this is on, Android lists Parley as a contacts directory. A phone app that looks callers up in directories " +
+                        "(for example a car's or a work-profile phone app) can then ask for the name of one number, and only after you allow " +
+                        "that app. It never gets a list, a photo or a contact to open, and nothing is answered in discreet mode. " +
+                        "Not every phone app asks directories: Android's own phone app, for one, only looks in your contacts.",
                     Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
                 )
             }
@@ -265,7 +286,7 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
                 ListItem(
                     leadingContent = { Icon(Icons.Rounded.Lock, null) },
                     headlineContent = { Text(label(e.packageName)) },
-                    supportingContent = { Text("${e.outcome.text} · ${Format.shortWhen(context, e.time)}") },
+                    supportingContent = { Text("${e.outcome.text}${if (e.viaDirectory) " (directory)" else ""} · ${Format.shortWhen(context, e.time)}") },
                 )
             }
             if (st.log.isNotEmpty()) item { TextButton({ access.clearLog() }, Modifier.padding(horizontal = 8.dp)) { Text("Clear log") } }

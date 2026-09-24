@@ -81,6 +81,11 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val vaultList by vm.c.vault.contacts.collectAsStateWithLifecycle()
     val chips: @Composable () -> Unit = { app.parley.ui.people.ContactsFilterChips(vm, showVault, settings.hideVault, open) }
+    val peopleSettings by vm.people.settings.collectAsStateWithLifecycle()
+    val hints by vm.people.searchHints.collectAsStateWithLifecycle()
+    val index by vm.people.index.collectAsStateWithLifecycle()
+    // M7: the row's message button and a "Message" swipe use each person's usual way to message.
+    val (quick, quickHost) = app.parley.ui.contact.rememberQuickMessenger(vm)
     if (showVault && !settings.hideVault) {
         LazyColumn(Modifier.fillMaxSize()) {
             item { chips() }
@@ -98,7 +103,7 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
                 item(key = "v" + v.id) {
                     ListItem(
                         modifier = Modifier.clickable { open(Routes.vault(v.id)) },
-                        leadingContent = { Avatar(v.name, null, avatarSize()) },
+                        leadingContent = { Avatar(v.name, remember(v.id, v.updatedAt) { vm.c.vault.photoUri(v.id) }, avatarSize()) },
                         headlineContent = { Text(v.name) },
                         supportingContent = v.numbers.firstOrNull()?.let { n -> { Text(app.parley.ui.common.Format.number(n, vm.countryIso)) } },
                     )
@@ -116,9 +121,11 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
     // Build (index of first item for each section) for the fast-scroll rail.
-    val sections = remember(contacts) {
+    // I2: "My card" leads the list when nothing is being searched or filtered.
+    val showMe = query.isBlank() && filter.isEmpty && selection.isEmpty()
+    val sections = remember(contacts, showMe) {
         val map = LinkedHashMap<String, Int>()
-        var idx = 1 // item 0 is the group chips row
+        var idx = if (showMe) 2 else 1 // item 0 is the group chips row, then "My card"
         contacts.forEachIndexed { i, c ->
             val s = sectionOf(c.displayName)
             if (s !in map) {
@@ -133,6 +140,7 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
     Box(Modifier.fillMaxSize()) {
         LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
             item(key = "groups") { chips() }
+            if (showMe) item(key = "me") { app.parley.ui.people.MeCardRow(vm, open) }
             if (contacts.isEmpty()) {
                 item(key = "empty") {
                     EmptyState(
@@ -159,15 +167,34 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
                     }
                 }
                 item(key = c.id) {
-                    ContactRow(
-                        c,
-                        secondLine = secondLines[c.id],
-                        actions = settings.contactRowActions && selection.isEmpty(),
-                        onCall = { n -> vm.requestCall(n, c.displayName) },
-                        selected = c.id in selection,
-                        selectionMode = selection.isNotEmpty(),
-                        onLongClick = { vm.toggleSelection(c.id) },
-                    ) { if (selection.isNotEmpty()) vm.toggleSelection(c.id) else open(Routes.contact(c.id)) }
+                    val number = (c.phones.firstOrNull { it.isPrimary } ?: c.phones.firstOrNull())?.number
+                    // U4: opt-in swipe actions (never while selecting).
+                    app.parley.ui.people.SwipeActionRow(
+                        if (selection.isEmpty()) peopleSettings.swipe else peopleSettings.swipe.copy(enabled = false),
+                        hasNumber = number != null, canDelete = true,
+                        onAction = { a ->
+                            when (a) {
+                                app.parley.common.people.SwipeAction.CALL -> number?.let { vm.requestCall(it, c.displayName) }
+                                app.parley.common.people.SwipeAction.MESSAGE -> quick.message(c)
+                                app.parley.common.people.SwipeAction.MESSAGE_ON -> quick.message(c, ask = true)
+                                app.parley.common.people.SwipeAction.BLOCK -> c.phones.forEach { vm.blockNumber(it.number) }
+                                app.parley.common.people.SwipeAction.DELETE -> vm.deleteContacts(listOf(c.id))
+                                app.parley.common.people.SwipeAction.NONE -> Unit
+                            }
+                        },
+                    ) {
+                        ContactRow(
+                            c,
+                            secondLine = hints[c.id] ?: secondLines[c.id],
+                            actions = settings.contactRowActions && selection.isEmpty(),
+                            onCall = { n -> vm.requestCall(n, c.displayName) },
+                            selected = c.id in selection,
+                            selectionMode = selection.isNotEmpty(),
+                            onLongClick = { vm.toggleSelection(c.id) },
+                            onMessage = { n -> quick.message(c, n) },
+                            isCompany = index.extras[c.id]?.let { e -> e.company.isNotBlank() && e.company.trim().equals(c.displayName.trim(), ignoreCase = true) } == true,
+                        ) { if (selection.isNotEmpty()) vm.toggleSelection(c.id) else open(Routes.contact(c.id)) }
+                    }
                 }
             }
         }
@@ -176,6 +203,7 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
                 sections[s]?.let { scope.launch { state.scrollToItem(it) } }
             }
         }
+        quickHost()
     }
 }
 
@@ -189,6 +217,10 @@ fun ContactRow(
     selected: Boolean = false,
     selectionMode: Boolean = false,
     onLongClick: (() -> Unit)? = null,
+    /** M7: the message button; by default a text message to the number. */
+    onMessage: ((String) -> Unit)? = null,
+    /** U6: a contact that is only a company gets a building in lists too. */
+    isCompany: Boolean = false,
     onClick: () -> Unit,
 ) {
     ListItem(
@@ -204,7 +236,7 @@ fun ContactRow(
                     if (selected) androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Rounded.Check, "Selected", tint = MaterialTheme.colorScheme.onPrimary)
                 }
             } else {
-                Avatar(c.displayName, c.photoUri, avatarSize(), Modifier.shared("avatar-${c.id}"))
+                Avatar(c.displayName, c.photoUri, avatarSize(), Modifier.shared("avatar-${c.id}"), isCompany = isCompany)
             }
         },
         headlineContent = { Text(c.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.shared("name-${c.id}", bounds = true)) },
@@ -213,7 +245,7 @@ fun ContactRow(
             val ctx = androidx.compose.ui.platform.LocalContext.current
             val n = (c.phones.firstOrNull { it.isPrimary } ?: c.phones.first()).number
             Row {
-                androidx.compose.material3.IconButton({ app.parley.ui.common.Intents.sms(ctx, n) }) {
+                androidx.compose.material3.IconButton({ if (onMessage != null) onMessage(n) else app.parley.ui.common.Intents.sms(ctx, n) }) {
                     androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Rounded.Message, "Message ${c.displayName}")
                 }
                 androidx.compose.material3.IconButton({ onCall(n) }) {
@@ -227,6 +259,9 @@ fun ContactRow(
 @Composable
 private fun FastScroller(letters: List<String>, modifier: Modifier, onLetter: (String) -> Unit) {
     var height by remember { mutableStateOf(1) }
+    // U7: letters as large as fit (8 to 13 sp), so a short alphabet isn't tiny and a long one doesn't overlap.
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val letterSp = with(density) { (height / letters.size.coerceAtLeast(1) * 0.62f).toSp().value }.coerceIn(8f, 13f)
     Column(
         modifier
             .fillMaxHeight()
@@ -245,7 +280,7 @@ private fun FastScroller(letters: List<String>, modifier: Modifier, onLetter: (S
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         letters.forEach { l ->
-            Text(l, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { onLetter(l) })
+            Text(l, fontSize = letterSp.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { onLetter(l) })
         }
     }
 }

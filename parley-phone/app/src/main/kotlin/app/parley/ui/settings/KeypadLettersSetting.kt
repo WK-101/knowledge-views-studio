@@ -72,27 +72,15 @@ fun KeypadLettersRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector
     }
 }
 
-/** Settings › Messaging: "My details" for "Send my details" (M5). */
+/** Settings › Messaging: "My card" (I2), which replaced "My details" and still fills in "Send my details". */
 @Composable
 fun MyDetailsRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
-    val store = vm.c.messaging
-    val details by store.myDetails.collectAsStateWithLifecycle()
-    var editDetails by remember { mutableStateOf(false) }
+    val details by vm.c.messaging.myDetails.collectAsStateWithLifecycle()
     LinkRow(
         entry("my_details").title,
-        listOf(details.name, details.number).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { "Used by “Send my details”" },
+        listOf(details.name, details.number).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { entry("my_details").summary },
         icon,
-    ) { editDetails = true }
-    if (editDetails) {
-        MyDetailsDialog(
-            initial = details,
-            suggestNumber = { withContext(Dispatchers.IO) { vm.c.sims.ownNumbers().firstOrNull() } },
-            onDismiss = { editDetails = false },
-        ) { d ->
-            store.setMyDetails(d)
-            editDetails = false
-        }
-    }
+    ) { vm.navigate(app.parley.NavEvent.Route(app.parley.ui.people.PeopleRoutes.ME)) }
 }
 
 @Composable

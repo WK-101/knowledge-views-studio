@@ -115,6 +115,7 @@ fun SelectionBar(vm: AppViewModel) {
                             }
                         })
                     }
+                    app.parley.ui.people.CopyAsTextMenuItem(chosen) { menu = false }
                     DropdownMenuItem({ Text("Export to .vcf") }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) }, onClick = {
                         menu = false
                         exporter.launch("contacts-${chosen.size}.vcf")

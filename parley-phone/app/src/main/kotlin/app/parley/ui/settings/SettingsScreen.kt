@@ -278,7 +278,7 @@ fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: Stri
                 SettingsCategory.PRIVACY -> PrivacyPage(vm, open)
                 SettingsCategory.BACKUP -> BackupPage(vm, open)
                 SettingsCategory.NOTIFICATIONS -> NotificationsPage(vm)
-                SettingsCategory.ABOUT -> AboutPage(open)
+                SettingsCategory.ABOUT -> AboutPage(open, vm)
             }
         }
     }

@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -43,8 +44,10 @@ fun JournalScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val entries by vm.c.journal.recent().collectAsStateWithLifecycle(emptyList())
-    Scaffold(topBar = {
-        TopAppBar(title = { Text("Recently deleted & changed") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+    // U7: scroll-linked top-bar tint.
+    val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
+    Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
+        TopAppBar(title = { Text("Recently deleted & changed") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } }, scrollBehavior = barTint)
     }) { p ->
         if (entries.isEmpty()) {
             EmptyState(Icons.Rounded.History, "Nothing here", "Contacts you delete, edit or merge in Parley are kept here for 30 days, so you can undo.", Modifier.padding(p))

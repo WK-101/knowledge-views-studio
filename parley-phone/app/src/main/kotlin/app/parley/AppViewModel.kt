@@ -79,6 +79,8 @@ data class PendingCall(
 sealed interface UiEvent {
     data class Message(val text: String) : UiEvent
     data class Undo(val text: String, val journalIds: List<Long>) : UiEvent
+    /** U4: calls deleted from history (a swipe), with Undo from the archive's deleted-calls batch. */
+    data class UndoCalls(val text: String, val batchId: Long) : UiEvent
     data object RequestCallPermission : UiEvent
 }
 
@@ -415,6 +417,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val journal = c.contacts.lastJournalIds
             val text = if (ids.size == 1) "Contact deleted" else "${ids.size} contacts deleted"
             if (journal.isNotEmpty()) events.trySend(UiEvent.Undo(text, journal)) else toast(text)
+        }
+    }
+
+    /** U4: deletes one Recents row's calls, offering Undo (the archive keeps them 30 days). */
+    fun deleteCallsWithUndo(entries: List<CallEntry>) {
+        viewModelScope.launch {
+            val batch = c.history.delete(entries.filter { it.id > 0 })
+            val text = if (entries.size == 1) "Call deleted" else "${entries.size} calls deleted"
+            if (batch != null) events.trySend(UiEvent.UndoCalls(text, batch)) else toast(text)
         }
     }
 

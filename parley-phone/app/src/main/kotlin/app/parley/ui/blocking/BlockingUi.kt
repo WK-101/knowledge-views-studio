@@ -61,8 +61,8 @@ fun ToggleRow(title: String, help: String?, value: Boolean, enabled: Boolean = t
  */
 @Composable
 fun CollapsibleSection(title: String, help: String, summary: List<String>, expanded: Boolean, onToggle: () -> Unit, icon: ImageVector? = null, content: @Composable () -> Unit) {
-    Column {
-        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHigh)
+    // U2: each section is one inset card (M3 Expressive grouped surfaces).
+    BlockingCard {
         ListItem(
             modifier = Modifier
                 .clickable(onClick = onToggle)
@@ -79,6 +79,15 @@ fun CollapsibleSection(title: String, help: String, summary: List<String>, expan
         )
         AnimatedVisibility(expanded) { Column { content() } }
     }
+}
+
+/** U2: an inset rounded card for a group of Blocking rows; shared rows blend into it. */
+@Composable
+fun BlockingCard(shape: androidx.compose.ui.graphics.Shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp), vertical: androidx.compose.ui.unit.Dp = 6.dp, content: @Composable () -> Unit) {
+    androidx.compose.material3.Surface(
+        shape = shape, color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = vertical),
+    ) { app.parley.ui.OnGroupSurface { Column { content() } } }
 }
 
 @Composable

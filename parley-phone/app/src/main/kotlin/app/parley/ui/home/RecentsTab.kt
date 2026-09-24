@@ -82,6 +82,10 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
     // Blocking: verdict / "Don't call back" badges and multi-select block (B2, B8, B10).
     val badgeFor = app.parley.ui.blocking.rememberRecentBadges(vm)
     val selected by vm.recentSelection.collectAsStateWithLifecycle()
+    // U4: opt-in swipe actions; M7: "Message" uses a contact's usual way to message.
+    val swipe = vm.people.settings.collectAsStateWithLifecycle().value.swipe
+    val (quick, quickHost) = app.parley.ui.contact.rememberQuickMessenger(vm)
+    quickHost()
     androidx.activity.compose.BackHandler(enabled = selected.isNotEmpty()) { vm.recentSelection.value = emptySet() }
     fun toggleSelected(g: RecentGroup) {
         vm.recentSelection.value = selected.let { if (g.key in it) it - g.key else it + g.key }
@@ -122,6 +126,22 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
                 }
             }
             item(key = g.key) {
+              val hasNumber = !g.hidden && g.number.isNotBlank()
+              app.parley.ui.people.SwipeActionRow(
+                  if (selected.isEmpty()) swipe else swipe.copy(enabled = false), hasNumber = hasNumber,
+                  // Private calls live in Parley's encrypted history, which has no undo: no swipe delete there.
+                  canDelete = g.vaultId == null && g.calls.all { it.id > 0 },
+                  onAction = { a ->
+                      when (a) {
+                          app.parley.common.people.SwipeAction.CALL -> vm.requestCall(g.number, g.contact?.displayName)
+                          app.parley.common.people.SwipeAction.MESSAGE -> g.contact?.let { quick.message(it, g.number) } ?: app.parley.ui.common.Intents.sms(context, g.number)
+                          app.parley.common.people.SwipeAction.MESSAGE_ON -> g.contact?.let { quick.message(it, g.number, ask = true) } ?: run { messageFor = g.number to g.latest.accountId }
+                          app.parley.common.people.SwipeAction.BLOCK -> vm.blockNumber(g.number)
+                          app.parley.common.people.SwipeAction.DELETE -> vm.deleteCallsWithUndo(g.calls)
+                          app.parley.common.people.SwipeAction.NONE -> Unit
+                      }
+                  },
+              ) {
                 RecentRow(
                     g, vm.countryIso, simLabels.takeIf { settings.showSimLabels }.orEmpty(),
                     onLongClick = { if (selected.isNotEmpty()) toggleSelected(g) else menuFor = g },
@@ -138,6 +158,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
                     },
                     onCall = { vm.requestCall(g.number, g.contact?.displayName) },
                 )
+              }
             }
         }
     }

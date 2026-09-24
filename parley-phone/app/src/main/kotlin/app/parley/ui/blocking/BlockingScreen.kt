@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
@@ -152,8 +154,10 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
         }.take(5)
     }
 
-    Scaffold(topBar = {
-        TopAppBar(title = { Text("Blocking & screening") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+    // U7: scroll-linked top-bar tint.
+    val barScroll = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
+    Scaffold(modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection), topBar = {
+        TopAppBar(title = { Text("Blocking & screening") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } }, scrollBehavior = barScroll)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item(key = "status") { ScreeningStatusCard(vm) }
@@ -199,7 +203,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
                 }
             }
 
-            item(key = "main") {
+            item(key = "main") { BlockingCard {
                 ToggleRow("Silence or block hidden numbers", "Private and withheld callers" + (s.hiddenSchedule?.let { " · ${it.describe()}" } ?: ""), s.blockHidden, enabled = isDefault) { v -> setScreening { it.copy(blockHidden = v) } }
                 if (!isDefault) Text("Needs Parley as your phone app: Android never shows hidden callers to screening apps.", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 ToggleRow("Only people I know ring", "Strict mode: numbers not in contacts are stopped, unless you allowed them" + (s.nonContactsSchedule?.let { " · ${it.describe()}" } ?: ""), s.blockNonContacts) { v -> setScreening { it.copy(blockNonContacts = v) } }
@@ -207,7 +211,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
                     headlineContent = { Text("When a call is stopped") },
                     supportingContent = { Column { ActionChoice(s.defaultAction, { a -> setScreening { it.copy(defaultAction = a) } }, Modifier.padding(top = 8.dp)) } },
                 )
-            }
+            } }
 
             // ---- Always let through ----
             item(key = "allow") {
@@ -418,7 +422,11 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
                 if (log.isEmpty()) Text("Nothing stopped yet.", Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 else TextButton({ scope.launch { vm.c.blocks.clearBlockedLog() } }, Modifier.padding(horizontal = 8.dp)) { Text("Clear log") }
             }
-            items(log.take(100), key = { "l" + it.id }) { e -> BlockedLogRow(vm, e) }
+            val shown = log.take(100)
+            itemsIndexed(shown, key = { _, e -> "l" + e.id }) { i, e ->
+                // U2: the log as one segmented group.
+                BlockingCard(app.parley.ui.segmentShape(i, shown.size), vertical = 1.dp) { BlockedLogRow(vm, e) }
+            }
         }
     }
 
