@@ -25,3 +25,13 @@ dependencies {
     }
     testImplementation(libs.junit)
 }
+
+// Offline spam-list pack builder (see app.parley.common.spam.PackTool), e.g.
+// ./gradlew :core:common:buildSpamPack --args="--ftc dnc.csv --out ftc.parleylist --id gov.ftc.dnc --name 'FTC reported calls'"
+tasks.register<JavaExec>("buildSpamPack") {
+    group = "parley"
+    description = "Builds a .parleylist spam-list pack from public data"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("app.parley.common.spam.PackTool")
+    workingDir = rootProject.projectDir
+}

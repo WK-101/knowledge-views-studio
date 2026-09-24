@@ -34,7 +34,23 @@ object PhoneNumbers {
      * Best-effort E.164 conversion. Returns null when the number is too short or ambiguous
      * (short codes, service codes).
      */
-    fun toE164(raw: String?, countryIso: String?): String? {
+    fun toE164(raw: String?, countryIso: String?): String? = toE164Raw(raw, countryIso)?.let { canonicalE164(it) }
+
+    /**
+     * Folds legacy forms of the same line into one E.164 form. Mexico dropped the mobile "1" after +52 in
+     * 2019: +52 1 55 1234 5678 and +52 55 1234 5678 are the same number (area codes never start with 1).
+     */
+    fun canonicalE164(e164: String): String =
+        if (e164.startsWith("+521") && e164.length == 14) "+52" + e164.substring(4) else e164
+
+    /**
+     * Forwarded calls are sometimes presented as "A&B" (original caller and forwarding line). Returns each part;
+     * a plain number gives itself.
+     */
+    fun forwardedParts(raw: String): List<String> =
+        if ('&' in raw) raw.split('&').map { it.trim() }.filter { digits(it).isNotEmpty() }.ifEmpty { listOf(raw) } else listOf(raw)
+
+    private fun toE164Raw(raw: String?, countryIso: String?): String? {
         val c = clean(raw)
         if (c.isEmpty() || c.contains('*') || c.contains('#')) return null
         if (c.startsWith("+")) return c.takeIf { it.length >= 8 }
@@ -52,6 +68,14 @@ object PhoneNumbers {
             }
         }
         if (c.length < 6) return null
+        if (iso == "MX") {
+            // Legacy Mexican prefixes: 044/045 (mobile) and 01 (long distance) before a 10-digit number.
+            when {
+                c.length == 13 && (c.startsWith("044") || c.startsWith("045")) -> return "+52" + c.substring(3)
+                c.length == 12 && c.startsWith("01") -> return "+52" + c.substring(2)
+                c.length == 10 -> return "+52$c"
+            }
+        }
         val trunk = CountryCodes.trunkPrefix(iso)
         return when {
             iso in CountryCodes.KEEPS_TRUNK_ZERO -> "+$cc$c"
