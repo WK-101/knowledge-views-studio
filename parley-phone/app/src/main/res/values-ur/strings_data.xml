@@ -1,0 +1,1248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Shared actions (data area: history, people, backup, vault and friends) -->
+    <string name="dc_cancel">منسوخ کریں</string>
+    <string name="dc_back">واپس</string>
+    <string name="dc_close">بند کریں</string>
+    <string name="dc_ok">ٹھیک ہے</string>
+    <string name="dc_got_it">سمجھ گیا</string>
+    <string name="dc_restore">بحال کریں</string>
+    <string name="dc_delete">حذف کریں</string>
+    <string name="dc_save">محفوظ کریں</string>
+    <string name="dc_done">ہو گیا</string>
+    <string name="dc_next">اگلا</string>
+    <string name="dc_off">بند</string>
+    <string name="dc_on">آن</string>
+
+    <!-- Call history: archive notices -->
+    <string name="hist_archive_reset_title">Parley کا کال آرکائیو ری سیٹ ہو گیا</string>
+    <string name="hist_archive_reset_text">اس کی انکرپشن کلید اب اس فون پر دستیاب نہیں تھی (یہ سسٹم اپ ڈیٹ یا سیکیورٹی تبدیلی کے بعد ہو سکتا ہے)، اس لیے نیا آرکائیو شروع کیا گیا۔ پرانا الگ رکھ دیا گیا ہے، حذف نہیں کیا گیا۔</string>
+    <string name="hist_archive_intro_title">Parley آپ کی کالز کی اپنی کاپی رکھتا ہے</string>
+    <string name="hist_archive_intro_text">Android پرانی کالز ہٹا سکتا ہے، اس لیے Parley اس فون پر ایک انکرپٹڈ کاپی رکھتا ہے۔ کسی دوسری ایپ میں مٹائی گئی کالز Parley میں رہتی ہیں؛ انہیں یہاں حذف کریں، یا اس کی ترتیبات میں آرکائیو بند کریں۔</string>
+    <string name="hist_archive_settings">آرکائیو کی ترتیبات</string>
+
+    <!-- Call history settings -->
+    <string name="hist_archive_on_summary">آن: Parley اپنی انکرپٹڈ کاپی رکھتا ہے، کیونکہ Android پرانی کالز ہٹا سکتا ہے</string>
+    <string name="hist_archive_off_summary">آف: صرف وہی جو Android رکھتا ہے</string>
+    <string name="hist_archive_off_title">کال ہسٹری آرکائیو بند کریں؟</string>
+    <string name="hist_archive_off_text">Parley آپ کی کالز کی اپنی انکرپٹڈ کاپی حذف کر دیتا ہے۔ فون کی اپنی کال ہسٹری نہیں بدلتی، لیکن جو کالز Android پہلے ہی ہٹا چکا ہے وہ ہمیشہ کے لیے ختم ہو جاتی ہیں۔</string>
+    <string name="hist_archive_off_confirm">بند کریں اور حذف کریں</string>
+    <string name="hist_settings_title">کال کی سرگزشت</string>
+    <string name="hist_keep_full">مکمل کال ہسٹری رکھیں</string>
+    <plurals name="hist_archive_count">
+        <item quantity="one">Parley کے آرکائیو میں %1$d کال</item>
+        <item quantity="other">Parley کے آرکائیو میں %1$d کالز</item>
+    </plurals>
+    <string name="hist_archive_explain">کچھ فون صرف حالیہ کالز رکھتے ہیں۔ اسے آن کرنے پر Parley ہر کال کو اس فون پر اپنے ڈیٹا بیس میں کاپی کرتا ہے، Android کے محفوظ کلید اسٹور میں رکھی کلید سے انکرپٹ کر کے، اور انہیں حالیہ میں دکھاتا ہے۔ کچھ بھی فون سے باہر نہیں جاتا۔ Parley میں حذف کی گئی کالز کاپی سے بھی ہٹ جاتی ہیں؛ دوسری ایپس میں حذف کی گئی کالز اس میں رہتی ہیں۔</string>
+    <plurals name="hist_retention_days">
+        <item quantity="one">آپ کی ترتیب کال ہسٹری %1$d دن تک رکھتی ہے؛ پرانی کالز دونوں سے حذف ہو جاتی ہیں، سوائے ان نمبروں کے جنہیں آپ ہمیشہ رکھتے ہیں۔</item>
+        <item quantity="other">آپ کی ترتیب کال ہسٹری %1$d دن تک رکھتی ہے؛ پرانی کالز دونوں سے حذف ہو جاتی ہیں، سوائے ان نمبروں کے جنہیں آپ ہمیشہ رکھتے ہیں۔</item>
+    </plurals>
+    <string name="hist_retention_forever">آپ کی ترتیب کال ہسٹری ہمیشہ رکھتی ہے۔</string>
+    <string name="hist_kept_forever">ہمیشہ کے لیے رکھی گئی</string>
+    <string name="hist_kept_forever_empty">کسی رابطے یا نمبر کی ہسٹری کھولیں اور “یہ کال ہسٹری ہمیشہ رکھیں” آن کریں، تاکہ وہ برقراری کی ترتیب سے ہٹ کر محفوظ رہے۔</string>
+    <string name="hist_stop_keeping">ہمیشہ رکھنا بند کریں</string>
+    <string name="hist_recently_deleted">حال ہی میں حذف کی گئی کالز</string>
+    <string name="hist_recently_deleted_empty">پچھلے 30 دنوں میں کچھ حذف نہیں ہوا۔</string>
+    <plurals name="hist_calls_deleted">
+        <item quantity="one">%1$d کال حذف کی گئی</item>
+        <item quantity="other">%1$d کالز حذف کی گئیں</item>
+    </plurals>
+    <plurals name="hist_restored_calls">
+        <item quantity="one">%1$d کال بحال کی گئی</item>
+        <item quantity="other">%1$d کالز بحال کی گئیں</item>
+    </plurals>
+    <string name="hist_restore_failed_default">بحال نہیں ہو سکا۔ پہلے Parley کو اپنی ڈیفالٹ فون ایپ بنائیں۔</string>
+    <string name="hist_export_import">برآمد اور درآمد</string>
+    <string name="hist_csv_bom">Excel کے موافق CSV</string>
+    <string name="hist_csv_bom_summary">ایک بائٹ آرڈر مارک شامل کرتا ہے تاکہ Excel میں حروف درست دکھیں</string>
+    <string name="hist_import_csv">CSV سے کال ہسٹری درآمد کریں</string>
+    <string name="hist_import_csv_summary">Parley، Logger یا کسی اسپریڈشیٹ سے</string>
+    <string name="hist_export_hint">برآمد کرنے کے لیے حالیہ › ⋮ › برآمد کھولیں، یا کسی نمبر کی ہسٹری۔</string>
+    <string name="dc_joined_dot">%1$s · %2$s</string>
+    <string name="dc_list_separator">"، "</string>
+
+    <!-- Call history: enums from core -->
+    <string name="hist_answers_morning">عموماً دوپہر سے پہلے اٹھاتے ہیں</string>
+    <string name="hist_answers_afternoon">عموماً دوپہر 12 سے شام 6 بجے کے درمیان اٹھاتے ہیں</string>
+    <string name="hist_answers_evening">عموماً شام 6 بجے کے بعد اٹھاتے ہیں</string>
+    <string name="hist_period_any">کسی بھی وقت</string>
+    <string name="hist_period_today">آج</string>
+    <string name="hist_period_7_days">پچھلے 7 دن</string>
+    <string name="hist_period_30_days">پچھلے 30 دن</string>
+    <string name="hist_period_this_month">اس مہینے</string>
+    <string name="hist_period_90_days">پچھلے 90 دن</string>
+    <string name="hist_period_this_year">اس سال</string>
+    <string name="hist_type_incoming">آنے والی</string>
+    <string name="hist_type_outgoing">جانے والی</string>
+    <string name="hist_type_missed">چھوٹی ہوئی</string>
+    <string name="hist_type_rejected">مسترد کی گئی</string>
+    <string name="hist_type_blocked">بلاک کی گئی</string>
+    <string name="hist_type_voicemail">وائس میل</string>
+    <string name="hist_range_all">تمام کالز</string>
+    <string name="hist_range_year">پچھلا ایک سال</string>
+    <string name="hist_range_month">پچھلا ایک مہینہ</string>
+    <string name="hist_range_week">پچھلا ایک ہفتہ</string>
+    <string name="hist_range_day">پچھلے 24 گھنٹے</string>
+    <string name="hist_range_since_date">کسی تاریخ سے…</string>
+    <string name="hist_increment_second">فی سیکنڈ</string>
+    <string name="hist_increment_half_minute">فی 30 سیکنڈ</string>
+    <string name="hist_increment_minute">فی منٹ</string>
+    <string name="hist_category_mobile">موبائل نمبر</string>
+    <string name="hist_category_landline">لینڈ لائن</string>
+    <string name="hist_category_mobile_or_landline">موبائل یا لینڈ لائن</string>
+    <string name="hist_category_international">بین الاقوامی</string>
+    <string name="hist_category_toll_free">ٹول فری</string>
+    <string name="hist_category_other">دیگر (پریمیم، مشترکہ لاگت، VoIP، مختصر کوڈ)</string>
+    <string name="hist_source_parley">Parley برآمد</string>
+    <string name="hist_source_logger">Logger برآمد</string>
+    <string name="hist_source_generic">دیگر CSV</string>
+    <string name="hist_problem_empty_file">فائل خالی ہے</string>
+    <string name="hist_problem_need_columns">منتخب کریں کہ کن کالموں میں نمبر، قسم اور تاریخ ہے</string>
+    <string name="hist_problem_unreadable_row">ناقابلِ پڑھ قطار</string>
+    <string name="hist_problem_unknown_type">نامعلوم کال کی قسم \'%1$s\'</string>
+    <string name="hist_problem_unreadable_date">ناقابلِ پڑھ تاریخ \'%1$s\'</string>
+    <string name="hist_problem_unreadable_duration">ناقابلِ پڑھ دورانیہ \'%1$s\'</string>
+    <string name="hist_problem_not_a_number">فون نمبر نہیں \'%1$s\'</string>
+    <string name="hist_plan_used">%2$d میں سے %1$d منٹ استعمال ہوئے</string>
+    <string name="hist_plan_last_day">آخری دن</string>
+    <plurals name="hist_plan_days_left">
+        <item quantity="one">%1$d دن باقی</item>
+        <item quantity="other">%1$d دن باقی</item>
+    </plurals>
+    <string name="hist_minutes_short">%1$d منٹ</string>
+    <string name="hist_seconds_short">%1$d سیکنڈ</string>
+    <string name="hist_duration_between">%1$s–%2$s</string>
+    <string name="hist_duration_at_least">≥ %1$s</string>
+    <string name="hist_duration_at_most">≤ %1$s</string>
+    <string name="hist_all_calls">تمام کالز</string>
+
+    <!-- Call insights (contact detail, number history) -->
+    <string name="hist_calls_section">کالیں</string>
+    <string name="hist_last_call">آخری کال %1$s</string>
+    <plurals name="hist_insight_totals">
+        <item quantity="one">%1$d کال · گفتگو %2$s (%3$s کی گئی، %4$s آئی) · مہینے میں تقریباً %5$s</item>
+        <item quantity="other">%1$d کالز · گفتگو %2$s (%3$s کی گئی، %4$s آئی) · مہینے میں تقریباً %5$s</item>
+    </plurals>
+    <string name="hist_trend_up">حال میں زیادہ کالز</string>
+    <string name="hist_trend_down">حال میں کم کالز</string>
+    <string name="hist_trend_steady">پہلے جتنی ہی</string>
+    <plurals name="hist_trend_detail">
+        <item quantity="one">پچھلے 90 دنوں میں %1$d کال، اس سے پہلے کے 90 دنوں میں %2$d</item>
+        <item quantity="other">پچھلے 90 دنوں میں %1$d کالز، اس سے پہلے کے 90 دنوں میں %2$d</item>
+    </plurals>
+    <plurals name="hist_rhythm" tools:ignore="ImpliedQuantity">
+        <item quantity="one">آپ عموماً ہر روز بات کرتے ہیں</item>
+        <item quantity="other">آپ عموماً ہر %1$d دن بعد بات کرتے ہیں</item>
+    </plurals>
+    <string name="hist_last_talked_today">آخری بات آج ہوئی</string>
+    <plurals name="hist_last_talked_days">
+        <item quantity="one">آخری بات %1$d دن پہلے ہوئی</item>
+        <item quantity="other">آخری بات %1$d دن پہلے ہوئی</item>
+    </plurals>
+    <string name="hist_answer_window_hint">اس بنیاد پر کہ آپ کی کالز کتنی بار اٹھائی جاتی ہیں</string>
+    <string name="hist_when_you_talk">آپ کب بات کرتے ہیں</string>
+    <string name="hist_keep_forever">یہ کال ہسٹری ہمیشہ رکھیں</string>
+    <string name="hist_keep_forever_summary">Parley کا آرکائیو یہ کالز تب بھی رکھتا ہے جب آپ کی برقراری کی مدت سے پرانی ہسٹری حذف کی جاتی ہے</string>
+    <string name="hist_heatmap_peak">سب سے زیادہ کالز %1$s کو تقریباً %2$s</string>
+    <string name="hist_no_calls">کوئی کال نہیں</string>
+    <plurals name="hist_rhythm_if_not_talked">
+        <item quantity="one">اگر %1$d دن سے بات نہیں ہوئی</item>
+        <item quantity="other">اگر %1$d دن سے بات نہیں ہوئی</item>
+    </plurals>
+    <plurals name="hist_rhythm_suggested" tools:ignore="ImpliedQuantity">
+        <item quantity="one">تجویز: آپ عموماً ہر روز بات کرتے ہیں</item>
+        <item quantity="other">تجویز: آپ عموماً ہر %1$d دن بعد بات کرتے ہیں</item>
+    </plurals>
+
+    <!-- Day summary -->
+    <plurals name="hist_day_calls_with">
+        <item quantity="one">%2$s کے ساتھ %1$d کال</item>
+        <item quantity="other">%2$s کے ساتھ %1$d کالز</item>
+    </plurals>
+    <plurals name="hist_people_count">
+        <item quantity="one">%1$d شخص</item>
+        <item quantity="other">%1$d لوگ</item>
+    </plurals>
+    <string name="hist_talk_time">گفتگو کا وقت %1$s</string>
+    <string name="hist_talk_split">آپ کی کی گئی کالز پر %1$s · موصولہ کالز پر %2$s</string>
+    <string name="hist_stat_made">کی گئیں</string>
+    <string name="hist_stat_received">موصول</string>
+    <string name="hist_stat_missed">چھوٹی ہوئی</string>
+    <string name="hist_stat_rejected">مسترد کی گئی</string>
+    <string name="hist_stat_blocked">بلاک کی گئی</string>
+    <string name="hist_type_answered_elsewhere">کہیں اور وصول کی گئی</string>
+    <string name="hist_type_unknown">نامعلوم قسم</string>
+
+    <!-- Export -->
+    <string name="hist_share_chooser">کال ہسٹری شیئر کریں</string>
+    <string name="hist_export_title">کال کی سرگزشت</string>
+    <string name="hist_export_title_subject">کال ہسٹری · %1$s</string>
+    <plurals name="hist_pdf_made_with">
+        <item quantity="one">%1$d کال · Parley سے %2$s کو بنایا گیا</item>
+        <item quantity="other">%1$d کالز · Parley سے %2$s کو بنایا گیا</item>
+    </plurals>
+    <string name="hist_pdf_col_date">تاریخ</string>
+    <string name="hist_pdf_col_type">قسم</string>
+    <string name="hist_pdf_col_who">نام / نمبر</string>
+    <string name="hist_pdf_col_duration">دورانیہ</string>
+    <string name="hist_pdf_col_sim">SIM</string>
+    <string name="hist_private_number">نجی نمبر</string>
+    <string name="hist_pdf_note">نوٹ: %1$s</string>
+    <string name="hist_pdf_page">صفحہ %1$d از %2$d</string>
+    <string name="hist_export_failed">برآمد ناکام: %1$s</string>
+    <plurals name="hist_export_count">
+        <item quantity="one">%1$d کال برآمد کریں</item>
+        <item quantity="other">%1$d کالز برآمد کریں</item>
+    </plurals>
+    <string name="hist_export_explain">فائلیں اسی فون پر بنتی ہیں اور شیئر کرنے کے بعد Parley کے کیش سے حذف کر دی جاتی ہیں۔ دورانیہ اصل گفتگو کا وقت ہے۔</string>
+    <string name="hist_export_csv">CSV</string>
+    <string name="hist_export_csv_summary">اسپریڈشیٹ کے لیے؛ نوٹس شامل</string>
+    <string name="hist_export_json">JSON</string>
+    <string name="hist_export_json_summary">اپنی اسکرپٹس کے لیے</string>
+    <string name="hist_export_ics">کیلنڈر (.ics)</string>
+    <string name="hist_export_ics_summary">ہر کال کے لیے ایک ایونٹ</string>
+    <string name="hist_export_pdf">PDF</string>
+    <string name="hist_export_pdf_summary">شیئر کرنے کے لیے قابلِ پرنٹ جدول</string>
+    <string name="hist_export_print">پرنٹ کریں</string>
+    <string name="hist_export_print_summary">یا سسٹم کے پرنٹ ڈائیلاگ سے PDF کے طور پر محفوظ کریں</string>
+    <string name="hist_insights_action">کال کے اعداد و شمار</string>
+    <string name="hist_export_menu">برآمد کریں…</string>
+
+    <!-- Import call history -->
+    <string name="hist_import_reading">فائل پڑھی جا رہی ہے…</string>
+    <string name="hist_import_read_failed">فائل پڑھی نہیں جا سکی</string>
+    <string name="hist_import_title">کال ہسٹری درآمد کریں</string>
+    <string name="hist_import_explain">CSV فائل سے کالز آپ کی کال ہسٹری میں شامل کرتا ہے: Parley کی اپنی برآمد، Logger کی برآمد یا نمبر، قسم اور تاریخ والی کوئی بھی اسپریڈشیٹ۔ کچھ لکھنے سے پہلے آپ دیکھتے ہیں کہ کیا ہوگا۔ جو کالز پہلے سے ہسٹری میں ہیں وہ چھوڑ دی جاتی ہیں، اور درآمد شدہ کالز کبھی نئی چھوٹی کالز کے طور پر نہیں دکھتیں۔</string>
+    <string name="hist_import_need_default">پہلے Parley کو اپنی ڈیفالٹ فون ایپ بنائیں: Android صرف فون ایپ کو کال ہسٹری لکھنے دیتا ہے۔</string>
+    <string name="hist_import_choose">CSV فائل منتخب کریں</string>
+    <string name="hist_import_choose_another">دوسری فائل منتخب کریں</string>
+    <string name="hist_import_dry_run">آزمائشی جائزہ · %1$s</string>
+    <plurals name="hist_import_rows_read">
+        <item quantity="one">%1$d قطار پڑھی گئی</item>
+        <item quantity="other">%1$d قطاریں پڑھی گئیں</item>
+    </plurals>
+    <plurals name="hist_import_new_calls">
+        <item quantity="one">%1$d نئی کال</item>
+        <item quantity="other">%1$d نئی کالز</item>
+    </plurals>
+    <plurals name="hist_import_already">
+        <item quantity="one">%1$d پہلے سے آپ کی ہسٹری میں</item>
+        <item quantity="other">%1$d پہلے سے آپ کی ہسٹری میں</item>
+    </plurals>
+    <plurals name="hist_import_rows_skipped">
+        <item quantity="one">%1$d قطار چھوڑی گئی</item>
+        <item quantity="other">%1$d قطاریں چھوڑی گئیں</item>
+    </plurals>
+    <string name="hist_import_columns">کالم</string>
+    <string name="hist_import_day_first">تاریخ میں دن پہلے ہے</string>
+    <string name="hist_import_day_first_on">03/04/2025 یعنی 3 اپریل</string>
+    <string name="hist_import_day_first_off">03/04/2025 یعنی 4 مارچ</string>
+    <string name="hist_import_first_calls">درآمد ہونے والی پہلی کالز</string>
+    <string name="hist_importing">درآمد ہو رہا ہے…</string>
+    <string name="hist_import_nothing">کچھ درآمد نہیں ہوا۔ Android نے کالز قبول نہیں کیں: دیکھیں کہ Parley آپ کی ڈیفالٹ فون ایپ ہے۔</string>
+    <plurals name="hist_import_done">
+        <item quantity="one">%1$d کال درآمد کی گئی</item>
+        <item quantity="other">%1$d کالز درآمد کی گئیں</item>
+    </plurals>
+    <plurals name="hist_import_done_dupes">
+        <item quantity="one">%1$d پہلے سے ہسٹری میں تھی، چھوڑ دی گئی</item>
+        <item quantity="other">%1$d پہلے سے ہسٹری میں تھیں، چھوڑ دی گئیں</item>
+    </plurals>
+    <plurals name="hist_import_done_problems">
+        <item quantity="one">%1$d ناقابلِ پڑھ قطار چھوڑی گئی</item>
+        <item quantity="other">%1$d ناقابلِ پڑھ قطاریں چھوڑی گئیں</item>
+    </plurals>
+    <plurals name="hist_import_button">
+        <item quantity="one">%1$d کال درآمد کریں</item>
+        <item quantity="other">%1$d کالز درآمد کریں</item>
+    </plurals>
+    <string name="hist_import_problems">قطاریں جو درآمد نہیں ہو سکتیں</string>
+    <string name="hist_import_line">قطار %1$d: %2$s</string>
+    <string name="hist_import_more">…اور %1$d</string>
+    <string name="hist_import_finished">درآمد مکمل ہو گئی</string>
+    <string name="hist_call">کال کریں</string>
+    <string name="hist_col_number">نمبر</string>
+    <string name="hist_col_type">کال کی قسم</string>
+    <string name="hist_col_date">تاریخ (یا تاریخ اور وقت)</string>
+    <string name="hist_col_time">وقت</string>
+    <string name="hist_col_timestamp">ٹائم اسٹیمپ (Unix)</string>
+    <string name="hist_col_duration">دورانیہ</string>
+    <string name="hist_col_name">نام</string>
+    <string name="hist_col_sim">SIM</string>
+    <string name="hist_col_missing">اس فائل میں نہیں</string>
+    <string name="hist_col_n">کالم %1$d</string>
+
+    <!-- Insights -->
+    <string name="hist_insight_week">7 دن</string>
+    <string name="hist_insight_month">30 دن</string>
+    <string name="hist_insight_quarter">90 دن</string>
+    <string name="hist_insight_year">اس سال</string>
+    <string name="hist_insight_all">تمام وقت</string>
+    <string name="hist_insights_title">اعداد و شمار</string>
+    <string name="hist_talk_time_label">گفتگو کا وقت</string>
+    <string name="hist_calls_you_made">آپ کی کی گئی کالز</string>
+    <string name="hist_calls_you_received">آپ کو موصول کالز</string>
+    <string name="hist_answered_rates">آپ کی کی گئی %2$d میں سے %1$d کالز اٹھائی گئیں · آنے والی %4$d میں سے %3$d کالز اٹھائی گئیں</string>
+    <string name="hist_talk_per_week">ہر ہفتے گفتگو کا وقت</string>
+    <string name="hist_most_talk">سب سے زیادہ گفتگو</string>
+    <plurals name="hist_talk_and_calls">
+        <item quantity="one">%2$s · %1$d کال</item>
+        <item quantity="other">%2$s · %1$d کالز</item>
+    </plurals>
+    <string name="hist_most_calls">سب سے زیادہ کالز</string>
+    <plurals name="hist_calls_and_talk">
+        <item quantity="one">%1$d کال · %2$s</item>
+        <item quantity="other">%1$d کالز · %2$s</item>
+    </plurals>
+    <string name="hist_by_sim">SIM کے لحاظ سے</string>
+    <string name="hist_no_sim">کوئی SIM درج نہیں</string>
+    <string name="hist_other_sim">دوسری SIM</string>
+    <plurals name="hist_sim_totals">
+        <item quantity="one">%1$d کال · %2$d کی گئیں · %3$d موصول · %4$d چھوٹیں · گفتگو %5$s</item>
+        <item quantity="other">%1$d کالز · %2$d کی گئیں · %3$d موصول · %4$d چھوٹیں · گفتگو %5$s</item>
+    </plurals>
+    <string name="hist_unreturned">وہ کالز جن کا آپ نے جواب نہیں دیا</string>
+    <string name="hist_unreturned_none">کوئی نہیں۔ بہت خوب۔</string>
+    <plurals name="hist_missed_last">
+        <item quantity="one">چھوٹی %2$s</item>
+        <item quantity="other">%1$d چھوٹی کالز · آخری %2$s</item>
+    </plurals>
+    <string name="hist_call_back">واپس کال کریں</string>
+    <string name="hist_insights_footer">اس فون پر آپ کی کال ہسٹری سے اخذ کیا گیا۔</string>
+    <string name="hist_insights_footer_no_contacts">اس فون پر آپ کی کال ہسٹری سے اخذ کیا گیا۔ رابطے پڑھے نہیں جا سکے، اس لیے لوگ نمبر سے دکھائے گئے ہیں۔</string>
+    <string name="hist_weekly_desc">ہفتہ وار گفتگو کا وقت، سب سے مصروف ہفتہ %1$s، %2$s کے ساتھ</string>
+    <string name="hist_weekly_scale">اوپری لکیر = %1$s · آدھا = %2$s</string>
+
+    <!-- Number history -->
+    <plurals name="hist_deleted_calls">
+        <item quantity="one">%1$d کال حذف کی گئی</item>
+        <item quantity="other">%1$d کالز حذف کی گئیں</item>
+    </plurals>
+    <string name="dc_undo">واپس لیں</string>
+    <string name="dc_more_options">مزید اختیارات</string>
+    <string name="hist_delete_calls_menu">کالز حذف کریں…</string>
+    <string name="hist_action_call">کال کریں</string>
+    <string name="hist_action_message">پیغام</string>
+    <string name="hist_action_copy">کاپی کریں</string>
+    <string name="hist_action_message_on">اس سے پیغام بھیجیں…</string>
+    <string name="hist_action_new_contact">نیا رابطہ</string>
+    <string name="hist_action_add_to_contact">رابطے میں شامل کریں</string>
+    <string name="hist_action_view_contact">رابطہ دیکھیں</string>
+    <string name="hist_action_block">بلاک کریں</string>
+    <string name="hist_action_unblock">ان بلاک کریں</string>
+    <string name="hist_call_notes">کال کے نوٹس</string>
+    <string name="hist_delete_note">نوٹ حذف کریں</string>
+
+    <!-- Range delete -->
+    <string name="hist_range_title">اس نمبر کی کالز حذف کریں</string>
+    <string name="hist_range_since">%1$s سے</string>
+    <plurals name="hist_n_calls">
+        <item quantity="one">%1$d کال</item>
+        <item quantity="other">%1$d کالز</item>
+    </plurals>
+    <string name="hist_range_undo_hint">آپ اسے 30 دن تک واپس لے سکتے ہیں (ترتیبات › حالیہ اور ہسٹری › رکھی گئی اور حال ہی میں حذف کی گئی کالز)۔</string>
+    <string name="hist_range_delete_n">%1$d حذف کریں</string>
+
+    <!-- Saved filters -->
+    <string name="hist_filter">فلٹر</string>
+    <string name="hist_filter_title">کالز فلٹر کریں</string>
+    <string name="hist_filter_type">قسم</string>
+    <string name="hist_filter_sim">SIM</string>
+    <string name="hist_filter_any">کوئی بھی</string>
+    <string name="hist_filter_when">کب</string>
+    <string name="hist_filter_talk_time">گفتگو کا وقت</string>
+    <string name="hist_filter_name">نام (چِپ کے طور پر محفوظ کرنے کے لیے)</string>
+    <string name="hist_filter_clear">صاف کریں</string>
+    <string name="hist_filter_save">چِپ محفوظ کریں</string>
+    <string name="hist_filter_apply">لاگو کریں</string>
+    <string name="hist_filter_saved">محفوظ چِپس</string>
+    <string name="hist_filter_delete">%1$s حذف کریں</string>
+    <string name="hist_dur_not_answered">نہیں اٹھائی گئی</string>
+    <string name="hist_dur_under_1">1 منٹ سے کم</string>
+    <string name="hist_dur_1_plus">1 منٹ یا زیادہ</string>
+    <string name="hist_dur_5_plus">5 منٹ یا زیادہ</string>
+    <string name="hist_dur_30_plus">30 منٹ یا زیادہ</string>
+
+    <!-- SIMs and plan meter -->
+    <string name="hist_sims_title">SIM</string>
+    <string name="hist_sims_empty">کوئی SIM نہیں ملی۔ SIM کی فہرست کے لیے Parley کو ڈیفالٹ فون ایپ ہونا چاہیے۔</string>
+    <string name="hist_no_plan">کوئی پلان مقرر نہیں</string>
+    <string name="hist_plan_section">پلان کے منٹ</string>
+    <string name="hist_plan_track">پلان کے منٹ گنیں</string>
+    <string name="hist_plan_track_summary">اس فون کی کال ہسٹری سے گنا گیا۔ اصل حساب آپ کے آپریٹر کا بل ہے۔</string>
+    <plurals name="hist_plan_detail">
+        <item quantity="one">%1$d کال، %2$s اصل گفتگو، %3$d منٹ کے طور پر بل۔ دورانیہ %4$s – %5$s۔</item>
+        <item quantity="other">%1$d کالز، %2$s اصل گفتگو، %3$d منٹ کے طور پر بل۔ دورانیہ %4$s – %5$s۔</item>
+    </plurals>
+    <string name="hist_plan_minutes">فی دورانیہ منٹ</string>
+    <string name="hist_plan_renews">منٹ ہر مہینے اس دن تجدید ہوتے ہیں</string>
+    <string name="hist_plan_renews_day">ہر مہینے کا %1$d واں دن</string>
+    <string name="hist_plan_renews_day_last">ہر مہینے کا %1$d واں دن (یا آخری دن)</string>
+    <string name="hist_plan_day">%1$d واں دن</string>
+    <string name="hist_plan_billing">بلنگ</string>
+    <string name="hist_plan_billing_summary">آپ کا آپریٹر ہر کال کو کیسے راؤنڈ کرتا ہے۔ صرف اس میٹر کے لیے؛ آپ کی کال ہسٹری اصل دورانیہ رکھتی ہے۔</string>
+    <string name="hist_plan_counted">گنی جانے والی کالز</string>
+    <string name="hist_plan_international">بین الاقوامی نمبر</string>
+    <string name="hist_plan_international_summary">آپ کی SIM سے مختلف ملک کے نمبر</string>
+    <string name="hist_plan_other">دیگر نمبر</string>
+    <string name="hist_plan_other_summary">پریمیم، مشترکہ لاگت، VoIP اور مختصر نمبر</string>
+    <string name="hist_plan_incoming">آنے والی کالز بھی</string>
+    <string name="hist_plan_incoming_summary">کچھ پلان موصولہ منٹ بھی گنتے ہیں</string>
+    <string name="hist_plan_toll_free_note">ٹول فری نمبر کبھی نہیں گنے جاتے۔ Parley ہر دورانیے میں ایک بار %1$d%% پر خبردار کرتا ہے اور اس SIM کے کال بٹن پر ایک نقطہ دکھاتا ہے۔</string>
+    <string name="hist_plan_warn_at">خبردار کریں</string>
+    <string name="hist_plan_warn_at_summary">منٹوں کا %1$d%%</string>
+    <string name="hist_percent">%1$d%%</string>
+
+    <!-- Background work notifications -->
+    <string name="work_channel_backups">بیک اپ</string>
+    <string name="work_backup_title">Parley بیک اپ</string>
+    <string name="work_channel_plan">پلان کے منٹ</string>
+    <string name="work_plan_used_up">%1$s: پلان کے منٹ ختم</string>
+    <string name="work_plan_used_percent">%1$s: پلان کے %2$d%% منٹ استعمال ہو گئے</string>
+    <string name="work_channel_housekeeping">رابطوں کی دیکھ بھال</string>
+    <string name="work_temp_expired_title">عارضی رابطے کی مدت ختم</string>
+    <string name="work_temp_someone">ایک عارضی رابطہ</string>
+    <string name="work_temp_expired_kept">%1$s کی مدت ختم ہو گئی؛ آپ کی ملائی گئی تفصیلات رکھی گئیں</string>
+    <string name="work_temp_expired_merged">%1$s کی مدت ختم ہو گئی، لیکن وہ دوسرے رابطے سے ملا ہوا تھا، اس لیے کچھ حذف نہیں ہوا</string>
+    <string name="work_channel_reminders">سالگرہ اور یاد دہانیاں</string>
+    <string name="work_turns_today">%1$s آج %2$d سال کے ہو گئے</string>
+    <string name="work_birthday_today">آج %1$s کی سالگرہ ہے</string>
+    <string name="work_anniversary_years">%1$s کی سالگرہ: %2$d سال</string>
+    <string name="work_anniversary_today">آج %1$s کا یادگار دن ہے</string>
+    <string name="work_special_date">خاص دن</string>
+    <string name="work_event_today">%1$s: آج %2$s</string>
+    <string name="work_catch_up">%1$s سے رابطہ کریں</string>
+    <plurals name="work_catch_up_days">
+        <item quantity="one">%2$s سے بات کریں — آخری بات %1$d دن پہلے</item>
+        <item quantity="other">%2$s سے بات کریں — آخری بات %1$d دن پہلے</item>
+    </plurals>
+    <string name="work_action_call">کال کریں</string>
+    <string name="work_action_message">پیغام</string>
+
+    <!-- Temporary contacts -->
+    <string name="temp_fallback_name">عارضی رابطہ</string>
+    <string name="temp_deletes_soon">جلد حذف ہو جائے گا</string>
+    <plurals name="temp_days_left">
+        <item quantity="one">%1$d دن باقی</item>
+        <item quantity="other">%1$d دن باقی</item>
+    </plurals>
+    <plurals name="temp_hours_left">
+        <item quantity="one">%1$d گھنٹہ باقی</item>
+        <item quantity="other">%1$d گھنٹے باقی</item>
+    </plurals>
+    <string name="temp_within_hour">ایک گھنٹے کے اندر حذف ہو جائے گا</string>
+    <string name="temp_title">عارضی رابطے</string>
+    <string name="temp_empty_title">کوئی عارضی رابطہ نہیں</string>
+    <string name="temp_empty_text">کوئی نمبر کچھ دیر کے لیے محفوظ کریں: پلمبر، ڈیلیوری، کوئی فروخت کنندہ۔ اسے کی پیڈ پر ٹائپ کریں اور “عارضی رابطہ محفوظ کریں” منتخب کریں، یا کسی رابطے کے صفحے پر “خودکار طور پر حذف کریں” منتخب کریں۔</string>
+    <string name="temp_intro">یہ رابطے وقت پورا ہونے پر خود حذف ہو جاتے ہیں، اگر آپ نے منتخب کیا ہو تو اپنی کال ہسٹری کے ساتھ۔</string>
+    <string name="temp_will_be_kept">%1$s رکھا جائے گا</string>
+    <string name="temp_keep_for">%1$s کو اتنی دیر رکھیں</string>
+    <plurals name="temp_deletes_in_days">
+        <item quantity="one">%1$d دن میں خود حذف ہو جائے گا</item>
+        <item quantity="other">%1$d دن میں خود حذف ہو جائے گا</item>
+    </plurals>
+    <string name="temp_delete_now_title">%1$s کو ابھی حذف کریں؟</string>
+    <string name="temp_delete_with_history">رابطہ اور اس کی کال ہسٹری حذف کر دی جاتی ہے۔</string>
+    <string name="temp_delete_keep_history">رابطہ حذف کر دیا جاتا ہے؛ اس کی کال ہسٹری رہتی ہے۔</string>
+    <string name="temp_delete_restore_hint">آپ 30 دن تک “حال ہی میں حذف شدہ” سے رابطہ بحال کر سکتے ہیں۔</string>
+    <string name="temp_private">نجی</string>
+    <string name="temp_keep_longer">%1$s کو زیادہ دیر رکھیں</string>
+    <string name="temp_more_actions">%1$s کے لیے مزید کارروائیاں</string>
+    <string name="temp_extend">بڑھائیں…</string>
+    <string name="temp_keep_permanently">مستقل رکھیں</string>
+    <string name="temp_delete_now">ابھی حذف کریں</string>
+    <plurals name="temp_n_days">
+        <item quantity="one">%1$d دن</item>
+        <item quantity="other">%1$d دن</item>
+    </plurals>
+    <string name="temp_custom">حسب ضرورت</string>
+    <string name="temp_days">دن</string>
+    <string name="temp_save_title">عارضی رابطہ محفوظ کریں</string>
+    <string name="temp_save_visible_text">%1$s صرف اس فون کے رابطوں میں محفوظ ہوتا ہے، جہاں رابطے پڑھ سکنے والی ایپس (WhatsApp سمیت) اسے دیکھتی ہیں، اور وقت پورا ہونے پر خود حذف ہو جاتا ہے۔</string>
+    <string name="temp_save_private_text">%1$s Parley میں نجی طور پر محفوظ ہوتا ہے، جہاں دوسری ایپس اسے نہیں دیکھ سکتیں، اور وقت پورا ہونے پر خود حذف ہو جاتا ہے۔</string>
+    <string name="temp_name">نام</string>
+    <string name="temp_delete_after">اس کے بعد حذف کریں</string>
+    <string name="temp_also_history">اس کی کال ہسٹری بھی حذف کریں</string>
+    <string name="temp_visible">دوسری ایپس کو نظر آنے والا محفوظ کریں</string>
+    <string name="temp_save_privately">نجی طور پر محفوظ کریں</string>
+
+    <!-- Private contact (vault) page -->
+    <string name="vault_unlock_to_remember">یہ انتخاب یاد رکھنے کے لیے ان لاک کریں</string>
+    <string name="vault_title">نجی رابطہ</string>
+    <string name="dc_edit">ترمیم کریں</string>
+    <string name="dc_more">مزید</string>
+    <string name="vault_move_out">فون کے رابطوں میں منتقل کریں</string>
+    <string name="vault_move_failed">منتقل نہیں ہو سکا: %1$s</string>
+    <string name="vault_moved_out">فون کے رابطوں میں منتقل ہو گیا</string>
+    <string name="vault_share_qr">نجی طور پر شیئر کریں (QR)</string>
+    <string name="vault_expires">میعاد…</string>
+    <string name="vault_only_in_parley">صرف Parley میں نظر آتا ہے · خفیہ کردہ</string>
+    <string name="vault_deletes_on">%1$s کو خود بخود حذف ہو جائے گا</string>
+    <string name="vault_call">کال کریں</string>
+    <string name="vault_sms">SMS</string>
+    <string name="vault_message">پیغام</string>
+    <string name="vault_choose_message">پیغام بھیجنے کا طریقہ منتخب کریں</string>
+    <string name="vault_email">ای میل</string>
+    <string name="vault_shown_when_call">جب وہ کال کریں تب دکھائی دیتا ہے</string>
+    <string name="vault_unlock_all">تمام تفصیلات دیکھنے کے لیے غیر مقفل کریں</string>
+    <string name="vault_unlock_all_summary">نام اور نمبر غیر مقفل کیے بغیر کام کرتے ہیں تاکہ کالوں پر پتا چلتا رہے کہ کون کال کر رہا ہے۔</string>
+    <string name="vault_phone">فون</string>
+    <string name="vault_message_number">اس نمبر پر پیغام بھیجیں</string>
+    <string name="vault_message_on">اس سے پیغام بھیجیں…</string>
+    <string name="vault_messengers">میسنجرز</string>
+    <string name="vault_about">تعارف</string>
+    <string name="vault_address">پتہ</string>
+    <string name="vault_website">ویب سائٹ</string>
+    <string name="vault_note">نوٹ</string>
+    <string name="vault_call_history">نجی کال سرگزشت</string>
+    <string name="vault_delete_title">یہ نجی رابطہ حذف کریں؟</string>
+    <string name="vault_delete_text">اس سے اس کی نجی کال سرگزشت بھی حذف ہو جائے گی۔ اسے واپس نہیں لایا جا سکتا۔</string>
+    <string name="vault_expiry_title">اتنے عرصے بعد خود بخود حذف کریں</string>
+    <string name="vault_expiry_1_day">1 دن</string>
+    <string name="vault_expiry_1_week">1 ہفتہ</string>
+    <string name="vault_expiry_30_days">30 دن</string>
+    <string name="vault_expiry_3_months">3 مہینے</string>
+    <string name="vault_expiry_1_year">1 سال</string>
+    <string name="vault_expiry_never">کبھی نہیں (رکھیں)</string>
+
+    <!-- Backup -->
+    <string name="bkp_backing_up">بیک اپ ہو رہا ہے…</string>
+    <string name="bkp_vault_skipped">%1$s (نجی رابطے چھوڑ دیے گئے: پہلے انہیں ان لاک کریں)</string>
+    <string name="bkp_preparing">خفیہ کردہ فائل تیار ہو رہی ہے…</string>
+    <string name="bkp_send_chooser">اپنے نئے فون پر بھیجیں</string>
+    <string name="bkp_title">بیک اپ اور بحالی</string>
+    <string name="bkp_last_backup">آخری بیک اپ %1$s</string>
+    <string name="bkp_no_backup">ابھی کوئی بیک اپ نہیں</string>
+    <string name="bkp_verified">%1$s کو تصدیق شدہ · خفیہ کردہ</string>
+    <string name="bkp_verified_key">%1$s کو تصدیق شدہ · انکرپٹڈ · کلید %2$s</string>
+    <string name="bkp_rotation_paused">پچھلے بیک اپ کے بعد بہت سے رابطے غائب ہو گئے ہیں، اس لیے پرانے بیک اپ رکھے جا رہے ہیں۔</string>
+    <string name="bkp_resume_rotation">یہ متوقع ہے، روٹیشن دوبارہ شروع کریں</string>
+    <string name="bkp_explain">مکمل تصاویر والے رابطے، کال سرگزشت، بلاکنگ کے اصول، اسپیڈ ڈائل، ترتیبات اور نجی رابطے — آپ کے منتخب کردہ فولڈر میں ایک خفیہ کردہ فائل میں (اسے Syncthing، Nextcloud یا USB ڈرائیو سے ہم آہنگ کریں)۔</string>
+    <string name="bkp_back_up_now">ابھی بیک اپ لیں</string>
+    <string name="bkp_set_up">سیٹ اپ کریں</string>
+    <string name="bkp_change_pass">بیک اپ پاس فریز تبدیل کریں</string>
+    <string name="bkp_set_pass">بیک اپ پاس فریز سیٹ کریں</string>
+    <string name="bkp_change_pass_summary">طے شدہ بیک اپ کو اس کی کبھی ضرورت نہیں ہوتی؛ صرف بحالی کو ہوتی ہے</string>
+    <string name="bkp_set_pass_summary">لازمی: بیک اپ ہمیشہ خفیہ کردہ ہوتے ہیں</string>
+    <string name="bkp_folder">بیک اپ فولڈر</string>
+    <string name="bkp_folder_none">منتخب نہیں کیا گیا</string>
+    <string name="bkp_automatic">خودکار بیک اپ</string>
+    <string name="bkp_schedule_off">بند</string>
+    <string name="bkp_schedule_daily">روزانہ</string>
+    <string name="bkp_schedule_weekly">ہفتہ وار</string>
+    <string name="bkp_keep">رکھیں</string>
+    <string name="bkp_keep_smart">اسمارٹ</string>
+    <string name="bkp_keep_smart_summary">اسمارٹ 7 روزانہ، 5 ہفتہ وار، 12 ماہانہ اور 3 سالانہ بیک اپ رکھتا ہے۔</string>
+    <string name="bkp_restore">بحال کریں</string>
+    <string name="bkp_restore_file">فائل سے بحال کریں…</string>
+    <string name="bkp_restore_file_summary">اس یا کسی دوسرے فون کا ‎.parley بیک اپ</string>
+    <string name="bkp_move_phone">نئے فون پر منتقل کریں</string>
+    <string name="bkp_move_phone_summary">Quick Share، بلوٹوتھ یا کسی بھی ایپ سے ایک خفیہ کردہ فائل بھیجتا ہے۔ نئے فون پر: Parley انسٹال کریں ← بیک اپ ← فائل سے بحال کریں، اور اپنا پاس فریز درج کریں۔</string>
+    <plurals name="bkp_undo_done">
+        <item quantity="one">پچھلی بحالی سے شامل کیا گیا %1$d رابطہ ہٹا دیا گیا</item>
+        <item quantity="other">پچھلی بحالی سے شامل کیے گئے %1$d رابطے ہٹا دیے گئے</item>
+    </plurals>
+    <string name="bkp_undo_restore">آخری بحالی واپس لیں</string>
+    <plurals name="bkp_undo_restore_summary">
+        <item quantity="one">اس کا شامل کیا گیا %1$d رابطہ ہٹاتا ہے (وہ “حال ہی میں حذف شدہ” میں رہتا ہے)</item>
+        <item quantity="other">اس کے شامل کیے گئے %1$d رابطے ہٹاتا ہے (وہ “حال ہی میں حذف شدہ” میں رہتے ہیں)</item>
+    </plurals>
+    <string name="bkp_in_folder">فولڈر میں موجود بیک اپ</string>
+    <string name="bkp_pass_changed">پاس فریز تبدیل ہو گیا</string>
+    <string name="bkp_pass_wrong">موجودہ پاس فریز غلط ہے</string>
+    <string name="bkp_recovery_title">آپ کی بازیابی کلید</string>
+    <string name="bkp_recovery_text">اگر آپ اپنا پاس فریز بھول جائیں تو یہ کلید آپ کے بیک اپ کھولنے کا واحد دوسرا طریقہ ہے۔ اسے لکھ کر کسی محفوظ جگہ رکھیں۔ Parley اسے دوبارہ نہیں دکھا سکتی۔</string>
+    <string name="bkp_recovery_saved">میں نے اسے محفوظ کر لیا ہے</string>
+    <string name="bkp_copy">کاپی کریں</string>
+    <string name="bkp_change_pass_title">پاس فریز تبدیل کریں</string>
+    <string name="bkp_pass_title">بیک اپ پاس فریز</string>
+    <string name="bkp_current_pass">موجودہ پاس فریز</string>
+    <string name="bkp_new_pass">نیا پاس فریز (کم از کم 10 حروف)</string>
+    <string name="bkp_repeat">دہرائیں</string>
+    <string name="bkp_pass_hint">چند بے ربط الفاظ مل کر ایک مضبوط اور آسانی سے یاد رہنے والا پاس فریز بناتے ہیں۔</string>
+
+    <!-- Restore flow -->
+    <string name="rst_open_title">بیک اپ کھولیں</string>
+    <string name="rst_recovery_key">بازیابی کلید</string>
+    <string name="rst_use_recovery">اس کے بجائے بازیابی کلید استعمال کریں</string>
+    <string name="rst_not_recovery">یہ بازیابی کلید نہیں لگتی</string>
+    <string name="rst_decrypting">بیک اپ کو ڈیکرپٹ اور جانچا جا رہا ہے…</string>
+    <string name="rst_wrong_recovery">غلط بازیابی کلید</string>
+    <string name="rst_wrong_pass">غلط پاس فریز</string>
+    <string name="rst_damaged">یہ فائل خراب ہے یا Parley بیک اپ نہیں ہے (%1$s)</string>
+    <string name="rst_open">کھولیں</string>
+    <string name="rst_backup_from">%1$s کا بیک اپ</string>
+    <string name="rst_how">رابطے کیسے بحال کریں</string>
+    <string name="rst_mode_merge">ضم کریں (تجویز کردہ): جو موجود نہیں وہ شامل کریں، کبھی حذف نہ کریں</string>
+    <string name="rst_mode_add_all">سب کچھ نئے رابطوں کے طور پر شامل کریں</string>
+    <string name="rst_mode_replace">تبدیل کریں: پہلے موجودہ رابطے حذف کریں (حفاظتی بیک اپ خود بخود بنتا ہے)</string>
+    <string name="rst_what">کیا بحال کرنا ہے</string>
+    <string name="rst_with_count">%1$s (%2$d)</string>
+    <string name="rst_contacts">رابطے</string>
+    <string name="rst_call_history">کال کی سرگزشت</string>
+    <string name="rst_blocking">بلاکنگ کے اصول اور بلاک شدہ نمبر</string>
+    <string name="rst_speed_dial">اسپیڈ ڈائل اور سم کے انتخاب</string>
+    <string name="rst_private">نجی رابطے</string>
+    <string name="rst_settings">ترتیبات (تھیم، بلاکنگ کے اختیارات…)</string>
+    <string name="rst_comparing">آپ کے موجودہ رابطوں سے موازنہ ہو رہا ہے…</string>
+    <string name="rst_ready">بحالی کے لیے تیار</string>
+    <plurals name="rst_new">
+        <item quantity="one">%1$d نیا رابطہ شامل کیا جائے گا</item>
+        <item quantity="other">%1$d نئے رابطے شامل کیے جائیں گے</item>
+    </plurals>
+    <plurals name="rst_enrich">
+        <item quantity="one">%1$d موجودہ رابطے کو غائب تفصیلات ملیں گی (کل %2$d)</item>
+        <item quantity="other">%1$d موجودہ رابطوں کو غائب تفصیلات ملیں گی (کل %2$d)</item>
+    </plurals>
+    <plurals name="rst_identical">
+        <item quantity="one">%1$d پہلے سے یکساں ہے اور ویسا ہی رہے گا</item>
+        <item quantity="other">%1$d پہلے سے یکساں ہیں اور ویسے ہی رہیں گے</item>
+    </plurals>
+    <plurals name="rst_conflict">
+        <item quantity="one">%1$d ایک ہی شخص لگتا ہے لیکن مختلف ہے (مثلاً نام یا تصویر)</item>
+        <item quantity="other">%1$d ایک ہی شخص لگتے ہیں لیکن مختلف ہیں (مثلاً نام یا تصویر)</item>
+    </plurals>
+    <string name="rst_apply_conflicts">پھر بھی ان کی غائب تفصیلات شامل کریں</string>
+    <plurals name="rst_to_delete">
+        <item quantity="one">%1$d موجودہ رابطہ بدل دیا جائے گا (30 دن تک “حال ہی میں حذف شدہ” میں رہے گا)</item>
+        <item quantity="other">%1$d موجودہ رابطے بدل دیے جائیں گے (30 دن تک “حال ہی میں حذف شدہ” میں رہیں گے)</item>
+    </plurals>
+    <string name="rst_merge_note">ضم کرنے کے موڈ میں کچھ بھی حذف نہیں ہوتا، اور آپ بعد میں شامل کیے گئے رابطوں کو واپس لے سکتے ہیں۔</string>
+    <string name="rst_restoring">بحال ہو رہا ہے…</string>
+    <string name="rst_finished">بحالی مکمل ہو گئی</string>
+    <string name="rst_undone">بحالی واپس لے لی گئی</string>
+
+    <!-- Folder sync -->
+    <string name="sync_failed">مطابقت پذیری ناکام: %1$s</string>
+    <string name="sync_title">اپنے فونز کے درمیان مطابقت پذیری</string>
+    <string name="sync_card_title">نہ سرور، نہ اکاؤنٹ</string>
+    <string name="sync_card_text">Parley آپ کے منتخب کردہ فولڈر میں ہر رابطے کی ایک ‎.vcf فائل رکھتی ہے۔ اس فولڈر کو Syncthing، Nextcloud یا کسی بھی فولڈر سنک ایپ کے ذریعے آلات کے درمیان ہم آہنگ کریں، اور اپنے دوسرے فون پر Parley میں وہی فولڈر سیٹ کریں۔ تبدیلیاں دونوں طرف جاتی ہیں؛ اگر ایک ہی رابطہ دونوں فونز پر بدلا ہو تو دونوں ورژن رکھے جاتے ہیں۔</string>
+    <string name="sync_folder">مطابقت پذیری فولڈر</string>
+    <string name="sync_auto">خود بخود مطابقت پذیری کریں</string>
+    <string name="sync_auto_summary">Parley کھولنے پر، تبدیلیوں کے بعد اور ہر گھنٹے</string>
+    <string name="sync_last">آخری مطابقت پذیری %1$s</string>
+    <string name="sync_never">ابھی تک مطابقت پذیری نہیں ہوئی</string>
+    <plurals name="sync_apply_deletions">
+        <item quantity="one">%1$d حذف لاگو کریں</item>
+        <item quantity="other">%1$d حذف لاگو کریں</item>
+    </plurals>
+    <string name="sync_now">ابھی مطابقت پذیری کریں</string>
+    <string name="sync_stop">مطابقت پذیری بند کریں</string>
+
+    <!-- Time machine (version history, what changed) -->
+    <string name="tm_row_name">نام: %1$s</string>
+    <string name="tm_row_phone">فون: %1$s</string>
+    <string name="tm_row_email">ای میل: %1$s</string>
+    <string name="tm_row_address">پتہ: %1$s</string>
+    <string name="tm_row_work">کام: %1$s</string>
+    <string name="tm_row_note">نوٹ: %1$s</string>
+    <string name="tm_row_date">تاریخ: %1$s</string>
+    <string name="tm_row_website">ویب سائٹ: %1$s</string>
+    <string name="tm_row_nickname">عرفی نام: %1$s</string>
+    <string name="tm_row_relation">رشتہ: %1$s</string>
+    <string name="tm_row_photo">تصویر</string>
+    <string name="tm_history_title">ورژن کی سرگزشت</string>
+    <string name="tm_no_versions">ابھی کوئی پچھلا ورژن نہیں</string>
+    <plurals name="tm_no_versions_text">
+        <item quantity="one">Parley آپ کے رابطوں کا روزانہ اسنیپ شاٹ %1$d دن تک رکھتا ہے۔ اس رابطے کے پرانے ورژن یہاں دکھیں گے۔</item>
+        <item quantity="other">Parley آپ کے رابطوں کا روزانہ اسنیپ شاٹ %1$d دن تک رکھتا ہے۔ اس رابطے کے پرانے ورژن یہاں دکھیں گے۔</item>
+    </plurals>
+    <string name="tm_now">ابھی</string>
+    <string name="tm_didnt_exist">موجود نہیں تھا</string>
+    <string name="tm_later">بعد میں: ‎+%1$d / −%2$d تفصیلات</string>
+    <string name="tm_later_removed">بعد میں: +%1$d / −%2$d تفصیلات (ہٹایا گیا: %3$s)</string>
+    <string name="tm_restored_version">یہ ورژن بحال ہو گیا</string>
+    <string name="tm_restore_version">یہ ورژن بحال کریں</string>
+    <string name="tm_saved_copy">الگ رابطے کے طور پر محفوظ ہو گیا</string>
+    <string name="tm_save_copy">کاپی کے طور پر محفوظ کریں</string>
+    <string name="tm_changes_title">کیا بدلا</string>
+    <string name="tm_since_yesterday">کل سے</string>
+    <string name="tm_last_week">پچھلا ہفتہ</string>
+    <string name="tm_last_month">پچھلا مہینہ</string>
+    <string name="tm_6_months">6 مہینے</string>
+    <string name="tm_no_changes">کوئی تبدیلی نہیں</string>
+    <string name="tm_no_changes_text">اس مدت میں کچھ بھی شامل، حذف یا ترمیم نہیں ہوا (یا ابھی کوئی اسنیپ شاٹ اتنا پرانا نہیں)۔</string>
+    <string name="tm_removed">ہٹائے گئے (%1$d)</string>
+    <string name="tm_restored_name">%1$s بحال ہو گیا</string>
+    <string name="tm_changed">تبدیل شدہ (%1$d)</string>
+    <string name="tm_field_changed">%1$s تبدیل ہوا</string>
+    <string name="tm_field_name">نام</string>
+    <string name="tm_field_starred">پسندیدہ</string>
+    <string name="tm_field_ringtone">رنگ ٹون</string>
+    <string name="tm_field_voicemail">وائس میل پر بھیجیں</string>
+    <string name="tm_field_accounts">اکاؤنٹس</string>
+    <string name="tm_added">شامل کیے گئے (%1$d)</string>
+
+    <!-- Recently deleted & changed (journal) -->
+    <string name="jr_deleted">حذف شدہ</string>
+    <string name="jr_edited">ترمیم شدہ (تبدیلی سے پہلے کا ورژن)</string>
+    <string name="jr_merged">ضم شدہ (ضم کرنے سے پہلے کا ورژن)</string>
+    <string name="jr_separated">الگ کیا گیا</string>
+    <string name="jr_title">حال ہی میں حذف اور تبدیل شدہ</string>
+    <string name="jr_empty_title">یہاں کچھ نہیں</string>
+    <string name="jr_empty_text">Parley میں آپ جو رابطے حذف، ترمیم یا ضم کرتے ہیں وہ یہاں 30 دن تک رکھے جاتے ہیں تاکہ آپ انہیں واپس لا سکیں۔</string>
+    <string name="jr_restored_suffix">%1$s · بحال شدہ</string>
+    <string name="jr_restored_name">%1$s بحال ہو گیا</string>
+    <string name="jr_restored_copy">پچھلا ورژن الگ رابطے کے طور پر بحال ہو گیا</string>
+    <string name="jr_restore_failed">بحال نہیں ہو سکا</string>
+    <string name="jr_restore_copy">کاپی بحال کریں</string>
+
+    <!-- Contact health check -->
+    <string name="health_no_country">ملکی کوڈ کے بغیر نمبر</string>
+    <string name="health_title_company">عہدے میں کمپنی کا نام دہرایا گیا ہے</string>
+    <string name="health_no_name">بغیر نام کے رابطے</string>
+    <string name="health_empty">خالی رابطے</string>
+    <string name="health_shared">کئی رابطوں میں ایک ہی نمبر</string>
+    <string name="health_stale">2 سال سے زیادہ عرصے سے کال نہیں ہوئی</string>
+    <plurals name="health_stale_confirm_title">
+        <item quantity="one">%1$d رابطہ 30 دن میں حذف کریں؟</item>
+        <item quantity="other">%1$d رابطے 30 دن میں حذف کریں؟</item>
+    </plurals>
+    <string name="health_stale_confirm_text">جب تک آپ انہیں نہ رکھیں، یہ رابطے 30 دن بعد درج ہر اکاؤنٹ سے حذف ہو جائیں گے۔ آپ ہر ایک کو اس کے صفحے سے واپس لے سکتے ہیں۔</string>
+    <plurals name="health_stale_done">
+        <item quantity="one">%1$d رابطہ 30 دن میں خود حذف ہو جائے گا، جب تک آپ اسے نہ بدلیں</item>
+        <item quantity="other">%1$d رابطے 30 دن میں خود حذف ہو جائیں گے، جب تک آپ اسے نہ بدلیں</item>
+    </plurals>
+    <string name="health_delete_in_30">30 دن میں حذف کریں</string>
+    <string name="health_title">رابطوں کی جانچ</string>
+    <string name="health_all_tidy">سب ٹھیک ہے</string>
+    <string name="health_all_tidy_text">آپ کے رابطوں میں کوئی مسئلہ نہیں ملا۔</string>
+    <string name="health_group">%1$s (%2$d)</string>
+    <plurals name="health_fixed">
+        <item quantity="one">%1$d اندراج درست کیا گیا</item>
+        <item quantity="other">%1$d اندراجات درست کیے گئے</item>
+    </plurals>
+    <string name="health_fix_all">تمام %1$d درست کریں</string>
+    <string name="health_review_duplicates">ڈپلیکیٹ دیکھیں</string>
+    <string name="health_phone">فون</string>
+    <string name="health_auto_delete">انہیں 30 دن میں خود بخود حذف کریں</string>
+    <string name="health_delete_all">تمام %1$d حذف کریں</string>
+
+    <!-- Birthdays & dates -->
+    <string name="bday_title">سالگرہ اور تاریخیں</string>
+    <string name="bday_empty_title">ابھی کوئی تاریخ نہیں</string>
+    <string name="bday_empty_text">رابطوں میں سالگرہ اور یادگار دن شامل کریں تاکہ وہ یہاں نظر آئیں اور اس دن آپ کو یاد دہانی ملے۔</string>
+    <string name="bday_today">آج</string>
+    <string name="bday_this_week">اس ہفتے</string>
+    <string name="bday_this_month">اس مہینے</string>
+    <string name="bday_later">بعد میں</string>
+    <string name="bday_would_have_turned">%1$d سال کے ہوتے</string>
+    <string name="bday_message">%1$s کو پیغام بھیجیں</string>
+    <string name="bday_call">%1$s کو کال کریں</string>
+
+    <!-- Onboarding -->
+    <string name="onb_set_later">آپ اسے بعد میں ترتیبات میں سیٹ کر سکتے ہیں</string>
+    <string name="onb_tagline">آپ کا فون، رابطے اور کالیں — ایک نجی ایپ میں۔</string>
+    <string name="onb_offline_title">انٹرنیٹ کے بغیر کام کرتی ہے</string>
+    <string name="onb_offline_text">Parley کے پاس انٹرنیٹ کی اجازت نہیں ہے۔ آپ جو کچھ محفوظ کرتے ہیں یا جسے کال کرتے ہیں، وہ آپ کے فون سے باہر نہیں جاتا۔</string>
+    <string name="onb_spam_title">آپ کے اصولوں کے مطابق اسپیم بلاکنگ</string>
+    <string name="onb_spam_text">چھپے ہوئے نمبر، سابقے اور پیٹرن بلاک کریں — فیصلہ آپ کے فون پر ہی ہوتا ہے۔</string>
+    <string name="onb_open_title">اوپن سورس، کوئی اشتہار نہیں، کوئی اکاؤنٹ نہیں</string>
+    <string name="onb_open_text">GPL-3.0 کے تحت مفت سافٹ ویئر۔ کوئی ٹریکر نہیں، کبھی نہیں۔</string>
+    <string name="onb_prompt_title">بس ایک سسٹم درخواست</string>
+    <string name="onb_prompt_text">Parley کو اپنی فون ایپ بنانے سے اسے ضرورت کی ہر چیز مل جاتی ہے — اجازتوں کی بھول بھلیاں نہیں۔</string>
+    <string name="onb_set_default">ڈیفالٹ فون ایپ بنائیں</string>
+    <string name="onb_not_now">ابھی نہیں — صرف رابطے اور کالنگ استعمال کریں</string>
+
+    <!-- Contact picker -->
+    <string name="picker_link_with">اس سے منسلک کریں…</string>
+    <string name="picker_share_title">%1$s شیئر کریں</string>
+    <string name="picker_share_one">پورے رابطے کی جگہ صرف ایک نمبر شیئر کریں؟ کچھ ایپس اکیلا نمبر قبول نہیں کرتیں۔</string>
+    <string name="picker_only">صرف %1$s</string>
+    <string name="picker_whole">پورا رابطہ</string>
+    <string name="picker_choose_contacts">رابطے منتخب کریں</string>
+    <string name="picker_choose_contact">ایک رابطہ منتخب کریں</string>
+    <string name="picker_choose_phone">ایک فون نمبر منتخب کریں</string>
+    <string name="picker_choose_email">ایک ای میل منتخب کریں</string>
+    <string name="picker_choose_address">ایک پتہ منتخب کریں</string>
+    <string name="picker_done_n">ہو گیا (%1$d)</string>
+    <string name="picker_search">تلاش کریں</string>
+    <string name="picker_nothing">کچھ نہیں ملا</string>
+
+    <!-- App lock and quick settings tile -->
+    <string name="lock_unlock_parley">Parley کو غیر مقفل کریں</string>
+    <string name="lock_unlock_private">نجی رابطے ان لاک کریں</string>
+    <string name="lock_locked">Parley مقفل ہے</string>
+    <string name="lock_calls_show">آنے والی کالیں پھر بھی معمول کے مطابق دکھائی دیں گی۔</string>
+    <string name="lock_unlock">غیر مقفل کریں</string>
+    <string name="tile_private_hidden">نجی چھپے ہوئے</string>
+    <string name="tile_private_shown">نجی دکھائی دے رہے</string>
+
+    <!-- Shortcuts and widget -->
+    <string name="shortcut_text_name">%1$s کو پیغام</string>
+    <string name="shortcut_new_contact">نیا رابطہ</string>
+    <string name="shortcut_call_confirm">%1$s کو کال کریں؟</string>
+    <string name="shortcut_call">کال کریں</string>
+    <string name="widget_call_name">%1$s کو کال کریں</string>
+    <string name="widget_pick_title">براہ راست ڈائل ویجیٹ</string>
+
+    <!-- Private names for other apps -->
+    <string name="privnames_directory">Parley کے نجی رابطے</string>
+    <string name="privnames_channel">نجی ناموں کی درخواستیں</string>
+    <string name="privnames_request_title">%1$s نجی نام دکھانا چاہتی ہے</string>
+    <string name="privnames_request_text">%1$s نے Parley سے ایک فون نمبر کا نام پوچھا جو آپ کے کسی نجی رابطے کا ہو سکتا ہے۔ اگر آپ اجازت دیں تو %1$s ایک وقت میں ایک نمبر کا نام پوچھ سکے گی؛ اسے کبھی فہرست نہیں ملتی۔</string>
+    <string name="privnames_allow">اجازت دیں</string>
+    <string name="privnames_deny">اجازت نہ دیں</string>
+
+    <!-- People: account diagnostics -->
+    <string name="ppl_phone">فون</string>
+    <string name="ppl_sync_settings_failed">Android کی اکاؤنٹ ترتیبات نہیں کھل سکیں</string>
+    <string name="ppl_accounts">اکاؤنٹس</string>
+    <string name="ppl_master_sync_off">اس فون پر خودکار سنک بند ہے</string>
+    <string name="ppl_master_sync_off_text">جب تک یہ دوبارہ آن نہ ہو، کوئی اکاؤنٹ رابطوں کی تبدیلیاں اپ لوڈ یا ڈاؤن لوڈ نہیں کرتا۔</string>
+    <string name="ppl_open_sync_settings">سنک کی ترتیبات کھولیں</string>
+    <string name="ppl_sync_off">%1$s کے لیے رابطوں کا سنک بند ہے</string>
+    <plurals name="ppl_sync_off_text">
+        <item quantity="one">%1$d رابطہ۔ تبدیلیاں اسی فون پر رہتی ہیں اور آپ کے دوسرے آلات تک نہیں پہنچتیں۔</item>
+        <item quantity="other">%1$d رابطے۔ تبدیلیاں اسی فون پر رہتی ہیں اور آپ کے دوسرے آلات تک نہیں پہنچتیں۔</item>
+    </plurals>
+    <plurals name="ppl_orphaned">
+        <item quantity="one">%2$s میں %1$d رابطہ</item>
+        <item quantity="other">%2$s میں %1$d رابطے</item>
+    </plurals>
+    <string name="ppl_orphaned_text">وہ اکاؤنٹ اب اس فون پر سائن ان نہیں ہے، اس لیے کوئی ان رابطوں کو سنک میں نہیں رکھتا۔ انہیں کسی دوسرے اکاؤنٹ میں منتقل کریں یا برآمد کریں۔</string>
+    <string name="ppl_show_them">دکھائیں</string>
+    <string name="ppl_no_contacts">%1$s میں کوئی رابطہ نہیں</string>
+    <string name="ppl_no_contacts_text">اکاؤنٹ سائن ان ہے اور رابطے رکھ سکتا ہے، لیکن اس میں کوئی نہیں ہے۔ اگر آپ کو کچھ کی توقع تھی تو دیکھیں کہ اس کا رابطوں کا سنک مکمل ہوا یا نہیں۔</string>
+    <string name="ppl_local_missing">“صرف فون” اسٹوریج سیٹ نہیں ہے</string>
+    <string name="ppl_local_missing_text">کچھ ایپس “فون” کو رابطے محفوظ کرنے کی جگہ تب ہی دکھاتی ہیں جب Android اسے بنا چکا ہو۔ Parley ایک خالی اندراج شامل کر کے اور ہٹا کر اسے بنا سکتا ہے۔</string>
+    <string name="ppl_fix">درست کریں</string>
+    <string name="ppl_local_ready">“صرف فون” اسٹوریج تیار ہے</string>
+    <string name="ppl_local_failed">سیٹ نہیں ہو سکا</string>
+    <string name="ppl_accounts_fine">اکاؤنٹس ٹھیک لگ رہے ہیں</string>
+    <string name="ppl_accounts_fine_text">ہر سائن ان اکاؤنٹ اپنے رابطے سنک کرتا ہے</string>
+    <string name="ppl_accounts_unknown">Android نے Parley کو سنک کی ترتیبات جانچنے نہیں دیں</string>
+    <string name="ppl_account_count">%1$s (%2$d)</string>
+    <string name="ppl_signed_in">سائن ان: %1$s</string>
+    <string name="ppl_signed_in_none">کوئی رابطوں کا اکاؤنٹ نہیں</string>
+    <string name="ppl_holding">رابطوں والے: %1$s</string>
+    <string name="ppl_holding_none">کوئی نہیں</string>
+
+    <!-- People: call screen background -->
+    <string name="ppl_bg_failed">یہ تصویر پس منظر کے طور پر استعمال نہیں ہو سکی</string>
+    <string name="ppl_bg_title">کال اسکرین</string>
+    <string name="ppl_bg_text">اس شخص کی کالز کے پیچھے ایک تصویر۔ یہ Parley میں کاپی ہوتی ہے، اس لیے اصل حذف کرنے پر بھی رہتی ہے۔</string>
+    <string name="ppl_bg_choose">تصویر منتخب کریں</string>
+    <string name="ppl_bg_change">بدلیں</string>
+    <string name="ppl_bg_remove">ہٹائیں</string>
+    <string name="ppl_bg_desc">کال اسکرین کا پس منظر</string>
+    <string name="ppl_bg_custom">حسبِ ضرورت کال اسکرین تصویر</string>
+    <string name="ppl_bg_default">ڈیفالٹ کال اسکرین</string>
+    <string name="ppl_bg_info">کال اسکرین کا پس منظر · اسے “ترمیم” میں بدلیں</string>
+
+    <!-- People: contacts filter chips -->
+    <string name="ppl_chip_all">سبھی</string>
+    <string name="ppl_chip_private">نجی</string>
+    <string name="ppl_chip_account">اکاؤنٹ</string>
+    <string name="ppl_chip_all_accounts">تمام اکاؤنٹس</string>
+    <string name="ppl_chip_unlabelled">بغیر لیبل</string>
+    <string name="ppl_chip_match_all">سب میں</string>
+    <string name="ppl_chip_match_any">کسی میں بھی</string>
+    <string name="ppl_chip_open">%1$s کھولیں</string>
+    <string name="ppl_chip_labels">لیبلز</string>
+    <string name="ppl_chip_temporary">عارضی (%1$d)</string>
+
+    <!-- People: copy as text, crash report -->
+    <string name="ppl_copy_as_text">متن کے طور پر کاپی کریں</string>
+    <plurals name="ppl_copied" tools:ignore="ImpliedQuantity">
+        <item quantity="one">رابطہ کاپی ہو گیا</item>
+        <item quantity="other">%1$d رابطے کاپی ہو گئے</item>
+    </plurals>
+    <string name="ppl_crash_title">پچھلی بار Parley رک گیا تھا</string>
+    <string name="ppl_crash_text">اس فون پر ایک رپورٹ رکھی گئی ہے۔ اس میں نمبر اور ای میل پتے چھپائے گئے ہیں۔ اگر آپ چاہتے ہیں کہ مسئلہ حل ہو تو اسے بھیجیں؛ Parley خود کچھ نہیں بھیج سکتا۔</string>
+    <string name="ppl_crash_subject">Parley کریش رپورٹ</string>
+    <string name="ppl_crash_send_chooser">کریش رپورٹ بھیجیں</string>
+    <string name="ppl_crash_send">بھیجیں…</string>
+    <string name="ppl_crash_delete">رپورٹ حذف کریں</string>
+
+    <!-- People: contact CSV column mapping -->
+    <string name="csv_no_table">اس فائل میں کوئی ایسی قطار نہیں جسے Parley جدول کے طور پر پڑھ سکے۔</string>
+    <string name="csv_read_failed">فائل پڑھی نہیں جا سکی</string>
+    <string name="csv_title">کالم منتخب کریں</string>
+    <string name="csv_nothing_title">درآمد کرنے کو کچھ نہیں</string>
+    <string name="csv_nothing_text">ترتیبات › رابطے › درآمد میں ایک فائل منتخب کریں۔</string>
+    <string name="csv_sep_semicolons">سیمی کالن</string>
+    <string name="csv_sep_tabs">ٹیب</string>
+    <string name="csv_sep_commas">کوما</string>
+    <string name="csv_layout_parley">Parley</string>
+    <string name="csv_layout_google">Google رابطے</string>
+    <string name="csv_layout_outlook">Outlook</string>
+    <string name="csv_intro">یہ فائل Parley کے اپنے فارمیٹ میں نہیں ہے۔ اس کے کالم %1$s سے الگ ہیں۔ دیکھیں کہ ہر کالم میں کیا ہے؛ نیچے کے پہلے رابطے دکھاتے ہیں کہ وہ کیسے محفوظ ہوں گے۔</string>
+    <string name="csv_intro_layout">یہ فائل Parley کے اپنے فارمیٹ میں نہیں ہے، یہ %1$s کی برآمد لگتی ہے۔ اس کے کالم %2$s سے الگ ہیں۔ دیکھیں کہ ہر کالم میں کیا ہے؛ نیچے کے پہلے رابطے دکھاتے ہیں کہ وہ کیسے محفوظ ہوں گے۔</string>
+    <string name="csv_header">پہلی قطار ہیڈر ہے</string>
+    <string name="csv_header_on">کالموں کے نام، رابطہ نہیں</string>
+    <string name="csv_header_off">رابطے کے طور پر درآمد ہوگی</string>
+    <string name="csv_columns">کالم</string>
+    <string name="csv_column_n">کالم %1$d</string>
+    <string name="csv_preview">پیش منظر</string>
+    <string name="csv_nothing_with_columns">ان کالموں سے کچھ درآمد نہیں ہوگا۔</string>
+    <string name="csv_into">%1$s میں</string>
+    <string name="csv_into_skip">%1$s میں · جو رابطے پہلے سے ہیں وہ چھوڑ دیے جاتے ہیں</string>
+    <string name="csv_import_failed">درآمد ناکام: %1$s</string>
+    <string name="csv_import">درآمد کریں</string>
+    <string name="csv_need_column">کم از کم نام، فون، ای میل یا کمپنی کا ایک کالم منتخب کریں۔</string>
+    <string name="csv_change_column">بدلیں کہ “%1$s” میں کیا ہے</string>
+    <string name="csv_no_name">(کوئی نام نہیں)</string>
+    <string name="csv_labels">لیبل: %1$s</string>
+    <string name="csv_typed">%1$s (%2$s)</string>
+    <string name="csv_field_ignore">درآمد نہ کریں</string>
+    <string name="csv_field_full_name">پورا نام</string>
+    <string name="csv_field_prefix">نام کا سابقہ</string>
+    <string name="csv_field_given">پہلا نام</string>
+    <string name="csv_field_middle">درمیانی نام</string>
+    <string name="csv_field_family">آخری نام</string>
+    <string name="csv_field_suffix">نام کا لاحقہ</string>
+    <string name="csv_field_nickname">عرفی نام</string>
+    <string name="csv_field_phone">فون</string>
+    <string name="csv_field_phone_label">فون کی قسم (ساتھ والے فون کے لیے)</string>
+    <string name="csv_field_email">ای میل</string>
+    <string name="csv_field_email_label">ای میل کی قسم (ساتھ والی ای میل کے لیے)</string>
+    <string name="csv_field_org">کمپنی</string>
+    <string name="csv_field_title">عہدہ</string>
+    <string name="csv_field_address">پتہ</string>
+    <string name="csv_field_website">ویب سائٹ</string>
+    <string name="csv_field_birthday">سالگرہ</string>
+    <string name="csv_field_notes">نوٹس</string>
+    <string name="csv_field_labels">لیبلز</string>
+
+    <!-- People: account chips, provenance, life events -->
+    <string name="ppl_edit_copy">اس کاپی میں ترمیم کریں</string>
+    <string name="ppl_move_to">یہاں منتقل کریں…</string>
+    <string name="ppl_read_only">اپنی ایپ کے زیرِ انتظام (صرف پڑھنے کے لیے)</string>
+    <string name="ppl_unlink">الگ کریں</string>
+    <string name="ppl_move_title">اس کاپی کو یہاں منتقل کریں</string>
+    <string name="ppl_move_text">%1$s کاپی کی ہر چیز (نمبر، تصویر، لیبل…) پہلے نئے اکاؤنٹ میں لکھی جاتی ہے؛ اس کے بعد ہی پرانی کاپی ہٹائی جاتی ہے۔ آپ “حال ہی میں حذف اور تبدیل شدہ” سے واپس لے سکتے ہیں۔</string>
+    <string name="ppl_moved_to">%1$s میں منتقل کیا گیا</string>
+    <string name="ppl_unlink_title">%1$s کاپی الگ کریں؟</string>
+    <string name="ppl_unlink_text">یہ ایک الگ رابطہ بن جاتا ہے۔ کچھ حذف نہیں ہوتا۔</string>
+    <string name="ppl_unlinked">الگ کیا گیا</string>
+    <string name="ppl_version_history">ورژن کی سرگزشت</string>
+    <string name="ppl_why_changed">یہ کیوں بدلا؟ · ہر ورژن کے لیے ٹیپ کریں</string>
+    <string name="prov_other_app_unsynced">Parley کے آخری محفوظ کرنے کے بعد اس فون پر کسی دوسری ایپ نے بدلا (ابھی سنک نہیں ہوا)</string>
+    <string name="prov_other_app_unsynced_at">Parley کے آخری محفوظ کرنے کے بعد %1$s کو اس فون پر کسی دوسری ایپ نے بدلا (ابھی سنک نہیں ہوا)</string>
+    <string name="prov_sync">Parley کے آخری محفوظ کرنے کے بعد %1$s سنک نے بدلا</string>
+    <string name="prov_sync_at">Parley کے آخری محفوظ کرنے کے بعد %2$s کو %1$s سنک نے بدلا</string>
+    <string name="prov_other_app">Parley کے آخری محفوظ کرنے کے بعد کسی دوسری ایپ نے بدلا</string>
+    <string name="prov_other_app_at">Parley کے آخری محفوظ کرنے کے بعد %1$s کو کسی دوسری ایپ نے بدلا</string>
+    <string name="prov_parley">Parley نے %1$s کو بدلا</string>
+    <string name="prov_parley_fields">Parley نے %1$s کو بدلا · صرف بدلے ہوئے فیلڈ لکھے گئے (%2$s)</string>
+    <string name="prov_other_copy_sync">%1$s۔ %2$s کاپی کو اس کا سنک تازہ رکھتا ہے</string>
+    <string name="prov_other_copy_apps">%1$s۔ %2$s کاپی کو دوسری ایپس تازہ رکھتی ہیں</string>
+    <string name="prov_last_other_app">آخری تبدیلی اس فون پر کسی دوسری ایپ نے کی (ابھی سنک نہیں ہوئی)</string>
+    <string name="prov_last_other_app_at">آخری تبدیلی %1$s کو اس فون پر کسی دوسری ایپ نے کی (ابھی سنک نہیں ہوئی)</string>
+    <string name="prov_last_sync">آخری تبدیلی · %1$s سنک کے ساتھ ہم آہنگ</string>
+    <string name="prov_last_sync_at">آخری تبدیلی %1$s کو · %2$s سنک کے ساتھ ہم آہنگ</string>
+    <string name="prov_last_unknown">آخری تبدیلی %1$s کو، Parley نے نہیں</string>
+    <string name="prov_field_name">نام</string>
+    <string name="prov_field_nickname">عرفی نام</string>
+    <string name="prov_field_company">کمپنی</string>
+    <string name="prov_field_note">نوٹ</string>
+    <string name="prov_field_phone">فون</string>
+    <string name="prov_field_email">ای میل</string>
+    <string name="prov_field_website">ویب سائٹ</string>
+    <string name="prov_field_relation">رشتہ</string>
+    <string name="prov_field_handles">میسنجر ہینڈل</string>
+    <string name="prov_field_dates">تاریخیں</string>
+    <string name="prov_field_address">پتہ</string>
+    <string name="prov_field_labels">لیبلز</string>
+    <string name="prov_field_other">دیگر</string>
+    <string name="life_aged">%1$d سال کی عمر میں</string>
+    <string name="life_would_have_turned">%1$d سال کے ہوتے</string>
+    <string name="life_today">آج</string>
+    <string name="life_tomorrow">کل</string>
+    <plurals name="life_in_days">
+        <item quantity="one">%1$d دن میں</item>
+        <item quantity="other">%1$d دن میں</item>
+    </plurals>
+
+    <!-- People: diagnostics export -->
+    <string name="diag_saved">تشخیص محفوظ ہو گئی</string>
+    <string name="diag_save_failed">فائل محفوظ نہیں ہو سکی</string>
+    <string name="diag_title">تشخیص برآمد کریں</string>
+    <string name="diag_intro">یہ رپورٹ کسی مسئلے کو ڈھونڈنے میں مدد کرتی ہے۔ اس میں کوئی رابطہ یا کال ہسٹری نہیں۔ Parley کے پاس انٹرنیٹ نہیں ہے، اس لیے کچھ نہیں بھیجا جاتا: آپ اسے محفوظ کرتے ہیں یا جس سے چاہیں شیئر کرتے ہیں۔</string>
+    <string name="diag_mask">نمبر اور ای میل پتے چھپائیں</string>
+    <string name="diag_mask_summary">غلطی کے پیغامات میں نمبروں کے صرف آخری دو ہندسے رکھتا ہے</string>
+    <string name="diag_tables">رابطوں کے جدول شامل کریں (چھپائے ہوئے)</string>
+    <string name="diag_tables_summary">اکاؤنٹس نے ہر رابطے کو کیسے محفوظ کیا، ہر نام، نمبر اور متن کو اس کی شکل سے بدل کر (Aaaa 99 9923)</string>
+    <string name="diag_save_file">فائل کے طور پر محفوظ کریں</string>
+    <string name="diag_share">شیئر کریں</string>
+
+    <!-- People: duplicate warning in the editor -->
+    <string name="dup_private_name">%1$s پہلے سے ایک نجی رابطہ ہے</string>
+    <string name="dup_private_has">آپ کے نجی رابطے %1$s میں پہلے سے %2$s ہے</string>
+    <string name="dup_exists">%1$s پہلے سے موجود ہے</string>
+    <string name="dup_has">%1$s میں پہلے سے %2$s ہے</string>
+    <string name="dup_open">کھولیں</string>
+    <string name="dup_add_to">یہ تفصیلات %1$s میں شامل کریں</string>
+    <string name="dup_someone_else">یہ کوئی اور ہے</string>
+
+    <!-- People: labels -->
+    <plurals name="lbl_selected">
+        <item quantity="one">%1$d منتخب</item>
+        <item quantity="other">%1$d منتخب</item>
+    </plurals>
+    <string name="lbl_title">لیبلز</string>
+    <string name="lbl_stop_merging">ملانا بند کریں</string>
+    <string name="lbl_merge">ضم کریں</string>
+    <string name="lbl_new">نیا لیبل</string>
+    <string name="lbl_merge_labels">لیبل ملائیں</string>
+    <string name="lbl_merge_intro">جن لیبلوں کو ملانا ہے انہیں منتخب کریں۔ ان میں شامل سب ایک ہی لیبل میں آ جاتے ہیں؛ کوئی رابطہ نہیں ہٹتا۔</string>
+    <string name="lbl_unlabelled">بغیر لیبل</string>
+    <plurals name="lbl_unlabelled_count">
+        <item quantity="one">%1$d رابطہ بغیر لیبل</item>
+        <item quantity="other">%1$d رابطے بغیر لیبل</item>
+    </plurals>
+    <string name="lbl_empty_title">ابھی کوئی لیبل نہیں</string>
+    <string name="lbl_empty_text">لیبل رابطوں کو گروپ کرتے ہیں (خاندان، کام…)۔ یہ آپ کے Google یا CardDAV اکاؤنٹ کے ساتھ سنک ہوتے ہیں۔</string>
+    <plurals name="lbl_count_accounts">
+        <item quantity="one">%1$d رابطہ · %2$s</item>
+        <item quantity="other">%1$d رابطے · %2$s</item>
+    </plurals>
+    <string name="lbl_more_for">%1$s کے لیے مزید</string>
+    <string name="lbl_rename">نام بدلیں</string>
+    <string name="lbl_delete">لیبل حذف کریں</string>
+    <string name="lbl_merge_into">اس میں ملائیں</string>
+    <plurals name="lbl_n_contacts">
+        <item quantity="one">%1$d رابطہ</item>
+        <item quantity="other">%1$d رابطے</item>
+    </plurals>
+    <string name="lbl_merge_note">باقی لیبل ان کے رابطوں کے “%1$s” میں شامل ہونے کے بعد ہٹا دیے جاتے ہیں۔</string>
+    <string name="lbl_merge_failed">ملا نہیں سکے: %1$s</string>
+    <string name="lbl_merged">%1$s میں ملا دیا گیا</string>
+    <plurals name="lbl_merged_added">
+        <item quantity="one">%2$s میں ملا دیا گیا · %1$d شامل کیا گیا</item>
+        <item quantity="other">%2$s میں ملا دیا گیا · %1$d شامل کیے گئے</item>
+    </plurals>
+    <string name="lbl_delete_title">“%1$s” حذف کریں؟</string>
+    <string name="lbl_delete_text">لیبل ہر اکاؤنٹ سے ہٹا دیا جاتا ہے۔ اس کے رابطے رکھے جاتے ہیں۔</string>
+    <string name="lbl_name">نام</string>
+    <string name="lbl_saved_in">یہاں محفوظ ہے</string>
+    <string name="lbl_created">لیبل “%1$s” بنایا گیا</string>
+    <string name="lbl_create_failed">لیبل نہیں بن سکا</string>
+    <string name="lbl_create">بنائیں</string>
+    <string name="lbl_rename_title">لیبل کا نام بدلیں</string>
+    <string name="lbl_rename_note">اگر کسی دوسرے لیبل کا یہی نام ہے تو دونوں ملا دیے جاتے ہیں۔</string>
+    <string name="lbl_rename_failed">نام نہیں بدل سکے: %1$s</string>
+    <string name="lbl_ringtone_for">%1$s کے لیے رنگ ٹون</string>
+    <string name="lbl_no_numbers">اس لیبل میں کوئی فون نمبر نہیں</string>
+    <string name="lbl_no_sms_app">کوئی پیغام ایپ دستیاب نہیں</string>
+    <string name="lbl_message_all">سب کو پیغام بھیجیں</string>
+    <string name="lbl_no_emails">اس لیبل میں کوئی ای میل پتہ نہیں</string>
+    <string name="lbl_no_email_app">کوئی ای میل ایپ دستیاب نہیں</string>
+    <string name="lbl_email_all">سب کو ای میل کریں</string>
+    <string name="lbl_ringtone">اس لیبل کے لیے رنگ ٹون</string>
+    <string name="lbl_custom_ringtone">حسبِ ضرورت رنگ ٹون</string>
+    <string name="lbl_default_ringtone">ڈیفالٹ رنگ ٹون</string>
+    <string name="lbl_ringtone_summary">اس لیبل کے لوگوں کے لیے بجتی ہے، جب تک ان کی اپنی رنگ ٹون نہ ہو</string>
+    <string name="lbl_reset">ری سیٹ کریں</string>
+    <string name="lbl_nobody">ابھی کسی کے پاس یہ لیبل نہیں ہے۔ رابطے ٹیب میں رابطے منتخب کریں اور “لیبل میں شامل کریں” منتخب کریں۔</string>
+    <string name="lbl_remove_from">%1$s سے ہٹائیں</string>
+    <plurals name="lbl_delete_text_n">
+        <item quantity="one">لیبل ہر اکاؤنٹ سے ہٹا دیا جاتا ہے۔ اس کا %1$d رابطہ رکھا جاتا ہے۔</item>
+        <item quantity="other">لیبل ہر اکاؤنٹ سے ہٹا دیا جاتا ہے۔ اس کے %1$d رابطے رکھے جاتے ہیں۔</item>
+    </plurals>
+
+    <!-- People: swipe actions and avatars -->
+    <string name="swipe_none">کچھ نہیں</string>
+    <string name="swipe_call">کال کریں</string>
+    <string name="swipe_message">پیغام</string>
+    <string name="swipe_message_on">اس سے پیغام بھیجیں…</string>
+    <string name="swipe_block">بلاک کریں</string>
+    <string name="swipe_delete">حذف کریں (واپس لینے کے ساتھ)</string>
+    <string name="swipe_delete_short">حذف کریں</string>
+    <string name="swipe_right">دائیں سوائپ کریں</string>
+    <string name="swipe_left">بائیں سوائپ کریں</string>
+    <string name="swipe_try">آزمائیں:</string>
+    <string name="swipe_tried">%1$s: سوائپ یہی کرے گا</string>
+    <string name="swipe_example_name">Alex مثال</string>
+    <string name="swipe_try_hint">اس قطار کو بائیں یا دائیں سوائپ کریں</string>
+    <string name="swipe_note">حذف کرنے پر ہمیشہ “واپس لیں” ملتا ہے۔ حالیہ میں سوائپ اس قطار کی کالز حذف کرتا ہے؛ رابطوں میں رابطہ (جو “حال ہی میں حذف شدہ” سے بحال ہو سکتا ہے)۔</string>
+    <string name="avatar_colourful">رنگین حروف</string>
+    <string name="avatar_grey">سرمئی مونوگرام</string>
+    <string name="avatar_emoji_hint">ایموجی سے شروع ہونے والے نام اسے دکھاتے ہیں</string>
+
+    <!-- People: my card -->
+    <string name="me_open">میرا کارڈ کھولیں</string>
+    <string name="me_short">میں</string>
+    <string name="me_title">میرا کارڈ</string>
+    <string name="me_empty">QR کوڈ کے طور پر شیئر کرنے کے لیے اپنی تفصیلات شامل کریں</string>
+    <string name="me_saved">کارڈ محفوظ ہو گیا</string>
+    <string name="me_your_name">آپ کا نام</string>
+    <string name="me_qr">QR کوڈ</string>
+    <string name="me_share">شیئر کریں</string>
+    <string name="me_profile_title">آپ کے فون کی پروفائل بھی دکھاتا ہے</string>
+    <string name="me_profile_text">Android کے “میں” رابطے کی تفصیلات یہاں خالی جگہیں بھرتی ہیں۔ Parley اس پروفائل کو نہیں بدلتا: اس میں جو بھی ہے اسے رابطوں تک رسائی والی ہر ایپ پڑھ سکتی ہے، اس لیے آپ کا کارڈ Parley میں ہی رہتا ہے۔</string>
+    <string name="me_you">آپ</string>
+    <string name="me_name">نام</string>
+    <string name="me_company">کمپنی</string>
+    <string name="me_job_title">عہدہ</string>
+    <string name="me_numbers">نمبر</string>
+    <string name="me_number">نمبر</string>
+    <string name="me_email">ای میل</string>
+    <string name="me_email_address">ای میل پتہ</string>
+    <string name="me_websites">ویب سائٹس</string>
+    <string name="me_website">ویب سائٹ</string>
+    <string name="me_more">مزید</string>
+    <string name="me_address">پتہ</string>
+    <string name="me_private_note">نجی نوٹ</string>
+    <string name="me_private_note_hint">صرف آپ کے لیے: کبھی شیئر نہیں ہوتا</string>
+    <string name="me_footer">آپ کا کارڈ صرف اس فون پر، Parley کے اندر محفوظ ہے۔ “میری تفصیلات بھیجیں” اس کا نام اور پہلا نمبر استعمال کرتا ہے۔</string>
+    <string name="me_remove">ہٹائیں</string>
+    <string name="me_add_number">نمبر شامل کریں</string>
+    <string name="me_add_email">ای میل پتہ شامل کریں</string>
+    <string name="me_add_website">ویب سائٹ شامل کریں</string>
+    <string name="me_share_chooser">میرا کارڈ شیئر کریں</string>
+    <string name="me_share_failed">کارڈ شیئر نہیں ہو سکا</string>
+    <string name="me_qr_desc">میرے کارڈ کا QR کوڈ</string>
+    <string name="me_scan">کسی بھی کیمرہ ایپ سے اسکین کریں۔ شامل کریں:</string>
+    <string name="me_part_work">کمپنی اور عہدہ</string>
+    <string name="me_share_file">فائل کے طور پر شیئر کریں</string>
+
+    <!-- People: settings rows -->
+    <string name="second_number">فون نمبر</string>
+    <string name="second_company">کمپنی · عہدہ</string>
+    <string name="second_nickname">عرفی نام</string>
+    <string name="second_account">اکاؤنٹ</string>
+    <string name="second_none">کچھ نہیں</string>
+    <string name="second_line_summary">ایک جیسے نام والے لوگ ہمیشہ اپنی کمپنی یا نمبر دکھاتے ہیں</string>
+    <string name="prefer_nickname_summary">عرفی نام محفوظ ہو تو فہرستوں میں “Robert Jones” کی جگہ “Bob” دکھائیں</string>
+    <plurals name="labels_row_summary">
+        <item quantity="one">%1$d لیبل · نام بدلیں، ملائیں، رنگ ٹونز</item>
+        <item quantity="other">%1$d لیبل · نام بدلیں، ملائیں، رنگ ٹونز</item>
+    </plurals>
+    <plurals name="export_account_done">
+        <item quantity="one">%2$s سے %1$d رابطہ برآمد کیا گیا</item>
+        <item quantity="other">%2$s سے %1$d رابطے برآمد کیے گئے</item>
+    </plurals>
+    <plurals name="export_account_failed">
+        <item quantity="one">%1$s · %2$d ناکام</item>
+        <item quantity="other">%1$s · %2$d ناکام</item>
+    </plurals>
+    <string name="export_account_title">یہاں سے رابطے برآمد کریں</string>
+    <string name="privacy_section">آپ کے رابطے اور دوسری ایپس</string>
+    <string name="privacy_who_can_see">آپ کے رابطے کون دیکھ سکتا ہے</string>
+    <string name="privacy_who_can_see_summary">کون سی ایپس آپ کے رابطے پڑھ سکتی ہیں، اور Parley اس بارے میں کیا کر سکتا ہے</string>
+    <string name="privacy_private_names">ایپس کو نجی نام دکھانے دیں</string>
+
+    <!-- People: who can see your contacts -->
+    <string name="who_header">Android کسی بھی رابطہ ایپ کو یہ طے نہیں کرنے دیتا کہ دوسری ایپس کیا دیکھیں۔ جس بھی ایپ کو آپ نے “رابطے” کی اجازت دی ہے وہ اس فون کا ہر رابطہ، ہر اکاؤنٹ سے پڑھ سکتی ہے۔ Parley یہ کر سکتا ہے:</string>
+    <string name="who_apps">یہ ایپس آپ کے تمام رابطے پڑھ سکتی ہیں۔ Parley انہیں محدود نہیں کر سکتا۔ Android ترتیبات میں ان کی اجازت بدلنے کے لیے ٹیپ کریں۔</string>
+    <string name="who_private">نجی رابطے کبھی وہاں محفوظ نہیں ہوتے جہاں دوسری ایپس انہیں پڑھ سکیں۔ صرف Parley ان کے نام دکھاتا ہے۔</string>
+    <string name="who_pick">جب کوئی ایپ آپ سے رابطہ منتخب کرنے کو کہتی ہے تو صرف وہی رابطہ شیئر ہوتا ہے۔</string>
+    <string name="who_settings_failed">Android ترتیبات نہیں کھل سکیں</string>
+    <string name="who_graphene">آپ GrapheneOS استعمال کر رہے ہیں</string>
+    <string name="who_graphene_text">GrapheneOS کے Contact Scopes اصل فی ایپ کنٹرول ہیں: کسی ایپ کو صرف آپ کے منتخب رابطے دیے جا سکتے ہیں، اور وہ کچھ اور نہیں دیکھتی۔ نیچے کوئی ایپ کھولیں، پھر اجازتیں › رابطے › Contact Scopes۔</string>
+    <string name="who_no_browser">کوئی براؤزر دستیاب نہیں</string>
+    <string name="who_scopes_link">Contact Scopes کیسے کام کرتے ہیں</string>
+    <string name="who_apps_section">آپ کے رابطوں تک رسائی والی ایپس</string>
+    <string name="who_no_apps">آپ کی ہوم اسکرین کی کسی دوسری ایپ کے پاس رابطوں تک رسائی نہیں</string>
+    <string name="who_can_read_all">تمام رابطے پڑھ سکتی ہے</string>
+    <string name="who_system">سسٹم کا حصہ</string>
+    <string name="who_scopes_tip">مشورہ: اس ایپ کے لیے Contact Scopes استعمال کریں</string>
+    <string name="who_change">ترتیبات میں بدلیں</string>
+    <string name="who_unused">ایپس جو آپ نے کچھ عرصے سے استعمال نہیں کیں</string>
+    <string name="who_unused_text">Android ان ایپس سے اجازتیں ہٹا سکتا ہے جو آپ نے چند مہینوں سے استعمال نہیں کیں۔ دیکھیں کہ ہر ایپ کی ترتیبات میں “استعمال نہ ہونے پر ایپ کی سرگرمی روکیں” آن ہے۔ ہوم اسکرین آئیکن کے بغیر ایپس یہاں نہیں دکھتیں: Parley ہر انسٹال شدہ ایپ دیکھنے کی اجازت نہیں مانگتا۔</string>
+    <string name="who_messengers">WhatsApp اور دوسرے میسنجر</string>
+    <string name="who_private_default">ڈیفالٹ طور پر نجی</string>
+    <string name="who_save_private">نئے رابطے نجی کے طور پر محفوظ کریں</string>
+    <string name="who_save_private_summary">نئے رابطے کسی اکاؤنٹ کی جگہ آپ کے نجی رابطوں میں جاتے ہیں</string>
+    <string name="who_what_stops">کہاں ان کے نام دکھنا بند ہو جاتے ہیں:\n• آپ کی گاڑی اور اسمارٹ واچ (Bluetooth پر وہ فون کے رابطے پڑھتی ہیں)\n• دوسری ایپس: میسنجر، کی بورڈ، کوئی دوسری فون ایپ\n• Android کا کال لاگ، جسے دوسری ایپس پڑھ سکتی ہیں (انہیں صرف نمبر دکھتا ہے)\nنجی رابطے Google یا CardDAV کے ساتھ سنک نہیں ہوتے؛ وہ Parley کے انکرپٹڈ بیک اپ میں ہوتے ہیں۔</string>
+    <string name="who_move_private">رابطوں کو نجی میں منتقل کریں</string>
+    <string name="who_move_private_summary">رابطے ٹیب میں رابطے منتخب کریں، پھر مزید › نجی میں منتقل کریں</string>
+    <string name="who_move_private_hint">رابطوں کو منتخب کرنے کے لیے انہیں دیر تک دبائیں، پھر مزید › نجی میں منتقل کریں منتخب کریں</string>
+    <string name="who_share_one">صرف ایک رابطہ شیئر کریں</string>
+    <string name="who_picker_text">Parley آپ کا رابطہ چننے والا ہے: جو ایپ آپ سے رابطہ منتخب کرنے کو کہتی ہے اسے وہی ایک رابطہ ملتا ہے، آپ کی پوری ایڈریس بک نہیں، اور اس کے لیے اسے رابطوں کی اجازت کی ضرورت نہیں ہوتی۔</string>
+    <string name="who_picker_text_37">Parley آپ کا رابطہ چننے والا ہے: جو ایپ آپ سے رابطہ منتخب کرنے کو کہتی ہے اسے وہی ایک رابطہ ملتا ہے، آپ کی پوری ایڈریس بک نہیں، اور اس کے لیے اسے رابطوں کی اجازت کی ضرورت نہیں ہوتی۔ اس Android ورژن پر ایپس Android کا اپنا رابطہ چننے والا بھی استعمال کر سکتی ہیں، جو اسی طرح صرف آپ کا منتخب کردہ شیئر کرتا ہے۔</string>
+    <string name="who_one_number">صرف ایک نمبر شیئر کرنے کی پیشکش کریں</string>
+    <string name="who_one_number_summary">جب کوئی ایپ پورا رابطہ مانگے تو اس کے ساتھ صرف ایک فون نمبر شیئر کرنا منتخب کریں۔ کچھ ایپس اسے قبول نہیں کرتیں۔</string>
+    <string name="who_private_names_section">دوسری ایپس میں نجی نام</string>
+    <plurals name="who_private_names_on">
+        <item quantity="one">آن · %1$d ایپ کو اجازت</item>
+        <item quantity="other">آن · %1$d ایپس کو اجازت</item>
+    </plurals>
+
+    <!-- People: private names for other apps -->
+    <string name="pn_title">دوسری ایپس میں نجی نام</string>
+    <string name="pn_off_default">ڈیفالٹ طور پر بند</string>
+    <string name="pn_intro">جن ایپس کو آپ منظوری دیتے ہیں وہ Parley سے ایک وقت میں ایک فون نمبر کا نام پوچھ سکتی ہیں، مثلاً یہ دکھانے کے لیے کہ کون کال کر رہا ہے۔ انہیں صرف وہ نام ملتا ہے، کبھی فہرست نہیں، اور صرف تب جب آپ ہر ایپ کو اجازت دیں۔ جب کوئی ایپ پہلی بار کوشش کرتی ہے تو Parley اطلاع کے ذریعے آپ سے پوچھتا ہے، اور ہر درخواست نیچے درج ہوتی ہے۔</string>
+    <string name="pn_directory_section">فون ایپس (رابطوں کی ڈائریکٹری)</string>
+    <string name="pn_directory_summary">ڈیفالٹ طور پر بند۔ اوپر والی منظوریاں اور لاگ ہی استعمال کرتا ہے</string>
+    <string name="pn_directory_text">یہ آن ہونے پر Android، Parley کو رابطوں کی ڈائریکٹری کے طور پر دکھاتا ہے۔ جو فون ایپ کال کرنے والوں کو ڈائریکٹریوں میں تلاش کرتی ہے (مثلاً Google فون، گاڑی میں چلتے ہوئے بھی) وہ ایک نمبر کا نام پوچھ سکتی ہے، اور صرف تب جب آپ اس ایپ کو اجازت دیں۔ اسے کبھی فہرست، تصویر یا کھولنے کے لیے رابطہ نہیں ملتا، اور خفیہ موڈ میں کوئی جواب نہیں دیا جاتا۔ ہر فون ایپ ڈائریکٹریوں سے نہیں پوچھتی: Google فون پوچھتی ہے، دوسری شاید صرف آپ کے رابطوں میں دیکھیں۔</string>
+    <string name="pn_apps">ایپس</string>
+    <string name="pn_no_app">ابھی کسی ایپ نے نہیں پوچھا</string>
+    <string name="pn_allowed">اجازت ہے</string>
+    <string name="pn_not_allowed">اجازت نہیں</string>
+    <string name="pn_waiting">آپ کے جواب کا انتظار</string>
+    <string name="pn_forget">بھول جائیں (دوبارہ پوچھیں)</string>
+    <string name="pn_log">رسائی کا لاگ</string>
+    <string name="pn_no_requests">ابھی کوئی درخواست نہیں</string>
+    <string name="pn_directory_suffix">%1$s (ڈائریکٹری)</string>
+    <string name="pn_clear_log">لاگ صاف کریں</string>
+    <string name="pn_developers">ایپ ڈیولپرز کے لیے: %2$s اجازت کے ساتھ content://%1$s/lookup/&lt;نمبر&gt; سے استفسار کریں۔ نتیجے میں ایک قطار (display_name, photo_uri) ہوتی ہے یا کوئی نہیں۔</string>
+    <string name="pn_out_answered">نجی نام دکھایا</string>
+    <string name="pn_out_not_found">پوچھا؛ کسی نجی رابطے کا یہ نمبر نہیں</string>
+    <string name="pn_out_denied">روکا گیا: آپ نے انکار کیا</string>
+    <string name="pn_out_asked">آپ کے جواب کا انتظار</string>
+    <string name="pn_out_off">روکا گیا: نجی نام شیئر کرنا بند ہے</string>
+    <string name="pn_out_rejected">مسترد: ایک اکیلا فون نمبر نہیں</string>
+    <string name="pn_out_rate">روکا گیا: بہت زیادہ درخواستیں</string>
+    <plurals name="move_private_title">
+        <item quantity="one">%1$d کو نجی میں منتقل کریں؟</item>
+        <item quantity="other">%1$d کو نجی میں منتقل کریں؟</item>
+    </plurals>
+    <string name="move_private_text">نجی رابطے کبھی وہاں محفوظ نہیں ہوتے جہاں دوسری ایپس انہیں پڑھ سکیں۔ صرف Parley ان کے نام دکھاتا ہے۔ وہ آپ کے اکاؤنٹس (Google، CardDAV…) سے ہٹا دیے جاتے ہیں اور دوسرے فون انہیں دیکھنا بند کر دیتے ہیں؛ آپ کی گاڑی، گھڑی اور دوسری ایپس صرف ان کے نمبر دکھاتی ہیں۔</string>
+    <plurals name="move_private_done">
+        <item quantity="one">%1$d آپ کے نجی رابطوں میں منتقل کیا گیا</item>
+        <item quantity="other">%1$d آپ کے نجی رابطوں میں منتقل کیے گئے</item>
+    </plurals>
+    <string name="move_private_move">منتقل کریں</string>
+
+    <!-- People: contacts search hints -->
+    <string name="search_matched">ملا: %1$s</string>
+    <string name="search_field_email">ای میل</string>
+    <string name="search_field_nickname">عرفی نام</string>
+    <string name="search_field_company">کمپنی</string>
+    <string name="search_field_address">پتہ</string>
+    <string name="search_field_note">نوٹ</string>
+    <string name="search_field_website">ویب سائٹ</string>
+    <string name="search_field_handle">میسنجر ہینڈل</string>
+
+    <!-- People: SIM -->
+    <string name="sim_warning">SIM کارڈ ہر اندراج میں صرف ایک نام (تقریباً 14 حروف) اور ایک نمبر رکھتا ہے۔</string>
+    <string name="sim_copy_title">SIM میں کاپی کریں</string>
+    <string name="sim_none_see">کوئی SIM کارڈ نہیں ملا، یا Android نے Parley کو اسے دیکھنے نہیں دیا۔</string>
+    <plurals name="sim_free">
+        <item quantity="one">%1$d خالی اندراج</item>
+        <item quantity="other">%1$d خالی اندراجات</item>
+    </plurals>
+    <string name="sim_full">یہ SIM بھری ہوئی ہے۔</string>
+    <string name="sim_copied">%1$s میں کاپی کیا گیا</string>
+    <string name="sim_copy">کاپی کریں</string>
+    <string name="sim_issue_no_number">کاپی کرنے کے لیے کوئی فون نمبر نہیں ہے۔</string>
+    <string name="sim_issue_invalid">یہ نمبر SIM پر محفوظ نہیں ہو سکتا۔</string>
+    <plurals name="sim_issue_too_long">
+        <item quantity="one">نمبر SIM کی اجازت سے لمبا ہے (%1$d ہندسہ)۔</item>
+        <item quantity="other">نمبر SIM کی اجازت سے لمبا ہے (%1$d ہندسے)۔</item>
+    </plurals>
+    <plurals name="sim_issue_left_out">
+        <item quantity="one">SIM پر صرف ایک نمبر آتا ہے: %1$d دوسرا نمبر رہ جاتا ہے۔</item>
+        <item quantity="other">SIM پر صرف ایک نمبر آتا ہے: %1$d دوسرے نمبر رہ جاتے ہیں۔</item>
+    </plurals>
+    <string name="sim_issue_shortened">نام مختصر کر کے “%1$s” کیا گیا۔</string>
+    <string name="sim_issue_details">ای میلز، پتے، تصاویر اور دوسری تفصیلات صرف فون پر رہتی ہیں۔</string>
+    <string name="sim_import_title">SIM سے درآمد کریں</string>
+    <string name="sim_import_n">%1$d درآمد کریں</string>
+    <string name="sim_import_intro">SIM کارڈ ہر اندراج میں صرف ایک نام (تقریباً 14 حروف) اور ایک نمبر رکھتا ہے۔ جو اندراجات آپ کے پاس پہلے سے ہیں ان پر نشان نہیں ہے۔</string>
+    <string name="sim_none_read">کوئی SIM کارڈ نہیں ملا، یا Android نے Parley کو اسے پڑھنے نہیں دیا۔</string>
+    <string name="sim_section">SIM</string>
+    <plurals name="sim_entries">
+        <item quantity="one">SIM پر %1$d اندراج</item>
+        <item quantity="other">SIM پر %1$d اندراجات</item>
+    </plurals>
+    <string name="sim_empty">SIM کی فون بک خالی ہے۔</string>
+    <string name="sim_already">%1$s · پہلے سے آپ کے رابطوں میں</string>
+    <string name="sim_import_into">اس میں درآمد کریں</string>
+    <string name="sim_imported">%3$s میں %2$d میں سے %1$d درآمد کیے گئے</string>
+</resources>
