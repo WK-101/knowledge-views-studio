@@ -207,7 +207,7 @@ private fun ListEditor(title: String, label: String, addLabel: String, values: L
         item {
             TextButton({ onChange(rows + "") }, Modifier.padding(horizontal = 8.dp)) {
                 Icon(Icons.Rounded.AddCircle, null, Modifier.size(20.dp), tint = CallColors.Accept)
-                Text("  $addLabel")
+                Text("  " + addLabel)
             }
         }
     }

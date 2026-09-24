@@ -147,12 +147,12 @@ class VoicemailRepository(private val context: Context, scope: CoroutineScope) {
                             accountId = c.getString(1),
                             configured = config == Status.CONFIGURATION_STATE_OK,
                             problem = when {
-                                config == Status.CONFIGURATION_STATE_CAN_BE_CONFIGURED -> "Visual voicemail can be turned on in its settings"
-                                config == Status.CONFIGURATION_STATE_NOT_CONFIGURED -> "Visual voicemail isn't set up"
+                                config == Status.CONFIGURATION_STATE_CAN_BE_CONFIGURED -> context.getString(app.parley.data.R.string.data_vm_can_configure)
+                                config == Status.CONFIGURATION_STATE_NOT_CONFIGURED -> context.getString(app.parley.data.R.string.data_vm_not_configured)
                                 data == Status.DATA_CHANNEL_STATE_NO_CONNECTION || data == Status.DATA_CHANNEL_STATE_NO_CONNECTION_CELLULAR_REQUIRED ->
-                                    "Can't reach the voicemail server (it needs mobile data)"
-                                data != Status.DATA_CHANNEL_STATE_OK -> "The voicemail server reported a problem"
-                                notif == Status.NOTIFICATION_CHANNEL_STATE_NO_CONNECTION -> "No connection to the voicemail service"
+                                    context.getString(app.parley.data.R.string.data_vm_no_data)
+                                data != Status.DATA_CHANNEL_STATE_OK -> context.getString(app.parley.data.R.string.data_vm_server_problem)
+                                notif == Status.NOTIFICATION_CHANNEL_STATE_NO_CONNECTION -> context.getString(app.parley.data.R.string.data_vm_no_connection)
                                 else -> null
                             },
                             settingsUri = c.getString(5)?.takeIf { it.isNotBlank() }?.let(Uri::parse),

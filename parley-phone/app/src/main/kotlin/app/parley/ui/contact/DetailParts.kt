@@ -122,7 +122,7 @@ fun SegmentedGroupScope.handleRows(handles: List<HandleItem>, icon: ImageVector,
             val context = LocalContext.current
             val link = remember(h) { Handles.link(h.handle) }
             GroupDataRow(
-                icon, showIcon = firstHasIcon && i == 0, text = h.value, label = h.handle.serviceLabel,
+                icon, showIcon = firstHasIcon && i == 0, text = h.value, label = app.parley.ui.people.HandleText.label(androidx.compose.ui.platform.LocalResources.current, h.handle),
                 onClick = {
                     if (link == null) Intents.copy(context, h.value)
                     else if (!ContactMessaging.openHandle(context, link)) onWeb(link)

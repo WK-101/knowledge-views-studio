@@ -211,7 +211,7 @@ fun describeLifeEvent(res: Resources, d: ContactDetails, ev: EventItem, today: L
     val death = LifeEvents.deathDate(d.events.map { Triple(it.type, it.label, it.date) })
     val isDeath = LifeEvents.isDeath(ev.type, ev.label)
     val parsed = EventDate.parse(ev.date)
-    if (death == null || parsed == null) return describeEvent(ev.date, ev.type == Event.TYPE_BIRTHDAY)
+    if (death == null || parsed == null) return describeEvent(ev.date, ev.type == Event.TYPE_BIRTHDAY, res = res)
     fun shown(e: EventDate) = if (e.year != null) LocalDate.of(e.year!!, e.month, e.day).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG))
     else java.time.MonthDay.of(e.month, e.day).format(
         DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(java.util.Locale.getDefault(), "dMMMM")),
@@ -222,7 +222,7 @@ fun describeLifeEvent(res: Resources, d: ContactDetails, ev: EventItem, today: L
             listOfNotNull(shown(parsed), birth?.let { LifeEvents.ageAtDeath(it, parsed) }?.let { res.getString(R.string.life_aged, it) }).joinToString(" · ")
         }
         ev.type == Event.TYPE_BIRTHDAY -> listOfNotNull(shown(parsed), LifeEvents.wouldHaveTurned(parsed, today)?.let { res.getString(R.string.life_would_have_turned, it) }, dayText(res, parsed, today)).joinToString(" · ")
-        else -> describeEvent(ev.date, false, today)
+        else -> describeEvent(ev.date, false, today, res)
     }
 }
 
@@ -232,6 +232,9 @@ private fun dayText(res: Resources, e: EventDate, today: LocalDate): String = wh
     else -> days.toInt().let { res.getQuantityString(R.plurals.life_in_days, it, it) }
 }
 
-/** Label for an event row: "Date of death" and other custom labels as typed. */
-fun eventLabel(res: android.content.res.Resources, ev: EventItem): String =
-    if (ev.type == Event.TYPE_CUSTOM && !ev.label.isNullOrBlank()) ev.label!! else res.getString(Event.getTypeResource(ev.type))
+/** Label for an event row: "Date of death" (stored in English, shown translated) and other custom labels as typed. */
+fun eventLabel(res: android.content.res.Resources, ev: EventItem): String = when {
+    LifeEvents.isDeath(ev.type, ev.label) -> res.getString(R.string.life_date_of_death)
+    ev.type == Event.TYPE_CUSTOM && !ev.label.isNullOrBlank() -> ev.label!!
+    else -> res.getString(Event.getTypeResource(ev.type))
+}

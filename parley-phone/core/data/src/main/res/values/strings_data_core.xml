@@ -150,4 +150,10 @@
     <string name="data_file_write_failed">Could not open the file for writing</string>
     <string name="data_file_read_failed">Could not open the file</string>
     <string name="data_vault_fallback_name">Private contact</string>
+    <!-- Visual voicemail source problems -->
+    <string name="data_vm_can_configure">Visual voicemail can be turned on in its settings</string>
+    <string name="data_vm_not_configured">Visual voicemail isn\'t set up</string>
+    <string name="data_vm_no_data">Can\'t reach the voicemail server (it needs mobile data)</string>
+    <string name="data_vm_server_problem">The voicemail server reported a problem</string>
+    <string name="data_vm_no_connection">No connection to the voicemail service</string>
 </resources>

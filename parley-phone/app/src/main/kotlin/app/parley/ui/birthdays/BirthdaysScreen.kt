@@ -79,7 +79,7 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
                     g.forEach { u ->
                         item {
                             val e = u.event
-                            val kind = if (e.type == Event.TYPE_CUSTOM && !e.label.isNullOrBlank()) e.label!! else resources.getString(Event.getTypeResource(e.type))
+                            val kind = if (app.parley.common.people.LifeEvents.isDeath(e.type, e.label)) resources.getString(R.string.life_date_of_death) else if (e.type == Event.TYPE_CUSTOM && !e.label.isNullOrBlank()) e.label!! else resources.getString(Event.getTypeResource(e.type))
                             ListItem(
                                 modifier = Modifier.clickable { open(Routes.contact(e.contactId)) },
                                 leadingContent = { Avatar(e.name, e.photoUri, 44.dp) },
@@ -88,11 +88,11 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
                                     val birth = EventDate.parse(e.date)
                                     Text(
                                         "$kind · " + if (e.type == Event.TYPE_BIRTHDAY && e.contactId in deceased && birth != null) {
-                                            describeEvent(e.date, false).substringBefore(" ·") +
+                                            describeEvent(e.date, false, res = resources).substringBefore(" ·") +
                                                 (app.parley.common.people.LifeEvents.wouldHaveTurned(birth, java.time.LocalDate.now())?.let { " · " + resources.getString(R.string.bday_would_have_turned, it) } ?: "") +
-                                                " · " + describeEvent(e.date, false).substringAfterLast(" · ")
+                                                " · " + describeEvent(e.date, false, res = resources).substringAfterLast(" · ")
                                         } else {
-                                            describeEvent(e.date, e.type == Event.TYPE_BIRTHDAY)
+                                            describeEvent(e.date, e.type == Event.TYPE_BIRTHDAY, res = resources)
                                         },
                                     )
                                 },

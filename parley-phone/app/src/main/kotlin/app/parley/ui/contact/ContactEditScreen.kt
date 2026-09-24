@@ -639,6 +639,7 @@ private fun MultiSection(
 /** I1: the "Handles" group: service, handle with a per-service hint, and a warning when it doesn't look right. */
 @Composable
 private fun HandlesSection(handles: List<HandleItem>, onChange: (List<HandleItem>) -> Unit) {
+    val res = androidx.compose.ui.platform.LocalResources.current
     val services = HandleService.common + HandleService.entries.filter { it !in HandleService.common }
     EditorGroup(stringResource(R.string.edit_handles)) {
         handles.forEachIndexed { i, h ->
@@ -647,9 +648,9 @@ private fun HandlesSection(handles: List<HandleItem>, onChange: (List<HandleItem
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.weight(1f)) {
                     if (locked) {
-                        Text(h.handle.serviceLabel, Modifier.padding(8.dp))
+                        Text(app.parley.ui.people.HandleText.label(res, h.handle), Modifier.padding(8.dp))
                     } else {
-                        Dropdown(stringResource(R.string.edit_service), h.handle.serviceLabel, services.map { it.label }) { t -> set(h.copy(service = services[t], customProtocol = if (services[t] == HandleService.OTHER) h.customProtocol else null)) }
+                        Dropdown(stringResource(R.string.edit_service), app.parley.ui.people.HandleText.label(res, h.handle), services.map { app.parley.ui.people.HandleText.service(res, it) }) { t -> set(h.copy(service = services[t], customProtocol = if (services[t] == HandleService.OTHER) h.customProtocol else null)) }
                     }
                 }
                 if (!locked) RemoveButton(stringResource(R.string.edit_remove_handle)) { onChange(handles.filterIndexed { j, _ -> j != i }) }
@@ -662,9 +663,9 @@ private fun HandlesSection(handles: List<HandleItem>, onChange: (List<HandleItem
             }
             val problem = Handles.problem(h.service, h.value)
             OutlinedTextField(
-                h.value, { set(h.copy(value = it)) }, label = { Text(h.handle.serviceLabel) },
+                h.value, { set(h.copy(value = it)) }, label = { Text(app.parley.ui.people.HandleText.label(res, h.handle)) },
                 placeholder = h.service.placeholder.takeIf { it.isNotEmpty() }?.let { p -> { Text(p) } },
-                supportingText = { Text(problem ?: h.service.hint) }, isError = problem != null,
+                supportingText = { Text(problem?.let { app.parley.ui.people.HandleText.problem(res, it) } ?: app.parley.ui.people.HandleText.hint(res, h.service)) }, isError = problem != null,
                 singleLine = true, modifier = Modifier.fillMaxWidth(), readOnly = locked, trailingIcon = if (locked) { { LockIcon() } } else null,
                 keyboardOptions = KeyboardOptions(keyboardType = if (h.service == HandleService.XMPP || h.service == HandleService.SIP) KeyboardType.Email else KeyboardType.Text),
             )
@@ -679,7 +680,7 @@ private fun RelationsSection(vm: AppViewModel, items: List<DataItem>, onChange: 
     val res = androidx.compose.ui.platform.LocalResources.current
     var typeFor by remember { mutableStateOf<Int?>(null) }
     var pickFor by remember { mutableStateOf<Int?>(null) }
-    fun label(item: DataItem) = RelationTypes.fromAndroid(item.type, item.label)?.label
+    fun label(item: DataItem) = RelationTypes.fromAndroid(item.type, item.label)?.let { app.parley.ui.people.RelationText.label(res, it) }
         ?: if (item.type == 0) item.label ?: res.getString(R.string.edit_custom) else Relation.getTypeLabel(res, item.type, null).toString()
     EditorGroup(stringResource(R.string.edit_relations)) {
         items.forEachIndexed { i, item ->
@@ -721,7 +722,8 @@ private fun RelationsSection(vm: AppViewModel, items: List<DataItem>, onChange: 
 private fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -> Unit) {
     var query by remember { mutableStateOf("") }
     var custom by remember { mutableStateOf(false) }
-    val shown = remember(query) { RelationTypes.search(query) }
+    val res = androidx.compose.ui.platform.LocalResources.current
+    val shown = remember(query, res) { app.parley.ui.people.RelationText.search(res, query) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.edit_relation)) },
@@ -731,8 +733,8 @@ private fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) ->
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(shown, key = { it.key }) { t ->
                         ListItem(
-                            headlineContent = { Text(t.label) },
-                            supportingContent = { Text(t.group.title) },
+                            headlineContent = { Text(app.parley.ui.people.RelationText.label(res, t)) },
+                            supportingContent = { Text(app.parley.ui.people.RelationText.group(res, t.group)) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             modifier = Modifier.clickable { onPick(t) },
                         )

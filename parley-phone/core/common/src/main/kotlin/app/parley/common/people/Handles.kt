@@ -33,30 +33,29 @@ enum class HandleService(
     /** ContactsContract Im.PROTOCOL_* value, or [CUSTOM] with [customName]. */
     val protocol: Int,
     val customName: String?,
-    /** What to type, shown under the field. */
-    val hint: String,
+    /** An example value shown in the empty field (what to type is an app resource). */
     val placeholder: String,
 ) {
-    MATRIX("matrix", "Matrix", ImProtocol.CUSTOM, "Matrix", "Full Matrix ID with the server", "@name:matrix.org"),
-    SIGNAL("signal", "Signal username", ImProtocol.CUSTOM, "Signal", "Username with its number, e.g. name.01", "name.01"),
-    TELEGRAM("telegram", "Telegram", ImProtocol.CUSTOM, "Telegram", "Username without @ (5 to 32 letters, digits or _)", "username"),
-    THREEMA("threema", "Threema ID", ImProtocol.CUSTOM, "Threema", "The 8-character Threema ID", "ABCD1234"),
-    DISCORD("discord", "Discord", ImProtocol.CUSTOM, "Discord", "Username (or the numeric user ID to open the profile)", "name"),
-    XMPP("xmpp", "XMPP / Jabber", ImProtocol.JABBER, null, "Address like name@server", "name@conversations.im"),
-    SIP("sip", "SIP address", ImProtocol.SIP_PROTOCOL, null, "Internet-calling address like name@provider", "name@sip.example.com"),
-    SKYPE("skype", "Skype", ImProtocol.SKYPE_PROTOCOL, null, "Skype name", "live:name"),
-    WIRE("wire", "Wire", ImProtocol.CUSTOM, "Wire", "Username without @", "name"),
-    SESSION("session", "Session", ImProtocol.CUSTOM, "Session", "66-character Session ID", "05…"),
-    SIMPLEX("simplex", "SimpleX", ImProtocol.CUSTOM, "SimpleX", "Paste the contact link", "https://simplex.chat/contact#…"),
-    MASTODON("mastodon", "Mastodon", ImProtocol.CUSTOM, "Mastodon", "Handle like @name@server", "@name@mastodon.social"),
-    GOOGLE_TALK("gtalk", "Google Talk", ImProtocol.GOOGLE_TALK_PROTOCOL, null, "Address", "name@gmail.com"),
-    AIM("aim", "AIM", ImProtocol.AIM_PROTOCOL, null, "Screen name", "name"),
-    MSN("msn", "Windows Live", ImProtocol.MSN_PROTOCOL, null, "Address", "name@outlook.com"),
-    YAHOO("yahoo", "Yahoo", ImProtocol.YAHOO_PROTOCOL, null, "Yahoo ID", "name"),
-    QQ("qq", "QQ", ImProtocol.QQ_PROTOCOL, null, "QQ number", "12345678"),
-    ICQ("icq", "ICQ", ImProtocol.ICQ_PROTOCOL, null, "ICQ number", "12345678"),
-    NETMEETING("netmeeting", "NetMeeting", ImProtocol.NETMEETING_PROTOCOL, null, "Address", ""),
-    OTHER("other", "Other", ImProtocol.CUSTOM, null, "Any handle", ""),
+    MATRIX("matrix", "Matrix", ImProtocol.CUSTOM, "Matrix", "@name:matrix.org"),
+    SIGNAL("signal", "Signal username", ImProtocol.CUSTOM, "Signal", "name.01"),
+    TELEGRAM("telegram", "Telegram", ImProtocol.CUSTOM, "Telegram", "username"),
+    THREEMA("threema", "Threema ID", ImProtocol.CUSTOM, "Threema", "ABCD1234"),
+    DISCORD("discord", "Discord", ImProtocol.CUSTOM, "Discord", "name"),
+    XMPP("xmpp", "XMPP / Jabber", ImProtocol.JABBER, null, "name@conversations.im"),
+    SIP("sip", "SIP address", ImProtocol.SIP_PROTOCOL, null, "name@sip.example.com"),
+    SKYPE("skype", "Skype", ImProtocol.SKYPE_PROTOCOL, null, "live:name"),
+    WIRE("wire", "Wire", ImProtocol.CUSTOM, "Wire", "name"),
+    SESSION("session", "Session", ImProtocol.CUSTOM, "Session", "05…"),
+    SIMPLEX("simplex", "SimpleX", ImProtocol.CUSTOM, "SimpleX", "https://simplex.chat/contact#…"),
+    MASTODON("mastodon", "Mastodon", ImProtocol.CUSTOM, "Mastodon", "@name@mastodon.social"),
+    GOOGLE_TALK("gtalk", "Google Talk", ImProtocol.GOOGLE_TALK_PROTOCOL, null, "name@gmail.com"),
+    AIM("aim", "AIM", ImProtocol.AIM_PROTOCOL, null, "name"),
+    MSN("msn", "Windows Live", ImProtocol.MSN_PROTOCOL, null, "name@outlook.com"),
+    YAHOO("yahoo", "Yahoo", ImProtocol.YAHOO_PROTOCOL, null, "name"),
+    QQ("qq", "QQ", ImProtocol.QQ_PROTOCOL, null, "12345678"),
+    ICQ("icq", "ICQ", ImProtocol.ICQ_PROTOCOL, null, "12345678"),
+    NETMEETING("netmeeting", "NetMeeting", ImProtocol.NETMEETING_PROTOCOL, null, ""),
+    OTHER("other", "Other", ImProtocol.CUSTOM, null, ""),
     ;
 
     val isSip: Boolean get() = this == SIP
@@ -68,6 +67,9 @@ enum class HandleService(
         val common = listOf(SIGNAL, MATRIX, TELEGRAM, THREEMA, XMPP, SIP, DISCORD, WIRE, SESSION, SIMPLEX, MASTODON, SKYPE)
     }
 }
+
+/** What looks wrong in a typed handle (5 to 32 characters for Telegram, the server for Matrix/XMPP/SIP…). */
+enum class HandleProblem { TELEGRAM_NAME, THREEMA_ID, MATRIX_SERVER, NEEDS_SERVER, SIGNAL_NAME }
 
 /** One handle as shown and edited. [customProtocol] keeps an unknown service's own name ("Jami", "Briar"…). */
 data class Handle(
@@ -156,16 +158,16 @@ object Handles {
     private val address = Regex("[^@\\s]+@[A-Za-z0-9.\\-]+")
     private val signalName = Regex("[A-Za-z_][A-Za-z0-9_]{2,31}\\.\\d{2,9}")
 
-    /** Why [value] doesn't look right for [service] (shown under the field), or null. Saving is never blocked. */
-    fun problem(service: HandleService, value: String): String? {
+    /** Why [value] doesn't look right for [service] (the app words it under the field), or null. Saving is never blocked. */
+    fun problem(service: HandleService, value: String): HandleProblem? {
         val v = normalize(service, value)
         if (v.isEmpty()) return null
         return when (service) {
-            HandleService.TELEGRAM -> if (telegramName.matches(v)) null else "Telegram usernames have 5 to 32 letters, digits or _"
-            HandleService.THREEMA -> if (threemaId.matches(v)) null else "A Threema ID has 8 letters and digits"
-            HandleService.MATRIX -> if (matrixId.matches(v)) null else "Needs the server too, like @name:matrix.org"
-            HandleService.XMPP, HandleService.SIP -> if (address.matches(v)) null else "Needs the server too, like name@server"
-            HandleService.SIGNAL -> if (signalName.matches(v)) null else "Signal usernames end with a dot and digits, like name.01"
+            HandleService.TELEGRAM -> if (telegramName.matches(v)) null else HandleProblem.TELEGRAM_NAME
+            HandleService.THREEMA -> if (threemaId.matches(v)) null else HandleProblem.THREEMA_ID
+            HandleService.MATRIX -> if (matrixId.matches(v)) null else HandleProblem.MATRIX_SERVER
+            HandleService.XMPP, HandleService.SIP -> if (address.matches(v)) null else HandleProblem.NEEDS_SERVER
+            HandleService.SIGNAL -> if (signalName.matches(v)) null else HandleProblem.SIGNAL_NAME
             else -> null
         }
     }

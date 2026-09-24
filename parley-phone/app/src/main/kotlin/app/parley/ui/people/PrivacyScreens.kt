@@ -150,7 +150,7 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
                 ListItem(
                     leadingContent = { Icon(Icons.Rounded.Info, null) },
                     headlineContent = { Text(stringResource(R.string.who_messengers)) },
-                    supportingContent = { Text(app.parley.messaging.WhatsAppNotice.REVOKE_TEXT) },
+                    supportingContent = { Text(stringResource(app.parley.messaging.WhatsAppNotice.REVOKE_TEXT_RES)) },
                 )
             }
 

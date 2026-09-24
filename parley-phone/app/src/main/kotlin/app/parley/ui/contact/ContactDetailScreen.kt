@@ -473,7 +473,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     d.websites.forEachIndexed { i, w -> item { GroupDataRow(Icons.Rounded.Language, i == 0, w.value, resources.getString(R.string.detail_website), onClick = { Intents.web(context, w.value) }) } }
                     d.relations.forEachIndexed { i, rel ->
                         item {
-                            val label = RelationTypes.fromAndroid(rel.type, rel.label)?.label
+                            val label = RelationTypes.fromAndroid(rel.type, rel.label)?.let { app.parley.ui.people.RelationText.label(resources, it) }
                                 ?: android.provider.ContactsContract.CommonDataKinds.Relation.getTypeLabel(resources, rel.type, rel.label).toString()
                             GroupDataRow(Icons.Rounded.People, i == 0, rel.value, label, onClick = {
                                 // By the remembered lookup key first, then by name; several namesakes: ask (F23).
