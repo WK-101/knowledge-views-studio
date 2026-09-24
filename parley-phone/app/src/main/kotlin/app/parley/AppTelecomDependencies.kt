@@ -3,6 +3,9 @@ package app.parley
 import android.content.Context
 import android.content.Intent
 import app.parley.common.Decision
+import app.parley.common.CallType
+import app.parley.common.PhoneNumbers
+import app.parley.data.db.CallNoteEntity
 import app.parley.common.Verification
 import app.parley.data.DataContainer
 import app.parley.telecom.CallerDisplay
@@ -23,8 +26,36 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         .stateIn(c.scope, SharingStarted.Eagerly, InCallAppearance())
 
     override suspend fun callerInfo(number: String): CallerDisplay? = withContext(Dispatchers.IO) {
-        c.contacts.lookup(number)?.let { CallerDisplay(it.name, it.photoUri, it.numberLabel, it.contactId, it.lookupKey) }
-            ?: c.vault.lookup(number)?.let { (_, info) -> CallerDisplay(info.name, null, info.numberLabel, null, null) }
+        val last = lastCallSummary(number)
+        c.contacts.lookup(number)?.let {
+            val note = it.lookupKey?.let { k -> c.meta.meta(k)?.pinnedNote }
+            CallerDisplay(it.name, it.photoUri, it.numberLabel, it.contactId, it.lookupKey, note, last)
+        } ?: c.vault.lookup(number)?.let { (_, info) -> CallerDisplay(info.name, null, info.numberLabel, null, null, null, last) }
+    }
+
+    private fun lastCallSummary(number: String): String? {
+        val key = PhoneNumbers.matchKey(number)
+        val prev = c.callLog.calls.value.orEmpty().firstOrNull { PhoneNumbers.matchKey(it.number) == key } ?: return null
+        val ago = android.text.format.DateUtils.getRelativeTimeSpanString(prev.date, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS)
+        val kind = when (prev.type) {
+            CallType.MISSED -> "Missed call"
+            CallType.OUTGOING -> "You called"
+            else -> "Last call"
+        }
+        val dur = prev.durationSec.takeIf { it > 0 }?.let { " · ${it / 60}m ${it % 60}s" }.orEmpty()
+        return "$kind $ago$dur"
+    }
+
+    override fun unknownRingtone(): String? = c.settings.settings.value.unknownRingtone
+
+    override fun saveCallNote(number: String?, connectTimeMillis: Long, text: String) {
+        c.scope.launch {
+            c.meta.addCallNote(
+                CallNoteEntity(
+                    numberKey = PhoneNumbers.matchKey(number), callDate = if (connectTimeMillis > 0) connectTimeMillis else System.currentTimeMillis(), text = text,
+                ),
+            )
+        }
     }
 
     override fun onCallEnded(number: String?, incoming: Boolean, connectTimeMillis: Long) {

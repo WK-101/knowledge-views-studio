@@ -1,6 +1,7 @@
 package app.parley.data
 
 import android.content.Context
+import app.parley.common.BlockReason
 import app.parley.common.CallPolicy
 import app.parley.common.Decision
 import app.parley.common.IncomingCallFacts
@@ -41,7 +42,19 @@ class CallScreener(
             isEmergency = emergency,
         )
         val decision = CallPolicy.evaluate(facts, blocks.enabledRules(), s)
-        if (decision is Decision.Block) blocks.logBlocked(number, decision.reason.name, decision.action)
+        if (decision is Decision.Block) {
+            // Someone unknown calling again within 3 minutes is probably urgent: let it ring.
+            val softReason = decision.reason in setOf(BlockReason.NOT_A_CONTACT, BlockReason.NEIGHBOUR_SPOOF, BlockReason.VERIFICATION_FAILED)
+            if (softReason && !number.isNullOrBlank() && settings.current().repeatCallerRingsThrough) {
+                val last = blocks.lastBlocked(number)
+                if (last != null && System.currentTimeMillis() - last < REPEAT_WINDOW_MS) return Decision.Allow
+            }
+            blocks.logBlocked(number, decision.reason.name, decision.action)
+        }
         return decision
+    }
+
+    private companion object {
+        const val REPEAT_WINDOW_MS = 3 * 60 * 1000L
     }
 }

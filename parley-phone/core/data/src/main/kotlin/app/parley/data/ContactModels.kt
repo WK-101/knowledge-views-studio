@@ -99,3 +99,15 @@ data class CallerInfo(
     val customRingtone: String?,
     val sendToVoicemail: Boolean,
 )
+
+/** A birthday / anniversary / other date of a contact, for the timeline and reminders. */
+data class ContactEvent(
+    val contactId: Long,
+    val lookupKey: String,
+    val name: String,
+    val photoUri: String?,
+    val date: String,
+    val type: Int,
+    val label: String?,
+    val phone: String?,
+)

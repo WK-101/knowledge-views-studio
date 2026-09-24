@@ -74,6 +74,10 @@ fun IncomingControls(call: CallUi, gesture: AnswerGesture, hasActiveCall: Boolea
             AnswerGesture.SWIPE -> AnswerSlider(onAnswer = { CallManager.answer(call.id) }, onDecline = { CallManager.reject(call.id) })
             AnswerGesture.TAP -> AnswerButtons(onAnswer = { CallManager.answer(call.id) }, onDecline = { CallManager.reject(call.id) })
         }
+        if (!call.silenced) {
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = { CallManager.ignore(call.id) }) { Text("Ignore — stop ringing") }
+        }
         if (hasActiveCall) {
             Spacer(Modifier.height(12.dp))
             TextButton(onClick = { CallManager.endAndAnswer(call.id) }) { Text("End current call and answer") }

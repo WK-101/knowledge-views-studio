@@ -11,6 +11,7 @@ class CallActionReceiver : BroadcastReceiver() {
         when (intent.action) {
             ACTION_ANSWER -> CallManager.answer(id)
             ACTION_DECLINE -> CallManager.reject(id)
+            ACTION_IGNORE -> CallManager.ignore(id)
             ACTION_HANGUP -> CallManager.hangup(id)
             ACTION_MUTE -> CallManager.setMuted(!CallManager.audio.value.muted)
             ACTION_SPEAKER -> CallManager.toggleSpeaker()
@@ -20,6 +21,7 @@ class CallActionReceiver : BroadcastReceiver() {
     companion object {
         const val ACTION_ANSWER = "app.parley.telecom.ANSWER"
         const val ACTION_DECLINE = "app.parley.telecom.DECLINE"
+        const val ACTION_IGNORE = "app.parley.telecom.IGNORE"
         const val ACTION_HANGUP = "app.parley.telecom.HANGUP"
         const val ACTION_MUTE = "app.parley.telecom.MUTE"
         const val ACTION_SPEAKER = "app.parley.telecom.SPEAKER"

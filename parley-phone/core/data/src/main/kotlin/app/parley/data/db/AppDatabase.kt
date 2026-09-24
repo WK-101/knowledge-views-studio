@@ -240,6 +240,9 @@ interface BlockDao {
 
     @Query("DELETE FROM blocked_calls")
     suspend fun clearBlocked()
+
+    @Query("SELECT MAX(time) FROM blocked_calls WHERE number = :number")
+    suspend fun lastBlocked(number: String): Long?
 }
 
 @Dao

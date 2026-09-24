@@ -56,6 +56,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     val contact = index[PhoneNumbers.matchKey(number)]
     val history = calls.orEmpty().filter { PhoneNumbers.same(it.number, number, vm.countryIso) }
     var blocked by remember { mutableStateOf(false) }
+    val notes by vm.c.meta.callNotes(PhoneNumbers.matchKey(number)).collectAsStateWithLifecycle(emptyList())
     LaunchedEffect(number) { blocked = vm.c.blocks.isSystemBlocked(number) }
     val simLabels = sims.associate { it.id to it.label }.takeIf { sims.size > 1 }.orEmpty()
     val title = contact?.displayName ?: Format.number(number, vm.countryIso)
@@ -94,6 +95,17 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                         )
                     }
                 }
+            }
+            if (notes.isNotEmpty()) {
+                item { app.parley.ui.contact.Section("Call notes") }
+                items(notes, key = { "n" + it.id }) { n ->
+                    ListItem(
+                        headlineContent = { Text(n.text) },
+                        supportingContent = { Text(Format.fullDate(context, n.callDate)) },
+                        trailingContent = { IconButton({ scope.launch { vm.c.meta.deleteCallNote(n.id) } }) { Icon(Icons.Rounded.Delete, "Delete note") } },
+                    )
+                }
+                item { app.parley.ui.contact.Section("Calls") }
             }
             items(history, key = { it.id }) { e ->
                 val (icon, tint) = callTypeIcon(e.type)

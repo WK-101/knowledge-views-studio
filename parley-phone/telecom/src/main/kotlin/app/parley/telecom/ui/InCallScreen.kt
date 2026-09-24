@@ -105,6 +105,7 @@ fun InCallScreen(
     var routeSheet by remember { mutableStateOf(false) }
     var replySheet by remember { mutableStateOf(false) }
     var manageSheet by remember { mutableStateOf(false) }
+    var noteFor by remember { mutableStateOf<String?>(null) }
 
     val scheme = MaterialTheme.colorScheme
     Box(
@@ -152,12 +153,24 @@ fun InCallScreen(
                             )
                         }
                     }
-                    Spacer(Modifier.height(24.dp))
+                    TextButton(onClick = { noteFor = primary.id }) { Text("Add a note") }
+                    Spacer(Modifier.height(8.dp))
                     EndCallButton { CallManager.hangup(primary.id) }
                     Spacer(Modifier.height(24.dp))
                 }
             }
         }
+    }
+
+    noteFor?.let { id ->
+        var text by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { noteFor = null },
+            title = { Text("Note about this call") },
+            text = { androidx.compose.material3.OutlinedTextField(text, { text = it }, minLines = 3, placeholder = { Text("Only stored on this phone") }) },
+            confirmButton = { TextButton({ if (text.isNotBlank()) CallManager.saveNote(id, text.trim()); noteFor = null }) { Text("Save") } },
+            dismissButton = { TextButton({ noteFor = null }) { Text("Cancel") } },
+        )
     }
 
     val postDial = primary?.postDialWait
@@ -242,6 +255,21 @@ private fun CallerHeader(call: CallUi, ended: Boolean, onOpenContact: (CallUi) -
         }
         Spacer(Modifier.height(8.dp))
         StatusLine(call, ended)
+        if (!compact && (call.note != null || call.lastCall != null)) {
+            Surface(
+                color = MaterialTheme.colorScheme.tertiaryContainer,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.padding(top = 12.dp).fillMaxWidth(),
+            ) {
+                Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                    call.note?.let { Text(it, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium) }
+                    call.lastCall?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer) }
+                }
+            }
+        }
+        if (call.unknown && call.state == CallState.RINGING) {
+            Text("Not in your contacts", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+        }
         Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             call.accountLabel?.let { Chip(Icons.Rounded.SimCard, it) }
             when (call.verification) {

@@ -280,6 +280,25 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         return set.toList()
     }
 
+    /** All contact dates (birthdays, anniversaries…) with the first phone number. */
+    fun events(): List<ContactEvent> {
+        val phones = HashMap<Long, String>()
+        contacts.value.orEmpty().forEach { c -> c.phones.firstOrNull()?.let { phones[c.id] = it.number } }
+        val out = ArrayList<ContactEvent>()
+        cr.safeQuery(
+            Data.CONTENT_URI,
+            arrayOf(Data.CONTACT_ID, Data.LOOKUP_KEY, Data.DISPLAY_NAME_PRIMARY, Data.PHOTO_THUMBNAIL_URI, Event.START_DATE, Event.TYPE, Event.LABEL),
+            "${Data.MIMETYPE}=?", arrayOf(Event.CONTENT_ITEM_TYPE),
+        )?.use { c ->
+            while (c.moveToNext()) {
+                val date = c.getString(4) ?: continue
+                val id = c.getLong(0)
+                out += ContactEvent(id, c.getString(1).orEmpty(), c.getString(2) ?: continue, c.getString(3), date, c.getInt(5), c.getString(6), phones[id])
+            }
+        }
+        return out.distinctBy { "${it.contactId}|${it.date}|${it.type}" }
+    }
+
     fun groups(): List<GroupInfo> {
         val out = ArrayList<GroupInfo>()
         cr.safeQuery(

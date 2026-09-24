@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.Cake
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.MoreVert
@@ -220,6 +221,7 @@ private fun HomeTopBar(
             Box {
                 IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, "More options") }
                 DropdownMenu(menu, { menu = false }) {
+                    DropdownMenuItem({ Text("Birthdays & dates") }, leadingIcon = { Icon(Icons.Rounded.Cake, null) }, onClick = { menu = false; open(Routes.BIRTHDAYS) })
                     DropdownMenuItem({ Text("Blocked numbers") }, leadingIcon = { Icon(Icons.Rounded.Block, null) }, onClick = { menu = false; open(Routes.BLOCKING) })
                     DropdownMenuItem({ Text("Settings") }, leadingIcon = { Icon(Icons.Rounded.Settings, null) }, onClick = { menu = false; open(Routes.SETTINGS) })
                 }

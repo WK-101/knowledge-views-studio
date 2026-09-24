@@ -276,10 +276,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val dialResults: StateFlow<List<DialResult>> = combine(dialInput, combine(encoded, encodedVault) { a, b -> a + b }, c.callLog.calls) { input, enc, calls ->
         val q = PhoneNumbers.clean(input).removePrefix("+")
         if (q.isEmpty() || q.any { it == '*' || it == '#' }) return@combine emptyList()
+        // People you called recently rank higher among equally good matches.
+        val now = System.currentTimeMillis()
+        val lastCalled = HashMap<String, Long>()
+        calls.orEmpty().take(1500).forEach { e -> if (e.number.isNotBlank()) lastCalled.putIfAbsent(PhoneNumbers.matchKey(e.number), e.date) }
+        fun recencyBonus(contact: ContactSummary): Int {
+            val newest = contact.phones.mapNotNull { lastCalled[PhoneNumbers.matchKey(it.number)] }.maxOrNull() ?: return 0
+            val days = (now - newest) / 86_400_000L
+            return (60 - days * 2).coerceIn(0, 60).toInt()
+        }
         val results = ArrayList<DialResult>()
         for ((contact, e) in enc) {
             val m = T9.match(q, e, contact.phones.map { it.number }) ?: continue
-            results += DialResult(contact, m.matchedNumber ?: contact.phones.firstOrNull()?.number.orEmpty(), m)
+            results += DialResult(contact, m.matchedNumber ?: contact.phones.firstOrNull()?.number.orEmpty(), m.copy(score = m.score + recencyBonus(contact) + if (contact.starred) 15 else 0))
         }
         results.sortByDescending { it.match.score }
         val seen = results.flatMap { r -> r.contact?.phones.orEmpty().map { PhoneNumbers.matchKey(it.number) } }.toHashSet()

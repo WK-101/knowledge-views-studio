@@ -59,7 +59,8 @@ class ParleyInCallService : InCallService() {
     }
 
     override fun onSilenceRinger() {
-        // Telecom rings for us; nothing to stop locally.
+        // Telecom rings for us; only our optional "unknown caller" ringtone needs stopping.
+        CallManager.onSystemSilence()
     }
 
     override fun onDestroy() {

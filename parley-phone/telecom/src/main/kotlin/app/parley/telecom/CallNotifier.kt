@@ -182,6 +182,7 @@ class CallNotifier(private val context: Context) {
             .setContentIntent(contentIntent())
             .setFullScreenIntent(contentIntent(), true)
             .setStyle(NotificationCompat.CallStyle.forIncomingCall(person(call), action(CallActionReceiver.ACTION_DECLINE, call.id, 3), answer))
+            .addAction(0, "Ignore", action(CallActionReceiver.ACTION_IGNORE, call.id, 10))
             .build()
     }
 
@@ -189,7 +190,7 @@ class CallNotifier(private val context: Context) {
         NotificationCompat.Builder(context, CH_SILENCED)
             .setSmallIcon(app.parley.ui.R.drawable.ic_stat_block)
             .setContentTitle("Silenced call · ${call.title}")
-            .setContentText("Matched one of your blocking rules")
+            .setContentText(if (CallManager.isScreening(call.id)) "Checking…" else "Ringing silently")
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setOngoing(true)
             .setContentIntent(contentIntent())

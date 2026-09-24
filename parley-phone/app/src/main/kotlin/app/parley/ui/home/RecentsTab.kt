@@ -1,6 +1,9 @@
 package app.parley.ui.home
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -21,6 +24,11 @@ import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CallEnd
 import androidx.compose.material.icons.rounded.Voicemail
+import androidx.compose.material.icons.automirrored.rounded.Message
+import androidx.compose.material.icons.rounded.Dialpad
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.PersonAdd
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,6 +45,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.RecentFilter
@@ -58,6 +67,8 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val simLabels = remember(sims) { if (sims.size > 1) sims.associate { it.id to it.label } else emptyMap() }
+    var menuFor by remember { mutableStateOf<RecentGroup?>(null) }
+    menuFor?.let { g -> RecentActionsSheet(vm, g, open) { menuFor = null } }
 
     LazyColumn(Modifier.fillMaxWidth()) {
         item(key = "filters") {
@@ -89,6 +100,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
             item(key = g.key) {
                 RecentRow(
                     g, vm.countryIso, simLabels.takeIf { settings.showSimLabels }.orEmpty(),
+                    onLongClick = { menuFor = g },
                     onOpen = {
                         val ct = g.contact
                         when {
@@ -104,14 +116,15 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun RecentRow(g: RecentGroup, countryIso: String, simLabels: Map<String, String>, onOpen: () -> Unit, onCall: () -> Unit) {
+fun RecentRow(g: RecentGroup, countryIso: String, simLabels: Map<String, String>, onLongClick: (() -> Unit)? = null, onOpen: () -> Unit, onCall: () -> Unit) {
     val context = LocalContext.current
     val e = g.latest
     val (icon, tint) = callTypeIcon(e.type)
     val missed = e.type == CallType.MISSED || e.type == CallType.REJECTED
     ListItem(
-        modifier = Modifier.clickable(onClick = onOpen),
+        modifier = Modifier.combinedClickable(onClick = onOpen, onLongClick = onLongClick, onLongClickLabel = "More actions"),
         leadingContent = {
             if (g.hidden) MonoAvatar(avatarSize()) else Avatar(g.title, g.contact?.photoUri, avatarSize())
         },
@@ -152,4 +165,40 @@ fun callTypeIcon(type: CallType): Pair<ImageVector, Color> = when (type) {
     CallType.BLOCKED -> Icons.Rounded.Block to MaterialTheme.colorScheme.onSurfaceVariant
     CallType.VOICEMAIL -> Icons.Rounded.Voicemail to MaterialTheme.colorScheme.tertiary
     CallType.UNKNOWN -> Icons.Rounded.Call to MaterialTheme.colorScheme.onSurfaceVariant
+}
+
+
+/** Long-press actions for a Recents row. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun RecentActionsSheet(vm: AppViewModel, g: RecentGroup, open: (String) -> Unit, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    fun act(block: () -> Unit) { onDismiss(); block() }
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
+        Text(g.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+        val hasNumber = !g.hidden && g.number.isNotBlank()
+        @Composable
+        fun row(label: String, icon: ImageVector, enabled: Boolean = true, onClick: () -> Unit) {
+            if (enabled) ListItem(headlineContent = { Text(label) }, leadingContent = { Icon(icon, null) }, modifier = Modifier.clickable(onClick = onClick))
+        }
+        row("Call", Icons.Rounded.Call, hasNumber) { act { vm.requestCall(g.number, g.contact?.displayName) } }
+        row("Send message", Icons.AutoMirrored.Rounded.Message, hasNumber) { act { app.parley.ui.common.Intents.sms(context, g.number) } }
+        row("Edit number before calling", Icons.Rounded.Dialpad, hasNumber) {
+            act { vm.navigate(app.parley.NavEvent.Tab(app.parley.common.StartTab.KEYPAD, dial = g.number)) }
+        }
+        row("Copy number", Icons.Rounded.ContentCopy, hasNumber) { act { app.parley.ui.common.Intents.copy(context, g.number) } }
+        row("Create contact", Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null) { act { open(Routes.edit(phone = g.number)) } }
+        row("Add to a contact", Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null) { act { open(Routes.pick(g.number)) } }
+        row("Block number", Icons.Rounded.Block, hasNumber) { act { vm.blockNumber(g.number) } }
+        row("Delete from history", Icons.Rounded.Delete) {
+            act {
+                scope.launch {
+                    vm.c.callLog.delete(g.calls.filter { it.id > 0 }.map { it.id })
+                    g.calls.filter { it.id < 0 }.forEach { vm.c.vault.deletePrivateCall(-it.id) }
+                }
+            }
+        }
+        androidx.compose.foundation.layout.Spacer(Modifier.padding(bottom = 24.dp))
+    }
 }

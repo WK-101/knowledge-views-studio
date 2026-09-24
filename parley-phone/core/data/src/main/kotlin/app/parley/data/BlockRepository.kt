@@ -51,6 +51,8 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
 
     suspend fun clearBlockedLog() = dao.clearBlocked()
 
+    suspend fun lastBlocked(number: String): Long? = dao.lastBlocked(number)
+
     fun canUseSystemList(): Boolean = try {
         BlockedNumberContract.canCurrentUserBlockNumbers(context)
     } catch (_: Exception) {

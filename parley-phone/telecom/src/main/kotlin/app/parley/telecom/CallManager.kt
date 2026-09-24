@@ -37,6 +37,9 @@ object CallManager {
     private val info = HashMap<String, CallerDisplay>()
     private val silenced = HashSet<String>()
     private val screening = HashSet<String>()
+    private val unknownCallers = HashSet<String>()
+    private var customRinger: android.media.Ringtone? = null
+    private var customRingerFor: String? = null
 
     private val _calls = MutableStateFlow<List<CallUi>>(emptyList())
     val state: StateFlow<List<CallUi>> = _calls.asStateFlow()
@@ -129,15 +132,55 @@ object CallManager {
                 val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { deps.callerInfo(number) }
                 if (found != null) {
                     info[id] = found
-                    publish()
+                } else if (incoming) {
+                    unknownCallers += id
+                    maybePlayUnknownRingtone(call, id)
                 }
+                publish()
             }
+        } else if (incoming) {
+            unknownCallers += id
+            scope.launch { maybePlayUnknownRingtone(call, id) }
         }
         publish()
     }
 
+    /**
+     * Distinct ringtone for unknown callers: silence Telecom's ringer and play our own, only in
+     * normal ringer mode with Do Not Disturb off (so we never ring when the system wouldn't).
+     */
+    private fun maybePlayUnknownRingtone(call: Call, id: String) {
+        val uri = runCatching { TelecomGraph.dependencies.unknownRingtone() }.getOrNull() ?: return
+        if (!::appContext.isInitialized || id in silenced || !calls.contains(call) || call.stateCompat() != Call.STATE_RINGING) return
+        val am = appContext.getSystemService(android.media.AudioManager::class.java)
+        val nm = appContext.getSystemService(android.app.NotificationManager::class.java)
+        if (am.ringerMode != android.media.AudioManager.RINGER_MODE_NORMAL) return
+        if (nm.currentInterruptionFilter != android.app.NotificationManager.INTERRUPTION_FILTER_ALL) return
+        if (calls.any { it != call && mapState(it.stateCompat()) == CallState.ACTIVE }) return
+        val tone = runCatching { android.media.RingtoneManager.getRingtone(appContext, android.net.Uri.parse(uri)) }.getOrNull() ?: return
+        silenceRinger()
+        tone.audioAttributes = android.media.AudioAttributes.Builder()
+            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        if (Build.VERSION.SDK_INT >= 28) tone.isLooping = true
+        tone.play()
+        customRinger = tone
+        customRingerFor = id
+    }
+
+    internal fun onSystemSilence() = stopCustomRinger()
+
+    private fun stopCustomRinger() {
+        customRinger?.stop()
+        customRinger = null
+        customRingerFor = null
+    }
+
     internal fun remove(call: Call) {
         val id = idOf(call)
+        if (customRingerFor == id) stopCustomRinger()
+        unknownCallers -= id
         val ended = toUi(call)
         _lastEnded.value = ended
         if (ended.isEmergency && ::appContext.isInitialized) ScreeningGuard.noteEmergencyCall(appContext)
@@ -161,6 +204,10 @@ object CallManager {
     fun isScreening(id: String) = id in screening
 
     private fun publish() {
+        customRingerFor?.let { rid ->
+            val c = calls.firstOrNull { idOf(it) == rid }
+            if (c == null || c.stateCompat() != Call.STATE_RINGING || rid in silenced) stopCustomRinger()
+        }
         val top = calls.filter { it.parent == null }.map { toUi(it) }
         _calls.value = top
         onChanged?.invoke(top)
@@ -202,6 +249,9 @@ object CallManager {
             postDialWait = postDial[id],
             silenced = id in silenced,
             isEmergency = isEmergency(number),
+            note = found?.note,
+            lastCall = found?.lastCall,
+            unknown = id in unknownCallers,
         )
     }
 
@@ -323,6 +373,19 @@ object CallManager {
             appContext.getSystemService(TelecomManager::class.java).silenceRinger()
         } catch (_: Exception) {
         }
+    }
+
+    /** Stop ringing but leave the call waiting (the caller hears it ring until they give up). */
+    fun ignore(id: String) {
+        silenced += id
+        silenceRinger()
+        stopCustomRinger()
+        publish()
+    }
+
+    fun saveNote(id: String, text: String) {
+        val call = find(id) ?: return
+        runCatching { TelecomGraph.dependencies.saveCallNote(call.details.handle?.schemeSpecificPart, call.details.connectTimeMillis, text) }
     }
 
     fun hangup(id: String) {

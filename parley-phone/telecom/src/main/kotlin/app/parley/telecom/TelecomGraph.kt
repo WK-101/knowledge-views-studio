@@ -15,6 +15,10 @@ data class CallerDisplay(
     val label: String?,
     val contactId: Long?,
     val lookupKey: String?,
+    /** The user's pinned note for this person ("Ask about the invoice"). */
+    val note: String? = null,
+    /** e.g. "Last call 3 days ago · 4 min". */
+    val lastCall: String? = null,
 )
 
 data class InCallAppearance(
@@ -42,6 +46,11 @@ interface TelecomDependencies {
 
     /** Called when a call leaves Telecom (for private-history sweeps and call notes). */
     fun onCallEnded(number: String?, incoming: Boolean, connectTimeMillis: Long) {}
+
+    /** Ringtone to play for callers who aren't contacts, or null to let the system ring. */
+    fun unknownRingtone(): String? = null
+
+    fun saveCallNote(number: String?, connectTimeMillis: Long, text: String) {}
 }
 
 object TelecomGraph {
