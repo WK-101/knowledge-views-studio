@@ -73,7 +73,7 @@ class ParleyWriteLog(context: Context) {
 class ProvenanceReader(private val context: Context, private val log: ParleyWriteLog) {
     private val cr = context.contentResolver
 
-    suspend fun verdict(contactId: Long, formatTime: (Long) -> String): ProvenanceVerdict? = withContext(Dispatchers.IO) {
+    suspend fun verdict(contactId: Long): ProvenanceVerdict? = withContext(Dispatchers.IO) {
         val synced = try {
             ContentResolver.getSyncAdapterTypes().filter { it.authority == ContactsContract.AUTHORITY && it.supportsUploading() }.map { it.accountType }.toSet()
         } catch (_: Exception) {
@@ -100,6 +100,6 @@ class ProvenanceReader(private val context: Context, private val log: ParleyWrit
         } catch (_: Exception) {
             null
         }
-        Provenance.verdict(raws, log.forRaws(raws.map { it.rawId }), updated, formatTime)
+        Provenance.verdict(raws, log.forRaws(raws.map { it.rawId }), updated)
     }
 }

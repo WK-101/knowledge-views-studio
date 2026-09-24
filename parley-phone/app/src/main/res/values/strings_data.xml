@@ -784,4 +784,175 @@
     <string name="privnames_request_text">%1$s asked Parley for the name of a phone number that may belong to one of your private contacts. If you allow it, %1$s can ask for one number\'s name at a time; it never gets a list.</string>
     <string name="privnames_allow">Allow</string>
     <string name="privnames_deny">Don\'t allow</string>
+
+    <!-- People: account diagnostics -->
+    <string name="ppl_phone">Phone</string>
+    <string name="ppl_sync_settings_failed">Couldn\'t open Android\'s account settings</string>
+    <string name="ppl_accounts">Accounts</string>
+    <string name="ppl_master_sync_off">Automatic sync is off for this phone</string>
+    <string name="ppl_master_sync_off_text">No account uploads or downloads contact changes until it\'s back on.</string>
+    <string name="ppl_open_sync_settings">Open sync settings</string>
+    <string name="ppl_sync_off">Contacts sync is off for %1$s</string>
+    <plurals name="ppl_sync_off_text">
+        <item quantity="one">%1$d contact. Changes stay on this phone and don\'t reach your other devices.</item>
+        <item quantity="other">%1$d contacts. Changes stay on this phone and don\'t reach your other devices.</item>
+    </plurals>
+    <plurals name="ppl_orphaned">
+        <item quantity="one">%1$d contact in %2$s</item>
+        <item quantity="other">%1$d contacts in %2$s</item>
+    </plurals>
+    <string name="ppl_orphaned_text">That account is no longer signed in on this phone, so nothing keeps these contacts in sync. Move them to another account or export them.</string>
+    <string name="ppl_show_them">Show them</string>
+    <string name="ppl_no_contacts">%1$s has no contacts</string>
+    <string name="ppl_no_contacts_text">The account is signed in and can hold contacts, but none are stored there. If you expected some, check that its contacts sync finished.</string>
+    <string name="ppl_local_missing">Phone-only storage isn\'t set up</string>
+    <string name="ppl_local_missing_text">Some apps only offer “Phone” as a place to save contacts once Android has created it. Parley can create it by adding and removing an empty entry.</string>
+    <string name="ppl_fix">Fix</string>
+    <string name="ppl_local_ready">Phone-only storage is ready</string>
+    <string name="ppl_local_failed">Couldn\'t set it up</string>
+    <string name="ppl_accounts_fine">Accounts look fine</string>
+    <string name="ppl_accounts_fine_text">Every signed-in account syncs its contacts</string>
+    <string name="ppl_accounts_unknown">Android didn\'t let Parley check sync settings</string>
+    <string name="ppl_account_count">%1$s (%2$d)</string>
+    <string name="ppl_signed_in">Signed in: %1$s</string>
+    <string name="ppl_signed_in_none">no contacts accounts</string>
+    <string name="ppl_holding">Holding contacts: %1$s</string>
+    <string name="ppl_holding_none">none</string>
+
+    <!-- People: call screen background -->
+    <string name="ppl_bg_failed">That image couldn\'t be used as a background</string>
+    <string name="ppl_bg_title">Call screen</string>
+    <string name="ppl_bg_text">A picture behind this person\'s calls. It\'s copied into Parley, so it stays even if you delete the original.</string>
+    <string name="ppl_bg_choose">Choose picture</string>
+    <string name="ppl_bg_change">Change</string>
+    <string name="ppl_bg_remove">Remove</string>
+    <string name="ppl_bg_desc">Call screen background</string>
+    <string name="ppl_bg_custom">Custom call screen picture</string>
+    <string name="ppl_bg_default">Default call screen</string>
+    <string name="ppl_bg_info">Call screen background · change it in Edit</string>
+
+    <!-- People: contacts filter chips -->
+    <string name="ppl_chip_all">All</string>
+    <string name="ppl_chip_private">Private</string>
+    <string name="ppl_chip_account">Account</string>
+    <string name="ppl_chip_all_accounts">All accounts</string>
+    <string name="ppl_chip_unlabelled">Unlabelled</string>
+    <string name="ppl_chip_match_all">In all of them</string>
+    <string name="ppl_chip_match_any">In any of them</string>
+    <string name="ppl_chip_open">Open %1$s</string>
+    <string name="ppl_chip_labels">Labels</string>
+    <string name="ppl_chip_temporary">Temporary (%1$d)</string>
+
+    <!-- People: copy as text, crash report -->
+    <string name="ppl_copy_as_text">Copy as text</string>
+    <plurals name="ppl_copied">
+        <item quantity="one">Contact copied</item>
+        <item quantity="other">%1$d contacts copied</item>
+    </plurals>
+    <string name="ppl_crash_title">Parley stopped last time</string>
+    <string name="ppl_crash_text">A report was kept on this phone. Numbers and e-mail addresses in it are masked. Send it if you\'d like the problem fixed; Parley can\'t send anything itself.</string>
+    <string name="ppl_crash_subject">Parley crash report</string>
+    <string name="ppl_crash_send_chooser">Send crash report</string>
+    <string name="ppl_crash_send">Send…</string>
+    <string name="ppl_crash_delete">Delete report</string>
+
+    <!-- People: contact CSV column mapping -->
+    <string name="csv_no_table">This file has no lines Parley can read as a table.</string>
+    <string name="csv_read_failed">Couldn\'t read the file</string>
+    <string name="csv_title">Choose columns</string>
+    <string name="csv_nothing_title">Nothing to import</string>
+    <string name="csv_nothing_text">Choose a file in Settings › Contacts › Import.</string>
+    <string name="csv_sep_semicolons">semicolons</string>
+    <string name="csv_sep_tabs">tabs</string>
+    <string name="csv_sep_commas">commas</string>
+    <string name="csv_layout_parley">Parley</string>
+    <string name="csv_layout_google">Google Contacts</string>
+    <string name="csv_layout_outlook">Outlook</string>
+    <string name="csv_intro">This file isn\'t in Parley\'s own format. Its columns are separated by %1$s. Check what each column holds; the first contacts below show how they\'ll be saved.</string>
+    <string name="csv_intro_layout">This file isn\'t in Parley\'s own format, it looks like a %1$s export. Its columns are separated by %2$s. Check what each column holds; the first contacts below show how they\'ll be saved.</string>
+    <string name="csv_header">First line is a header</string>
+    <string name="csv_header_on">Column names, not a contact</string>
+    <string name="csv_header_off">Imported as a contact</string>
+    <string name="csv_columns">Columns</string>
+    <string name="csv_column_n">Column %1$d</string>
+    <string name="csv_preview">Preview</string>
+    <string name="csv_nothing_with_columns">Nothing would be imported with these columns.</string>
+    <string name="csv_into">Into %1$s</string>
+    <string name="csv_into_skip">Into %1$s · contacts you already have are skipped</string>
+    <string name="csv_import_failed">Import failed: %1$s</string>
+    <string name="csv_import">Import</string>
+    <string name="csv_need_column">Choose at least a name, phone, e-mail or company column.</string>
+    <string name="csv_change_column">Change what “%1$s” holds</string>
+    <string name="csv_no_name">(no name)</string>
+    <string name="csv_labels">Labels: %1$s</string>
+    <string name="csv_typed">%1$s (%2$s)</string>
+    <string name="csv_field_ignore">Don\'t import</string>
+    <string name="csv_field_full_name">Full name</string>
+    <string name="csv_field_prefix">Name prefix</string>
+    <string name="csv_field_given">First name</string>
+    <string name="csv_field_middle">Middle name</string>
+    <string name="csv_field_family">Last name</string>
+    <string name="csv_field_suffix">Name suffix</string>
+    <string name="csv_field_nickname">Nickname</string>
+    <string name="csv_field_phone">Phone</string>
+    <string name="csv_field_phone_label">Phone type (for the phone next to it)</string>
+    <string name="csv_field_email">E-mail</string>
+    <string name="csv_field_email_label">E-mail type (for the e-mail next to it)</string>
+    <string name="csv_field_org">Company</string>
+    <string name="csv_field_title">Job title</string>
+    <string name="csv_field_address">Address</string>
+    <string name="csv_field_website">Website</string>
+    <string name="csv_field_birthday">Birthday</string>
+    <string name="csv_field_notes">Notes</string>
+    <string name="csv_field_labels">Labels</string>
+
+    <!-- People: account chips, provenance, life events -->
+    <string name="ppl_edit_copy">Edit this copy</string>
+    <string name="ppl_move_to">Move to…</string>
+    <string name="ppl_read_only">Managed by its app (read-only)</string>
+    <string name="ppl_unlink">Unlink</string>
+    <string name="ppl_move_title">Move this copy to</string>
+    <string name="ppl_move_text">Everything in the %1$s copy (numbers, photo, labels…) is written to the new account first; only then is the old copy removed. You can undo from Recently deleted &amp; changed.</string>
+    <string name="ppl_moved_to">Moved to %1$s</string>
+    <string name="ppl_unlink_title">Unlink the %1$s copy?</string>
+    <string name="ppl_unlink_text">It becomes a separate contact. Nothing is deleted.</string>
+    <string name="ppl_unlinked">Unlinked</string>
+    <string name="ppl_version_history">Version history</string>
+    <string name="ppl_why_changed">Why did this change? · Tap for every version</string>
+    <string name="prov_other_app_unsynced">Changed on this phone by another app, after Parley\'s last save (not synced yet)</string>
+    <string name="prov_other_app_unsynced_at">Changed on this phone by another app on %1$s, after Parley\'s last save (not synced yet)</string>
+    <string name="prov_sync">Changed by %1$s sync, after Parley\'s last save</string>
+    <string name="prov_sync_at">Changed by %1$s sync on %2$s, after Parley\'s last save</string>
+    <string name="prov_other_app">Changed by another app, after Parley\'s last save</string>
+    <string name="prov_other_app_at">Changed by another app on %1$s, after Parley\'s last save</string>
+    <string name="prov_parley">Changed by Parley on %1$s</string>
+    <string name="prov_parley_fields">Changed by Parley on %1$s · only changed fields were written (%2$s)</string>
+    <string name="prov_other_copy_sync">%1$s. The %2$s copy is kept up to date by its sync</string>
+    <string name="prov_other_copy_apps">%1$s. The %2$s copy is kept up to date by other apps</string>
+    <string name="prov_last_other_app">Last changed on this phone by another app (not synced yet)</string>
+    <string name="prov_last_other_app_at">Last changed on this phone by another app on %1$s (not synced yet)</string>
+    <string name="prov_last_sync">Last changed · in step with %1$s sync</string>
+    <string name="prov_last_sync_at">Last changed on %1$s · in step with %2$s sync</string>
+    <string name="prov_last_unknown">Last changed on %1$s, not by Parley</string>
+    <string name="prov_field_name">Name</string>
+    <string name="prov_field_nickname">Nickname</string>
+    <string name="prov_field_company">Company</string>
+    <string name="prov_field_note">Note</string>
+    <string name="prov_field_phone">Phone</string>
+    <string name="prov_field_email">Email</string>
+    <string name="prov_field_website">Website</string>
+    <string name="prov_field_relation">Relation</string>
+    <string name="prov_field_handles">Messenger handles</string>
+    <string name="prov_field_dates">Dates</string>
+    <string name="prov_field_address">Address</string>
+    <string name="prov_field_labels">Labels</string>
+    <string name="prov_field_other">Other</string>
+    <string name="life_aged">aged %1$d</string>
+    <string name="life_would_have_turned">would have turned %1$d</string>
+    <string name="life_today">today</string>
+    <string name="life_tomorrow">tomorrow</string>
+    <plurals name="life_in_days">
+        <item quantity="one">in %1$d day</item>
+        <item quantity="other">in %1$d days</item>
+    </plurals>
 </resources>

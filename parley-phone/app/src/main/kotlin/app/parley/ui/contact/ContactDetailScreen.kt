@@ -463,7 +463,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             if (d.events.isNotEmpty() || d.websites.isNotEmpty() || d.note.isNotBlank() || d.relations.isNotEmpty()) item(key = "about") {
                 SegmentedGroup("About ${d.given.ifBlank { d.displayName }}") {
                     d.events.forEachIndexed { i, ev ->
-                        item { GroupDataRow(Icons.Rounded.Cake, i == 0, app.parley.ui.people.describeLifeEvent(d, ev), app.parley.ui.people.eventLabel(resources, ev), onClick = {}) }
+                        item { GroupDataRow(Icons.Rounded.Cake, i == 0, app.parley.ui.people.describeLifeEvent(resources, d, ev), app.parley.ui.people.eventLabel(resources, ev), onClick = {}) }
                     }
                     d.websites.forEachIndexed { i, w -> item { GroupDataRow(Icons.Rounded.Language, i == 0, w.value, "Website", onClick = { Intents.web(context, w.value) }) } }
                     d.relations.forEachIndexed { i, rel ->

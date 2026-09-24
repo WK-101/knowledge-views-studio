@@ -28,6 +28,7 @@ import app.parley.common.record.PrimaryFlags
 import app.parley.common.record.RawRecord
 import app.parley.data.AccountRef
 import app.parley.data.DeviceAccounts
+import app.parley.data.R
 
 /** Maps a group-membership row to a group row id in [account], or null to drop the membership. */
 fun interface GroupResolver {
@@ -240,7 +241,7 @@ class ContactRecordStore(private val context: Context) {
         val available = if (safeTarget == null) availableAccounts() else emptySet()
         val plans = records.mapIndexed { i, r ->
             val plan = plan(r, safeTarget, available, groups, includeReadOnly)
-            if (plan.raws.isEmpty()) results[i] = InsertResult(null, "Nothing to import (only read-only messenger data)")
+            if (plan.raws.isEmpty()) results[i] = InsertResult(null, context.getString(R.string.data_write_only_messenger))
             plan
         }
         val batch = ArrayList<Int>()
@@ -259,7 +260,7 @@ class ContactRecordStore(private val context: Context) {
             ops += p.ops
         }
         flush()
-        return results.map { it ?: InsertResult(null, "Not written") }
+        return results.map { it ?: InsertResult(null, context.getString(R.string.data_write_not_written)) }
     }
 
     private class PlannedRaw(val account: AccountRef, val dataSet: String?, val rows: List<ContentValues>, val photo: ByteArray?)
@@ -385,19 +386,19 @@ class ContactRecordStore(private val context: Context) {
                 }
             }
         }
-        if (rawIds.isEmpty()) return InsertResult(null, "The contact could not be written")
-        return finish(plan, rawIds).let { if (failed > 0 && it.error == null) it.copy(error = "$failed field(s) could not be written") else it }
+        if (rawIds.isEmpty()) return InsertResult(null, context.getString(R.string.data_write_failed))
+        return finish(plan, rawIds).let { if (failed > 0 && it.error == null) it.copy(error = context.resources.getQuantityString(R.plurals.data_write_fields_failed, failed, failed)) else it }
     }
 
     /** Photos, aggregation and Contacts-level flags, once the raw contacts exist. */
     private fun finish(plan: Plan, rawIds: List<Long>): InsertResult {
-        if (rawIds.isEmpty()) return InsertResult(null, "The contact could not be written")
+        if (rawIds.isEmpty()) return InsertResult(null, context.getString(R.string.data_write_failed))
         var error: String? = null
         plan.raws.zip(rawIds).forEach { (raw, id) ->
-            raw.photo?.let { if (!writePhoto(id, it)) error = "The photo could not be saved" }
+            raw.photo?.let { if (!writePhoto(id, it)) error = context.getString(R.string.data_write_photo_failed) }
         }
         if (rawIds.size > 1) keepTogether(rawIds)
-        val contactId = contactIdForRaw(rawIds.first()) ?: return InsertResult(null, "The contact could not be found after writing", rawIds)
+        val contactId = contactIdForRaw(rawIds.first()) ?: return InsertResult(null, context.getString(R.string.data_write_not_found), rawIds)
         val r = plan.record
         if (r.starred || r.sendToVoicemail || r.customRingtone != null) {
             val v = ContentValues()

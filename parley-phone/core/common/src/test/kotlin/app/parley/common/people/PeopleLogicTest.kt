@@ -188,30 +188,35 @@ class PeopleLogicTest {
 
     // ---------------------------------------------------------------- C11 provenance
 
-    private val fmt: (Long) -> String = { "t$it" }
 
     @Test fun provenance_parley_when_version_unchanged() {
         val v = Provenance.verdict(
-            listOf(RawState(1, "Google · a", true, 5, true)), listOf(ParleyWrite(1, 100, 5, listOf("Phone"))), 100, fmt,
+            listOf(RawState(1, "Google · a", true, 5, true)), listOf(ParleyWrite(1, 100, 5, listOf("Phone"))), 100,
         )!!
         assertEquals(ChangeSource.PARLEY, v.source)
-        assertEquals("Changed by Parley on t100 · only changed fields were written (Phone)", v.text)
+        assertEquals(ProvenanceKind.PARLEY, v.kind)
+        assertEquals(100L, v.time)
+        assertEquals(listOf("Phone"), v.fields)
+        assertNull(v.otherAccount)
     }
 
     @Test fun provenance_sync_or_other_app_after_parley() {
         val w = listOf(ParleyWrite(1, 100, 5, emptyList()))
-        assertEquals(ChangeSource.SYNC, Provenance.verdict(listOf(RawState(1, "Google · a", true, 7, false)), w, 200, fmt)!!.source)
-        val other = Provenance.verdict(listOf(RawState(1, "Google · a", true, 7, true)), w, 200, fmt)!!
+        val sync = Provenance.verdict(listOf(RawState(1, "Google · a", true, 7, false)), w, 200)!!
+        assertEquals(ChangeSource.SYNC, sync.source)
+        assertEquals(ProvenanceKind.SYNC_AFTER_PARLEY, sync.kind)
+        assertEquals("Google · a", sync.account)
+        val other = Provenance.verdict(listOf(RawState(1, "Google · a", true, 7, true)), w, 200)!!
         assertEquals(ChangeSource.ANOTHER_APP, other.source)
-        assertTrue(other.text.contains("on t200"))
+        assertEquals(ProvenanceKind.OTHER_APP_AFTER_PARLEY_UNSYNCED, other.kind)
+        assertEquals(200L, other.time)
     }
 
     @Test fun provenance_without_parley_record() {
-        assertEquals(ChangeSource.SYNC, Provenance.verdict(listOf(RawState(1, "CardDAV · b", true, 3, false)), emptyList(), 50, fmt)!!.source)
-        assertEquals(ChangeSource.ANOTHER_APP, Provenance.verdict(listOf(RawState(1, "Phone only", false, 3, true)), emptyList(), 50, fmt)!!.source)
-        assertEquals(ChangeSource.UNKNOWN, Provenance.verdict(listOf(RawState(1, "Phone only", false, 3, false)), emptyList(), 50, fmt)!!.source)
-        assertNull(Provenance.verdict(listOf(RawState(1, "Phone only", false, 3, false)), emptyList(), null, fmt))
-        assertEquals("Only changed fields were written: Name, Phone", Provenance.journalNote(listOf("Name", "Phone")))
+        assertEquals(ChangeSource.SYNC, Provenance.verdict(listOf(RawState(1, "CardDAV · b", true, 3, false)), emptyList(), 50)!!.source)
+        assertEquals(ChangeSource.ANOTHER_APP, Provenance.verdict(listOf(RawState(1, "Phone only", false, 3, true)), emptyList(), 50)!!.source)
+        assertEquals(ProvenanceKind.LAST_UNKNOWN, Provenance.verdict(listOf(RawState(1, "Phone only", false, 3, false)), emptyList(), 50)!!.kind)
+        assertNull(Provenance.verdict(listOf(RawState(1, "Phone only", false, 3, false)), emptyList(), null))
     }
 
     // ---------------------------------------------------------------- C7 accounts

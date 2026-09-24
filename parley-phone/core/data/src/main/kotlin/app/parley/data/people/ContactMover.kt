@@ -13,12 +13,13 @@ import app.parley.data.ContactsRepository
 import app.parley.data.records.ContactRecordStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import app.parley.data.R
 
 /**
  * The "Saved in" account actions on the contact page: move one copy to another account, or unlink it.
  * Every change is journaled first (30-day undo in "Recently deleted & changed").
  */
-class ContactMover(context: Context, private val contacts: ContactsRepository, private val records: ContactRecordStore) {
+class ContactMover(private val context: Context, private val contacts: ContactsRepository, private val records: ContactRecordStore) {
     private val cr = context.contentResolver
 
     sealed interface Result {
@@ -33,22 +34,22 @@ class ContactMover(context: Context, private val contacts: ContactsRepository, p
      */
     suspend fun move(contactId: Long, rawId: Long, target: AccountRef): Result = withContext(Dispatchers.IO) {
         val raws = rawIds(contactId)
-        if (rawId !in raws) return@withContext Result.Failed("That copy no longer exists")
-        val record = records.read(contactId, fullPhoto = true) ?: return@withContext Result.Failed("Couldn't read the contact")
+        if (rawId !in raws) return@withContext Result.Failed(context.getString(R.string.data_move_copy_gone))
+        val record = records.read(contactId, fullPhoto = true) ?: return@withContext Result.Failed(context.getString(R.string.data_move_read_failed))
         // By id, not by position: the two reads may list the copies differently.
-        val raw = record.raws.firstOrNull { it.rawId == rawId } ?: return@withContext Result.Failed("Couldn't read that copy")
-        if (raw.accountType == target.type && raw.accountName == target.name) return@withContext Result.Failed("It's already saved there")
-        if (AccountRef(raw.accountType, raw.accountName).isLocal && target.isLocal) return@withContext Result.Failed("It's already saved on this phone")
+        val raw = record.raws.firstOrNull { it.rawId == rawId } ?: return@withContext Result.Failed(context.getString(R.string.data_move_copy_read_failed))
+        if (raw.accountType == target.type && raw.accountName == target.name) return@withContext Result.Failed(context.getString(R.string.data_move_already_there))
+        if (AccountRef(raw.accountType, raw.accountName).isLocal && target.isLocal) return@withContext Result.Failed(context.getString(R.string.data_move_already_phone))
         // The original is deleted after copying, so the copy must land somewhere it can live (F3).
-        if (!contacts.isWritableAccount(target)) return@withContext Result.Failed("Contacts can't be saved to that account")
+        if (!contacts.isWritableAccount(target)) return@withContext Result.Failed(context.getString(R.string.data_move_not_writable))
         val oldKey = contacts.lookupKeyOf(contactId)
 
         contacts.recordChange(listOf(contactId), "MOVE")
-        if (contacts.lastJournalIds.isEmpty()) return@withContext Result.Failed("Couldn't keep an undo copy, so nothing was moved")
+        if (contacts.lastJournalIds.isEmpty()) return@withContext Result.Failed(context.getString(R.string.data_move_no_undo))
 
         val single = ContactRecord(record.key, record.displayName, record.starred, record.customRingtone, record.sendToVoicemail, listOf(raw))
         val inserted = records.insertAll(listOf(single), target).single()
-        val newRaw = inserted.rawIds.firstOrNull() ?: return@withContext Result.Failed(inserted.error ?: "Couldn't write the copy in the new account")
+        val newRaw = inserted.rawIds.firstOrNull() ?: return@withContext Result.Failed(inserted.error ?: context.getString(R.string.data_move_write_failed))
 
         val others = raws.filter { it != rawId }
         if (others.isNotEmpty()) setAggregation(listOf(newRaw) + others, AggregationExceptions.TYPE_KEEP_TOGETHER)
@@ -63,7 +64,7 @@ class ContactMover(context: Context, private val contacts: ContactsRepository, p
     /** Separates one copy from the others, so it becomes its own contact. Returns that contact's id. */
     suspend fun unlink(contactId: Long, rawId: Long): Result = withContext(Dispatchers.IO) {
         val raws = rawIds(contactId)
-        if (rawId !in raws || raws.size < 2) return@withContext Result.Failed("There's nothing to unlink")
+        if (rawId !in raws || raws.size < 2) return@withContext Result.Failed(context.getString(R.string.data_move_nothing_to_unlink))
         contacts.recordChange(listOf(contactId), "SEPARATE")
         val oldKey = contacts.lookupKeyOf(contactId)
         val ops = ArrayList<ContentProviderOperation>()

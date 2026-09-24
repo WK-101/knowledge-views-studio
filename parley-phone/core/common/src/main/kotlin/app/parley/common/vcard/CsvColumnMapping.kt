@@ -8,37 +8,33 @@ import app.parley.common.record.RawRecord
 import java.io.Reader
 
 /** What a CSV column holds (M12). */
-enum class CsvField(val label: String) {
-    IGNORE("Don't import"),
-    FULL_NAME("Full name"),
-    PREFIX("Name prefix"),
-    GIVEN("First name"),
-    MIDDLE("Middle name"),
-    FAMILY("Last name"),
-    SUFFIX("Name suffix"),
-    NICKNAME("Nickname"),
-    PHONE("Phone"),
-    PHONE_LABEL("Phone type (for the phone next to it)"),
-    EMAIL("E-mail"),
-    EMAIL_LABEL("E-mail type (for the e-mail next to it)"),
-    ORG("Company"),
-    TITLE("Job title"),
-    ADDRESS("Address"),
-    WEBSITE("Website"),
-    BIRTHDAY("Birthday"),
-    NOTES("Notes"),
-    LABELS("Labels"),
+/** What a CSV column holds. The app shows a localised label for each value. */
+enum class CsvField {
+    IGNORE,
+    FULL_NAME,
+    PREFIX,
+    GIVEN,
+    MIDDLE,
+    FAMILY,
+    SUFFIX,
+    NICKNAME,
+    PHONE,
+    /** Phone type, for the phone next to it. */
+    PHONE_LABEL,
+    EMAIL,
+    /** E-mail type, for the e-mail next to it. */
+    EMAIL_LABEL,
+    ORG,
+    TITLE,
+    ADDRESS,
+    WEBSITE,
+    BIRTHDAY,
+    NOTES,
+    LABELS,
 }
 
 /** A column's meaning: the [field] and, for phones and e-mails, the type (ContactsContract `TYPE_*`; null = from a type column, else mobile / other). */
 data class ColumnTarget(val field: CsvField, val type: Int? = null) {
-    val label: String
-        get() = when {
-            this.field == CsvField.PHONE && type != null -> "Phone (${(CsvColumnMapping.PHONE_TYPES[type] ?: "other").lowercase()})"
-            this.field == CsvField.EMAIL && type != null -> "E-mail (${(CsvColumnMapping.EMAIL_TYPES[type] ?: "other").lowercase()})"
-            else -> this.field.label
-        }
-
     companion object {
         val IGNORED = ColumnTarget(CsvField.IGNORE)
     }
@@ -71,7 +67,7 @@ object CsvColumnMapping {
     }
 
     /** Which well-known layout a header comes from, for the screen's "Looks like a Google export" line. */
-    enum class Layout(val label: String) { PARLEY("Parley"), GOOGLE("Google Contacts"), OUTLOOK("Outlook"), OTHER("a spreadsheet") }
+    enum class Layout { PARLEY, GOOGLE, OUTLOOK, OTHER }
 
     private fun norm(h: String): String = h.trim().trimStart('﻿').lowercase().replace(Regex("[^\\p{L}\\p{N}]"), "")
 
@@ -329,16 +325,16 @@ object CsvColumnMapping {
     }
 
     /** "Ana Silva · +351 912 345 678 · ana@example.com" for the preview. */
-    fun describe(record: ContactRecord): String {
+    fun describe(record: ContactRecord, noName: String = "(no name)", labels: (String) -> String = { "Labels: $it" }): String {
         val rows = record.raws.flatMap { it.rows }
         val n = rows.firstOrNull { it.mimeType == Mime.NAME }
         val name = n?.get(Col.D1) ?: listOfNotNull(n?.get(Col.D4), n?.get(Col.D2), n?.get(Col.D5), n?.get(Col.D3), n?.get(Col.D6)).joinToString(" ")
         val org = rows.firstOrNull { it.mimeType == Mime.ORG }?.get(Col.D1)
         return listOfNotNull(
-            name.ifBlank { org ?: "(no name)" },
+            name.ifBlank { org ?: noName },
             rows.filter { it.mimeType == Mime.PHONE }.mapNotNull { it[Col.D1] }.joinToString(", ").ifEmpty { null },
             rows.filter { it.mimeType == Mime.EMAIL }.mapNotNull { it[Col.D1] }.joinToString(", ").ifEmpty { null },
-            rows.filter { it.mimeType == Mime.GROUP }.mapNotNull { it[Col.GROUP_TITLE] }.joinToString(", ").ifEmpty { null }?.let { "Labels: $it" },
+            rows.filter { it.mimeType == Mime.GROUP }.mapNotNull { it[Col.GROUP_TITLE] }.joinToString(", ").ifEmpty { null }?.let(labels),
         ).joinToString(" · ")
     }
 }

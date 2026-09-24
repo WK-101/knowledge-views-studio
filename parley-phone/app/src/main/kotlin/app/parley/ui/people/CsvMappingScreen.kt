@@ -48,6 +48,12 @@ import app.parley.ui.EmptyState
 import app.parley.ui.contact.Section
 import app.parley.ui.settings.ImportReportDialog
 import kotlinx.coroutines.launch
+import android.content.res.Resources
+import android.provider.ContactsContract.CommonDataKinds.Email
+import android.provider.ContactsContract.CommonDataKinds.Phone
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 /**
  * M12: a contact CSV that isn't Parley's own format (Google, Outlook, "Name,Phone", semicolons, tabs, one column).
@@ -59,6 +65,7 @@ import kotlinx.coroutines.launch
 fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
     val request = remember { MessagingInbox.csvImport }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var preview by remember { mutableStateOf<VCardIO.CsvPreview?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var hasHeader by remember { mutableStateOf(true) }
@@ -76,26 +83,26 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
         try {
             val p = vm.c.vcards.csvPreview(r.uri)
             if (p == null || p.rows.isEmpty()) {
-                error = "This file has no lines Parley can read as a table."
+                error = context.getString(R.string.csv_no_table)
             } else {
                 preview = p
                 hasHeader = CsvColumnMapping.hasHeader(p.rows.first())
                 remap(p, hasHeader)
             }
         } catch (e: Exception) {
-            error = e.message ?: "Couldn't read the file"
+            error = e.message ?: context.getString(R.string.csv_read_failed)
         }
     }
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text("Choose columns") },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
+            title = { Text(stringResource(R.string.csv_title)) },
+            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
         )
     }) { pad ->
         val p = preview
         if (request == null || error != null) {
-            EmptyState(Icons.Rounded.TableChart, "Nothing to import", error ?: "Choose a file in Settings › Contacts › Import.", Modifier.padding(pad))
+            EmptyState(Icons.Rounded.TableChart, stringResource(R.string.csv_nothing_title), error ?: stringResource(R.string.csv_nothing_text), Modifier.padding(pad))
             return@Scaffold
         }
         if (p == null) {
@@ -109,38 +116,43 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
         LazyColumn(Modifier.fillMaxSize().padding(pad)) {
             item {
                 val layout = if (hasHeader) CsvColumnMapping.layout(header) else CsvColumnMapping.Layout.OTHER
-                val sep = when (p.delimiter) { ';' -> "semicolons"; '\t' -> "tabs"; else -> "commas" }
+                val sep = stringResource(when (p.delimiter) { ';' -> R.string.csv_sep_semicolons; '\t' -> R.string.csv_sep_tabs; else -> R.string.csv_sep_commas })
+                val layoutName = when (layout) {
+                    CsvColumnMapping.Layout.PARLEY -> stringResource(R.string.csv_layout_parley)
+                    CsvColumnMapping.Layout.GOOGLE -> stringResource(R.string.csv_layout_google)
+                    CsvColumnMapping.Layout.OUTLOOK -> stringResource(R.string.csv_layout_outlook)
+                    CsvColumnMapping.Layout.OTHER -> null
+                }
                 Text(
-                    "This file isn't in Parley's own format" + (if (layout != CsvColumnMapping.Layout.OTHER) ", it looks like a ${layout.label} export" else "") +
-                        ". Its columns are separated by $sep. Check what each column holds; the first contacts below show how they'll be saved.",
+                    if (layoutName != null) stringResource(R.string.csv_intro_layout, layoutName, sep) else stringResource(R.string.csv_intro, sep),
                     Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium,
                 )
             }
             item {
                 ListItem(
-                    headlineContent = { Text("First line is a header") },
-                    supportingContent = { Text(if (hasHeader) "Column names, not a contact" else "Imported as a contact") },
+                    headlineContent = { Text(stringResource(R.string.csv_header)) },
+                    supportingContent = { Text(if (hasHeader) stringResource(R.string.csv_header_on) else stringResource(R.string.csv_header_off)) },
                     trailingContent = { Switch(hasHeader, { hasHeader = it; remap(p, it) }) },
                     modifier = Modifier.clickable { hasHeader = !hasHeader; remap(p, hasHeader) },
                 )
             }
-            item { Section("Columns") }
+            item { Section(stringResource(R.string.csv_columns)) }
             itemsIndexed((0 until width).toList()) { _, i ->
-                val name = header.getOrNull(i)?.trim()?.ifEmpty { null } ?: "Column ${i + 1}"
+                val name = header.getOrNull(i)?.trim()?.ifEmpty { null } ?: stringResource(R.string.csv_column_n, i + 1)
                 val samples = data.mapNotNull { it.getOrNull(i)?.trim()?.takeIf { v -> v.isNotEmpty() } }.take(2).joinToString(" · ")
                 ColumnRow(name, samples, mapping.getOrNull(i) ?: ColumnTarget.IGNORED) { t ->
                     mapping = List(width) { k -> if (k == i) t else mapping.getOrNull(k) ?: ColumnTarget.IGNORED }
                 }
             }
-            item { Section("Preview") }
+            item { Section(stringResource(R.string.csv_preview)) }
             val sample = data.take(5).mapNotNull { CsvColumnMapping.toRecord(it, mapping) }
             if (sample.isEmpty()) {
-                item { Text("Nothing would be imported with these columns.", Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) }
+                item { Text(stringResource(R.string.csv_nothing_with_columns), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) }
             }
             sample.forEach { r ->
                 item {
                     Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                        Text(CsvColumnMapping.describe(r), Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
+                        Text(CsvColumnMapping.describe(r, stringResource(R.string.csv_no_name)) { context.getString(R.string.csv_labels, it) }, Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
@@ -148,7 +160,7 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
                 Column(Modifier.fillMaxWidth().padding(16.dp)) {
                     progress?.let { LinearProgressIndicator(progress = { it }, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) }
                     Text(
-                        "Into ${vm.accountLabel(request.account)}" + if (request.skipDuplicates) " · contacts you already have are skipped" else "",
+                        stringResource(if (request.skipDuplicates) R.string.csv_into_skip else R.string.csv_into, vm.accountLabel(request.account)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -163,7 +175,7 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
                                         skipDuplicates = request.skipDuplicates,
                                     )
                                 } catch (e: Exception) {
-                                    vm.toast("Import failed: ${e.message}")
+                                    vm.toast(context.getString(R.string.csv_import_failed, e.message.toString()))
                                     null
                                 }
                                 progress = null
@@ -171,8 +183,8 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
                         },
                         enabled = usable && progress == null,
                         modifier = Modifier.padding(top = 8.dp).align(Alignment.End),
-                    ) { Text("Import") }
-                    if (!usable) Text("Choose at least a name, phone, e-mail or company column.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    ) { Text(stringResource(R.string.csv_import)) }
+                    if (!usable) Text(stringResource(R.string.csv_need_column), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }
             }
         }
@@ -189,12 +201,13 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
 @Composable
 private fun ColumnRow(name: String, samples: String, target: ColumnTarget, onPick: (ColumnTarget) -> Unit) {
     var open by remember { mutableStateOf(false) }
+    val res = LocalContext.current.resources
     ListItem(
         headlineContent = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
             Column {
                 Text(
-                    target.label,
+                    targetLabel(res, target),
                     color = if (target.field == CsvField.IGNORE) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.labelLarge,
                 )
@@ -203,14 +216,47 @@ private fun ColumnRow(name: String, samples: String, target: ColumnTarget, onPic
         },
         trailingContent = {
             Box {
-                Icon(Icons.Rounded.ArrowDropDown, "Change what “$name” holds")
+                Icon(Icons.Rounded.ArrowDropDown, stringResource(R.string.csv_change_column, name))
                 DropdownMenu(open, { open = false }) {
                     CsvColumnMapping.OPTIONS.forEach { o ->
-                        DropdownMenuItem({ Text(o.label) }, onClick = { open = false; onPick(o) })
+                        DropdownMenuItem({ Text(targetLabel(res, o)) }, onClick = { open = false; onPick(o) })
                     }
                 }
             }
         },
         modifier = Modifier.clickable { open = true },
     )
+}
+
+/** "Phone (mobile)", "First name"…: phone and e-mail types use Android's own (localised) type names. */
+private fun targetLabel(res: Resources, t: ColumnTarget): String {
+    val field = res.getString(
+        when (t.field) {
+            CsvField.IGNORE -> R.string.csv_field_ignore
+            CsvField.FULL_NAME -> R.string.csv_field_full_name
+            CsvField.PREFIX -> R.string.csv_field_prefix
+            CsvField.GIVEN -> R.string.csv_field_given
+            CsvField.MIDDLE -> R.string.csv_field_middle
+            CsvField.FAMILY -> R.string.csv_field_family
+            CsvField.SUFFIX -> R.string.csv_field_suffix
+            CsvField.NICKNAME -> R.string.csv_field_nickname
+            CsvField.PHONE -> R.string.csv_field_phone
+            CsvField.PHONE_LABEL -> R.string.csv_field_phone_label
+            CsvField.EMAIL -> R.string.csv_field_email
+            CsvField.EMAIL_LABEL -> R.string.csv_field_email_label
+            CsvField.ORG -> R.string.csv_field_org
+            CsvField.TITLE -> R.string.csv_field_title
+            CsvField.ADDRESS -> R.string.csv_field_address
+            CsvField.WEBSITE -> R.string.csv_field_website
+            CsvField.BIRTHDAY -> R.string.csv_field_birthday
+            CsvField.NOTES -> R.string.csv_field_notes
+            CsvField.LABELS -> R.string.csv_field_labels
+        },
+    )
+    val type = t.type ?: return field
+    return when (t.field) {
+        CsvField.PHONE -> res.getString(R.string.csv_typed, field, Phone.getTypeLabel(res, type, null).toString())
+        CsvField.EMAIL -> res.getString(R.string.csv_typed, field, Email.getTypeLabel(res, type, null).toString())
+        else -> field
+    }
 }

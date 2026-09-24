@@ -34,6 +34,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.data.ContactDetails
 import app.parley.ui.PhotoCache
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 /** What the editor will do with the call-screen background on save. */
 sealed interface BackgroundChange {
@@ -48,7 +50,7 @@ suspend fun AppViewModel.applyBackground(lookupKey: String, change: BackgroundCh
     when (change) {
         BackgroundChange.None -> Unit
         BackgroundChange.Remove -> c.people.backgrounds.clear(lookupKey)
-        is BackgroundChange.Set -> if (!c.people.backgrounds.set(lookupKey, change.uri)) toast("That image couldn't be used as a background")
+        is BackgroundChange.Set -> if (!c.people.backgrounds.set(lookupKey, change.uri)) toast(c.appContext.getString(R.string.ppl_bg_failed))
     }
 }
 
@@ -64,16 +66,16 @@ fun CallBackgroundEditor(vm: AppViewModel, lookupKey: String, change: Background
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) onChange(BackgroundChange.Set(uri)) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Call screen", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+        Text(stringResource(R.string.ppl_bg_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Preview(shown, version)
             Column {
-                Text("A picture behind this person's calls. It's copied into Parley, so it stays even if you delete the original.", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.ppl_bg_text), style = MaterialTheme.typography.bodySmall)
                 Row {
                     OutlinedButton({ picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
-                        Text(if (shown == null) "Choose picture" else "Change")
+                        Text(if (shown == null) stringResource(R.string.ppl_bg_choose) else stringResource(R.string.ppl_bg_change))
                     }
-                    if (shown != null) TextButton({ onChange(if (change is BackgroundChange.Set && current == null) BackgroundChange.None else BackgroundChange.Remove) }) { Text("Remove") }
+                    if (shown != null) TextButton({ onChange(if (change is BackgroundChange.Set && current == null) BackgroundChange.None else BackgroundChange.Remove) }) { Text(stringResource(R.string.ppl_bg_remove)) }
                 }
             }
         }
@@ -86,7 +88,7 @@ private fun Preview(uri: String?, version: Int) {
     val img by produceState<ImageBitmap?>(null, uri, version) { value = uri?.let { PhotoCache.load(context, it, 256)?.asImageBitmap() } }
     val m = Modifier.size(64.dp, 96.dp).clip(RoundedCornerShape(12.dp))
     val b = img
-    if (b != null) Image(b, "Call screen background", m, contentScale = ContentScale.Crop) else Icon(Icons.Rounded.Wallpaper, null, Modifier.size(64.dp))
+    if (b != null) Image(b, stringResource(R.string.ppl_bg_desc), m, contentScale = ContentScale.Crop) else Icon(Icons.Rounded.Wallpaper, null, Modifier.size(64.dp))
 }
 
 /** Contact page › Settings: shows whether a call-screen background is set; tapping opens the editor. */
@@ -97,7 +99,7 @@ fun CallBackgroundInfoRow(vm: AppViewModel, d: ContactDetails, onEdit: () -> Uni
     ListItem(
         modifier = Modifier.clickable(onClick = onEdit),
         leadingContent = { Icon(Icons.Rounded.Wallpaper, null) },
-        headlineContent = { Text(if (set) "Custom call screen picture" else "Default call screen") },
-        supportingContent = { Text("Call screen background · change it in Edit") },
+        headlineContent = { Text(if (set) stringResource(R.string.ppl_bg_custom) else stringResource(R.string.ppl_bg_default)) },
+        supportingContent = { Text(stringResource(R.string.ppl_bg_info)) },
     )
 }

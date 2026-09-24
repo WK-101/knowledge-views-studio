@@ -24,6 +24,8 @@ import app.parley.AppViewModel
 import app.parley.common.people.Reports
 import app.parley.ui.common.Format
 import app.parley.ui.settings.SwitchRow
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 /**
  * U10: after a crash (with "Keep crash reports" on), the next start offers the report: send it by e-mail or any
@@ -42,10 +44,10 @@ fun CrashReportHost(vm: AppViewModel) {
     }
     AlertDialog(
         onDismissRequest = { crash = null },
-        title = { Text("Parley stopped last time") },
+        title = { Text(stringResource(R.string.ppl_crash_title)) },
         text = {
             Column {
-                Text("A report was kept on this phone. Numbers and e-mail addresses in it are masked. Send it if you'd like the problem fixed; Parley can't send anything itself.")
+                Text(stringResource(R.string.ppl_crash_text))
                 Text(
                     text, fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState()),
@@ -55,15 +57,15 @@ fun CrashReportHost(vm: AppViewModel) {
         confirmButton = {
             TextButton({
                 val mail = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:"))
-                    .putExtra(Intent.EXTRA_SUBJECT, "Parley crash report")
+                    .putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.ppl_crash_subject))
                     .putExtra(Intent.EXTRA_TEXT, text)
-                val any = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_SUBJECT, "Parley crash report").putExtra(Intent.EXTRA_TEXT, text)
-                val chooser = Intent.createChooser(any, "Send crash report").putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(mail))
+                val any = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.ppl_crash_subject)).putExtra(Intent.EXTRA_TEXT, text)
+                val chooser = Intent.createChooser(any, context.getString(R.string.ppl_crash_send_chooser)).putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(mail))
                 runCatching { context.startActivity(chooser) }
                 done()
-            }) { Text("Send…") }
+            }) { Text(stringResource(R.string.ppl_crash_send)) }
         },
-        dismissButton = { TextButton(::done) { Text("Delete report") } },
+        dismissButton = { TextButton(::done) { Text(stringResource(R.string.ppl_crash_delete)) } },
     )
 }
 

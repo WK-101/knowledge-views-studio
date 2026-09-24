@@ -34,6 +34,9 @@ import app.parley.data.people.AccountReport
 import app.parley.ui.CallColors
 import app.parley.ui.contact.Section
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 /** Health check › "Accounts": what Android reports vs what owns contacts, sync switched off, phone account. */
 @Composable
@@ -44,45 +47,45 @@ fun AccountDiagnosticsSection(vm: AppViewModel) {
     var round by remember { mutableIntStateOf(0) }
     LaunchedEffect(round) { report = vm.c.people.accounts.report() }
     val r = report ?: return
-    fun label(a: AccountRef?) = a?.displayLabel ?: "Phone"
+    fun label(a: AccountRef?) = a?.displayLabel ?: context.getString(R.string.ppl_phone)
     fun syncSettings() = runCatching {
         context.startActivity(Intent(Settings.ACTION_SYNC_SETTINGS).putExtra(Settings.EXTRA_AUTHORITIES, arrayOf(ContactsContract.AUTHORITY)))
-    }.onFailure { vm.toast("Couldn't open Android's account settings") }
+    }.onFailure { vm.toast(context.getString(R.string.ppl_sync_settings_failed)) }
 
     Column {
-        Section("Accounts")
+        Section(stringResource(R.string.ppl_accounts))
         r.findings.forEach { f ->
             val a = f.account?.let { AccountRef(it.type, it.name) }
             when (f.kind) {
                 AccountFindingKind.MASTER_SYNC_OFF -> Finding(
-                    Icons.Rounded.SyncDisabled, "Automatic sync is off for this phone",
-                    "No account uploads or downloads contact changes until it's back on.", "Open sync settings", ::syncSettings,
+                    Icons.Rounded.SyncDisabled, stringResource(R.string.ppl_master_sync_off),
+                    stringResource(R.string.ppl_master_sync_off_text), stringResource(R.string.ppl_open_sync_settings), ::syncSettings,
                 )
                 AccountFindingKind.SYNC_OFF -> Finding(
-                    Icons.Rounded.SyncDisabled, "Contacts sync is off for ${label(a)}",
-                    "${f.count} contacts. Changes stay on this phone and don't reach your other devices.", "Open sync settings", ::syncSettings,
+                    Icons.Rounded.SyncDisabled, stringResource(R.string.ppl_sync_off, label(a)),
+                    pluralStringResource(R.plurals.ppl_sync_off_text, f.count, f.count), stringResource(R.string.ppl_open_sync_settings), ::syncSettings,
                 )
                 AccountFindingKind.ORPHANED -> Finding(
-                    Icons.Rounded.Warning, "${f.count} contacts in ${label(a)}",
-                    "That account is no longer signed in on this phone, so nothing keeps these contacts in sync. Move them to another account or export them.",
-                    "Show them",
+                    Icons.Rounded.Warning, pluralStringResource(R.plurals.ppl_orphaned, f.count, f.count, label(a)),
+                    stringResource(R.string.ppl_orphaned_text),
+                    stringResource(R.string.ppl_show_them),
                 ) {
                     vm.people.clearFilter()
                     a?.let { vm.people.setAccount(it.displayLabel) }
                     vm.navigate(NavEvent.Tab(StartTab.CONTACTS))
                 }
                 AccountFindingKind.NO_CONTACTS -> Finding(
-                    Icons.Rounded.Warning, "${label(a)} has no contacts",
-                    "The account is signed in and can hold contacts, but none are stored there. If you expected some, check that its contacts sync finished.",
+                    Icons.Rounded.Warning, stringResource(R.string.ppl_no_contacts, label(a)),
+                    stringResource(R.string.ppl_no_contacts_text),
                     null, null,
                 )
                 AccountFindingKind.LOCAL_MISSING -> Finding(
-                    Icons.Rounded.Warning, "Phone-only storage isn't set up",
-                    "Some apps only offer “Phone” as a place to save contacts once Android has created it. Parley can create it by adding and removing an empty entry.",
-                    "Fix",
+                    Icons.Rounded.Warning, stringResource(R.string.ppl_local_missing),
+                    stringResource(R.string.ppl_local_missing_text),
+                    stringResource(R.string.ppl_fix),
                 ) {
                     scope.launch {
-                        vm.toast(if (vm.c.people.accounts.createLocalAccount()) "Phone-only storage is ready" else "Couldn't set it up")
+                        vm.toast(context.getString(if (vm.c.people.accounts.createLocalAccount()) R.string.ppl_local_ready else R.string.ppl_local_failed))
                         round++
                     }
                 }
@@ -91,13 +94,13 @@ fun AccountDiagnosticsSection(vm: AppViewModel) {
         if (r.findings.isEmpty()) {
             ListItem(
                 leadingContent = { Icon(Icons.Rounded.CheckCircle, null, tint = CallColors.Accept) },
-                headlineContent = { Text("Accounts look fine") },
-                supportingContent = { Text(if (r.syncKnown) "Every signed-in account syncs its contacts" else "Android didn't let Parley check sync settings") },
+                headlineContent = { Text(stringResource(R.string.ppl_accounts_fine)) },
+                supportingContent = { Text(if (r.syncKnown) stringResource(R.string.ppl_accounts_fine_text) else stringResource(R.string.ppl_accounts_unknown)) },
             )
         }
         Text(
-            "Signed in: " + (r.signedIn.joinToString { "${it.first.displayLabel} (${it.second})" }.ifEmpty { "no contacts accounts" }) +
-                "\nHolding contacts: " + r.owning.joinToString { "${it.first.displayLabel} (${it.second})" }.ifEmpty { "none" },
+            stringResource(R.string.ppl_signed_in, r.signedIn.joinToString { context.getString(R.string.ppl_account_count, it.first.displayLabel, it.second) }.ifEmpty { context.getString(R.string.ppl_signed_in_none) }) +
+                "\n" + stringResource(R.string.ppl_holding, r.owning.joinToString { context.getString(R.string.ppl_account_count, it.first.displayLabel, it.second) }.ifEmpty { context.getString(R.string.ppl_holding_none) }),
             Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }

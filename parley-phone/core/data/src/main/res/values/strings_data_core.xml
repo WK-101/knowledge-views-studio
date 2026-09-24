@@ -108,4 +108,24 @@
     <string name="data_health_stale">No calls in over 2 years</string>
     <string name="data_health_country_code">%1$s → %2$s</string>
     <string name="data_health_title_company">Title “%1$s” duplicates the company</string>
+
+    <!-- Moving and writing contacts (core/data) -->
+    <string name="data_move_copy_gone">That copy no longer exists</string>
+    <string name="data_move_read_failed">Couldn\'t read the contact</string>
+    <string name="data_move_copy_read_failed">Couldn\'t read that copy</string>
+    <string name="data_move_already_there">It\'s already saved there</string>
+    <string name="data_move_already_phone">It\'s already saved on this phone</string>
+    <string name="data_move_not_writable">Contacts can\'t be saved to that account</string>
+    <string name="data_move_no_undo">Couldn\'t keep an undo copy, so nothing was moved</string>
+    <string name="data_move_write_failed">Couldn\'t write the copy in the new account</string>
+    <string name="data_move_nothing_to_unlink">There\'s nothing to unlink</string>
+    <string name="data_write_only_messenger">Nothing to import (only read-only messenger data)</string>
+    <string name="data_write_not_written">Not written</string>
+    <string name="data_write_failed">The contact could not be written</string>
+    <plurals name="data_write_fields_failed">
+        <item quantity="one">%1$d field could not be written</item>
+        <item quantity="other">%1$d fields could not be written</item>
+    </plurals>
+    <string name="data_write_photo_failed">The photo could not be saved</string>
+    <string name="data_write_not_found">The contact could not be found after writing</string>
 </resources>

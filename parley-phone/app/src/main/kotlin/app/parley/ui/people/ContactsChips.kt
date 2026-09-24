@@ -30,6 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 /**
  * Contacts-tab filter row: All · Private · Unlabelled · labels (multi-select, AND/OR) · account, plus shortcuts
@@ -47,11 +49,11 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        FilterChip(filter.isEmpty && !showVault, { vm.showVault.value = false; vm.people.clearFilter() }, label = { Text("All") })
+        FilterChip(filter.isEmpty && !showVault, { vm.showVault.value = false; vm.people.clearFilter() }, label = { Text(stringResource(R.string.ppl_chip_all)) })
         if (!vaultHidden) {
             FilterChip(
                 showVault, { vm.showVault.value = !showVault; vm.people.clearFilter() },
-                label = { Text("Private") },
+                label = { Text(stringResource(R.string.ppl_chip_private)) },
                 leadingIcon = { Icon(Icons.Rounded.Lock, null, Modifier.size(16.dp)) },
             )
         }
@@ -60,48 +62,48 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
             Box {
                 FilterChip(
                     filter.account != null && !showVault, { menu = true },
-                    label = { Text(filter.account?.let { a -> a + " (" + (accounts.firstOrNull { it.first == a }?.second ?: 0) + ")" } ?: "Account") },
+                    label = { Text(filter.account?.let { a -> stringResource(R.string.ppl_account_count, a, accounts.firstOrNull { it.first == a }?.second ?: 0) } ?: stringResource(R.string.ppl_chip_account)) },
                     leadingIcon = { Icon(Icons.Rounded.AccountCircle, null, Modifier.size(16.dp)) },
                     trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, null, Modifier.size(16.dp)) },
                 )
                 DropdownMenu(menu, { menu = false }) {
-                    DropdownMenuItem({ Text("All accounts") }, onClick = { menu = false; vm.people.setAccount(null) })
+                    DropdownMenuItem({ Text(stringResource(R.string.ppl_chip_all_accounts)) }, onClick = { menu = false; vm.people.setAccount(null) })
                     accounts.forEach { (label, n) ->
-                        DropdownMenuItem({ Text("$label ($n)") }, onClick = { menu = false; vm.showVault.value = false; vm.people.setAccount(label) })
+                        DropdownMenuItem({ Text(stringResource(R.string.ppl_account_count, label, n)) }, onClick = { menu = false; vm.showVault.value = false; vm.people.setAccount(label) })
                     }
                 }
             }
         }
         if (labels.isNotEmpty()) {
-            FilterChip(filter.unlabelled && !showVault, { vm.showVault.value = false; vm.people.setUnlabelled(!filter.unlabelled) }, label = { Text("Unlabelled") })
+            FilterChip(filter.unlabelled && !showVault, { vm.showVault.value = false; vm.people.setUnlabelled(!filter.unlabelled) }, label = { Text(stringResource(R.string.ppl_chip_unlabelled)) })
         }
         if (filter.labels.size >= 2 && !showVault) {
             AssistChip(
                 onClick = { vm.people.update { it.copy(labelMatchAll = !it.labelMatchAll) } },
-                label = { Text(if (s.labelMatchAll) "In all of them" else "In any of them") },
+                label = { Text(if (s.labelMatchAll) stringResource(R.string.ppl_chip_match_all) else stringResource(R.string.ppl_chip_match_any)) },
             )
         }
         labels.forEach { title ->
             FilterChip(
                 title in filter.labels && !showVault, { vm.showVault.value = false; vm.people.toggleLabel(title) },
-                label = { Text("$title (${idx.labelCounts[title] ?: 0})") },
+                label = { Text(stringResource(R.string.ppl_account_count, title, idx.labelCounts[title] ?: 0)) },
             )
         }
         if (filter.labels.size == 1 && !showVault) {
             val only = filter.labels.single()
             AssistChip(
                 onClick = { open(PeopleRoutes.label(only)) },
-                label = { Text("Open $only") },
+                label = { Text(stringResource(R.string.ppl_chip_open, only)) },
                 leadingIcon = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, Modifier.size(16.dp)) },
             )
         }
-        AssistChip(onClick = { open(PeopleRoutes.LABELS) }, label = { Text("Labels") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Label, null, Modifier.size(16.dp)) })
+        AssistChip(onClick = { open(PeopleRoutes.LABELS) }, label = { Text(stringResource(R.string.ppl_chip_labels)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Label, null, Modifier.size(16.dp)) })
         // Contacts that delete themselves: shown only when there are some.
         val temporary = app.parley.ui.temporary.rememberTemporaryItems(vm).size
         if (temporary > 0) {
             AssistChip(
                 onClick = { open(app.parley.ui.Routes.TEMPORARY) },
-                label = { Text("Temporary ($temporary)") },
+                label = { Text(stringResource(R.string.ppl_chip_temporary, temporary)) },
                 leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.AutoDelete, null, Modifier.size(16.dp)) },
             )
         }
