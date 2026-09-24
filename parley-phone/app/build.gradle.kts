@@ -20,8 +20,8 @@ android {
         applicationId = "app.parley.phone"
         minSdk = 29
         targetSdk = 36
-        versionCode = 2
-        versionName = "2.0.0"
+        versionCode = 3
+        versionName = "3.0.0"
         // Custom permission guarding the private-name lookup provider (differs in debug so both builds can be installed).
         manifestPlaceholders["lookupPermission"] = "app.parley.permission.LOOKUP_PRIVATE_NAME"
         // Optional "Parley Lists" companion (B4c, module :lists-updater): its package and signature permission.

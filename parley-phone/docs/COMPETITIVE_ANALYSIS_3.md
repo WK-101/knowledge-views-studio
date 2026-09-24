@@ -13,6 +13,16 @@
 | **WhatsOpen** `com.harshalbhatia.whatsopen` | [harshalbhatia/whatsopen](https://github.com/harshalbhatia/whatsopen) v1.1.3 | ~3k | Opens a WhatsApp chat with an unsaved number |
 | **Logger** `com.logger.app` | [Sanmeet007/logger](https://github.com/Sanmeet007/logger) v3.4.2 (Flutter) | ~14.3k | Call-log viewer, analytics, export and import |
 
+## Implementation status (v3.0)
+
+Everything in round 2 and round 3 is built, except:
+
+- **Sandbox profile** (round-2 §5.4 step 5): **skipped for now**, by decision. It would give Parley device-management (profile-owner) rights over a work profile it creates, which is a large new privilege and security surface. It may come later as a separate optional app, like the list updater.
+- **India telemarketing template:** shipped as opt-in and warn-only. India's regulator says calls from its 140 series shouldn't be tagged or filtered by apps, so it may be removed.
+- **Portugal template:** not shipped; no official telemarketing prefix was found.
+
+The whole merged code was reviewed. All 30 confirmed findings were fixed, 4 of them critical: an emergency call-back could be cut by a call limit; a transient key error wiped the call archive; SIM allow rules didn't apply while screening; restored label rules pointed at the wrong label. The on-device checklist is in [TESTING.md §9](TESTING.md).
+
 ---
 
 ## 1. Verdict
