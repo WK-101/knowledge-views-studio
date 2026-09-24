@@ -48,6 +48,12 @@ import com.cairn.reader.data.db.ItemType
  */
 private const val FTS_BODY_CHARS = 200_000
 
+// Per-feed sync backoff: after a failed sync the next retry is skipped until `retryAfter`, which
+// doubles from the base per consecutive failure and is capped — so a broken feed drops from every
+// pass to at most daily without the user pausing it, and one success clears it (see SourceDao).
+private const val SYNC_BACKOFF_BASE_MS = 30L * 60L * 1000L        // 30 min after the first failure
+private const val SYNC_BACKOFF_CAP_MS = 24L * 60L * 60L * 1000L   // never wait longer than a day
+
 /**
  * Owns capture and sync: discovering feeds from a URL, pulling new items with
  * conditional GET, saving arbitrary URLs (with on-device extraction), and running
@@ -243,7 +249,9 @@ class FeedRepository @Inject constructor(
         if (q.isBlank()) return emptyList()
         val url = "https://news.google.com/rss/search?q=" +
             java.net.URLEncoder.encode(q, "UTF-8") + "&hl=en-US&gl=US&ceid=US:en"
-        val res = coRunCatching { fetcher.fetch(url) }.getOrNull() ?: return emptyList()
+        // Let a network/transport failure propagate so the caller can distinguish "couldn't reach the
+        // web" from "reached it, no matches" — a parse that yields nothing is genuinely empty.
+        val res = fetcher.fetch(url)
         val feed = res.body?.let { parser.parse(it, res.finalUrl) } ?: return emptyList()
         return feed.items
     }
@@ -334,21 +342,34 @@ class FeedRepository @Inject constructor(
         // are the freshest even though a serverless client can't hold a push callback.
         // Paused feeds are excluded from sync entirely (they stay visible with their items readable);
         // only the sync loop skips them — retention/pruning in runMaintenance still covers them.
-        val sources = sourceDao.getAll().filterNot { it.syncPaused }.sortedByDescending { it.hubUrl != null }
-        val failures = ArrayList<Pair<String, Throwable>>()
+        // Paused feeds never sync; feeds in error backoff are skipped until their `retryAfter` passes
+        // (a manual force-refresh ignores backoff so "Sync now" always tries). This is what turns a
+        // dead feed from a per-pass failure into an occasional retry.
+        val sources = sourceDao.getAll()
+            .filterNot { it.syncPaused }
+            .filterNot { !force && (it.retryAfter ?: 0L) > now }
+            .sortedByDescending { it.hubUrl != null }
+        val failures = ArrayList<Pair<SourceEntity, Throwable>>()
         sources.forEach { source ->
             coroutineContext.ensureActive()  // honor cancellation between feeds
             coRunCatching { syncSource(source, now, if (source.notify) fresh else null, force) }
-                .onFailure { failures.add(source.feedUrl to it) }
+                .onFailure { failures.add(source to it) }
         }
-        // Log compactly: a total outage (every feed failed) is one line — almost always the network
-        // dropped mid-sync, not the feeds. A partial failure logs each feed with its cause so a
-        // genuinely broken feed is diagnosable without 70 lines of noise drowning it.
+        // A total outage (every feed failed) is almost always the network dropping mid-pass, not the
+        // feeds — so log it as one line AND don't punish every feed with backoff. A partial failure
+        // is diagnosable per feed, and each failed feed earns exponential backoff so a genuinely
+        // broken one stops being retried every pass.
+        val totalOutage = failures.size == sources.size && sources.size > 3
         if (failures.isNotEmpty()) {
-            if (failures.size == sources.size && sources.size > 3) {
+            if (totalOutage) {
                 AppLog.w("sync: all ${sources.size} feeds failed this pass — likely a network drop (${failures.first().second.javaClass.simpleName})")
             } else {
-                failures.forEach { (url, e) -> AppLog.w("sync failed for $url — ${e.javaClass.simpleName}: ${e.message?.take(140)}") }
+                failures.forEach { (source, e) ->
+                    AppLog.w("sync failed for ${source.feedUrl} — ${e.javaClass.simpleName}: ${e.message?.take(140)}")
+                    // syncSource records backoff for content failures it handles internally; this
+                    // covers the ones that failed by throwing (network/parse) and never reached it.
+                    coRunCatching { sourceDao.markError(source.id, now, SYNC_BACKOFF_BASE_MS, SYNC_BACKOFF_CAP_MS, null) }
+                }
             }
         }
         // Retention + trash auto-purge, unchanged from when it lived inline here. Pruning each feed
@@ -640,7 +661,7 @@ class FeedRepository @Inject constructor(
         if (source.kind == "WATCH") {
             val body = coRunCatching { fetcher.fetch(source.feedUrl).body }
                 .orLog("watch fetch ${source.feedUrl}")
-            if (body == null) { sourceDao.markError(source.id, null); return }
+            if (body == null) { sourceDao.markError(source.id, now, SYNC_BACKOFF_BASE_MS, SYNC_BACKOFF_CAP_MS, null); return }
             val hash = pageTextHash(body)
             if (hash != source.contentHash) insertWatchSnapshot(source, source.feedUrl, now, newItems)
             sourceDao.setContentHash(source.id, hash, now)
@@ -650,7 +671,7 @@ class FeedRepository @Inject constructor(
         if (source.kind == "SITEMAP") {
             val feed = coRunCatching { siteFeedBuilder.build(source.feedUrl, source.scrapeSelector) }
                 .orLog("sitemap build ${source.feedUrl}")
-            if (feed == null) { sourceDao.markError(source.id, null); return }
+            if (feed == null) { sourceDao.markError(source.id, now, SYNC_BACKOFF_BASE_MS, SYNC_BACKOFF_CAP_MS, null); return }
             feed.items.forEach { insertParsed(source, it, now, newItems) }
             sourceDao.markSynced(source.id, null, null, now)
             return
@@ -667,7 +688,7 @@ class FeedRepository @Inject constructor(
         val body = res.body
         val feed = body?.let { parser.parse(it, res.finalUrl) }
         if (feed == null) {
-            sourceDao.markError(source.id, null)
+            sourceDao.markError(source.id, now, SYNC_BACKOFF_BASE_MS, SYNC_BACKOFF_CAP_MS, null)
             return
         }
         feed.items.forEach { insertParsed(source, it, now, newItems) }

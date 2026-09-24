@@ -109,7 +109,7 @@ fun TrashScreen(
     var showGrace by remember { mutableStateOf(false) }
     val retentionDays by viewModel.retentionDays.collectAsStateWithLifecycle()
     var confirmForever by remember { mutableStateOf<ItemListRow?>(null) }
-    var viewMode by remember { mutableStateOf(com.cairn.reader.data.prefs.ListViewMode.CARD) }
+    val viewMode by viewModel.viewMode.collectAsStateWithLifecycle()
 
     val filtersActive = query.isNotBlank() || typeFilter != null || sourceFilter != null ||
         readState != TrashReadState.ANY || offlineOnly || starredOnly
@@ -155,7 +155,7 @@ fun TrashScreen(
                                 com.cairn.reader.data.prefs.ListViewMode.entries.forEach { m ->
                                     DropdownMenuItem(
                                         text = { Text(m.name.lowercase().replaceFirstChar(Char::uppercase), fontWeight = if (m == viewMode) FontWeight.SemiBold else FontWeight.Normal) },
-                                        onClick = { viewMode = m; viewMenu = false },
+                                        onClick = { viewModel.setViewMode(m); viewMenu = false },
                                     )
                                 }
                             }

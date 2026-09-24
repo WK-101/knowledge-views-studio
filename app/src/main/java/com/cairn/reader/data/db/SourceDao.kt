@@ -23,7 +23,7 @@ interface SourceDao {
     @Query("SELECT * FROM sources WHERE feedUrl = :feedUrl")
     suspend fun getByFeedUrl(feedUrl: String): SourceEntity?
 
-    @Query("UPDATE sources SET etag = :etag, lastModified = :lastModified, lastSyncedAt = :syncedAt, consecutiveErrors = 0 WHERE id = :id")
+    @Query("UPDATE sources SET etag = :etag, lastModified = :lastModified, lastSyncedAt = :syncedAt, consecutiveErrors = 0, retryAfter = NULL WHERE id = :id")
     suspend fun markSynced(id: String, etag: String?, lastModified: String?, syncedAt: Long)
 
     @Query("UPDATE sources SET hubUrl = :hubUrl WHERE id = :id")
@@ -34,8 +34,20 @@ interface SourceDao {
     @Query("UPDATE sources SET latestItemAt = :latestItemAt WHERE id = :id AND (latestItemAt IS NULL OR latestItemAt < :latestItemAt)")
     suspend fun setLatestItemAt(id: String, latestItemAt: Long)
 
-    @Query("UPDATE sources SET consecutiveErrors = consecutiveErrors + 1, retryAfter = :retryAfter WHERE id = :id")
-    suspend fun markError(id: String, retryAfter: Long?)
+    /**
+     * Record a failed sync and schedule the next retry with exponential backoff, so a temporarily-
+     * (or permanently-) broken feed stops being hammered every pass. [explicitRetryAfter] wins when
+     * the server told us when to come back (an HTTP Retry-After); otherwise the delay doubles per
+     * consecutive failure from [baseMs], capped at [capMs] — effectively auto-pausing a dead feed to
+     * occasional retries. A successful [markSynced]/[setContentHash] resets the counter and clears
+     * [retryAfter]. `consecutiveErrors` is read pre-increment, so the first failure waits [baseMs].
+     */
+    @Query(
+        "UPDATE sources SET consecutiveErrors = consecutiveErrors + 1, " +
+            "retryAfter = COALESCE(:explicitRetryAfter, :now + MIN(:capMs, :baseMs * (1 << MIN(consecutiveErrors, 10)))) " +
+            "WHERE id = :id",
+    )
+    suspend fun markError(id: String, now: Long, baseMs: Long, capMs: Long, explicitRetryAfter: Long?)
 
     @Query("UPDATE sources SET title = :title WHERE id = :id")
     suspend fun setTitle(id: String, title: String)
@@ -84,7 +96,7 @@ interface SourceDao {
     @Query("SELECT * FROM sources WHERE backfillState = :state")
     suspend fun sourcesByBackfillState(state: String): List<SourceEntity>
 
-    @Query("UPDATE sources SET contentHash = :hash, lastSyncedAt = :syncedAt, consecutiveErrors = 0 WHERE id = :id")
+    @Query("UPDATE sources SET contentHash = :hash, lastSyncedAt = :syncedAt, consecutiveErrors = 0, retryAfter = NULL WHERE id = :id")
     suspend fun setContentHash(id: String, hash: String, syncedAt: Long)
 
     // Changing the feed URL resets sync bookkeeping so the new source is fetched fresh next sync.

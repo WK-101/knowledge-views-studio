@@ -123,7 +123,7 @@ fun ReadLaterScreen(
     var searchOpen by remember { mutableStateOf(false) }
     var sortMenu by remember { mutableStateOf(false) }
     var viewMenu by remember { mutableStateOf(false) }
-    var viewMode by remember { mutableStateOf(com.cairn.reader.data.prefs.ListViewMode.CARD) }
+    val viewMode by viewModel.viewMode.collectAsStateWithLifecycle()
 
     val filtersActive = query.isNotBlank() || typeFilter != null || unreadOnly || offlineOnly
 
@@ -168,7 +168,7 @@ fun ReadLaterScreen(
                                 com.cairn.reader.data.prefs.ListViewMode.entries.forEach { m ->
                                     DropdownMenuItem(
                                         text = { Text(m.name.lowercase().replaceFirstChar(Char::uppercase), fontWeight = if (m == viewMode) FontWeight.SemiBold else FontWeight.Normal) },
-                                        onClick = { viewMode = m; viewMenu = false },
+                                        onClick = { viewModel.setViewMode(m); viewMenu = false },
                                     )
                                 }
                             }

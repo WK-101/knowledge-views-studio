@@ -86,9 +86,13 @@ fun SearchScreen(
     val availableTypes by viewModel.availableTypes.collectAsStateWithLifecycle()
     val web by viewModel.web.collectAsStateWithLifecycle()
     val webBusy by viewModel.webBusy.collectAsStateWithLifecycle()
+    val webSearched by viewModel.webSearched.collectAsStateWithLifecycle()
+    val webError by viewModel.webError.collectAsStateWithLifecycle()
     val archiveSites by viewModel.archiveSites.collectAsStateWithLifecycle()
     val archive by viewModel.archive.collectAsStateWithLifecycle()
     val archiveBusy by viewModel.archiveBusy.collectAsStateWithLifecycle()
+    val archiveSearched by viewModel.archiveSearched.collectAsStateWithLifecycle()
+    val archiveError by viewModel.archiveError.collectAsStateWithLifecycle()
     val savingAll by viewModel.savingAll.collectAsStateWithLifecycle()
     val sortByMeaning by viewModel.sortByMeaning.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -216,6 +220,17 @@ fun SearchScreen(
                                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = 6.dp),
                                 )
+                                // Distinguish "searched, nothing came back" from "the request failed"
+                                // so an empty web result never reads as if nothing happened.
+                                if (webSearched && !webBusy) {
+                                    Text(
+                                        if (webError) "Couldn't reach the web — check your connection and try again."
+                                        else "No web results for “${state.query.trim()}”.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (webError) scheme.error else scheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 8.dp),
+                                    )
+                                }
                             } else {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(stringResource(R.string.from_the_web), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
@@ -277,6 +292,19 @@ fun SearchScreen(
                         items(archive, key = { "arc-${it.url}" }) { hit ->
                             WebHitRow(hit, onOpen = { onOpenWeb(hit.url) }, onSave = { viewModel.saveWebHit(hit.url) })
                             HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.4f))
+                        }
+                        // Feedback when a chosen site returned nothing (or the request failed), so the
+                        // archive area never sits silent after a tap.
+                        if (archiveSearched && !archiveBusy && archive.isEmpty()) {
+                            item {
+                                Text(
+                                    if (archiveError) "Couldn't reach that site's archive — check your connection and try again."
+                                    else "No archive matches for “${state.query.trim()}” on that site.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (archiveError) scheme.error else scheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                )
+                            }
                         }
                     }
                 }

@@ -14,6 +14,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -100,8 +102,11 @@ import com.cairn.reader.data.prefs.LibraryViewMode
 import com.cairn.reader.data.prefs.ListViewMode
 import com.cairn.reader.data.prefs.SwipeAction
 import com.cairn.reader.data.prefs.SwipeConfig
+import com.cairn.reader.ui.components.CollectionMembershipSheet
 import com.cairn.reader.ui.components.CollectionPickerSheet
 import com.cairn.reader.ui.components.EmptyState
+import com.cairn.reader.ui.components.ItemActionSheet
+import com.cairn.reader.ui.components.TagEditorSheet
 import com.cairn.reader.ui.components.EntryDivider
 import com.cairn.reader.ui.components.FilterChipRow
 import com.cairn.reader.ui.components.SectionLabel
@@ -157,6 +162,11 @@ fun LibraryScreen(
     var movingTag by remember { mutableStateOf<String?>(null) } // tag path to move under a new parent
     var confirmDeleteCollection by remember { mutableStateOf<Pair<String, String>?>(null) } // (id, name)
     var confirmDeleteTag by remember { mutableStateOf<Pair<String, String>?>(null) } // (path, label)
+    // Long-press on an item opens a per-item action sheet (mirrors the Inbox); from there you can
+    // also file it into collections / edit tags. These hold the row whose sheet is open.
+    var actionRow by remember { mutableStateOf<ItemListRow?>(null) }
+    var tagsForRow by remember { mutableStateOf<ItemListRow?>(null) }
+    var collectionsForRow by remember { mutableStateOf<ItemListRow?>(null) }
 
     val selectionActive = selection.isNotEmpty()
     val searching = query.isNotBlank()
@@ -348,7 +358,7 @@ fun LibraryScreen(
                         onOpenItem(row.id)
                     }
                 },
-                onLongPress = { row -> viewModel.toggleSelect(row.id) },
+                onLongPress = { row -> if (selectionActive) viewModel.toggleSelect(row.id) else actionRow = row },
                 swipeCfg = swipeCfg,
                 swipeEnabled = !selectionActive,
                 onSwipe = { row, action -> onLibrarySwipe(row, action) },
@@ -453,6 +463,51 @@ fun LibraryScreen(
             candidates = candidates,
             onPick = { parent -> viewModel.moveTag(path, parent); movingTag = null },
             onDismiss = { movingTag = null },
+        )
+    }
+
+    // Per-item action sheet (long-press). Available in every view mode — grid, masonry, headlines,
+    // and list — so filing, tagging and triage never depend on which layout is showing.
+    actionRow?.let { row ->
+        ItemActionSheet(
+            row = row,
+            onMarkRead = { read -> viewModel.markRead(row.id, read) },
+            onToggleStar = { starred -> viewModel.toggleStar(row.id, starred) },
+            onToggleSave = { save -> viewModel.toggleSave(row.id, save) },
+            onArchive = { viewModel.archive(row.id) },
+            onOpenOriginal = {
+                runCatching {
+                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(row.url)))
+                }
+            },
+            onDismiss = { actionRow = null },
+            onSaveOffline = { viewModel.saveOffline(row.id) },
+            onDelete = { viewModel.delete(row.id) },
+            onSelect = { viewModel.toggleSelect(row.id) },
+            onTags = { tagsForRow = row },
+            onManageCollections = { collectionsForRow = row },
+        )
+    }
+
+    collectionsForRow?.let { row ->
+        val membership by viewModel.collectionsForItem(row.id).collectAsStateWithLifecycle(emptyList())
+        CollectionMembershipSheet(
+            collections = collections,
+            membership = membership.toSet(),
+            onToggle = { collectionId, inIt -> viewModel.setItemInCollection(row.id, collectionId, inIt) },
+            onCreate = { name -> viewModel.createCollection(name) },
+            onDismiss = { collectionsForRow = null },
+        )
+    }
+
+    tagsForRow?.let { row ->
+        val current by viewModel.tagsForItem(row.id).collectAsStateWithLifecycle(emptyList())
+        TagEditorSheet(
+            current = current,
+            all = tags,
+            onAdd = { name -> viewModel.addTagToItem(row.id, name) },
+            onRemove = { tagId -> viewModel.removeTagFromItem(row.id, tagId) },
+            onDismiss = { tagsForRow = null },
         )
     }
 }
@@ -596,7 +651,64 @@ private fun LibraryCoverCard(row: ItemListRow, fixedRatio: Boolean, selected: Bo
                 Spacer(Modifier.height(4.dp))
                 Text(row.excerpt, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
+            LibraryRowChips(row, Modifier.padding(top = 6.dp))
         }
+    }
+}
+
+/**
+ * Compact organizational chips for a library row: the collections it's filed in (count) and its
+ * first tags, so the card shows how it's organized at a glance (Raindrop/Inoreader style). Both
+ * values ride along the [ItemListRow] projection, so this adds no query. Renders nothing when the
+ * item has neither.
+ */
+@Composable
+private fun LibraryRowChips(row: ItemListRow, modifier: Modifier = Modifier) {
+    val tags = remember(row.tagNames) {
+        row.tagNames?.split('\u001f')?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
+    }
+    if (row.collectionCount <= 0 && tags.isEmpty()) return
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier = modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (row.collectionCount > 0) {
+            RowChip(
+                text = row.collectionCount.toString(),
+                icon = Icons.Outlined.FolderOpen,
+                container = scheme.secondaryContainer,
+                content = scheme.onSecondaryContainer,
+            )
+        }
+        // Cap at two tag chips + an overflow count so a heavily-tagged row never overruns the card.
+        tags.take(2).forEach { name ->
+            RowChip(text = "#${name.substringAfterLast('/')}", container = scheme.surfaceContainerHighest, content = scheme.onSurfaceVariant)
+        }
+        if (tags.size > 2) {
+            RowChip(text = "+${tags.size - 2}", container = scheme.surfaceContainerHighest, content = scheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun RowChip(
+    text: String,
+    container: androidx.compose.ui.graphics.Color,
+    content: androidx.compose.ui.graphics.Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(container)
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(11.dp))
+        Text(text, style = MaterialTheme.typography.labelSmall, color = content, maxLines = 1, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -667,6 +779,7 @@ private fun HeadlineRow(row: ItemListRow, selected: Boolean, onClick: () -> Unit
     ) {
         Text(row.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium, color = scheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(row.sourceTitle ?: row.siteName ?: "", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1)
+        LibraryRowChips(row, Modifier.padding(top = 5.dp))
     }
 }
 

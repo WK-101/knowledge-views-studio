@@ -70,6 +70,14 @@ class ReadLaterViewModel @Inject constructor(
     fun setUnreadOnly(v: Boolean) { _unreadOnly.value = v }
     fun setOfflineOnly(v: Boolean) { _offlineOnly.value = v }
 
+    /** View mode persisted to DataStore so the chosen layout survives an app restart. */
+    val viewMode: StateFlow<com.cairn.reader.data.prefs.ListViewMode> =
+        preferencesRepository.preferences
+            .map { it.readLaterViewMode }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), com.cairn.reader.data.prefs.ListViewMode.CARD)
+    fun setViewMode(mode: com.cairn.reader.data.prefs.ListViewMode) =
+        viewModelScope.launch { preferencesRepository.setReadLaterViewMode(mode) }
+
     /** The distinct item types present, for the type-filter chips. */
     val availableTypes: StateFlow<List<String>> =
         raw.stateInTypes()

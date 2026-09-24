@@ -310,6 +310,15 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    // -- Per-item tags & collections (long-press action sheet) -----------------
+    /** Collection ids the item currently belongs to, observed live for the membership sheet. */
+    fun collectionsForItem(itemId: String) = collectionRepository.collectionsFor(itemId)
+    fun setItemInCollection(itemId: String, collectionId: String, inIt: Boolean) =
+        viewModelScope.launch { collectionRepository.setInCollection(itemId, collectionId, inIt) }
+    fun tagsForItem(itemId: String) = tagRepository.tagsForItem(itemId)
+    fun addTagToItem(itemId: String, name: String) = viewModelScope.launch { tagRepository.addToItem(itemId, name) }
+    fun removeTagFromItem(itemId: String, tagId: String) = viewModelScope.launch { tagRepository.removeFromItem(itemId, tagId) }
+
     // -- Bulk selection --------------------------------------------------------
 
     fun toggleSelect(id: String) = picks.toggle(id)

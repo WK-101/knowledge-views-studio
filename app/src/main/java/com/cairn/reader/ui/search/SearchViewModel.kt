@@ -125,7 +125,17 @@ class SearchViewModel @Inject constructor(
     private val _webBusy = MutableStateFlow(false)
     val webBusy: StateFlow<Boolean> = _webBusy.asStateFlow()
 
-    fun setQuery(value: String) { _query.value = value; _web.value = emptyList() }
+    // Distinguish the three states the UI has to tell apart: never searched (show the prompt), searched
+    // and got nothing (show "no results"), and searched but the network failed (show an error).
+    private val _webSearched = MutableStateFlow(false)
+    val webSearched: StateFlow<Boolean> = _webSearched.asStateFlow()
+    private val _webError = MutableStateFlow(false)
+    val webError: StateFlow<Boolean> = _webError.asStateFlow()
+
+    fun setQuery(value: String) {
+        _query.value = value
+        _web.value = emptyList(); _webSearched.value = false; _webError.value = false
+    }
     fun setState(s: SearchState) { _state.value = s }
     fun setSince(s: SearchSince) { _since.value = s }
     fun setType(t: String?) { _type.value = t }
@@ -135,13 +145,18 @@ class SearchViewModel @Inject constructor(
     fun searchWeb() = viewModelScope.launch {
         val q = _query.value.trim()
         if (q.length < 2) return@launch
-        _webBusy.value = true
-        val hits = feedRepository.webSearch(q).mapNotNull { p ->
-            val url = p.link ?: return@mapNotNull null
-            WebHit(p.title ?: url, url, hostOf(url), p.publishedAt)
-        }
-        _web.value = hits
+        _webBusy.value = true; _webError.value = false
+        com.cairn.reader.util.coRunCatching {
+            feedRepository.webSearch(q).mapNotNull { p ->
+                val url = p.link ?: return@mapNotNull null
+                WebHit(p.title ?: url, url, hostOf(url), p.publishedAt)
+            }
+        }.fold(
+            onSuccess = { _web.value = it },
+            onFailure = { _web.value = emptyList(); _webError.value = true },
+        )
         _webBusy.value = false
+        _webSearched.value = true
     }
 
     fun saveWebHit(url: String) = viewModelScope.launch { feedRepository.saveUrl(url) }
@@ -184,19 +199,29 @@ class SearchViewModel @Inject constructor(
 
     private val _archiveBusy = MutableStateFlow(false)
     val archiveBusy: StateFlow<Boolean> = _archiveBusy.asStateFlow()
+    private val _archiveSearched = MutableStateFlow(false)
+    val archiveSearched: StateFlow<Boolean> = _archiveSearched.asStateFlow()
+    private val _archiveError = MutableStateFlow(false)
+    val archiveError: StateFlow<Boolean> = _archiveError.asStateFlow()
 
     fun searchArchive(site: ArchiveSite) = viewModelScope.launch {
         val q = _query.value.trim()
         if (q.length < 2) return@launch
-        _archiveBusy.value = true
-        _archive.value = feedRepository.searchArchive(site.siteUrl, q).mapNotNull { p ->
-            val url = p.link ?: return@mapNotNull null
-            WebHit(p.title ?: url, url, hostOf(url), p.publishedAt)
-        }
+        _archiveBusy.value = true; _archiveError.value = false
+        com.cairn.reader.util.coRunCatching {
+            feedRepository.searchArchive(site.siteUrl, q).mapNotNull { p ->
+                val url = p.link ?: return@mapNotNull null
+                WebHit(p.title ?: url, url, hostOf(url), p.publishedAt)
+            }
+        }.fold(
+            onSuccess = { _archive.value = it },
+            onFailure = { _archive.value = emptyList(); _archiveError.value = true },
+        )
         _archiveBusy.value = false
+        _archiveSearched.value = true
     }
 
-    fun clearArchive() { _archive.value = emptyList() }
+    fun clearArchive() { _archive.value = emptyList(); _archiveSearched.value = false; _archiveError.value = false }
 
     fun toggleSave(id: String, save: Boolean) = viewModelScope.launch {
         itemRepository.setReadLater(id, save)

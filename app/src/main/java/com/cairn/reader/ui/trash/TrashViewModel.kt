@@ -85,6 +85,14 @@ class TrashViewModel @Inject constructor(
         _readState.value = TrashReadState.ANY; _offlineOnly.value = false; _starredOnly.value = false
     }
 
+    /** View mode persisted to DataStore so the chosen layout survives an app restart. */
+    val viewMode: StateFlow<com.cairn.reader.data.prefs.ListViewMode> =
+        preferencesRepository.preferences
+            .map { it.trashViewMode }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), com.cairn.reader.data.prefs.ListViewMode.CARD)
+    fun setViewMode(mode: com.cairn.reader.data.prefs.ListViewMode) =
+        viewModelScope.launch { preferencesRepository.setTrashViewMode(mode) }
+
     /** The distinct item types present in the Trash, for the type-filter chips. */
     val availableTypes: StateFlow<List<String>> =
         raw.map { list -> list.map { it.type }.distinct().sorted() }

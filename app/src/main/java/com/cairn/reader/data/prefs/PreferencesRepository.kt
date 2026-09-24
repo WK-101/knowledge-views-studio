@@ -75,6 +75,11 @@ data class AppPreferences(
     /** Pure-black backgrounds in dark mode (AMOLED). */
     val trueBlack: Boolean = false,
     val listViewMode: ListViewMode = ListViewMode.CARD,
+    // Read Later and Trash each keep their own persisted view mode (they're distinct surfaces from
+    // the Inbox, so they don't ride the global listViewMode) — otherwise the chosen layout reset to
+    // CARD on every app launch.
+    val readLaterViewMode: ListViewMode = ListViewMode.CARD,
+    val trashViewMode: ListViewMode = ListViewMode.CARD,
     val libraryViewMode: LibraryViewMode = LibraryViewMode.GRID,
     val readerFontScale: Float = 1.0f,
     val readerTheme: ReaderTheme = ReaderTheme.DEFAULT,
@@ -262,6 +267,8 @@ class PreferencesRepository @Inject constructor(
         val APP_SEED_COLOR = intPreferencesKey("app_seed_color")
         val TRUE_BLACK = booleanPreferencesKey("true_black")
         val LIST_VIEW = stringPreferencesKey("list_view_mode")
+        val READ_LATER_VIEW = stringPreferencesKey("read_later_view_mode")
+        val TRASH_VIEW = stringPreferencesKey("trash_view_mode")
         val LIBRARY_VIEW = stringPreferencesKey("library_view_mode")
         val FONT_SCALE = floatPreferencesKey("reader_font_scale")
         val READER_THEME = stringPreferencesKey("reader_theme")
@@ -361,6 +368,8 @@ class PreferencesRepository @Inject constructor(
             appSeedColor = p[Keys.APP_SEED_COLOR] ?: 0,
             trueBlack = p[Keys.TRUE_BLACK] ?: false,
             listViewMode = p[Keys.LIST_VIEW]?.let { runCatching { ListViewMode.valueOf(it) }.getOrNull() } ?: ListViewMode.CARD,
+            readLaterViewMode = p[Keys.READ_LATER_VIEW]?.let { runCatching { ListViewMode.valueOf(it) }.getOrNull() } ?: ListViewMode.CARD,
+            trashViewMode = p[Keys.TRASH_VIEW]?.let { runCatching { ListViewMode.valueOf(it) }.getOrNull() } ?: ListViewMode.CARD,
             libraryViewMode = p[Keys.LIBRARY_VIEW]?.let { runCatching { LibraryViewMode.valueOf(it) }.getOrNull() } ?: LibraryViewMode.GRID,
             readerFontScale = p[Keys.FONT_SCALE] ?: 1.0f,
             readerTheme = p[Keys.READER_THEME]?.let { runCatching { ReaderTheme.valueOf(it) }.getOrNull() } ?: ReaderTheme.DEFAULT,
@@ -468,6 +477,8 @@ class PreferencesRepository @Inject constructor(
     suspend fun setAppSeedColor(argb: Int) = context.dataStore.edit { it[Keys.APP_SEED_COLOR] = argb }
     suspend fun setTrueBlack(enabled: Boolean) = context.dataStore.edit { it[Keys.TRUE_BLACK] = enabled }
     suspend fun setListViewMode(mode: ListViewMode) = context.dataStore.edit { it[Keys.LIST_VIEW] = mode.name }
+    suspend fun setReadLaterViewMode(mode: ListViewMode) = context.dataStore.edit { it[Keys.READ_LATER_VIEW] = mode.name }
+    suspend fun setTrashViewMode(mode: ListViewMode) = context.dataStore.edit { it[Keys.TRASH_VIEW] = mode.name }
     suspend fun setLibraryViewMode(mode: LibraryViewMode) = context.dataStore.edit { it[Keys.LIBRARY_VIEW] = mode.name }
     // Match the range the UI actually offers: size chips go up to 2.0× ("Huge") and pinch-zoom to
     // 2.6×. The old 1.8× persist cap silently snapped both back, so "Huge" never stuck.
@@ -700,6 +711,8 @@ class PreferencesRepository @Inject constructor(
             put("appSeedColor", p.appSeedColor)
             put("trueBlack", p.trueBlack)
             put("listViewMode", p.listViewMode.name)
+            put("readLaterViewMode", p.readLaterViewMode.name)
+            put("trashViewMode", p.trashViewMode.name)
             put("libraryViewMode", p.libraryViewMode.name)
             put("readerFontScale", p.readerFontScale.toDouble())
             put("readerTheme", p.readerTheme.name)
@@ -782,6 +795,8 @@ class PreferencesRepository @Inject constructor(
             if (json.has("appSeedColor")) e[Keys.APP_SEED_COLOR] = json.getInt("appSeedColor")
             if (json.has("trueBlack")) e[Keys.TRUE_BLACK] = json.getBoolean("trueBlack")
             if (json.has("listViewMode")) e[Keys.LIST_VIEW] = json.getString("listViewMode")
+            if (json.has("readLaterViewMode")) e[Keys.READ_LATER_VIEW] = json.getString("readLaterViewMode")
+            if (json.has("trashViewMode")) e[Keys.TRASH_VIEW] = json.getString("trashViewMode")
             if (json.has("libraryViewMode")) e[Keys.LIBRARY_VIEW] = json.getString("libraryViewMode")
             if (json.has("readerFontScale")) e[Keys.FONT_SCALE] = json.getDouble("readerFontScale").toFloat().coerceIn(0.7f, 2.6f)
             if (json.has("readerTheme")) e[Keys.READER_THEME] = json.getString("readerTheme")

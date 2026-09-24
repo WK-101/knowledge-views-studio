@@ -21,7 +21,9 @@ private const val ITEM_LIST_COLUMNS = """
            i.extractStatus AS extractStatus, i.type AS type, i.cacheStatus AS cacheStatus,
            i.simHash AS simHash,
            COALESCE(s.isRead, 0) AS isRead, COALESCE(s.isStarred, 0) AS isStarred,
-           COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived
+           COALESCE(s.isReadLater, 0) AS isReadLater, COALESCE(s.isArchived, 0) AS isArchived,
+           (SELECT GROUP_CONCAT(t.name, char(31)) FROM item_tags it JOIN tags t ON t.id = it.tagId WHERE it.itemId = i.id) AS tagNames,
+           (SELECT COUNT(*) FROM item_collections ic WHERE ic.itemId = i.id) AS collectionCount
     """
 
 /** The [ITEM_LIST_COLUMNS] projection over the standard item + state + source join. Queries that
@@ -67,6 +69,12 @@ data class ItemListRow(
     val isStarred: Boolean,
     val isReadLater: Boolean,
     val isArchived: Boolean,
+    // Organizational chips for list rows: the item's tag names (0x1F-joined) and how many
+    // collections it belongs to. Both come from cheap correlated index seeks on the join tables,
+    // so they ride along the shared projection without a second query. Nullable/0 defaults keep
+    // any projection that omits them valid.
+    val tagNames: String? = null,
+    val collectionCount: Int = 0,
 )
 
 /** Minimal text projection for on-device semantic similarity and topic clustering. */

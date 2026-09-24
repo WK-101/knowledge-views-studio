@@ -28,6 +28,8 @@ import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkRemove
 import androidx.compose.material.icons.outlined.Checklist
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
@@ -285,6 +287,8 @@ fun ItemActionSheet(
     onMarkBelow: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
     onSelect: (() -> Unit)? = null,
+    onTags: (() -> Unit)? = null,
+    onManageCollections: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scheme = MaterialTheme.colorScheme
@@ -305,6 +309,8 @@ fun ItemActionSheet(
             if (row.isReadLater) "Unsave" else "Save",
         ) { onToggleSave(!row.isReadLater); onDismiss() })
         add(SheetAction(Icons.Filled.Archive, "Archive") { onArchive(); onDismiss() })
+        if (onManageCollections != null) add(SheetAction(Icons.Outlined.FolderOpen, "Collections") { onManageCollections(); onDismiss() })
+        if (onTags != null) add(SheetAction(Icons.Outlined.Label, "Tags") { onTags(); onDismiss() })
         if (onSaveOffline != null && row.type != ItemType.PDF.name) {
             val permanent = CacheStatus.isPermanent(row.cacheStatus)
             add(SheetAction(
