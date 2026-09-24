@@ -780,4 +780,5 @@
         <item quantity="one">%d سال پہلے</item>
         <item quantity="other">%d سال پہلے</item>
     </plurals>
+    <string name="save_contact_details">رابطے کی تفصیلات محفوظ کریں</string>
 </resources>

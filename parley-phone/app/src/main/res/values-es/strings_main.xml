@@ -827,4 +827,5 @@
         <item quantity="many">hace %d años</item>
         <item quantity="other">hace %d años</item>
     </plurals>
+    <string name="save_contact_details">Guardar datos del contacto</string>
 </resources>

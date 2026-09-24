@@ -1,5 +1,6 @@
 package app.parley.ui
 
+import app.parley.R
 import android.net.Uri
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -271,7 +272,7 @@ fun ParleyRoot(vm: AppViewModel) {
     insertOrEdit?.let { p ->
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { insertOrEdit = null },
-            title = { androidx.compose.material3.Text("Save contact details") },
+            title = { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.save_contact_details)) },
             text = {
                 androidx.compose.material3.Text(
                     listOfNotNull(p.composedName.ifBlank { null }, p.phones.firstOrNull()?.value, p.emails.firstOrNull()?.value).joinToString(" · "),
@@ -282,14 +283,14 @@ fun ParleyRoot(vm: AppViewModel) {
                     vm.pendingPrefill = p
                     insertOrEdit = null
                     nav.navigate(Routes.edit(prefill = true))
-                }) { androidx.compose.material3.Text("Create new") }
+                }) { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.keypad_create_contact)) }
             },
             dismissButton = {
                 androidx.compose.material3.TextButton({
                     vm.pendingPrefill = p
                     insertOrEdit = null
                     nav.navigate(Routes.pick(Routes.PREFILL_MARK))
-                }) { androidx.compose.material3.Text("Add to existing") }
+                }) { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.keypad_add_to_existing)) }
             },
         )
     }

@@ -780,4 +780,5 @@
         <item quantity="one">vor %d Jahr</item>
         <item quantity="other">vor %d Jahren</item>
     </plurals>
+    <string name="save_contact_details">Kontaktdaten speichern</string>
 </resources>

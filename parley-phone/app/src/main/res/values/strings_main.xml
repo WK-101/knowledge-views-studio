@@ -865,4 +865,5 @@
         <item quantity="one">%d year ago</item>
         <item quantity="other">%d years ago</item>
     </plurals>
+    <string name="save_contact_details">Save contact details</string>
 </resources>

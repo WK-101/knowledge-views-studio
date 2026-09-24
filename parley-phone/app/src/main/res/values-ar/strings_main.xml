@@ -968,4 +968,5 @@
         <item quantity="many">قبل %d سنة</item>
         <item quantity="other">قبل %d سنة</item>
     </plurals>
+    <string name="save_contact_details">حفظ بيانات جهة الاتصال</string>
 </resources>

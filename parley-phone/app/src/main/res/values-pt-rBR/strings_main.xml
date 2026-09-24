@@ -827,4 +827,5 @@
         <item quantity="many">há %d anos</item>
         <item quantity="other">há %d anos</item>
     </plurals>
+    <string name="save_contact_details">Salvar dados do contato</string>
 </resources>

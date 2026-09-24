@@ -780,4 +780,5 @@
         <item quantity="one">%d साल पहले</item>
         <item quantity="other">%d साल पहले</item>
     </plurals>
+    <string name="save_contact_details">संपर्क विवरण सहेजें</string>
 </resources>
