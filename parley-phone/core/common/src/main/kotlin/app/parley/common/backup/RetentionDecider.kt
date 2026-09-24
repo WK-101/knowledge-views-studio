@@ -1,5 +1,6 @@
 package app.parley.common.backup
 
+import java.util.Locale
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -34,7 +35,7 @@ data class RetentionDecision(val keep: List<BackupFile>, val delete: List<Backup
 object RetentionDecider {
     /** `parley-backup-yyyyMMdd-HHmmss.parley` */
     val NAME_PATTERN = Regex("parley-backup-(\\d{8}-\\d{6})\\.parley")
-    private val STAMP: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
+    private val STAMP: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss", Locale.ROOT)
 
     /** Mass-deletion guard thresholds: pause if more than 20 % or more than 50 contacts disappeared. */
     const val MAX_DROP_FRACTION = 0.20

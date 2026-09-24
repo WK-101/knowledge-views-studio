@@ -1,5 +1,6 @@
 package app.parley.common.vcard
 
+import java.util.Locale
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.DataRow
@@ -794,7 +795,7 @@ object VCardMapper {
         p.partialDate?.let { pd ->
             val m = pd.month
             val d = pd.date
-            if (m != null && d != null) return normalizeDate(if (pd.year != null) "%04d-%02d-%02d".format(pd.year, m, d) else "--%02d-%02d".format(m, d))
+            if (m != null && d != null) return normalizeDate(if (pd.year != null) "%04d-%02d-%02d".format(Locale.ROOT, pd.year, m, d) else "--%02d-%02d".format(Locale.ROOT, m, d))
             return pd.toISO8601(true)
         }
         return p.text?.takeIf { it.isNotBlank() }?.let(::normalizeDate)
@@ -806,7 +807,7 @@ object VCardMapper {
             else -> t
         }
         if (!local.isSupported(ChronoField.YEAR) || !local.isSupported(ChronoField.MONTH_OF_YEAR) || !local.isSupported(ChronoField.DAY_OF_MONTH)) return null
-        return normalizeDate("%04d-%02d-%02d".format(local.get(ChronoField.YEAR), local.get(ChronoField.MONTH_OF_YEAR), local.get(ChronoField.DAY_OF_MONTH)))
+        return normalizeDate("%04d-%02d-%02d".format(Locale.ROOT, local.get(ChronoField.YEAR), local.get(ChronoField.MONTH_OF_YEAR), local.get(ChronoField.DAY_OF_MONTH)))
     }
 
     private fun importImpp(p: Impp, emit: (String, MutableMap<String, String>, VCardProperty?, TypeSpec?, ByteArray?) -> Unit): Unit? {

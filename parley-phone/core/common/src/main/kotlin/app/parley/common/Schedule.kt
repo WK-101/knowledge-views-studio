@@ -48,7 +48,7 @@ data class Schedule(val days: Int = ALL_DAYS, val startMinute: Int = 0, val endM
         const val WEEKEND = 0b1100000
         private val SHORT = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
-        fun hm(minutes: Int): String = "%02d:%02d".format((minutes / 60) % 24, minutes % 60)
+        fun hm(minutes: Int): String = "%02d:%02d".format((minutes / 60) % 24, minutes % 60) // locale-ok: shown to the user
 
         fun decode(s: String?): Schedule? {
             if (s.isNullOrBlank()) return null

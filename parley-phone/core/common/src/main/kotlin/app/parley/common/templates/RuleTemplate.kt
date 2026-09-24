@@ -105,7 +105,7 @@ data class TemplateSettings(
         },
     )
 
-    private fun fmt(m: Int) = "%02d:%02d".format(m / 60 % 24, m % 60)
+    private fun fmt(m: Int) = "%02d:%02d".format(m / 60 % 24, m % 60) // locale-ok: shown to the user
 }
 
 private fun BlockAction.label() = if (this == BlockAction.SILENCE) "silenced" else "rejected"
@@ -242,7 +242,7 @@ object RuleTemplates {
                 RuleType.WILDCARD -> "numbers matching ${r.pattern}"
                 else -> r.title.replaceFirstChar { it.lowercase() }
             }
-            out += "$verb $what" + (r.schedule?.let { s -> " (%02d:%02d–%02d:%02d)".format(s.startMinute / 60, s.startMinute % 60, s.endMinute / 60 % 24, s.endMinute % 60) } ?: "") +
+            out += "$verb $what" + (r.schedule?.let { s -> " (%02d:%02d–%02d:%02d)".format(s.startMinute / 60, s.startMinute % 60, s.endMinute / 60 % 24, s.endMinute % 60) } ?: "") + // locale-ok: shown to the user
                 (r.note?.let { " · $it" } ?: "")
         }
         t.warnList?.let { l ->

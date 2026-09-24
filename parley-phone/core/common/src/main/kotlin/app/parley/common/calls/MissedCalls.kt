@@ -1,5 +1,7 @@
 package app.parley.common.calls
 
+import java.util.Locale
+
 /** One unseen missed call from the call log. [key] identifies the caller's line (see PhoneNumbers.lineKey). */
 data class MissedCall(val number: String, val date: Long, val accountId: String?, val hidden: Boolean, val key: String)
 
@@ -53,11 +55,11 @@ object VoicemailFiles {
 
     /** "voicemail-2026-09-24-1432.amr" from a local date-time. */
     fun shareName(year: Int, month: Int, day: Int, hour: Int, minute: Int, mime: String?): String =
-        "voicemail-%04d-%02d-%02d-%02d%02d.%s".format(year, month, day, hour, minute, extensionFor(mime))
+        "voicemail-%04d-%02d-%02d-%02d%02d.%s".format(Locale.ROOT, year, month, day, hour, minute, extensionFor(mime))
 
     /** "0:07", "12:45". */
     fun clock(ms: Long): String {
         val s = (ms.coerceAtLeast(0) + 500) / 1000
-        return "%d:%02d".format(s / 60, s % 60)
+        return "%d:%02d".format(s / 60, s % 60) // locale-ok: shown to the user
     }
 }

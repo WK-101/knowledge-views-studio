@@ -1,5 +1,6 @@
 package app.parley.data.people
 
+import java.util.Locale
 import android.content.Context
 import android.content.pm.PackageManager
 import java.security.MessageDigest
@@ -89,7 +90,7 @@ class PrivateNameAccess(context: Context) {
         val info = pm.getPackageInfo(pkg, PackageManager.GET_SIGNING_CERTIFICATES).signingInfo ?: return null
         val signers = if (info.hasMultipleSigners()) info.apkContentsSigners else info.signingCertificateHistory
         val cert = signers?.lastOrNull() ?: return null
-        MessageDigest.getInstance("SHA-256").digest(cert.toByteArray()).joinToString("") { "%02x".format(it) }
+        MessageDigest.getInstance("SHA-256").digest(cert.toByteArray()).joinToString("") { "%02x".format(Locale.ROOT, it) }
     }.getOrNull()
 
     /** Whether [pkg] is (still) signed with [certHex], including after a key rotation Android vouches for. */

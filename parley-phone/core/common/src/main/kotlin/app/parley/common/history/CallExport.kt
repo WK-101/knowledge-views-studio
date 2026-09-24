@@ -1,5 +1,6 @@
 package app.parley.common.history
 
+import java.util.Locale
 import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.PhoneNumbers
@@ -76,8 +77,8 @@ object CallExport {
         val sb = StringBuilder()
         if (bom) sb.append('﻿')
         csvLine(sb, CSV_HEADER)
-        val date = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-        val time = DateTimeFormatter.ofPattern("HH:mm:ss")
+        val date = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ROOT)
+        val time = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.ROOT)
         for (r in rows) {
             val t = Instant.ofEpochMilli(r.date).atZone(zone)
             csvLine(
@@ -112,7 +113,7 @@ object CallExport {
 
     fun hms(sec: Long): String {
         val s = sec.coerceAtLeast(0)
-        return "%d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
+        return "%d:%02d:%02d".format(Locale.ROOT, s / 3600, (s % 3600) / 60, s % 60)
     }
 
     // ------------------------------------------------------------------ JSON
@@ -148,7 +149,7 @@ object CallExport {
         fun line(s: String) {
             sb.append(fold(s)).append("\r\n")
         }
-        val utc = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC)
+        val utc = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'", Locale.ROOT).withZone(ZoneOffset.UTC)
         line("BEGIN:VCALENDAR")
         line("VERSION:2.0")
         line("PRODID:-//Parley//Call history//EN")
@@ -233,7 +234,7 @@ object CallExport {
 
     private fun uid(r: ExportRow): String {
         val md = MessageDigest.getInstance("SHA-256").digest("${r.date}|${r.number}|${r.type}|${r.durationSec}".toByteArray())
-        return md.take(12).joinToString("") { "%02x".format(it) } + "@parley.call"
+        return md.take(12).joinToString("") { "%02x".format(Locale.ROOT, it) } + "@parley.call"
     }
 
     // ------------------------------------------------------------------ file names
@@ -260,7 +261,7 @@ object CallExport {
 
     /** "Parley calls – Anna – 2026-09-24 14-05.csv" (times use '-' so the name is valid everywhere). */
     fun fileName(subject: String?, now: Long, zone: ZoneId, format: ExportFormat): String {
-        val stamp = DateTimeFormatter.ofPattern("yyyy-MM-dd HH-mm").format(Instant.ofEpochMilli(now).atZone(zone))
+        val stamp = DateTimeFormatter.ofPattern("yyyy-MM-dd HH-mm", Locale.ROOT).format(Instant.ofEpochMilli(now).atZone(zone))
         val base = listOfNotNull("Parley calls", subject?.takeIf { it.isNotBlank() }, stamp).joinToString(" – ")
         return sanitiseFileName(base) + "." + format.extension
     }

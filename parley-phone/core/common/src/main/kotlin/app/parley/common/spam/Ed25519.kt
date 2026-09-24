@@ -1,5 +1,6 @@
 package app.parley.common.spam
 
+import java.util.Locale
 import java.math.BigInteger
 import java.security.MessageDigest
 
@@ -136,5 +137,5 @@ object Ed25519 {
 
     /** Short, readable key fingerprint for the UI: first 8 bytes of SHA-256, grouped. */
     fun fingerprint(publicKey: ByteArray): String =
-        MessageDigest.getInstance("SHA-256").digest(publicKey).take(8).joinToString("") { "%02X".format(it) }.chunked(4).joinToString(" ")
+        MessageDigest.getInstance("SHA-256").digest(publicKey).take(8).joinToString("") { "%02X".format(Locale.ROOT, it) }.chunked(4).joinToString(" ")
 }

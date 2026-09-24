@@ -101,7 +101,7 @@ object MissedCallNotifier {
             if (!caller.hidden && caller.number.isNotBlank()) app.parley.data.people.CallerCards.missedCallLine(c, caller.number, hideVault)?.let { b.setSubText(it) }
             // Only the newest caller makes a sound (or the re-alert); the others arrive quietly.
             if (i > 0) b.setSilent(true)
-            if (grouped) b.setGroup(GROUP).setSortKey("%02d".format(i))
+            if (grouped) b.setGroup(GROUP).setSortKey("%02d".format(java.util.Locale.ROOT, i))
             if (!caller.hidden && caller.number.isNotBlank()) {
                 // One-ring scams and premium lines: no one-tap call back from the notification (B10); the app asks first.
                 val risky = runCatching { c.dialGuard.check(caller.number).any { it.severe } }.getOrDefault(false)

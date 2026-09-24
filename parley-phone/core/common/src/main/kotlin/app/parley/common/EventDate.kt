@@ -1,5 +1,6 @@
 package app.parley.common
 
+import java.util.Locale
 import java.time.LocalDate
 import java.time.MonthDay
 import java.time.temporal.ChronoUnit
@@ -29,7 +30,7 @@ data class EventDate(val year: Int?, val month: Int, val day: Int) {
     }
 
     /** Storage form: "yyyy-MM-dd" or "--MM-dd". */
-    fun format(): String = if (year != null) "%04d-%02d-%02d".format(year, month, day) else "--%02d-%02d".format(month, day)
+    fun format(): String = if (year != null) "%04d-%02d-%02d".format(Locale.ROOT, year, month, day) else "--%02d-%02d".format(Locale.ROOT, month, day)
 
     companion object {
         fun parse(raw: String?): EventDate? {

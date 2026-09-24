@@ -1,5 +1,6 @@
 package app.parley.common.spam
 
+import java.util.Locale
 import app.parley.common.CountryCodes
 import app.parley.common.PhoneNumbers
 import kotlinx.serialization.Serializable
@@ -76,7 +77,7 @@ object ListPack {
 
     val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = true }
 
-    fun sha256Hex(b: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(it) }
+    fun sha256Hex(b: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(Locale.ROOT, it) }
 
     private val ID = Regex("[A-Za-z0-9._-]{1,80}")
 

@@ -1,5 +1,6 @@
 package app.parley.common.backup
 
+import java.util.Locale
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
@@ -669,7 +670,7 @@ class KeyBundle internal constructor(
     }
 
     /** Short fingerprint of the public key, e.g. to show which key a backup was made for. */
-    val keyId: String get() = BackupCrypto.sha256(pub).copyOf(8).joinToString("") { "%02x".format(it) }
+    val keyId: String get() = BackupCrypto.sha256(pub).copyOf(8).joinToString("") { "%02x".format(Locale.ROOT, it) }
 
     fun toBytes(): ByteArray {
         val bo = ByteArrayOutputStream()

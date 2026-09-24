@@ -1,5 +1,6 @@
 package app.parley.data.people
 
+import java.util.Locale
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -121,7 +122,7 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
         return java.io.ByteArrayOutputStream().also { scaled.compress(Bitmap.CompressFormat.JPEG, 82, it) }.toByteArray()
     }
 
-    private fun sha256(s: String): String = MessageDigest.getInstance("SHA-256").digest(s.toByteArray()).joinToString("") { "%02x".format(it) }
+    private fun sha256(s: String): String = MessageDigest.getInstance("SHA-256").digest(s.toByteArray()).joinToString("") { "%02x".format(Locale.ROOT, it) }
 
     companion object {
         const val MAX_SIDE = 1280

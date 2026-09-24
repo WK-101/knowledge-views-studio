@@ -50,6 +50,38 @@ val checkHardcodedText by tasks.registering {
     }
 }
 
+/*
+ * Stored, synced, exported and parsed values must not follow the app language: with Arabic (or Hindi/Urdu on some
+ * devices) `"%d".format(x)` writes non-ASCII digits. This task lists `.format(` / `String.format(` calls with a
+ * `%` pattern but no Locale in the data modules (core:common, core:data) as warnings. Display-only lines can carry
+ * `// locale-ok`.
+ */
+val checkLocaleFormat by tasks.registering {
+    group = "verification"
+    description = "Lists locale-dependent String.format calls in the data modules."
+    val sources = files("core/common/src/main/kotlin", "core/data/src/main/kotlin")
+    inputs.files(sources).withPropertyName("sources")
+    val root = layout.projectDirectory.asFile
+    doLast {
+        val call = Regex(""""[^"]*%[^"]*"\s*\.format\(|String\.format\(""")
+        val hits = sources.asFileTree.matching { include("**/*.kt") }.files.sorted().flatMap { f ->
+            f.readLines().mapIndexedNotNull { i, line ->
+                val code = line.substringBefore("//").trim()
+                if (code.startsWith("*") || line.contains("locale-ok") || !call.containsMatchIn(code) || code.contains("Locale.")) null
+                else "${f.relativeTo(root)}:${i + 1}: ${code.take(140)}"
+            }
+        }
+        if (hits.isEmpty()) {
+            logger.lifecycle("checkLocaleFormat: no locale-dependent formatting found")
+        } else {
+            hits.forEach { logger.warn("warning: locale-dependent format: $it (use Locale.ROOT)") }
+        }
+    }
+}
+
 subprojects {
-    tasks.matching { it.name.startsWith("lint") && it.name != "lintFix" }.configureEach { dependsOn(rootProject.tasks.named("checkHardcodedText")) }
+    tasks.matching { it.name.startsWith("lint") && it.name != "lintFix" }.configureEach {
+        dependsOn(rootProject.tasks.named("checkHardcodedText"))
+        dependsOn(rootProject.tasks.named("checkLocaleFormat"))
+    }
 }

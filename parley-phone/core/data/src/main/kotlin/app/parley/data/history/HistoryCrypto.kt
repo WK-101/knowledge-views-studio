@@ -1,5 +1,6 @@
 package app.parley.data.history
 
+import java.util.Locale
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
@@ -87,7 +88,7 @@ internal class HistoryCrypto(context: Context) {
     fun mac(value: String): String {
         val m = Mac.getInstance("HmacSHA256")
         m.init(keys().second)
-        return m.doFinal(value.toByteArray(Charsets.UTF_8)).take(16).joinToString("") { "%02x".format(it) }
+        return m.doFinal(value.toByteArray(Charsets.UTF_8)).take(16).joinToString("") { "%02x".format(Locale.ROOT, it) }
     }
 
     private fun keyStore(): KeyStore = KeyStore.getInstance(STORE).apply { load(null) }
