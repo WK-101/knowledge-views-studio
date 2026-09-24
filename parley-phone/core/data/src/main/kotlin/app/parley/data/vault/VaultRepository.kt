@@ -2,11 +2,14 @@ package app.parley.data.vault
 
 import android.content.Context
 import android.provider.CallLog
-import app.parley.common.PhoneNumbers
+import app.parley.common.NotificationPrivacy
+import app.parley.common.VaultNumberKeys
+import androidx.room.withTransaction
 import app.parley.data.CallerInfo
 import app.parley.data.ContactDetails
 import app.parley.data.ContactDetailsJson
 import app.parley.data.DataItem
+import app.parley.data.PhoneEnv
 import app.parley.data.db.AppDatabase
 import app.parley.data.db.PrivateCallEntity
 import app.parley.data.db.VaultContactEntity
@@ -18,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -28,6 +32,10 @@ data class VaultSummary(
     val name: String,
     val numbers: List<String>,
     val expiresAt: Long?,
+    /** Last saved (from the caller-ID copy; the creation time for entries saved before this was recorded). */
+    val updatedAt: Long = 0,
+    /** A temporary private contact whose call history goes with it when it expires (F5). */
+    val purgeHistory: Boolean = false,
 )
 
 data class PrivateCall(val id: Long, val vaultId: Long, val number: String, val name: String, val date: Long, val durationSec: Long, val type: Int)
@@ -36,7 +44,7 @@ data class PrivateCall(val id: Long, val vaultId: Long, val number: String, val 
  * Private contacts stored only inside Parley (encrypted), invisible to every other app.
  * Caller ID uses an HMAC index + the caller-ID key, so it works even while the phone is locked.
  */
-class VaultRepository(private val context: Context, db: AppDatabase, scope: CoroutineScope) {
+class VaultRepository(private val context: Context, private val db: AppDatabase, scope: CoroutineScope) {
     private val dao = db.vaultDao()
 
     val contacts: StateFlow<List<VaultSummary>> = dao.contacts()
@@ -59,7 +67,10 @@ class VaultRepository(private val context: Context, db: AppDatabase, scope: Coro
     private fun summarize(e: VaultContactEntity): VaultSummary? = runCatching {
         val o = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
         val nums = o.optJSONArray("numbers") ?: JSONArray()
-        VaultSummary(e.id, o.optString("name"), (0 until nums.length()).map { nums.getString(it) }, e.expiresAt)
+        VaultSummary(
+            e.id, o.optString("name"), (0 until nums.length()).map { nums.getString(it) }, e.expiresAt,
+            updatedAt = o.optLong("u", e.createdAt), purgeHistory = o.optBoolean("purge", false),
+        )
     }.getOrNull()
 
     /** Full details; throws [VaultCrypto.LockedException] if the user must unlock first. */
@@ -82,12 +93,20 @@ class VaultRepository(private val context: Context, db: AppDatabase, scope: Coro
         }
     }
 
-    suspend fun save(id: Long?, d: ContactDetails, expiresAt: Long? = null): Long = withContext(Dispatchers.IO) {
+    /**
+     * Saves a private contact. [expiresAt] makes it temporary (null keeps the current expiry); [purgeHistory] (null
+     * keeps the current choice) removes its call history when it expires.
+     */
+    suspend fun save(id: Long?, d: ContactDetails, expiresAt: Long? = null, purgeHistory: Boolean? = null): Long = withContext(Dispatchers.IO) {
         val name = d.composedName.ifBlank { d.company.ifBlank { d.phones.firstOrNull()?.value ?: "Private contact" } }
         val numbers = d.phones.map { it.value }.filter { it.isNotBlank() }
+        val existing = id?.let { dao.get(it) }
+        val purge = purgeHistory ?: existing?.let { summarize(it)?.purgeHistory } ?: false
         val caller = JSONObject().put("name", name).put("numbers", JSONArray(numbers))
             .put("labels", JSONArray(d.phones.filter { it.value.isNotBlank() }.map { it.type }))
-        val existing = id?.let { dao.get(it) }
+            // F15: when it was last saved, so the newest of two entries sharing a number wins.
+            .put("u", System.currentTimeMillis())
+            .apply { if (purge) put("purge", true) }
         val entity = VaultContactEntity(
             id = id ?: 0,
             callerIdBlob = VaultCrypto.sealCallerId(caller.toString().toByteArray()),
@@ -95,10 +114,51 @@ class VaultRepository(private val context: Context, db: AppDatabase, scope: Coro
             expiresAt = expiresAt ?: existing?.expiresAt,
             createdAt = existing?.createdAt ?: System.currentTimeMillis(),
         )
-        val newId = dao.upsert(entity).let { if (id != null) id else it }
-        dao.clearNumbers(newId)
-        dao.addNumbers(numbers.map { VaultNumberEntity(newId, VaultCrypto.hmac(PhoneNumbers.matchKey(it))) }.distinct())
-        newId
+        val region = region()
+        db.withTransaction {
+            val newId = dao.upsert(entity).let { if (id != null) id else it }
+            dao.clearNumbers(newId)
+            dao.addNumbers(numberRows(newId, numbers, region))
+            newId
+        }
+    }
+
+    private fun region(): String = PhoneEnv.countryIso(context)
+
+    /** F7: E.164 fingerprints (the last-digits one only for numbers without an E.164 form). */
+    private fun numberRows(id: Long, numbers: List<String>, region: String?): List<VaultNumberEntity> =
+        VaultNumberKeys.storedAll(numbers, region).map { VaultNumberEntity(id, VaultCrypto.hmac(it)) }
+
+    /**
+     * F7 migration, once: entries saved before E.164 keys were fingerprinted by their last 9 digits only. The
+     * numbers are in the caller-ID copy, which opens without unlocking, so every entry is re-fingerprinted in place
+     * (no schema change: same table, new rows). An entry that can't be read keeps its old rows, so it still works
+     * as before. Until this finishes, lookups still find the old rows through the last-digits fallback.
+     */
+    private suspend fun migrateNumberKeys() = withContext(Dispatchers.IO) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (prefs.getInt(K_KEYS_VERSION, 1) >= KEYS_VERSION) return@withContext
+        val region = region()
+        var failed = false
+        for (e in dao.all()) {
+            val s = summarize(e)
+            if (s == null) { failed = true; continue }
+            val rows = runCatching { numberRows(e.id, s.numbers, region) }.getOrElse { failed = true; null } ?: continue
+            db.withTransaction {
+                dao.clearNumbers(e.id)
+                dao.addNumbers(rows)
+            }
+        }
+        // An unreadable entry (caller-ID key lost) can't get better by retrying; a Keystore hiccup might.
+        if (!failed || prefs.getInt(K_KEYS_ATTEMPTS, 0) >= 2) {
+            prefs.edit().putInt(K_KEYS_VERSION, KEYS_VERSION).apply()
+        } else {
+            prefs.edit().putInt(K_KEYS_ATTEMPTS, prefs.getInt(K_KEYS_ATTEMPTS, 0) + 1).apply()
+        }
+    }
+
+    init {
+        scope.launch { runCatching { migrateNumberKeys() } }
     }
 
     suspend fun setExpiry(id: Long, expiresAt: Long?) = withContext(Dispatchers.IO) {
@@ -111,12 +171,38 @@ class VaultRepository(private val context: Context, db: AppDatabase, scope: Coro
         dao.deletePrivateCalls(id)
     }
 
-    /** Caller ID for incoming calls; works without user authentication. */
-    suspend fun lookup(number: String): Pair<Long, CallerInfo>? = withContext(Dispatchers.IO) {
+    /**
+     * Caller ID for incoming calls; works without user authentication.
+     *
+     * F7: matched on the E.164 form, reading a national number with [countryIso] (the country of the SIM that took
+     * the call when known, else this phone's region); the last digits are only a fallback for entries stored without
+     * an E.164 form, and [exact] (the private-name provider) never uses them. F15: expired entries never match, and
+     * of several entries sharing a number the most recently updated wins.
+     */
+    suspend fun lookup(number: String, countryIso: String? = null, exact: Boolean = false): Pair<Long, CallerInfo>? = withContext(Dispatchers.IO) {
         if (number.isBlank()) return@withContext null
-        val id = dao.findByHmac(listOf(VaultCrypto.hmac(PhoneNumbers.matchKey(number)))) ?: return@withContext null
-        val s = contacts.value.firstOrNull { it.id == id } ?: dao.get(id)?.let { summarize(it) } ?: return@withContext null
-        id to CallerInfo(contactId = -id, lookupKey = null, name = s.name, photoUri = null, numberLabel = "Private", customRingtone = null, sendToVoicemail = false)
+        val now = System.currentTimeMillis()
+        for (input in VaultNumberKeys.lookup(number, countryIso ?: region(), exact)) {
+            val ids = dao.idsByHmac(listOf(VaultCrypto.hmac(input)))
+            if (ids.isEmpty()) continue
+            val candidates = ids.mapNotNull { id ->
+                val e = dao.get(id) ?: return@mapNotNull null
+                val s = summarize(e) ?: return@mapNotNull null
+                s to VaultNumberKeys.Candidate(id, s.updatedAt, e.createdAt, e.expiresAt)
+            }
+            val win = VaultNumberKeys.winner(candidates.map { it.second }, now) ?: continue
+            val s = candidates.first { it.second.id == win.id }.first
+            return@withContext win.id to CallerInfo(
+                contactId = -win.id, lookupKey = null, name = s.name, photoUri = null,
+                numberLabel = NotificationPrivacy.VAULT_LABEL, customRingtone = null, sendToVoicemail = false,
+            )
+        }
+        null
+    }
+
+    /** Expired entries with what housekeeping needs to clean up after them (F5, F13). */
+    suspend fun expiredEntries(now: Long): List<VaultSummary> = withContext(Dispatchers.IO) {
+        dao.expired(now).map { e -> summarize(e) ?: VaultSummary(e.id, "", emptyList(), e.expiresAt) }
     }
 
     /**
@@ -151,4 +237,12 @@ class VaultRepository(private val context: Context, db: AppDatabase, scope: Coro
     suspend fun deletePrivateCall(id: Long) = withContext(Dispatchers.IO) { dao.deletePrivateCall(id) }
 
     suspend fun expired(now: Long) = withContext(Dispatchers.IO) { dao.expired(now).map { it.id } }
+
+    private companion object {
+        const val PREFS = "vault"
+        const val K_KEYS_VERSION = "number_keys_version"
+        const val K_KEYS_ATTEMPTS = "number_keys_attempts"
+        /** 1: last 9 digits (before F7); 2: E.164 with the last digits only as a fallback. */
+        const val KEYS_VERSION = 2
+    }
 }

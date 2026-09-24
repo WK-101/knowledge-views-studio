@@ -1,18 +1,29 @@
 package app.parley.data.messaging
 
 import android.content.Context
+import android.util.Base64
 import androidx.core.content.edit
 import app.parley.common.KeypadLayout
+import app.parley.common.MessagedEntry
+import app.parley.common.MessagedRecord
 import app.parley.common.MessengerApp
-import app.parley.common.PhoneNumbers
+import app.parley.data.PhoneEnv
+import app.parley.data.vault.VaultCrypto
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
 
-/** "Last messaged via Signal · 2 days ago" for one number. */
-data class LastMessaged(val app: MessengerApp?, val label: String, val at: Long)
+/** "Last messaged via Signal · 2 days ago" for one number. [number] is null for entries kept from before F13. */
+data class LastMessaged(val app: MessengerApp?, val label: String, val at: Long, val number: String? = null, val key: String = "")
 
 /** Your details for "Send my details". */
 data class MyDetails(val name: String = "", val number: String = "")
@@ -24,9 +35,20 @@ data class OpenedChat(val number: String, val appLabel: String, val at: Long)
  * Keypad and messaging preferences, feature-scoped (SharedPreferences, private to Parley, never backed up to any
  * server): the keypad alphabet, the last messenger chosen, the WhatsApp/Business choice, your details for drafts,
  * and when you last messaged each number. Nothing here leaves the phone.
+ *
+ * F13: the "last messaged" record is encrypted (the vault's caller-ID key, in the Android Keystore), can be turned
+ * off ("Keep a record of numbers you message"), cleared per number or at once, never holds private (vault)
+ * numbers, follows call-history retention and goes with expired temporary contacts. [isPrivateNumber] tells vault
+ * numbers apart (checked off the main thread).
  */
-class MessagingStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("messaging", Context.MODE_PRIVATE)
+class MessagingStore(
+    context: Context,
+    private val scope: CoroutineScope,
+    private val isPrivateNumber: suspend (String) -> Boolean = { false },
+) {
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences("messaging", Context.MODE_PRIVATE)
+    private val recordLock = Mutex()
 
     private val _keypadLayout = MutableStateFlow(storedLayout())
     /** The chosen keypad alphabet, or null for "same as the phone's language". */
@@ -35,13 +57,24 @@ class MessagingStore(context: Context) {
     private val _myDetails = MutableStateFlow(MyDetails(prefs.getString(K_MY_NAME, "").orEmpty(), prefs.getString(K_MY_NUMBER, "").orEmpty()))
     val myDetails: StateFlow<MyDetails> = _myDetails.asStateFlow()
 
-    private val _lastMessaged = MutableStateFlow(loadLastMessaged())
-    /** Number match key → last message sent through Parley. */
+    private val _recordEnabled = MutableStateFlow(prefs.getBoolean(K_RECORD_ENABLED, true))
+    /** "Keep a record of numbers you message" (on by default). */
+    val recordEnabled: StateFlow<Boolean> = _recordEnabled.asStateFlow()
+
+    private var entries: List<MessagedEntry> = emptyList()
+    private val _lastMessaged = MutableStateFlow<Map<String, LastMessaged>>(emptyMap())
+    /** Line key → last message sent through Parley (loaded in the background). */
     val lastMessaged: StateFlow<Map<String, LastMessaged>> = _lastMessaged.asStateFlow()
 
     private val _openedChat = MutableStateFlow<OpenedChat?>(null)
     /** Set while a chat with an unknown number is open in a messenger (in memory only). */
     val openedChat: StateFlow<OpenedChat?> = _openedChat.asStateFlow()
+
+    init {
+        scope.launch(Dispatchers.IO) { recordLock.withLock { publish(loadRecord()) } }
+    }
+
+    private fun region(): String = PhoneEnv.countryIso(appContext)
 
     private fun storedLayout(): KeypadLayout? =
         prefs.getString(K_LAYOUT, null)?.let { v -> KeypadLayout.entries.firstOrNull { it.name == v } }
@@ -70,17 +103,20 @@ class MessagingStore(context: Context) {
         get() = prefs.getString(K_WA_CHOICE, null)
         set(v) = prefs.edit { putString(K_WA_CHOICE, v) }
 
+    /** F30: the one-time "WhatsApp may ask to sync contacts" explanation was shown. */
+    var whatsappSyncNoticeShown: Boolean
+        get() = prefs.getBoolean(K_WA_SYNC_NOTICE, false)
+        set(v) = prefs.edit { putBoolean(K_WA_SYNC_NOTICE, v) }
+
     /** Records that a chat was opened, for the number history note and for "Chat, then decide". */
     fun recordOpened(number: String, app: MessengerApp?, label: String, isContact: Boolean, now: Long = System.currentTimeMillis()) {
-        val key = PhoneNumbers.matchKey(number)
-        if (key.isEmpty()) return
-        val next = LinkedHashMap(_lastMessaged.value)
-        next.remove(key)
-        next[key] = LastMessaged(app, label, now)
-        while (next.size > MAX_ENTRIES) next.remove(next.keys.first())
-        _lastMessaged.value = next
-        saveLastMessaged(next)
         _openedChat.value = if (isContact || app == null) null else OpenedChat(number, label, now)
+        if (!_recordEnabled.value) return
+        scope.launch(Dispatchers.IO) {
+            // Private contacts' numbers are never written down, not even encrypted.
+            if (runCatching { isPrivateNumber(number) }.getOrDefault(true)) return@launch
+            update { MessagedRecord.record(it, number, app?.packageName, label, now, region()) }
+        }
     }
 
     /** The pending "save as temporary contact?" offer, taken once. Offers older than an hour are dropped. */
@@ -90,27 +126,84 @@ class MessagingStore(context: Context) {
         return c.takeIf { now - it.at in 0..OFFER_WINDOW_MS }
     }
 
-    fun lastMessaged(number: String): LastMessaged? = _lastMessaged.value[PhoneNumbers.matchKey(number)]
+    fun lastMessaged(number: String): LastMessaged? = MessagedRecord.find(entries, number, region())?.toUi()
 
-    private fun loadLastMessaged(): Map<String, LastMessaged> {
-        val raw = prefs.getString(K_LAST_MESSAGED, null) ?: return emptyMap()
-        return try {
-            val json = JSONObject(raw)
-            val out = LinkedHashMap<String, LastMessaged>()
-            json.keys().forEach { k ->
-                val o = json.getJSONObject(k)
-                out[k] = LastMessaged(MessengerApp.forPackage(o.optString("p")), o.optString("l"), o.optLong("t"))
-            }
-            out.entries.sortedBy { it.value.at }.associateTo(LinkedHashMap()) { it.key to it.value }
-        } catch (_: Exception) {
-            emptyMap()
+    /** Per-item delete. */
+    suspend fun forget(number: String) = update { MessagedRecord.forget(it, number, region()) }
+
+    /** Per-item delete by record key (for entries kept from before F13, which have no number). */
+    suspend fun forgetKey(key: String) = update { list -> list.filterNot { it.key == key } }
+
+    /** "Clear all". */
+    suspend fun clearAll() = update { emptyList() }
+
+    /** Call-history retention: drops entries older than [before]. */
+    suspend fun pruneOlderThan(before: Long) = update { MessagedRecord.prune(it, before) }
+
+    /** Turning the record off also clears it. */
+    suspend fun setRecordEnabled(enabled: Boolean) {
+        prefs.edit { putBoolean(K_RECORD_ENABLED, enabled) }
+        _recordEnabled.value = enabled
+        if (!enabled) clearAll()
+    }
+
+    private suspend fun update(change: (List<MessagedEntry>) -> List<MessagedEntry>) = withContext(Dispatchers.IO) {
+        recordLock.withLock {
+            val next = change(entries)
+            if (next == entries) return@withLock
+            publish(next)
+            saveRecord(next)
         }
     }
 
-    private fun saveLastMessaged(map: Map<String, LastMessaged>) {
-        val json = JSONObject()
-        map.forEach { (k, v) -> json.put(k, JSONObject().put("p", v.app?.packageName.orEmpty()).put("l", v.label).put("t", v.at)) }
-        prefs.edit { putString(K_LAST_MESSAGED, json.toString()) }
+    private fun publish(list: List<MessagedEntry>) {
+        entries = list
+        _lastMessaged.value = list.associateTo(LinkedHashMap()) { it.key to it.toUi() }
+    }
+
+    private fun MessagedEntry.toUi() = LastMessaged(appPackage?.let { MessengerApp.forPackage(it) }, label, at, number, key)
+
+    private fun loadRecord(): List<MessagedEntry> {
+        prefs.getString(K_RECORD, null)?.let { enc ->
+            return runCatching { decode(String(VaultCrypto.openCallerId(Base64.decode(enc, Base64.NO_WRAP)))) }.getOrDefault(emptyList())
+        }
+        // The plain record from before F13: convert once, then remove it.
+        val plain = prefs.getString(K_LAST_MESSAGED_PLAIN, null) ?: return emptyList()
+        val migrated = runCatching {
+            val json = JSONObject(plain)
+            json.keys().asSequence().mapNotNull { k ->
+                val o = json.getJSONObject(k)
+                MessagedRecord.fromLegacy(k, o.optString("p").ifEmpty { null }, o.optString("l"), o.optLong("t"))
+            }.sortedBy { it.at }.toList()
+        }.getOrDefault(emptyList())
+        val kept = if (_recordEnabled.value) migrated else emptyList()
+        if (kept.isEmpty() || saveRecord(kept)) prefs.edit { remove(K_LAST_MESSAGED_PLAIN) }
+        return kept
+    }
+
+    /** Returns false when the record couldn't be encrypted (nothing is then written in the clear). */
+    private fun saveRecord(list: List<MessagedEntry>): Boolean {
+        if (list.isEmpty()) {
+            prefs.edit { remove(K_RECORD).remove(K_LAST_MESSAGED_PLAIN) }
+            return true
+        }
+        val sealed = runCatching { VaultCrypto.sealCallerId(encode(list).toByteArray()) }.getOrNull() ?: return false
+        prefs.edit { putString(K_RECORD, Base64.encodeToString(sealed, Base64.NO_WRAP)).remove(K_LAST_MESSAGED_PLAIN) }
+        return true
+    }
+
+    private fun encode(list: List<MessagedEntry>): String = JSONArray().apply {
+        list.forEach { e ->
+            put(JSONObject().put("k", e.key).put("n", e.number ?: "").put("p", e.appPackage ?: "").put("l", e.label).put("t", e.at))
+        }
+    }.toString()
+
+    private fun decode(raw: String): List<MessagedEntry> {
+        val a = JSONArray(raw)
+        return (0 until a.length()).map { i ->
+            val o = a.getJSONObject(i)
+            MessagedEntry(o.getString("k"), o.optString("n").ifEmpty { null }, o.optString("p").ifEmpty { null }, o.optString("l"), o.optLong("t"))
+        }.sortedBy { it.at }
     }
 
     private companion object {
@@ -119,8 +212,11 @@ class MessagingStore(context: Context) {
         const val K_MY_NUMBER = "my_number"
         const val K_LAST_APP = "last_app"
         const val K_WA_CHOICE = "whatsapp_choice"
-        const val K_LAST_MESSAGED = "last_messaged"
-        const val MAX_ENTRIES = 500
+        const val K_WA_SYNC_NOTICE = "whatsapp_sync_notice"
+        /** The plain record written before F13 (read once, then removed). */
+        const val K_LAST_MESSAGED_PLAIN = "last_messaged"
+        const val K_RECORD = "last_messaged_enc"
+        const val K_RECORD_ENABLED = "record_messaged"
         const val OFFER_WINDOW_MS = 60 * 60 * 1000L
     }
 }

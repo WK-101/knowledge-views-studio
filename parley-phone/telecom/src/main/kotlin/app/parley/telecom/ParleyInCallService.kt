@@ -69,7 +69,7 @@ class ParleyInCallService : InCallService() {
         CallClock.detach()
         CallManager.service = null
         CallManager.onChanged = null
-        notifier.cancelAll()
+        notifier.release()
         proximity.release()
         super.onDestroy()
     }

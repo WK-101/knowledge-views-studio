@@ -5,16 +5,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.core.net.toUri
-import android.provider.ContactsContract
 import android.provider.Telephony
 import app.parley.common.MessengerApp
 import app.parley.common.MessengerLink
 import app.parley.common.MessengerLinks
 import app.parley.common.NumberText
-import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
-import app.parley.data.DataItem
-import app.parley.data.db.TemporaryContactEntity
+import app.parley.data.TemporaryContacts
 
 /** Starts messenger links. Every link goes to its app directly; nothing is ever handed to a browser. */
 object MessengerLauncher {
@@ -56,21 +53,21 @@ object MessengerLauncher {
     }
 }
 
-/** "Save as a temporary contact": a phone-only contact that deletes itself (and its call history) after [days]. */
+/**
+ * "Save as a temporary contact": deletes itself (and its call history) after [DEFAULT_DAYS]. F5: private (kept in
+ * Parley's vault, invisible to WhatsApp and other apps) unless the user chooses "Save visible to other apps".
+ */
 object TemporaryContact {
-    const val DEFAULT_DAYS = 7
+    const val DEFAULT_DAYS = TemporaryContacts.DEFAULT_DAYS
 
-    /** [purgeHistory]: also delete the number's call history when the contact expires. */
-    suspend fun save(c: DataContainer, number: String, name: String, days: Int = DEFAULT_DAYS, purgeHistory: Boolean = true): Long? {
-        val details = ContactDetails(
-            given = name.trim().ifEmpty { number },
-            phones = listOf(DataItem(value = number, type = ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)),
-        )
-        // Kept on this phone only (never synced to an account): it's meant to disappear.
-        val id = c.contacts.save(null, details, null, null, false) ?: return null
-        val key = c.contacts.details(id)?.lookupKey?.takeIf { it.isNotEmpty() } ?: return id
-        c.meta.setTemporary(TemporaryContactEntity(key, id, System.currentTimeMillis() + days * 86_400_000L, purgeHistory = purgeHistory))
-        return id
+    suspend fun save(c: DataContainer, number: String, name: String, private: Boolean = true, days: Int = DEFAULT_DAYS): TemporaryContacts.Saved? =
+        TemporaryContacts.save(c, name, number, days, private = private, purgeHistory = true)
+
+    /** What to tell the user after saving. */
+    fun savedMessage(saved: TemporaryContacts.Saved?): String = when {
+        saved == null -> "Couldn't save the contact"
+        saved.private -> "Saved privately for $DEFAULT_DAYS days"
+        else -> "Saved for $DEFAULT_DAYS days, visible to other apps"
     }
 
     /** Suggested name for a number met through a messenger ("WhatsApp · +92 300 1234567"). */

@@ -40,6 +40,8 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
                 // Resolve by lookup key: the stored id may now belong to another contact.
                 val id = c.contacts.resolve(t.lookupKey, t.contactId)
                 if (id == null) { c.meta.clearTemporary(t.lookupKey); continue }
+                // F13: its numbers leave the "last messaged" record too.
+                c.contacts.details(id)?.phones?.forEach { p -> runCatching { c.messaging.forget(p.value) } }
                 if (t.purgeHistory) {
                     // Straight from the call log and the archive (Recents may never have loaded in this process),
                     // and with no undo copy: the point is that nothing stays.
@@ -48,7 +50,14 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
                 if (runCatching { c.contacts.delete(listOf(id)) }.isSuccess) c.meta.clearTemporary(t.lookupKey)
             }
             // 2. Expired vault entries
-            c.vault.expired(now).forEach { c.vault.delete(it) }
+            //    (F5: private temporary contacts take their call history and "last messaged" entry with them)
+            for (v in c.vault.expiredEntries(now)) {
+                v.numbers.forEach { n ->
+                    if (v.purgeHistory) runCatching { c.history.purgeNumber(n) }
+                    runCatching { c.messaging.forget(n) }
+                }
+                c.vault.delete(v.id)
+            }
             // 3. Private call history
             if (settings.privateVaultHistory) c.vault.sweepCallLog(now - TimeUnit.DAYS.toMillis(30))
             // 4. Call-log retention (the archive copies new calls first and then follows the same setting,
@@ -60,6 +69,8 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
                 runCatching {
                     c.appContext.contentResolver.delete(CallLog.Calls.CONTENT_URI, "${CallLog.Calls.DATE} < ?", arrayOf(before.toString()))
                 }
+                // F13: the "last messaged" record follows the same retention.
+                runCatching { c.messaging.pruneOlderThan(before) }
             }
             // 5. Journal older than 30 days
             c.meta.pruneJournal(now - TimeUnit.DAYS.toMillis(30))

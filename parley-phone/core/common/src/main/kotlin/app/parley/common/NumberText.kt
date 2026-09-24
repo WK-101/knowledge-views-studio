@@ -78,6 +78,25 @@ object NumberText {
         return out
     }
 
+    /** A country for the country picker (F19): "FR", 33, "France". */
+    data class Region(val code: String, val callingCode: Int, val name: String)
+
+    /** Every region libphonenumber knows, named in [locale] and sorted by name. */
+    fun regions(locale: Locale = Locale.getDefault()): List<Region> =
+        util.supportedRegions.map { code -> Region(code, util.getCountryCodeForRegion(code), Locale("", code).getDisplayCountry(locale).ifBlank { code }) }
+            .sortedBy { it.name.lowercase(locale) }
+
+    /** Picker search: by name ("fra"), by code ("FR") or by calling code ("+33", "33"). */
+    fun searchRegions(regions: List<Region>, query: String): List<Region> {
+        val q = query.trim()
+        if (q.isEmpty()) return regions
+        val digits = q.removePrefix("+").takeIf { it.isNotEmpty() && it.all { c -> c in '0'..'9' } }
+        return regions.filter { r ->
+            if (digits != null) r.callingCode.toString().startsWith(digits)
+            else r.name.contains(q, ignoreCase = true) || r.code.equals(q, ignoreCase = true)
+        }
+    }
+
     private fun parse(number: String, region: String?): Phonenumber.PhoneNumber? = try {
         util.parse(number, region?.uppercase(Locale.ROOT)?.takeIf { it.length == 2 } ?: UNKNOWN)
     } catch (_: NumberParseException) {

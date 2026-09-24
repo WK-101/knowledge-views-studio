@@ -7,6 +7,11 @@ import android.content.Intent
 /** Handles call notification buttons (not exported). */
 class CallActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == ACTION_DISMISSED) {
+            val nid = intent.getIntExtra(EXTRA_NOTIFICATION_ID, 0)
+            if (nid != 0) CallNotifier.instance?.onDismissed(nid, intent.getStringExtra(EXTRA_ID))
+            return
+        }
         val id = intent.getStringExtra(EXTRA_ID) ?: return
         when (intent.action) {
             ACTION_ANSWER -> CallManager.answer(id)
@@ -29,6 +34,9 @@ class CallActionReceiver : BroadcastReceiver() {
         const val ACTION_SPEAKER = "app.parley.telecom.SPEAKER"
         const val ACTION_EXTEND = "app.parley.telecom.EXTEND"
         const val ACTION_KEEP_GOING = "app.parley.telecom.KEEP_GOING"
+        /** A call notification was swiped away (its delete intent). */
+        const val ACTION_DISMISSED = "app.parley.telecom.DISMISSED"
         const val EXTRA_ID = "call_id"
+        const val EXTRA_NOTIFICATION_ID = "notification_id"
     }
 }

@@ -23,6 +23,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.PersonAdd
+import androidx.compose.material.icons.rounded.Public
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -69,8 +75,10 @@ class NumberActionActivity : ComponentActivity() {
     private sealed interface Stage {
         data object NoNumber : Stage
         data class Pick(val found: List<NumberText.Found>) : Stage
-        data class Actions(val number: String) : Stage
-        data class Message(val number: String) : Stage
+        /** [raw] is the number as written in the text, re-read when the user picks another country (F19). */
+        data class Actions(val number: String, val raw: String? = null) : Stage
+        /** [accountId]: the SIM of the call the number comes from (missed-call notification), for its country. */
+        data class Message(val number: String, val accountId: String? = null) : Stage
         data class Offer(val number: String, val via: String) : Stage
     }
 
@@ -135,13 +143,13 @@ class NumberActionActivity : ComponentActivity() {
         val text = when (intent.action) {
             Intent.ACTION_PROCESS_TEXT -> intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
             Intent.ACTION_SEND -> intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
-            ACTION_MESSAGE_ON -> intent.getStringExtra(EXTRA_NUMBER)?.takeIf { it.isNotBlank() }?.let { return Stage.Message(it) }
+            ACTION_MESSAGE_ON -> intent.getStringExtra(EXTRA_NUMBER)?.takeIf { it.isNotBlank() }?.let { return Stage.Message(it, intent.getStringExtra(EXTRA_ACCOUNT_ID)) }
             else -> null
         }.orEmpty().take(MAX_TEXT)
         val found = NumberText.find(text, PhoneEnv.countryIso(this))
         return when (found.size) {
             0 -> Stage.NoNumber
-            1 -> Stage.Actions(found[0].e164 ?: found[0].raw)
+            1 -> Stage.Actions(found[0].e164 ?: found[0].raw, found[0].raw)
             else -> Stage.Pick(found)
         }
     }
@@ -168,8 +176,8 @@ class NumberActionActivity : ComponentActivity() {
                         TextButton({ finish() }) { Text("Close") }
                     }
                     is Stage.Pick -> PickNumber(s.found)
-                    is Stage.Actions -> NumberActions(s.number)
-                    is Stage.Message -> MessageOnContent(s.number) { app -> afterLaunch(app != null) }
+                    is Stage.Actions -> NumberActions(s.number, s.raw)
+                    is Stage.Message -> MessageOnContent(s.number, s.accountId) { app -> afterLaunch(app != null) }
                     is Stage.Offer -> Unit
                 }
             }
@@ -194,17 +202,23 @@ class NumberActionActivity : ComponentActivity() {
                 ListItem(
                     headlineContent = { Text(f.e164?.let(NumberText::formatInternational) ?: f.raw) },
                     supportingContent = { Text("“${f.raw}” in the text") },
-                    modifier = Modifier.clickable { stage = Stage.Actions(f.e164 ?: f.raw) },
+                    modifier = Modifier.clickable { stage = Stage.Actions(f.e164 ?: f.raw, f.raw) },
                 )
             }
         }
     }
 
     @Composable
-    private fun NumberActions(number: String) {
+    private fun NumberActions(found: String, raw: String?) {
         val scope = rememberCoroutineScope()
-        val region = remember { PhoneEnv.countryIso(this) }
-        val e164 = remember(number) { NumberText.toE164(number, region) }
+        val defaultRegion = remember { PhoneEnv.countryIso(this) }
+        // F19: a national number in the text is read with this phone's country unless the user picks another.
+        var regionOverride by rememberSaveable(raw) { mutableStateOf<String?>(null) }
+        var pickCountry by remember { mutableStateOf(false) }
+        val region = regionOverride ?: defaultRegion
+        val national = raw != null && !app.parley.common.PhoneNumbers.clean(raw).startsWith("+")
+        val number = if (national && regionOverride != null) NumberText.toE164(raw, region) ?: found else found
+        val e164 = remember(number, region) { NumberText.toE164(number, region) }
         var contactName by remember { mutableStateOf<String?>(null) }
         var askTemporary by remember { mutableStateOf(false) }
         val locked = remember { appLock }
@@ -217,6 +231,14 @@ class NumberActionActivity : ComponentActivity() {
             Text(contactName ?: e164?.let(NumberText::formatInternational) ?: Format.number(number, region), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
             val sub = listOfNotNull(if (contactName != null) e164?.let(NumberText::formatInternational) ?: number else null, where).joinToString(" · ")
             if (sub.isNotEmpty()) Text(sub, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
+            if (national) {
+                androidx.compose.material3.AssistChip(
+                    onClick = { pickCountry = true },
+                    label = { Text("Country: " + countryLabel(region)) },
+                    leadingIcon = { Icon(Icons.Rounded.Public, null) },
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
+            }
             ListItem(
                 headlineContent = { Text("Call") },
                 leadingContent = { Icon(Icons.Rounded.Call, null) },
@@ -244,16 +266,22 @@ class NumberActionActivity : ComponentActivity() {
                 )
                 ListItem(
                     headlineContent = { Text("Save as a temporary contact") },
-                    supportingContent = { Text("Deletes itself in ${TemporaryContact.DEFAULT_DAYS} days") },
+                    supportingContent = { Text("Private, deletes itself in ${TemporaryContact.DEFAULT_DAYS} days") },
                     leadingContent = { Icon(Icons.Rounded.Timer, null) },
                     modifier = Modifier.clickable { askTemporary = true },
                 )
             }
         }
         if (askTemporary) {
-            TemporaryNameDialog(TemporaryContact.suggestedName(number, null, region), onDismiss = { askTemporary = false }) { name ->
+            TemporaryNameDialog(TemporaryContact.suggestedName(number, null, region), onDismiss = { askTemporary = false }) { name, visible ->
                 askTemporary = false
-                scope.launch { saveTemporary(e164 ?: number, name) }
+                scope.launch { saveTemporary(e164 ?: number, name, visible) }
+            }
+        }
+        if (pickCountry) {
+            CountryPickerDialog(selected = region, onDismiss = { pickCountry = false }) { code ->
+                pickCountry = false
+                regionOverride = code.takeUnless { it == defaultRegion }
             }
         }
     }
@@ -262,20 +290,26 @@ class NumberActionActivity : ComponentActivity() {
     private fun OfferDialog(s: Stage.Offer) {
         val scope = rememberCoroutineScope()
         val region = remember { PhoneEnv.countryIso(this) }
+        // F30: once, after the first WhatsApp chat opened from here.
+        val notice = remember {
+            if (s.via.startsWith("WhatsApp") && !container.messaging.whatsappSyncNoticeShown) {
+                container.messaging.whatsappSyncNoticeShown = true
+                WhatsAppNotice.TEXT
+            } else {
+                null
+            }
+        }
         TemporaryNameDialog(
             TemporaryContact.suggestedName(s.number, s.via, region),
             title = "Save as a temporary contact?",
+            notice = notice,
             onDismiss = { finish() },
-        ) { name -> scope.launch { saveTemporary(s.number, name) } }
+        ) { name, visible -> scope.launch { saveTemporary(s.number, name, visible) } }
     }
 
-    private suspend fun saveTemporary(number: String, name: String) {
-        val id = withContext(Dispatchers.IO) { runCatching { TemporaryContact.save(container, number, name) }.getOrNull() }
-        Toast.makeText(
-            this,
-            if (id != null) "Saved. Deletes itself in ${TemporaryContact.DEFAULT_DAYS} days." else "Couldn't save the contact",
-            Toast.LENGTH_SHORT,
-        ).show()
+    private suspend fun saveTemporary(number: String, name: String, visible: Boolean) {
+        val saved = withContext(Dispatchers.IO) { runCatching { TemporaryContact.save(container, number, name, private = !visible) }.getOrNull() }
+        Toast.makeText(this, TemporaryContact.savedMessage(saved), Toast.LENGTH_SHORT).show()
         finish()
     }
 
@@ -311,25 +345,55 @@ class NumberActionActivity : ComponentActivity() {
     companion object {
         const val ACTION_MESSAGE_ON = "app.parley.action.MESSAGE_ON"
         const val EXTRA_NUMBER = "number"
+        /** PhoneAccountHandle id of the call the number comes from (F19). */
+        const val EXTRA_ACCOUNT_ID = "account_id"
         /** Selected or shared text beyond this is ignored (a phone number is never that far in). */
         private const val MAX_TEXT = 10_000
     }
 }
 
-/** Name for a temporary contact, prefilled with "WhatsApp · +92 300 1234567". */
+/**
+ * Name for a temporary contact, prefilled with "WhatsApp · +92 300 1234567". F5: saved privately unless
+ * "Save visible to other apps" is ticked; [onSave] gets the name and that choice. [notice] is an extra line shown
+ * first (F30).
+ */
 @Composable
-fun TemporaryNameDialog(suggested: String, title: String = "Save as a temporary contact", onDismiss: () -> Unit, onSave: (String) -> Unit) {
+fun TemporaryNameDialog(
+    suggested: String,
+    title: String = "Save as a temporary contact",
+    notice: String? = null,
+    onDismiss: () -> Unit,
+    onSave: (name: String, visible: Boolean) -> Unit,
+) {
     var name by rememberSaveable { mutableStateOf(suggested) }
+    var visible by rememberSaveable { mutableStateOf(false) }
+    val days = TemporaryContact.DEFAULT_DAYS
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("It's saved on this phone only and deletes itself, with its call history, in ${TemporaryContact.DEFAULT_DAYS} days. Keep it any time from the contact's page.")
+                notice?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary) }
+                Text(
+                    if (visible) {
+                        "Saved in your contacts on this phone only, where apps that can read contacts (WhatsApp included) see it. " +
+                            "It deletes itself, with its call history, in $days days."
+                    } else {
+                        "Saved privately in Parley for $days days: other apps, WhatsApp included, can't see it. " +
+                            "It then deletes itself with its call history. Keep it any time from its page."
+                    },
+                )
                 OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
+                Row(
+                    Modifier.fillMaxWidth().toggleable(visible, role = Role.Checkbox, onValueChange = { visible = it }),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(visible, onCheckedChange = null)
+                    Text("Save visible to other apps", Modifier.padding(start = 8.dp))
+                }
             }
         },
-        confirmButton = { TextButton({ onSave(name) }) { Text("Save") } },
+        confirmButton = { TextButton({ onSave(name, visible) }) { Text(if (visible) "Save" else "Save privately") } },
         dismissButton = { TextButton(onDismiss) { Text("Not now") } },
     )
 }

@@ -58,7 +58,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
-import app.parley.messaging.TemporaryContact
 import app.parley.ui.Avatar
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
@@ -84,13 +83,15 @@ data class TemporaryItem(
 }
 
 /**
- * Everything the UI does with temporary contacts, in one place: saving goes through [TemporaryContact.save] (the
- * same call "Chat, then decide" and "Save as a temporary contact" use), so a change in how they're stored only
- * touches that function and this object.
+ * Everything the UI does with temporary contacts, in one place. Saving goes through the data layer's
+ * [app.parley.data.TemporaryContacts] facade (the same one "Chat, then decide" and "Save as a temporary contact"
+ * use): private (vault) by default, or a phone-only contact when the user asks for it to be visible to other apps.
  */
-object TemporaryContacts {
-    suspend fun save(vm: AppViewModel, number: String, name: String, days: Int, deleteHistory: Boolean): Long? =
-        runCatching { TemporaryContact.save(vm.c, number, name, days, purgeHistory = deleteHistory) }.getOrNull()
+object TemporaryContactActions {
+    suspend fun save(vm: AppViewModel, number: String, name: String, days: Int, deleteHistory: Boolean, visible: Boolean): app.parley.data.TemporaryContacts.Saved? =
+        runCatching {
+            app.parley.data.TemporaryContacts.save(vm.c, name, number, days, private = !visible, purgeHistory = deleteHistory)
+        }.getOrNull()
 
     suspend fun extend(vm: AppViewModel, item: TemporaryItem, days: Int) {
         val until = System.currentTimeMillis() + days * DAY_MS
@@ -134,7 +135,7 @@ fun rememberTemporaryItems(vm: AppViewModel): List<TemporaryItem> {
             TemporaryItem(c.displayName, c.phones.firstOrNull()?.number, t.expiresAt, c.id, t.lookupKey, null, t.purgeHistory)
         }
         val private = vault.filter { it.expiresAt != null }.map { v ->
-            TemporaryItem(v.name, v.numbers.firstOrNull(), v.expiresAt!!, null, null, v.id, purgeHistory = true)
+            TemporaryItem(v.name, v.numbers.firstOrNull(), v.expiresAt!!, null, null, v.id, v.purgeHistory)
         }
         (phone + private).sortedBy { it.expiresAt }
     }
@@ -194,7 +195,7 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -
                         t, vm.countryIso,
                         onOpen = { if (t.vaultId != null) open(Routes.vault(t.vaultId)) else t.contactId?.let { open(Routes.contact(it)) } },
                         onExtend = { extendFor = t },
-                        onKeep = { scope.launch { TemporaryContacts.keep(vm, t); vm.toast("${t.name} will be kept") } },
+                        onKeep = { scope.launch { TemporaryContactActions.keep(vm, t); vm.toast("${t.name} will be kept") } },
                         onDelete = { deleteFor = t },
                     )
                 }
@@ -204,7 +205,7 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -
     extendFor?.let { t ->
         DurationDialog(title = "Keep ${t.name} for", onDismiss = { extendFor = null }) { days ->
             extendFor = null
-            scope.launch { TemporaryContacts.extend(vm, t, days); vm.toast("Deletes itself in $days days") }
+            scope.launch { TemporaryContactActions.extend(vm, t, days); vm.toast("Deletes itself in $days days") }
         }
     }
     deleteFor?.let { t ->
@@ -219,7 +220,7 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -
                     } + if (t.vaultId == null) " You can restore the contact from Recently deleted for 30 days." else "",
                 )
             },
-            confirmButton = { TextButton({ deleteFor = null; scope.launch { TemporaryContacts.deleteNow(vm, t) } }) { Text("Delete") } },
+            confirmButton = { TextButton({ deleteFor = null; scope.launch { TemporaryContactActions.deleteNow(vm, t) } }) { Text("Delete") } },
             dismissButton = { TextButton({ deleteFor = null }) { Text("Cancel") } },
         )
     }
@@ -308,11 +309,12 @@ private fun DurationDialog(title: String, onDismiss: () -> Unit, onPick: (Int) -
  * history goes too.
  */
 @Composable
-fun SaveTemporaryDialog(number: String, suggestedName: String, onDismiss: () -> Unit, onSave: (name: String, days: Int, deleteHistory: Boolean) -> Unit) {
+fun SaveTemporaryDialog(number: String, suggestedName: String, onDismiss: () -> Unit, onSave: (name: String, days: Int, deleteHistory: Boolean, visible: Boolean) -> Unit) {
     var name by rememberSaveable { mutableStateOf(suggestedName) }
-    var days by rememberSaveable { mutableStateOf<Int?>(TemporaryContact.DEFAULT_DAYS) }
+    var days by rememberSaveable { mutableStateOf<Int?>(app.parley.data.TemporaryContacts.DEFAULT_DAYS) }
     var custom by rememberSaveable { mutableStateOf("") }
     var deleteHistory by rememberSaveable { mutableStateOf(true) }
+    var visible by rememberSaveable { mutableStateOf(false) }
     val chosen = days ?: custom.toIntOrNull()?.takeIf { it in 1..3650 }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -320,7 +322,11 @@ fun SaveTemporaryDialog(number: String, suggestedName: String, onDismiss: () -> 
         title = { Text("Save temporary contact") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("$number is saved on this phone only and deletes itself when the time is up.", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    if (visible) "$number is saved in your contacts on this phone only, where apps that can read contacts (WhatsApp included) see it, and deletes itself when the time is up."
+                    else "$number is saved privately in Parley, where other apps can't see it, and deletes itself when the time is up.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
                 OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Text("Delete after", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 4.dp))
                 DurationPicker(days, custom, { days = it }, { custom = it; days = null })
@@ -331,9 +337,16 @@ fun SaveTemporaryDialog(number: String, suggestedName: String, onDismiss: () -> 
                     Checkbox(deleteHistory, onCheckedChange = null)
                     Text("Also delete its call history", Modifier.padding(start = 12.dp))
                 }
+                Row(
+                    Modifier.fillMaxWidth().toggleable(visible, role = Role.Checkbox) { visible = it }.padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(visible, onCheckedChange = null)
+                    Text("Save visible to other apps", Modifier.padding(start = 12.dp))
+                }
             }
         },
-        confirmButton = { TextButton({ chosen?.let { onSave(name, it, deleteHistory) } }, enabled = chosen != null) { Text("Save") } },
+        confirmButton = { TextButton({ chosen?.let { onSave(name, it, deleteHistory, visible) } }, enabled = chosen != null) { Text(if (visible) "Save" else "Save privately") } },
         dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
     )
 }

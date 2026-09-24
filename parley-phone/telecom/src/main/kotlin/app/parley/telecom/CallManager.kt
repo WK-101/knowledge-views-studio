@@ -88,7 +88,12 @@ object CallManager {
         override fun onChildrenChanged(call: Call, children: MutableList<Call>) = publish()
         override fun onParentChanged(call: Call, parent: Call?) = publish()
         override fun onConferenceableCallsChanged(call: Call, conferenceableCalls: MutableList<Call>) = publish()
-        override fun onPostDialWait(call: Call, remainingPostDialSequence: String?) = publish()
+        override fun onPostDialWait(call: Call, remainingPostDialSequence: String?) {
+            // One callback per call, unregistered in remove()/clear() (F28: a second, anonymous callback leaked).
+            val id = idOf(call)
+            if (remainingPostDialSequence.isNullOrEmpty()) postDial.remove(id) else postDial[id] = remainingPostDialSequence
+            publish()
+        }
     }
 
     private val postDial = HashMap<String, String>()
@@ -101,12 +106,6 @@ object CallManager {
         appContext = context.applicationContext
         val id = idOf(call)
         calls += call
-        call.registerCallback(object : Call.Callback() {
-            override fun onPostDialWait(call: Call, remaining: String?) {
-                if (remaining.isNullOrEmpty()) postDial.remove(id) else postDial[id] = remaining
-                publish()
-            }
-        })
         call.registerCallback(callback)
 
         val number = call.details.handle?.schemeSpecificPart
@@ -182,7 +181,7 @@ object CallManager {
 
         if (number != null && !hidden) {
             scope.launch {
-                val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { deps.callerInfo(number) }.getOrNull() }
+                val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { deps.callerInfo(number, accountId) }.getOrNull() }
                 if (found != null) {
                     info[id] = found
                 } else if (incoming) {
@@ -215,15 +214,71 @@ object CallManager {
         if (nm.currentInterruptionFilter != android.app.NotificationManager.INTERRUPTION_FILTER_ALL) return
         if (calls.any { it != call && mapState(it.stateCompat()) == CallState.ACTIVE }) return
         val tone = runCatching { android.media.RingtoneManager.getRingtone(appContext, android.net.Uri.parse(uri)) }.getOrNull() ?: return
-        silenceRinger()
         tone.audioAttributes = android.media.AudioAttributes.Builder()
             .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
             .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
         if (Build.VERSION.SDK_INT >= 28) tone.isLooping = true
-        tone.play()
+        // Claimed now so a second lookup/screening result doesn't start another tone while we wait.
         customRinger = tone
         customRingerFor = id
+        // F20: silence Telecom first and wait until its ringtone has actually stopped (bounded), so the two never
+        // overlap. Everything is re-checked afterwards: the call may have been answered, silenced or ended meanwhile.
+        silenceRinger()
+        scope.launch {
+            val waitedUntil = android.os.SystemClock.elapsedRealtime() + RINGER_STOP_MAX_MS
+            delay(RINGER_STOP_MIN_MS)
+            while (systemRingtonePlaying(am) && android.os.SystemClock.elapsedRealtime() < waitedUntil) delay(RINGER_POLL_MS)
+            if (customRinger !== tone || id in silenced || !calls.contains(call) || call.stateCompat() != Call.STATE_RINGING) {
+                if (customRinger === tone) { customRinger = null; customRingerFor = null }
+                return@launch
+            }
+            if (am.ringerMode != android.media.AudioManager.RINGER_MODE_NORMAL) {
+                customRinger = null
+                customRingerFor = null
+                return@launch
+            }
+            runCatching { tone.play() }
+            startRingVibration(am)
+        }
+    }
+
+    /** Another player (Telecom's ringer) is still playing a ringtone. Our own tone isn't playing yet at this point. */
+    private fun systemRingtonePlaying(am: android.media.AudioManager): Boolean = runCatching {
+        am.activePlaybackConfigurations.any { it.audioAttributes.usage == android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE }
+    }.getOrDefault(false)
+
+    private var ringVibrator: android.os.Vibrator? = null
+
+    /**
+     * Silencing Telecom also stops its vibration, so vibrate like it would: only when the system's "Vibrate for calls"
+     * is on (the tone only plays in normal ringer mode, where that setting decides).
+     */
+    private fun startRingVibration(am: android.media.AudioManager) {
+        if (am.ringerMode == android.media.AudioManager.RINGER_MODE_SILENT) return
+        val cr = appContext.contentResolver
+        val vibrateWhenRinging = am.ringerMode == android.media.AudioManager.RINGER_MODE_VIBRATE ||
+            runCatching { android.provider.Settings.System.getInt(cr, android.provider.Settings.System.VIBRATE_WHEN_RINGING, 0) != 0 }.getOrDefault(false)
+        // Android 13+ also has a ring vibration intensity; 0 means off.
+        val intensityOff = runCatching { android.provider.Settings.System.getInt(cr, "ring_vibration_intensity", -1) == 0 }.getOrDefault(false)
+        if (!vibrateWhenRinging || intensityOff) return
+        val v = if (Build.VERSION.SDK_INT >= 31) {
+            appContext.getSystemService(android.os.VibratorManager::class.java)?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            appContext.getSystemService(android.os.Vibrator::class.java)
+        } ?: return
+        if (!v.hasVibrator()) return
+        val effect = android.os.VibrationEffect.createWaveform(RING_VIBRATION, 0)
+        runCatching {
+            if (Build.VERSION.SDK_INT >= 33) {
+                v.vibrate(effect, android.os.VibrationAttributes.createForUsage(android.os.VibrationAttributes.USAGE_RINGTONE))
+            } else {
+                @Suppress("DEPRECATION")
+                v.vibrate(effect, android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE).build())
+            }
+            ringVibrator = v
+        }
     }
 
     internal fun onSystemSilence() {
@@ -237,9 +292,11 @@ object CallManager {
     }
 
     private fun stopCustomRinger() {
-        customRinger?.stop()
+        runCatching { customRinger?.stop() }
         customRinger = null
         customRingerFor = null
+        ringVibrator?.let { runCatching { it.cancel() } }
+        ringVibrator = null
     }
 
     internal fun remove(call: Call) {
@@ -668,4 +725,10 @@ object CallManager {
     private const val PENDING_OUTGOING_MS = 8000L
     private const val SCREEN_TIMEOUT_MS = 1500L
     private const val LOOKUP_TIMEOUT_MS = 2000L
+    /** F20: after silencing Telecom, wait at least this long, and at most the max for its ringtone to stop. */
+    private const val RINGER_STOP_MIN_MS = 120L
+    private const val RINGER_STOP_MAX_MS = 700L
+    private const val RINGER_POLL_MS = 40L
+    /** Like the platform ringer: 1 s on, 1 s off, repeated. */
+    private val RING_VIBRATION = longArrayOf(0, 1000, 1000)
 }

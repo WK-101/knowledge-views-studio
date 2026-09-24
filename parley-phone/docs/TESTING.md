@@ -44,6 +44,8 @@ Call the phone from another phone in each state below. For each one, check that 
 - [ ] Call waiting: receive a second call during a call → Answer (first call goes on hold) → Swap → end both
 - [ ] "End current call and answer"
 - [ ] Add call → dial a second number → **Merge** → Manage conference → end one participant, or make it private if the carrier allows
+- [ ] **Three calls, no conference**: one active, one held, a third one waiting → decline the waiting call; the active and held calls stay as they were, and the held one can still be resumed
+- [ ] **Swap across two SIMs**: a call on SIM 1, then a call on SIM 2 (answer the second, or add a call and pick the other SIM) → Swap both ways; each call keeps its own SIM label, and ending one resumes the other
 
 ## 4. Outgoing and dialer
 
@@ -156,7 +158,28 @@ Call the phone from another phone in each state below. For each one, check that 
 - [ ] Private-name lookup from a test app: permission, approval notification, access log.
 - [ ] Diagnostics export contains no numbers.
 
-## 10. UI refresh (header, Settings, navigation bar)
+## 10. Round-4 safety fixes (v3.1)
+
+**Notifications**
+- [ ] **Android 17 on a Pixel**: incoming (heads-up and full-screen over the lock screen), ongoing (chronometer, Mute/Speaker/Hang up) and missed-call notifications all appear and their buttons work (Fossify #854)
+- [ ] Swipe away the ongoing-call notification (Android 14+) → it comes straight back while the call lasts; after hanging up nothing comes back (F6)
+- [ ] Lock screen with “Hide sensitive content”: a missed call from a private contact shows only “Missed call”; with “Hide private contacts” on, the private name never appears, even unlocked (F14)
+- [ ] Incoming call from a private contact: the notification never shows “Private”, on or off the lock screen (F14)
+
+**Screening and ringing**
+- [ ] **OEM screening on one SIM**: with the carrier's or OEM's screening service rejecting every call on one SIM (Fossify #456), calls on the other SIM still ring normally, and the rejected ones don't leave Parley's call screen or notifications behind
+- [ ] Unknown-caller ringtone: Telecom's ringtone never plays at the same time; the phone vibrates when “Vibrate for calls” is on, and not when it's off (F20)
+- [ ] Keypad tones: silent in silent and vibrate mode; turning Android's “Dial pad tones” off takes effect without restarting Parley (F22)
+
+**Messaging and privacy**
+- [ ] “Chat, then decide” and “Save as a temporary contact” save privately by default (not visible in Google Contacts or WhatsApp); “Save visible to other apps” saves a phone-only contact; both delete themselves after 7 days (F5)
+- [ ] “Message on…” from Recents for a call on a foreign SIM uses that SIM's country; the country chip changes it; a too-short number shows a disabled row with a reason (F19)
+- [ ] After the first WhatsApp chat: the one-time “WhatsApp may ask to sync your contacts” note (F30)
+- [ ] Privacy dashboard: “Keep a record of numbers you message” shows the count; delete one number, Clear all, turn it off (F13)
+- [ ] Private contact with a French number; a call from a Spanish number with the same last 9 digits is **not** shown with the private name (F7)
+- [ ] Recents update live after granting call-log access later from Android Settings (F29)
+
+## 11. UI refresh (header, Settings, navigation bar)
 
 **Status bar and header**
 - [ ] Every home tab (Favorites, Recents, Contacts, Keypad) starts below the status bar and the camera cutout, in portrait and landscape, with gesture and 3-button navigation.
@@ -179,4 +202,4 @@ Call the phone from another phone in each state below. For each one, check that 
 
 **Temporary contacts**
 - [ ] Type an unknown number on the keypad: chips Message / Add to contacts / Save temporary contact / Add to existing contact; a saved number only shows Message.
-- [ ] Save temporary contact: name, 1 / 7 / 30 days or custom, "Also delete its call history"; it appears under the Contacts chip "Temporary (n)", in the overflow menu and in Settings › Contacts › Temporary contacts with the time left; Extend, Keep permanently and Delete now work (Delete now can be undone from Recently deleted).
+- [ ] Save temporary contact: name, 1 / 7 / 30 days or custom, "Also delete its call history", private by default ("Save visible to other apps" makes a phone contact); it appears under the Contacts chip "Temporary (n)", in the overflow menu and in Settings › Contacts › Temporary contacts with the time left (private ones with a lock, opening their private page); Extend, Keep permanently and Delete now work (Delete now can be undone from Recently deleted).

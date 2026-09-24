@@ -250,6 +250,10 @@ interface VaultDao {
     @Query("SELECT vaultId FROM vault_numbers WHERE hmac IN (:hmacs) LIMIT 1")
     suspend fun findByHmac(hmacs: List<String>): Long?
 
+    /** Every vault entry with one of these number fingerprints (F15: the caller picks a deterministic winner). */
+    @Query("SELECT DISTINCT vaultId FROM vault_numbers WHERE hmac IN (:hmacs)")
+    suspend fun idsByHmac(hmacs: List<String>): List<Long>
+
     @Query("SELECT * FROM private_calls ORDER BY date DESC")
     fun privateCalls(): Flow<List<PrivateCallEntity>>
 

@@ -178,7 +178,13 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
         try { ToneGenerator(AudioManager.STREAM_DTMF, 70) } catch (_: Exception) { null }
     }
     DisposableEffect(Unit) { onDispose { tone?.release() } }
-    val systemTones = remember { Settings.System.getInt(context.contentResolver, Settings.System.DTMF_TONE_WHEN_DIALING, 1) == 1 }
+    val audioManager = remember { context.getSystemService(AudioManager::class.java) }
+    /** F22: the system "Dial pad tones" setting and the ringer mode, read on every press (they can change any time). */
+    fun toneAllowed(): Boolean = app.parley.common.KeypadFeedback.playTone(
+        appSetting = settings.dialpadTones,
+        systemDialpadTones = runCatching { Settings.System.getInt(context.contentResolver, Settings.System.DTMF_TONE_WHEN_DIALING, 1) == 1 }.getOrDefault(true),
+        ringerNormal = audioManager?.ringerMode?.let { it == AudioManager.RINGER_MODE_NORMAL } ?: true,
+    )
 
     // K4: the number is an editable field (cursor, selection, paste) that never opens the on-screen keyboard.
     val field = rememberTextFieldState(input)
@@ -191,7 +197,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     fun press(c: Char) {
         insert(c.toString())
         if (settings.dialpadHaptics) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-        if (settings.dialpadTones && systemTones) dtmfTone[c]?.let { tone?.startTone(it, 120) }
+        if (toneAllowed()) dtmfTone[c]?.let { tone?.startTone(it, 120) }
     }
 
     fun callResult(r: DialResult) = vm.requestCall(r.number, r.contact?.displayName)
@@ -382,13 +388,14 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
             number = Format.number(n, vm.countryIso),
             suggestedName = app.parley.messaging.TemporaryContact.suggestedName(n, null, vm.countryIso.uppercase()),
             onDismiss = { saveTemporary = null },
-        ) { name, days, deleteHistory ->
+        ) { name, days, deleteHistory, visible ->
             saveTemporary = null
             scope.launch {
-                val id = app.parley.ui.temporary.TemporaryContacts.save(vm, n, name, days, deleteHistory)
-                if (id != null) {
+                val saved = app.parley.ui.temporary.TemporaryContactActions.save(vm, n, name, days, deleteHistory, visible)
+                if (saved != null) {
                     field.clearText()
-                    vm.toast("Saved. Deletes itself in $days ${if (days == 1) "day" else "days"}.")
+                    val span = "$days ${if (days == 1) "day" else "days"}"
+                    vm.toast(if (saved.private) "Saved privately. Deletes itself in $span." else "Saved. Deletes itself in $span.")
                 } else {
                     vm.toast("Couldn't save the contact")
                 }

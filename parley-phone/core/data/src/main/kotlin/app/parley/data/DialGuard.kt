@@ -67,8 +67,8 @@ class DialGuard(
     /** Recents badge (B10): whether this missed call looks like a one-ring scam. */
     fun isWangiri(type: CallType, number: String, date: Long, rings: List<app.parley.data.db.CallRingEntity>, iso: String): Boolean {
         if (type != CallType.MISSED && type != CallType.REJECTED) return false
-        val key = PhoneNumbers.matchKey(number)
-        val ring = rings.firstOrNull { it.numberKey == key && kotlin.math.abs(it.startedAt - date) < 120_000 }
+        val key = blocks.ringKey(number)
+        val ring = rings.firstOrNull { blocks.ringMatches(it, number, key) && kotlin.math.abs(it.startedAt - date) < 120_000 }
         val f = NumberFacts.of(number, iso)
         return WangiriGuard.isSuspect(type, ring?.ringMs, f.lineType, f.region, iso)
     }
