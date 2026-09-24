@@ -15,27 +15,35 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddAPhoto
+import androidx.compose.material.icons.rounded.AddCircle
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.PersonSearch
+import androidx.compose.material.icons.rounded.RemoveCircle
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -43,10 +51,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -59,20 +69,27 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
+import app.parley.common.people.HandleService
+import app.parley.common.people.Handles
+import app.parley.common.people.LifeEvents
+import app.parley.common.people.RelationLinks
+import app.parley.common.people.RelationType
+import app.parley.common.people.RelationTypes
 import app.parley.data.AccountRef
 import app.parley.data.ContactDetails
 import app.parley.data.DataItem
 import app.parley.data.EventItem
 import app.parley.data.GroupInfo
+import app.parley.data.HandleItem
 import app.parley.data.PostalItem
 import app.parley.ui.Avatar
-import app.parley.common.people.LifeEvents
-import app.parley.common.people.RelationLinks
+import app.parley.ui.CallColors
 import app.parley.ui.people.applyBackground
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
@@ -85,11 +102,12 @@ private val postalTypes = listOf(StructuredPostal.TYPE_HOME, StructuredPostal.TY
 /** Country used to interpret phone numbers typed in the editor. */
 val LocalCountryIso = androidx.compose.runtime.staticCompositionLocalOf { "US" }
 
-private val relationTypes = listOf(
-    Relation.TYPE_SPOUSE, Relation.TYPE_PARTNER, Relation.TYPE_CHILD, Relation.TYPE_PARENT, Relation.TYPE_MOTHER, Relation.TYPE_FATHER,
-    Relation.TYPE_SISTER, Relation.TYPE_BROTHER, Relation.TYPE_FRIEND, Relation.TYPE_MANAGER, Relation.TYPE_ASSISTANT, Relation.TYPE_RELATIVE,
-)
 private val eventTypes = listOf(Event.TYPE_BIRTHDAY, Event.TYPE_ANNIVERSARY, Event.TYPE_OTHER)
+
+/** Sections that are hidden until they have content or are added from "More fields" (U5). */
+private enum class Extra(val label: String) {
+    ADDRESS("Address"), DATE("Date"), WEBSITE("Website"), RELATION("Relation"), HANDLE("Messenger handle"), NOTE("Notes"), NAME("Name details"),
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -122,6 +140,9 @@ fun ContactEditScreen(
     var confirmDiscard by remember { mutableStateOf(false) }
     var askKeep by remember { mutableStateOf<Pair<String, Long>?>(null) }
     var start by remember { mutableStateOf<ContactDetails?>(null) }
+    var revealed by remember { mutableStateOf(emptySet<Extra>()) }
+    // I5: relations whose contact was chosen with the picker (name key → that contact).
+    var pickedLinks by remember { mutableStateOf(emptyMap<String, RelationLinks.Link>()) }
     // New contacts go to the private vault when "Private by default" is on (the Save-to menu can change it).
     var privateNew by remember { mutableStateOf(false) }
     val isVault = vaultId != null || privateNew
@@ -178,6 +199,7 @@ fun ContactEditScreen(
         start = draft
     }
 
+    // The system photo picker needs no storage permission (also for private contacts' encrypted photos, I6).
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) { photo = uri; removePhoto = false }
     }
@@ -190,7 +212,7 @@ fun ContactEditScreen(
         // A contact holding only an address, a note or a website is fine (F24); a completely empty one is not.
         val empty = e.composedName.isBlank() && e.nickname.isBlank() && e.company.isBlank() && e.title.isBlank() && e.note.isBlank() &&
             (e.phones + e.emails + e.websites + e.relations).all { it.value.isBlank() } && e.addresses.all { it.isBlank } &&
-            e.events.all { it.date.isBlank() } && e.phoneticGiven.isBlank() && e.phoneticFamily.isBlank()
+            e.events.all { it.date.isBlank() } && e.phoneticGiven.isBlank() && e.phoneticFamily.isBlank() && e.handles.all { it.value.isBlank() }
         // Clearing one copy of a linked contact is allowed: that empty copy is removed and the others stay.
         val orig = original
         if (empty && photo == null && (orig == null || orig.rawContacts.size < 2 || orig.editRawId == null)) {
@@ -201,12 +223,22 @@ fun ContactEditScreen(
         scope.launch {
             val id = try {
                 if (isVault) {
-                    val id = vm.c.vault.save(vaultId?.takeIf { it > 0 }, e)
+                    val existing = vaultId?.takeIf { it > 0 }
+                    val cleaned = e.copy(handles = e.handles.filter { it.value.isNotBlank() })
+                    val id = vm.c.vault.save(existing, cleaned)
+                    // I6: the encrypted caller photo.
+                    val picked = photo
+                    if (picked != null) {
+                        val bytes = withContext(Dispatchers.IO) { runCatching { context.contentResolver.openInputStream(picked)?.use { it.readBytes() } }.getOrNull() }
+                        if (bytes == null || !vm.c.vault.setPhoto(id, bytes)) vm.toast("Couldn't use that photo")
+                    } else if (removePhoto) {
+                        vm.c.vault.removePhoto(id)
+                    }
                     -id // negative ids mark vault contacts for the caller
                 } else {
                     vm.c.contacts.save(original, e, account, photo, removePhoto).also { saved ->
                         original?.lookupKey?.let { key -> vm.applyBackground(key, bgChange) }
-                        if (saved != null) rememberRelations(vm, saved, e)
+                        if (saved != null) rememberRelations(vm, saved, e, pickedLinks)
                     }
                 }
             } catch (ex: Exception) {
@@ -232,6 +264,7 @@ fun ContactEditScreen(
     ) { padding ->
         if (d == null) return@Scaffold
         fun update(f: (ContactDetails) -> ContactDetails) { draft = f(d) }
+        fun shown(x: Extra, has: Boolean) = has || x in revealed
         androidx.compose.runtime.CompositionLocalProvider(LocalCountryIso provides vm.countryIso, LocalLocked provides original?.readOnlyDataIds.orEmpty()) {
         Column(
             Modifier.padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -251,15 +284,21 @@ fun ContactEditScreen(
                     vm.navigate(app.parley.NavEvent.Route(app.parley.ui.Routes.edit(id = id, prefill = true)))
                 }
             }
-            if (!isVault) Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
                 val shownPhoto = photo?.toString() ?: d.photoUri.takeUnless { removePhoto }
-                Avatar(d.composedName.ifBlank { "?" }, shownPhoto, 104.dp, Modifier.clickable {
+                Avatar(d.composedName.ifBlank { "?" }, shownPhoto, 104.dp, Modifier.clickable(onClickLabel = "Choose a photo") {
                     photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 })
                 Icon(Icons.Rounded.AddAPhoto, "Change photo", Modifier.align(Alignment.BottomCenter).padding(start = 80.dp).size(24.dp), tint = MaterialTheme.colorScheme.primary)
             }
-            if (!isVault && (photo != null || (d.photoUri != null && !removePhoto))) {
+            if (photo != null || (d.photoUri != null && !removePhoto)) {
                 TextButton({ photo = null; removePhoto = true }, Modifier.align(Alignment.CenterHorizontally)) { Text("Remove photo") }
+            }
+            if (isVault && (photo != null || d.photoUri != null)) {
+                Text(
+                    "The photo is encrypted and only shown inside Parley, including on the call screen.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterHorizontally),
+                )
             }
 
             if (vaultId != null) {
@@ -274,22 +313,26 @@ fun ContactEditScreen(
                 Text("Saved in ${account?.displayLabel ?: "Phone"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            Field("First name", d.given, KeyboardCapitalization.Words, rowId = d.nameId) { v -> update { it.copy(given = v) } }
-            Field("Last name", d.family, KeyboardCapitalization.Words, rowId = d.nameId) { v -> update { it.copy(family = v) } }
-            Row(Modifier.clickable { moreName = !moreName }, verticalAlignment = Alignment.CenterVertically) {
-                Icon(if (moreName) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
-                Text(if (moreName) "Fewer name fields" else "More name fields", style = MaterialTheme.typography.labelLarge)
+            EditorGroup("Name") {
+                Field("First name", d.given, KeyboardCapitalization.Words, rowId = d.nameId) { v -> update { it.copy(given = v) } }
+                Field("Last name", d.family, KeyboardCapitalization.Words, rowId = d.nameId) { v -> update { it.copy(family = v) } }
+                val nameDetails = moreName || Extra.NAME in revealed || listOf(d.prefix, d.middle, d.suffix, d.phoneticGiven, d.phoneticFamily, d.nickname).any { it.isNotBlank() }
+                if (nameDetails) {
+                    Field("Prefix", d.prefix, KeyboardCapitalization.Words) { v -> update { it.copy(prefix = v) } }
+                    Field("Middle name", d.middle, KeyboardCapitalization.Words) { v -> update { it.copy(middle = v) } }
+                    Field("Suffix", d.suffix, KeyboardCapitalization.Words) { v -> update { it.copy(suffix = v) } }
+                    Field("Phonetic first name", d.phoneticGiven, KeyboardCapitalization.Words) { v -> update { it.copy(phoneticGiven = v) } }
+                    Field("Phonetic last name", d.phoneticFamily, KeyboardCapitalization.Words) { v -> update { it.copy(phoneticFamily = v) } }
+                    Field("Nickname", d.nickname, KeyboardCapitalization.Words) { v -> update { it.copy(nickname = v) } }
+                } else {
+                    Row(Modifier.clickable { moreName = true }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(if (moreName) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
+                        Text("Prefix, middle name, nickname…", style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+                Field("Company", d.company, KeyboardCapitalization.Words, rowId = d.orgId) { v -> update { it.copy(company = v) } }
+                Field("Title", d.title, KeyboardCapitalization.Words, rowId = d.orgId) { v -> update { it.copy(title = v) } }
             }
-            if (moreName) {
-                Field("Prefix", d.prefix, KeyboardCapitalization.Words) { v -> update { it.copy(prefix = v) } }
-                Field("Middle name", d.middle, KeyboardCapitalization.Words) { v -> update { it.copy(middle = v) } }
-                Field("Suffix", d.suffix, KeyboardCapitalization.Words) { v -> update { it.copy(suffix = v) } }
-                Field("Phonetic first name", d.phoneticGiven, KeyboardCapitalization.Words) { v -> update { it.copy(phoneticGiven = v) } }
-                Field("Phonetic last name", d.phoneticFamily, KeyboardCapitalization.Words) { v -> update { it.copy(phoneticFamily = v) } }
-                Field("Nickname", d.nickname, KeyboardCapitalization.Words) { v -> update { it.copy(nickname = v) } }
-            }
-            Field("Company", d.company, KeyboardCapitalization.Words, rowId = d.orgId) { v -> update { it.copy(company = v) } }
-            Field("Title", d.title, KeyboardCapitalization.Words, rowId = d.orgId) { v -> update { it.copy(title = v) } }
 
             MultiSection(
                 "Phone", d.phones, phoneTypes, { Phone.getTypeLabel(res, it, null).toString() }, KeyboardType.Phone,
@@ -300,80 +343,88 @@ fun ContactEditScreen(
                 onChange = { list -> update { it.copy(emails = list) } }, newItem = { DataItem(type = Email.TYPE_HOME) },
             )
 
-            SectionTitle("Address")
-            d.addresses.forEachIndexed { i, a ->
-                fun set(n: PostalItem) = update { it.copy(addresses = it.addresses.toMutableList().also { l -> l[i] = n }) }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f)) {
-                        Dropdown("Type", StructuredPostal.getTypeLabel(res, a.type, a.label).toString(), postalTypes.map { StructuredPostal.getTypeLabel(res, it, null).toString() }) { t -> set(a.copy(type = postalTypes[t])) }
-                    }
-                    IconButton({ update { it.copy(addresses = it.addresses.filterIndexed { j, _ -> j != i }) } }) { Icon(Icons.Rounded.Close, "Remove address") }
-                }
-                Field("Street", a.street, KeyboardCapitalization.Words, rowId = a.id) { set(a.copy(street = it)) }
-                // Shown when the address has them, so editing never drops a PO box or neighbourhood (F25).
-                if (a.poBox.isNotEmpty() || a.neighborhood.isNotEmpty()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(Modifier.weight(0.4f)) { Field("PO box", a.poBox, rowId = a.id) { set(a.copy(poBox = it)) } }
-                        Box(Modifier.weight(0.6f)) { Field("Neighbourhood", a.neighborhood, KeyboardCapitalization.Words, rowId = a.id) { set(a.copy(neighborhood = it)) } }
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.weight(0.4f)) { Field("Postcode", a.postcode) { set(a.copy(postcode = it)) } }
-                    Box(Modifier.weight(0.6f)) { Field("City", a.city, KeyboardCapitalization.Words) { set(a.copy(city = it)) } }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.weight(1f)) { Field("Region", a.region, KeyboardCapitalization.Words) { set(a.copy(region = it)) } }
-                    Box(Modifier.weight(1f)) { Field("Country", a.country, KeyboardCapitalization.Words) { set(a.copy(country = it)) } }
-                }
+            if (shown(Extra.HANDLE, d.handles.isNotEmpty())) {
+                HandlesSection(d.handles) { list -> update { it.copy(handles = list) } }
             }
-            AddButton("Add address") { update { it.copy(addresses = it.addresses + PostalItem(type = StructuredPostal.TYPE_HOME)) } }
 
-            SectionTitle("Important dates")
-            d.events.forEachIndexed { i, ev ->
-                fun set(n: EventItem) = update { it.copy(events = it.events.toMutableList().also { l -> l[i] = n }) }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.weight(0.45f)) {
-                        var customLabel by remember { mutableStateOf(false) }
-                        Dropdown(
-                            "Type", app.parley.ui.people.eventLabel(res, ev),
-                            eventTypes.map { res.getString(Event.getTypeResource(it)) } + LifeEvents.DEATH_LABEL + "Custom…",
-                        ) { t ->
-                            when (t) {
-                                in eventTypes.indices -> set(ev.copy(type = eventTypes[t], label = null))
-                                eventTypes.size -> set(ev.copy(type = Event.TYPE_CUSTOM, label = LifeEvents.DEATH_LABEL))
-                                else -> customLabel = true
-                            }
+            if (shown(Extra.ADDRESS, d.addresses.isNotEmpty())) EditorGroup("Address") {
+                d.addresses.forEachIndexed { i, a ->
+                    fun set(n: PostalItem) = update { it.copy(addresses = it.addresses.toMutableList().also { l -> l[i] = n }) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) {
+                            Dropdown("Type", StructuredPostal.getTypeLabel(res, a.type, a.label).toString(), postalTypes.map { StructuredPostal.getTypeLabel(res, it, null).toString() }) { t -> set(a.copy(type = postalTypes[t])) }
                         }
-                        if (customLabel) CustomLabelDialog(ev.label.takeIf { ev.type == Event.TYPE_CUSTOM }, { customLabel = false }) { set(ev.copy(type = Event.TYPE_CUSTOM, label = it)) }
+                        RemoveButton("Remove address") { update { it.copy(addresses = it.addresses.filterIndexed { j, _ -> j != i }) } }
                     }
-                    Box(Modifier.weight(0.55f)) {
-                        var picking by remember { mutableStateOf(false) }
-                        OutlinedTextField(
-                            if (ev.date.isBlank()) "" else describeEvent(ev.date, false).substringBefore(" ·"), {}, readOnly = true,
-                            label = { Text("Date") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        )
-                        Box(Modifier.matchParentSize().clickable { picking = true })
-                        if (picking) EventDateDialog(ev.date, onDismiss = { picking = false }) { set(ev.copy(date = it)); picking = false }
+                    Field("Street", a.street, KeyboardCapitalization.Words, rowId = a.id) { set(a.copy(street = it)) }
+                    // Shown when the address has them, so editing never drops a PO box or neighbourhood (F25).
+                    if (a.poBox.isNotEmpty() || a.neighborhood.isNotEmpty()) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(Modifier.weight(0.4f)) { Field("PO box", a.poBox, rowId = a.id) { set(a.copy(poBox = it)) } }
+                            Box(Modifier.weight(0.6f)) { Field("Neighbourhood", a.neighborhood, KeyboardCapitalization.Words, rowId = a.id) { set(a.copy(neighborhood = it)) } }
+                        }
                     }
-                    IconButton({ update { it.copy(events = it.events.filterIndexed { j, _ -> j != i }) } }) { Icon(Icons.Rounded.Close, "Remove date") }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.weight(0.4f)) { Field("Postcode", a.postcode) { set(a.copy(postcode = it)) } }
+                        Box(Modifier.weight(0.6f)) { Field("City", a.city, KeyboardCapitalization.Words) { set(a.copy(city = it)) } }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.weight(1f)) { Field("Region", a.region, KeyboardCapitalization.Words) { set(a.copy(region = it)) } }
+                        Box(Modifier.weight(1f)) { Field("Country", a.country, KeyboardCapitalization.Words) { set(a.copy(country = it)) } }
+                    }
+                }
+                AddButton("Add address") { update { it.copy(addresses = it.addresses + PostalItem(type = StructuredPostal.TYPE_HOME)) } }
+            }
+
+            if (shown(Extra.DATE, d.events.isNotEmpty())) EditorGroup("Important dates") {
+                d.events.forEachIndexed { i, ev ->
+                    fun set(n: EventItem) = update { it.copy(events = it.events.toMutableList().also { l -> l[i] = n }) }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.weight(0.45f)) {
+                            var customLabel by remember { mutableStateOf(false) }
+                            Dropdown(
+                                "Type", app.parley.ui.people.eventLabel(res, ev),
+                                eventTypes.map { res.getString(Event.getTypeResource(it)) } + LifeEvents.DEATH_LABEL + "Custom…",
+                            ) { t ->
+                                when (t) {
+                                    in eventTypes.indices -> set(ev.copy(type = eventTypes[t], label = null))
+                                    eventTypes.size -> set(ev.copy(type = Event.TYPE_CUSTOM, label = LifeEvents.DEATH_LABEL))
+                                    else -> customLabel = true
+                                }
+                            }
+                            if (customLabel) CustomLabelDialog(ev.label.takeIf { ev.type == Event.TYPE_CUSTOM }, { customLabel = false }) { set(ev.copy(type = Event.TYPE_CUSTOM, label = it)) }
+                        }
+                        Box(Modifier.weight(0.55f)) {
+                            var picking by remember { mutableStateOf(false) }
+                            OutlinedTextField(
+                                if (ev.date.isBlank()) "" else describeEvent(ev.date, false).substringBefore(" ·"), {}, readOnly = true,
+                                label = { Text("Date") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                            )
+                            Box(Modifier.matchParentSize().clickable { picking = true })
+                            if (picking) EventDateDialog(ev.date, onDismiss = { picking = false }) { set(ev.copy(date = it)); picking = false }
+                        }
+                        RemoveButton("Remove date") { update { it.copy(events = it.events.filterIndexed { j, _ -> j != i }) } }
+                    }
+                }
+                AddButton("Add date") { update { it.copy(events = it.events + EventItem(type = Event.TYPE_BIRTHDAY)) } }
+            }
+
+            if (shown(Extra.WEBSITE, d.websites.isNotEmpty())) {
+                MultiSection(
+                    "Website", d.websites, listOf(Website.TYPE_HOMEPAGE, Website.TYPE_WORK, Website.TYPE_OTHER),
+                    { t -> when (t) { Website.TYPE_HOMEPAGE -> "Homepage"; Website.TYPE_WORK -> "Work"; else -> "Other" } }, KeyboardType.Uri,
+                    onChange = { list -> update { it.copy(websites = list) } }, newItem = { DataItem(type = Website.TYPE_HOMEPAGE) },
+                )
+            }
+
+            if (shown(Extra.RELATION, d.relations.isNotEmpty())) {
+                RelationsSection(vm, d.relations, onChange = { list -> update { it.copy(relations = list) } }) { name, link ->
+                    pickedLinks = pickedLinks + (RelationLinks.nameKey(name) to link)
                 }
             }
-            AddButton("Add date") { update { it.copy(events = it.events + EventItem(type = Event.TYPE_BIRTHDAY)) } }
-
-            MultiSection(
-                "Website", d.websites, listOf(Website.TYPE_HOMEPAGE, Website.TYPE_WORK, Website.TYPE_OTHER),
-                { t -> when (t) { Website.TYPE_HOMEPAGE -> "Homepage"; Website.TYPE_WORK -> "Work"; else -> "Other" } }, KeyboardType.Uri,
-                onChange = { list -> update { it.copy(websites = list) } }, newItem = { DataItem(type = Website.TYPE_HOMEPAGE) },
-            )
-
-            MultiSection(
-                "Relation", d.relations, relationTypes, { Relation.getTypeLabel(res, it, null).toString() }, KeyboardType.Text,
-                onChange = { list -> update { it.copy(relations = list) } }, newItem = { DataItem(type = Relation.TYPE_SPOUSE) },
-            )
 
             val accountGroups = if (isVault) emptyList() else groups.filter { it.account.type == account?.type && it.account.name == account?.name }
-            if (accountGroups.isNotEmpty()) {
-                SectionTitle("Labels")
+            if (accountGroups.isNotEmpty()) EditorGroup("Labels") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     accountGroups.forEach { g ->
                         val on = g.id in d.groupIds
@@ -382,11 +433,63 @@ fun ContactEditScreen(
                 }
             }
 
-            OutlinedTextField(
-                d.note, { v -> update { it.copy(note = v) } }, label = { Text("Notes") },
-                modifier = Modifier.fillMaxWidth(), minLines = 2,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-            )
+            if (shown(Extra.NOTE, d.note.isNotBlank() || original != null)) EditorGroup("Notes") {
+                OutlinedTextField(
+                    d.note, { v -> update { it.copy(note = v) } }, label = { Text("Notes") },
+                    modifier = Modifier.fillMaxWidth(), minLines = 2,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                )
+            }
+
+            if (isVault) EditorGroup("When they call") {
+                // I6: shown on the call screen (and, outside discreet mode, a missed-call notification).
+                OutlinedTextField(
+                    d.context, { v -> update { it.copy(context = v.take(120)) } }, label = { Text("Who is this?") },
+                    placeholder = { Text("e.g. Plumber, fixed the boiler in May") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    supportingText = { Text("One line under their name when they call") },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                )
+                OutlinedTextField(
+                    d.pinnedNote, { v -> update { it.copy(pinnedNote = v) } }, label = { Text("Note for calls") },
+                    placeholder = { Text("e.g. Ask about the invoice") }, modifier = Modifier.fillMaxWidth(), minLines = 2,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                )
+                Text(
+                    "Job and company from Name are shown too. These are encrypted, and readable on the call screen while the phone is locked, like the name.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            // U5: fields that aren't shown yet, revealed inline.
+            val hidden = buildList {
+                if (!shown(Extra.HANDLE, d.handles.isNotEmpty())) add(Extra.HANDLE)
+                if (!shown(Extra.ADDRESS, d.addresses.isNotEmpty())) add(Extra.ADDRESS)
+                if (!shown(Extra.DATE, d.events.isNotEmpty())) add(Extra.DATE)
+                if (!shown(Extra.WEBSITE, d.websites.isNotEmpty())) add(Extra.WEBSITE)
+                if (!shown(Extra.RELATION, d.relations.isNotEmpty())) add(Extra.RELATION)
+                if (!shown(Extra.NOTE, d.note.isNotBlank() || original != null)) add(Extra.NOTE)
+            }
+            if (hidden.isNotEmpty()) EditorGroup("More fields") {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    hidden.forEach { x ->
+                        AssistChip(
+                            onClick = {
+                                revealed = revealed + x
+                                when (x) {
+                                    Extra.HANDLE -> update { it.copy(handles = it.handles + HandleItem()) }
+                                    Extra.ADDRESS -> update { it.copy(addresses = it.addresses + PostalItem(type = StructuredPostal.TYPE_HOME)) }
+                                    Extra.DATE -> update { it.copy(events = it.events + EventItem(type = Event.TYPE_BIRTHDAY)) }
+                                    Extra.WEBSITE -> update { it.copy(websites = it.websites + DataItem(type = Website.TYPE_HOMEPAGE)) }
+                                    Extra.RELATION -> update { it.copy(relations = it.relations + DataItem(type = Relation.TYPE_SPOUSE)) }
+                                    else -> Unit
+                                }
+                            },
+                            label = { Text(x.label) },
+                            leadingIcon = { Icon(Icons.Rounded.AddCircle, null, tint = CallColors.Accept, modifier = Modifier.size(18.dp)) },
+                        )
+                    }
+                }
+            }
             val key = original?.lookupKey
             if (!isVault && !key.isNullOrEmpty()) {
                 app.parley.ui.people.CallBackgroundEditor(vm, key, bgChange) { bgChange = it }
@@ -415,31 +518,44 @@ fun ContactEditScreen(
     }
 }
 
-/** Remembers which contact each relation names, by lookup key, beside the name-only Data row (F23). */
-private suspend fun rememberRelations(vm: AppViewModel, contactId: Long, e: ContactDetails) = withContext(Dispatchers.IO) {
+/** Remembers which contact each relation names, by lookup key, beside the name-only Data row (F23, I5). */
+private suspend fun rememberRelations(vm: AppViewModel, contactId: Long, e: ContactDetails, picked: Map<String, RelationLinks.Link>) = withContext(Dispatchers.IO) {
     val key = vm.c.contacts.lookupKeyOf(contactId) ?: return@withContext
     val m = vm.c.meta.meta(key)
     val existing = RelationLinks.decode(m?.relationLinks)
     val names = e.relations.map { it.value }.filter { it.isNotBlank() }
     if (names.isEmpty() && existing.isEmpty()) return@withContext
     val people = vm.c.contacts.snapshot().map { Triple(it.id, it.displayName, it.lookupKey) }
-    val links = RelationLinks.update(names, existing, people, self = contactId)
+    val links = RelationLinks.update(names, existing, people, self = contactId, picked = picked)
     if (links == existing) return@withContext
     vm.c.meta.setMeta((m ?: app.parley.data.db.ContactMetaEntity(key)).copy(contactId = contactId, relationLinks = RelationLinks.encode(links).ifEmpty { null }))
 }
 
+/** U2: one titled card of the editor. */
 @Composable
-private fun SectionTitle(t: String) {
-    Text(t, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
+private fun EditorGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column {
+        Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 6.dp))
+        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+        }
+    }
 }
 
+/** U5: "+ Add …" at the end of a group. */
 @Composable
 private fun AddButton(label: String, onClick: () -> Unit) {
-    OutlinedButton(onClick) {
-        Icon(Icons.Rounded.Add, null, Modifier.size(18.dp))
-        Spacer(Modifier.width(6.dp))
+    TextButton(onClick) {
+        Icon(Icons.Rounded.AddCircle, null, Modifier.size(20.dp), tint = CallColors.Accept)
+        Spacer(Modifier.width(8.dp))
         Text(label)
     }
+}
+
+/** U5: a tinted "−" that removes one row. */
+@Composable
+private fun RemoveButton(description: String, onClick: () -> Unit) {
+    IconButton(onClick) { Icon(Icons.Rounded.RemoveCircle, description, tint = MaterialTheme.colorScheme.error) }
 }
 
 /** Fields whose Data row the provider marks read-only (F12): shown, but locked. */
@@ -475,36 +591,183 @@ private fun MultiSection(
     onChange: (List<DataItem>) -> Unit,
     newItem: () -> DataItem,
 ) {
-    SectionTitle(title)
-    items.forEachIndexed { i, item ->
-        val locked = item.id != null && item.id in LocalLocked.current
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val iso = LocalCountryIso.current
-            val flag = if (keyboard == KeyboardType.Phone && item.value.length >= 6) remember(item.value) { app.parley.data.NumberInfo.flag(app.parley.data.NumberInfo.region(item.value, iso)) } else null
+    EditorGroup(title) {
+        items.forEachIndexed { i, item ->
+            val locked = item.id != null && item.id in LocalLocked.current
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val iso = LocalCountryIso.current
+                val flag = if (keyboard == KeyboardType.Phone && item.value.length >= 6) remember(item.value) { app.parley.data.NumberInfo.flag(app.parley.data.NumberInfo.region(item.value, iso)) } else null
+                OutlinedTextField(
+                    item.value, { v -> onChange(items.toMutableList().also { it[i] = item.copy(value = v) }) },
+                    label = { Text(title) }, singleLine = true, modifier = Modifier.weight(0.6f),
+                    prefix = flag?.let { f -> { Text("$f ") } },
+                    readOnly = locked, trailingIcon = if (locked) { { LockIcon() } } else null,
+                    keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+                )
+                if (locked) {
+                    Text(typeLabel(item.type).takeIf { item.type != 0 } ?: item.label.orEmpty(), Modifier.weight(0.4f).padding(start = 4.dp))
+                    return@Row
+                }
+                Box(Modifier.weight(0.4f)) {
+                    var customLabel by remember { mutableStateOf(false) }
+                    Dropdown("Type", if (item.type == 0) item.label ?: "Custom" else typeLabel(item.type), types.map(typeLabel) + "Custom…") { t ->
+                        if (t in types.indices) onChange(items.toMutableList().also { it[i] = item.copy(type = types[t], label = null) }) else customLabel = true
+                    }
+                    if (customLabel) CustomLabelDialog(item.label.takeIf { item.type == 0 }, { customLabel = false }) { l ->
+                        onChange(items.toMutableList().also { it[i] = item.copy(type = 0, label = l) })
+                    }
+                }
+                RemoveButton("Remove") { onChange(items.filterIndexed { j, _ -> j != i }) }
+            }
+        }
+        AddButton("Add ${title.lowercase()}") { onChange(items + newItem()) }
+    }
+}
+
+/** I1: the "Handles" group: service, handle with a per-service hint, and a warning when it doesn't look right. */
+@Composable
+private fun HandlesSection(handles: List<HandleItem>, onChange: (List<HandleItem>) -> Unit) {
+    val services = HandleService.common + HandleService.entries.filter { it !in HandleService.common }
+    EditorGroup("Messenger handles") {
+        handles.forEachIndexed { i, h ->
+            val locked = h.id != null && h.id in LocalLocked.current
+            fun set(n: HandleItem) = onChange(handles.toMutableList().also { it[i] = n })
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.weight(1f)) {
+                    if (locked) {
+                        Text(h.handle.serviceLabel, Modifier.padding(8.dp))
+                    } else {
+                        Dropdown("Service", h.handle.serviceLabel, services.map { it.label }) { t -> set(h.copy(service = services[t], customProtocol = if (services[t] == HandleService.OTHER) h.customProtocol else null)) }
+                    }
+                }
+                if (!locked) RemoveButton("Remove handle") { onChange(handles.filterIndexed { j, _ -> j != i }) }
+            }
+            if (h.service == HandleService.OTHER && !locked) {
+                OutlinedTextField(
+                    h.customProtocol.orEmpty(), { set(h.copy(customProtocol = it)) }, label = { Text("Service name") },
+                    placeholder = { Text("e.g. Jami, Briar") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            val problem = Handles.problem(h.service, h.value)
             OutlinedTextField(
-                item.value, { v -> onChange(items.toMutableList().also { it[i] = item.copy(value = v) }) },
-                label = { Text(title) }, singleLine = true, modifier = Modifier.weight(0.6f),
-                prefix = flag?.let { f -> { Text("$f ") } },
-                readOnly = locked, trailingIcon = if (locked) { { LockIcon() } } else null,
-                keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+                h.value, { set(h.copy(value = it)) }, label = { Text(h.handle.serviceLabel) },
+                placeholder = h.service.placeholder.takeIf { it.isNotEmpty() }?.let { p -> { Text(p) } },
+                supportingText = { Text(problem ?: h.service.hint) }, isError = problem != null,
+                singleLine = true, modifier = Modifier.fillMaxWidth(), readOnly = locked, trailingIcon = if (locked) { { LockIcon() } } else null,
+                keyboardOptions = KeyboardOptions(keyboardType = if (h.service == HandleService.XMPP || h.service == HandleService.SIP) KeyboardType.Email else KeyboardType.Text),
             )
-            if (locked) {
-                Text(typeLabel(item.type).takeIf { item.type != 0 } ?: item.label.orEmpty(), Modifier.weight(0.4f).padding(start = 4.dp))
-                return@Row
+        }
+        AddButton("Add handle") { onChange(handles + HandleItem()) }
+    }
+}
+
+/** I5: relations with the vCard 4.0 types (searchable) and a contact picker that remembers who was chosen. */
+@Composable
+private fun RelationsSection(vm: AppViewModel, items: List<DataItem>, onChange: (List<DataItem>) -> Unit, onPicked: (String, RelationLinks.Link) -> Unit) {
+    val res = androidx.compose.ui.platform.LocalResources.current
+    var typeFor by remember { mutableStateOf<Int?>(null) }
+    var pickFor by remember { mutableStateOf<Int?>(null) }
+    fun label(item: DataItem) = RelationTypes.fromAndroid(item.type, item.label)?.label
+        ?: if (item.type == 0) item.label ?: "Custom" else Relation.getTypeLabel(res, item.type, null).toString()
+    EditorGroup("Relations") {
+        items.forEachIndexed { i, item ->
+            val locked = item.id != null && item.id in LocalLocked.current
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    item.value, { v -> onChange(items.toMutableList().also { it[i] = item.copy(value = v) }) },
+                    label = { Text(label(item)) }, singleLine = true, modifier = Modifier.weight(1f), readOnly = locked,
+                    trailingIcon = if (locked) { { LockIcon() } } else { { IconButton({ pickFor = i }) { Icon(Icons.Rounded.PersonSearch, "Choose a contact") } } },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                )
+                if (!locked) RemoveButton("Remove relation") { onChange(items.filterIndexed { j, _ -> j != i }) }
             }
-            Box(Modifier.weight(0.4f)) {
-                var customLabel by remember { mutableStateOf(false) }
-                Dropdown("Type", if (item.type == 0) item.label ?: "Custom" else typeLabel(item.type), types.map(typeLabel) + "Custom…") { t ->
-                    if (t in types.indices) onChange(items.toMutableList().also { it[i] = item.copy(type = types[t], label = null) }) else customLabel = true
-                }
-                if (customLabel) CustomLabelDialog(item.label.takeIf { item.type == 0 }, { customLabel = false }) { l ->
-                    onChange(items.toMutableList().also { it[i] = item.copy(type = 0, label = l) })
-                }
+            if (!locked) {
+                TextButton({ typeFor = i }) { Text("Relation: ${label(item)}") }
             }
-            IconButton({ onChange(items.filterIndexed { j, _ -> j != i }) }) { Icon(Icons.Rounded.Close, "Remove") }
+        }
+        AddButton("Add relation") { onChange(items + DataItem(type = Relation.TYPE_SPOUSE)) }
+    }
+    typeFor?.let { i ->
+        RelationTypeDialog(onDismiss = { typeFor = null }) { t ->
+            typeFor = null
+            if (t != null) {
+                val (type, lbl) = RelationTypes.toAndroid(t)
+                onChange(items.toMutableList().also { it[i] = it[i].copy(type = type, label = lbl) })
+            }
         }
     }
-    AddButton("Add ${title.lowercase()}") { onChange(items + newItem()) }
+    pickFor?.let { i ->
+        ContactChooserDialog(vm, onDismiss = { pickFor = null }) { id, name, key ->
+            pickFor = null
+            onChange(items.toMutableList().also { it[i] = it[i].copy(value = name) })
+            onPicked(name, RelationLinks.Link(key, id))
+        }
+    }
+}
+
+@Composable
+private fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -> Unit) {
+    var query by remember { mutableStateOf("") }
+    var custom by remember { mutableStateOf(false) }
+    val shown = remember(query) { RelationTypes.search(query) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Relation") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(query, { query = it }, label = { Text("Search") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                    items(shown, key = { it.key }) { t ->
+                        ListItem(
+                            headlineContent = { Text(t.label) },
+                            supportingContent = { Text(t.group.title) },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            modifier = Modifier.clickable { onPick(t) },
+                        )
+                    }
+                    item {
+                        ListItem(
+                            headlineContent = { Text("Custom…") },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            modifier = Modifier.clickable { custom = true },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+    )
+    if (custom) CustomLabelDialog(query.ifBlank { null }, { custom = false }) { l -> custom = false; onPick(RelationType(key = "custom", label = l)) }
+}
+
+/** I5: pick the related person from your contacts (their lookup key is remembered, so renames don't break it). */
+@Composable
+fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: Long, name: String, lookupKey: String) -> Unit) {
+    val all by vm.contacts.collectAsStateWithLifecycle()
+    var query by remember { mutableStateOf("") }
+    val shown = remember(all, query) { all.orEmpty().filter { app.parley.common.TextSearch.matches(query, it.displayName, it.phones.map { p -> p.number }) }.take(200) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Choose a contact") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(query, { query = it }, label = { Text("Search") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                    items(shown, key = { it.id }) { c ->
+                        ListItem(
+                            leadingContent = { Avatar(c.displayName, c.photoUri, 36.dp) },
+                            headlineContent = { Text(c.displayName) },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            modifier = Modifier.clickable { onPick(c.id, c.displayName, c.lookupKey) },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+    )
 }
 
 /** Free-text label for a phone, e-mail, date… (stored as TYPE_CUSTOM with this label; survives export). */

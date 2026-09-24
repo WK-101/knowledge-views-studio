@@ -58,6 +58,15 @@ import app.parley.ui.common.Format
 import app.parley.ui.common.Intents
 import app.parley.ui.contact.LinkifiedText
 import app.parley.ui.contact.Section
+import app.parley.ui.SegmentedGroup
+import app.parley.ui.contact.ActionTile
+import app.parley.ui.contact.handleRows
+import androidx.compose.material.icons.automirrored.rounded.Chat
+import androidx.compose.material.icons.automirrored.rounded.Notes
+import androidx.compose.material.icons.rounded.Forum
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.PushPin
 import app.parley.ui.home.callTypeIcon
 import kotlinx.coroutines.launch
 
@@ -87,9 +96,43 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
     }
     fun unlock() = (context as? FragmentActivity)?.let { AppLock.authenticateForVault(it) { ok -> if (ok) attempt++ } }
 
+    val card by androidx.compose.runtime.produceState<app.parley.data.vault.VaultCallerCard?>(null, id, summaries) { value = vm.c.vault.callerCard(id) }
+    var messageSheet by remember { mutableStateOf<String?>(null) }
+    var webLink by remember { mutableStateOf<app.parley.common.people.HandleLink?>(null) }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    // U7: scroll-linked tint.
+    val barColor by androidx.compose.animation.animateColorAsState(
+        if (listState.canScrollBackward) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surface, label = "bar",
+    )
+    val prefs = remember(details) { app.parley.common.people.MessengerPrefs.decode(details?.messengerPrefs) }
+    fun reach(): app.parley.ui.contact.Reach {
+        val d = details
+        val numbers = d?.phones?.filter { it.value.isNotBlank() }?.map { it.value to Format.phoneType(context.resources, it.type, it.label) }
+            ?: summary?.numbers.orEmpty().map { it to "" }
+        return app.parley.ui.contact.Reach(
+            name = d?.given?.ifBlank { null } ?: summary?.name.orEmpty(), numbers = numbers,
+            defaultNumber = numbers.firstOrNull()?.first, messengers = emptyList(), prefs = prefs, isPrivate = true,
+        )
+    }
+    // M7 for private contacts: the choice is kept in their encrypted record (needs the unlocked details).
+    fun savePrefs(p: app.parley.common.people.MessengerPrefs) {
+        val d = details ?: return vm.toast("Unlock to remember this choice")
+        val next = d.copy(messengerPrefs = p.encode().orEmpty())
+        details = next
+        scope.launch { runCatching { vm.c.vault.save(id, next) } }
+    }
+    fun message(number: String? = null) {
+        val r = reach().let { if (number != null) it.copy(defaultNumber = number, prefs = it.prefs.copy(number = null)) else it }
+        when (val route = app.parley.ui.contact.ContactMessaging.route(context, r)) {
+            app.parley.common.people.MessageRoute.Ask -> messageSheet = number ?: r.defaultNumber.orEmpty()
+            else -> app.parley.ui.contact.ContactMessaging.open(context, route, r)?.let { vm.toast(it) }
+        }
+    }
+
     Scaffold(topBar = {
         TopAppBar(
             title = { Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Lock, null); Text("  Private contact") } },
+            colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = barColor, scrolledContainerColor = barColor),
             navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
             actions = {
                 if (details != null) {
@@ -105,6 +148,19 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                                 // Restores the original contact losslessly when the vault kept its record (F4).
                                 val newId = vm.c.vaultMoves.moveOut(id, d, account)
                                 if (newId != null) {
+                                    // I6: the note for calls and the messaging choice follow them into Parley's metadata.
+                                    if (d.pinnedNote.isNotBlank() || d.messengerPrefs.isNotBlank()) {
+                                        vm.c.contacts.lookupKeyOf(newId)?.let { key ->
+                                            val m = vm.c.meta.meta(key) ?: app.parley.data.db.ContactMetaEntity(key)
+                                            vm.c.meta.setMeta(
+                                                m.copy(
+                                                    contactId = newId,
+                                                    pinnedNote = d.pinnedNote.ifBlank { null } ?: m.pinnedNote,
+                                                    preferredMessenger = d.messengerPrefs.ifBlank { null } ?: m.preferredMessenger,
+                                                ),
+                                            )
+                                        }
+                                    }
                                     vm.toast("Moved to phone contacts")
                                     back()
                                     open(Routes.contact(newId))
@@ -119,67 +175,121 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
             },
         )
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(top = p.calculateTopPadding(), bottom = p.calculateBottomPadding() + 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Avatar(summary?.name ?: "?", null, 112.dp)
+                    Avatar(summary?.name ?: "?", card?.photoUri, 112.dp)
                     Text(summary?.name ?: "", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 12.dp))
+                    card?.subtitle?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    card?.context?.let { Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp)) }
                     Text("Only visible in Parley · encrypted", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                     summary?.expiresAt?.let { Text("Deletes itself on ${Format.fullDate(context, it)}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(16.dp))
                     val first = summary?.numbers?.firstOrNull()
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button({ first?.let { vm.requestCall(it, summary.name) } }, enabled = first != null) { Icon(Icons.Rounded.Call, null); Text("  Call") }
-                        Button({ first?.let { Intents.sms(context, it) } }, enabled = first != null) { Icon(Icons.AutoMirrored.Rounded.Message, null); Text("  Message") }
+                    // U3 tiles; M6 "Message on…" for private contacts too.
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ActionTile(Icons.Rounded.Call, "Call", first != null) { first?.let { vm.requestCall(it, summary.name) } }
+                        val usual = prefs.message?.let { m -> if (m == app.parley.common.people.MessengerPrefs.SMS) "SMS" else app.parley.common.MessengerApp.forPackage(m)?.label }
+                        ActionTile(Icons.AutoMirrored.Rounded.Message, usual ?: "Message", first != null, onLongClick = { messageSheet = first.orEmpty() }, longClickLabel = "Choose how to message") { message() }
+                        val email = details?.emails?.firstOrNull()?.value
+                        ActionTile(Icons.Rounded.Email, "Email", email != null) { email?.let { Intents.email(context, it) } }
+                    }
+                }
+            }
+            card?.note?.let { note ->
+                item {
+                    SegmentedGroup {
+                        item {
+                            ListItem(
+                                colors = app.parley.ui.contact.groupRowColors(),
+                                leadingContent = { Icon(Icons.Rounded.PushPin, null, tint = MaterialTheme.colorScheme.primary) },
+                                headlineContent = { Text(note) },
+                                supportingContent = { Text("Shown when they call") },
+                            )
+                        }
                     }
                 }
             }
             if (locked) {
                 item {
-                    ListItem(
-                        headlineContent = { Text("Unlock to see all details") },
-                        supportingContent = { Text("Names and numbers work without unlocking so calls still show who's calling.") },
-                        leadingContent = { Icon(Icons.Rounded.Lock, null) },
-                        modifier = Modifier.clickable { unlock() },
-                    )
+                    SegmentedGroup {
+                        item {
+                            ListItem(
+                                headlineContent = { Text("Unlock to see all details") },
+                                supportingContent = { Text("Names and numbers work without unlocking so calls still show who's calling.") },
+                                leadingContent = { Icon(Icons.Rounded.Lock, null) },
+                                colors = app.parley.ui.contact.groupRowColors(),
+                                modifier = Modifier.clickable { unlock() },
+                            )
+                        }
+                    }
                 }
             }
             val d = details
             if (d != null) {
-                if (d.phones.isNotEmpty()) item { Section("Phone") }
-                d.phones.forEach { ph ->
-                    item {
-                        ListItem(
-                            headlineContent = { Text(Format.number(ph.value, vm.countryIso)) },
-                            supportingContent = { Text(Format.phoneType(context.resources, ph.type, ph.label)) },
-                            leadingContent = { Icon(Icons.Rounded.Call, null) },
-                            modifier = Modifier.clickable { vm.requestCall(ph.value, d.displayName) },
-                        )
+                val phones = d.phones.filter { it.value.isNotBlank() }
+                if (phones.isNotEmpty()) item {
+                    SegmentedGroup("Phone") {
+                        phones.forEachIndexed { i, ph ->
+                            item {
+                                app.parley.ui.contact.GroupDataRow(
+                                    Icons.Rounded.Call, i == 0, ph.value, Format.phoneType(context.resources, ph.type, ph.label),
+                                    onClick = { vm.requestCall(ph.value, d.displayName) },
+                                    headline = { Text(Format.number(ph.value, vm.countryIso)) },
+                                    trailing = { IconButton({ message(ph.value) }) { Icon(Icons.AutoMirrored.Rounded.Chat, "Message this number") } },
+                                    menu = { close ->
+                                        DropdownMenuItem({ Text("Message on…") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = { close(); messageSheet = ph.value })
+                                    },
+                                )
+                            }
+                        }
                     }
                 }
-                d.emails.forEach { e ->
-                    item { ListItem(headlineContent = { Text(e.value) }, leadingContent = { Icon(Icons.Rounded.Email, null) }, modifier = Modifier.clickable { Intents.email(context, e.value) }) }
+                if (d.emails.isNotEmpty()) item {
+                    SegmentedGroup("Email") {
+                        d.emails.forEachIndexed { i, e -> item { app.parley.ui.contact.GroupDataRow(Icons.Rounded.Email, i == 0, e.value, null, onClick = { Intents.email(context, e.value) }) } }
+                    }
                 }
-                if (d.note.isNotBlank()) item { ListItem(headlineContent = { LinkifiedText(d.note) }, supportingContent = { Text("Note") }) }
+                if (d.handles.isNotEmpty()) item {
+                    SegmentedGroup("Messengers") {
+                        handleRows(d.handles, Icons.Rounded.Forum, onWeb = { webLink = it })
+                    }
+                }
+                if (d.addresses.isNotEmpty() || d.note.isNotBlank() || d.websites.isNotEmpty()) item {
+                    SegmentedGroup("About") {
+                        d.addresses.forEachIndexed { i, a -> item { app.parley.ui.contact.GroupDataRow(Icons.Rounded.LocationOn, i == 0, a.formatted, "Address", onClick = { Intents.map(context, a.formatted) }) } }
+                        d.websites.forEachIndexed { i, w -> item { app.parley.ui.contact.GroupDataRow(Icons.Rounded.Language, i == 0, w.value, "Website", onClick = { Intents.web(context, w.value) }) } }
+                        if (d.note.isNotBlank()) item { app.parley.ui.contact.GroupDataRow(Icons.AutoMirrored.Rounded.Notes, true, d.note, "Note", onClick = {}, headline = { LinkifiedText(d.note) }) }
+                    }
+                }
             }
             val mine = calls.filter { it.vaultId == id }
             if (mine.isNotEmpty()) {
-                item { Section("Private call history") }
-                mine.forEach { c ->
-                    item {
-                        val type = app.parley.data.CallLogRepository.mapType(c.type)
-                        val (icon, tint) = callTypeIcon(type)
-                        ListItem(
-                            leadingContent = { Icon(icon, null, tint = tint) },
-                            headlineContent = { Text(Format.fullDate(context, c.date)) },
-                            supportingContent = { Text(listOf(Format.number(c.number, vm.countryIso), Format.duration(c.durationSec)).filter { it.isNotBlank() }.joinToString(" · ")) },
-                        )
+                item {
+                    SegmentedGroup("Private call history") {
+                        mine.forEach { c ->
+                            item {
+                                val type = app.parley.data.CallLogRepository.mapType(c.type)
+                                val (icon, tint) = callTypeIcon(type)
+                                ListItem(
+                                    colors = app.parley.ui.contact.groupRowColors(),
+                                    leadingContent = { Icon(icon, null, tint = tint) },
+                                    headlineContent = { Text(Format.fullDate(context, c.date)) },
+                                    supportingContent = { Text(listOf(Format.number(c.number, vm.countryIso), Format.duration(c.durationSec)).filter { it.isNotBlank() }.joinToString(" · ")) },
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
+    messageSheet?.let { n ->
+        val r = reach()
+        app.parley.ui.contact.ContactMessageSheet(r.copy(defaultNumber = n.ifEmpty { r.defaultNumber }), onDismiss = { messageSheet = null }) { p -> savePrefs(p) }
+    }
+    webLink?.let { l -> app.parley.ui.contact.ConfirmWebLink(l) { webLink = null } }
     if (shareQr) details?.let { app.parley.ui.contact.SecureQrDialog(it) { shareQr = false } }
     if (confirmDelete) {
         AlertDialog(
