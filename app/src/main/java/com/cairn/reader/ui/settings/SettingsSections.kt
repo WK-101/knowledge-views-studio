@@ -598,6 +598,17 @@ internal fun ImportExportSection(prefs: AppPreferences, viewModel: SettingsViewM
             icon = Icons.Outlined.CloudSync,
             onClick = { backupFolderLauncher.launch(null) },
         )
+        // Backup health: reassure the user their automatic backup is actually running (or flag it).
+        if (prefs.backupLastAt > 0L) {
+            val ok = prefs.backupLastOk
+            Text(
+                text = if (ok) "Last backup ${com.cairn.reader.ui.util.formatAgo(prefs.backupLastAt)} · succeeded"
+                    else "Last backup ${com.cairn.reader.ui.util.formatAgo(prefs.backupLastAt)} · failed — it will retry",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (ok) scheme.onSurfaceVariant else scheme.error,
+                modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp),
+            )
+        }
         if (prefs.backupFolderUri != null) {
             Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
                 LabeledChips(

@@ -61,6 +61,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
@@ -445,10 +447,26 @@ fun CairnApp(
                 ) {
                     tabs.forEach { dest ->
                         val selected = current == dest && currentName == dest.name
+                        // A count badge on the destinations that carry a live "needs attention" number,
+                        // so the bar shows what's waiting without opening each tab.
+                        val badge = when (dest) {
+                            Destination.Inbox -> inboxState.unread
+                            Destination.Review -> dueReviewCount
+                            Destination.Trash -> trashCount
+                            else -> 0
+                        }
                         NavigationBarItem(
                             selected = selected,
                             onClick = { goTo(dest) },
-                            icon = { Icon(dest.icon, contentDescription = dest.label, modifier = Modifier.size(22.dp)) },
+                            icon = {
+                                if (badge > 0) {
+                                    BadgedBox(badge = { Badge { Text(if (badge > 99) "99+" else "$badge") } }) {
+                                        Icon(dest.icon, contentDescription = dest.label, modifier = Modifier.size(22.dp))
+                                    }
+                                } else {
+                                    Icon(dest.icon, contentDescription = dest.label, modifier = Modifier.size(22.dp))
+                                }
+                            },
                             label = {
                                 Text(
                                     dest.short,

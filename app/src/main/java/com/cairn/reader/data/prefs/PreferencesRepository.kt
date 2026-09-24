@@ -142,6 +142,11 @@ data class AppPreferences(
     val backupFrequencyHours: Int = 0,
     /** Whether scheduled backups bundle offline article copies (a larger .zip) or stay data-only (.json). */
     val backupIncludeOffline: Boolean = false,
+    /** Backup health: when the last scheduled backup ran (epoch ms, 0 = never) and whether it
+     *  succeeded. Device-local status, not part of the portable backup, so the settings screen can
+     *  reassure the user their automatic backup is actually working. */
+    val backupLastAt: Long = 0L,
+    val backupLastOk: Boolean = true,
     /** Base URL of a self-hosted WebDAV / Nextcloud folder to mirror backups into; null = off.
      *  When set, scheduled and manual backups also upload there, so nothing depends on one device. */
     val webdavUrl: String? = null,
@@ -309,6 +314,8 @@ class PreferencesRepository @Inject constructor(
         val BACKUP_FOLDER = stringPreferencesKey("backup_folder_uri")
         val BACKUP_FREQ = intPreferencesKey("backup_frequency_hours")
         val BACKUP_INCLUDE_OFFLINE = booleanPreferencesKey("backup_include_offline")
+        val BACKUP_LAST_AT = longPreferencesKey("backup_last_at")
+        val BACKUP_LAST_OK = booleanPreferencesKey("backup_last_ok")
         val WEBDAV_URL = stringPreferencesKey("webdav_url")
         val WEBDAV_USER = stringPreferencesKey("webdav_user")
         val WEBDAV_PASS = stringPreferencesKey("webdav_pass")
@@ -415,6 +422,8 @@ class PreferencesRepository @Inject constructor(
             backupFolderUri = p[Keys.BACKUP_FOLDER],
             backupFrequencyHours = p[Keys.BACKUP_FREQ] ?: 0,
             backupIncludeOffline = p[Keys.BACKUP_INCLUDE_OFFLINE] ?: false,
+            backupLastAt = p[Keys.BACKUP_LAST_AT] ?: 0L,
+            backupLastOk = p[Keys.BACKUP_LAST_OK] ?: true,
             webdavUrl = p[Keys.WEBDAV_URL],
             webdavUser = p[Keys.WEBDAV_USER],
             webdavPass = p[Keys.WEBDAV_PASS]?.let { SecretStore.decrypt(it) },
@@ -605,6 +614,10 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun setBackupIncludeOffline(enabled: Boolean) =
         context.dataStore.edit { it[Keys.BACKUP_INCLUDE_OFFLINE] = enabled }
+
+    /** Record the outcome of a scheduled backup run (drives the backup-health readout). */
+    suspend fun setBackupResult(at: Long, ok: Boolean) =
+        context.dataStore.edit { it[Keys.BACKUP_LAST_AT] = at; it[Keys.BACKUP_LAST_OK] = ok }
 
     suspend fun setTrashRetentionDays(days: Int) =
         context.dataStore.edit { it[Keys.TRASH_RETENTION_DAYS] = days.coerceAtLeast(0) }

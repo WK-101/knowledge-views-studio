@@ -77,6 +77,8 @@ class BackupWorker @AssistedInject constructor(
         if (hasWebDav) {
             if (backupManager.backupToWebDav().isFailure) anyFailed = true
         }
+        // Record backup health so the settings screen can reassure the user (or flag a failure).
+        coRunCatching { preferencesRepository.setBackupResult(System.currentTimeMillis(), !anyFailed) }
         return if (anyFailed) Result.retry() else Result.success()
     }
 
