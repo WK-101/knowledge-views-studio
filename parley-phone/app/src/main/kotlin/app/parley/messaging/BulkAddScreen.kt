@@ -105,7 +105,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     var text by rememberSaveable { mutableStateOf(MessagingInbox.bulkText.orEmpty().also { MessagingInbox.bulkText = null }) }
     var candidates by remember { mutableStateOf<List<BulkAdd.Candidate>?>(null) }
     var checked by remember { mutableStateOf<List<Boolean>>(emptyList()) }
-    var busy by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf<Float?>(null) }
     var result by remember { mutableStateOf<Pair<BulkAddStore.Result, List<BulkItem>>?>(null) }
 
@@ -123,6 +123,24 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     var tempPrivate by rememberSaveable { mutableStateOf(true) }
     val batches by c.bulkAdd.batches.collectAsStateWithLifecycle()
     var deleteBatch by remember { mutableStateOf<BulkBatch?>(null) }
+    // The batch being (or already) removed: its Undo / Delete run once, whether from the snackbar or the buttons.
+    var removing by remember { mutableStateOf<String?>(null) }
+    // The batch whose "saved" snackbar is showing: only then is Undo a plain undo without a Recently deleted copy.
+    var undoWindow by remember { mutableStateOf<String?>(null) }
+
+    /**
+     * Removes [batch] once. Right after saving (while its snackbar shows) nothing was edited yet, so no copies are
+     * kept; later ([journal]) the contacts may have been edited, so each one goes to Recently deleted.
+     */
+    fun removeBatch(batch: BulkBatch, journal: Boolean = undoWindow != batch.tag) {
+        if (removing == batch.tag) return
+        removing = batch.tag
+        scope.launch {
+            c.bulkAdd.remove(batch, journal = journal)
+            if (result?.first?.batch?.tag == batch.tag) result = null
+            snackbar.showSnackbar(rs.getString(if (journal) R.string.bulk_batch_deleted else R.string.bulk_batch_undone))
+        }
+    }
 
     LaunchedEffect(Unit) {
         val (accs, groups) = withContext(Dispatchers.IO) { c.contacts.accounts() to runCatching { c.contacts.groups() }.getOrDefault(emptyList()) }
@@ -133,7 +151,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     }
 
     fun review() {
-        busy = "Looking for numbers…"
+        busy = true
         scope.launch {
             val list = withContext(Dispatchers.Default) {
                 val found = NumberText.find(text.take(MAX_TEXT), region, distinct = false)
@@ -151,7 +169,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             }
             candidates = list
             checked = list.map { it.checked }
-            busy = null
+            busy = false
             if (list.isEmpty()) snackbar.showSnackbar(rs.getString(R.string.bulk_none_found))
         }
     }
@@ -187,16 +205,17 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             r.onSuccess { res ->
                 result = res to items
                 candidates = null
-                val shown = snackbar.showSnackbar(
-                    rs.getQuantityString(R.plurals.bulk_saved, res.saved, res.saved),
-                    actionLabel = rs.getString(R.string.bulk_undo_batch),
-                    duration = SnackbarDuration.Long,
-                )
-                if (shown == SnackbarResult.ActionPerformed && result?.first?.batch?.tag == res.batch.tag) {
-                    c.bulkAdd.remove(res.batch, journal = false)
-                    result = null
-                    snackbar.showSnackbar(rs.getString(R.string.bulk_batch_undone))
+                undoWindow = res.batch.tag
+                val shown = try {
+                    snackbar.showSnackbar(
+                        rs.getQuantityString(R.plurals.bulk_saved, res.saved, res.saved),
+                        actionLabel = rs.getString(R.string.bulk_undo_batch),
+                        duration = SnackbarDuration.Long,
+                    )
+                } finally {
+                    if (undoWindow == res.batch.tag) undoWindow = null
                 }
+                if (shown == SnackbarResult.ActionPerformed && result?.first?.batch?.tag == res.batch.tag) removeBatch(res.batch, journal = false)
             }
         }
     }
@@ -220,8 +239,8 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                         LinearProgressIndicator(progress = { progress ?: 0f }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                     }
                 }
-                res != null -> resultItems(res.first, res.second, onUndo = {
-                    scope.launch { c.bulkAdd.remove(res.first.batch, journal = false); result = null; snackbar.showSnackbar(rs.getString(R.string.bulk_batch_undone)) }
+                res != null -> resultItems(res.first, res.second, removable = removing != res.first.batch.tag, onUndo = {
+                    removeBatch(res.first.batch)
                 }, onDelete = { deleteBatch = res.first.batch }, onIntroduce = {
                     val targets = res.second.mapNotNull { i -> NumberText.toE164(i.number, region)?.let { IntroQueue.Target(i.name, it) } }
                     IntroduceStart.fromList(targets, open)
@@ -255,9 +274,9 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                                 leadingIcon = { Icon(Icons.Rounded.ContentPaste, null) },
                             )
                             Box(Modifier.weight(1f))
-                            Button(::review, enabled = text.isNotBlank() && busy == null) { Text(stringResource(R.string.bulk_find_numbers)) }
+                            Button(::review, enabled = text.isNotBlank() && !busy) { Text(stringResource(R.string.bulk_find_numbers)) }
                         }
-                        busy?.let { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) }
+                        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp))
                     }
                     if (batches.isNotEmpty()) {
                         item { SectionTitle(stringResource(R.string.bulk_recent_batches)) }
@@ -332,11 +351,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             confirmButton = {
                 TextButton({
                     deleteBatch = null
-                    scope.launch {
-                        c.bulkAdd.remove(b, journal = true)
-                        if (result?.first?.batch?.tag == b.tag) result = null
-                        snackbar.showSnackbar(rs.getString(R.string.bulk_batch_deleted))
-                    }
+                    removeBatch(b, journal = true)
                 }) { Text(stringResource(R.string.main_delete)) }
             },
             dismissButton = { TextButton({ deleteBatch = null }) { Text(stringResource(R.string.main_cancel)) } },
@@ -471,6 +486,7 @@ private fun DestinationPicker(
 private fun androidx.compose.foundation.lazy.LazyListScope.resultItems(
     r: BulkAddStore.Result,
     items: List<BulkItem>,
+    removable: Boolean,
     onUndo: () -> Unit,
     onDelete: () -> Unit,
     onIntroduce: () -> Unit,
@@ -501,8 +517,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.resultItems(
     }
     item {
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-            TextButton(onUndo) { Text(stringResource(R.string.bulk_undo_batch)) }
-            OutlinedButton(onDelete) { Text(stringResource(R.string.bulk_delete_batch)) }
+            TextButton(onUndo, enabled = removable) { Text(stringResource(R.string.bulk_undo_batch)) }
+            OutlinedButton(onDelete, enabled = removable) { Text(stringResource(R.string.bulk_delete_batch)) }
         }
     }
     item {

@@ -179,7 +179,8 @@ object MissedCallNotifier {
         val why = app.parley.ui.calls.RingText.whyNoRing(context.resources, facts, verdict)
         val photo = contact?.photoUri?.let { loadCircle(context, it) }
         val inboxLine = (if (caller.count > 1) context.getString(R.string.missed_name_count, name, caller.count) else name) + sep + time + (sim?.let { sep + it } ?: "")
-        return Shown(name, line, why, inboxLine, photo, isContact = contact != null || vaultName != null)
+        // Discreet mode: "Block" depends on phone contacts only, so its absence never reveals a private contact.
+        return Shown(name, line, why, inboxLine, photo, isContact = contact != null || (vaultName != null && !hideVault))
     }
 
     /** Unseen missed calls, newest first (what Telecom counts: missed, new and not read). */

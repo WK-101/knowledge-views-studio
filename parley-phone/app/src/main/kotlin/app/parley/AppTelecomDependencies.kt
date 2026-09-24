@@ -59,6 +59,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 subtitle = CallerCard.subtitle(org?.second, org?.first),
             )
         } ?: c.vault.lookup(number, PhoneEnv.countryIso(app, accountId))?.let { (id, info) ->
+            // Discreet mode: a private contact shows as its number only, everywhere (call screen, lock screen and
+            // notifications), like an unknown caller, so nothing reveals it is in the vault (as for missed calls, F14).
+            if (c.settings.current().hideVault) return@withContext null
             // I6: a private contact's card comes from its caller-ID copy, so it shows while the phone is locked.
             val card = c.vault.callerCard(id)
             CallerDisplay(

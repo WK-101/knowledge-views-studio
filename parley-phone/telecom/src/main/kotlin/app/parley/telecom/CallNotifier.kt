@@ -71,6 +71,9 @@ class CallNotifier(private val context: Context) {
 
         if (ringing == null) {
             cancel(INCOMING_ID)
+            dismissedIncoming = null
+        } else if (ringing.id == dismissedIncoming) {
+            // The user swiped this call's ringing/"Ringing silently" notification away: it stays away.
         } else if (ringing.silenced) {
             post(INCOMING_ID, ringing, "s") { buildSilenced(ringing) }
         } else {
@@ -93,12 +96,20 @@ class CallNotifier(private val context: Context) {
 
     private val lastPosted = HashMap<Int, String>()
 
+    /** The ringing call whose notification the user swiped away (not posted again while it rings). */
+    private var dismissedIncoming: String? = null
+
     /**
      * F6: the user swiped a call notification away (allowed for ongoing notifications since Android 14). Without it
-     * there's no way back to the call or its hang-up button, so it's posted again straight away — but only while
-     * the call it belonged to is still live.
+     * there's no way back to an active, held or dialling call or its hang-up button, so that one is posted again
+     * straight away — but only while the call it belonged to is still live. A ringing or "Ringing silently"
+     * notification the user dismissed stays dismissed (the call screen and the system ringer still work).
      */
     fun onDismissed(id: Int, callId: String?) {
+        if (id != ONGOING_ID) {
+            if (callId != null) dismissedIncoming = callId
+            return
+        }
         lastPosted.remove(id)
         val live = CallManager.state.value.filter { it.isLive }
         if (live.isEmpty() || (callId != null && live.none { it.id == callId })) return
@@ -162,6 +173,7 @@ class CallNotifier(private val context: Context) {
         nm.cancel(ONGOING_ID)
         lastPosted.clear()
         directlyLaunched.clear()
+        dismissedIncoming = null
     }
 
     private fun person(call: CallUi): Person {

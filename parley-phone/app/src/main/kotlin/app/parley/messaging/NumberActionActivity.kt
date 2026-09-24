@@ -336,11 +336,18 @@ class NumberActionActivity : ComponentActivity() {
         val number = if (national && regionOverride != null) NumberText.toE164(raw, region) ?: found else found
         val e164 = remember(number, region) { NumberText.toE164(number, region) }
         var contactName by remember { mutableStateOf<String?>(null) }
+        // Already a contact or a private contact: nothing to save (looked up even while locked, never shown then).
+        var known by remember(number) { mutableStateOf(false) }
         var askTemporary by remember { mutableStateOf(false) }
         val locked = remember { appLock }
         LaunchedEffect(number) {
+            val (name, isKnown) = withContext(Dispatchers.IO) {
+                val n = runCatching { container.contacts.lookup(number)?.name }.getOrNull()
+                n to (n != null || runCatching { container.vault.lookup(number) != null }.getOrDefault(false))
+            }
+            known = isKnown
             // With the app lock on, don't reveal who this is over another app.
-            if (!locked) contactName = withContext(Dispatchers.IO) { container.contacts.lookup(number)?.name }
+            if (!locked) contactName = name
         }
         val where = remember(number) { NumberInfo.location(number, region) }
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
@@ -366,7 +373,7 @@ class NumberActionActivity : ComponentActivity() {
                 leadingContent = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
                 modifier = Modifier.clickable { stage = Stage.Message(number) },
             )
-            if (contactName == null) {
+            if (contactName == null && !known) {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.keypad_add_to_contacts)) },
                     leadingContent = { Icon(Icons.Rounded.PersonAdd, null) },
