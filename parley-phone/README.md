@@ -69,7 +69,7 @@ Shared ⋮ items on every tab: Birthdays & dates, Temporary contacts, Recently d
 | Notifications & device | Notification health check, Notification settings, Full-screen incoming calls, Battery optimisation, Xiaomi permissions |
 | About | Version, Export diagnostics |
 
-**Temporary contacts.** Type a number on the keypad and choose "Save temporary contact" (name; 1, 7 or 30 days or custom; whether its call history goes too), or pick "Delete automatically" on a contact's page. They're listed in Contacts (chip "Temporary (n)" and ⋮) and Settings › Contacts › Temporary contacts, with the time left and Extend / Keep permanently / Delete now.
+**Temporary contacts.** Type a number on the keypad and choose "Save temporary contact" (name; 1, 7 or 30 days or custom; whether its call history goes too; private by default, or "Save visible to other apps"), or pick "Delete automatically" on a contact's page. They're listed in Contacts (chip "Temporary (n)" and ⋮) and Settings › Contacts › Temporary contacts, with the time left and Extend / Keep permanently / Delete now.
 
 ## Permissions Parley doesn't ask for, and why
 

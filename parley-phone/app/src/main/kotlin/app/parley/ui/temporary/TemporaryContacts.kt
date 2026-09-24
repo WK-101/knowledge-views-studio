@@ -93,46 +93,57 @@ object TemporaryContactActions {
             app.parley.data.TemporaryContacts.save(vm.c, name, number, days, private = !visible, purgeHistory = deleteHistory)
         }.getOrNull()
 
+    /** Visible ones go through [app.parley.data.people.TemporaryContactStore]; private ones are vault entries with an expiry. */
     suspend fun extend(vm: AppViewModel, item: TemporaryItem, days: Int) {
-        val until = System.currentTimeMillis() + days * DAY_MS
         when {
-            item.vaultId != null -> vm.c.vault.setExpiry(item.vaultId, until)
-            item.lookupKey != null && item.contactId != null ->
-                vm.c.meta.setTemporary(app.parley.data.db.TemporaryContactEntity(item.lookupKey, item.contactId, until, item.purgeHistory))
+            item.vaultId != null -> vm.c.vault.setExpiry(item.vaultId, System.currentTimeMillis() + days * DAY_MS)
+            item.contactId != null -> vm.c.temporaries.mark(item.contactId, days, item.purgeHistory)
         }
     }
 
     suspend fun keep(vm: AppViewModel, item: TemporaryItem) {
         when {
             item.vaultId != null -> vm.c.vault.setExpiry(item.vaultId, null)
-            item.lookupKey != null -> vm.c.meta.clearTemporary(item.lookupKey)
+            item.lookupKey != null -> vm.c.temporaries.clear(item.lookupKey)
         }
     }
 
+    /**
+     * Deletes it now, the same way expiry would: a visible one expires through the store (only its own raw contacts,
+     * journaled so Recently deleted can undo it; call history only for numbers no other contact uses); a private one
+     * leaves the vault with its call history when it was saved that way.
+     */
     suspend fun deleteNow(vm: AppViewModel, item: TemporaryItem) {
-        if (item.purgeHistory && item.number != null) runCatching { vm.c.history.purgeNumber(item.number) }
         when {
-            item.vaultId != null -> vm.c.vault.delete(item.vaultId)
+            item.vaultId != null -> {
+                val numbers = vm.c.vault.contacts.value.firstOrNull { it.id == item.vaultId }?.numbers ?: listOfNotNull(item.number)
+                numbers.forEach { n ->
+                    if (item.purgeHistory) runCatching { vm.c.history.purgeNumber(n) }
+                    runCatching { vm.c.messaging.forget(n) }
+                }
+                vm.c.vault.delete(item.vaultId)
+            }
             item.contactId != null -> {
-                vm.deleteContacts(listOf(item.contactId))
-                item.lookupKey?.let { vm.c.meta.clearTemporary(it) }
+                vm.c.temporaries.mark(item.contactId, 0, item.purgeHistory)
+                vm.c.temporaries.expire(System.currentTimeMillis() + 1).forEach { vm.toast(it.text) }
             }
         }
     }
 }
 
-/** All temporary contacts, soonest to expire first. */
+/** All temporary contacts, visible and private, soonest to expire first. */
 @Composable
 fun rememberTemporaryItems(vm: AppViewModel): List<TemporaryItem> {
-    val temps by vm.c.meta.temporaryContacts().collectAsStateWithLifecycle(emptyList())
+    val tempsFlow = remember(vm) { vm.c.temporaries.all }
+    val temps by tempsFlow.collectAsStateWithLifecycle(emptyList())
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()
     return remember(temps, contacts, vault) {
         val byId = contacts.orEmpty().associateBy { it.id }
         val byKey = contacts.orEmpty().associateBy { it.lookupKey }
-        val phone = temps.mapNotNull { t ->
-            val c = byKey[t.lookupKey] ?: byId[t.contactId] ?: return@mapNotNull null
-            TemporaryItem(c.displayName, c.phones.firstOrNull()?.number, t.expiresAt, c.id, t.lookupKey, null, t.purgeHistory)
+        val phone = temps.map { t ->
+            val c = byKey[t.lookupKey] ?: byId[t.contactId]
+            TemporaryItem(c?.displayName ?: t.name ?: "Temporary contact", c?.phones?.firstOrNull()?.number, t.expiresAt, c?.id ?: t.contactId, t.lookupKey, null, t.purgeHistory)
         }
         val private = vault.filter { it.expiresAt != null }.map { v ->
             TemporaryItem(v.name, v.numbers.firstOrNull(), v.expiresAt!!, null, null, v.id, v.purgeHistory)

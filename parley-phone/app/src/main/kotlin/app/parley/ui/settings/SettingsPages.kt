@@ -272,8 +272,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
     var skipDuplicates by remember { mutableStateOf(true) }
     var importReport by remember { mutableStateOf<ImportReport?>(null) }
     var progress by remember { mutableStateOf<String?>(null) }
-    val temps by vm.c.meta.temporaryContacts().collectAsStateWithLifecycle(emptyList())
-    val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()
+    val tempCount = app.parley.ui.temporary.rememberTemporaryItems(vm).size
     LaunchedEffect(Unit) { accounts = withContext(Dispatchers.IO) { vm.c.contacts.accounts() } }
 
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-vcard")) { uri ->
@@ -311,7 +310,6 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
             }
         }
         item("labels") { app.parley.ui.people.LabelsRow(vm, open, Icons.AutoMirrored.Rounded.Label) }
-        val tempCount = temps.size + vault.count { it.expiresAt != null }
         linkRow("temporary_contacts", Icons.Rounded.AutoDelete, sub = if (tempCount == 0) entry("temporary_contacts").summary else "$tempCount · they delete themselves") {
             open(Routes.TEMPORARY)
         }
