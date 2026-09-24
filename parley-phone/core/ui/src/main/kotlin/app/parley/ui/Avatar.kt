@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Business
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -69,17 +70,11 @@ private val avatarPalette = listOf(
 
 fun avatarColor(seed: String): Color = avatarPalette[(seed.hashCode() and 0x7fffffff) % avatarPalette.size]
 
-fun initialsOf(name: String): String {
-    val words = name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() && it[0].isLetter() }
-    return when {
-        words.isEmpty() -> ""
-        words.size == 1 -> words[0].take(1).uppercase()
-        else -> (words.first().take(1) + words.last().take(1)).uppercase()
-    }
-}
+/** F27: grapheme-aware (see [app.parley.common.Initials]). */
+fun initialsOf(name: String): String = app.parley.common.Initials.of(name)
 
 @Composable
-fun Avatar(name: String, photoUri: String?, size: Dp = 44.dp, modifier: Modifier = Modifier) {
+fun Avatar(name: String, photoUri: String?, size: Dp = 44.dp, modifier: Modifier = Modifier, isCompany: Boolean = false) {
     val ctx = LocalContext.current
     val px = with(androidx.compose.ui.platform.LocalDensity.current) { size.roundToPx() }
     val initial: ImageBitmap? = remember(photoUri, px) { photoUri?.let { PhotoCache.peek("$it@$px")?.asImageBitmap() } }
@@ -94,8 +89,11 @@ fun Avatar(name: String, photoUri: String?, size: Dp = 44.dp, modifier: Modifier
         if (img != null) {
             Image(img, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(size))
         } else {
-            val initials = initialsOf(name)
-            if (initials.isNotEmpty()) {
+            val initials = if (isCompany) "" else initialsOf(name)
+            if (isCompany) {
+                // F27: a contact that is only a company gets a building, not the company's initials.
+                Icon(Icons.Rounded.Business, null, tint = Color.White, modifier = Modifier.size(size * 0.55f))
+            } else if (initials.isNotEmpty()) {
                 Text(initials, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = (size.value * 0.38f).sp)
             } else {
                 Icon(Icons.Rounded.Person, null, tint = Color.White, modifier = Modifier.size(size * 0.6f))

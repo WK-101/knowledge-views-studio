@@ -21,7 +21,8 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
     private val cr = context.contentResolver
     private val reload = MutableStateFlow(0)
 
-    val calls: StateFlow<List<CallEntry>?> = combine(cr.changes(Calls.CONTENT_URI), reload) { _, _ -> }
+    // F29: a refresh after READ_CALL_LOG is granted also registers the observer, so Recents update live.
+    val calls: StateFlow<List<CallEntry>?> = combine(cr.changes(Calls.CONTENT_URI, retry = reload), reload) { _, _ -> }
         .map { load() }
         .flowOn(Dispatchers.IO)
         .stateIn(scope, SharingStarted.Eagerly, null)

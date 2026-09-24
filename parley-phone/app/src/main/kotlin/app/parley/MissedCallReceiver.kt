@@ -10,6 +10,7 @@ import android.content.Intent
 import android.telecom.TelecomManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import app.parley.common.NotificationPrivacy
 import app.parley.data.PlaceResult
 import kotlinx.coroutines.launch
 
@@ -29,16 +30,19 @@ class MissedCallReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun show(context: Context, count: Int, number: String?) {
+    private suspend fun show(context: Context, count: Int, number: String?) {
         val nm = context.getSystemService(NotificationManager::class.java)
         if (count <= 0) {
             nm.cancel(ID)
             return
         }
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Missed calls", NotificationManager.IMPORTANCE_DEFAULT))
-        val name = number?.let { context.container.contacts.lookup(it)?.name }
-            ?: number?.let { kotlinx.coroutines.runBlocking { context.container.vault.lookup(it)?.second?.name } }
-            ?: number?.takeIf { it.isNotBlank() }
+        val c = context.container
+        val hideVault = c.settings.current().hideVault
+        val contactName = number?.let { c.contacts.lookup(it)?.name }
+        val vaultName = if (contactName == null && number != null) c.vault.lookup(number)?.second?.name else null
+        // F14: a private contact's name never shows in discreet mode.
+        val name = NotificationPrivacy.missedCallName(contactName, vaultName, hideVault, number)
         val title = if (count == 1) "Missed call" else "$count missed calls"
         val text = if (count == 1) (name ?: "Private number") else name?.let { "Latest: $it" } ?: ""
         val open = PendingIntent.getActivity(
@@ -55,8 +59,19 @@ class MissedCallReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
             .setNumber(count)
             .setDeleteIntent(action(context, MissedCallActionReceiver.ACTION_CLEAR, null, 13))
+            // F14: when the lock screen hides sensitive content it shows this version, with no name or number
+            // (private contacts included). Private, never public, so the system setting is respected.
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(
+                NotificationCompat.Builder(context, CHANNEL)
+                    .setSmallIcon(app.parley.ui.R.drawable.ic_stat_missed)
+                    .setContentTitle(title)
+                    .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
+                    .setNumber(count)
+                    .build(),
+            )
         // One-ring scams and premium lines: no one-tap call back from the notification (B10); the app asks first.
-        val risky = count == 1 && !number.isNullOrBlank() && kotlinx.coroutines.runBlocking { context.container.dialGuard.check(number) }.any { it.severe }
+        val risky = count == 1 && !number.isNullOrBlank() && c.dialGuard.check(number).any { it.severe }
         if (count == 1 && !number.isNullOrBlank() && !risky) {
             b.addAction(0, "Call back", action(context, MissedCallActionReceiver.ACTION_CALL_BACK, number, 11))
             b.addAction(
@@ -64,7 +79,7 @@ class MissedCallReceiver : BroadcastReceiver() {
                 // "Message on…": SMS or a chat app, chosen in a small sheet.
                 PendingIntent.getActivity(
                     context, 12,
-                    app.parley.messaging.MessageOn.intent(context, number),
+                    app.parley.messaging.MessageOn.intent(context, number, missedCallAccount(context, number)),
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                 ),
             )
@@ -73,6 +88,25 @@ class MissedCallReceiver : BroadcastReceiver() {
             NotificationManagerCompat.from(context).notify(ID, b.build())
         } catch (_: SecurityException) {
         }
+    }
+
+    /** F19: the SIM that took the latest missed call from [number], so "Message on…" reads it with that SIM's country. */
+    private fun missedCallAccount(context: Context, number: String): String? = try {
+        context.contentResolver.query(
+            android.provider.CallLog.Calls.CONTENT_URI,
+            arrayOf(android.provider.CallLog.Calls.NUMBER, android.provider.CallLog.Calls.PHONE_ACCOUNT_ID),
+            "${android.provider.CallLog.Calls.TYPE} = ?", arrayOf(android.provider.CallLog.Calls.MISSED_TYPE.toString()),
+            "${android.provider.CallLog.Calls.DATE} DESC",
+        )?.use { c ->
+            var found: String? = null
+            var n = 0
+            while (found == null && n++ < 20 && c.moveToNext()) {
+                if (app.parley.common.PhoneNumbers.same(c.getString(0), number, null)) found = c.getString(1)
+            }
+            found
+        }
+    } catch (_: Exception) {
+        null
     }
 
     private fun action(context: Context, action: String, number: String?, req: Int) = PendingIntent.getBroadcast(

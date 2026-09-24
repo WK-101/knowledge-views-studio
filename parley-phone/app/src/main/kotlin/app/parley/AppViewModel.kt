@@ -116,6 +116,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Draft handed to the editor by other apps (Insert extras) or "add to contact" flows. */
     var pendingPrefill: app.parley.data.ContactDetails? = null
 
+    private var hasCallLogPermission = false
+
     init {
         refreshEnvironment()
     }
@@ -127,7 +129,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val hadContacts = hasContactsPermission.value
         isDefaultDialer.value = Permissions.isDefaultDialer(ctx)
         hasContactsPermission.value = Permissions.has(ctx, Manifest.permission.READ_CONTACTS)
-        if (wasDefault != isDefaultDialer.value || hadContacts != hasContactsPermission.value) {
+        // F29: call-log access granted later (outside the dialer role) must also re-register the observers.
+        val hadCallLog = hasCallLogPermission
+        hasCallLogPermission = Permissions.has(ctx, Manifest.permission.READ_CALL_LOG)
+        if (wasDefault != isDefaultDialer.value || hadContacts != hasContactsPermission.value || hadCallLog != hasCallLogPermission) {
             c.contacts.refresh()
             c.callLog.refresh()
         }
@@ -221,7 +226,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }).sortedByDescending { it.date }
     }
 
-    private val vaultByKey = c.vault.contacts.map { list -> list.flatMap { v -> v.numbers.map { PhoneNumbers.matchKey(it) to v.id } }.toMap() }
+    // F7: keyed by line (E.164 with this phone's country), so a foreign number sharing the last 9 digits isn't shown as private.
+    private val vaultByKey = c.vault.contacts.map { list -> list.flatMap { v -> v.numbers.map { PhoneNumbers.lineKey(it, countryIso) to v.id } }.toMap() }
 
     /** [allCalls] with the Recents filter chips applied (SIM, type, period, duration). */
     private val filteredCalls = combine(allCalls, c.history.activeFilter) { calls, f ->
@@ -229,7 +235,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     val recentGroups: StateFlow<List<RecentGroup>?> = combine(filteredCalls, numberIndex, recentFilter, recentQuery.debounce(80), vaultByKey) { calls, index, filter, q, vaults ->
-        calls?.let { group(it, index, filter, q).map { g -> if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneNumbers.matchKey(g.number)]) else g } }
+        calls?.let { group(it, index, filter, q).map { g -> if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneNumbers.lineKey(g.number, countryIso)]) else g } }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private fun group(calls: List<CallEntry>, index: Map<String, ContactSummary>, filter: RecentFilter, q: String): List<RecentGroup> {

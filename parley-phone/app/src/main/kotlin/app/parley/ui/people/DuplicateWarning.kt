@@ -38,6 +38,13 @@ import kotlinx.coroutines.withContext
 fun DuplicateWarning(vm: AppViewModel, draft: ContactDetails, onOpen: (Long) -> Unit, onAddTo: (Long) -> Unit) {
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     val lookup = remember(contacts) { contacts?.let { DuplicateLookup(it) } }
+    // F15: private contacts count too (not in discreet mode, where the vault stays out of sight). Their ids are
+    // negative so they never clash with a contact id.
+    val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val vaultLookup = remember(vault, settings.hideVault) {
+        if (settings.hideVault) null else DuplicateLookup(vault.map { v -> app.parley.common.ContactSummary(-v.id, "", v.name, null, false, v.numbers.map { app.parley.common.PhoneEntry(it, 2, null) }) })
+    }
     var hit by remember { mutableStateOf<DuplicateHit?>(null) }
     var dismissed by remember { mutableStateOf<Long?>(null) }
     val name = draft.composedName
@@ -45,24 +52,31 @@ fun DuplicateWarning(vm: AppViewModel, draft: ContactDetails, onOpen: (Long) -> 
     val emails = draft.emails.map { it.value }
     LaunchedEffect(lookup, name, phones, emails) {
         delay(400)
-        hit = lookup?.let { l -> withContext(Dispatchers.Default) { l.find(name, phones, emails) } }
+        hit = withContext(Dispatchers.Default) { lookup?.find(name, phones, emails) ?: vaultLookup?.find(name, phones, emails) }
     }
     val h = hit?.takeIf { it.contact.id != dismissed } ?: return
+    val private = h.contact.id < 0
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
         Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.PersonSearch, null, Modifier.padding(end = 12.dp))
                 Text(
-                    when (h.reason) {
-                        DuplicateReason.NAME -> "${h.contact.displayName} already exists"
+                    when {
+                        private && h.reason == DuplicateReason.NAME -> "${h.contact.displayName} is already a private contact"
+                        private -> "Your private contact ${h.contact.displayName} already has ${h.matched}"
+                        h.reason == DuplicateReason.NAME -> "${h.contact.displayName} already exists"
                         else -> DuplicateLookup.describe(h)
                     },
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
             Row {
-                TextButton({ onOpen(h.contact.id) }) { Text("Open") }
-                TextButton({ onAddTo(h.contact.id) }) { Text("Add these details to ${h.contact.displayName.substringBefore(' ')}") }
+                if (private) {
+                    TextButton({ vm.navigate(app.parley.NavEvent.Vault(-h.contact.id)) }) { Text("Open") }
+                } else {
+                    TextButton({ onOpen(h.contact.id) }) { Text("Open") }
+                    TextButton({ onAddTo(h.contact.id) }) { Text("Add these details to ${h.contact.displayName.substringBefore(' ')}") }
+                }
                 TextButton({ dismissed = h.contact.id }) { Text("It's someone else") }
             }
         }

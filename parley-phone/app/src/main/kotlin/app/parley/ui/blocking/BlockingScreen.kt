@@ -147,7 +147,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
     val blockRules = rules.filter { it.kind == RuleKind.BLOCK }
     val dismissed = remember { mutableStateOf(setOf<String>()) }
     val suggestions = remember(calls, rules, s.reputationSuggestions, dismissed.value) {
-        if (!s.reputationSuggestions) emptyList() else PersonalReputation.suggestions(calls.orEmpty().take(1500), System.currentTimeMillis()) { n ->
+        if (!s.reputationSuggestions) emptyList() else PersonalReputation.suggestions(calls.orEmpty().take(1500), System.currentTimeMillis(), countryOf = { e -> app.parley.data.PhoneEnv.countryIso(context, e.accountId) }) { n ->
             n in dismissed.value || vm.contactFor(n) != null || rules.any { r -> r.type.isNumberRule && app.parley.common.CallPolicy.ruleMatches(r, n, vm.countryIso) }
         }.take(5)
     }

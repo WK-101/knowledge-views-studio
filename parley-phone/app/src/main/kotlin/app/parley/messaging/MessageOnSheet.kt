@@ -1,6 +1,9 @@
 package app.parley.messaging
 
 import android.content.ClipData
+import android.content.ClipDescription
+import android.os.Build
+import android.os.PersistableBundle
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
@@ -12,6 +15,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Public
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -50,6 +58,7 @@ import app.parley.common.MessageDrafts
 import app.parley.common.MessengerApp
 import app.parley.common.MessengerLinks
 import app.parley.common.NumberText
+import app.parley.common.PhoneNumbers
 import app.parley.container
 import app.parley.data.PhoneEnv
 import app.parley.data.messaging.MyDetails
@@ -61,15 +70,19 @@ import kotlinx.coroutines.withContext
  * screen, notifications) starts [intent], which opens the same sheet over whatever is on screen.
  */
 object MessageOn {
-    /** Opens the "Message on…" sheet for [number] in its own small window. */
-    fun intent(context: Context, number: String): Intent = Intent(context, NumberActionActivity::class.java)
+    /**
+     * Opens the "Message on…" sheet for [number] in its own small window. [accountId] is the SIM that handled the call
+     * the number comes from, so a national number is read with that SIM's country (F19).
+     */
+    fun intent(context: Context, number: String, accountId: String? = null): Intent = Intent(context, NumberActionActivity::class.java)
         .setAction(NumberActionActivity.ACTION_MESSAGE_ON)
         .putExtra(NumberActionActivity.EXTRA_NUMBER, number)
+        .apply { if (accountId != null) putExtra(NumberActionActivity.EXTRA_ACCOUNT_ID, accountId) }
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
     /** Shows the sheet for [number] from any context (for the in-call screen's caller card). */
-    fun open(context: Context, number: String) {
-        if (number.isNotBlank()) context.startActivity(intent(context, number))
+    fun open(context: Context, number: String, accountId: String? = null) {
+        if (number.isNotBlank()) context.startActivity(intent(context, number, accountId))
     }
 
     const val PRIVACY_LINE = "Opens the app directly, not through a browser. The messenger itself checks whether this number is registered."
@@ -78,9 +91,9 @@ object MessageOn {
 /** Bottom sheet listing the installed messengers for [number]. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MessageOnSheet(number: String, onDismiss: () -> Unit, onLaunched: (MessengerApp?) -> Unit = { onDismiss() }) {
+fun MessageOnSheet(number: String, onDismiss: () -> Unit, accountId: String? = null, onLaunched: (MessengerApp?) -> Unit = { onDismiss() }) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        MessageOnContent(number, onLaunched)
+        MessageOnContent(number, accountId, onLaunched)
     }
 }
 
@@ -105,12 +118,19 @@ private fun rows(installed: List<MessengerApp>, lastApp: String?): List<Messenge
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MessageOnContent(number: String, onLaunched: (MessengerApp?) -> Unit) {
+fun MessageOnContent(number: String, accountId: String? = null, onLaunched: (MessengerApp?) -> Unit) {
     val context = LocalContext.current
     val c = context.container
     val store = c.messaging
-    val region = remember { PhoneEnv.countryIso(context) }
-    val e164 = remember(number) { NumberText.toE164(number, region) }
+    // F19: the country of the SIM that took the call (when the number comes from Recents or a notification), which
+    // the user can override for this number with the country chip.
+    val simRegion = remember(accountId) { PhoneEnv.countryIso(context, accountId) }
+    var regionOverride by rememberSaveable(number) { mutableStateOf<String?>(null) }
+    var pickCountry by remember { mutableStateOf(false) }
+    val region = regionOverride ?: simRegion
+    val e164 = remember(number, region) { NumberText.toE164(number, region) }
+    val unavailable = remember(e164) { MessengerLinks.unavailableReason(e164) }
+    val nationalForm = remember(number) { !PhoneNumbers.clean(number).startsWith("+") }
     val installed = remember { MessengerLauncher.installed(context) }
     val rows = remember(installed) { rows(installed, store.lastApp) }
     val details by store.myDetails.collectAsStateWithLifecycle()
@@ -126,7 +146,12 @@ fun MessageOnContent(number: String, onLaunched: (MessengerApp?) -> Unit) {
     fun launch(app: MessengerApp) {
         val link = e164?.let { MessengerLinks.build(app, it, draft) } ?: return
         if (draft.isNotBlank() && !app.takesText) {
-            context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("message", draft))
+            val clip = ClipData.newPlainText("message", draft)
+            // F19: keep the draft out of clipboard previews and keyboard suggestions (Android 13+).
+            if (Build.VERSION.SDK_INT >= 33) {
+                clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
+            }
+            context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
             Toast.makeText(context, "Message copied. Paste it in the chat.", Toast.LENGTH_LONG).show()
         }
         val error = MessengerLauncher.open(context, link, app)
@@ -153,7 +178,16 @@ fun MessageOnContent(number: String, onLaunched: (MessengerApp?) -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
         )
-        if (e164 == null) {
+        if (nationalForm) {
+            // F19: a national number is read with this country; tap to change it (e.g. the call came in abroad).
+            AssistChip(
+                onClick = { pickCountry = true },
+                label = { Text("Country: " + countryLabel(region) + if (regionOverride == null) "" else " (changed)") },
+                leadingIcon = { Icon(Icons.Rounded.Public, null) },
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+        }
+        if (unavailable != null) {
             Text(
                 "Chat apps need a full number with its country code. Only SMS is available for this number.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -188,11 +222,13 @@ fun MessageOnContent(number: String, onLaunched: (MessengerApp?) -> Unit) {
             )
         }
         rows.forEach { row ->
-            val enabled = e164 != null
+            // F19: only enabled when a link can actually be built; otherwise the reason is shown.
+            val enabled = unavailable == null
             val chosen = row.apps.firstOrNull { it.packageName == store.whatsappChoice }
             ListItem(
                 headlineContent = { Text(row.label) },
                 supportingContent = when {
+                    unavailable != null -> ({ Text(unavailable) })
                     row.apps.size > 1 && chosen != null -> ({ Text("${chosen.label} · long-press to change") })
                     draft.isNotBlank() && !row.apps[0].takesText -> ({ Text("Your message will be copied for pasting") })
                     else -> null
@@ -253,6 +289,12 @@ fun MessageOnContent(number: String, onLaunched: (MessengerApp?) -> Unit) {
             dismissButton = { TextButton({ askWhatsApp = false }) { Text("Cancel") } },
         )
     }
+    if (pickCountry) {
+        CountryPickerDialog(selected = region, onDismiss = { pickCountry = false }) { code ->
+            pickCountry = false
+            regionOverride = code.takeUnless { it == simRegion }
+        }
+    }
     if (editDetails) {
         MyDetailsDialog(
             initial = details,
@@ -264,6 +306,41 @@ fun MessageOnContent(number: String, onLaunched: (MessengerApp?) -> Unit) {
             MessageDrafts.myDetails(d.name, d.number)?.let { draft = it }
         }
     }
+}
+
+internal fun countryLabel(code: String): String {
+    val name = java.util.Locale("", code).displayCountry.ifBlank { code }
+    return "$name ($code)"
+}
+
+/** F19: searchable list of every country libphonenumber knows, with its calling code. */
+@Composable
+fun CountryPickerDialog(selected: String?, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+    val all = remember { NumberText.regions() }
+    var query by rememberSaveable { mutableStateOf("") }
+    val shown = remember(query) { NumberText.searchRegions(all, query) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Country of this number") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(query, { query = it }, label = { Text("Search countries or +code") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                    items(shown, key = { it.code }) { r ->
+                        ListItem(
+                            headlineContent = { Text(r.name) },
+                            supportingContent = { Text("+${r.callingCode} · ${r.code}") },
+                            trailingContent = if (r.code == selected) ({ Icon(Icons.Rounded.Check, "Selected") }) else null,
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            modifier = Modifier.combinedClickable(role = Role.Button, onClick = { onPick(r.code) }),
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+    )
 }
 
 /** Your name and number for "Send my details". Nothing is read without asking: the number is only a suggestion. */

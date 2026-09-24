@@ -86,6 +86,16 @@ object MessengerLinks {
         )
     }
 
+    /**
+     * F19: why a chat link can't be built for this number, shown on the disabled row; null when it can. [e164] is the
+     * international form, or null when none could be worked out.
+     */
+    fun unavailableReason(e164: String?): String? = when {
+        e164 == null -> "Needs the number with its country code"
+        internationalDigits(e164) == null -> "Not a complete international number (7 to 15 digits)"
+        else -> null
+    }
+
     /** "Install or enable WhatsApp" when the app is missing or turned off. */
     fun unavailableMessage(app: MessengerApp): String = "Install or enable ${app.label}"
 

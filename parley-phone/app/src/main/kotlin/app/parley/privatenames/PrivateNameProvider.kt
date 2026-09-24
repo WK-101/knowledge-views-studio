@@ -29,7 +29,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * number: `content://<package>.privatenames/lookup/<number>` → zero or one row (display_name, photo_uri).
  *
  * - Never a list: no other paths, no selection, no wildcards, at least [LookupPolicy.MIN_DIGITS] digits, exact
- *   match only (the vault matches numbers by keyed hash), and a per-app hourly limit.
+ *   match only (the vault matches the E.164 form by keyed hash, never the last digits), and a per-app hourly limit.
  * - Off by default; each app must also be approved in Parley (first query → a notification asking the user).
  * - Every query is logged (app, time, outcome; never the number) and shown in Privacy.
  * - Discreet mode ("Hide private contacts") answers nothing.
@@ -56,7 +56,7 @@ class PrivateNameProvider : ContentProvider() {
             }
             LookupOutcome.ANSWERED -> {
                 val hidden = c.settings.settings.value.hideVault
-                val hit = if (hidden) null else runBlocking(Dispatchers.IO) { withTimeoutOrNull(2_000) { c.vault.lookup(number!!) } }
+                val hit = if (hidden) null else runBlocking(Dispatchers.IO) { withTimeoutOrNull(2_000) { c.vault.lookup(number!!, exact = true) } }
                 if (hit == null) outcome = if (hidden) LookupOutcome.OFF else LookupOutcome.NOT_FOUND
                 else result.addRow(arrayOf<Any?>(hit.second.name, null))
             }
