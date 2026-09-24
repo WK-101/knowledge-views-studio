@@ -16,5 +16,12 @@ kotlin {
 
 dependencies {
     implementation(libs.kotlinx.serialization.json)
+    // Pure-Java vCard parser/writer. Its HTML (jsoup, freemarker) and jCard (jackson) extras are never used,
+    // so they are excluded to keep the APK small and free of unused code.
+    api(libs.ezvcard) {
+        exclude(group = "org.jsoup")
+        exclude(group = "org.freemarker")
+        exclude(group = "com.fasterxml.jackson.core")
+    }
     testImplementation(libs.junit)
 }

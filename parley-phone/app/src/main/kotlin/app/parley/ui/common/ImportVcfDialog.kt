@@ -50,8 +50,8 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                                 running = true
                                 scope.launch {
                                     result = try {
-                                        val n = vm.c.vcards.import(uri, a) { done, total -> progress = if (total > 0) done.toFloat() / total else 0f }
-                                        "Imported $n contacts into ${a.displayLabel}."
+                                        val r = vm.c.vcards.importVCard(uri, a, { done, total -> progress = if (total > 0) done.toFloat() / total else 0f }, skipDuplicates = true)
+                                        r.summary() + " into ${a.displayLabel}."
                                     } catch (e: Exception) {
                                         "Import failed: ${e.message}"
                                     }

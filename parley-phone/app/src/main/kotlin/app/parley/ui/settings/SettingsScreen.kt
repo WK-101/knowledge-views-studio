@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
@@ -56,7 +58,9 @@ import app.parley.common.AppSettings
 import app.parley.common.ListDensity
 import app.parley.common.StartTab
 import app.parley.common.ThemeMode
+import app.parley.common.vcard.ImportReport
 import app.parley.data.AccountRef
+import app.parley.data.VCardIO
 import app.parley.ui.CallColors
 import app.parley.ui.Routes
 import app.parley.ui.contact.Section
@@ -73,6 +77,8 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
     var editReplies by remember { mutableStateOf(false) }
     var importAccounts by remember { mutableStateOf<Pair<Uri, List<AccountRef>>?>(null) }
+    var skipDuplicates by remember { mutableStateOf(true) }
+    var importReport by remember { mutableStateOf<ImportReport?>(null) }
     var progress by remember { mutableStateOf<String?>(null) }
     var accounts by remember { mutableStateOf<List<AccountRef>>(emptyList()) }
 
@@ -83,9 +89,17 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-vcard")) { uri ->
         if (uri != null) scope.launch {
             progress = "Exporting…"
-            val n = vm.c.vcards.export(uri, vm.c.contacts.contacts.value.orEmpty())
+            val r = vm.c.vcards.export(uri, vm.c.contacts.contacts.value.orEmpty())
             progress = null
-            vm.toast("Exported $n contacts")
+            vm.toast(exportMessage(r))
+        }
+    }
+    val csvExporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri != null) scope.launch {
+            progress = "Exporting…"
+            val r = try { vm.c.vcards.exportCsv(uri, vm.c.contacts.contacts.value.orEmpty()) } catch (e: Exception) { VCardIO.ExportResult(0, listOf(e.message ?: "error")) }
+            progress = null
+            vm.toast(exportMessage(r))
         }
     }
     val unknownTonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
@@ -168,8 +182,11 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     val a = accounts[i]
                     set { it.copy(defaultAccountType = a.type, defaultAccountName = a.name) }
                 }
-                LinkRow("Import from .vcf file", null) { importer.launch(arrayOf("text/x-vcard", "text/vcard", "text/directory", "application/octet-stream", "*/*")) }
+                LinkRow("Import from .vcf or .csv file", null) {
+                    importer.launch(arrayOf("text/x-vcard", "text/vcard", "text/directory", "text/csv", "text/comma-separated-values", "application/octet-stream", "*/*"))
+                }
                 LinkRow("Export all to .vcf file", "Plain-text backup you control") { exporter.launch("contacts.vcf") }
+                LinkRow("Export all to .csv file", "For spreadsheets") { csvExporter.launch("contacts.csv") }
                 LinkRow("Find & merge duplicates", null) { open(Routes.DUPLICATES) }
                 LinkRow("Contact health check", "Fix numbers without country code, empty and stale contacts") { open(Routes.HEALTH) }
                 LinkRow("Birthdays & dates", null) { open(Routes.BIRTHDAYS) }
@@ -254,14 +271,20 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             title = { Text("Import contacts into") },
             text = {
                 Column {
+                    SwitchRow("Skip contacts I already have", "Same number or e-mail", skipDuplicates) { skipDuplicates = it }
                     accs.forEach { a ->
                         ListItem(headlineContent = { Text(a.displayLabel) }, modifier = Modifier.clickable {
                             importAccounts = null
                             scope.launch {
                                 progress = "Importing…"
-                                val n = try { vm.c.vcards.import(uri, a) } catch (e: Exception) { vm.toast("Import failed: ${e.message}"); 0 }
+                                val report = try {
+                                    vm.c.vcards.import(uri, a, skipDuplicates = skipDuplicates)
+                                } catch (e: Exception) {
+                                    vm.toast("Import failed: ${e.message}")
+                                    null
+                                }
                                 progress = null
-                                vm.toast("Imported $n contacts")
+                                importReport = report
                             }
                         })
                     }
@@ -271,7 +294,42 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             dismissButton = { TextButton({ importAccounts = null }) { Text("Cancel") } },
         )
     }
+    importReport?.let { r -> ImportReportDialog(r) { importReport = null } }
 }
+
+private fun exportMessage(r: VCardIO.ExportResult): String =
+    "Exported ${r.exported} contacts" + if (r.failures.isEmpty()) "" else " · ${r.failures.size} failed: ${r.failures.first()}"
+
+/** What an import did: counts, then every failed card with its reason, then fields that had no place. */
+@Composable
+private fun ImportReportDialog(report: ImportReport, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Import finished") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(report.summary(), style = MaterialTheme.typography.bodyLarge)
+                if (report.failures.isNotEmpty()) {
+                    Text("Not imported", style = MaterialTheme.typography.titleSmall)
+                    report.failures.take(MAX_REPORT_ITEMS).forEach { f ->
+                        Text(
+                            (if (f.index > 0) "Card ${f.index}: " else "") + f.reason + if (f.snippet.isNotEmpty()) "\n" + f.snippet.take(120) else "",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    if (report.failures.size > MAX_REPORT_ITEMS) Text("…and ${report.failures.size - MAX_REPORT_ITEMS} more", style = MaterialTheme.typography.bodySmall)
+                }
+                if (report.unmappedProperties.isNotEmpty()) {
+                    Text("Fields with no place in a contact", style = MaterialTheme.typography.titleSmall)
+                    Text(report.unmappedProperties.entries.joinToString("\n") { "${it.key} × ${it.value}" }, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = { TextButton(onDismiss) { Text("OK") } },
+    )
+}
+
+private const val MAX_REPORT_ITEMS = 50
 
 @Composable
 fun SwitchRow(title: String, sub: String?, value: Boolean, onChange: (Boolean) -> Unit) {

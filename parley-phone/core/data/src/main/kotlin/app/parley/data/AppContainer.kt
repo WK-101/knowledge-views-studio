@@ -2,6 +2,7 @@ package app.parley.data
 
 import android.content.Context
 import app.parley.data.db.AppDatabase
+import app.parley.data.records.ContactRecordStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +20,8 @@ class DataContainer(context: Context) {
     val prefs by lazy { PrefsRepository(db) }
     val screener by lazy { CallScreener(appContext, contacts, blocks, sims, settings, vault) }
     val placer by lazy { CallPlacer(appContext, sims, prefs) }
-    val vcards by lazy { VCardIO(appContext, contacts) }
+    val records by lazy { ContactRecordStore(appContext) }
+    val vcards by lazy { VCardIO(appContext, contacts, records) }
     val vault by lazy { app.parley.data.vault.VaultRepository(appContext, db, scope) }
     val meta by lazy { db.metaDao() }
 }

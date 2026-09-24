@@ -63,7 +63,7 @@ fun SelectionBar(vm: AppViewModel) {
 
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-vcard")) { uri ->
         if (uri != null) scope.launch {
-            val n = vm.c.vcards.export(uri, chosen)
+            val n = vm.c.vcards.export(uri, chosen).exported
             vm.toast("Exported $n contacts")
         }
     }
