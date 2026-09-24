@@ -62,6 +62,9 @@ object SettingsCatalog {
         e("sort_names", "Sort and show names by", "First name or last name", A, "order", "alphabetical", "surname", "family name", "given name"),
         e("second_line", "Second line under names", "Company, nickname, account or number", A, "subtitle", "company", "account", "details"),
         e("prefer_nickname", "Prefer nicknames", "Show “Bob” instead of “Robert Jones” in lists", A, "nickname", "short name"),
+        e("swipe_actions", "Swipe actions", "Off by default. Swipe a contact or a call right to call, left to message", A,
+            "swipe", "gesture", "slide", "left", "right", "quick actions"),
+        e("avatar_style", "Avatars", "Colourful or grey letters; names that start with an emoji show it", A, "avatar", "monogram", "emoji", "picture", "letters", "grey", "gray"),
 
         // Calls
         e("default_dialer", "Default phone app", "Needed to show calls, manage blocking and the call log", C, "default dialer", "role", "phone app"),
@@ -122,7 +125,8 @@ object SettingsCatalog {
 
         // Messaging
         e("quick_replies", "Quick reply messages", "Sent when you decline a call with a message", M, "sms", "decline", "reply", "text"),
-        e("my_details", "My details for messages", "Used by “Send my details”", M, "my number", "my name", "share", "business card"),
+        e("my_details", "My card", "Your own details: share them as a QR code or vCard, and use them for “Send my details”", M,
+            "me", "my details", "my number", "my name", "share", "business card", "profile", "vcard", "qr"),
 
         // Privacy & security
         e("app_lock", "App lock", "Fingerprint, face or screen lock to open Parley. Incoming calls always show.", S,
@@ -134,6 +138,8 @@ object SettingsCatalog {
         e("privacy_dashboard", "Privacy dashboard", "What Parley can access and why", S, "permissions", "data", "internet", "tracking"),
         e("who_can_see", "Who can see your contacts", "Which apps can read your contacts", S, "apps", "access", "contact scopes", "grapheneos"),
         e("private_names", "Let apps show private names", "Approved apps can look up one private name at a time", S, "caller id", "lookup", "private names"),
+        e("private_directory", "Private names in other phone apps", "Off by default. An approved phone app (car, work profile) can show who is calling", S,
+            "directory", "car", "work profile", "android auto", "caller id", "dialer", "private names"),
         e("app_permissions", "App permissions (system)", "Android's settings for Parley", S, "permissions", "system", "app info"),
 
         // Backup & sync
@@ -151,7 +157,9 @@ object SettingsCatalog {
         // About
         e("version", "Parley version", "Free and open source (GPL-3.0). No internet access, no ads, no trackers, no accounts.", O,
             "version", "about", "licence", "license", "gpl", "open source", "build"),
-        e("diagnostics", "Export diagnostics", "App version, device and settings, with numbers masked", O, "debug", "logs", "bug report", "support"),
+        e("diagnostics", "Export diagnostics", "App version, device and settings, with numbers masked", O, "debug", "logs", "bug report", "support", "raw", "dump"),
+        e("crash_reports", "Keep crash reports", "Off by default. After a crash, Parley offers the report on the next start; nothing is sent", O,
+            "crash", "bug", "error", "report", "stack trace", "debug"),
     )
 
     private val byKey = entries.associateBy { it.key }

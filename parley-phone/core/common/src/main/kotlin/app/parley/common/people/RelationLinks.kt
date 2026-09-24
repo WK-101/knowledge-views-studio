@@ -73,17 +73,20 @@ object RelationLinks {
     /**
      * Links to remember after the relations of a contact were saved: an existing link is kept while its name is still
      * a relation; a new name that matches exactly one contact is linked to it. Names no longer used are dropped.
+     * [picked] (I5): contacts chosen with the editor's contact picker, by name key; they win over everything else.
      */
     fun update(
         names: List<String>,
         existing: Map<String, Link>,
         contacts: List<Triple<Long, String, String>>,
         self: Long? = null,
+        picked: Map<String, Link> = emptyMap(),
     ): Map<String, Link> {
         val out = LinkedHashMap<String, Link>()
         for (n in names) {
             val k = nameKey(n)
             if (k.isEmpty() || k in out) continue
+            picked[k]?.takeIf { it.contactId != self }?.let { out[k] = it; continue }
             existing[k]?.let { out[k] = it; continue }
             val m = contacts.filter { (id, display, _) -> id != self && nameKey(display) == k }
             if (m.size == 1) out[k] = Link(m.single().third, m.single().first)
