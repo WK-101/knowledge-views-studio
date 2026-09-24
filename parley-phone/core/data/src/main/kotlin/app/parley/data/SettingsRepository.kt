@@ -82,6 +82,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             birthdayReminderHour = this[K.birthdayHour] ?: d.birthdayReminderHour,
             reachOutNudges = this[K.nudges] ?: d.reachOutNudges,
             callLogRetentionDays = this[K.retention] ?: d.callLogRetentionDays,
+            contactRowActions = this[K.rowActions] ?: d.contactRowActions,
         )
     }
 
@@ -117,6 +118,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         this[K.birthdayHour] = s.birthdayReminderHour
         this[K.nudges] = s.reachOutNudges
         this[K.retention] = s.callLogRetentionDays
+        this[K.rowActions] = s.contactRowActions
     }
 
     private inline fun <reified E : Enum<E>> enumOr(value: String?, default: E): E =
@@ -154,6 +156,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val birthdayHour = intPreferencesKey("birthday_hour")
         val nudges = booleanPreferencesKey("reach_out_nudges")
         val retention = intPreferencesKey("call_log_retention_days")
+        val rowActions = booleanPreferencesKey("contact_row_actions")
     }
 
     private companion object {

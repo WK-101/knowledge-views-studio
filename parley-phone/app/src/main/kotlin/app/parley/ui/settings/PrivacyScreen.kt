@@ -23,6 +23,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -83,6 +85,24 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
                 Text(
                     "No analytics, no crash reporting, no ads, no accounts. Backups are files you export yourself.",
                     Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            item { Section("What Parley keeps private") }
+            item {
+                val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()
+                val priv by vm.c.vault.privateCalls.collectAsStateWithLifecycle()
+                val s by vm.settings.collectAsStateWithLifecycle()
+                val journalCount by androidx.compose.runtime.produceState(0) { value = vm.c.meta.journalCount() }
+                ListItem(headlineContent = { Text("${vault.size} private contacts") }, supportingContent = { Text("Encrypted; invisible to every other app") })
+                ListItem(headlineContent = { Text("${priv.size} private calls") }, supportingContent = { Text("Kept out of the system call log") })
+                ListItem(
+                    headlineContent = { Text(if (s.callLogRetentionDays > 0) "Call history kept ${s.callLogRetentionDays} days" else "Call history kept until you delete it") },
+                    supportingContent = { Text("Change in Settings → Calls") },
+                )
+                ListItem(headlineContent = { Text("$journalCount changes you can undo") }, supportingContent = { Text("Deleted and edited contacts are kept for 30 days on this phone only") })
+                ListItem(
+                    headlineContent = { Text(if (s.appLock) "App lock on" else "App lock off") },
+                    supportingContent = { Text(if (s.secureScreen) "Screen content hidden from screenshots" else "Screenshots allowed") },
                 )
             }
             item { Section("Permissions") }

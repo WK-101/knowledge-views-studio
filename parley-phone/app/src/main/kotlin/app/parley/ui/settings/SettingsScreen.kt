@@ -124,6 +124,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                 if (Build.VERSION.SDK_INT >= 31) SwitchRow("Wallpaper colours", "Material You dynamic colour", s.dynamicColor) { v -> set { it.copy(dynamicColor = v) } }
                 Choice("List density", listOf("Comfortable", "Compact"), s.density.ordinal) { i -> set { it.copy(density = ListDensity.entries[i]) } }
                 MenuRow("Open on", listOf("Favorites", "Recents", "Contacts", "Keypad"), s.startTab.ordinal) { i -> set { it.copy(startTab = StartTab.entries[i]) } }
+                SwitchRow("Call & message buttons on contacts", "Tapping a contact still opens it", s.contactRowActions) { v -> set { it.copy(contactRowActions = v) } }
                 MenuRow("Sort and show names by", listOf("First name", "Last name"), if (s.sortByFirstName) 0 else 1) { i -> set { it.copy(sortByFirstName = i == 0) } }
             }
 

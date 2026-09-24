@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -167,6 +169,8 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
                 item(key = c.id) {
                     ContactRow(
                         c,
+                        actions = settings.contactRowActions && selection.isEmpty(),
+                        onCall = { n -> vm.requestCall(n, c.displayName) },
                         selected = c.id in selection,
                         selectionMode = selection.isNotEmpty(),
                         onLongClick = { vm.toggleSelection(c.id) },
@@ -186,6 +190,8 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
 @Composable
 fun ContactRow(
     c: ContactSummary,
+    actions: Boolean = false,
+    onCall: (String) -> Unit = {},
     selected: Boolean = false,
     selectionMode: Boolean = false,
     onLongClick: (() -> Unit)? = null,
@@ -208,6 +214,18 @@ fun ContactRow(
             }
         },
         headlineContent = { Text(c.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.shared("name-${c.id}", bounds = true)) },
+        trailingContent = if (actions && c.phones.isNotEmpty()) ({
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            val n = (c.phones.firstOrNull { it.isPrimary } ?: c.phones.first()).number
+            Row {
+                androidx.compose.material3.IconButton({ app.parley.ui.common.Intents.sms(ctx, n) }) {
+                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Rounded.Message, "Message ${c.displayName}")
+                }
+                androidx.compose.material3.IconButton({ onCall(n) }) {
+                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Rounded.Call, "Call ${c.displayName}", tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }) else null,
     )
 }
 

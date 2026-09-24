@@ -50,10 +50,20 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
     override fun onStart() {
         super.onStart()
-        lifecycleScope.launch { app.parley.security.AppLock.onStart(vm.c.settings.current()) }
+        lifecycleScope.launch {
+            val s = vm.c.settings.current()
+            app.parley.security.AppLock.onStart(s)
+            // After a longer break, open on the preferred tab again; a quick app switch keeps your place.
+            if (stoppedAt > 0 && android.os.SystemClock.elapsedRealtime() - stoppedAt > 5 * 60_000L && intent?.action == android.content.Intent.ACTION_MAIN) {
+                vm.navigate(NavEvent.Tab(s.startTab))
+            }
+        }
     }
 
+    private var stoppedAt = 0L
+
     override fun onStop() {
+        stoppedAt = android.os.SystemClock.elapsedRealtime()
         app.parley.security.AppLock.onStop()
         super.onStop()
     }

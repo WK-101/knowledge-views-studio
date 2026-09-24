@@ -47,6 +47,8 @@ data class AppSettings(
     // Call log
     /** Delete system call-log entries older than N days (0 = keep). */
     val callLogRetentionDays: Int = 0,
+    /** Show message and call buttons on contact rows. */
+    val contactRowActions: Boolean = false,
 ) {
     companion object {
         val DEFAULT_QUICK_REPLIES = listOf(
