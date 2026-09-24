@@ -112,6 +112,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.APP_CONTACTS" />
             </intent-filter>
+            <!-- M8: static launcher shortcut "Message a number". -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
             <!-- Required for the default dialer role. -->
             <intent-filter>
                 <action android:name="android.intent.action.DIAL" />
@@ -303,6 +307,21 @@
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
+        </service>
+
+        <!-- Quick Settings tile (M8): "Message a number" opens an empty number sheet; nothing shows over the lock screen. -->
+        <service
+            android:name=".messaging.MessageNumberTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_message"
+            android:label="Message a number"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="false" />
         </service>
 
         <!-- Quick Settings tile: "Expecting a call" lets unknown callers ring for a while. -->

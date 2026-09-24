@@ -119,6 +119,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             ACTION_OPEN_BACKUP ->vm.navigate(NavEvent.Route(app.parley.ui.Routes.BACKUP))
             ACTION_OPEN_BLOCKING -> vm.navigate(NavEvent.Route(app.parley.ui.Routes.BLOCKING))
             ACTION_ADD_CALL -> vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
+            ACTION_BULK_ADD -> vm.navigate(NavEvent.Route(app.parley.messaging.MessagingRoutes.BULK_ADD))
             ACTION_SHOW_MISSED -> {
                 vm.navigate(NavEvent.Tab(StartTab.RECENTS, missedOnly = true))
                 vm.markMissedSeen()
@@ -165,6 +166,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
     companion object {
         const val ACTION_ADD_CALL = "app.parley.ADD_CALL"
+        /** M11: "Save all…" from the number sheet; the text waits in [app.parley.messaging.MessagingInbox]. */
+        const val ACTION_BULK_ADD = "app.parley.BULK_ADD"
         const val ACTION_OPEN_BACKUP = "app.parley.OPEN_BACKUP"
         const val ACTION_OPEN_BLOCKING = "app.parley.OPEN_BLOCKING"
         const val QUICK_CONTACT = "android.provider.action.QUICK_CONTACT"

@@ -2,4 +2,6 @@
 <resources>
     <string name="app_name">Parley</string>
     <string name="widget_description">Call one person with a single tap</string>
+    <string name="shortcut_message_number_short">Message a number</string>
+    <string name="shortcut_message_number_long">Message a number without saving it</string>
 </resources>

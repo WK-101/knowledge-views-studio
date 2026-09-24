@@ -9,7 +9,7 @@ enum class SettingsCategory(val title: String, val summary: String) {
     BLOCKING("Blocking & spam", "Rules, spam lists, off hours, tests"),
     CONTACTS("Contacts", "Accounts, labels, temporary contacts, import & export"),
     HISTORY("Recents & history", "Call archive, retention, insights"),
-    MESSAGING("Messaging", "Quick replies, your details"),
+    MESSAGING("Messaging", "Quick replies, your details, messaged numbers"),
     PRIVACY("Privacy & security", "App lock, private contacts, permissions"),
     BACKUP("Backup & sync", "Encrypted backups, sync, undo"),
     NOTIFICATIONS("Notifications & device", "Full-screen calls, battery, system settings"),
@@ -102,7 +102,10 @@ object SettingsCatalog {
         e("temporary_contacts", "Temporary contacts", "Contacts that delete themselves after a while", P, "temp", "expire", "expiry", "self-destruct", "delete automatically"),
         e("duplicates", "Find & merge duplicates", "Contacts saved twice", P, "merge", "duplicate", "dedupe", "join"),
         e("health", "Contact health check", "Numbers without country code, empty and stale contacts", P, "tidy", "clean up", "fix", "cleanup"),
-        e("import_file", "Import from .vcf or .csv file", "With a report of anything that couldn't be imported", P, "vcard", "vcf", "csv", "import"),
+        e("import_file", "Import from .vcf or .csv file", "Any CSV (Google, Outlook, a spreadsheet): choose what each column holds. With a report.", P,
+            "vcard", "vcf", "csv", "import", "google", "outlook", "excel", "spreadsheet", "columns", "mapping"),
+        e("bulk_add", "Add several numbers", "Paste a list of numbers and save them at once, to a label, privately or for a few days", P,
+            "bulk", "many", "paste", "list", "batch", "import numbers", "leads"),
         e("import_sim", "Import from SIM card", "Copy the SIM's phonebook into your contacts", P, "sim", "phonebook", "copy"),
         e("export_vcf", "Export all to .vcf file", "Plain-text backup you control", P, "vcard", "export", "backup"),
         e("export_csv", "Export all to .csv file", "For spreadsheets", P, "spreadsheet", "excel", "export"),
@@ -123,6 +126,9 @@ object SettingsCatalog {
         // Messaging
         e("quick_replies", "Quick reply messages", "Sent when you decline a call with a message", M, "sms", "decline", "reply", "text"),
         e("my_details", "My details for messages", "Used by “Send my details”", M, "my number", "my name", "share", "business card"),
+        e("messaged_numbers", "Messaged numbers", "Numbers you opened a chat with from Parley: see, delete or stop keeping them", M,
+            "whatsapp", "signal", "telegram", "record", "history", "clear", "privacy", "last messaged"),
+        e("messaged_expiry", "Forget messaged numbers after", "Never, 7, 30 or 90 days", M, "expire", "auto delete", "retention", "whatsapp", "record"),
 
         // Privacy & security
         e("app_lock", "App lock", "Fingerprint, face or screen lock to open Parley. Incoming calls always show.", S,
