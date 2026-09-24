@@ -268,7 +268,7 @@ private fun CallerHeader(call: CallUi, ended: Boolean, onOpenContact: (CallUi) -
             }
         }
         if (call.unknown && call.state == CallState.RINGING) {
-            Text("Not in your contacts", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+            Text(listOfNotNull("Not in your contacts", call.location).joinToString(" · "), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
         }
         Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             call.accountLabel?.let { Chip(Icons.Rounded.SimCard, it) }

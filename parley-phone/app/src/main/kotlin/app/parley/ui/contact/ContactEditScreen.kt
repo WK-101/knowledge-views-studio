@@ -77,6 +77,9 @@ import kotlinx.coroutines.withContext
 private val phoneTypes = listOf(Phone.TYPE_MOBILE, Phone.TYPE_HOME, Phone.TYPE_WORK, Phone.TYPE_MAIN, Phone.TYPE_FAX_WORK, Phone.TYPE_OTHER)
 private val emailTypes = listOf(Email.TYPE_HOME, Email.TYPE_WORK, Email.TYPE_MOBILE, Email.TYPE_OTHER)
 private val postalTypes = listOf(StructuredPostal.TYPE_HOME, StructuredPostal.TYPE_WORK, StructuredPostal.TYPE_OTHER)
+/** Country used to interpret phone numbers typed in the editor. */
+val LocalCountryIso = androidx.compose.runtime.staticCompositionLocalOf { "US" }
+
 private val relationTypes = listOf(
     Relation.TYPE_SPOUSE, Relation.TYPE_PARTNER, Relation.TYPE_CHILD, Relation.TYPE_PARENT, Relation.TYPE_MOTHER, Relation.TYPE_FATHER,
     Relation.TYPE_SISTER, Relation.TYPE_BROTHER, Relation.TYPE_FRIEND, Relation.TYPE_MANAGER, Relation.TYPE_ASSISTANT, Relation.TYPE_RELATIVE,
@@ -203,6 +206,7 @@ fun ContactEditScreen(
     ) { padding ->
         if (d == null) return@Scaffold
         fun update(f: (ContactDetails) -> ContactDetails) { draft = f(d) }
+        androidx.compose.runtime.CompositionLocalProvider(LocalCountryIso provides vm.countryIso) {
         Column(
             Modifier.padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -329,6 +333,7 @@ fun ContactEditScreen(
             )
             Spacer(Modifier.height(48.dp))
         }
+        }
     }
 
     if (confirmDiscard) {
@@ -382,9 +387,12 @@ private fun MultiSection(
     SectionTitle(title)
     items.forEachIndexed { i, item ->
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val iso = LocalCountryIso.current
+            val flag = if (keyboard == KeyboardType.Phone && item.value.length >= 6) remember(item.value) { app.parley.data.NumberInfo.flag(app.parley.data.NumberInfo.region(item.value, iso)) } else null
             OutlinedTextField(
                 item.value, { v -> onChange(items.toMutableList().also { it[i] = item.copy(value = v) }) },
                 label = { Text(title) }, singleLine = true, modifier = Modifier.weight(0.6f),
+                prefix = flag?.let { f -> { Text("$f ") } },
                 keyboardOptions = KeyboardOptions(keyboardType = keyboard),
             )
             Box(Modifier.weight(0.4f)) {

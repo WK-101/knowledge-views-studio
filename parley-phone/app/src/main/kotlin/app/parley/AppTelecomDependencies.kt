@@ -8,6 +8,8 @@ import app.parley.common.PhoneNumbers
 import app.parley.data.db.CallNoteEntity
 import app.parley.common.Verification
 import app.parley.data.DataContainer
+import app.parley.data.NumberInfo
+import app.parley.data.PhoneEnv
 import app.parley.telecom.CallerDisplay
 import app.parley.telecom.InCallAppearance
 import app.parley.telecom.TelecomDependencies
@@ -45,6 +47,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         val dur = prev.durationSec.takeIf { it > 0 }?.let { " · ${it / 60}m ${it % 60}s" }.orEmpty()
         return "$kind $ago$dur"
     }
+
+    override fun describeNumber(number: String): String? = NumberInfo.location(number, PhoneEnv.countryIso(app))
 
     override fun unknownRingtone(): String? = c.settings.settings.value.unknownRingtone
 

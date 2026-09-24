@@ -51,6 +51,9 @@ interface TelecomDependencies {
     fun unknownRingtone(): String? = null
 
     fun saveCallNote(number: String?, connectTimeMillis: Long, text: String) {}
+
+    /** Offline "where is this number from" for unknown callers. */
+    fun describeNumber(number: String): String? = null
 }
 
 object TelecomGraph {

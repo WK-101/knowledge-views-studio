@@ -34,6 +34,7 @@ data class CallUi(
     val lastCall: String? = null,
     /** Caller lookup finished and found nobody. */
     val unknown: Boolean = false,
+    val location: String? = null,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: if (hidden) "Private number" else "Unknown"
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING

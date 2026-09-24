@@ -38,6 +38,7 @@ object CallManager {
     private val silenced = HashSet<String>()
     private val screening = HashSet<String>()
     private val unknownCallers = HashSet<String>()
+    private val locations = HashMap<String, String>()
     private var customRinger: android.media.Ringtone? = null
     private var customRingerFor: String? = null
 
@@ -252,6 +253,7 @@ object CallManager {
             note = found?.note,
             lastCall = found?.lastCall,
             unknown = id in unknownCallers,
+            location = if (id in unknownCallers && number != null) locations.getOrPut(id) { runCatching { TelecomGraph.dependencies.describeNumber(number) }.getOrNull().orEmpty() }.ifEmpty { null } else null,
         )
     }
 

@@ -139,7 +139,9 @@ fun RecentRow(g: RecentGroup, countryIso: String, simLabels: Map<String, String>
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
+                val location = if (g.contact == null && g.vaultId == null && !g.hidden) remember(g.number) { app.parley.data.NumberInfo.location(g.number, countryIso) } else null
                 val parts = listOfNotNull(
+                    location,
                     if (g.contact != null) g.contact.phones.firstOrNull { p -> app.parley.common.PhoneNumbers.matchKey(p.number) == app.parley.common.PhoneNumbers.matchKey(e.number) }
                         ?.let { p -> Format.phoneType(context.resources, p.type, p.label) } else if (!g.hidden && g.contact == null && g.cachedName != null) Format.number(e.number, countryIso) else null,
                     e.accountId?.let { simLabels[it] },

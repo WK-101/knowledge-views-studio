@@ -33,4 +33,6 @@ dependencies {
     api(libs.androidx.datastore.preferences)
     api(libs.kotlinx.coroutines.android)
     implementation(libs.ezvcard)
+    implementation(libs.libphonenumber)
+    implementation(libs.phone.geocoder)
 }

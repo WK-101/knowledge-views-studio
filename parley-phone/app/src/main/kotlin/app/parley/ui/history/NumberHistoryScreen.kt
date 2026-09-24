@@ -76,6 +76,9 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     Avatar(title, contact?.photoUri, 96.dp)
                     Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp))
                     if (contact != null) Text(Format.number(number, vm.countryIso), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val where = remember(number) { app.parley.data.NumberInfo.location(number, vm.countryIso) }
+                    val flag = remember(number) { app.parley.data.NumberInfo.flag(app.parley.data.NumberInfo.region(number, vm.countryIso)) }
+                    if (where != null || flag != null) Text(listOfNotNull(flag, where).joinToString(" "), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         AssistChip({ vm.requestCall(number, contact?.displayName) }, { Text("Call") }, leadingIcon = { Icon(Icons.Rounded.Call, null) })
                         AssistChip({ Intents.sms(context, number) }, { Text("Message") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) })
