@@ -102,6 +102,11 @@ class WidgetConfigActivity : ComponentActivity() {
             suffix("CountdownWidget") -> "Countdown widget"
             suffix("QuickAddWidget") -> "Quick Add widget"
             suffix("QuickBarWidget") -> "Quick Actions widget"
+            suffix("GoalWidget") -> "Goal Sprint widget"
+            suffix("CloseDayWidget") -> "Close the Day widget"
+            suffix("FocusWidget") -> "Focus widget"
+            suffix("FreeTimeWidget") -> "Next Up widget"
+            suffix("RoutineWidget") -> "Routine Runner widget"
             else -> "Widget settings"
         }
 
@@ -150,10 +155,11 @@ class WidgetConfigActivity : ComponentActivity() {
                                 isQuickBar -> "cluster"
                                 isMatrix -> "matrix"
                                 suffix("HabitZeroWidget") || suffix("WeekRowWidget") ||
-                                    isHabitInsight -> "ring"
-                                suffix("TimeWidget") -> "timer"
+                                    isHabitInsight || suffix("GoalWidget") -> "ring"
+                                suffix("TimeWidget") || suffix("FocusWidget") -> "timer"
                                 suffix("CountdownWidget") || suffix("MomentumWidget") ||
-                                    suffix("Next7Widget") -> "tile"
+                                    suffix("Next7Widget") || suffix("CloseDayWidget") || suffix("FreeTimeWidget") -> "tile"
+                                suffix("RoutineWidget") -> "list"
                                 isList -> "list"
                                 else -> "list"
                             }

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/fw_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/fw_card"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_bg"
+        android:importantForAccessibility="no"
+        android:contentDescription="@null" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/fw_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="FOCUS"
+            android:textColor="@color/w_accent_text"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.08" />
+
+        <!-- Fills the middle: either the running countdown or the idle prompt. -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:paddingTop="4dp">
+
+            <!-- Running: a self-counting chronometer (no live timer needed on our side). -->
+            <Chronometer
+                android:id="@+id/fw_chrono"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical|start"
+                android:textColor="@color/w_text_primary"
+                android:textSize="34sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/fw_idle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical|start"
+                android:text="Start a focus session"
+                android:textColor="@color/w_text_secondary"
+                android:textSize="14sp" />
+        </FrameLayout>
+
+        <!-- Idle: three tap-to-start presets. -->
+        <LinearLayout
+            android:id="@+id/fw_presets"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:baselineAligned="false">
+
+            <TextView
+                android:id="@+id/fw_p1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                android:gravity="center"
+                android:text="25m"
+                android:textColor="@color/w_on_accent"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:paddingTop="9dp"
+                android:paddingBottom="9dp"
+                android:background="@drawable/widget_add_bg" />
+
+            <TextView
+                android:id="@+id/fw_p2"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                android:gravity="center"
+                android:text="50m"
+                android:textColor="@color/w_on_accent"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:paddingTop="9dp"
+                android:paddingBottom="9dp"
+                android:background="@drawable/widget_add_bg" />
+
+            <TextView
+                android:id="@+id/fw_p3"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="90m"
+                android:textColor="@color/w_on_accent"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:paddingTop="9dp"
+                android:paddingBottom="9dp"
+                android:background="@drawable/widget_add_bg" />
+        </LinearLayout>
+
+        <!-- Running: a single stop button in the presets' place. -->
+        <TextView
+            android:id="@+id/fw_stop"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="■  Stop"
+            android:textColor="@color/w_on_accent"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:paddingTop="9dp"
+            android:paddingBottom="9dp"
+            android:background="@drawable/wic_add"
+            android:visibility="gone" />
+    </LinearLayout>
+</FrameLayout>

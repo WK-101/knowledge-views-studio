@@ -17,6 +17,11 @@
     <string name="widget_habitgrid_name">Habit Year</string>
     <string name="widget_weekrow_name">Habit Week</string>
     <string name="widget_habit_insight_name">Habit Insight</string>
+    <string name="widget_goal_name">Goal Sprint</string>
+    <string name="widget_closeday_name">Close the Day</string>
+    <string name="widget_focus_name">Focus</string>
+    <string name="widget_freetime_name">Next Up</string>
+    <string name="widget_routine_name">Routine Runner</string>
     <string name="widget_momentum_name">Momentum</string>
     <string name="widget_habitzero_name">Habit Zero</string>
     <string name="widget_time_name">Time Tracker</string>
@@ -36,6 +41,11 @@
     <string name="widget_habitgrid_desc">A full-year contribution grid of every day you showed up</string>
     <string name="widget_weekrow_desc">One habit\'s week as tappable days — check any day off in place</string>
     <string name="widget_habit_insight_desc">On-device habit insight — pick a lens: keystone habit, live streaks, strength trend, or a pattern the coach found</string>
+    <string name="widget_goal_desc">Your lead goal — completion ring, pace, and days left in the sprint</string>
+    <string name="widget_closeday_desc">Whether today is closed out — tap to reflect and set tomorrow\'s focus</string>
+    <string name="widget_focus_desc">Start a focus session in one tap and watch it count up</string>
+    <string name="widget_freetime_desc">Your next event or task and how much of the day is still open</string>
+    <string name="widget_routine_desc">Today\'s routines — tap one to start its guided runner</string>
     <string name="widget_momentum_desc">Your unified momentum — habits, task reliability and focus in one score</string>
     <string name="widget_habitzero_desc">Today\'s remaining habits — each one you finish leaves the list and the meter grows, until you hit zero</string>
     <string name="widget_time_desc">Start, switch and stop time tracking from the home screen — a live timer for the running activity</string>

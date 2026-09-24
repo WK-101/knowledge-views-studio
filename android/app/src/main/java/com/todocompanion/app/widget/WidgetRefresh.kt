@@ -34,6 +34,11 @@ object Widgets {
         runCatching { WeekRowWidget.refresh(context) }
         runCatching { HabitInsightWidget.refresh(context) }
         runCatching { TimeWidget.refresh(context) }
+        runCatching { GoalWidget.refresh(context) }
+        runCatching { CloseDayWidget.refresh(context) }
+        runCatching { FocusWidget.refresh(context) }
+        runCatching { FreeTimeWidget.refresh(context) }
+        runCatching { RoutineWidget.refresh(context) }
     }
 
     /** Re-render every habit widget after a check-in / habit change. Safe from any thread. */

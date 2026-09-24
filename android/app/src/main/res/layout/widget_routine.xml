@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rt_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/rt_card"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_bg"
+        android:importantForAccessibility="no"
+        android:contentDescription="@null" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/rt_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="ROUTINES"
+            android:textColor="@color/w_accent_text"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.08"
+            android:paddingBottom="4dp" />
+
+        <TextView android:id="@+id/rt_r0" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:textSize="15sp" android:textColor="@color/w_text_primary" android:paddingTop="6dp" android:paddingBottom="6dp" android:drawablePadding="8dp" />
+        <TextView android:id="@+id/rt_r1" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:textSize="15sp" android:textColor="@color/w_text_primary" android:paddingTop="6dp" android:paddingBottom="6dp" android:drawablePadding="8dp" />
+        <TextView android:id="@+id/rt_r2" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:textSize="15sp" android:textColor="@color/w_text_primary" android:paddingTop="6dp" android:paddingBottom="6dp" android:drawablePadding="8dp" />
+        <TextView android:id="@+id/rt_r3" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:textSize="15sp" android:textColor="@color/w_text_primary" android:paddingTop="6dp" android:paddingBottom="6dp" android:drawablePadding="8dp" />
+
+        <TextView
+            android:id="@+id/rt_empty"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="No routines yet"
+            android:textColor="@color/w_text_secondary"
+            android:textSize="13sp"
+            android:visibility="gone" />
+    </LinearLayout>
+</FrameLayout>

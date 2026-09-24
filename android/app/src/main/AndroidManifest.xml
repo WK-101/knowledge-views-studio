@@ -455,6 +455,46 @@
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_habit_insight_info" />
         </receiver>
 
+        <!-- R106 — Goal Sprint: the goal to keep in view, its ring, pace and days left. Offline. -->
+        <receiver android:name=".widget.GoalWidget" android:label="@string/widget_goal_name" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_goal_info" />
+        </receiver>
+
+        <!-- R106 — Close the Day: the evening shutdown ritual + tomorrow's focus. Offline. -->
+        <receiver android:name=".widget.CloseDayWidget" android:label="@string/widget_closeday_name" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_closeday_info" />
+        </receiver>
+
+        <!-- R106 — Focus: one-tap start + live count-up. Headless timer, no new permission. Offline. -->
+        <receiver android:name=".widget.FocusWidget" android:label="@string/widget_focus_name" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_focus_info" />
+        </receiver>
+
+        <!-- R106 — Next Up + Free Time: next event/task and how much of the day is open. Offline. -->
+        <receiver android:name=".widget.FreeTimeWidget" android:label="@string/widget_freetime_name" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_freetime_info" />
+        </receiver>
+
+        <!-- R106 — Routine Runner (launcher): today's routines, tap to start the in-app runner. Offline. -->
+        <receiver android:name=".widget.RoutineWidget" android:label="@string/widget_routine_name" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_routine_info" />
+        </receiver>
+
         <!-- R1: Momentum widget — the unified habit+task+focus score. Offline. -->
         <receiver android:name=".widget.MomentumWidget" android:label="@string/widget_momentum_name" android:exported="false">
             <intent-filter>

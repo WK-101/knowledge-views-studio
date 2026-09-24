@@ -29,11 +29,13 @@ import kotlinx.coroutines.withContext
  * holds — no foreground service, no new permission.
  */
 object FocusTimer {
+    const val ACTION_START = "com.todocompanion.app.action.FOCUS_TIMER_START"
     const val ACTION_STOP = "com.todocompanion.app.action.FOCUS_TIMER_STOP"
     const val ACTION_DONE = "com.todocompanion.app.action.FOCUS_TIMER_DONE"
     const val EXTRA_ENTRY = "entryId"
     const val EXTRA_END = "endMillis"
     const val EXTRA_LABEL = "label"
+    const val EXTRA_TARGET = "targetMin"
     private const val NOTIF_ID = 424260
     private const val CHANNEL = "focus_timer"
     private const val ALARM_REQ = 918_299
@@ -159,6 +161,11 @@ class FocusTimerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val entry = intent.getStringExtra(FocusTimer.EXTRA_ENTRY)
         when (intent.action) {
+            FocusTimer.ACTION_START -> FocusTimer.start(
+                context,
+                intent.getIntExtra(FocusTimer.EXTRA_TARGET, 25),
+                intent.getStringExtra(FocusTimer.EXTRA_LABEL) ?: "Focus",
+            )
             FocusTimer.ACTION_STOP -> FocusTimer.stop(context, entry)
             FocusTimer.ACTION_DONE -> FocusTimer.complete(context, entry)
         }
