@@ -1,5 +1,7 @@
 package app.parley.ui.blocking
 
+import android.content.Context
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -32,11 +34,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.blocking.BlockingActions
+import app.parley.blocking.BlockingText
 import app.parley.blocking.ExpectingCallTileService
 import app.parley.common.BlockRule
 import app.parley.common.OffHoursAllow
@@ -49,6 +55,8 @@ import app.parley.common.TraceMark
 import app.parley.common.TraceStep
 import app.parley.data.db.BlockedCallEntity
 import app.parley.ui.common.Format
+import app.parley.ui.settings.bidiLtr
+import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -104,10 +112,16 @@ fun TraceList(steps: List<TraceStep>, modifier: Modifier = Modifier) {
                     TraceMark.SKIPPED -> Icons.Rounded.RemoveCircleOutline to MaterialTheme.colorScheme.outline
                     TraceMark.PASS -> Icons.Rounded.RemoveCircleOutline to Color.Transparent
                 }
-                Icon(icon, when (s.mark) { TraceMark.FAILED_OPEN -> "Couldn't check"; TraceMark.MATCH -> "Matched"; else -> null }, tint = tint, modifier = Modifier.padding(end = 6.dp, top = 2.dp))
+                val context = LocalContext.current
+                val cd = when (s.mark) {
+                    TraceMark.FAILED_OPEN -> stringResource(R.string.blk_trace_failed_open)
+                    TraceMark.MATCH -> stringResource(R.string.blk_trace_matched)
+                    else -> null
+                }
+                Icon(icon, cd, tint = tint, modifier = Modifier.padding(end = 6.dp, top = 2.dp))
                 Column {
-                    Text((if (s.mark == TraceMark.FAILED_OPEN) "! " else "") + s.check, style = MaterialTheme.typography.labelLarge)
-                    Text(s.result, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text((if (s.mark == TraceMark.FAILED_OPEN) "! " else "") + BlockingText.check(context, s.check), style = MaterialTheme.typography.labelLarge)
+                    Text(BlockingText.result(context, s.check, s.result), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -127,36 +141,40 @@ private fun WhyDialog(vm: AppViewModel, number: String, live: Boolean, onDismiss
         loaded = true
     }
     val blocked = stored?.let { !it.allowed } ?: test?.blocked ?: false
+    val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (live) "Test this call" else if (blocked) "Why was this blocked?" else "Why did this ring?") },
+        title = { Text(stringResource(if (live) R.string.blk_why_test else if (blocked) R.string.blk_why_blocked else R.string.blk_why_rang)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text(Format.number(number, vm.countryIso), style = MaterialTheme.typography.titleSmall)
+                Text(bidiLtr(Format.number(number, vm.countryIso)), style = MaterialTheme.typography.titleSmall)
                 when {
-                    !loaded -> Text("Checking…")
+                    !loaded -> Text(stringResource(R.string.blk_checking))
                     stored != null -> {
                         val e = stored!!
-                        Text("${Format.fullDate(LocalContext.current, e.time)} · ${e.verdict ?: if (e.allowed) "Rang" else "Blocked"}", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                        val v = BlockingText.verdict(context, e.verdict) ?: stringResource(if (e.allowed) R.string.blk_rang else R.string.blk_blocked)
+                        Text(stringResource(R.string.blk_joined, Format.fullDate(context, e.time), v), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                         TraceList(TraceCodec.decode(e.trace))
                         app.parley.ui.calls.RingFactsFor(vm, number, e.time, Modifier.padding(top = 8.dp))
-                        if (e.failedOpen) Text("! Something couldn't be checked, so Parley let the call ring rather than risk blocking someone you know.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
+                        if (e.failedOpen) Text(stringResource(R.string.blk_failed_open_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
                     }
                     test != null -> {
                         val t = test!!
+                        val outcome = stringResource(if (t.blocked) R.string.blk_outcome_blocked else R.string.blk_outcome_ring)
+                        val line = stringResource(if (live) R.string.blk_if_called_now else R.string.blk_no_decision_stored, outcome)
                         Text(
-                            (if (live) "If this number called now: " else "No decision was stored for this call. With today's rules: ") + (if (t.blocked) "blocked" else "it would ring") + (t.verdict?.let { " · ${it.text}" } ?: ""),
+                            line + (t.verdict?.let { " · " + BlockingText.verdict(context, it.text) } ?: ""),
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp),
                         )
                         TraceList(t.trace)
-                        Text("Nothing was logged, counted or sent: this is only a test.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                        Text(stringResource(R.string.blk_only_a_test), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
                     }
-                    else -> Text("Couldn't check this number.")
+                    else -> Text(stringResource(R.string.blk_couldnt_check))
                 }
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text("Close") } },
-        dismissButton = if (!live && stored != null) ({ TextButton({ BlockingDialogs.show(BlockingDialog.Test(number)) }) { Text("Test with today's rules") } }) else null,
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.ct_close)) } },
+        dismissButton = if (!live && stored != null) ({ TextButton({ BlockingDialogs.show(BlockingDialog.Test(number)) }) { Text(stringResource(R.string.blk_test_today)) } }) else null,
     )
 }
 
@@ -166,20 +184,20 @@ private fun WebSearchDialog(vm: AppViewModel, d: BlockingDialog.WebSearch, onDis
     val url = vm.settings.collectAsStateWithLifecycle().value.screening.webSearchUrl
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Search this number on the web?") },
+        title = { Text(stringResource(R.string.blk_web_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Your browser opens a search for ${Format.number(d.number, vm.countryIso)}. The search site will see the number; Parley itself sends nothing.")
+                Text(stringResource(R.string.blk_web_body, bidiLtr(Format.number(d.number, vm.countryIso))))
                 if (d.contactName != null) {
                     Text(
-                        "This is ${d.contactName}'s number. Searching it tells the search site about one of your contacts.",
+                        stringResource(R.string.blk_web_contact_warning, d.contactName),
                         color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium,
                     )
                 }
             }
         },
-        confirmButton = { TextButton({ onDismiss(); BlockingActions.searchWeb(context, d.number, url) }) { Text(if (d.contactName != null) "Search anyway" else "Search") } },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton({ onDismiss(); BlockingActions.searchWeb(context, d.number, url) }) { Text(stringResource(if (d.contactName != null) R.string.blk_search_anyway else R.string.blk_search)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
     )
 }
 
@@ -191,33 +209,33 @@ private fun ReportDialog(vm: AppViewModel, number: String, onDismiss: () -> Unit
     if (confirmRegulator && regulator != null) {
         AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text("Open ${regulator.name}?") },
-            text = { Text("Your browser opens the official complaint page. The number is copied so you can paste it; Parley sends nothing itself.") },
-            confirmButton = { TextButton({ onDismiss(); BlockingActions.openRegulator(context, regulator, number) }) { Text("Open") } },
-            dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+            title = { Text(stringResource(R.string.blk_open_regulator, regulator.name)) },
+            text = { Text(stringResource(R.string.blk_open_regulator_body)) },
+            confirmButton = { TextButton({ onDismiss(); BlockingActions.openRegulator(context, regulator, number) }) { Text(stringResource(R.string.blk_open)) } },
+            dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
         )
         return
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Report this number") },
+        title = { Text(stringResource(R.string.blk_report_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Parley can't report anything by itself (it has no internet access). These open the right app with the details filled in.")
+                Text(stringResource(R.string.blk_report_body))
                 Text(
-                    "To your carrier: a text to ${BlockingActions.CARRIER_SPAM_SHORT_CODE} (US, UK, Canada, Ireland and others). Your SMS app opens; you press Send.",
+                    stringResource(R.string.blk_report_carrier, bidiLtr(BlockingActions.CARRIER_SPAM_SHORT_CODE)),
                     style = MaterialTheme.typography.bodySmall,
                 )
-                if (regulator != null) Text("To ${regulator.name}: opens their complaint page in your browser.", style = MaterialTheme.typography.bodySmall)
+                if (regulator != null) Text(stringResource(R.string.blk_report_regulator, regulator.name), style = MaterialTheme.typography.bodySmall)
             }
         },
         confirmButton = {
             Row {
-                if (regulator != null) TextButton({ confirmRegulator = true }) { Text("Regulator") }
-                TextButton({ onDismiss(); BlockingActions.reportToCarrier(context, number) }) { Text("Text ${BlockingActions.CARRIER_SPAM_SHORT_CODE}") }
+                if (regulator != null) TextButton({ confirmRegulator = true }) { Text(stringResource(R.string.blk_regulator)) }
+                TextButton({ onDismiss(); BlockingActions.reportToCarrier(context, number) }) { Text(stringResource(R.string.blk_text_code, bidiLtr(BlockingActions.CARRIER_SPAM_SHORT_CODE))) }
             }
         },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
     )
 }
 
@@ -228,35 +246,36 @@ private fun PrefixAllowDialog(vm: AppViewModel, d: BlockingDialog.PrefixAllow, o
     var drop by remember { mutableIntStateOf(2) }
     val e164 = remember(chosen) { PhoneNumbers.toE164(chosen, vm.countryIso) ?: PhoneNumbers.clean(chosen) }
     val prefix = e164.dropLast(drop)
+    val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Also allow this office's other lines") },
+        title = { Text(stringResource(R.string.blk_prefix_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Calls from numbers that differ from ${d.name ?: "this contact"}'s number only in the last digits will always ring (a clinic's or a school's other lines).")
+                Text(if (d.name != null) stringResource(R.string.blk_prefix_body_named, d.name) else stringResource(R.string.blk_prefix_body))
                 if (d.numbers.size > 1) d.numbers.forEach { n ->
                     Row(Modifier.fillMaxWidth().clickable { chosen = n }, verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(chosen == n, { chosen = n })
-                        Text(Format.number(n, vm.countryIso))
+                        Text(bidiLtr(Format.number(n, vm.countryIso)))
                     }
                 }
-                Text("Digits that may differ", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.blk_prefix_digits), style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf(1, 2, 3, 4).forEach { n -> FilterChip(drop == n, { drop = n }, label = { Text("$n") }) }
                 }
-                Text("Will allow $prefix" + "X".repeat(drop), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                Text(stringResource(R.string.blk_prefix_will_allow, bidiLtr(prefix + "X".repeat(drop))), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
             }
         },
         confirmButton = {
             TextButton({
                 scope.launch {
                     BlockingActions.allowPrefix(vm.c, chosen, drop, d.name)
-                    vm.toast("Other lines of ${d.name ?: "this office"} will ring")
+                    vm.toast(if (d.name != null) context.getString(R.string.blk_prefix_done_named, d.name) else context.getString(R.string.blk_prefix_done))
                 }
                 onDismiss()
-            }, enabled = chosen.isNotBlank() && prefix.count { it.isDigit() } >= 4) { Text("Allow") }
+            }, enabled = chosen.isNotBlank() && prefix.count { it.isDigit() } >= 4) { Text(stringResource(R.string.blk_allow)) }
         },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
     )
 }
 
@@ -264,10 +283,11 @@ private fun PrefixAllowDialog(vm: AppViewModel, d: BlockingDialog.PrefixAllow, o
 private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     var choice by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
     val options = listOf(
-        "Block everyone in '${d.title}'" to "Their calls are rejected. The label syncs across your phones with your contacts account.",
-        "Only '${d.title}' rings during off hours" to "At night or at weekends (set the hours in Blocking › Off hours), everyone else is silenced.",
-        "Ringtone for '${d.title}'" to "Parley's ringer plays a tone you choose for these people (unless they have their own). The same tone as on the label's page.",
+        stringResource(R.string.blk_label_block_all, d.title) to stringResource(R.string.blk_label_block_all_help),
+        stringResource(R.string.blk_label_only_off_hours, d.title) to stringResource(R.string.blk_label_only_off_hours_help),
+        stringResource(R.string.blk_label_ringtone, d.title) to stringResource(R.string.blk_label_ringtone_help),
     )
     // One store for label ringtones: the label page's.
     val people by vm.people.settings.collectAsStateWithLifecycle()
@@ -276,7 +296,7 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
     val pickTone = rememberRingtonePicker { pickedTone = it }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Screening for '${d.title}'") },
+        title = { Text(stringResource(R.string.blk_label_title, d.title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 options.forEachIndexed { i, (t, help) ->
@@ -288,7 +308,7 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
                         }
                     }
                 }
-                if (choice == 2) TextButton({ pickTone(tone) }) { Text(ringtoneTitle(LocalContext.current, tone) ?: "Choose ringtone") }
+                if (choice == 2) TextButton({ pickTone(tone) }) { Text(ringtoneTitle(LocalContext.current, tone) ?: stringResource(R.string.blk_choose_ringtone)) }
             }
         },
         confirmButton = {
@@ -302,12 +322,12 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
                         // Only the ringtone: no allow rule (which would also let the label ring through off hours).
                         2 -> pickedTone?.let { t -> vm.people.update { s -> s.copy(labelRingtones = s.labelRingtones + (d.title to t)) } }
                     }
-                    vm.toast("Saved")
+                    vm.toast(context.getString(R.string.blk_saved))
                 }
                 onDismiss()
-            }, enabled = choice != 2 || tone != null) { Text("Save") }
+            }, enabled = choice != 2 || tone != null) { Text(stringResource(R.string.set_save)) }
         },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
     )
 }
 
@@ -317,22 +337,22 @@ private fun SnoozeDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Expecting a call?") },
-        text = { Text("Unknown numbers ring through your screening rules for a while (a delivery driver, a doctor's office). It switches itself off.") },
+        title = { Text(stringResource(R.string.blk_expecting_question)) },
+        text = { Text(stringResource(R.string.blk_snooze_body)) },
         confirmButton = {
             Row {
-                listOf(30 to "30 min", 60 to "1 h", 120 to "2 h").forEach { (m, label) ->
+                snoozeChoices().forEach { (m, label) ->
                     TextButton({
                         scope.launch {
                             BlockingActions.snooze(vm.c, m)
                             ExpectingCallTileService.refresh(context)
-                            vm.toast("Unknown callers will ring for $label")
+                            vm.toast(context.getString(R.string.blk_snooze_toast, label))
                         }
                         onDismiss()
                     }) { Text(label) }
                 }
             }
         },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
     )
 }

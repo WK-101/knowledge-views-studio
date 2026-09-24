@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import app.parley.R
 import app.parley.container
 import kotlinx.coroutines.launch
 
@@ -42,16 +43,16 @@ class ExpectingCallTileService : TileService() {
         val tile = qsTile ?: return
         val remaining = BlockingActions.snoozeRemaining(container)
         tile.state = if (remaining > 0) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-        tile.label = "Expecting a call"
-        tile.subtitle = if (remaining > 0) "Unknown callers ring · ${formatLeft(remaining)}" else "Off"
-        tile.contentDescription = if (remaining > 0) "Expecting a call, ${formatLeft(remaining)} left" else "Expecting a call, off"
+        tile.label = getString(R.string.blk_check_expecting)
+        tile.subtitle = if (remaining > 0) getString(R.string.blk_tile_on, formatLeft(this, remaining)) else getString(R.string.set_off)
+        tile.contentDescription = if (remaining > 0) getString(R.string.blk_tile_on_cd, formatLeft(this, remaining)) else getString(R.string.blk_tile_off_cd)
         tile.updateTile()
     }
 
     companion object {
-        fun formatLeft(ms: Long): String {
+        fun formatLeft(context: Context, ms: Long): String {
             val min = ((ms + 59_999) / 60_000).toInt()
-            return if (min >= 60) "${min / 60} h ${(min % 60).toString().padStart(2, '0')} min" else "$min min"
+            return if (min >= 60) context.getString(R.string.blk_tile_hours_minutes, min / 60, (min % 60).toString().padStart(2, '0')) else context.getString(R.string.ct_minutes_short, min)
         }
 
         fun refresh(context: Context) {

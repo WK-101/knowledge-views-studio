@@ -159,6 +159,9 @@ object SettingsText {
  */
 fun bidiLtr(s: String): String = android.text.BidiFormatter.getInstance().unicodeWrap(s, android.text.TextDirectionHeuristics.LTR)
 
+/** [bidiLtr] when [s] is a phone number (a title that fell back to the number), else [s] unchanged. */
+fun bidiLtrIfNumber(s: String): String = if (s.isNotEmpty() && s.all { it.isDigit() || it in "+-() .#*" }) bidiLtr(s) else s
+
 /** Localised title of the setting [key]. */
 @Composable
 fun settingTitle(key: String): String = stringResource(SettingsText.title(key))

@@ -29,11 +29,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.R
+import app.parley.blocking.BlockingText
 import app.parley.blocking.ListsUpdaterClient
 import app.parley.common.spam.PackOrigin
 import app.parley.data.SpamListStore
@@ -71,9 +75,9 @@ fun ListsUpdaterSection(vm: AppViewModel) {
 
     fun report(id: String, r: SpamListStore.InstallResult) {
         when (r) {
-            is SpamListStore.InstallResult.Installed -> vm.toast(if (r.replaced) "Updated ${r.pack.name}" else "Added ${r.pack.name}")
-            is SpamListStore.InstallResult.Older -> vm.toast("You already have a newer version")
-            is SpamListStore.InstallResult.Failed -> if ("different key" in r.reason) keyConflict = id to r.reason else vm.toast(r.reason)
+            is SpamListStore.InstallResult.Installed -> vm.toast(context.getString(if (r.replaced) R.string.blk_list_updated else R.string.blk_list_added, r.pack.name))
+            is SpamListStore.InstallResult.Older -> vm.toast(context.getString(R.string.blk_list_newer))
+            is SpamListStore.InstallResult.Failed -> if ("different key" in r.reason) keyConflict = id to BlockingText.installFailure(context, r.reason) else vm.toast(BlockingText.installFailure(context, r.reason))
         }
     }
 
@@ -81,29 +85,26 @@ fun ListsUpdaterSection(vm: AppViewModel) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.CloudDownload, null)
-                Text("  Get automatic updates (optional app)", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                if (installed) IconButton({ refreshKey++ }) { Icon(Icons.Rounded.Refresh, "Check again") }
+                Text("  " + stringResource(R.string.blk_updater_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                if (installed) IconButton({ refreshKey++ }) { Icon(Icons.Rounded.Refresh, stringResource(R.string.blk_check_again)) }
             }
             Text(
-                "Parley never touches the internet. The optional Parley Lists app downloads public lists (US FTC reported calls, " +
-                    "regulator ranges, community lists) and never sees your contacts or calls. Parley copies the lists from it, " +
-                    "checks their signatures, and refreshes them daily.",
+                stringResource(R.string.blk_updater_body),
                 style = MaterialTheme.typography.bodySmall,
             )
             when {
                 !installed -> {
-                    Text("Not installed. Get it from ${ListsUpdaterClient.WHERE_TO_GET}.", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-                    Text("It asks only for internet access. Parley reads its lists only when both apps come from the same developer.", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.blk_updater_not_installed, stringResource(R.string.blk_updater_where)), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.blk_updater_permissions), style = MaterialTheme.typography.bodySmall)
                 }
                 !readable -> Text(
-                    "Parley Lists is installed, but it's signed by a different developer than this copy of Parley, so Parley can't read it. " +
-                        "Install both apps from the same source.",
+                    stringResource(R.string.blk_updater_other_developer),
                     color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
                 )
                 else -> {
-                    OutlinedButton({ ListsUpdaterClient.launchIntent(context)?.let { context.startActivity(it) } }) { Text("Open Parley Lists") }
+                    OutlinedButton({ ListsUpdaterClient.launchIntent(context)?.let { context.startActivity(it) } }) { Text(stringResource(R.string.blk_updater_open)) }
                     val r = remote
-                    if (r.isNullOrEmpty()) Text("No lists there yet. Open Parley Lists and tap Update now.", style = MaterialTheme.typography.bodySmall)
+                    if (r.isNullOrEmpty()) Text(stringResource(R.string.blk_updater_empty), style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -120,18 +121,19 @@ fun ListsUpdaterSection(vm: AppViewModel) {
                     Column {
                         Text(
                             listOfNotNull(
-                                "%,d numbers".format(pk.entries) + if (pk.ranges > 0) " · ${pk.ranges} ranges" else "",
-                                "built ${ago(pk.updated, now)}",
-                                if (pk.fingerprint != null) "signed" else "unsigned",
+                                pluralStringResource(R.plurals.blk_numbers_count, pk.entries, "%,d".format(pk.entries)),
+                                if (pk.ranges > 0) pluralStringResource(R.plurals.blk_ranges_count, pk.ranges, pk.ranges) else null,
+                                stringResource(R.string.blk_built_ago, ago(pk.updated, now)),
+                                stringResource(if (pk.fingerprint != null) R.string.blk_signed else R.string.blk_unsigned),
                                 when {
                                     !on -> null
-                                    local?.origin == PackOrigin.UPDATER && local.version >= pk.version -> "up to date"
-                                    else -> "update pending"
+                                    local?.origin == PackOrigin.UPDATER && local.version >= pk.version -> stringResource(R.string.blk_up_to_date)
+                                    else -> stringResource(R.string.blk_update_pending)
                                 },
                             ).joinToString(" · "),
                         )
                         if (pk.licence.isNotBlank()) Text(pk.licence, style = MaterialTheme.typography.bodySmall)
-                        err?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                        err?.let { Text(BlockingText.installFailure(context, it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                     }
                 },
                 trailingContent = {
@@ -151,15 +153,15 @@ fun ListsUpdaterSection(vm: AppViewModel) {
     keyConflict?.let { (id, reason) ->
         AlertDialog(
             onDismissRequest = { keyConflict = null },
-            title = { Text("Replace the list?") },
-            text = { Text("$reason\n\nThis happens when Parley Lists was reinstalled, or you added the same list from another source. Replace only if you trust Parley Lists on this phone.") },
+            title = { Text(stringResource(R.string.blk_replace_list_q)) },
+            text = { Text(reason + "\n\n" + stringResource(R.string.blk_replace_list_body)) },
             confirmButton = {
                 TextButton({
                     keyConflict = null
                     scope.launch { report(id, ListsUpdaterClient.copy(context, vm.c.lists, id, force = true)) }
-                }) { Text("Replace") }
+                }) { Text(stringResource(R.string.blk_replace)) }
             },
-            dismissButton = { TextButton({ keyConflict = null }) { Text("Keep mine") } },
+            dismissButton = { TextButton({ keyConflict = null }) { Text(stringResource(R.string.blk_keep_mine)) } },
         )
     }
 }

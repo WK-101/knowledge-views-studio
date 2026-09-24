@@ -47,19 +47,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.blocking.TemplateGallery
 import app.parley.blocking.TemplateInbox
+import app.parley.blocking.TemplateText
 import app.parley.common.templates.OpenedTemplate
 import app.parley.common.templates.RuleTemplate
 import app.parley.common.templates.RuleTemplates
 import app.parley.common.templates.TemplateException
 import app.parley.data.DryRun
 import app.parley.ui.contact.SecureQr
+import app.parley.ui.settings.bidiLtr
+import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -90,7 +96,7 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
         try {
             incoming = withContext(Dispatchers.Default) { RuleTemplates.fromLink(link.toString()) }
         } catch (e: TemplateException) {
-            error = e.message
+            error = TemplateText.error(context, e.message)
         }
     }
     val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -104,16 +110,16 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
                             val n = s.read(buf)
                             if (n < 0) break
                             out.write(buf, 0, n)
-                            if (out.size() > MAX_FILE) throw TemplateException("The file is too large")
+                            if (out.size() > MAX_FILE) throw TemplateException(context.getString(R.string.blk_tpl_err_file_large))
                         }
                         out.toByteArray().decodeToString()
-                    } ?: throw TemplateException("Couldn't open the file")
+                    } ?: throw TemplateException(context.getString(R.string.blk_tpl_err_open_file))
                 }
                 incoming = withContext(Dispatchers.Default) { RuleTemplates.open(text) }
             } catch (e: TemplateException) {
-                error = e.message
+                error = TemplateText.error(context, e.message)
             } catch (e: Exception) {
-                error = "Couldn't read the file"
+                error = context.getString(R.string.blk_fail_read_file)
             }
         }
     }
@@ -127,40 +133,39 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
         }
         val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
         val send = Intent(Intent.ACTION_SEND).setType("application/octet-stream").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        context.startActivity(Intent.createChooser(send, "Share \"${t.name}\""))
+        context.startActivity(Intent.createChooser(send, context.getString(R.string.blk_tpl_share_chooser, TemplateText.name(context, t))))
     }
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text("Rule templates") },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
-            actions = { IconButton({ pickFile.launch(arrayOf("*/*")) }) { Icon(Icons.Rounded.FileOpen, "Open a template file") } },
+            title = { Text(settingTitle("templates")) },
+            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } },
+            actions = { IconButton({ pickFile.launch(arrayOf("*/*")) }) { Icon(Icons.Rounded.FileOpen, stringResource(R.string.blk_tpl_open_file)) } },
         )
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
                 Card(Modifier.fillMaxWidth().padding(16.dp)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Ready-made rule sets", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.blk_tpl_header), style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "Each template adds a group of rules you can remove again in one tap. Country ranges come from the regulator's own pages (sources inside). " +
-                                "Everything is on the phone: nothing is downloaded.",
+                            stringResource(R.string.blk_tpl_header_body),
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        OutlinedButton({ shareMine = true }) { Icon(Icons.Rounded.Share, null); Text(" Share my rules as a template") }
+                        OutlinedButton({ shareMine = true }) { Icon(Icons.Rounded.Share, null); Text(" " + stringResource(R.string.blk_tpl_share_mine)) }
                     }
                 }
             }
             val iso = vm.countryIso
             val groups = listOf(
-                "For your country" to entries.filter { it.builtIn && it.template.country.equals(iso, true) },
-                "Anywhere" to entries.filter { it.builtIn && it.template.country == null },
-                "Other countries" to entries.filter { it.builtIn && it.template.country != null && !it.template.country.equals(iso, true) },
-                "Received from others" to entries.filter { !it.builtIn },
+                R.string.blk_tpl_group_country to entries.filter { it.builtIn && it.template.country.equals(iso, true) },
+                R.string.blk_tpl_group_anywhere to entries.filter { it.builtIn && it.template.country == null },
+                R.string.blk_tpl_group_other to entries.filter { it.builtIn && it.template.country != null && !it.template.country.equals(iso, true) },
+                R.string.blk_tpl_group_received to entries.filter { !it.builtIn },
             )
             groups.forEach { (title, list) ->
                 if (list.isNotEmpty()) {
-                    item(key = "h$title") { app.parley.ui.contact.Section(title) }
+                    item(key = "h$title") { app.parley.ui.contact.Section(stringResource(title)) }
                     items(list, key = { "t" + it.template.id }) { e ->
                         TemplateCard(vm, gallery, e, gs.installed.any { it.id == e.template.id }, onShare = { shareFile(e.template) }, onQr = { qrFor = e.template })
                     }
@@ -173,27 +178,34 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
         val t = op.template
         AlertDialog(
             onDismissRequest = { incoming = null },
-            title = { Text("Template: ${t.name}") },
+            title = { Text(stringResource(R.string.blk_tpl_incoming_title, t.name)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Signed by key ${op.fingerprint}" + if (op.fingerprint == remember { vm.c.lists.shareFingerprint() }) " (yours)" else "", fontWeight = FontWeight.Medium)
-                    Text("Check this fingerprint with the sender before you install it.", style = MaterialTheme.typography.bodySmall)
+                    val mine = op.fingerprint == remember { vm.c.lists.shareFingerprint() }
+                    Text(stringResource(if (mine) R.string.blk_tpl_signed_by_you else R.string.blk_tpl_signed_by, op.fingerprint), fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.blk_tpl_check_fingerprint), style = MaterialTheme.typography.bodySmall)
                     if (t.description.isNotBlank()) Text(t.description, style = MaterialTheme.typography.bodySmall)
-                    RuleTemplates.describe(t).take(12).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
-                    if (RuleTemplates.describe(t).size > 12) Text("…and ${RuleTemplates.describe(t).size - 12} more", style = MaterialTheme.typography.bodySmall)
+                    val lines = TemplateText.describe(context, t)
+                    lines.take(12).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
+                    if (lines.size > 12) Text(pluralStringResource(R.plurals.set_and_more, lines.size - 12, lines.size - 12), style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = {
                 TextButton({
                     scope.launch { vm.toast(gallery.import(op)) }
                     incoming = null
-                }) { Text("Add to templates") }
+                }) { Text(stringResource(R.string.blk_tpl_add)) }
             },
-            dismissButton = { TextButton({ incoming = null }) { Text("Cancel") } },
+            dismissButton = { TextButton({ incoming = null }) { Text(stringResource(R.string.set_cancel)) } },
         )
     }
     error?.let { e ->
-        AlertDialog(onDismissRequest = { error = null }, title = { Text("Couldn't open the template") }, text = { Text(e) }, confirmButton = { TextButton({ error = null }) { Text("OK") } })
+        AlertDialog(
+            onDismissRequest = { error = null },
+            title = { Text(stringResource(R.string.blk_tpl_cant_open)) },
+            text = { Text(e) },
+            confirmButton = { TextButton({ error = null }) { Text(stringResource(R.string.set_ok)) } },
+        )
     }
     qrFor?.let { t -> TemplateQrDialog(vm, t) { qrFor = null } }
     if (shareMine) ShareMyRulesDialog(vm, onDismiss = { shareMine = false }, onFile = { t -> shareMine = false; shareFile(t) }, onQr = { t -> shareMine = false; qrFor = t })
@@ -204,38 +216,44 @@ private const val MAX_FILE = 1024 * 1024
 @Composable
 private fun TemplateCard(vm: AppViewModel, gallery: TemplateGallery, e: TemplateGallery.Entry, installed: Boolean, onShare: () -> Unit, onQr: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val t = e.template
+    val name = TemplateText.name(context, t)
+    val description = TemplateText.description(context, t)
     var open by remember { mutableStateOf(false) }
     var dry by remember { mutableStateOf<DryRun?>(null) }
     var dryBusy by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(t.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            Text(name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
             if (installed) {
                 Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
-                Text(" Installed", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Text(" " + stringResource(R.string.blk_tpl_installed_badge), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             }
         }
-        if (t.description.isNotBlank()) Text(t.description, style = MaterialTheme.typography.bodySmall)
-        if (e.fingerprint != null) Text("From key ${e.fingerprint}", style = MaterialTheme.typography.bodySmall)
+        if (description.isNotBlank()) Text(description, style = MaterialTheme.typography.bodySmall)
+        if (e.fingerprint != null) Text(stringResource(R.string.blk_tpl_from_key, e.fingerprint), style = MaterialTheme.typography.bodySmall)
         if (open) {
-            Text("What it does", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp))
-            RuleTemplates.describe(t).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
+            Text(stringResource(R.string.blk_tpl_what_it_does), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp))
+            TemplateText.describe(context, t).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
             if (t.notes.isNotBlank()) Text(t.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (t.sources.isNotEmpty()) {
-                Text("Sources", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp))
+                Text(stringResource(R.string.blk_tpl_sources), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp))
                 t.sources.forEach { s ->
-                    Text("${s.title.ifBlank { "Source" }}\n${s.url}" + (s.accessed.takeIf { it.isNotBlank() }?.let { " (checked $it)" } ?: ""), style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        "${s.title.ifBlank { stringResource(R.string.blk_tpl_source) }}\n${s.url}" + (s.accessed.takeIf { it.isNotBlank() }?.let { " " + stringResource(R.string.blk_tpl_checked, it) } ?: ""),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
             }
             if (!installed) {
                 val d = dry
                 when {
                     d != null -> Text(
-                        if (d.current.unknown.isEmpty()) "Last 7 days: no calls from unknown numbers to test against." else
-                            "Last 7 days: it would have stopped or flagged ${d.added.size} of ${d.current.unknown.size} calls from unknown numbers" +
-                                if (d.added.isNotEmpty()) " (" + d.added.take(3).joinToString { app.parley.ui.common.Format.number(it.call.number, vm.countryIso) } + if (d.added.size > 3) "…)" else ")" else ".",
+                        if (d.current.unknown.isEmpty()) stringResource(R.string.blk_tpl_dry_none) else
+                            pluralStringResource(R.plurals.blk_tpl_dry_result, d.current.unknown.size, d.added.size, d.current.unknown.size) +
+                                if (d.added.isNotEmpty()) " (" + d.added.take(3).joinToString { bidiLtr(app.parley.ui.common.Format.number(it.call.number, vm.countryIso)) } + if (d.added.size > 3) "…)" else ")" else ".",
                         fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium,
                     )
                     else -> TextButton({
@@ -251,20 +269,20 @@ private fun TemplateCard(vm: AppViewModel, gallery: TemplateGallery, e: Template
                                 )
                             }.getOrNull()
                             dryBusy = false
-                            if (dry == null) vm.toast("Couldn't replay your calls")
+                            if (dry == null) vm.toast(context.getString(R.string.blk_tpl_dry_failed))
                         }
-                    }, enabled = !dryBusy) { Text(if (dryBusy) "Replaying last week…" else "What would it have done last week?") }
+                    }, enabled = !dryBusy) { Text(stringResource(if (dryBusy) R.string.blk_tpl_dry_busy else R.string.blk_tpl_dry_button)) }
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (installed) {
-                    OutlinedButton({ scope.launch { busy = true; gallery.uninstall(vm.c, t.id); busy = false; vm.toast("Removed ${t.name}") } }, enabled = !busy) { Text("Uninstall") }
+                    OutlinedButton({ scope.launch { busy = true; gallery.uninstall(vm.c, t.id); busy = false; vm.toast(context.getString(R.string.blk_tpl_removed, name)) } }, enabled = !busy) { Text(stringResource(R.string.blk_tpl_uninstall)) }
                 } else {
-                    OutlinedButton({ scope.launch { busy = true; vm.toast(gallery.install(vm.c, t)); busy = false } }, enabled = !busy) { Text("Install") }
+                    OutlinedButton({ scope.launch { busy = true; vm.toast(gallery.install(vm.c, t)); busy = false } }, enabled = !busy) { Text(stringResource(R.string.blk_tpl_install)) }
                 }
-                IconButton(onShare) { Icon(Icons.Rounded.Share, "Share as a file") }
-                IconButton(onQr) { Icon(Icons.Rounded.QrCode, "Show as a QR code") }
-                if (!e.builtIn) TextButton({ scope.launch { gallery.removeImported(vm.c, t.id) } }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                IconButton(onShare) { Icon(Icons.Rounded.Share, stringResource(R.string.blk_tpl_share_file)) }
+                IconButton(onQr) { Icon(Icons.Rounded.QrCode, stringResource(R.string.blk_tpl_share_qr)) }
+                if (!e.builtIn) TextButton({ scope.launch { gallery.removeImported(vm.c, t.id) } }) { Text(stringResource(R.string.blk_delete), color = MaterialTheme.colorScheme.error) }
             }
         }
     }
@@ -280,50 +298,51 @@ private fun TemplateQrDialog(vm: AppViewModel, t: RuleTemplate, onDismiss: () ->
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(t.name) },
+        title = { Text(TemplateText.name(LocalContext.current, t)) },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 val r = result
                 when {
-                    r == null -> Text("Preparing…")
-                    !r.second -> Text("This template is too large for a QR code. Share it as a file instead.")
-                    r.first != null -> Image(r.first!!.asImageBitmap(), "Template QR code", Modifier.size(260.dp).background(Color.White).padding(8.dp))
+                    r == null -> Text(stringResource(R.string.blk_preparing))
+                    !r.second -> Text(stringResource(R.string.blk_tpl_qr_too_large))
+                    r.first != null -> Image(r.first!!.asImageBitmap(), stringResource(R.string.blk_tpl_qr_cd), Modifier.size(260.dp).background(Color.White).padding(8.dp))
                 }
                 Text(
-                    "Scan it with the other phone's camera or QR app; it opens in Parley. Signed with your key ${remember { vm.c.lists.shareFingerprint() }}.",
+                    stringResource(R.string.blk_tpl_qr_help, remember { vm.c.lists.shareFingerprint() }),
                     style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp),
                 )
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text("Done") } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_done)) } },
     )
 }
 
 @Composable
 private fun ShareMyRulesDialog(vm: AppViewModel, onDismiss: () -> Unit, onFile: (RuleTemplate) -> Unit, onQr: (RuleTemplate) -> Unit) {
     val rules by vm.c.blocks.rules.collectAsStateWithLifecycle()
-    var name by remember { mutableStateOf("My rules") }
+    val defaultName = stringResource(R.string.blk_tpl_my_rules)
+    var name by remember { mutableStateOf(defaultName) }
     val template = remember(rules, name) {
-        RuleTemplates.fromRules("shared.r" + (System.currentTimeMillis() / 1000), name.trim().ifBlank { "My rules" }.take(120), "", rules, System.currentTimeMillis() / 1000)
+        RuleTemplates.fromRules("shared.r" + (System.currentTimeMillis() / 1000), name.trim().ifBlank { defaultName }.take(120), "", rules, System.currentTimeMillis() / 1000)
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Share my rules") },
+        title = { Text(stringResource(R.string.blk_tpl_share_my_rules)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedTextField(name, { name = it }, label = { Text("Template name") }, singleLine = true)
+                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.blk_tpl_name)) }, singleLine = true)
                 Text(
-                    "${template.rules.size} rules, including allow rules and schedules. Label, SIM and temporary rules stay on this phone. Your contacts are never included.",
+                    pluralStringResource(R.plurals.blk_tpl_share_count, template.rules.size, template.rules.size),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
         },
         confirmButton = {
             Row {
-                TextButton({ onQr(template) }, enabled = template.rules.isNotEmpty()) { Text("QR code") }
-                TextButton({ onFile(template) }, enabled = template.rules.isNotEmpty()) { Text("File") }
+                TextButton({ onQr(template) }, enabled = template.rules.isNotEmpty()) { Text(stringResource(R.string.blk_qr_code)) }
+                TextButton({ onFile(template) }, enabled = template.rules.isNotEmpty()) { Text(stringResource(R.string.blk_file)) }
             }
         },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
     )
 }
