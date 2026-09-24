@@ -76,12 +76,13 @@ private object Wording {
 @Composable
 fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val s by vm.people.settings.collectAsStateWithLifecycle()
     val apps by produceState<List<ContactsAccessApp>?>(null) { value = vm.c.people.audit.appsWithAccess() }
     val graphene = remember { vm.c.people.audit.isGrapheneOs() }
     fun appSettings(pkg: String) = runCatching {
         context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg")))
-    }.onFailure { vm.toast(context.getString(R.string.who_settings_failed)) }
+    }.onFailure { vm.toast(res.getString(R.string.who_settings_failed)) }
 
     // U7: scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
@@ -107,7 +108,7 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
                         )
                         TextButton({
                             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://grapheneos.org/usage#contact-scopes"))) }
-                                .onFailure { vm.toast(context.getString(R.string.who_no_browser)) }
+                                .onFailure { vm.toast(res.getString(R.string.who_no_browser)) }
                         }) { Text(stringResource(R.string.who_scopes_link)) }
                     }
                 }
@@ -165,7 +166,7 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
                 )
                 LinkRow(stringResource(R.string.who_move_private), stringResource(R.string.who_move_private_summary)) {
                     vm.navigate(NavEvent.Tab(StartTab.CONTACTS))
-                    vm.toast(context.getString(R.string.who_move_private_hint))
+                    vm.toast(res.getString(R.string.who_move_private_hint))
                 }
             }
 
@@ -302,6 +303,7 @@ private fun outcomeText(o: LookupOutcome): Int = when (o) {
 @Composable
 fun MoveToPrivateDialog(vm: AppViewModel, ids: List<Long>, onDismiss: () -> Unit, onDone: () -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -310,14 +312,14 @@ fun MoveToPrivateDialog(vm: AppViewModel, ids: List<Long>, onDismiss: () -> Unit
         confirmButton = {
             TextButton({
                 onDismiss()
-                scope.launchVault(context as? androidx.fragment.app.FragmentActivity, { e -> vm.toast(context.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
+                scope.launchVault(context as? androidx.fragment.app.FragmentActivity, { e -> vm.toast(res.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
                     var moved = 0
                     for (id in ids) {
                         val d = vm.c.contacts.details(id) ?: continue
                         vm.moveToVault(id, d)
                         moved++
                     }
-                    vm.toast(context.resources.getQuantityString(R.plurals.move_private_done, moved, moved))
+                    vm.toast(res.getQuantityString(R.plurals.move_private_done, moved, moved))
                     onDone()
                 }
             }) { Text(stringResource(R.string.move_private_move)) }

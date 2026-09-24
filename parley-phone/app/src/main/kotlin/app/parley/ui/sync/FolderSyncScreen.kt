@@ -47,6 +47,7 @@ import app.parley.R
 @Composable
 fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     val sync = vm.c.folderSync
     val st by sync.status.collectAsStateWithLifecycle()
@@ -62,7 +63,7 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
         scope.launch {
             val r = runCatching { sync.syncNow(allowMassDelete) }
             running = false
-            vm.toast(r.getOrNull()?.summary(context.resources) ?: context.getString(R.string.sync_failed, r.exceptionOrNull()?.message.toString()))
+            vm.toast(r.getOrNull()?.summary(res) ?: res.getString(R.string.sync_failed, r.exceptionOrNull()?.message.toString()))
         }
     }
     Scaffold(topBar = {

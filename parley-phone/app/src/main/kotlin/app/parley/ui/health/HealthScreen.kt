@@ -58,6 +58,7 @@ private val titles = mapOf(
 fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     val calls by vm.c.callLog.calls.collectAsStateWithLifecycle()
     val scanner = remember { HealthScanner(vm.c.appContext) }
@@ -85,7 +86,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     confirmStale = null
                     scope.launch {
                         list.forEach { (i, _, _) -> vm.c.temporaries.mark(i.contactId, 30, purgeHistory = false) }
-                        vm.toast(context.resources.getQuantityString(R.plurals.health_stale_done, list.size, list.size))
+                        vm.toast(res.getQuantityString(R.plurals.health_stale_done, list.size, list.size))
                     }
                 }) { Text(stringResource(R.string.health_delete_in_30)) }
             },
@@ -119,12 +120,12 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                 item {
                     when (kind) {
                         HealthKind.NO_COUNTRY_CODE, HealthKind.TITLE_IS_COMPANY -> Button(
-                            onClick = { scope.launch { val n = scanner.fix(group); vm.toast(context.resources.getQuantityString(R.plurals.health_fixed, n, n)); round++ } },
+                            onClick = { scope.launch { val n = scanner.fix(group); vm.toast(res.getQuantityString(R.plurals.health_fixed, n, n)); round++ } },
                             modifier = Modifier.padding(horizontal = 16.dp),
                         ) { Text(stringResource(R.string.health_fix_all, group.size)) }
                         HealthKind.SHARED_NUMBER -> TextButton({ open(Routes.DUPLICATES) }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_review_duplicates)) }
                         HealthKind.STALE -> TextButton({
-                            val phoneLabel = context.getString(R.string.health_phone)
+                            val phoneLabel = res.getString(R.string.health_phone)
                             // Never with one tap: list who and where first (F18).
                             scope.launch {
                                 confirmStale = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {

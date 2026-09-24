@@ -79,6 +79,7 @@ import app.parley.R
 fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val idx by vm.people.index.collectAsStateWithLifecycle()
     val all by vm.contacts.collectAsStateWithLifecycle()
     var labels by remember { mutableStateOf<List<Label>?>(null) }
@@ -189,8 +190,8 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
                 TextButton({
                     mergeTarget = false
                     scope.launch {
-                        val n = runCatching { vm.c.people.labels.merge(picked, target) }.getOrElse { vm.toast(context.getString(R.string.lbl_merge_failed, it.message.toString())); return@launch }
-                        vm.toast(if (n > 0) context.resources.getQuantityString(R.plurals.lbl_merged_added, n, n, target) else context.getString(R.string.lbl_merged, target))
+                        val n = runCatching { vm.c.people.labels.merge(picked, target) }.getOrElse { vm.toast(res.getString(R.string.lbl_merge_failed, it.message.toString())); return@launch }
+                        vm.toast(if (n > 0) res.getQuantityString(R.plurals.lbl_merged_added, n, n, target) else res.getString(R.string.lbl_merged, target))
                         merging = false
                         picked = emptySet()
                         vm.c.contacts.refresh()
@@ -227,6 +228,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
 private fun CreateLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onCreated: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     var name by remember { mutableStateOf("") }
     var accounts by remember { mutableStateOf<List<AccountRef>>(emptyList()) }
     var account by remember { mutableStateOf<AccountRef?>(null) }
@@ -257,7 +259,7 @@ private fun CreateLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onCreated
                 val a = account ?: return@TextButton
                 onDismiss()
                 scope.launch {
-                    if (vm.c.people.labels.create(name, a) != null) { vm.toast(context.getString(R.string.lbl_created, name.trim())); onCreated() } else vm.toast(context.getString(R.string.lbl_create_failed))
+                    if (vm.c.people.labels.create(name, a) != null) { vm.toast(res.getString(R.string.lbl_created, name.trim())); onCreated() } else vm.toast(res.getString(R.string.lbl_create_failed))
                 }
             }, enabled = name.isNotBlank() && account != null) { Text(stringResource(R.string.lbl_create)) }
         },
@@ -269,6 +271,7 @@ private fun CreateLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onCreated
 private fun RenameLabelDialog(vm: AppViewModel, old: String, onDismiss: () -> Unit, onDone: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     var name by remember { mutableStateOf(old) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -284,7 +287,7 @@ private fun RenameLabelDialog(vm: AppViewModel, old: String, onDismiss: () -> Un
                 onDismiss()
                 scope.launch {
                     // Its ringtone, rules, limits and off-hours choice follow the label (see LabelReferences).
-                    runCatching { vm.c.people.labels.rename(old, name) }.onFailure { vm.toast(context.getString(R.string.lbl_rename_failed, it.message.toString())) }
+                    runCatching { vm.c.people.labels.rename(old, name) }.onFailure { vm.toast(res.getString(R.string.lbl_rename_failed, it.message.toString())) }
                     vm.c.contacts.refresh()
                     onDone(name.trim())
                 }
@@ -299,6 +302,7 @@ private fun RenameLabelDialog(vm: AppViewModel, old: String, onDismiss: () -> Un
 @Composable
 fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     var current by remember { mutableStateOf(title) }
     val idx by vm.people.index.collectAsStateWithLifecycle()
@@ -320,7 +324,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
         Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
             .putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE)
             .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-            .putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, context.getString(R.string.lbl_ringtone_for, current))
+            .putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, res.getString(R.string.lbl_ringtone_for, current))
             .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, tone?.let(Uri::parse)),
     )
 
@@ -334,15 +338,15 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
             actions = {
                 IconButton({
                     val numbers = members.mapNotNull { c -> (c.phones.firstOrNull { it.isPrimary } ?: c.phones.firstOrNull { it.type == 2 } ?: c.phones.firstOrNull())?.number }
-                    if (numbers.isEmpty()) vm.toast(context.getString(R.string.lbl_no_numbers))
+                    if (numbers.isEmpty()) vm.toast(res.getString(R.string.lbl_no_numbers))
                     else runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + numbers.joinToString(";") { Uri.encode(it) }))) }
-                        .onFailure { vm.toast(context.getString(R.string.lbl_no_sms_app)) }
+                        .onFailure { vm.toast(res.getString(R.string.lbl_no_sms_app)) }
                 }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.lbl_message_all)) }
                 IconButton({
                     val emails = members.mapNotNull { it.emails.firstOrNull() }
-                    if (emails.isEmpty()) vm.toast(context.getString(R.string.lbl_no_emails))
+                    if (emails.isEmpty()) vm.toast(res.getString(R.string.lbl_no_emails))
                     else runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + emails.joinToString(",") { Uri.encode(it, "@") }))) }
-                        .onFailure { vm.toast(context.getString(R.string.lbl_no_email_app)) }
+                        .onFailure { vm.toast(res.getString(R.string.lbl_no_email_app)) }
                 }) { Icon(Icons.Rounded.Email, stringResource(R.string.lbl_email_all)) }
                 IconButton(::pickTone) { Icon(Icons.Rounded.MusicNote, stringResource(R.string.lbl_ringtone)) }
                 Box {

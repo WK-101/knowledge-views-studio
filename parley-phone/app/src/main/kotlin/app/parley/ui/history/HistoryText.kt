@@ -1,6 +1,6 @@
 package app.parley.ui.history
 
-import android.content.Context
+import android.content.res.Resources
 import androidx.annotation.StringRes
 import app.parley.R
 import app.parley.common.history.AnswerWindow
@@ -84,38 +84,38 @@ object HistoryText {
         ImportSource.GENERIC -> R.string.hist_source_generic
     }
 
-    fun problem(context: Context, p: RowProblem): String = when (p.kind) {
-        RowProblemKind.EMPTY_FILE -> context.getString(R.string.hist_problem_empty_file)
-        RowProblemKind.NEED_COLUMNS -> context.getString(R.string.hist_problem_need_columns)
-        RowProblemKind.UNREADABLE_ROW -> context.getString(R.string.hist_problem_unreadable_row)
-        RowProblemKind.UNKNOWN_TYPE -> context.getString(R.string.hist_problem_unknown_type, p.value)
-        RowProblemKind.UNREADABLE_DATE -> context.getString(R.string.hist_problem_unreadable_date, p.value)
-        RowProblemKind.UNREADABLE_DURATION -> context.getString(R.string.hist_problem_unreadable_duration, p.value)
-        RowProblemKind.NOT_A_NUMBER -> context.getString(R.string.hist_problem_not_a_number, p.value)
+    fun problem(res: Resources, p: RowProblem): String = when (p.kind) {
+        RowProblemKind.EMPTY_FILE -> res.getString(R.string.hist_problem_empty_file)
+        RowProblemKind.NEED_COLUMNS -> res.getString(R.string.hist_problem_need_columns)
+        RowProblemKind.UNREADABLE_ROW -> res.getString(R.string.hist_problem_unreadable_row)
+        RowProblemKind.UNKNOWN_TYPE -> res.getString(R.string.hist_problem_unknown_type, p.value)
+        RowProblemKind.UNREADABLE_DATE -> res.getString(R.string.hist_problem_unreadable_date, p.value)
+        RowProblemKind.UNREADABLE_DURATION -> res.getString(R.string.hist_problem_unreadable_duration, p.value)
+        RowProblemKind.NOT_A_NUMBER -> res.getString(R.string.hist_problem_not_a_number, p.value)
     }
 
     /** "212 of 300 min used · 9 days left". */
-    fun planSummary(context: Context, u: PlanUsage): String {
-        val used = context.getString(R.string.hist_plan_used, u.usedMinutes, u.config.allowanceMinutes)
-        val left = if (u.daysLeft == 1) context.getString(R.string.hist_plan_last_day)
-        else context.resources.getQuantityString(R.plurals.hist_plan_days_left, u.daysLeft, u.daysLeft)
-        return context.getString(R.string.dc_joined_dot, used, left)
+    fun planSummary(res: Resources, u: PlanUsage): String {
+        val used = res.getString(R.string.hist_plan_used, u.usedMinutes, u.config.allowanceMinutes)
+        val left = if (u.daysLeft == 1) res.getString(R.string.hist_plan_last_day)
+        else res.getQuantityString(R.plurals.hist_plan_days_left, u.daysLeft, u.daysLeft)
+        return res.getString(R.string.dc_joined_dot, used, left)
     }
 
     /** Short description for a chip without a name, e.g. "Missed · SIM 2 · Last 7 days". */
-    fun describe(context: Context, f: HistoryFilter, simLabel: (String) -> String = { it }): String {
-        fun fmt(s: Long) = if (s % 60 == 0L && s > 0) context.getString(R.string.hist_minutes_short, s / 60) else context.getString(R.string.hist_seconds_short, s)
+    fun describe(res: Resources, f: HistoryFilter, simLabel: (String) -> String = { it }): String {
+        fun fmt(s: Long) = if (s % 60 == 0L && s > 0) res.getString(R.string.hist_minutes_short, s / 60) else res.getString(R.string.hist_seconds_short, s)
         val min = f.minDurationSec
         val max = f.maxDurationSec
         return buildList {
-            if (f.types.isNotEmpty()) add(f.types.sortedBy { it.ordinal }.joinToString(context.getString(R.string.dc_list_separator)) { context.getString(typeGroup(it)) })
+            if (f.types.isNotEmpty()) add(f.types.sortedBy { it.ordinal }.joinToString(res.getString(R.string.dc_list_separator)) { res.getString(typeGroup(it)) })
             f.simId?.let { add(simLabel(it)) }
-            if (f.period != FilterPeriod.ANY) add(context.getString(period(f.period)))
+            if (f.period != FilterPeriod.ANY) add(res.getString(period(f.period)))
             when {
-                min != null && max != null -> add(context.getString(R.string.hist_duration_between, fmt(min), fmt(max)))
-                min != null -> add(context.getString(R.string.hist_duration_at_least, fmt(min)))
-                max != null -> add(context.getString(R.string.hist_duration_at_most, fmt(max)))
+                min != null && max != null -> add(res.getString(R.string.hist_duration_between, fmt(min), fmt(max)))
+                min != null -> add(res.getString(R.string.hist_duration_at_least, fmt(min)))
+                max != null -> add(res.getString(R.string.hist_duration_at_most, fmt(max)))
             }
-        }.joinToString(" · ").ifEmpty { context.getString(R.string.hist_all_calls) }
+        }.joinToString(" · ").ifEmpty { res.getString(R.string.hist_all_calls) }
     }
 }

@@ -81,6 +81,7 @@ private fun ArchiveOffDialog(vm: AppViewModel, onDismiss: () -> Unit) {
 @Composable
 fun CallHistorySettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
@@ -142,7 +143,7 @@ fun CallHistorySettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String)
                             TextButton({
                                 scope.launch {
                                     val n = vm.c.history.undoDelete(b.batchId)
-                                    vm.toast(if (n > 0) context.resources.getQuantityString(R.plurals.hist_restored_calls, n, n) else context.getString(R.string.hist_restore_failed_default))
+                                    vm.toast(if (n > 0) res.getQuantityString(R.plurals.hist_restored_calls, n, n) else res.getString(R.string.hist_restore_failed_default))
                                     trash = vm.c.history.trashBatches()
                                 }
                             }) { Text(stringResource(R.string.dc_restore)) }

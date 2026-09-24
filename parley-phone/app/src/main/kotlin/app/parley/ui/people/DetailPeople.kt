@@ -67,6 +67,7 @@ import app.parley.common.people.ProvenanceKind
 fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (String) -> Unit, onChanged: (Long?) -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     var moving by remember { mutableStateOf<RawContactRef?>(null) }
     var unlinking by remember { mutableStateOf<RawContactRef?>(null) }
     val writable = d.writableRawIds.toSet()
@@ -112,7 +113,7 @@ fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (String) -> Unit, on
                             moving = null
                             scope.launch {
                                 when (val r = vm.c.people.mover.move(d.id, raw.id, a)) {
-                                    is ContactMover.Result.Done -> { vm.toast(context.getString(R.string.ppl_moved_to, a.displayLabel)); onChanged(r.contactId) }
+                                    is ContactMover.Result.Done -> { vm.toast(res.getString(R.string.ppl_moved_to, a.displayLabel)); onChanged(r.contactId) }
                                     is ContactMover.Result.Failed -> vm.toast(r.reason)
                                 }
                             }
@@ -134,7 +135,7 @@ fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (String) -> Unit, on
                     unlinking = null
                     scope.launch {
                         when (val r = vm.c.people.mover.unlink(d.id, raw.id)) {
-                            is ContactMover.Result.Done -> { vm.toast(context.getString(R.string.ppl_unlinked)); onChanged(null) }
+                            is ContactMover.Result.Done -> { vm.toast(res.getString(R.string.ppl_unlinked)); onChanged(null) }
                             is ContactMover.Result.Failed -> vm.toast(r.reason)
                         }
                     }
@@ -149,6 +150,7 @@ fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (String) -> Unit, on
 @Composable
 fun ProvenanceRow(vm: AppViewModel, contactId: Long, refreshKey: Any?, open: (String) -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val verdict by produceState<ProvenanceVerdict?>(null, contactId, refreshKey) {
         value = vm.c.people.provenance.verdict(contactId)
     }
@@ -156,7 +158,7 @@ fun ProvenanceRow(vm: AppViewModel, contactId: Long, refreshKey: Any?, open: (St
     ListItem(
         modifier = Modifier.clickable(onClickLabel = stringResource(R.string.ppl_version_history)) { open(Routes.versions(contactId)) },
         leadingContent = { Icon(Icons.Rounded.History, null) },
-        headlineContent = { Text(provenanceText(context.resources, v) { Format.fullDate(context, it) }) },
+        headlineContent = { Text(provenanceText(res, v) { Format.fullDate(context, it) }) },
         supportingContent = { Text(stringResource(R.string.ppl_why_changed)) },
     )
 }

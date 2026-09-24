@@ -77,6 +77,7 @@ import app.parley.ui.DataL10n
 @Composable
 fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     val summaries by vm.c.vault.contacts.collectAsStateWithLifecycle()
     val calls by vm.c.vault.privateCalls.collectAsStateWithLifecycle()
@@ -119,7 +120,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
     }
     // M7 for private contacts: the choice is kept in their encrypted record (needs the unlocked details).
     fun savePrefs(p: app.parley.common.people.MessengerPrefs) {
-        val d = details ?: return vm.toast(context.getString(R.string.vault_unlock_to_remember))
+        val d = details ?: return vm.toast(res.getString(R.string.vault_unlock_to_remember))
         val next = d.copy(messengerPrefs = p.encode().orEmpty())
         details = next
         scope.launch { runCatching { vm.c.vault.save(id, next) } }
@@ -144,7 +145,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                     DropdownMenu(menu, { menu = false }) {
                         DropdownMenuItem({ Text(stringResource(R.string.vault_move_out)) }, leadingIcon = { Icon(Icons.Rounded.LockOpen, null) }, onClick = {
                             menu = false
-                            scope.launchVault(context as? FragmentActivity, { e -> vm.toast(context.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
+                            scope.launchVault(context as? FragmentActivity, { e -> vm.toast(res.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
                                 val d = details ?: return@launchVault
                                 val s = vm.settings.value
                                 val account = app.parley.data.AccountRef(s.defaultAccountType, s.defaultAccountName)
@@ -164,7 +165,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                                             )
                                         }
                                     }
-                                    vm.toast(context.getString(R.string.vault_moved_out))
+                                    vm.toast(res.getString(R.string.vault_moved_out))
                                     back()
                                     open(Routes.contact(newId))
                                 }

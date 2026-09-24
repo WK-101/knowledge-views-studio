@@ -49,6 +49,7 @@ import app.parley.R
 @Composable
 fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     var mask by remember { mutableStateOf(true) }
     var tables by remember { mutableStateOf(false) }
@@ -71,7 +72,7 @@ fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
         if (uri != null) scope.launch {
             val ok = withContext(Dispatchers.IO) { runCatching { context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(report.toByteArray()) } }.isSuccess }
-            vm.toast(context.getString(if (ok) R.string.diag_saved else R.string.diag_save_failed))
+            vm.toast(res.getString(if (ok) R.string.diag_saved else R.string.diag_save_failed))
         }
     }
     // U7: scroll-linked top-bar tint.

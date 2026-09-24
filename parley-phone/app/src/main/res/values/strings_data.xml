@@ -60,7 +60,7 @@
     <string name="hist_import_csv_summary">From Parley, Logger or a spreadsheet</string>
     <string name="hist_export_hint">To export, open Recents › ⋮ › Export, or a number\'s history.</string>
     <string name="dc_joined_dot">%1$s · %2$s</string>
-    <string name="dc_list_separator">, </string>
+    <string name="dc_list_separator">", "</string>
 
     <!-- Call history: enums from core -->
     <string name="hist_answers_morning">Usually answers before noon</string>

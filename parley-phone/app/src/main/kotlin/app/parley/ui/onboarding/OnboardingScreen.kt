@@ -45,6 +45,7 @@ import app.parley.R
 @Composable
 fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
 
     fun finish() {
@@ -55,7 +56,7 @@ fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
 
     val role = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         vm.refreshEnvironment()
-        if (vm.isDefaultDialer.value) finish() else vm.toast(context.getString(R.string.onb_set_later))
+        if (vm.isDefaultDialer.value) finish() else vm.toast(res.getString(R.string.onb_set_later))
     }
     val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { finish() }
 

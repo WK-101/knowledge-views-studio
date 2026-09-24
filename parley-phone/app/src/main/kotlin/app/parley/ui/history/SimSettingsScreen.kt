@@ -60,7 +60,7 @@ import java.time.format.FormatStyle
 fun SimListScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val sims by vm.sims.collectAsStateWithLifecycle()
     val usage by vm.c.history.planUsage.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     Scaffold(topBar = {
         TopAppBar(title = { Text(stringResource(R.string.hist_sims_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })
     }) { p ->
@@ -74,7 +74,7 @@ fun SimListScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                             SimPlanBadge(vm, sim.id) { Icon(Icons.Rounded.SimCard, null, tint = if (sim.color != 0) Color(sim.color) else Color.Unspecified) }
                         },
                         headlineContent = { Text(sim.label) },
-                        supportingContent = { Text(usage[sim.id]?.let { HistoryText.planSummary(context, it) } ?: listOfNotNull(sim.subtitle, stringResource(R.string.hist_no_plan)).joinToString(" · ")) },
+                        supportingContent = { Text(usage[sim.id]?.let { HistoryText.planSummary(res, it) } ?: listOfNotNull(sim.subtitle, stringResource(R.string.hist_no_plan)).joinToString(" · ")) },
                         trailingContent = { Icon(Icons.AutoMirrored.Rounded.ArrowForward, null) },
                     )
                 }
@@ -123,7 +123,7 @@ private fun UsageCard(u: PlanUsage) {
         colors = CardDefaults.cardColors(containerColor = if (u.isNear) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer),
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text(HistoryText.planSummary(LocalContext.current, u), style = MaterialTheme.typography.titleMedium)
+            Text(HistoryText.planSummary(androidx.compose.ui.platform.LocalResources.current, u), style = MaterialTheme.typography.titleMedium)
             LinearProgressIndicator(progress = { u.fraction.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
             Text(
                 DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).let { df ->
@@ -231,6 +231,6 @@ fun SimPlanBadge(vm: AppViewModel, simId: String, content: @Composable () -> Uni
 @Composable
 fun simPlanSummary(vm: AppViewModel, simId: String): String? {
     val usage by vm.c.history.planUsage.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    return usage[simId]?.let { HistoryText.planSummary(context, it) }
+    val res = androidx.compose.ui.platform.LocalResources.current
+    return usage[simId]?.let { HistoryText.planSummary(res, it) }
 }

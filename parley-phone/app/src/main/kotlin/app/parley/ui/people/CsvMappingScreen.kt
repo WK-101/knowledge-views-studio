@@ -66,6 +66,7 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
     val request = remember { MessagingInbox.csvImport }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     var preview by remember { mutableStateOf<VCardIO.CsvPreview?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var hasHeader by remember { mutableStateOf(true) }
@@ -83,14 +84,14 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
         try {
             val p = vm.c.vcards.csvPreview(r.uri)
             if (p == null || p.rows.isEmpty()) {
-                error = context.getString(R.string.csv_no_table)
+                error = res.getString(R.string.csv_no_table)
             } else {
                 preview = p
                 hasHeader = CsvColumnMapping.hasHeader(p.rows.first())
                 remap(p, hasHeader)
             }
         } catch (e: Exception) {
-            error = e.message ?: context.getString(R.string.csv_read_failed)
+            error = e.message ?: res.getString(R.string.csv_read_failed)
         }
     }
 
@@ -152,7 +153,7 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
             sample.forEach { r ->
                 item {
                     Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                        Text(CsvColumnMapping.describe(r, stringResource(R.string.csv_no_name)) { context.getString(R.string.csv_labels, it) }, Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
+                        Text(CsvColumnMapping.describe(r, stringResource(R.string.csv_no_name)) { res.getString(R.string.csv_labels, it) }, Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
@@ -175,7 +176,7 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
                                         skipDuplicates = request.skipDuplicates,
                                     )
                                 } catch (e: Exception) {
-                                    vm.toast(context.getString(R.string.csv_import_failed, e.message.toString()))
+                                    vm.toast(res.getString(R.string.csv_import_failed, e.message.toString()))
                                     null
                                 }
                                 progress = null
@@ -201,7 +202,7 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
 @Composable
 private fun ColumnRow(name: String, samples: String, target: ColumnTarget, onPick: (ColumnTarget) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    val res = LocalContext.current.resources
+    val res = androidx.compose.ui.platform.LocalResources.current
     ListItem(
         headlineContent = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = {

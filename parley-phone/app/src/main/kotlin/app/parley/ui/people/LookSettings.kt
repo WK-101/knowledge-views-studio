@@ -37,7 +37,7 @@ fun SwipeSettings(vm: AppViewModel) {
     val entry = SettingsCatalog["swipe_actions"]
     val choices = SwipeAction.entries
     var tried by remember { mutableStateOf<String?>(null) }
-    val res = LocalContext.current.resources
+    val res = androidx.compose.ui.platform.LocalResources.current
     Column {
         SwitchRow(entry.title, entry.summary, s.swipe.enabled, Icons.Rounded.Swipe) { v -> vm.people.update { it.copy(swipe = it.swipe.copy(enabled = v)) } }
         if (s.swipe.enabled) {

@@ -73,7 +73,7 @@ fun SwipeActionRow(
     }
     val scope = rememberCoroutineScope()
     val state = rememberSwipeToDismissBoxState()
-    val res = LocalContext.current.resources
+    val res = androidx.compose.ui.platform.LocalResources.current
     SwipeToDismissBox(
         state = state,
         modifier = Modifier.semantics {

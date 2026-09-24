@@ -34,6 +34,7 @@ import app.parley.R
 @Composable
 fun CrashReportHost(vm: AppViewModel) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val store = vm.c.people.crashes
     var crash by remember { mutableStateOf(if (store.enabled.value) store.last() else null) }
     val c = crash ?: return
@@ -57,10 +58,10 @@ fun CrashReportHost(vm: AppViewModel) {
         confirmButton = {
             TextButton({
                 val mail = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:"))
-                    .putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.ppl_crash_subject))
+                    .putExtra(Intent.EXTRA_SUBJECT, res.getString(R.string.ppl_crash_subject))
                     .putExtra(Intent.EXTRA_TEXT, text)
-                val any = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.ppl_crash_subject)).putExtra(Intent.EXTRA_TEXT, text)
-                val chooser = Intent.createChooser(any, context.getString(R.string.ppl_crash_send_chooser)).putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(mail))
+                val any = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_SUBJECT, res.getString(R.string.ppl_crash_subject)).putExtra(Intent.EXTRA_TEXT, text)
+                val chooser = Intent.createChooser(any, res.getString(R.string.ppl_crash_send_chooser)).putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(mail))
                 runCatching { context.startActivity(chooser) }
                 done()
             }) { Text(stringResource(R.string.ppl_crash_send)) }

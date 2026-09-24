@@ -56,7 +56,7 @@ fun SavedFilterChips(vm: AppViewModel) {
     val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf(false) }
-    val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val simFallback = stringResource(R.string.hist_filter_sim)
     val simLabel = { id: String -> sims.firstOrNull { it.id == id }?.label ?: simFallback }
 
@@ -65,7 +65,7 @@ fun SavedFilterChips(vm: AppViewModel) {
         FilterChip(
             selected = on,
             onClick = { vm.c.history.activeFilter.value = if (on) HistoryFilter() else f },
-            label = { Text(f.name.ifBlank { HistoryText.describe(context, f, simLabel) }) },
+            label = { Text(f.name.ifBlank { HistoryText.describe(res, f, simLabel) }) },
         )
     }
     val unsaved = !active.isEmpty && prefs.savedFilters.none { it.sameCriteria(active) && it.name == active.name }
@@ -73,7 +73,7 @@ fun SavedFilterChips(vm: AppViewModel) {
         selected = unsaved,
         onClick = { editing = true },
         leadingIcon = { Icon(Icons.Rounded.Tune, null, Modifier.size(18.dp)) },
-        label = { Text(if (unsaved) HistoryText.describe(context, active, simLabel) else stringResource(R.string.hist_filter)) },
+        label = { Text(if (unsaved) HistoryText.describe(res, active, simLabel) else stringResource(R.string.hist_filter)) },
     )
     if (editing) FilterEditorSheet(vm, active) { editing = false }
 }

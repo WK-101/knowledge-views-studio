@@ -86,7 +86,7 @@ class HistoryWorker(context: Context, params: WorkerParameters) : CoroutineWorke
             val b = NotificationCompat.Builder(context, CHANNEL)
                 .setSmallIcon(app.parley.R.drawable.ic_stat_timer)
                 .setContentTitle(title)
-                .setContentText(app.parley.ui.history.HistoryText.planSummary(context, u))
+                .setContentText(app.parley.ui.history.HistoryText.planSummary(context.resources, u))
                 .setContentIntent(open)
                 .setAutoCancel(true)
             try {

@@ -105,6 +105,7 @@ fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
 fun MeCardScreen(vm: AppViewModel, back: () -> Unit) {
     MigrateMyDetails(vm)
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val store = vm.c.people.me
     val own by store.card.collectAsStateWithLifecycle()
     val profile by produceState<MeCard?>(null) { value = store.profile() }
@@ -118,7 +119,7 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit) {
         store.save(c)
         // "Send my details" keeps working from the card.
         vm.c.messaging.setMyDetails(MyDetails(c.name, c.firstNumber.orEmpty()))
-        vm.toast(context.getString(R.string.me_saved))
+        vm.toast(res.getString(R.string.me_saved))
     }
 
     SettingsScaffold(stringResource(R.string.me_title), back, actions = {

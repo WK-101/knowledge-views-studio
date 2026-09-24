@@ -55,6 +55,7 @@ import app.parley.ui.DataL10n
 @Composable
 fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     val calls by vm.c.history.calls.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
@@ -76,7 +77,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     if (rangeDelete) {
         RangeDeleteDialog(vm, number, onDismiss = { rangeDelete = false }, onDeleted = { batch, n ->
             scope.launch {
-                val r = snackbar.showSnackbar(context.resources.getQuantityString(R.plurals.hist_deleted_calls, n, n), actionLabel = context.getString(R.string.dc_undo), duration = androidx.compose.material3.SnackbarDuration.Long)
+                val r = snackbar.showSnackbar(res.getQuantityString(R.plurals.hist_deleted_calls, n, n), actionLabel = res.getString(R.string.dc_undo), duration = androidx.compose.material3.SnackbarDuration.Long)
                 if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) vm.c.history.undoDelete(batch)
             }
         })

@@ -76,6 +76,7 @@ fun hasSeveralAccounts(vm: AppViewModel): Boolean = vm.people.index.collectAsSta
 fun ExportAccountRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val idx by vm.people.index.collectAsStateWithLifecycle()
     var chooseAccount by remember { mutableStateOf(false) }
     var exportAccount by remember { mutableStateOf<AccountRef?>(null) }
@@ -84,12 +85,11 @@ fun ExportAccountRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector
         if (uri != null && a != null) scope.launch {
             val ids = vm.contacts.value.orEmpty().filter { a.displayLabel in idx.extras[it.id]?.accounts.orEmpty() }.map { it.id }
             val r = vm.c.vcards.exportIds(uri, ids)
-            val res = context.resources
             val done = res.getQuantityString(R.plurals.export_account_done, r.exported, r.exported, a.displayLabel)
             vm.toast(if (r.failures.isEmpty()) done else res.getQuantityString(R.plurals.export_account_failed, r.failures.size, done, r.failures.size))
         }
     }
-    LinkRow(app.parley.common.SettingsCatalog["export_account"].title, idx.accountCounts.entries.joinToString(" · ") { context.getString(R.string.ppl_account_count, it.key.displayLabel, it.value) }, icon) { chooseAccount = true }
+    LinkRow(app.parley.common.SettingsCatalog["export_account"].title, idx.accountCounts.entries.joinToString(" · ") { res.getString(R.string.ppl_account_count, it.key.displayLabel, it.value) }, icon) { chooseAccount = true }
     if (chooseAccount) {
         AlertDialog(
             onDismissRequest = { chooseAccount = false },

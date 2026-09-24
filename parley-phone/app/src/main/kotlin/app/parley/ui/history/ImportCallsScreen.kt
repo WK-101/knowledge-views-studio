@@ -58,6 +58,7 @@ import app.parley.R
 @Composable
 fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
     var uri by remember { mutableStateOf<Uri?>(null) }
@@ -69,14 +70,14 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
 
     fun replan(mapping: ColumnMapping? = null) {
         val u = uri ?: return
-        busy = context.getString(R.string.hist_import_reading)
+        busy = res.getString(R.string.hist_import_reading)
         error = null
         scope.launch {
             try {
                 plan = vm.c.history.planImport(u, mapping, dayFirst)
             } catch (e: Exception) {
                 plan = null
-                error = e.message ?: context.getString(R.string.hist_import_read_failed)
+                error = e.message ?: res.getString(R.string.hist_import_read_failed)
             } finally {
                 busy = null
             }
@@ -155,12 +156,11 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                         Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.CenterEnd) {
                             Button(
                                 onClick = {
-                                    busy = context.getString(R.string.hist_importing)
+                                    busy = res.getString(R.string.hist_importing)
                                     scope.launch {
                                         val n = vm.c.history.runImport(pl)
                                         busy = null
-                                        val res = context.resources
-                                        report = if (n == 0) context.getString(R.string.hist_import_nothing)
+                                        report = if (n == 0) res.getString(R.string.hist_import_nothing)
                                         else buildList {
                                             add(res.getQuantityString(R.plurals.hist_import_done, n, n))
                                             if (pl.duplicates > 0) add(res.getQuantityString(R.plurals.hist_import_done_dupes, pl.duplicates, pl.duplicates))
@@ -177,7 +177,7 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                 if (pl.problems.isNotEmpty()) {
                     item { Section(stringResource(R.string.hist_import_problems)) }
                     pl.problems.take(50).forEach { pr ->
-                        item { Text(stringResource(R.string.hist_import_line, pr.line, HistoryText.problem(context, pr)), Modifier.padding(horizontal = 16.dp, vertical = 2.dp), style = MaterialTheme.typography.bodySmall) }
+                        item { Text(stringResource(R.string.hist_import_line, pr.line, HistoryText.problem(androidx.compose.ui.platform.LocalResources.current, pr)), Modifier.padding(horizontal = 16.dp, vertical = 2.dp), style = MaterialTheme.typography.bodySmall) }
                     }
                     if (pl.problems.size > 50) item { Text(stringResource(R.string.hist_import_more, pl.problems.size - 50), Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall) }
                 }

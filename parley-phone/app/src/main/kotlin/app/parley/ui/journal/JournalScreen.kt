@@ -45,6 +45,7 @@ import app.parley.R
 @Composable
 fun JournalScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     val entries by vm.c.journal.recent().collectAsStateWithLifecycle(emptyList())
     // U7: scroll-linked top-bar tint.
@@ -70,10 +71,10 @@ fun JournalScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                             scope.launch {
                                 val id = vm.c.journal.restore(e.id)
                                 if (id != null) {
-                                    vm.toast(if (e.action == "DELETE") context.getString(R.string.jr_restored_name, e.displayName) else context.getString(R.string.jr_restored_copy))
+                                    vm.toast(if (e.action == "DELETE") res.getString(R.string.jr_restored_name, e.displayName) else res.getString(R.string.jr_restored_copy))
                                     open(Routes.contact(id))
                                 } else {
-                                    vm.toast(context.getString(R.string.jr_restore_failed))
+                                    vm.toast(res.getString(R.string.jr_restore_failed))
                                 }
                             }
                         }) { Text(if (e.action == "DELETE") stringResource(R.string.dc_restore) else stringResource(R.string.jr_restore_copy), color = MaterialTheme.colorScheme.primary) }

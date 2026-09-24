@@ -54,6 +54,7 @@ private sealed interface Step {
 @Composable
 fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf<Step>(Step.Unlock) }
     var secret by remember { mutableStateOf("") }
@@ -78,19 +79,19 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
             confirmButton = {
                 TextButton({
                     val unlock = if (useRecovery) {
-                        runCatching { Unlock.Recovery(RecoveryKey.parse(secret)) }.getOrElse { error = context.getString(R.string.rst_not_recovery); return@TextButton }
+                        runCatching { Unlock.Recovery(RecoveryKey.parse(secret)) }.getOrElse { error = res.getString(R.string.rst_not_recovery); return@TextButton }
                     } else {
                         Unlock.Passphrase(secret.toCharArray())
                     }
-                    step = Step.Working(context.getString(R.string.rst_decrypting))
+                    step = Step.Working(res.getString(R.string.rst_decrypting))
                     scope.launch {
                         step = try {
                             Step.Options(repo.open(uri, unlock))
                         } catch (_: WrongKeyException) {
-                            error = context.getString(if (useRecovery) R.string.rst_wrong_recovery else R.string.rst_wrong_pass)
+                            error = res.getString(if (useRecovery) R.string.rst_wrong_recovery else R.string.rst_wrong_pass)
                             Step.Unlock
                         } catch (e: Exception) {
-                            error = context.getString(R.string.rst_damaged, e.message.orEmpty())
+                            error = res.getString(R.string.rst_damaged, e.message.orEmpty())
                             Step.Unlock
                         }
                     }
@@ -124,7 +125,7 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                             }
                         }
                         Text(stringResource(R.string.rst_what), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding8())
-                        fun count(label: String, k: String) = c[k]?.let { context.getString(R.string.rst_with_count, label, it.toInt()) } ?: label
+                        fun count(label: String, k: String) = c[k]?.let { res.getString(R.string.rst_with_count, label, it.toInt()) } ?: label
                         Check(count(stringResource(R.string.rst_contacts), "contacts"), o.contacts) { o = o.copy(contacts = it) }
                         Check(count(stringResource(R.string.rst_call_history), "calllog"), o.callLog) { o = o.copy(callLog = it) }
                         Check(stringResource(R.string.rst_blocking), o.blocking) { o = o.copy(blocking = it) }
@@ -136,7 +137,7 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                 confirmButton = {
                     TextButton({
                         val opts = o.copy(mode = mode)
-                        step = Step.Working(context.getString(R.string.rst_comparing))
+                        step = Step.Working(res.getString(R.string.rst_comparing))
                         scope.launch { step = Step.Preview(s.opened, repo.plan(s.opened, mode), opts) }
                     }) { Text(stringResource(R.string.dc_next)) }
                 },
@@ -166,10 +167,10 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                 },
                 confirmButton = {
                     TextButton({
-                        step = Step.Working(context.getString(R.string.rst_restoring))
+                        step = Step.Working(res.getString(R.string.rst_restoring))
                         scope.launch {
                             val report = repo.restore(s.opened, s.plan, s.options.copy(applyConflicts = applyConflicts))
-                            step = Step.Done(report.summary(context.resources))
+                            step = Step.Done(report.summary(res))
                         }
                     }) { Text(stringResource(R.string.dc_restore)) }
                 },
@@ -181,7 +182,7 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
             title = { Text(stringResource(R.string.rst_finished)) },
             text = { Text(s.text) },
             confirmButton = { TextButton(onDone) { Text(stringResource(R.string.dc_done)) } },
-            dismissButton = { TextButton({ scope.launch { repo.undoLastRestore(); vm.toast(context.getString(R.string.rst_undone)); onDone() } }) { Text(stringResource(R.string.dc_undo)) } },
+            dismissButton = { TextButton({ scope.launch { repo.undoLastRestore(); vm.toast(res.getString(R.string.rst_undone)); onDone() } }) { Text(stringResource(R.string.dc_undo)) } },
         )
     }
 }

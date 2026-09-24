@@ -181,6 +181,7 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -
     val items = rememberTemporaryItems(vm)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     var extendFor by remember { mutableStateOf<TemporaryItem?>(null) }
     var deleteFor by remember { mutableStateOf<TemporaryItem?>(null) }
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
@@ -217,7 +218,7 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -
                         t, vm.countryIso,
                         onOpen = { if (t.vaultId != null) open(Routes.vault(t.vaultId)) else t.contactId?.let { open(Routes.contact(it)) } },
                         onExtend = { extendFor = t },
-                        onKeep = { scope.launch { TemporaryContactActions.keep(vm, t); vm.toast(context.getString(R.string.temp_will_be_kept, t.name)) } },
+                        onKeep = { scope.launch { TemporaryContactActions.keep(vm, t); vm.toast(res.getString(R.string.temp_will_be_kept, t.name)) } },
                         onDelete = { deleteFor = t },
                     )
                 }
@@ -227,7 +228,7 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -
     extendFor?.let { t ->
         DurationDialog(title = stringResource(R.string.temp_keep_for, t.name), onDismiss = { extendFor = null }) { days ->
             extendFor = null
-            scope.launch { TemporaryContactActions.extend(vm, t, days); vm.toast(context.resources.getQuantityString(R.plurals.temp_deletes_in_days, days, days)) }
+            scope.launch { TemporaryContactActions.extend(vm, t, days); vm.toast(res.getQuantityString(R.plurals.temp_deletes_in_days, days, days)) }
         }
     }
     deleteFor?.let { t ->
@@ -262,7 +263,7 @@ private fun TemporaryRow(t: TemporaryItem, countryIso: String, onOpen: () -> Uni
             }
         },
         supportingContent = {
-            Text(listOfNotNull(timeLeft(LocalContext.current.resources, t.expiresAt), t.number?.let { DataL10n.ltr(Format.number(it, countryIso)) }).joinToString(" · "))
+            Text(listOfNotNull(timeLeft(androidx.compose.ui.platform.LocalResources.current, t.expiresAt), t.number?.let { DataL10n.ltr(Format.number(it, countryIso)) }).joinToString(" · "))
         },
         trailingContent = {
             Row {

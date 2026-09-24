@@ -58,7 +58,8 @@ fun UpdaterScreen(repo: ListsRepo) {
         Updater.prune(repo, s.config)
     }
     fun size(b: Long) = Formatter.formatShortFileSize(context, b)
-    fun ago(t: Long) = if (t <= 0) context.getString(R.string.lists_never) else DateUtils.getRelativeTimeSpanString(t, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
+    val res = androidx.compose.ui.platform.LocalResources.current
+    fun ago(t: Long) = if (t <= 0) res.getString(R.string.lists_never) else DateUtils.getRelativeTimeSpanString(t, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
 
     Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.app_name)) }) }) { p ->
         LazyColumn(Modifier.padding(p)) {

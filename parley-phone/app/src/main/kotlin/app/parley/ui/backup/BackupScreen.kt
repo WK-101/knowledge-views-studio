@@ -75,6 +75,7 @@ import app.parley.R
 @Composable
 fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     val repo = vm.c.backup
     val state by repo.prefs.state.collectAsStateWithLifecycle()
@@ -96,17 +97,17 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) restoreUri = uri }
 
     fun runBackup() {
-        busy = context.getString(R.string.bkp_backing_up)
+        busy = res.getString(R.string.bkp_backing_up)
         scope.launch {
             val out = repo.backupNow(scheduled = false)
             busy = null
-            vm.toast(if (out.ok && !out.vaultIncluded && vm.c.vault.contacts.value.isNotEmpty()) context.getString(R.string.bkp_vault_skipped, out.message) else out.message)
+            vm.toast(if (out.ok && !out.vaultIncluded && vm.c.vault.contacts.value.isNotEmpty()) res.getString(R.string.bkp_vault_skipped, out.message) else out.message)
             refresh++
         }
     }
 
     fun transfer() {
-        busy = context.getString(R.string.bkp_preparing)
+        busy = res.getString(R.string.bkp_preparing)
         scope.launch {
             val dir = File(context.cacheDir, "transfer").apply { mkdirs() }
             dir.listFiles()?.forEach { it.delete() }
@@ -116,7 +117,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
             busy = null
             if (out.ok) {
                 val share = Intent(Intent.ACTION_SEND).setType("application/octet-stream").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                runCatching { context.startActivity(Intent.createChooser(share, context.getString(R.string.bkp_send_chooser))) }
+                runCatching { context.startActivity(Intent.createChooser(share, res.getString(R.string.bkp_send_chooser))) }
             } else {
                 vm.toast(out.message)
             }
@@ -218,7 +219,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                 )
                 if (state.lastRestoreIds.isNotEmpty()) {
                     ListItem(
-                        modifier = Modifier.clickable { scope.launch { val n = repo.undoLastRestore(); vm.toast(context.resources.getQuantityString(R.plurals.bkp_undo_done, n, n)) } },
+                        modifier = Modifier.clickable { scope.launch { val n = repo.undoLastRestore(); vm.toast(res.getQuantityString(R.plurals.bkp_undo_done, n, n)) } },
                         headlineContent = { Text(stringResource(R.string.bkp_undo_restore)) },
                         supportingContent = { Text(pluralStringResource(R.plurals.bkp_undo_restore_summary, state.lastRestoreIds.size, state.lastRestoreIds.size)) },
                     )
@@ -246,7 +247,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
             scope.launch {
                 if (changePass) {
                     val ok = repo.changePassphrase(old!!.toCharArray(), new.toCharArray())
-                    vm.toast(context.getString(if (ok) R.string.bkp_pass_changed else R.string.bkp_pass_wrong))
+                    vm.toast(res.getString(if (ok) R.string.bkp_pass_changed else R.string.bkp_pass_wrong))
                 } else {
                     recovery = repo.setupKeys(new.toCharArray()).format()
                 }

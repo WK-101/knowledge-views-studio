@@ -89,7 +89,7 @@ private fun fieldLabel(res: Resources, field: String): String = when (field) {
 @Composable
 fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
-    val res = context.resources
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     val versions by produceState<List<ContactVersion>?>(null, contactId) {
         value = withContext(Dispatchers.IO) {
@@ -146,7 +146,7 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
                     scope.launch {
                         vm.c.contacts.delete(listOf(contactId)) // journaled
                         val id = withContext(Dispatchers.IO) { vm.c.records.insert(rec, target = null) }
-                        vm.toast(context.getString(R.string.tm_restored_version))
+                        vm.toast(res.getString(R.string.tm_restored_version))
                         back()
                         id?.let { open(Routes.contact(it)) }
                     }
@@ -157,7 +157,7 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
                     chosen = null
                     scope.launch {
                         val id = withContext(Dispatchers.IO) { vm.c.records.insert(rec, target = null) }
-                        vm.toast(context.getString(R.string.tm_saved_copy))
+                        vm.toast(res.getString(R.string.tm_saved_copy))
                         id?.let { open(Routes.contact(it)) }
                     }
                 }) { Text(stringResource(R.string.tm_save_copy)) }
@@ -171,7 +171,7 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
 fun ChangesScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val res = context.resources
+    val res = androidx.compose.ui.platform.LocalResources.current
     var days by remember { mutableLongStateOf(7L) }
     var round by remember { mutableLongStateOf(0L) }
     val diff by produceState<SnapshotDiff?>(null, days, round) {
@@ -204,7 +204,7 @@ fun ChangesScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                             headlineContent = { Text(r.displayName) },
                             supportingContent = { Text(lines(res, r).take(2).joinToString(" · ")) },
                             trailingContent = {
-                                TextButton({ scope.launch { withContext(Dispatchers.IO) { vm.c.records.insert(r, target = null) }; vm.toast(context.getString(R.string.tm_restored_name, r.displayName)); round++ } }) { Text(stringResource(R.string.dc_restore)) }
+                                TextButton({ scope.launch { withContext(Dispatchers.IO) { vm.c.records.insert(r, target = null) }; vm.toast(res.getString(R.string.tm_restored_name, r.displayName)); round++ } }) { Text(stringResource(R.string.dc_restore)) }
                             },
                         )
                     }

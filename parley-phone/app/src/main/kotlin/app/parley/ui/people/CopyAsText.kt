@@ -26,6 +26,7 @@ import app.parley.R
 @Composable
 fun CopyAsTextMenuItem(chosen: List<ContactSummary>, close: () -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     DropdownMenuItem({ Text(stringResource(R.string.ppl_copy_as_text)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) }, onClick = {
         close()
         val text = Reports.contactsAsText(
@@ -41,6 +42,6 @@ fun CopyAsTextMenuItem(chosen: List<ContactSummary>, close: () -> Unit) {
             clip.description.extras = PersistableBundle().apply { putBoolean("android.content.extra.IS_SENSITIVE", true) }
         }
         context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
-        Toast.makeText(context, context.resources.getQuantityString(R.plurals.ppl_copied, chosen.size, chosen.size), Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, res.getQuantityString(R.plurals.ppl_copied, chosen.size, chosen.size), Toast.LENGTH_SHORT).show()
     })
 }

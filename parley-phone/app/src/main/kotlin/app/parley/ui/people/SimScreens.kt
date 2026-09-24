@@ -73,6 +73,7 @@ private fun simWarningText(w: SimWarning): String = when (w.issue) {
 fun CopyToSimDialog(vm: AppViewModel, d: ContactDetails, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     var cards by remember { mutableStateOf<List<SimCard>?>(null) }
     var card by remember { mutableStateOf<SimCard?>(null) }
     LaunchedEffect(Unit) {
@@ -123,7 +124,7 @@ fun CopyToSimDialog(vm: AppViewModel, d: ContactDetails, onDismiss: () -> Unit) 
                 scope.launch {
                     val err = vm.c.people.sim.write(c, e)
                     if (err != null) runCatching { vm.c.people.diagnostics.record("Copy to SIM", IllegalStateException(err)) }
-                    vm.toast(err ?: context.getString(R.string.sim_copied, c.label))
+                    vm.toast(err ?: res.getString(R.string.sim_copied, c.label))
                 }
             }, enabled = fit.entry != null && chosen != null && chosen.free != 0) { Text(stringResource(R.string.sim_copy)) }
         },
@@ -137,6 +138,7 @@ fun CopyToSimDialog(vm: AppViewModel, d: ContactDetails, onDismiss: () -> Unit) 
 fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     var cards by remember { mutableStateOf<List<SimCard>?>(null) }
     var card by remember { mutableStateOf<SimCard?>(null) }
@@ -217,7 +219,7 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
                                 val ok = results.count { it.contactId != null }
                                 vm.c.contacts.refresh()
                                 busy = false
-                                vm.toast(context.getString(R.string.sim_imported, ok, chosen.size, a.displayLabel))
+                                vm.toast(res.getString(R.string.sim_imported, ok, chosen.size, a.displayLabel))
                                 if (ok > 0) back()
                             }
                         })

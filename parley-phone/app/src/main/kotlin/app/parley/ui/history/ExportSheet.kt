@@ -43,6 +43,7 @@ import app.parley.R
 @Composable
 fun ExportSheet(vm: AppViewModel, calls: List<CallEntry>, subject: String?, onDismiss: () -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
 
@@ -54,7 +55,7 @@ fun ExportSheet(vm: AppViewModel, calls: List<CallEntry>, subject: String?, onDi
                 block()
                 onDismiss()
             } catch (e: Exception) {
-                vm.toast(context.getString(R.string.hist_export_failed, e.message ?: e.javaClass.simpleName))
+                vm.toast(res.getString(R.string.hist_export_failed, e.message ?: e.javaClass.simpleName))
             } finally {
                 busy = false
             }

@@ -42,15 +42,16 @@ import app.parley.R
 @Composable
 fun AccountDiagnosticsSection(vm: AppViewModel) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     var report by remember { mutableStateOf<AccountReport?>(null) }
     var round by remember { mutableIntStateOf(0) }
     LaunchedEffect(round) { report = vm.c.people.accounts.report() }
     val r = report ?: return
-    fun label(a: AccountRef?) = a?.displayLabel ?: context.getString(R.string.ppl_phone)
+    fun label(a: AccountRef?) = a?.displayLabel ?: res.getString(R.string.ppl_phone)
     fun syncSettings() = runCatching {
         context.startActivity(Intent(Settings.ACTION_SYNC_SETTINGS).putExtra(Settings.EXTRA_AUTHORITIES, arrayOf(ContactsContract.AUTHORITY)))
-    }.onFailure { vm.toast(context.getString(R.string.ppl_sync_settings_failed)) }
+    }.onFailure { vm.toast(res.getString(R.string.ppl_sync_settings_failed)) }
 
     Column {
         Section(stringResource(R.string.ppl_accounts))
@@ -85,7 +86,7 @@ fun AccountDiagnosticsSection(vm: AppViewModel) {
                     stringResource(R.string.ppl_fix),
                 ) {
                     scope.launch {
-                        vm.toast(context.getString(if (vm.c.people.accounts.createLocalAccount()) R.string.ppl_local_ready else R.string.ppl_local_failed))
+                        vm.toast(res.getString(if (vm.c.people.accounts.createLocalAccount()) R.string.ppl_local_ready else R.string.ppl_local_failed))
                         round++
                     }
                 }
@@ -99,8 +100,8 @@ fun AccountDiagnosticsSection(vm: AppViewModel) {
             )
         }
         Text(
-            stringResource(R.string.ppl_signed_in, r.signedIn.joinToString { context.getString(R.string.ppl_account_count, it.first.displayLabel, it.second) }.ifEmpty { context.getString(R.string.ppl_signed_in_none) }) +
-                "\n" + stringResource(R.string.ppl_holding, r.owning.joinToString { context.getString(R.string.ppl_account_count, it.first.displayLabel, it.second) }.ifEmpty { context.getString(R.string.ppl_holding_none) }),
+            stringResource(R.string.ppl_signed_in, r.signedIn.joinToString { res.getString(R.string.ppl_account_count, it.first.displayLabel, it.second) }.ifEmpty { res.getString(R.string.ppl_signed_in_none) }) +
+                "\n" + stringResource(R.string.ppl_holding, r.owning.joinToString { res.getString(R.string.ppl_account_count, it.first.displayLabel, it.second) }.ifEmpty { res.getString(R.string.ppl_holding_none) }),
             Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
