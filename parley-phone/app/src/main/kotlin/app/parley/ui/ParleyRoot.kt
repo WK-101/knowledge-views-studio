@@ -46,7 +46,7 @@ import app.parley.ui.settings.SpeedDialScreen
 object Routes {
     const val HOME = "home"
     const val CONTACT = "contact/{id}"
-    const val EDIT = "edit?id={id}&name={name}&phone={phone}&email={email}&addPhone={addPhone}"
+    const val EDIT = "edit?id={id}&name={name}&phone={phone}&email={email}&addPhone={addPhone}&prefill={prefill}"
     const val HISTORY = "history/{number}"
     const val PICK = "pick/{number}"
     const val SETTINGS = "settings"
@@ -58,9 +58,12 @@ object Routes {
     fun contact(id: Long) = "contact/$id"
     fun history(number: String) = "history/" + Uri.encode(number)
     fun pick(number: String) = "pick/" + Uri.encode(number)
-    fun edit(id: Long? = null, name: String? = null, phone: String? = null, email: String? = null, addPhone: String? = null): String =
+    fun edit(id: Long? = null, name: String? = null, phone: String? = null, email: String? = null, addPhone: String? = null, prefill: Boolean = false): String =
         "edit?id=${id ?: -1}&name=${Uri.encode(name.orEmpty())}&phone=${Uri.encode(phone.orEmpty())}" +
-            "&email=${Uri.encode(email.orEmpty())}&addPhone=${Uri.encode(addPhone.orEmpty())}"
+            "&email=${Uri.encode(email.orEmpty())}&addPhone=${Uri.encode(addPhone.orEmpty())}&prefill=$prefill"
+
+    /** Picker for "add to existing contact"; the number (or "_" = use the pending prefill). */
+    const val PREFILL_MARK = "_"
 }
 
 @Composable
@@ -83,13 +86,20 @@ fun ParleyRoot(vm: AppViewModel) {
     val nav = rememberNavController()
     val snackbar = remember { SnackbarHostState() }
     var tabRequest by remember { mutableStateOf<NavEvent.Tab?>(null) }
+    var insertOrEdit by remember { mutableStateOf<app.parley.data.ContactDetails?>(null) }
+    var importUri by remember { mutableStateOf<Uri?>(null) }
 
     LaunchedEffect(Unit) {
         vm.navEvents.collect { e ->
             when (e) {
                 is NavEvent.Contact -> nav.navigate(Routes.contact(e.id)) { launchSingleTop = true }
                 is NavEvent.History -> nav.navigate(Routes.history(e.number)) { launchSingleTop = true }
-                is NavEvent.NewContact -> nav.navigate(Routes.edit(name = e.name, phone = e.phone, email = e.email))
+                is NavEvent.NewContact -> {
+                    vm.pendingPrefill = e.prefill
+                    nav.navigate(Routes.edit(prefill = true))
+                }
+                is NavEvent.InsertOrEdit -> insertOrEdit = e.prefill
+                is NavEvent.ImportVcf -> importUri = e.uri
                 is NavEvent.Tab -> {
                     nav.popBackStack(Routes.HOME, inclusive = false)
                     tabRequest = e
@@ -129,6 +139,7 @@ fun ParleyRoot(vm: AppViewModel) {
                     navArgument("phone") { defaultValue = "" },
                     navArgument("email") { defaultValue = "" },
                     navArgument("addPhone") { defaultValue = "" },
+                    navArgument("prefill") { type = NavType.BoolType; defaultValue = false },
                 ),
             ) {
                 val a = it.arguments!!
@@ -139,6 +150,7 @@ fun ParleyRoot(vm: AppViewModel) {
                     prefillPhone = a.getString("phone").orEmpty(),
                     prefillEmail = a.getString("email").orEmpty(),
                     addPhone = a.getString("addPhone").orEmpty(),
+                    prefill = if (a.getBoolean("prefill")) vm.pendingPrefill.also { vm.pendingPrefill = null } else null,
                     done = { savedId ->
                         nav.popBackStack()
                         if (savedId != null && nav.currentDestination?.route != Routes.CONTACT) nav.navigate(Routes.contact(savedId)) { launchSingleTop = true }
@@ -152,7 +164,8 @@ fun ParleyRoot(vm: AppViewModel) {
                 val number = Uri.decode(it.arguments!!.getString("number").orEmpty())
                 ContactPickerScreen(vm, back = { nav.popBackStack() }, onPick = { id ->
                     nav.popBackStack()
-                    nav.navigate(Routes.edit(id = id, addPhone = number))
+                    if (number == Routes.PREFILL_MARK) nav.navigate(Routes.edit(id = id, prefill = true))
+                    else nav.navigate(Routes.edit(id = id, addPhone = number))
                 })
             }
             composable(Routes.SETTINGS) { SettingsScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
@@ -164,4 +177,31 @@ fun ParleyRoot(vm: AppViewModel) {
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 80.dp))
     }
     CallDialogs(vm)
+
+    insertOrEdit?.let { p ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { insertOrEdit = null },
+            title = { androidx.compose.material3.Text("Save contact details") },
+            text = {
+                androidx.compose.material3.Text(
+                    listOfNotNull(p.composedName.ifBlank { null }, p.phones.firstOrNull()?.value, p.emails.firstOrNull()?.value).joinToString(" · "),
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton({
+                    vm.pendingPrefill = p
+                    insertOrEdit = null
+                    nav.navigate(Routes.edit(prefill = true))
+                }) { androidx.compose.material3.Text("Create new") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton({
+                    vm.pendingPrefill = p
+                    insertOrEdit = null
+                    nav.navigate(Routes.pick(Routes.PREFILL_MARK))
+                }) { androidx.compose.material3.Text("Add to existing") }
+            },
+        )
+    }
+    importUri?.let { uri -> app.parley.ui.common.ImportVcfDialog(vm, uri) { importUri = null } }
 }

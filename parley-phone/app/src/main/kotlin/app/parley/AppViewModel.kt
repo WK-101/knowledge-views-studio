@@ -65,7 +65,9 @@ sealed interface UiEvent {
 sealed interface NavEvent {
     data class Contact(val id: Long) : NavEvent
     data class History(val number: String) : NavEvent
-    data class NewContact(val name: String?, val phone: String?, val email: String?) : NavEvent
+    data class NewContact(val prefill: app.parley.data.ContactDetails) : NavEvent
+    data class InsertOrEdit(val prefill: app.parley.data.ContactDetails) : NavEvent
+    data class ImportVcf(val uri: android.net.Uri) : NavEvent
     data class Tab(val tab: app.parley.common.StartTab, val dial: String? = null, val missedOnly: Boolean = false) : NavEvent
 }
 
@@ -87,6 +89,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val navEvents = nav.receiveAsFlow()
 
     val pendingCall = MutableStateFlow<PendingCall?>(null)
+
+    /** Draft handed to the editor by other apps (Insert extras) or "add to contact" flows. */
+    var pendingPrefill: app.parley.data.ContactDetails? = null
 
     init {
         refreshEnvironment()

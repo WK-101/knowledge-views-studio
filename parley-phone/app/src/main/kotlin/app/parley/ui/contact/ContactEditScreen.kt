@@ -87,6 +87,7 @@ fun ContactEditScreen(
     prefillPhone: String,
     prefillEmail: String,
     addPhone: String,
+    prefill: ContactDetails? = null,
     done: (Long?) -> Unit,
 ) {
     val context = LocalContext.current
@@ -115,9 +116,15 @@ fun ContactEditScreen(
             original = d
             var e = d ?: ContactDetails()
             if (addPhone.isNotBlank()) e = e.copy(phones = e.phones + DataItem(value = addPhone, type = Phone.TYPE_MOBILE))
+            if (prefill != null) e = app.parley.InsertPrefill.appendTo(e, prefill)
             draft = e
             account = d?.rawContacts?.firstOrNull { it.id == d.editRawId }?.account ?: AccountRef(null, null)
         } else {
+            if (prefill != null) {
+                draft = if (prefill.phones.isEmpty()) prefill.copy(phones = listOf(DataItem(type = Phone.TYPE_MOBILE))) else prefill
+                start = null
+                return@LaunchedEffect
+            }
             val parts = prefillName.trim().split(Regex("\\s+"), limit = 2)
             draft = ContactDetails(
                 given = parts.getOrElse(0) { "" },
