@@ -224,11 +224,16 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
             if (token == toneToken.get()) tone?.stopTone()
         }
     }
-    /** A long-press replaces the digit its touch already typed. */
-    fun longPress(action: () -> Unit) {
-        field.deleteBeforeCursor()
+    /**
+     * A long-press replaces the digit its own touch typed ([typedThisTouch]); TalkBack's long click typed nothing,
+     * so nothing is deleted then.
+     */
+    fun longPress(typedThisTouch: Boolean, action: () -> Unit) {
+        if (typedThisTouch) field.deleteBeforeCursor()
         action()
     }
+    // A key can leave the screen mid-press (keypad hidden, tab changed): its tone must not keep playing.
+    DisposableEffect(Unit) { onDispose { toneToken.incrementAndGet(); runCatching { tone?.stopTone() } } }
 
     fun callResult(r: DialResult) = vm.requestCall(r.number, r.contact?.displayName)
 
@@ -370,11 +375,11 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                                     onPress = { token[0] = keyDown(d) },
                                     onRelease = { after -> keyUp(token[0], after) },
                                     onLong = when (d) {
-                                        '0' -> ({ longPress { insert("+") } })
-                                        '1' -> ({ longPress { vm.callVoicemail() } })
-                                        in '2'..'9' -> ({ longPress { vm.speedDial(d - '0') { unassigned = d - '0' } } })
-                                        '*' -> ({ longPress { insert(",") } })
-                                        '#' -> ({ longPress { insert(";") } })
+                                        '0' -> ({ typed -> longPress(typed) { insert("+") } })
+                                        '1' -> ({ typed -> longPress(typed) { vm.callVoicemail() } })
+                                        in '2'..'9' -> ({ typed -> longPress(typed) { vm.speedDial(d - '0') { unassigned = d - '0' } } })
+                                        '*' -> ({ typed -> longPress(typed) { insert(",") } })
+                                        '#' -> ({ typed -> longPress(typed) { insert(";") } })
                                         else -> null
                                     },
                                 )
@@ -606,7 +611,7 @@ private fun ImeiSheet(onDismiss: () -> Unit) {
 @Composable
 private fun DialKey(
     digit: String, letters: String, local: String, modifier: Modifier = Modifier,
-    onPress: () -> Unit, onRelease: (afterMs: Long) -> Unit, onLong: (() -> Unit)?,
+    onPress: () -> Unit, onRelease: (afterMs: Long) -> Unit, onLong: ((typedThisTouch: Boolean) -> Unit)?,
 ) {
     val fontScale = LocalDensity.current.fontScale
     val digitSize = (30f * minOf(fontScale, 1.5f) / fontScale).sp

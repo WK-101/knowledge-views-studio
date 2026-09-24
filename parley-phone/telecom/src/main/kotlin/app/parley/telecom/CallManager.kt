@@ -355,6 +355,7 @@ object CallManager {
         heldSince.remove(id)
         noContact -= id
         ringFacts.remove(id)
+        dtmfPlaying.remove(id)
         ignoredByUser -= id
         loudFor -= id
         tonePlayed.remove(id)
@@ -408,6 +409,7 @@ object CallManager {
         ringStartedAt.clear()
         noContact.clear()
         ringFacts.clear()
+        dtmfPlaying.clear()
         ignoredByUser.clear()
         loudFor.clear()
         tonePlayed.clear()
@@ -795,7 +797,8 @@ object CallManager {
     }
 
     private var dtmfToken = 0L
-    private var dtmfPlaying = false
+    /** Per call: the token of the tone playing now (a stop for another call's tone never touches it). */
+    private val dtmfPlaying = HashMap<String, Long>()
 
     /**
      * Starts the DTMF tone for [c] and keeps it playing until [stopDtmf] (V7: held while the key is pressed, for phone
@@ -804,18 +807,19 @@ object CallManager {
      */
     fun startDtmf(id: String, c: Char): Long? {
         val call = find(id) ?: return null
-        if (dtmfPlaying) runCatching { call.stopDtmfTone() }
+        if (dtmfPlaying.containsKey(id)) runCatching { call.stopDtmfTone() }
         runCatching { call.playDtmfTone(c) }
-        dtmfPlaying = true
-        return ++dtmfToken
+        val token = ++dtmfToken
+        dtmfPlaying[id] = token
+        return token
     }
 
     /** Stops the tone started with [token] after [afterMs], unless another key started a tone since. */
     fun stopDtmf(id: String, token: Long, afterMs: Long = 0) {
         scope.launch {
             if (afterMs > 0) delay(afterMs)
-            if (token != dtmfToken || !dtmfPlaying) return@launch
-            dtmfPlaying = false
+            if (dtmfPlaying[id] != token) return@launch
+            dtmfPlaying.remove(id)
             find(id)?.let { runCatching { it.stopDtmfTone() } }
         }
     }

@@ -29,10 +29,13 @@ import kotlinx.coroutines.launch
 
 /**
  * Touch handling for a keypad key (V7), shared by the dialer keypad and the in-call keypad:
- * - [onPress] runs as soon as the finger touches the key (type the digit, start the tone or DTMF);
+ * - [onPress] runs as soon as the finger touches the key (type the digit, start the tone or DTMF); with
+ *   [deferPress] (keys inside a scrolling container) only once the touch settled without scrolling, or on a tap;
  * - [onToneStop] runs when the finger lifts or slides off, with the delay that makes every tone at least
- *   [KeyPressTracker.MIN_TONE_MS] long;
- * - [onLongPress] runs after a long press, unless the finger slid off the key first;
+ *   [KeyPressTracker.MIN_TONE_MS] long; it always runs for a started tone, also when the gesture is cancelled;
+ * - [onLongPress] runs after a long press, unless the finger slid off the key first. Its argument tells whether
+ *   this same touch typed the key first (so the long-press may replace that digit); TalkBack's long click passes
+ *   false, since nothing was typed;
  * - each key follows its own finger, so a second key can be pressed before the first is released (roll-over).
  * TalkBack gets a normal click (and long click) action.
  */
@@ -40,8 +43,9 @@ import kotlinx.coroutines.launch
 fun Modifier.keypadKey(
     onPress: () -> Unit,
     onToneStop: (afterMs: Long) -> Unit,
-    onLongPress: (() -> Unit)? = null,
+    onLongPress: ((typedThisTouch: Boolean) -> Unit)? = null,
     longPressLabel: String? = null,
+    deferPress: Boolean = false,
 ): Modifier {
     val source = remember { MutableInteractionSource() }
     val scope = rememberCoroutineScope()
@@ -57,48 +61,69 @@ fun Modifier.keypadKey(
                 stop(KeyPressTracker.MIN_TONE_MS)
                 true
             }
-            if (hasLong) onLongClick(longPressLabel) { long?.invoke(); true }
+            // Nothing was typed by this action: the long-press must not replace (delete) a digit.
+            if (hasLong) onLongClick(longPressLabel) { long?.invoke(false); true }
         }
         .indication(source, ripple())
-        .pointerInput(hasLong) {
+        .pointerInput(hasLong, deferPress) {
             val longMs = viewConfiguration.longPressTimeoutMillis
+            val slop = viewConfiguration.touchSlop
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
-                val tracker = KeyPressTracker(longPressMs = longMs)
+                val tracker = KeyPressTracker(longPressMs = longMs, deferPress = deferPress)
                 fun run(actions: List<KeyAction>) = actions.forEach { a ->
                     when (a) {
                         KeyAction.Press -> press()
                         is KeyAction.StopTone -> stop(a.afterMs)
-                        KeyAction.LongPress -> long?.invoke()
+                        KeyAction.LongPress -> long?.invoke(tracker.typedThisTouch)
                     }
                 }
                 val interaction = PressInteraction.Press(down.position)
                 scope.launch { source.emit(interaction) }
-                run(tracker.down(SystemClock.uptimeMillis()))
-                var timer: Job? = if (hasLong) {
-                    scope.launch {
-                        delay(longMs)
-                        run(tracker.longPressDue(SystemClock.uptimeMillis()))
+                var timer: Job? = null
+                var settleTimer: Job? = null
+                var taken = false
+                try {
+                    run(tracker.down(SystemClock.uptimeMillis()))
+                    if (deferPress) {
+                        settleTimer = scope.launch {
+                            delay(KeyPressTracker.TAP_TIMEOUT_MS)
+                            run(tracker.settle(SystemClock.uptimeMillis()))
+                        }
                     }
-                } else {
-                    null
-                }
-                while (true) {
-                    // Final pass: a scrolling parent has had its turn, so a scroll that took over shows as consumed.
-                    val event = awaitPointerEvent(PointerEventPass.Final)
-                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                    // Lifted, or taken over by a scrolling parent: either way the press is over.
-                    if (!change.pressed || change.isConsumed) break
-                    val inside = !change.isOutOfBounds(size, extendedTouchPadding)
-                    if (!inside) {
-                        timer?.cancel()
-                        timer = null
+                    if (hasLong) {
+                        timer = scope.launch {
+                            delay(longMs)
+                            run(tracker.longPressDue(SystemClock.uptimeMillis()))
+                        }
                     }
-                    run(tracker.move(inside, SystemClock.uptimeMillis()))
+                    while (true) {
+                        // Final pass: a scrolling parent has had its turn, so a scroll that took over shows as consumed.
+                        val event = awaitPointerEvent(PointerEventPass.Final)
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) break
+                        // Taken over by a scrolling parent: the press is over, and a deferred one never happens.
+                        if (change.isConsumed) { taken = true; break }
+                        val inside = !change.isOutOfBounds(size, extendedTouchPadding)
+                        val scrolled = (change.position - down.position).getDistance() > slop
+                        if (!inside || (deferPress && scrolled && !tracker.typedThisTouch)) {
+                            timer?.cancel()
+                            timer = null
+                            settleTimer?.cancel()
+                        }
+                        run(tracker.move(inside, SystemClock.uptimeMillis(), scrolled))
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    taken = true
+                    throw e
+                } finally {
+                    // Always, also when the gesture is cancelled (the key left the screen): no tone keeps playing.
+                    timer?.cancel()
+                    settleTimer?.cancel()
+                    val now = SystemClock.uptimeMillis()
+                    run(if (taken) tracker.cancel(now) else tracker.up(now))
+                    scope.launch { source.emit(PressInteraction.Release(interaction)) }
                 }
-                timer?.cancel()
-                run(tracker.up(SystemClock.uptimeMillis()))
-                scope.launch { source.emit(PressInteraction.Release(interaction)) }
             }
         }
 }

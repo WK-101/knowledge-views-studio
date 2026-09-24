@@ -54,6 +54,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -621,6 +622,13 @@ private fun DtmfKeypad(callId: String, onClose: () -> Unit, scroll: Boolean = tr
     var typed by rememberSaveable { mutableStateOf("") }
     // One running tone per key (V7): a key's release only stops its own tone.
     val tokens = remember { HashMap<Char, Long>() }
+    // The keypad can close while a key is held (hidden, call ended): stop every tone it started.
+    DisposableEffect(callId) {
+        onDispose {
+            tokens.values.forEach { CallManager.stopDtmf(callId, it) }
+            tokens.clear()
+        }
+    }
     val res = LocalResources.current
     // In the two-pane layout the whole pane scrolls instead.
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = if (scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier) {
@@ -638,6 +646,8 @@ private fun DtmfKeypad(callId: String, onClose: () -> Unit, scroll: Boolean = tr
                                     CallManager.startDtmf(callId, c)?.let { tokens[c] = it }
                                 },
                                 onToneStop = { after -> tokens.remove(c)?.let { CallManager.stopDtmf(callId, it, after) } },
+                                // Inside a scrolling column: a touch that starts a scroll must not send a digit.
+                                deferPress = scroll,
                             )
                             .semantics { contentDescription = dtmfName(res, c) },
                         contentAlignment = Alignment.Center,
