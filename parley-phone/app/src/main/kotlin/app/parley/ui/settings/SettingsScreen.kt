@@ -88,6 +88,13 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             vm.toast("Exported $n contacts")
         }
     }
+    val unknownTonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+        if (res.resultCode == android.app.Activity.RESULT_OK) {
+            @Suppress("DEPRECATION")
+            val uri = res.data?.getParcelableExtra<Uri>(android.media.RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            set { it.copy(unknownRingtone = uri?.toString()) }
+        }
+    }
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch { importAccounts = uri to withContext(Dispatchers.IO) { vm.c.contacts.accounts() } }
     }
@@ -130,6 +137,21 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                 LinkRow("Quick reply messages", s.quickReplies.joinToString(" · ")) { editReplies = true }
                 LinkRow("Speed dial", "Long-press 2–9 on the keypad") { open(Routes.SPEED_DIAL) }
                 LinkRow("Blocking & screening", null) { open(Routes.BLOCKING) }
+                SwitchRow("Let repeat callers through", "An unknown number blocked earlier rings if it calls again within 3 minutes", s.repeatCallerRingsThrough) { v -> set { it.copy(repeatCallerRingsThrough = v) } }
+                val toneName = s.unknownRingtone?.let { u -> runCatching { android.media.RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull() }
+                LinkRow("Ringtone for unknown callers", toneName ?: "Same as usual") {
+                    unknownTonePicker.launch(
+                        Intent(android.media.RingtoneManager.ACTION_RINGTONE_PICKER)
+                            .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TYPE, android.media.RingtoneManager.TYPE_RINGTONE)
+                            .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                            .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                            .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, s.unknownRingtone?.let(Uri::parse)),
+                    )
+                }
+                MenuRow(
+                    "Keep call history", listOf("Forever", "30 days", "90 days", "6 months", "1 year"),
+                    listOf(0, 30, 90, 180, 365).indexOf(s.callLogRetentionDays).coerceAtLeast(0),
+                ) { i -> set { it.copy(callLogRetentionDays = listOf(0, 30, 90, 180, 365)[i]) } }
                 LinkRow("SIM & calling accounts", "Default SIM, Wi-Fi calling (system settings)") {
                     runCatching { context.startActivity(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
                 }
@@ -148,6 +170,32 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                 LinkRow("Import from .vcf file", null) { importer.launch(arrayOf("text/x-vcard", "text/vcard", "text/directory", "application/octet-stream", "*/*")) }
                 LinkRow("Export all to .vcf file", "Plain-text backup you control") { exporter.launch("contacts.vcf") }
                 LinkRow("Find & merge duplicates", null) { open(Routes.DUPLICATES) }
+                LinkRow("Contact health check", "Fix numbers without country code, empty and stale contacts") { open(Routes.HEALTH) }
+                LinkRow("Birthdays & dates", null) { open(Routes.BIRTHDAYS) }
+                SwitchRow("Birthday reminders", "A notification on the day, at ${s.birthdayReminderHour}:00", s.birthdayReminders) { v -> set { it.copy(birthdayReminders = v) } }
+                if (s.birthdayReminders) {
+                    MenuRow("Reminder time", (6..22).map { "$it:00" }, (s.birthdayReminderHour - 6).coerceIn(0, 16)) { i ->
+                        set { it.copy(birthdayReminderHour = i + 6) }
+                        app.parley.work.RemindersWorker.schedule(context, i + 6)
+                    }
+                }
+                SwitchRow("Keep-in-touch nudges", "For contacts where you set a reminder", s.reachOutNudges) { v -> set { it.copy(reachOutNudges = v) } }
+            }
+
+            item { Section("Security") }
+            item {
+                SwitchRow("App lock", "Fingerprint, face or screen lock to open Parley. Incoming calls always show.", s.appLock) { v ->
+                    val act = context as? androidx.fragment.app.FragmentActivity
+                    if (act != null) app.parley.security.AppLock.authenticate(act, if (v) "Turn on app lock" else "Turn off app lock") { ok -> if (ok) set { it.copy(appLock = v) } }
+                }
+                if (s.appLock) {
+                    MenuRow("Lock again after", listOf("Immediately", "1 minute", "5 minutes", "15 minutes", "1 hour"), listOf(0, 1, 5, 15, 60).indexOf(s.lockAfterMinutes).coerceAtLeast(0)) { i ->
+                        set { it.copy(lockAfterMinutes = listOf(0, 1, 5, 15, 60)[i]) }
+                    }
+                }
+                SwitchRow("Hide screen content", "Blocks screenshots and hides Parley in the recent-apps view", s.secureScreen) { v -> set { it.copy(secureScreen = v) } }
+                SwitchRow("Hide private contacts", "Discreet mode: private contacts and their calls disappear from lists and search", s.hideVault) { v -> set { it.copy(hideVault = v) } }
+                SwitchRow("Private call history", "Calls with private contacts are moved out of the system call log", s.privateVaultHistory) { v -> set { it.copy(privateVaultHistory = v) } }
             }
 
             item { Section("Privacy & device") }

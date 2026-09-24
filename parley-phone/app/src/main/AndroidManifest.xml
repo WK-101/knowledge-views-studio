@@ -205,6 +205,18 @@
                 android:resource="@xml/widget_dial_info" />
         </receiver>
 
+        <!-- Quick Settings tile: discreet mode for private contacts. -->
+        <service
+            android:name=".security.VaultTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_private"
+            android:label="Private contacts"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- Telecom delegates missed-call notifications to the default dialer. Only the system can send it. -->
         <receiver
             android:name=".MissedCallReceiver"
