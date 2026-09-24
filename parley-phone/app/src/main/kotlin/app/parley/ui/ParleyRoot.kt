@@ -31,6 +31,8 @@ import app.parley.NavEvent
 import app.parley.UiEvent
 import app.parley.common.StartTab
 import app.parley.ui.blocking.BlockingScreen
+import app.parley.ui.LocalNavAnimScope
+import app.parley.ui.LocalSharedScope
 import app.parley.ui.common.CallDialogs
 import app.parley.ui.contact.ContactDetailScreen
 import app.parley.ui.contact.ContactEditScreen
@@ -69,6 +71,7 @@ object Routes {
     const val PREFILL_MARK = "_"
 }
 
+@OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
 @Composable
 fun ParleyRoot(vm: AppViewModel) {
     val settings by vm.settings.collectAsStateWithLifecycle()
@@ -115,6 +118,8 @@ fun ParleyRoot(vm: AppViewModel) {
     }
 
     Box(Modifier.fillMaxSize()) {
+      androidx.compose.animation.SharedTransitionLayout {
+       androidx.compose.runtime.CompositionLocalProvider(LocalSharedScope provides this) {
         NavHost(
             nav, startDestination = Routes.HOME,
             enterTransition = { slideInHorizontally { it / 6 } + fadeIn() },
@@ -123,6 +128,7 @@ fun ParleyRoot(vm: AppViewModel) {
             popExitTransition = { slideOutHorizontally { it / 6 } + fadeOut() },
         ) {
             composable(Routes.HOME) {
+              androidx.compose.runtime.CompositionLocalProvider(LocalNavAnimScope provides this) {
                 HomeScreen(
                     vm = vm,
                     tabRequest = tabRequest,
@@ -130,9 +136,12 @@ fun ParleyRoot(vm: AppViewModel) {
                     initialTab = settings.startTab,
                     open = { route -> nav.navigate(route) },
                 )
+              }
             }
             composable(Routes.CONTACT, arguments = listOf(navArgument("id") { type = NavType.LongType })) {
+              androidx.compose.runtime.CompositionLocalProvider(LocalNavAnimScope provides this) {
                 ContactDetailScreen(vm, it.arguments!!.getLong("id"), back = { nav.popBackStack() }, open = { r -> nav.navigate(r) })
+              }
             }
             composable(
                 Routes.EDIT,
@@ -188,6 +197,8 @@ fun ParleyRoot(vm: AppViewModel) {
             composable(Routes.BIRTHDAYS) { app.parley.ui.birthdays.BirthdaysScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             composable(Routes.SPEED_DIAL) { SpeedDialScreen(vm, back = { nav.popBackStack() }) }
         }
+       }
+      }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 80.dp))
     }
     CallDialogs(vm)

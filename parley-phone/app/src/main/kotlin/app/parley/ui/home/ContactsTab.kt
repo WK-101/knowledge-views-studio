@@ -50,6 +50,7 @@ import app.parley.AppViewModel
 import app.parley.common.ContactSummary
 import app.parley.data.GroupInfo
 import app.parley.ui.Avatar
+import app.parley.ui.shared
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
 import app.parley.ui.avatarSize
@@ -203,10 +204,10 @@ fun ContactRow(
                     if (selected) androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Rounded.Check, "Selected", tint = MaterialTheme.colorScheme.onPrimary)
                 }
             } else {
-                Avatar(c.displayName, c.photoUri, avatarSize())
+                Avatar(c.displayName, c.photoUri, avatarSize(), Modifier.shared("avatar-${c.id}"))
             }
         },
-        headlineContent = { Text(c.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        headlineContent = { Text(c.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.shared("name-${c.id}", bounds = true)) },
     )
 }
 

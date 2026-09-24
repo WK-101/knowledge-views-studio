@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.togetherWith
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
@@ -82,6 +83,8 @@ fun HomeScreen(
     open: (String) -> Unit,
 ) {
     var tab by rememberSaveable { mutableStateOf(initialTab) }
+    // Tablets, foldables and landscape: navigation rail instead of a bottom bar.
+    val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
     var searching by rememberSaveable { mutableStateOf(false) }
     val missed by vm.missedCount.collectAsStateWithLifecycle()
     val calls by CallManager.state.collectAsStateWithLifecycle()
@@ -137,7 +140,7 @@ fun HomeScreen(
                         }
                     }
                 }
-                NavigationBar {
+                if (!wide) NavigationBar {
                     tabs.forEach { t ->
                         NavigationBarItem(
                             selected = tab == t.tab,
@@ -165,12 +168,37 @@ fun HomeScreen(
             }
         },
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
-            when (tab) {
-                StartTab.FAVORITES -> FavoritesTab(vm, open)
-                StartTab.RECENTS -> RecentsTab(vm, open)
-                StartTab.CONTACTS -> ContactsTab(vm, open)
-                StartTab.KEYPAD -> KeypadTab(vm, open)
+        Row(Modifier.fillMaxSize().padding(padding)) {
+            if (wide) {
+                androidx.compose.material3.NavigationRail {
+                    Spacer(Modifier.weight(1f))
+                    tabs.forEach { t ->
+                        androidx.compose.material3.NavigationRailItem(
+                            selected = tab == t.tab,
+                            onClick = { tab = t.tab },
+                            icon = {
+                                if (t.tab == StartTab.RECENTS && missed > 0) BadgedBox(badge = { Badge { Text(missed.toString()) } }) { Icon(t.icon, null) }
+                                else Icon(t.icon, null)
+                            },
+                            label = { Text(t.label) },
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                }
+            }
+            Box(Modifier.weight(1f).fillMaxSize()) {
+                androidx.compose.animation.AnimatedContent(
+                    tab,
+                    transitionSpec = { androidx.compose.animation.fadeIn() togetherWith androidx.compose.animation.fadeOut() },
+                    label = "tab",
+                ) { t ->
+                    when (t) {
+                        StartTab.FAVORITES -> FavoritesTab(vm, open)
+                        StartTab.RECENTS -> RecentsTab(vm, open)
+                        StartTab.CONTACTS -> ContactsTab(vm, open)
+                        StartTab.KEYPAD -> KeypadTab(vm, open)
+                    }
+                }
             }
         }
     }

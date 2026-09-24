@@ -69,6 +69,7 @@ object CallColors {
 
 val LocalDensityPref = staticCompositionLocalOf { ListDensity.COMFORTABLE }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ParleyTheme(
     mode: ThemeMode = ThemeMode.SYSTEM,
@@ -90,8 +91,9 @@ fun ParleyTheme(
     }
     if (dark && amoled) scheme = scheme.amoled()
     CompositionLocalProvider(LocalDensityPref provides density) {
-        MaterialTheme(
+        androidx.compose.material3.MaterialExpressiveTheme(
             colorScheme = scheme,
+            motionScheme = androidx.compose.material3.MotionScheme.expressive(),
             shapes = Shapes(
                 extraSmall = RoundedCornerShape(8.dp),
                 small = RoundedCornerShape(12.dp),
@@ -99,6 +101,7 @@ fun ParleyTheme(
                 large = RoundedCornerShape(24.dp),
                 extraLarge = RoundedCornerShape(32.dp),
             ),
+            typography = androidx.compose.material3.Typography(),
             content = content,
         )
     }

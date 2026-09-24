@@ -81,6 +81,7 @@ import app.parley.AppViewModel
 import app.parley.common.PhoneNumbers
 import app.parley.data.ContactDetails
 import app.parley.ui.Avatar
+import app.parley.ui.shared
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
 import app.parley.ui.common.Intents
@@ -199,8 +200,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         LazyColumn(Modifier.padding(padding)) {
             item {
                 Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Avatar(d.displayName, d.photoUri, 120.dp, Modifier.clickable(enabled = d.photoUri != null, onClickLabel = "View photo") { showPhoto = true })
-                    Text(d.displayName, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp))
+                    Avatar(d.displayName, d.photoUri, 120.dp, Modifier.shared("avatar-$contactId").clickable(enabled = d.photoUri != null, onClickLabel = "View photo") { showPhoto = true })
+                    Text(d.displayName, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp).shared("name-$contactId", bounds = true))
                     val sub = listOf(d.nickname, listOf(d.title, d.company).filter { it.isNotBlank() }.joinToString(", ")).filter { it.isNotBlank() }
                     if (sub.isNotEmpty()) Text(sub.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     temp?.let { Text("Deletes itself on ${Format.fullDate(context, it.expiresAt)}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
