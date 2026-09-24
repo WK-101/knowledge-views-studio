@@ -186,7 +186,7 @@ class XmlFeedParser @Inject constructor() : FeedParser {
     private fun parseDate(value: String?): Long? {
         val s = value?.trim().orEmpty()
         if (s.isEmpty()) return null
-        for (fmt in dateFormats) {
+        for (fmt in dateFormats.get()) {
             val result = runCatching { fmt.parse(s)?.time }.getOrNull()
             if (result != null) return result
         }
@@ -198,7 +198,7 @@ class XmlFeedParser @Inject constructor() : FeedParser {
             isNamespaceAware = false
         }
         val imageExts = setOf("jpg", "jpeg", "png", "webp", "gif")
-        val dateFormats: List<SimpleDateFormat> = listOf(
+        private val datePatterns = listOf(
             "EEE, dd MMM yyyy HH:mm:ss Z",
             "EEE, dd MMM yyyy HH:mm:ss zzz",
             "EEE, dd MMM yyyy HH:mm Z",
@@ -208,6 +208,12 @@ class XmlFeedParser @Inject constructor() : FeedParser {
             "yyyy-MM-dd'T'HH:mm:ssZ",
             "yyyy-MM-dd'T'HH:mm:ss",
             "yyyy-MM-dd",
-        ).map { SimpleDateFormat(it, Locale.ENGLISH).apply { isLenient = true } }
+        )
+        // SimpleDateFormat is not thread-safe, and syncAll parses many feeds concurrently on the
+        // default dispatcher. Hand each thread its own formatter set to avoid intermittent bad/garbage
+        // dates from shared instances.
+        val dateFormats: ThreadLocal<List<SimpleDateFormat>> = ThreadLocal.withInitial {
+            datePatterns.map { SimpleDateFormat(it, Locale.ENGLISH).apply { isLenient = true } }
+        }
     }
 }

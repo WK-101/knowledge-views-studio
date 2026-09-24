@@ -255,6 +255,7 @@ class SettingsViewModel @Inject constructor(
     }
     fun setSanitizeArticles(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setSanitizeArticles(enabled) }
     fun setDictionaryOnline(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setDictionaryOnline(enabled) }
+    fun setMediaOnline(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setMediaOnline(enabled) }
     fun setAutoOfflinePack(enabled: Boolean) = viewModelScope.launch { preferencesRepository.setAutoOfflinePack(enabled) }
     fun setDailyBriefNotify(enabled: Boolean) = viewModelScope.launch {
         preferencesRepository.setDailyBriefNotify(enabled)

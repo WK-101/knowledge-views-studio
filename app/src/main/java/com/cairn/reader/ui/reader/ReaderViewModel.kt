@@ -192,6 +192,13 @@ class ReaderViewModel @Inject constructor(
             val data = _state.value.data
             val yt = data?.url?.let { captionFetcher.youtubeVideoId(it) }
             val isAudio = data?.type == ItemType.AUDIO.name && !data.enclosureUrl.isNullOrBlank()
+            // Honour the media-online preference: when off, only a previously saved transcript loads
+            // (fully offline) — never fetch captions/audio from the network.
+            val mediaOnline = coRunCatching { preferencesRepository.preferences.first().mediaOnline }.getOrDefault(true)
+            if (!mediaOnline && !coRunCatching { transcriptRepository.hasSaved(itemId) }.getOrDefault(false)) {
+                _transcript.update { it.copy(loading = false, loaded = true, unavailable = true, youtubeId = yt, isAudio = isAudio) }
+                return@launch
+            }
             when (val r = coRunCatching { transcriptRepository.load(itemId) }
                 .getOrElse { TranscriptResult.Failed(it.message ?: "") }) {
                 is TranscriptResult.Ready -> {
@@ -216,6 +223,11 @@ class ReaderViewModel @Inject constructor(
     fun generateTranscriptOnDevice() {
         if (_transcriptGenerating.value != null) return
         viewModelScope.launch {
+            // On-device STT downloads a speech model on first use — gated on the media-online pref.
+            if (!coRunCatching { preferencesRepository.preferences.first().mediaOnline }.getOrDefault(true)) {
+                _transcript.update { it.copy(generateError = true) }
+                return@launch
+            }
             _transcriptGenerating.value = 0f
             _transcript.update { it.copy(generateError = false) }
             val t = coRunCatching {
@@ -272,16 +284,22 @@ class ReaderViewModel @Inject constructor(
             _state.value = ReaderUiState(loading = false, data = data)
             if (data != null) {
                 itemRepository.setRead(itemId, true)
+                // Media features (YouTube caption/metadata, on-device STT model) reach the network; the
+                // user can turn them off to keep the app fully offline (disclosed in Settings → Privacy).
+                val mediaOnline = coRunCatching { preferencesRepository.preferences.first().mediaOnline }.getOrDefault(true)
                 val isYouTube = data.type == ItemType.VIDEO.name && captionFetcher.youtubeVideoId(data.url) != null
                 when {
                     // YouTube videos: pull real metadata (title, channel, published date, duration and
                     // the description as readable content) through the privacy front-ends, instead of
                     // running Readability on a near-empty watch page. Idempotent, so it self-skips once
-                    // enriched. Shown behind the same "fetching…" affordance as article extraction.
+                    // enriched. Gated on the media-online preference so it never contacts YouTube/Piped
+                    // when the user has chosen fully-offline.
                     isYouTube -> {
-                        _state.update { it.copy(extracting = true) }
-                        coRunCatching { feedRepository.enrichVideoMetadata(itemId) }
-                        _state.update { ReaderUiState(loading = false, extracting = false, data = itemRepository.reader(itemId)) }
+                        if (mediaOnline) {
+                            _state.update { it.copy(extracting = true) }
+                            coRunCatching { feedRepository.enrichVideoMetadata(itemId) }
+                            _state.update { ReaderUiState(loading = false, extracting = false, data = itemRepository.reader(itemId)) }
+                        }
                     }
                     // Automatically fetch the full article the first time it's opened, so RSS
                     // items that only carry a summary read like the real thing — no button.

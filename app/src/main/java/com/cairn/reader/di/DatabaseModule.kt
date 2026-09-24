@@ -50,9 +50,11 @@ object DatabaseModule {
         // plaintext library is migrated to an encrypted copy (fail-safe: the original is only removed
         // once the encrypted copy verifies). If migration can't run this session, we open plaintext
         // so no data is ever lost.
-        val dbFile = context.getDatabasePath("cairn.db")
         val passphrase = com.cairn.reader.data.db.DbCrypto.passphrase(context)
-        val openEncrypted = com.cairn.reader.data.db.DbCrypto.ensureEncrypted(dbFile, passphrase)
+        // Only WAIT for the one-time migration that Application.onCreate started on a background
+        // thread — never run it here, so the migration can't land on the main thread if a ViewModel
+        // resolves the DB first (first-launch ANR).
+        val openEncrypted = com.cairn.reader.data.db.DbCrypto.awaitOpenEncrypted(context)
         val builder = Room.databaseBuilder(context, CairnDatabase::class.java, "cairn.db")
             .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
             // No destructive fallback: a missing migration must fail loudly in dev/CI rather than

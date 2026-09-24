@@ -22,6 +22,10 @@ import com.cairn.reader.data.db.ExtractStatus
 /** Max ids per IN(:ids) statement, keeping a large "select all" under SQLite's bound-variable limit. */
 private const val BATCH_CHUNK = 500
 
+/** Unicode letter/digit run — the only thing allowed into an FTS4 MATCH term, so punctuation in a
+ *  user's query can't produce an FTS syntax error. */
+private val FTS_TOKEN = Regex("[\\p{L}\\p{Nd}]+")
+
 /**
  * The app's read/write gateway for items. Mutations update local state immediately and
  * append a [SyncOpEntity] to the outbox, so an optional remote backend can reconcile
@@ -143,10 +147,13 @@ class ItemRepository @Inject constructor(
     fun feedUnread(): Flow<List<com.cairn.reader.data.db.FeedUnread>> = itemDao.observeFeedUnread()
 
     suspend fun search(query: String): List<ItemListRow> {
-        val sanitized = query.trim()
-        if (sanitized.isBlank()) return emptyList()
-        // Prefix match on each term for a forgiving search-as-you-type feel.
-        val match = sanitized.split(Regex("\\s+")).joinToString(" ") { "$it*" }
+        // Build a safe FTS4 MATCH: keep only Unicode letter/digit tokens (so metacharacters like
+        // " - : ( ) * ^ never reach the query and throw a syntax error that would silently show
+        // "No matches"), lower-case them, and prefix-match each for a forgiving search-as-you-type.
+        // e.g. "covid-19" -> "covid* 19*", "C++" -> "c*", '"exact phrase"' -> "exact* phrase*".
+        val tokens = FTS_TOKEN.findAll(query.lowercase()).map { it.value }.filter { it.isNotEmpty() }.toList()
+        if (tokens.isEmpty()) return emptyList()
+        val match = tokens.joinToString(" ") { "$it*" }
         return coRunCatching { itemDao.search(match) }.getOrDefault(emptyList())
     }
 

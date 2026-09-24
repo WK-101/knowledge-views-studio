@@ -282,6 +282,8 @@
     <string name="one_reader_for_everything_you_read">One reader for everything you read.</string>
     <string name="online_dictionary_lookups">Online dictionary look-ups</string>
     <string name="online_dictionary_lookups_desc">Off by default. When on, the reader\'s “Look up” sheet sends the single selected word to a public dictionary service (dictionaryapi.dev) over HTTPS to fetch its definition. Nothing else you read leaves the device.</string>
+    <string name="media_online">Media &amp; transcript features online</string>
+    <string name="media_online_desc">On by default. When on, opening a YouTube video fetches its title, channel, date, duration and captions (via privacy front-ends — Piped/Invidious/YouTube), and on-device speech-to-text may download a language model. Turn off to keep the app fully offline; saved transcripts still open. Nothing else you read leaves the device.</string>
     <string name="only_failing_feeds">Only failing feeds</string>
     <string name="open">Open</string>
     <string name="open_an_article_to_cache_it">Open an article to cache it for offline reading, or choose “Save offline” from any item\'s menu to keep a permanent, self-contained copy — text and images — that survives even if the source changes or deletes it.</string>

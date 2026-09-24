@@ -690,6 +690,8 @@ internal fun PrivacySection(prefs: AppPreferences, viewModel: SettingsViewModel)
         SettingSwitchRow(stringResource(R.string.check_saved_links_for_rot), stringResource(R.string.off_by_default_when_on_cairn), prefs.linkCheckEnabled, viewModel::setLinkCheckEnabled)
         SettingDivider()
         SettingSwitchRow(stringResource(R.string.online_dictionary_lookups), stringResource(R.string.online_dictionary_lookups_desc), prefs.dictionaryOnline, viewModel::setDictionaryOnline)
+        SettingDivider()
+        SettingSwitchRow(stringResource(R.string.media_online), stringResource(R.string.media_online_desc), prefs.mediaOnline, viewModel::setMediaOnline)
         SettingCaption(stringResource(R.string.no_account_no_trackers_no_ads))
     }
 }

@@ -284,6 +284,8 @@
     <string name="one_reader_for_everything_you_read">Un solo lector para todo lo que lees.</string>
     <string name="online_dictionary_lookups">Búsquedas en diccionario en línea</string>
     <string name="online_dictionary_lookups_desc">Desactivado de forma predeterminada. Cuando está activo, la hoja «Buscar» del lector envía solo la palabra seleccionada a un servicio de diccionario público (dictionaryapi.dev) mediante HTTPS para obtener su definición. Nada más de lo que lees sale del dispositivo.</string>
+    <string name="media_online">Funciones multimedia y de transcripción en línea</string>
+    <string name="media_online_desc">Activado de forma predeterminada. Cuando está activo, al abrir un vídeo de YouTube se obtienen su título, canal, fecha, duración y subtítulos (mediante interfaces de privacidad: Piped/Invidious/YouTube), y el reconocimiento de voz en el dispositivo puede descargar un modelo de idioma. Desactívalo para mantener la app totalmente sin conexión; las transcripciones guardadas se siguen abriendo. Nada más de lo que lees sale del dispositivo.</string>
     <string name="only_failing_feeds">Solo fuentes con errores</string>
     <string name="open">Abrir</string>
     <string name="open_an_article_to_cache_it">Abre un artículo para guardarlo en caché y leerlo sin conexión, o elige «Guardar sin conexión» en el menú de cualquier elemento para conservar una copia permanente y autónoma (texto e imágenes) que perdura aunque la fuente la cambie o la elimine.</string>

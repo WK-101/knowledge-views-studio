@@ -90,6 +90,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlin.math.roundToInt
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
@@ -252,21 +255,37 @@ internal fun ArticleBody(
         HighlightAnchoring.reanchor(blocks.map { it.highlightText() }, highlights)
     }
 
-    val progress by remember {
+    // LazyColumn header items that sit above block 0: the title item, plus the highlights box when
+    // present. Progress is measured in the article's block space (offset by these) so save and
+    // restore share one coordinate system — the earlier mismatch (save over all items, restore over
+    // blocks) made resume land in the wrong place, worse with the highlights box open.
+    val headerCount = 1 + if (boxHighlights.isNotEmpty()) 1 else 0
+    val progress by remember(headerCount, blocks.size) {
         derivedStateOf {
-            val total = listState.layoutInfo.totalItemsCount
-            if (total <= 1) 0f else (listState.firstVisibleItemIndex.toFloat() / (total - 1)).coerceIn(0f, 1f)
+            if (blocks.size <= 1) 0f
+            else ((listState.firstVisibleItemIndex - headerCount).toFloat() / (blocks.size - 1)).coerceIn(0f, 1f)
         }
     }
     val latestProgress = rememberUpdatedState(progress)
     DisposableEffect(Unit) { onDispose { onSaveProgress(latestProgress.value) } }
+    // Also persist periodically while reading (debounced), so a process kill mid-article doesn't lose
+    // the position — onDispose alone isn't guaranteed to run on a kill.
+    LaunchedEffect(Unit) {
+        androidx.compose.runtime.snapshotFlow { progress }
+            .distinctUntilChanged()
+            .debounce(1500)
+            .collect { onSaveProgress(it) }
+    }
 
-    // Resume where you left off: once the article's blocks are laid out, jump to the saved
-    // position (skip when unstarted or essentially finished, so re-reads start at the top).
-    androidx.compose.runtime.LaunchedEffect(data.id, blocks.size) {
-        if (resumeProgress in 0.02f..0.97f && blocks.size > 1) {
-            val target = (resumeProgress * (blocks.size - 1)).toInt().coerceIn(0, blocks.size - 1)
-            runCatching { listState.scrollToItem(target) }
+    // Resume where you left off: once the article's blocks are laid out, jump to the saved position
+    // (skip when unstarted or essentially finished). One-shot per article: guarded so toggling images
+    // or a re-extract — which changes blocks.size — never yanks the reader back to the resume point.
+    var resumedFor by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(data.id, blocks.size) {
+        if (resumedFor != data.id && resumeProgress in 0.02f..0.97f && blocks.size > 1) {
+            val target = headerCount + (resumeProgress * (blocks.size - 1)).roundToInt()
+            runCatching { listState.scrollToItem(target.coerceIn(0, headerCount + blocks.size - 1)) }
+            resumedFor = data.id
         }
     }
 
@@ -285,7 +304,6 @@ internal fun ArticleBody(
     fun scrollToHighlight(h: HighlightEntity) {
         val block = byBlock.entries.firstOrNull { (_, hs) -> hs.any { it.id == h.id } }?.key
         if (block == null) { onManageHighlight(h); return }
-        val headerCount = 1 + if (boxHighlights.isNotEmpty()) 1 else 0
         pageScope.launch { runCatching { listState.animateScrollToItem(headerCount + block) } }
     }
     // Register the volume-key handler with the Activity only while volume paging is on and this
@@ -321,7 +339,6 @@ internal fun ArticleBody(
     // Scroll the article so the current match is in view (header items sit above block 0).
     LaunchedEffect(currentMatch, findMatches) {
         activeMatch?.let { (blockIndex, _) ->
-            val headerCount = 1 + if (boxHighlights.isNotEmpty()) 1 else 0
             runCatching { listState.animateScrollToItem(headerCount + blockIndex) }
         }
     }

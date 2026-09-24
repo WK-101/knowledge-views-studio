@@ -704,6 +704,25 @@ class FeedRepository @Inject constructor(
         if (existing?.trashedAt != null) return
         val isNew = existing == null
 
+        // Never downgrade an item we've already invested in. A re-sync reprocesses every item still
+        // in the feed's window; if the stored copy is more than a bare feed summary — full-text
+        // extracted, recovered from an archive, media-enriched, or saved permanently offline — we must
+        // NOT overwrite its body/blob/index/cache with the feed summary again (the "re-sync clobber").
+        // Refresh only the light feed metadata (a corrected title/byline) and leave the rest intact.
+        if (!isNew) {
+            val e = existing!!
+            val protected = e.extractStatus == ExtractStatus.OK.raw ||
+                e.contentSource != ContentSource.FEED.raw ||
+                CacheStatus.isPermanent(e.cacheStatus)
+            if (protected) {
+                val newTitle = p.title?.takeIf { it.isNotBlank() && it != e.title }
+                if (newTitle != null || (p.author != null && p.author != e.author)) {
+                    itemDao.updateMeta(itemId, newTitle ?: e.title, p.author, source.title)
+                }
+                return
+            }
+        }
+
         val rawContent = p.contentHtml ?: p.summary
         // Privacy pass: strip trackers/beacons/campaign params from the stored body (opt-out).
         val content = rawContent?.takeIf { it.isNotBlank() }?.let { html ->
@@ -730,8 +749,8 @@ class FeedRepository @Inject constructor(
             author = p.author,
             siteName = source.title,
             publishedAt = p.publishedAt,
-            savedAt = now,
-            effectiveDate = p.publishedAt ?: now,
+            savedAt = existing?.savedAt ?: now,
+            effectiveDate = p.publishedAt ?: existing?.savedAt ?: now,
             dedupeKey = (canonical.takeIf { it.isNotBlank() } ?: displayUrl).lowercase(),
             simHash = com.cairn.reader.domain.dedupe.SimHash.compute(plain),
             sourceId = source.id,

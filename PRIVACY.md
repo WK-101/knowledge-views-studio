@@ -20,11 +20,22 @@ Cairn contacts only:
 - **Opt-in / user-initiated third parties**, each disclosed:
   - *Broken-link checking* (contacts publishers to detect link rot) — **off by default**,
     enabled in Settings.
-  - *Dictionary lookups* (`api.dictionaryapi.dev`) — only when you tap "Define".
-  - *Wayback healing* (`archive.org`) — only when you ask to heal a broken link.
+  - *Dictionary lookups* (`api.dictionaryapi.dev`) — only when you tap "Define"; **off by default**.
+  - *Wayback healing* (`archive.org`) — only when you ask to heal a broken link, and the
+    paywall/archive recovery you trigger in the reader (`archive.today` / `archive.org`).
+  - *Media & transcript features* — **governed by one setting** ("Media & transcript features
+    online", Settings → Privacy; on by default, turn off for fully offline). When on and you open
+    a YouTube video or its transcript, Cairn fetches the video's title, channel, published date,
+    duration and captions through privacy front-ends (Piped / Invidious instances) and, for
+    caption retrieval, YouTube's own timed-text endpoint; on-device speech-to-text downloads a
+    Vosk language model on first use (`alphacephei.com`). These are the only reader features that
+    contact those hosts, they run only for the video/transcript you open, and turning the setting
+    off stops all of it (saved transcripts still open offline).
 
-All app traffic pins trust to the system CA store (user-installed certificates are not
-trusted). WebDAV backup requires an `https://` address.
+All app traffic restricts its trust anchors to the system CA store (user-installed certificates
+are not trusted, which blocks casual local interception). Cairn does **not** pin individual
+certificates — feed and page hosts are user-chosen and open-ended, so per-host pinning is not
+applicable. WebDAV backup requires an `https://` address.
 
 ## Data at rest
 
@@ -58,4 +69,4 @@ Everything Cairn holds can leave it, in open formats you control:
 When something fails, Cairn records it to Logcat and a small rotating log file in its own
 private storage (`util/AppLog`). That log stays on your device and is never uploaded.
 
-*Last reviewed: as of app version 3.96.x.*
+*Last reviewed: as of app version 3.99.22.*

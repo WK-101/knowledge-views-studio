@@ -164,6 +164,12 @@ data class AppPreferences(
      *  server (a single word, over HTTPS), so it stays opt-in to keep the "offline by default"
      *  promise honest. When off, Look up still works for on-device actions (copy, search, share). */
     val dictionaryOnline: Boolean = false,
+    /** Allow media/transcript features to use the network: YouTube caption fetch, YouTube video
+     *  metadata enrichment (title/channel/date/duration via privacy front-ends), and on-device
+     *  speech-to-text model download. ON by default so opening a video/transcript works, but it is
+     *  disclosed and can be turned off to keep the app fully offline. These are the reader features
+     *  that contact YouTube/Piped/Invidious and the model host; nothing else here reaches them. */
+    val mediaOnline: Boolean = true,
     /** Context automation: after a successful background sync, pull the next batch of likely-reads
      *  fully offline (respecting the Wi-Fi/charging sync constraints already in effect). */
     val autoOfflinePack: Boolean = false,
@@ -306,6 +312,7 @@ class PreferencesRepository @Inject constructor(
         val LINK_CHECK_ENABLED = booleanPreferencesKey("link_check_enabled")
         val SANITIZE_ARTICLES = booleanPreferencesKey("sanitize_articles")
         val DICTIONARY_ONLINE = booleanPreferencesKey("dictionary_online")
+        val MEDIA_ONLINE = booleanPreferencesKey("media_online")
         val AUTO_OFFLINE_PACK = booleanPreferencesKey("auto_offline_pack")
         val DAILY_BRIEF_NOTIFY = booleanPreferencesKey("daily_brief_notify")
         val MARK_READ_ON_SCROLL = booleanPreferencesKey("mark_read_on_scroll")
@@ -408,6 +415,7 @@ class PreferencesRepository @Inject constructor(
             linkCheckEnabled = p[Keys.LINK_CHECK_ENABLED] ?: false,
             sanitizeArticles = p[Keys.SANITIZE_ARTICLES] ?: true,
             dictionaryOnline = p[Keys.DICTIONARY_ONLINE] ?: false,
+            mediaOnline = p[Keys.MEDIA_ONLINE] ?: true,
             autoOfflinePack = p[Keys.AUTO_OFFLINE_PACK] ?: false,
             dailyBriefNotify = p[Keys.DAILY_BRIEF_NOTIFY] ?: false,
             markReadOnScroll = p[Keys.MARK_READ_ON_SCROLL] ?: false,
@@ -461,7 +469,9 @@ class PreferencesRepository @Inject constructor(
     suspend fun setTrueBlack(enabled: Boolean) = context.dataStore.edit { it[Keys.TRUE_BLACK] = enabled }
     suspend fun setListViewMode(mode: ListViewMode) = context.dataStore.edit { it[Keys.LIST_VIEW] = mode.name }
     suspend fun setLibraryViewMode(mode: LibraryViewMode) = context.dataStore.edit { it[Keys.LIBRARY_VIEW] = mode.name }
-    suspend fun setReaderFontScale(scale: Float) = context.dataStore.edit { it[Keys.FONT_SCALE] = scale.coerceIn(0.8f, 1.8f) }
+    // Match the range the UI actually offers: size chips go up to 2.0× ("Huge") and pinch-zoom to
+    // 2.6×. The old 1.8× persist cap silently snapped both back, so "Huge" never stuck.
+    suspend fun setReaderFontScale(scale: Float) = context.dataStore.edit { it[Keys.FONT_SCALE] = scale.coerceIn(0.7f, 2.6f) }
     suspend fun setReaderTheme(theme: ReaderTheme) = context.dataStore.edit { it[Keys.READER_THEME] = theme.name }
     suspend fun setReaderFont(font: ReaderFont) = context.dataStore.edit { it[Keys.READER_FONT] = font.name }
     suspend fun setReaderJustify(justify: Boolean) = context.dataStore.edit { it[Keys.READER_JUSTIFY] = justify }
@@ -603,6 +613,9 @@ class PreferencesRepository @Inject constructor(
     suspend fun setDictionaryOnline(enabled: Boolean) =
         context.dataStore.edit { it[Keys.DICTIONARY_ONLINE] = enabled }
 
+    suspend fun setMediaOnline(enabled: Boolean) =
+        context.dataStore.edit { it[Keys.MEDIA_ONLINE] = enabled }
+
     suspend fun setAutoOfflinePack(enabled: Boolean) =
         context.dataStore.edit { it[Keys.AUTO_OFFLINE_PACK] = enabled }
 
@@ -726,6 +739,7 @@ class PreferencesRepository @Inject constructor(
             put("linkCheckEnabled", p.linkCheckEnabled)
             put("sanitizeArticles", p.sanitizeArticles)
             put("dictionaryOnline", p.dictionaryOnline)
+            put("mediaOnline", p.mediaOnline)
             put("autoOfflinePack", p.autoOfflinePack)
             put("dailyBriefNotify", p.dailyBriefNotify)
             put("bottomTabsOrder", JSONArray(p.bottomTabsOrder))
@@ -769,7 +783,7 @@ class PreferencesRepository @Inject constructor(
             if (json.has("trueBlack")) e[Keys.TRUE_BLACK] = json.getBoolean("trueBlack")
             if (json.has("listViewMode")) e[Keys.LIST_VIEW] = json.getString("listViewMode")
             if (json.has("libraryViewMode")) e[Keys.LIBRARY_VIEW] = json.getString("libraryViewMode")
-            if (json.has("readerFontScale")) e[Keys.FONT_SCALE] = json.getDouble("readerFontScale").toFloat().coerceIn(0.8f, 1.8f)
+            if (json.has("readerFontScale")) e[Keys.FONT_SCALE] = json.getDouble("readerFontScale").toFloat().coerceIn(0.7f, 2.6f)
             if (json.has("readerTheme")) e[Keys.READER_THEME] = json.getString("readerTheme")
             if (json.has("readerFont")) e[Keys.READER_FONT] = json.getString("readerFont")
             if (json.has("readerJustify")) e[Keys.READER_JUSTIFY] = json.getBoolean("readerJustify")
@@ -810,6 +824,7 @@ class PreferencesRepository @Inject constructor(
             if (json.has("linkCheckEnabled")) e[Keys.LINK_CHECK_ENABLED] = json.getBoolean("linkCheckEnabled")
             if (json.has("sanitizeArticles")) e[Keys.SANITIZE_ARTICLES] = json.getBoolean("sanitizeArticles")
             if (json.has("dictionaryOnline")) e[Keys.DICTIONARY_ONLINE] = json.getBoolean("dictionaryOnline")
+            if (json.has("mediaOnline")) e[Keys.MEDIA_ONLINE] = json.getBoolean("mediaOnline")
             if (json.has("autoOfflinePack")) e[Keys.AUTO_OFFLINE_PACK] = json.getBoolean("autoOfflinePack")
             if (json.has("dailyBriefNotify")) e[Keys.DAILY_BRIEF_NOTIFY] = json.getBoolean("dailyBriefNotify")
             json.optJSONArray("bottomTabsOrder")?.let { arr -> e[Keys.BOTTOM_TABS_ORDER] = (0 until arr.length()).joinToString(",") { arr.getString(it) } }

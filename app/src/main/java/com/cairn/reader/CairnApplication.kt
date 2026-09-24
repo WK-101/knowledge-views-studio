@@ -33,8 +33,9 @@ class CairnApplication : Application(), Configuration.Provider, SingletonImageLo
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
 
-    /** The app's hardened, cert-pinned OkHttp client, reused by Coil's image loader. Lazy so
-     *  building it stays off the Hilt field-injection path. */
+    /** The app's hardened OkHttp client (system-CA trust only, no user-added CAs; HTTPS enforced for
+     *  WebDAV), reused by Coil's image loader. Lazy so building it stays off the Hilt field-injection
+     *  path. */
     @Inject
     lateinit var imageHttpClient: dagger.Lazy<OkHttpClient>
 
@@ -82,6 +83,12 @@ class CairnApplication : Application(), Configuration.Provider, SingletonImageLo
     override fun onCreate() {
         super.onCreate()
         AppLog.init(this)
+        // Run the one-time plaintext→encrypted DB migration on a background thread started as early as
+        // possible, so it finishes (or is well underway) before Hilt resolves the DB — the provider
+        // only waits for its result and never runs the migration on the main thread. A plain Thread
+        // (not a dispatcher) starts promptly, before the first ViewModel can resolve a DAO.
+        Thread { runCatching { com.cairn.reader.data.db.DbCrypto.prepare(this) } }
+            .apply { name = "db-encrypt-prepare"; start() }
         // Record any uncaught exception (with a breadcrumb) to Logcat and the local diagnostics log
         // before the platform's default handler runs, so a crash leaves a trace instead of vanishing.
         val previous = Thread.getDefaultUncaughtExceptionHandler()
