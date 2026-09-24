@@ -49,6 +49,7 @@ private val reasons = mapOf(
     "android.permission.MODIFY_AUDIO_SETTINGS" to "Switch between earpiece, speaker and headsets.",
     "android.permission.READ_PHONE_NUMBERS" to "Optional: know your own number for neighbour-spoofing protection.",
     "android.permission.BLUETOOTH_CONNECT" to "Optional: show Bluetooth headset names during calls.",
+    "android.permission.READ_SYNC_SETTINGS" to "Tell you in the health check when contacts sync is off for an account.",
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -87,6 +88,7 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
                     Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
                 )
             }
+            item { app.parley.ui.people.PrivacyLinks(vm) }
             item { Section("What Parley keeps private") }
             item {
                 val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()

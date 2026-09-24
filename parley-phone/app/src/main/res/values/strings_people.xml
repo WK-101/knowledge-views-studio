@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="permission_lookup_private_name_label">look up names of Parley\'s private contacts</string>
+    <string name="permission_lookup_private_name_description">Lets the app ask Parley for the name of one phone number at a time, if that number belongs to one of your private contacts. Parley also asks you to approve each app, and never gives out a list.</string>
+</resources>

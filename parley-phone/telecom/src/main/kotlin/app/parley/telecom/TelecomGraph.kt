@@ -19,6 +19,8 @@ data class CallerDisplay(
     val note: String? = null,
     /** e.g. "Last call 3 days ago · 4 min". */
     val lastCall: String? = null,
+    /** Per-contact call-screen background (file URI in app storage), or null. See PeopleContainer.callBackgroundFor. */
+    val backgroundUri: String? = null,
 )
 
 data class InCallAppearance(

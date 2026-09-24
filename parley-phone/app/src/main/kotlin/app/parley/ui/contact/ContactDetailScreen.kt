@@ -113,6 +113,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     var pinDialog by remember { mutableStateOf(false) }
     var reachOut by remember { mutableStateOf(false) }
     var secureQr by remember { mutableStateOf(false) }
+    var copyToSim by remember { mutableStateOf(false) }
     val allNotes by vm.c.meta.allCallNotes().collectAsStateWithLifecycle(emptyList())
     var editNote by remember { mutableStateOf(false) }
     var messengers by remember { mutableStateOf<List<app.parley.data.MessengerAction>>(emptyList()) }
@@ -163,6 +164,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             DropdownMenuItem({ Text("Share privately (encrypted QR)") }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = { menu = false; secureQr = true })
                             DropdownMenuItem({ Text("Version history") }, leadingIcon = { Icon(Icons.Rounded.History, null) }, onClick = { menu = false; open(Routes.versions(contactId)) })
                             DropdownMenuItem({ Text("Add to home screen") }, leadingIcon = { Icon(Icons.Rounded.AddToHomeScreen, null) }, onClick = { menu = false; pinDialog = true })
+                            if (d.phones.isNotEmpty()) DropdownMenuItem({ Text("Copy to SIM") }, leadingIcon = { Icon(Icons.Rounded.SimCard, null) }, onClick = { menu = false; copyToSim = true })
                             DropdownMenuItem({ Text("Set ringtone") }, leadingIcon = { Icon(Icons.Rounded.MusicNote, null) }, onClick = {
                                 menu = false
                                 ringtonePicker.launch(
@@ -218,10 +220,9 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp),
                     )
                     temp?.let { Text("Deletes itself on ${Format.fullDate(context, it.expiresAt)}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        d.rawContacts.map { it.account.displayLabel }.distinct().take(3).forEach { label ->
-                            androidx.compose.material3.SuggestionChip(onClick = {}, label = { Text(label, style = MaterialTheme.typography.labelSmall) }, icon = { Icon(Icons.Rounded.Sync, null, Modifier.size(14.dp)) })
-                        }
+                    app.parley.ui.people.AccountChips(vm, d, open) { newId ->
+                        if (newId != null && newId != contactId) { back(); open(Routes.contact(newId)) }
+                        else scope.launch { details = vm.c.contacts.details(contactId) }
                     }
                     Spacer(Modifier.height(20.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -277,7 +278,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             }
             if (d.events.isNotEmpty() || d.websites.isNotEmpty() || d.note.isNotBlank() || d.relations.isNotEmpty()) item { Section("About ${d.given.ifBlank { d.displayName }}") }
             d.events.forEach { ev ->
-                item { Row0(Icons.Rounded.Cake, describeEvent(ev.date, ev.type == Event.TYPE_BIRTHDAY), if (ev.type == 0 && !ev.label.isNullOrBlank()) ev.label!! else resources.getString(Event.getTypeResource(ev.type))) {} }
+                item { Row0(Icons.Rounded.Cake, app.parley.ui.people.describeLifeEvent(d, ev), app.parley.ui.people.eventLabel(resources, ev)) {} }
             }
             d.websites.forEach { w -> item { Row0(Icons.Rounded.Language, w.value, "Website") { Intents.web(context, w.value) } } }
             d.relations.forEach { r ->
@@ -342,6 +343,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             item {
                 Row0(Icons.Rounded.Sync, d.rawContacts.joinToString("\n") { it.account.displayLabel }, if (d.rawContacts.size > 1) "Linked from ${d.rawContacts.size} sources" else "Saved in") {}
             }
+            item { app.parley.ui.people.ProvenanceRow(vm, contactId, d, open) }
+            item { app.parley.ui.people.CallBackgroundInfoRow(vm, d) { open(Routes.edit(id = contactId)) } }
             val keys = d.phones.map { PhoneNumbers.matchKey(it.value) }.toSet()
             val notes = allNotes.filter { it.numberKey in keys }
             if (notes.isNotEmpty()) {
@@ -371,6 +374,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
 
         if (showQr) QrDialog(d) { showQr = false }
         if (secureQr) SecureQrDialog(d) { secureQr = false }
+        if (copyToSim) app.parley.ui.people.CopyToSimDialog(vm, d) { copyToSim = false }
         if (editNote) {
             var text by remember { mutableStateOf(meta?.pinnedNote.orEmpty()) }
             AlertDialog(
@@ -414,7 +418,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         }
                         ListItem(headlineContent = { Text("Open contact") }, leadingContent = { Icon(Icons.Rounded.Person, null) }, modifier = Modifier.clickable {
                             pinDialog = false
-                            app.parley.shortcuts.Shortcuts.pin(context, app.parley.shortcuts.Shortcuts.Kind.OPEN, d.displayName, null, contactId, d.photoUri)
+                            app.parley.shortcuts.Shortcuts.pin(context, app.parley.shortcuts.Shortcuts.Kind.OPEN, d.displayName, null, contactId, d.photoUri, d.lookupKey)
                         })
                     }
                 },

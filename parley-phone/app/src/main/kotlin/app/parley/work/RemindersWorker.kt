@@ -38,9 +38,13 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Birthdays & reminders", NotificationManager.IMPORTANCE_DEFAULT))
         val today = LocalDate.now()
         if (s.birthdayReminders) {
-            c.contacts.events().forEach { e ->
+            val events = c.contacts.events()
+            // Someone with a date of death gets no "turns 80 today" notification.
+            val deceased = events.filter { app.parley.common.people.LifeEvents.isDeath(it.type, it.label) }.map { it.contactId }.toSet()
+            events.forEach { e ->
                 val d = EventDate.parse(e.date) ?: return@forEach
                 if (d.daysUntil(today) != 0L) return@forEach
+                if (!app.parley.common.people.LifeEvents.remindBirthday(e.type, e.contactId in deceased)) return@forEach
                 val what = when (e.type) {
                     Event.TYPE_BIRTHDAY -> d.turning(today)?.let { "turns $it today" } ?: "has a birthday today"
                     Event.TYPE_ANNIVERSARY -> d.turning(today)?.let { "anniversary: $it years" } ?: "anniversary today"

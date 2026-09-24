@@ -52,7 +52,8 @@ object Shortcuts {
         return out
     }
 
-    fun pin(context: Context, kind: Kind, name: String, number: String?, contactId: Long?, photoUri: String?): Boolean {
+    /** [lookupKey] makes an "open contact" shortcut survive contact re-aggregation (ids change, lookup keys don't). */
+    fun pin(context: Context, kind: Kind, name: String, number: String?, contactId: Long?, photoUri: String?, lookupKey: String? = null): Boolean {
         if (!ShortcutManagerCompat.isRequestPinShortcutSupported(context)) return false
         val label = when (kind) {
             Kind.CALL -> name
@@ -63,7 +64,15 @@ object Shortcuts {
             .setShortLabel(label.take(24))
             .setLongLabel(label)
             .setIcon(icon(context, name, photoUri))
-            .setIntent(intent(context, kind, number, contactId))
+            .setIntent(
+                if (kind == Kind.OPEN && contactId != null && !lookupKey.isNullOrEmpty()) {
+                    // Opens the contact page through its lookup URI, which MainActivity resolves to the current id.
+                    Intent(context, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
+                        .setData(android.provider.ContactsContract.Contacts.getLookupUri(contactId, lookupKey))
+                } else {
+                    intent(context, kind, number, contactId)
+                },
+            )
             .build()
         return ShortcutManagerCompat.requestPinShortcut(context, info, null)
     }

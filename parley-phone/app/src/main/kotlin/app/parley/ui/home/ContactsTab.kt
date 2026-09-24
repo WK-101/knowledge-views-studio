@@ -71,32 +71,16 @@ fun sectionOf(name: String): String {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
-    val list by vm.filteredContacts.collectAsStateWithLifecycle()
+    val list by vm.people.filtered.collectAsStateWithLifecycle()
     val query by vm.contactQuery.collectAsStateWithLifecycle()
-    val selectedGroup by vm.selectedGroup.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
-    var groups by remember { mutableStateOf<List<GroupInfo>>(emptyList()) }
-    val all by vm.contacts.collectAsStateWithLifecycle()
-    LaunchedEffect(all?.size) { groups = withContext(Dispatchers.IO) { vm.c.contacts.groups() } }
+    val secondLines by vm.people.secondLines.collectAsStateWithLifecycle()
+    val filter by vm.people.filter.collectAsStateWithLifecycle()
 
     val showVault by vm.showVault.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val vaultList by vm.c.vault.contacts.collectAsStateWithLifecycle()
-    val chips: @Composable () -> Unit = {
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selectedGroup == null && !showVault, { vm.showVault.value = false; vm.selectGroup(null) }, label = { Text("All") })
-            if (!settings.hideVault) {
-                FilterChip(
-                    showVault, { vm.showVault.value = !showVault; vm.selectGroup(null) },
-                    label = { Text("Private") },
-                    leadingIcon = { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Rounded.Lock, null, Modifier.size(16.dp)) },
-                )
-            }
-            groups.distinctBy { it.title }.forEach { g ->
-                FilterChip(selectedGroup == g.id && !showVault, { vm.showVault.value = false; vm.selectGroup(if (selectedGroup == g.id) null else g.id) }, label = { Text(g.title) })
-            }
-        }
-    }
+    val chips: @Composable () -> Unit = { app.parley.ui.people.ContactsFilterChips(vm, showVault, settings.hideVault, open) }
     if (showVault && !settings.hideVault) {
         LazyColumn(Modifier.fillMaxSize()) {
             item { chips() }
@@ -151,7 +135,15 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
             item(key = "groups") { chips() }
             if (contacts.isEmpty()) {
                 item(key = "empty") {
-                    EmptyState(Icons.Rounded.People, if (query.isBlank()) "No contacts" else "No matches for “$query”", modifier = Modifier.padding(top = 48.dp))
+                    EmptyState(
+                        Icons.Rounded.People,
+                        when {
+                            query.isNotBlank() -> "No matches for “$query”"
+                            !filter.isEmpty -> "No contacts match this filter"
+                            else -> "No contacts"
+                        },
+                        modifier = Modifier.padding(top = 48.dp),
+                    )
                 }
             }
             var last: String? = null
@@ -169,6 +161,7 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
                 item(key = c.id) {
                     ContactRow(
                         c,
+                        secondLine = secondLines[c.id],
                         actions = settings.contactRowActions && selection.isEmpty(),
                         onCall = { n -> vm.requestCall(n, c.displayName) },
                         selected = c.id in selection,
@@ -190,6 +183,7 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
 @Composable
 fun ContactRow(
     c: ContactSummary,
+    secondLine: String? = null,
     actions: Boolean = false,
     onCall: (String) -> Unit = {},
     selected: Boolean = false,
@@ -214,6 +208,7 @@ fun ContactRow(
             }
         },
         headlineContent = { Text(c.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.shared("name-${c.id}", bounds = true)) },
+        supportingContent = secondLine?.let { { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
         trailingContent = if (actions && c.phones.isNotEmpty()) ({
             val ctx = androidx.compose.ui.platform.LocalContext.current
             val n = (c.phones.firstOrNull { it.isPrimary } ?: c.phones.first()).number

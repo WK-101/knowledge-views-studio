@@ -31,7 +31,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         val last = lastCallSummary(number)
         c.contacts.lookup(number)?.let {
             val note = it.lookupKey?.let { k -> c.meta.meta(k)?.pinnedNote }
-            CallerDisplay(it.name, it.photoUri, it.numberLabel, it.contactId, it.lookupKey, note, last)
+            CallerDisplay(it.name, it.photoUri, it.numberLabel, it.contactId, it.lookupKey, note, last, backgroundUri = c.people.backgrounds.forLookupKey(it.lookupKey))
         } ?: c.vault.lookup(number)?.let { (_, info) -> CallerDisplay(info.name, null, info.numberLabel, null, null, null, last) }
     }
 

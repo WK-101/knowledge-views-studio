@@ -19,6 +19,7 @@ import app.parley.data.CallLogRepository
 import app.parley.data.PhoneEnv
 import app.parley.data.PlaceResult
 import app.parley.shortcuts.Shortcuts
+import app.parley.ui.people.PeopleUi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
@@ -183,6 +184,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 (q.isBlank() || TextSearch.matches(q, ct.displayName, ct.phones.map { it.number }, ct.emails))
         }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Contacts-feature state: label and account filters, second line, favourites order. */
+    val people = PeopleUi(c, viewModelScope, contacts, contactQuery, countryIso)
 
     val favorites: StateFlow<List<ContactSummary>> = contacts.map { it.orEmpty().filter { c -> c.starred } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())

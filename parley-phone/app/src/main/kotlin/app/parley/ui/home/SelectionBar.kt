@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.CallMerge
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.SelectAll
@@ -55,10 +56,11 @@ fun SelectionBar(vm: AppViewModel) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val selection by vm.selection.collectAsStateWithLifecycle()
-    val all by vm.filteredContacts.collectAsStateWithLifecycle()
+    val all by vm.people.filtered.collectAsStateWithLifecycle()
     val chosen = all.orEmpty().filter { it.id in selection }
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var confirmPrivate by remember { mutableStateOf(false) }
     var labelPicker by remember { mutableStateOf<List<GroupInfo>?>(null) }
 
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-vcard")) { uri ->
@@ -109,12 +111,16 @@ fun SelectionBar(vm: AppViewModel) {
                         menu = false
                         exporter.launch("contacts-${chosen.size}.vcf")
                     })
+                    DropdownMenuItem({ Text("Move to private") }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = { menu = false; confirmPrivate = true })
                     DropdownMenuItem({ Text("Delete") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
                 }
             }
         }
     }
 
+    if (confirmPrivate) {
+        app.parley.ui.people.MoveToPrivateDialog(vm, chosen.map { it.id }, onDismiss = { confirmPrivate = false }) { vm.selection.value = emptySet() }
+    }
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },

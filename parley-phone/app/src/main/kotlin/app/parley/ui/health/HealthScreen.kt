@@ -1,6 +1,7 @@
 package app.parley.ui.health
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -67,10 +68,14 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             return@Scaffold
         }
         if (list.isEmpty()) {
-            EmptyState(Icons.Rounded.HealthAndSafety, "All tidy", "No problems found in your contacts.", Modifier.padding(p))
+            androidx.compose.foundation.layout.Column(Modifier.padding(p).verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                app.parley.ui.people.AccountDiagnosticsSection(vm)
+                EmptyState(Icons.Rounded.HealthAndSafety, "All tidy", "No problems found in your contacts.")
+            }
             return@Scaffold
         }
         LazyColumn(Modifier.padding(p)) {
+            item { app.parley.ui.people.AccountDiagnosticsSection(vm) }
             titles.forEach { (kind, title) ->
                 val group = list.filter { it.kind == kind }
                 if (group.isEmpty()) return@forEach
