@@ -3,7 +3,10 @@ package app.parley.telecom
 import android.content.Context
 import android.os.PowerManager
 
-/** Turns the screen off when the phone is held to the ear during an earpiece call. */
+/**
+ * Turns the screen off when the phone is held to the ear during an earpiece call. Can be switched off in
+ * Settings › Calls (V6), for broken sensors or for listening with the phone in a pocket.
+ */
 class ProximityController(context: Context) {
     private val pm = context.getSystemService(PowerManager::class.java)
     private val lock: PowerManager.WakeLock? =
@@ -13,7 +16,11 @@ class ProximityController(context: Context) {
             null
         }
 
-    fun update(calls: List<CallUi>, audio: AudioUi, uiVisible: Boolean) {
+    fun update(calls: List<CallUi>, audio: AudioUi, uiVisible: Boolean, enabled: Boolean = true) {
+        if (!enabled) {
+            release()
+            return
+        }
         val inCall = calls.any { it.state == CallState.ACTIVE || it.state == CallState.DIALING || it.state == CallState.CONNECTING }
         val earpiece = audio.current == null || audio.current.type == RouteType.EARPIECE
         if (inCall && earpiece && uiVisible) acquire() else release()

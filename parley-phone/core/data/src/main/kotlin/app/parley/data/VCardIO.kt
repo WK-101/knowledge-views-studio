@@ -112,6 +112,38 @@ class VCardIO(
             }
         }
 
+    /**
+     * M12: the start of a CSV file for the column-mapping screen: its separator, the first [rows] lines and whether it
+     * is Parley's own format (then [import] reads it without asking). Null when the file isn't a CSV (a vCard).
+     */
+    data class CsvPreview(val delimiter: Char, val rows: List<List<String>>, val parley: Boolean, val numberList: Boolean)
+
+    suspend fun csvPreview(source: Uri, rows: Int = 30): CsvPreview? = withContext(Dispatchers.IO) {
+        if (!looksLikeCsv(source)) return@withContext null
+        val input = cr.openInputStream(source) ?: throw java.io.FileNotFoundException("Could not open the file")
+        VCardStream.reader(input).buffered().use { r ->
+            val (delimiter, numberList) = ContactCsv.sniff(r)
+            val head = ContactCsv.parse(r, delimiter).take(rows).toList()
+            CsvPreview(delimiter, head, parley = head.firstOrNull()?.let { app.parley.common.vcard.CsvColumnMapping.isParleyHeader(it) } == true, numberList = numberList)
+        }
+    }
+
+    /** M12: imports a CSV with the columns the user mapped ([mapping], one per column). */
+    suspend fun importMapped(
+        source: Uri,
+        account: AccountRef,
+        delimiter: Char,
+        mapping: List<app.parley.common.vcard.ColumnTarget>,
+        hasHeader: Boolean,
+        progress: (Int, Int) -> Unit = { _, _ -> },
+        skipDuplicates: Boolean = false,
+    ): ImportReport = withContext(Dispatchers.IO) {
+        runImport(account, 0, progress, skipDuplicates) { report, sink ->
+            val input = cr.openInputStream(source) ?: throw java.io.FileNotFoundException("Could not open the file")
+            VCardStream.reader(input).use { app.parley.common.vcard.CsvColumnMapping.read(it, delimiter, mapping, hasHeader, report, sink) }
+        }
+    }
+
     private suspend fun runImport(
         account: AccountRef,
         total: Int,

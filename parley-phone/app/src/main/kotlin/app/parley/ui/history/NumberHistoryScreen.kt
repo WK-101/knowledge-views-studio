@@ -129,6 +129,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
             }
             item { CallInsightsSection(vm, listOf(number) + contact?.phones?.map { it.number }.orEmpty(), title = "Insights") }
             item { app.parley.ui.blocking.ScreeningHistorySection(vm, number, contact?.displayName) }
+            item { app.parley.ui.calls.RingFactsHistorySection(vm, number) }
             if (notes.isNotEmpty()) {
                 item { app.parley.ui.contact.Section("Call notes") }
                 items(notes, key = { "n" + it.id }) { n ->

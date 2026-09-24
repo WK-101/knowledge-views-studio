@@ -59,6 +59,8 @@ import androidx.compose.material.icons.rounded.SimCardDownload
 import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.GroupAdd
+import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Tag
@@ -203,6 +205,7 @@ internal fun CallsPage(vm: AppViewModel, open: (String) -> Unit) {
             )
         }
     }
+    CallExtrasGroups(vm)
     SegmentedGroup("SIMs and carrier") {
         linkRow("sims", Icons.Rounded.SimCard) { open(HistoryRoutes.SIMS) }
         linkRow("sim_accounts", Icons.Rounded.SettingsPhone, external = true) { context.startSafely(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
@@ -315,6 +318,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
         linkRow("temporary_contacts", Icons.Rounded.AutoDelete, sub = if (tempCount == 0) entry("temporary_contacts").summary else "$tempCount · they delete themselves") {
             open(Routes.TEMPORARY)
         }
+        linkRow("bulk_add", Icons.Rounded.GroupAdd) { open(app.parley.messaging.MessagingRoutes.BULK_ADD) }
         linkRow("duplicates", Icons.AutoMirrored.Rounded.CallMerge) { open(Routes.DUPLICATES) }
         linkRow("health", Icons.Rounded.HealthAndSafety) { open(Routes.HEALTH) }
     }
@@ -353,6 +357,13 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
                         ListItem(headlineContent = { Text(vm.accountLabel(a)) }, colors = rowColors(), modifier = Modifier.clickable {
                             importAccounts = null
                             scope.launch {
+                                // M12: a CSV in another layout (Google, Outlook, any columns) goes to the column mapping first.
+                                val preview = runCatching { vm.c.vcards.csvPreview(uri) }.getOrNull()
+                                if (preview != null && !preview.parley) {
+                                    app.parley.messaging.MessagingInbox.csvImport = app.parley.messaging.CsvImportRequest(uri, a, skipDuplicates)
+                                    open(app.parley.messaging.MessagingRoutes.CSV_MAPPING)
+                                    return@launch
+                                }
                                 progress = "Importing…"
                                 val report = try {
                                     vm.c.vcards.import(uri, a, skipDuplicates = skipDuplicates)
@@ -398,13 +409,27 @@ internal fun HistoryPage(vm: AppViewModel, open: (String) -> Unit) {
 // ---------------------------------------------------------------- Messaging
 
 @Composable
-internal fun MessagingPage(vm: AppViewModel) {
+internal fun MessagingPage(vm: AppViewModel, open: (String) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
+    val scope = rememberCoroutineScope()
     var editReplies by remember { mutableStateOf(false) }
     SegmentedGroup {
         linkRow("quick_replies", Icons.Rounded.Quickreply, sub = s.quickReplies.joinToString(" · ")) { editReplies = true }
         item("my_details") { MyDetailsRow(vm, Icons.Rounded.Badge) }
+    }
+    // M10: the record of numbers you opened chats with, and when it forgets them.
+    val recorded by vm.c.messaging.lastMessaged.collectAsStateWithLifecycle()
+    val recording by vm.c.messaging.recordEnabled.collectAsStateWithLifecycle()
+    val expiry by vm.c.messaging.expiryDays.collectAsStateWithLifecycle()
+    SegmentedGroup("Messaged numbers") {
+        linkRow("messaged_numbers", Icons.AutoMirrored.Rounded.Chat, sub = if (recording) "${recorded.size} numbers" else "Not kept") {
+            open(app.parley.messaging.MessagingRoutes.MESSAGED)
+        }
+        val choices = app.parley.common.MessagedRecord.EXPIRY_CHOICES
+        menuRow("messaged_expiry", choices.map { app.parley.common.MessagedRecord.expiryLabel(it) }, choices.indexOf(expiry).coerceAtLeast(0), Icons.Rounded.Timer) { i ->
+            scope.launch { vm.c.messaging.setExpiryDays(choices[i]) }
+        }
     }
     if (editReplies) {
         QuickRepliesDialog(s.quickReplies, onDismiss = { editReplies = false }) { list ->

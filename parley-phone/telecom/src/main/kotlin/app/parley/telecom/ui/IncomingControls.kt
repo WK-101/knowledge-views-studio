@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CallEnd
+import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -70,9 +71,11 @@ fun IncomingControls(call: CallUi, gesture: AnswerGesture, hasActiveCall: Boolea
             }
             Spacer(Modifier.height(28.dp))
         }
+        // V5: on dual-SIM phones, which SIM the call came in on ("Work · …4567"), right on the answer control.
+        val sim = call.simHint
         when (gesture) {
-            AnswerGesture.SWIPE -> AnswerSlider(onAnswer = { CallManager.answer(call.id) }, onDecline = { CallManager.reject(call.id) })
-            AnswerGesture.TAP -> AnswerButtons(onAnswer = { CallManager.answer(call.id) }, onDecline = { CallManager.reject(call.id) })
+            AnswerGesture.SWIPE -> AnswerSlider(sim, onAnswer = { CallManager.answer(call.id) }, onDecline = { CallManager.reject(call.id) })
+            AnswerGesture.TAP -> AnswerButtons(sim, onAnswer = { CallManager.answer(call.id) }, onDecline = { CallManager.reject(call.id) })
         }
         if (!call.silenced) {
             Spacer(Modifier.height(8.dp))
@@ -86,23 +89,40 @@ fun IncomingControls(call: CallUi, gesture: AnswerGesture, hasActiveCall: Boolea
 }
 
 @Composable
-private fun AnswerButtons(onAnswer: () -> Unit, onDecline: () -> Unit) {
+private fun AnswerButtons(sim: String?, onAnswer: () -> Unit, onDecline: () -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
         RoundAction(Icons.Rounded.CallEnd, "Decline", CallColors.Decline, onDecline)
-        RoundAction(Icons.Rounded.Call, "Answer", CallColors.Accept, onAnswer)
+        RoundAction(Icons.Rounded.Call, "Answer", CallColors.Accept, onAnswer, sub = sim, a11y = sim?.let { "Answer on $it" })
     }
 }
 
 @Composable
-private fun RoundAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: Color, onClick: () -> Unit) {
+private fun RoundAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: Color, onClick: () -> Unit,
+    sub: String? = null, a11y: String? = null,
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier.size(80.dp).clip(CircleShape).background(color)
                 .clickable(role = Role.Button, onClick = onClick)
-                .semantics { contentDescription = label },
+                .semantics { contentDescription = a11y ?: label },
             contentAlignment = Alignment.Center,
         ) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(36.dp)) }
         Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+        if (sub != null) SimTag(sub, Modifier.padding(top = 4.dp))
+    }
+}
+
+/** The SIM a call came in on, as a small tag under the answer control (V5). */
+@Composable
+private fun SimTag(text: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Rounded.SimCard, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+        Spacer(Modifier.size(4.dp))
+        Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer, maxLines = 1)
     }
 }
 
@@ -111,7 +131,7 @@ private fun RoundAction(icon: androidx.compose.ui.graphics.vector.ImageVector, l
  * past 55% of the track, which avoids pocket answers. TalkBack users get explicit actions.
  */
 @Composable
-private fun AnswerSlider(onAnswer: () -> Unit, onDecline: () -> Unit) {
+private fun AnswerSlider(sim: String?, onAnswer: () -> Unit, onDecline: () -> Unit) {
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     val offset = remember { Animatable(0f) }
@@ -125,7 +145,7 @@ private fun AnswerSlider(onAnswer: () -> Unit, onDecline: () -> Unit) {
             .clip(RoundedCornerShape(44.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .semantics {
-                contentDescription = "Incoming call. Slide right to answer, left to decline."
+                contentDescription = "Incoming call" + (sim?.let { " on $it" } ?: "") + ". Slide right to answer, left to decline."
                 customActions = listOf(
                     CustomAccessibilityAction("Answer") { onAnswer(); true },
                     CustomAccessibilityAction("Decline") { onDecline(); true },
@@ -140,11 +160,18 @@ private fun AnswerSlider(onAnswer: () -> Unit, onDecline: () -> Unit) {
 
         Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.CallEnd, null, tint = CallColors.Decline.copy(alpha = 0.5f + 0.5f * (-progress).coerceAtLeast(0f)))
-            Text(
-                if (progress > 0.1f) "Answer" else if (progress < -0.1f) "Decline" else "Slide to answer",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    if (progress > 0.1f) "Answer" else if (progress < -0.1f) "Decline" else "Slide to answer",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (sim != null && abs(progress) <= 0.1f) {
+                    Text(
+                        "on $sim", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1,
+                    )
+                }
+            }
             Icon(Icons.Rounded.Call, null, tint = CallColors.Accept.copy(alpha = 0.5f + 0.5f * progress.coerceAtLeast(0f)))
         }
         val color = when {

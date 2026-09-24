@@ -98,7 +98,7 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
                 val journalCount by androidx.compose.runtime.produceState(0) { value = vm.c.meta.journalCount() }
                 ListItem(headlineContent = { Text("${vault.size} private contacts") }, supportingContent = { Text("Encrypted; invisible to every other app") })
                 ListItem(headlineContent = { Text("${priv.size} private calls") }, supportingContent = { Text("Kept out of the system call log") })
-                app.parley.messaging.MessagedRecordSection()
+                app.parley.messaging.MessagedRecordSection { vm.navigate(app.parley.NavEvent.Route(app.parley.messaging.MessagingRoutes.MESSAGED)) }
                 val archiveOn by vm.c.history.prefs.state.collectAsStateWithLifecycle()
                 ListItem(
                     headlineContent = { Text(if (s.callLogRetentionDays > 0) "Call history kept ${s.callLogRetentionDays} days" else "Parley never deletes call history on its own") },

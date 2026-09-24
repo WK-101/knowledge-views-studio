@@ -72,6 +72,17 @@ object MessengerLinks {
     }
 
     /**
+     * M13: Telegram's profile page for a number (`tg://resolve?phone=<digits>&profile`) rather than the chat, in
+     * [app] (Telegram, Telegram X…). Versions that don't know `profile` open the chat instead. Null when [app] isn't
+     * a Telegram app or [e164] isn't an international number.
+     */
+    fun telegramProfile(app: MessengerApp, e164: String): MessengerLink? {
+        if (app.messenger != Messenger.TELEGRAM) return null
+        val digits = internationalDigits(e164) ?: return null
+        return MessengerLink(MessengerLink.ACTION_VIEW, "tg://resolve?phone=$digits&profile", app.packageName)
+    }
+
+    /**
      * SMS to [number]: the international form when known (so it works abroad), otherwise the number as given
      * (short codes). [smsPackage] is the default SMS app.
      */

@@ -35,7 +35,7 @@ class ParleyInCallService : InCallService() {
         CallClock.attach(this)
         CallManager.onChanged = { calls ->
             notifier.update(calls)
-            proximity.update(calls, CallManager.audio.value, CallManager.uiVisible)
+            proximity.update(calls, CallManager.audio.value, CallManager.uiVisible, runCatching { TelecomGraph.dependencies.proximityEnabled() }.getOrDefault(true))
         }
     }
 

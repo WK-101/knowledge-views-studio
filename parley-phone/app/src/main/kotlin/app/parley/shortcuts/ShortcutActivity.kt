@@ -1,6 +1,10 @@
 package app.parley.shortcuts
 
 import android.app.Activity
+import app.parley.calls.ProximityProbe
+import app.parley.common.calls.CallSource
+import app.parley.common.calls.PocketGuard
+import kotlinx.coroutines.Dispatchers
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -19,6 +23,11 @@ class ShortcutActivity : Activity() {
         when (kind) {
             Shortcuts.Kind.CALL -> if (!number.isNullOrBlank()) {
                 if (contactId > 0) ShortcutManagerCompat.reportShortcutUsed(this, "fav-$contactId")
+                // V8: one tap on a widget or shortcut in a pocket shouldn't call anyone; ask while the sensor is covered.
+                if (container.callExtras.config.value.pocketGuard) {
+                    guardThenCall(number)
+                    return
+                }
                 container.scope.launch { container.placer.call(number) }
             }
             Shortcuts.Kind.MESSAGE -> if (!number.isNullOrBlank()) runCatching {
@@ -31,6 +40,26 @@ class ShortcutActivity : Activity() {
             null -> Unit
         }
         finish()
+    }
+
+    private fun guardThenCall(number: String) {
+        val c = container
+        c.scope.launch(Dispatchers.Main) {
+            val covered = ProximityProbe.isCovered(this@ShortcutActivity)
+            if (isFinishing || isDestroyed) return@launch
+            if (!PocketGuard.shouldAsk(true, CallSource.SHORTCUT, covered)) {
+                c.scope.launch { c.placer.call(number) }
+                finish()
+                return@launch
+            }
+            android.app.AlertDialog.Builder(this@ShortcutActivity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Call $number?")
+                .setMessage(PocketGuard.QUESTION)
+                .setPositiveButton("Call") { _, _ -> c.scope.launch { c.placer.call(number) } }
+                .setNegativeButton("Cancel", null)
+                .setOnDismissListener { finish() }
+                .show()
+        }
     }
 
     companion object {

@@ -18,6 +18,13 @@ import app.parley.telecom.InCallAppearance
 import app.parley.telecom.TelecomDependencies
 import app.parley.work.HistoryWorker
 import app.parley.telecom.ScreenOutcome
+import app.parley.telecom.PostCallAction
+import app.parley.common.calls.RingFacts
+import app.parley.common.AllowReason
+import app.parley.common.ScreeningResult
+import app.parley.data.TemporaryContacts
+import app.parley.messaging.TemporaryContact
+import app.parley.common.calls.RingtoneSource
 import app.parley.data.ScreenRequest
 import app.parley.common.VerdictKind
 import kotlinx.coroutines.Dispatchers
@@ -130,8 +137,66 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 ringtone = r.ringtone,
                 ringLoud = r.ringLoud,
                 deferredToSim = r.deferredToSim,
+                ringtoneSource = ringtoneSource(r),
+                ringtoneName = when {
+                    r.ringtone == null -> null
+                    r.allowedBy == AllowReason.RULE && r.rule?.ringtone != null -> r.rule?.title
+                    r.allowedBy == AllowReason.CONTACT || r.allowedBy == null ->
+                        c.peoplePrefs.settings.value.labelRingtones.entries.firstOrNull { it.value == r.ringtone }?.key
+                    else -> null
+                },
             )
         }
+
+    /** V9: where the screener's ringtone comes from. */
+    private fun ringtoneSource(r: ScreeningResult): RingtoneSource? = when {
+        r.ringtone == null -> null
+        r.allowedBy == AllowReason.RULE && r.rule?.ringtone != null -> RingtoneSource.RULE
+        r.allowedBy == AllowReason.REPEAT -> RingtoneSource.REPEAT
+        r.allowedBy == AllowReason.DEFAULT -> RingtoneSource.LIKELY_SPAM
+        else -> RingtoneSource.LABEL
+    }
+
+    // ---- v3.1 calls (V4, V6, V9) ----
+
+    override fun proximityEnabled(): Boolean = c.callExtras.config.value.proximitySensor
+
+    override fun onRingFacts(number: String?, facts: RingFacts) {
+        c.scope.launch(Dispatchers.IO) {
+            runCatching {
+                // Calls with private contacts leave no trace outside the vault when "Private call history" is on.
+                if (number != null && c.settings.current().privateVaultHistory && c.vault.lookup(number) != null) return@runCatching
+                // Android played the tone: say whether it was the contact's own or the default.
+                val refined = if (facts.ringtone == RingtoneSource.SYSTEM && number != null) {
+                    facts.copy(ringtone = if (contactRingtone(number) != null) RingtoneSource.CONTACT else RingtoneSource.DEFAULT)
+                } else {
+                    facts
+                }
+                c.ringFacts.add(number, refined)
+            }
+        }
+    }
+
+    private fun contactRingtone(number: String): String? = runCatching { c.contacts.lookup(number)?.customRingtone }.getOrNull()
+
+    override fun postCallIntent(context: Context, action: PostCallAction, number: String): Intent =
+        Intent(context, MainActivity::class.java)
+            .setAction(MainActivity.ACTION_POST_CALL)
+            .putExtra(MainActivity.EXTRA_POST_CALL_ACTION, action.name)
+            .putExtra(MainActivity.EXTRA_NUMBER, number)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    override suspend fun savePrivately(number: String, name: String): String? = withContext(Dispatchers.IO) {
+        val saved = runCatching { TemporaryContacts.save(c, name, number, private = true) }.getOrNull() ?: return@withContext null
+        val days = TemporaryContacts.DEFAULT_DAYS
+        if (saved.private) "Saved privately. Deletes itself in $days days." else "Saved. Deletes itself in $days days."
+    }
+
+    override fun suggestedName(number: String): String {
+        val iso = PhoneEnv.countryIso(app)
+        val shown = TemporaryContact.suggestedName(number, null, iso.uppercase())
+        return NumberInfo.location(number, iso)?.let { "$it · $shown" } ?: shown
+    }
 
     override fun simRulesActive(): Boolean = c.screener.hasSimRules()
 

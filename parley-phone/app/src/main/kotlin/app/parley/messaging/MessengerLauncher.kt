@@ -37,6 +37,25 @@ object MessengerLauncher {
      * Opens [link]. Returns null on success, or a message to show: "Install or enable WhatsApp" when the app can't
      * take the link. Never falls back to another app.
      */
+    /**
+     * Opens a chat with [e164] in [app] with [draft] prefilled; for apps that can't take text (Signal, Viber) the
+     * draft is copied, marked sensitive, for pasting. Returns null on success or the message to show.
+     */
+    fun openChat(context: Context, app: MessengerApp, e164: String, draft: String?): String? {
+        val link = MessengerLinks.build(app, e164, draft) ?: return MessengerLinks.unavailableReason(e164) ?: "Can't open this number"
+        if (!draft.isNullOrBlank() && !app.takesText) copySensitive(context, draft)
+        return open(context, link, app)
+    }
+
+    /** Copies [text] for pasting, kept out of clipboard previews and keyboard suggestions on Android 13+ (F19). */
+    fun copySensitive(context: Context, text: String) {
+        val clip = android.content.ClipData.newPlainText("message", text)
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            clip.description.extras = android.os.PersistableBundle().apply { putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true) }
+        }
+        context.getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(clip)
+    }
+
     fun open(context: Context, link: MessengerLink, app: MessengerApp?): String? {
         val i = intent(link)
         if (i.resolveActivity(context.packageManager) == null) {

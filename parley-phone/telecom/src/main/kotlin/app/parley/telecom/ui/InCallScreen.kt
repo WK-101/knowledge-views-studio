@@ -90,6 +90,7 @@ import app.parley.telecom.CallUi
 import app.parley.telecom.RouteType
 import app.parley.ui.Avatar
 import app.parley.ui.CallColors
+import app.parley.ui.keypadKey
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -103,6 +104,8 @@ fun InCallScreen(
     onKeypad: (Boolean) -> Unit,
     onAddCall: () -> Unit,
     onOpenContact: (CallUi) -> Unit,
+    /** V4: what the user did on the post-call card (touching it at all keeps the screen up). */
+    onPostCall: (PostCallChoice) -> Unit = {},
 ) {
     val live = calls.filter { it.isLive }
     val primary = live.firstOrNull { it.state == CallState.RINGING }
@@ -175,11 +178,15 @@ fun InCallScreen(
             }
             val controls: @Composable ColumnScope.(Boolean) -> Unit = { scrollKeypad ->
                 when {
-                    primary == null -> Text(
-                        ended?.disconnectReason ?: "Call ended",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(bottom = 64.dp),
-                    )
+                    primary == null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            ended?.disconnectReason ?: "Call ended",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.padding(bottom = if (ended?.postCallCard == true) 16.dp else 64.dp),
+                        )
+                        // V4: block, save, message or report an unknown number right after the call.
+                        if (ended != null && ended.postCallCard) PostCallCard(ended, onChoice = onPostCall)
+                    }
                     primary.state == CallState.RINGING -> IncomingControls(
                         call = primary,
                         gesture = answerGesture,
@@ -190,7 +197,7 @@ fun InCallScreen(
                     else -> {
                         AnimatedContent(keypadOpen, label = "keypad") { open ->
                             if (open) {
-                                DtmfKeypad(onKey = { CallManager.playDtmf(primary.id, it) }, onClose = { onKeypad(false) }, scroll = scrollKeypad)
+                                DtmfKeypad(callId = primary.id, onClose = { onKeypad(false) }, scroll = scrollKeypad)
                             } else {
                                 ControlGrid(
                                     call = primary,
@@ -593,8 +600,10 @@ private fun SimPicker(call: CallUi) {
 }
 
 @Composable
-private fun DtmfKeypad(onKey: (Char) -> Unit, onClose: () -> Unit, scroll: Boolean = true) {
+private fun DtmfKeypad(callId: String, onClose: () -> Unit, scroll: Boolean = true) {
     var typed by rememberSaveable { mutableStateOf("") }
+    // One running tone per key (V7): a key's release only stops its own tone.
+    val tokens = remember { HashMap<Char, Long>() }
     // In the two-pane layout the whole pane scrolls instead.
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = if (scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier) {
         Text(typed.takeLast(20), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.height(40.dp))
@@ -603,7 +612,14 @@ private fun DtmfKeypad(onKey: (Char) -> Unit, onClose: () -> Unit, scroll: Boole
                 row.forEach { c ->
                     Box(
                         Modifier.size(64.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                            .clickable(role = Role.Button) { typed += c; onKey(c) }
+                            // The tone plays for as long as the key is held (phone menus that want a long press).
+                            .keypadKey(
+                                onPress = {
+                                    typed += c
+                                    CallManager.startDtmf(callId, c)?.let { tokens[c] = it }
+                                },
+                                onToneStop = { after -> tokens.remove(c)?.let { CallManager.stopDtmf(callId, it, after) } },
+                            )
                             .semantics { contentDescription = dtmfName(c) },
                         contentAlignment = Alignment.Center,
                     ) { Text(c.toString(), style = MaterialTheme.typography.headlineSmall) }

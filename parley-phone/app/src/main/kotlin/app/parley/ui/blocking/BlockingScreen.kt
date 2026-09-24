@@ -604,6 +604,7 @@ private fun BlockedLogRow(vm: AppViewModel, e: BlockedCallEntity) {
                 val steps = TraceCodec.decode(e.trace)
                 if (steps.isEmpty()) Text("No details were stored for this call (it was blocked by an older version).", style = MaterialTheme.typography.bodySmall)
                 else TraceList(steps)
+                e.number?.let { app.parley.ui.calls.RingFactsFor(vm, it, e.time, Modifier.padding(top = 8.dp)) }
                 val n = e.number
                 if (n != null) {
                     Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

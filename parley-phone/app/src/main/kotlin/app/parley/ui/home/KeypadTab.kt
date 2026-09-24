@@ -124,6 +124,7 @@ import app.parley.ui.Avatar
 import app.parley.ui.CallColors
 import app.parley.ui.MatchStyle
 import app.parley.ui.Routes
+import app.parley.ui.keypadKey
 import app.parley.ui.common.Format
 import app.parley.ui.highlight
 import kotlinx.coroutines.awaitCancellation
@@ -141,6 +142,9 @@ private val dtmfTone = mapOf(
     '6' to ToneGenerator.TONE_DTMF_6, '7' to ToneGenerator.TONE_DTMF_7, '8' to ToneGenerator.TONE_DTMF_8,
     '9' to ToneGenerator.TONE_DTMF_9, '*' to ToneGenerator.TONE_DTMF_S, '#' to ToneGenerator.TONE_DTMF_P,
 )
+
+/** Tone length for keys typed on a hardware keypad (on-screen keys hold theirs while pressed). */
+private const val KEY_TONE_MS = 150
 
 /** `*#06#`: Android only shows the IMEI to the system, so Parley explains where to find it (K5). */
 private const val IMEI_CODE = "*#06#"
@@ -197,7 +201,28 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     fun press(c: Char) {
         insert(c.toString())
         if (settings.dialpadHaptics) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-        if (toneAllowed()) dtmfTone[c]?.let { tone?.startTone(it, 120) }
+        if (toneAllowed()) dtmfTone[c]?.let { tone?.startTone(it, KEY_TONE_MS) }
+    }
+
+    // V7: on-screen keys start their tone on touch and hold it until release (at least 150 ms). Only the key that
+    // started the current tone may stop it, so rolling over to the next key doesn't cut that key's tone.
+    val toneToken = remember { java.util.concurrent.atomic.AtomicInteger() }
+    fun keyDown(c: Char): Int {
+        insert(c.toString())
+        if (settings.dialpadHaptics) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        if (toneAllowed()) dtmfTone[c]?.let { tone?.startTone(it) }
+        return toneToken.incrementAndGet()
+    }
+    fun keyUp(token: Int, afterMs: Long) {
+        scope.launch {
+            if (afterMs > 0) kotlinx.coroutines.delay(afterMs)
+            if (token == toneToken.get()) tone?.stopTone()
+        }
+    }
+    /** A long-press replaces the digit its touch already typed. */
+    fun longPress(action: () -> Unit) {
+        field.deleteBeforeCursor()
+        action()
     }
 
     fun callResult(r: DialResult) = vm.requestCall(r.number, r.contact?.displayName)
@@ -331,16 +356,18 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                         Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                             row.forEach { (digit, letters) ->
                                 val d = digit[0]
+                                val token = remember { intArrayOf(0) }
                                 DialKey(
                                     digit, letters, localLetters(layout, d),
                                     modifier = Modifier.weight(1f),
-                                    onClick = { press(d) },
+                                    onPress = { token[0] = keyDown(d) },
+                                    onRelease = { after -> keyUp(token[0], after) },
                                     onLong = when (d) {
-                                        '0' -> ({ insert("+") })
-                                        '1' -> ({ vm.callVoicemail() })
-                                        in '2'..'9' -> ({ vm.speedDial(d - '0') { unassigned = d - '0' } })
-                                        '*' -> ({ insert(",") })
-                                        '#' -> ({ insert(";") })
+                                        '0' -> ({ longPress { insert("+") } })
+                                        '1' -> ({ longPress { vm.callVoicemail() } })
+                                        in '2'..'9' -> ({ longPress { vm.speedDial(d - '0') { unassigned = d - '0' } } })
+                                        '*' -> ({ longPress { insert(",") } })
+                                        '#' -> ({ longPress { insert(";") } })
                                         else -> null
                                     },
                                 )
@@ -569,7 +596,10 @@ private fun ImeiSheet(onDismiss: () -> Unit) {
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun DialKey(digit: String, letters: String, local: String, modifier: Modifier = Modifier, onClick: () -> Unit, onLong: (() -> Unit)?) {
+private fun DialKey(
+    digit: String, letters: String, local: String, modifier: Modifier = Modifier,
+    onPress: () -> Unit, onRelease: (afterMs: Long) -> Unit, onLong: (() -> Unit)?,
+) {
     val fontScale = LocalDensity.current.fontScale
     val digitSize = (30f * minOf(fontScale, 1.5f) / fontScale).sp
     Column(
@@ -577,7 +607,8 @@ private fun DialKey(digit: String, letters: String, local: String, modifier: Mod
             .padding(horizontal = 4.dp)
             .heightIn(min = 64.dp)
             .clip(RoundedCornerShape(32.dp))
-            .combinedClickable(onClick = onClick, onLongClick = onLong)
+            // V7: typed and sounded on touch; slide off to cancel the long-press; keys roll over.
+            .keypadKey(onPress = onPress, onToneStop = onRelease, onLongPress = onLong, longPressLabel = longPressLabel(digit))
             .padding(vertical = 4.dp)
             .semantics { contentDescription = keyDescription(digit, letters) },
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -593,6 +624,14 @@ private fun DialKey(digit: String, letters: String, local: String, modifier: Mod
             Text(local, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, softWrap = false)
         }
     }
+}
+
+private fun longPressLabel(digit: String): String? = when (digit) {
+    "0" -> "Type plus"
+    "1" -> "Call voicemail"
+    "*" -> "Type pause"
+    "#" -> "Type wait"
+    else -> if (digit[0] in '2'..'9') "Speed dial" else null
 }
 
 /** What TalkBack reads for a key: "2, A B C", "1, voicemail", "star", "pound" (A12). */

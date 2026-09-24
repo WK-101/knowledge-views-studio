@@ -61,6 +61,10 @@ class MessagingStore(
     /** "Keep a record of numbers you message" (on by default). */
     val recordEnabled: StateFlow<Boolean> = _recordEnabled.asStateFlow()
 
+    private val _expiryDays = MutableStateFlow(prefs.getInt(K_EXPIRY_DAYS, 0))
+    /** M10: "Forget messaged numbers after" N days (0 = never; call-history retention applies as well). */
+    val expiryDays: StateFlow<Int> = _expiryDays.asStateFlow()
+
     private var entries: List<MessagedEntry> = emptyList()
     private val _lastMessaged = MutableStateFlow<Map<String, LastMessaged>>(emptyMap())
     /** Line key → last message sent through Parley (loaded in the background). */
@@ -71,7 +75,11 @@ class MessagingStore(
     val openedChat: StateFlow<OpenedChat?> = _openedChat.asStateFlow()
 
     init {
-        scope.launch(Dispatchers.IO) { recordLock.withLock { publish(loadRecord()) } }
+        scope.launch(Dispatchers.IO) {
+            recordLock.withLock { publish(loadRecord()) }
+            // M10: expired entries go as soon as the record is loaded, not only in the daily housekeeping.
+            runCatching { pruneExpired() }
+        }
     }
 
     private fun region(): String = PhoneEnv.countryIso(appContext)
@@ -139,6 +147,22 @@ class MessagingStore(
 
     /** Call-history retention: drops entries older than [before]. */
     suspend fun pruneOlderThan(before: Long) = update { MessagedRecord.prune(it, before) }
+
+    /** M10: sets "Forget messaged numbers after" and applies it right away. */
+    suspend fun setExpiryDays(days: Int) {
+        prefs.edit { putInt(K_EXPIRY_DAYS, days.coerceAtLeast(0)) }
+        _expiryDays.value = days.coerceAtLeast(0)
+        pruneExpired()
+    }
+
+    /**
+     * M10: drops entries past the record's own expiry or the call-history retention ([retentionDays], 0 = keep),
+     * whichever is stricter. Called on load, when the setting changes and by the daily housekeeping.
+     */
+    suspend fun pruneExpired(retentionDays: Int = 0, now: Long = System.currentTimeMillis()) {
+        val before = MessagedRecord.cutoff(_expiryDays.value, retentionDays, now) ?: return
+        pruneOlderThan(before)
+    }
 
     /** Turning the record off also clears it. */
     suspend fun setRecordEnabled(enabled: Boolean) {
@@ -217,6 +241,7 @@ class MessagingStore(
         const val K_LAST_MESSAGED_PLAIN = "last_messaged"
         const val K_RECORD = "last_messaged_enc"
         const val K_RECORD_ENABLED = "record_messaged"
+        const val K_EXPIRY_DAYS = "record_expiry_days"
         const val OFFER_WINDOW_MS = 60 * 60 * 1000L
     }
 }

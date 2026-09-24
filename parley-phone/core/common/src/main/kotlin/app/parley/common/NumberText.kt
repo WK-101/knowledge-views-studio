@@ -51,8 +51,9 @@ object NumberText {
      * Every phone number in [text], in order, without duplicates. Finds "+1 555-123-4567" as one number (not
      * "+1" and "555…"), national numbers for [region], and numbers inside sentences. When nothing is found and the
      * whole text is a short code ("112", "*100#"), that is returned without an international form.
+     * With [distinct] false, a number written twice (even in two forms) is returned each time (M11 marks repeats).
      */
-    fun find(text: String, region: String?): List<Found> {
+    fun find(text: String, region: String?, distinct: Boolean = true): List<Found> {
         val out = ArrayList<Found>()
         val seen = HashSet<String>()
         if (text.isBlank()) return out
@@ -60,7 +61,7 @@ object NumberText {
         try {
             for (m in util.findNumbers(text, hint, PhoneNumberUtil.Leniency.POSSIBLE, Long.MAX_VALUE)) {
                 val e164 = util.format(m.number(), PhoneNumberUtil.PhoneNumberFormat.E164)
-                if (seen.add(e164)) out += Found(m.rawString(), e164, m.start() until m.end())
+                if (seen.add(e164) || !distinct) out += Found(m.rawString(), e164, m.start() until m.end())
             }
         } catch (_: RuntimeException) {
             // Malformed input: fall through to the short-code check.
@@ -77,6 +78,9 @@ object NumberText {
         }
         return out
     }
+
+    /** Whether [e164] is a valid number for its country (not just a plausible length). */
+    fun isValid(e164: String?): Boolean = e164 != null && parse(e164, null)?.let { util.isValidNumber(it) } == true
 
     /** A country for the country picker (F19): "FR", 33, "France". */
     data class Region(val code: String, val callingCode: Int, val name: String)

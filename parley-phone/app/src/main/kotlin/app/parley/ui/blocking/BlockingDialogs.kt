@@ -139,6 +139,7 @@ private fun WhyDialog(vm: AppViewModel, number: String, live: Boolean, onDismiss
                         val e = stored!!
                         Text("${Format.fullDate(LocalContext.current, e.time)} · ${e.verdict ?: if (e.allowed) "Rang" else "Blocked"}", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                         TraceList(TraceCodec.decode(e.trace))
+                        app.parley.ui.calls.RingFactsFor(vm, number, e.time, Modifier.padding(top = 8.dp))
                         if (e.failedOpen) Text("! Something couldn't be checked, so Parley let the call ring rather than risk blocking someone you know.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
                     }
                     test != null -> {

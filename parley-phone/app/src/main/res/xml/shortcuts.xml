@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- M8: static launcher shortcut "Message a number" (the dynamic ones, New contact and favourites, come from
+     Shortcuts.updateDynamic). src/debug has a copy with the debug package name. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_message"
+        android:shortcutId="message_number"
+        android:shortcutLongLabel="@string/shortcut_message_number_long"
+        android:shortcutShortLabel="@string/shortcut_message_number_short">
+        <intent
+            android:action="app.parley.action.MESSAGE_NUMBER"
+            android:targetClass="app.parley.messaging.NumberActionActivity"
+            android:targetPackage="app.parley.phone" />
+    </shortcut>
+</shortcuts>
