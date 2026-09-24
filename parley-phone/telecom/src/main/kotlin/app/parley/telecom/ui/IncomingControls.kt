@@ -38,6 +38,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import app.parley.telecom.R
+import app.parley.ui.ForceLtr
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
@@ -67,7 +70,7 @@ fun IncomingControls(call: CallUi, gesture: AnswerGesture, hasActiveCall: Boolea
             FilledTonalButton(onClick = onMessage) {
                 Icon(Icons.AutoMirrored.Rounded.Message, null, Modifier.size(18.dp))
                 Spacer(Modifier.size(8.dp))
-                Text("Reply with message")
+                Text(stringResource(R.string.incall_reply_with_message))
             }
             Spacer(Modifier.height(28.dp))
         }
@@ -79,11 +82,11 @@ fun IncomingControls(call: CallUi, gesture: AnswerGesture, hasActiveCall: Boolea
         }
         if (!call.silenced) {
             Spacer(Modifier.height(8.dp))
-            TextButton(onClick = { CallManager.ignore(call.id) }) { Text("Ignore — stop ringing") }
+            TextButton(onClick = { CallManager.ignore(call.id) }) { Text(stringResource(R.string.incall_ignore_stop_ringing)) }
         }
         if (hasActiveCall) {
             Spacer(Modifier.height(12.dp))
-            TextButton(onClick = { CallManager.endAndAnswer(call.id) }) { Text("End current call and answer") }
+            TextButton(onClick = { CallManager.endAndAnswer(call.id) }) { Text(stringResource(R.string.incall_end_and_answer)) }
         }
     }
 }
@@ -91,8 +94,8 @@ fun IncomingControls(call: CallUi, gesture: AnswerGesture, hasActiveCall: Boolea
 @Composable
 private fun AnswerButtons(sim: String?, onAnswer: () -> Unit, onDecline: () -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-        RoundAction(Icons.Rounded.CallEnd, "Decline", CallColors.Decline, onDecline)
-        RoundAction(Icons.Rounded.Call, "Answer", CallColors.Accept, onAnswer, sub = sim, a11y = sim?.let { "Answer on $it" })
+        RoundAction(Icons.Rounded.CallEnd, stringResource(R.string.incall_decline), CallColors.Decline, onDecline)
+        RoundAction(Icons.Rounded.Call, stringResource(R.string.incall_answer), CallColors.Accept, onAnswer, sub = sim, a11y = sim?.let { stringResource(R.string.incall_answer_on, it) })
     }
 }
 
@@ -129,10 +132,14 @@ private fun SimTag(text: String, modifier: Modifier = Modifier) {
 /**
  * Horizontal slide-to-answer: drag right to answer, left to decline. Requires a deliberate drag
  * past 55% of the track, which avoids pocket answers. TalkBack users get explicit actions.
+ * The track stays left to right in right-to-left languages too, matching "slide right to answer" (L3).
  */
 @Composable
-private fun AnswerSlider(sim: String?, onAnswer: () -> Unit, onDecline: () -> Unit) {
+private fun AnswerSlider(sim: String?, onAnswer: () -> Unit, onDecline: () -> Unit) = ForceLtr {
     val scope = rememberCoroutineScope()
+    val answerLabel = stringResource(R.string.incall_answer)
+    val declineLabel = stringResource(R.string.incall_decline)
+    val description = if (sim != null) stringResource(R.string.incall_slider_description_sim, sim) else stringResource(R.string.incall_slider_description)
     val haptics = LocalHapticFeedback.current
     val offset = remember { Animatable(0f) }
     val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(
@@ -145,10 +152,10 @@ private fun AnswerSlider(sim: String?, onAnswer: () -> Unit, onDecline: () -> Un
             .clip(RoundedCornerShape(44.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .semantics {
-                contentDescription = "Incoming call" + (sim?.let { " on $it" } ?: "") + ". Slide right to answer, left to decline."
+                contentDescription = description
                 customActions = listOf(
-                    CustomAccessibilityAction("Answer") { onAnswer(); true },
-                    CustomAccessibilityAction("Decline") { onDecline(); true },
+                    CustomAccessibilityAction(answerLabel) { onAnswer(); true },
+                    CustomAccessibilityAction(declineLabel) { onDecline(); true },
                 )
             },
         contentAlignment = Alignment.Center,
@@ -162,13 +169,13 @@ private fun AnswerSlider(sim: String?, onAnswer: () -> Unit, onDecline: () -> Un
             Icon(Icons.Rounded.CallEnd, null, tint = CallColors.Decline.copy(alpha = 0.5f + 0.5f * (-progress).coerceAtLeast(0f)))
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    if (progress > 0.1f) "Answer" else if (progress < -0.1f) "Decline" else "Slide to answer",
+                    if (progress > 0.1f) answerLabel else if (progress < -0.1f) declineLabel else stringResource(R.string.incall_slide_to_answer),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (sim != null && abs(progress) <= 0.1f) {
                     Text(
-                        "on $sim", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1,
+                        stringResource(R.string.incall_on_sim, sim), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1,
                     )
                 }
             }

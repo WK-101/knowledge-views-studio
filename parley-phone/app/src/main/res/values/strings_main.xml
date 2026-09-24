@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Main app screens: home, keypad, recents, contacts, contact detail and editor, messaging, missed calls, voicemail.
+  "Parley" is the product name: never translate it. Placeholders (%1$s, %1$d) must stay in every translation.
+-->
+<resources>
+    <!-- Generic -->
+    <string name="main_separator">" · "</string>
+    <string name="main_cancel">Cancel</string>
+    <string name="main_ok">OK</string>
+    <string name="main_save">Save</string>
+    <string name="main_delete">Delete</string>
+    <string name="main_done">Done</string>
+    <string name="main_close">Close</string>
+    <string name="main_back">Back</string>
+    <string name="main_copy">Copy</string>
+    <string name="main_share">Share</string>
+    <string name="main_edit">Edit</string>
+    <string name="main_call">Call</string>
+    <string name="main_message">Message</string>
+    <string name="main_more">More</string>
+    <string name="main_search">Search</string>
+    <string name="main_clear">Clear</string>
+    <string name="main_add">Add</string>
+    <string name="main_remove">Remove</string>
+    <string name="main_block">Block</string>
+    <string name="main_unblock">Unblock</string>
+    <string name="main_private_number">Private number</string>
+    <string name="main_unknown">Unknown</string>
+
+    <!-- "Why did my phone ring, or not?" -->
+    <string name="ring_prefix_blocked">Blocked</string>
+    <string name="ring_silenced_reason">Silenced: %1$s</string>
+    <string name="ring_why_dnd_total">Didn\'t ring: Do Not Disturb (total silence)</string>
+    <string name="ring_why_dnd_alarms">Didn\'t ring: Do Not Disturb (alarms only)</string>
+    <string name="ring_why_dnd">Didn\'t ring: Do Not Disturb</string>
+    <string name="ring_why_silent">Didn\'t ring: phone on silent</string>
+    <string name="ring_why_vibrate">Vibrate only: phone on vibrate</string>
+    <string name="ring_why_volume_zero">Didn\'t ring: ring volume at 0</string>
+    <plurals name="ring_why_short">
+        <item quantity="one">Rang for %d s only</item>
+        <item quantity="other">Rang for %d s only</item>
+    </plurals>
+    <string name="ring_dnd_off">Do Not Disturb: off</string>
+    <string name="ring_dnd_priority">Do Not Disturb: priority only</string>
+    <string name="ring_dnd_priority_some">Do Not Disturb: priority only (some calls allowed)</string>
+    <string name="ring_dnd_priority_none">Do Not Disturb: priority only (calls not allowed)</string>
+    <string name="ring_dnd_alarms">Do Not Disturb: alarms only</string>
+    <string name="ring_dnd_total">Do Not Disturb: total silence</string>
+    <string name="ring_dnd_unknown">Do Not Disturb: unknown</string>
+    <string name="ring_ringer_sound">Ringer: sound</string>
+    <string name="ring_ringer_sound_volume">Ringer: sound · volume %1$d/%2$d</string>
+    <string name="ring_ringer_vibrate">Ringer: vibrate</string>
+    <string name="ring_ringer_silent">Ringer: silent</string>
+    <string name="ring_ringer_unknown">Ringer: unknown</string>
+    <!-- "Ringer: sound · raised to full volume" -->
+    <string name="ring_raised">%1$s · raised to full volume</string>
+    <string name="ring_vibrate_on">Vibrate for calls: on</string>
+    <string name="ring_vibrate_off">Vibrate for calls: off</string>
+    <string name="ring_ringtone">Ringtone: %1$s</string>
+    <string name="ring_kept_quiet">Kept quiet by Parley: %1$s</string>
+    <string name="ring_rang_for">Rang for %1$s</string>
+    <string name="ring_seconds">%1$d s</string>
+    <string name="ring_min_seconds">%1$d min %2$d s</string>
+    <string name="ring_tone_default">the phone\'s default</string>
+    <string name="ring_tone_contact">the contact\'s own</string>
+    <string name="ring_tone_system">played by Android</string>
+    <string name="ring_tone_rule_named">rule \'%1$s\'</string>
+    <string name="ring_tone_rule">a rule\'s tone</string>
+    <string name="ring_tone_label_named">label \'%1$s\'</string>
+    <string name="ring_tone_label">a label\'s tone</string>
+    <string name="ring_tone_unknown_caller">the unknown-caller tone</string>
+    <string name="ring_tone_repeat">the repeat-caller tone</string>
+    <string name="ring_tone_spam">the likely-spam tone</string>
+    <string name="ring_tone_none">none</string>
+    <string name="ring_answered">Answered</string>
+    <string name="ring_answered_on">Answered on %1$s</string>
+    <string name="ring_answered_wired">Answered on a wired headset</string>
+    <string name="ring_answered_speaker">Answered on speaker</string>
+    <string name="ring_answered_phone">Answered on this phone</string>
+    <string name="ring_answered_elsewhere">Answered on another device</string>
+    <string name="ring_not_answered">Not answered</string>
+    <string name="ring_declined">Declined</string>
+    <string name="ring_rejected_rules">Rejected by your blocking rules</string>
+    <string name="ring_outcome_unknown">Outcome unknown</string>
+    <string name="ring_section_title">Why it rang, or didn\'t</string>
+    <string name="ring_hide_details">Hide details</string>
+    <string name="ring_show_details">Show details</string>
+    <string name="ring_on_the_phone">On the phone</string>
+
+    <!-- Dates and common dialogs -->
+    <string name="main_today">Today</string>
+    <string name="main_yesterday">Yesterday</string>
+    <string name="main_no_app">No app available for this action</string>
+    <string name="main_share_contact">Share contact</string>
+    <string name="main_copied">Copied</string>
+    <!-- "Ana (+1 555 0100)" -->
+    <string name="call_who_with_number">%1$s (%2$s)</string>
+    <string name="call_who_with">Call %1$s with</string>
+    <string name="call_who_question">Call %1$s?</string>
+    <string name="call_remember_sim">Remember for this number</string>
+    <!-- A note (e.g. "Your call time with Ana is used up.") followed by the question. -->
+    <string name="call_note_anyway">%1$s Call anyway?</string>
+    <string name="call_anyway">Call anyway</string>
+    <string name="call_dont_call">Don\'t call</string>
+    <string name="call_time_used_up">Call time used up</string>
+    <string name="import_finished">Import finished</string>
+    <string name="import_into">Import contacts into</string>
+    <string name="import_importing">Importing…</string>
+    <!-- "Imported 12 of 14 · 1 duplicate skipped into Google (ana@example.com)." -->
+    <string name="import_into_account">%1$s into %2$s.</string>
+    <string name="import_failed">Import failed: %1$s</string>
+    <string name="import_summary_imported">Imported %1$d of %2$d</string>
+    <plurals name="import_summary_duplicates">
+        <item quantity="one">%d duplicate skipped</item>
+        <item quantity="other">%d duplicates skipped</item>
+    </plurals>
+    <plurals name="import_summary_failed">
+        <item quantity="one">%d failed</item>
+        <item quantity="other">%d failed</item>
+    </plurals>
+    <plurals name="import_summary_unmapped">
+        <item quantity="one">%d field not mapped</item>
+        <item quantity="other">%d fields not mapped</item>
+    </plurals>
+
+    <!-- Settings › Appearance › Language -->
+    <string name="lang_title">Language</string>
+    <string name="lang_system">System default</string>
+</resources>

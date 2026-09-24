@@ -16,7 +16,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.data.AccountRef
 import app.parley.ui.people.accountLabel
 import kotlinx.coroutines.Dispatchers
@@ -32,16 +35,17 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
     var progress by remember { mutableStateOf(0f) }
     var result by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(uri) { accounts = withContext(Dispatchers.IO) { vm.c.contacts.accounts() } }
+    val res = LocalResources.current
 
     AlertDialog(
         onDismissRequest = { if (!running) onDone() },
-        title = { Text(if (result != null) "Import finished" else "Import contacts into") },
+        title = { Text(stringResource(if (result != null) R.string.import_finished else R.string.import_into)) },
         text = {
             Column {
                 when {
                     result != null -> Text(result!!)
                     running -> {
-                        Text("Importing…")
+                        Text(stringResource(R.string.import_importing))
                         LinearProgressIndicator(progress = { progress })
                     }
                     else -> accounts.forEach { a ->
@@ -52,9 +56,9 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                                 scope.launch {
                                     result = try {
                                         val r = vm.c.vcards.importVCard(uri, a, { done, total -> progress = if (total > 0) done.toFloat() / total else 0f }, skipDuplicates = true)
-                                        r.summary() + " into ${a.displayLabel}."
+                                        res.getString(R.string.import_into_account, r.localizedSummary(res), a.displayLabel)
                                     } catch (e: Exception) {
-                                        "Import failed: ${e.message}"
+                                        res.getString(R.string.import_failed, e.message.orEmpty())
                                     }
                                     running = false
                                 }
@@ -64,6 +68,6 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                 }
             }
         },
-        confirmButton = { if (!running) TextButton(onDone) { Text(if (result != null) "Done" else "Cancel") } },
+        confirmButton = { if (!running) TextButton(onDone) { Text(stringResource(if (result != null) R.string.main_done else R.string.main_cancel)) } },
     )
 }

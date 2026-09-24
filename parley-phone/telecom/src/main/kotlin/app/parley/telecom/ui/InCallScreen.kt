@@ -66,6 +66,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
+import app.parley.telecom.R
+import app.parley.ui.Bidi
+import app.parley.ui.ForceLtr
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -180,7 +185,7 @@ fun InCallScreen(
                 when {
                     primary == null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            ended?.disconnectReason ?: "Call ended",
+                            ended?.disconnectReason ?: stringResource(R.string.incall_call_ended),
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.padding(bottom = if (ended?.postCallCard == true) 16.dp else 64.dp),
                         )
@@ -211,11 +216,12 @@ fun InCallScreen(
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = { noteFor = primary.id }) { Text("Add a note") }
-                            TextButton(onClick = { moreSheet = true }, modifier = Modifier.semantics { contentDescription = "More call options" }) {
+                            val moreOptions = stringResource(R.string.incall_more_options)
+                            TextButton(onClick = { noteFor = primary.id }) { Text(stringResource(R.string.incall_add_note)) }
+                            TextButton(onClick = { moreSheet = true }, modifier = Modifier.semantics { contentDescription = moreOptions }) {
                                 Icon(Icons.Rounded.MoreHoriz, null, Modifier.size(18.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text("More")
+                                Text(stringResource(R.string.incall_more))
                             }
                         }
                         Spacer(Modifier.height(8.dp))
@@ -243,10 +249,10 @@ fun InCallScreen(
         var text by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { noteFor = null },
-            title = { Text("Note about this call") },
-            text = { androidx.compose.material3.OutlinedTextField(text, { text = it }, minLines = 3, placeholder = { Text("Only stored on this phone") }) },
-            confirmButton = { TextButton({ if (text.isNotBlank()) CallManager.saveNote(id, text.trim()); noteFor = null }) { Text("Save") } },
-            dismissButton = { TextButton({ noteFor = null }) { Text("Cancel") } },
+            title = { Text(stringResource(R.string.incall_note_title)) },
+            text = { androidx.compose.material3.OutlinedTextField(text, { text = it }, minLines = 3, placeholder = { Text(stringResource(R.string.incall_note_placeholder)) }) },
+            confirmButton = { TextButton({ if (text.isNotBlank()) CallManager.saveNote(id, text.trim()); noteFor = null }) { Text(stringResource(R.string.tc_save)) } },
+            dismissButton = { TextButton({ noteFor = null }) { Text(stringResource(R.string.tc_cancel)) } },
         )
     }
 
@@ -254,10 +260,10 @@ fun InCallScreen(
     if (postDial != null) {
         AlertDialog(
             onDismissRequest = { CallManager.postDialContinue(primary.id, false) },
-            title = { Text("Send tones?") },
-            text = { Text(postDial) },
-            confirmButton = { TextButton({ CallManager.postDialContinue(primary.id, true) }) { Text("Send") } },
-            dismissButton = { TextButton({ CallManager.postDialContinue(primary.id, false) }) { Text("Cancel") } },
+            title = { Text(stringResource(R.string.incall_send_tones_title)) },
+            text = { Text(Bidi.ltr(postDial)) },
+            confirmButton = { TextButton({ CallManager.postDialContinue(primary.id, true) }) { Text(stringResource(R.string.incall_send)) } },
+            dismissButton = { TextButton({ CallManager.postDialContinue(primary.id, false) }) { Text(stringResource(R.string.tc_cancel)) } },
         )
     }
 
@@ -276,8 +282,14 @@ fun InCallScreen(
     val replyCall = live.firstOrNull { it.id == replyFor && it.state == CallState.RINGING }
     if (replyCall != null) {
         ModalBottomSheet(onDismissRequest = { replyFor = null }) {
-            Text("Reply with a message", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-            quickReplies.forEach { msg ->
+            Text(stringResource(R.string.incall_reply_sheet_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            // The defaults live in core/common in English: while unedited, send them in the user's language.
+            val replies = if (quickReplies == app.parley.common.AppSettings.DEFAULT_QUICK_REPLIES) {
+                androidx.compose.ui.res.stringArrayResource(R.array.incall_default_quick_replies).toList()
+            } else {
+                quickReplies
+            }
+            replies.forEach { msg ->
                 ListItem(
                     headlineContent = { Text(msg) },
                     modifier = Modifier.clickable { CallManager.reject(replyCall.id, msg); replyFor = null },
@@ -290,16 +302,16 @@ fun InCallScreen(
     val conference = live.firstOrNull { it.isConference }
     if (manageSheet && conference != null) {
         ModalBottomSheet(onDismissRequest = { manageSheet = false }) {
-            Text("Conference call", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            Text(stringResource(R.string.incall_conference_call), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             conference.children.forEach { child ->
                 ListItem(
-                    headlineContent = { Text(child.title) },
-                    supportingContent = { child.number?.takeIf { child.name != null }?.let { Text(it) } },
+                    headlineContent = { Text(child.displayTitle) },
+                    supportingContent = { child.number?.takeIf { child.name != null }?.let { Text(Bidi.ltr(it)) } },
                     leadingContent = { Avatar(child.title, child.photoUri, 40.dp) },
                     trailingContent = {
                         Row {
-                            if (child.canSeparate) TextButton({ CallManager.separate(child.id); manageSheet = false }) { Text("Private") }
-                            if (child.canDisconnectChild) TextButton({ CallManager.hangup(child.id) }) { Text("End", color = CallColors.Decline) }
+                            if (child.canSeparate) TextButton({ CallManager.separate(child.id); manageSheet = false }) { Text(stringResource(R.string.incall_private)) }
+                            if (child.canDisconnectChild) TextButton({ CallManager.hangup(child.id) }) { Text(stringResource(R.string.incall_end), color = CallColors.Decline) }
                         }
                     },
                 )
@@ -329,12 +341,13 @@ private fun CallerHeader(
 ) {
     // TalkBack: while ringing, the caller's name offers answer and decline as actions (A12).
     val ringing = call.state == CallState.RINGING && !ended
+    val res = LocalResources.current
     val a11y = if (!ringing) Modifier else Modifier.semantics(mergeDescendants = true) {
         customActions = buildList {
-            add(CustomAccessibilityAction("Answer") { CallManager.answer(call.id); true })
-            add(CustomAccessibilityAction("Decline") { CallManager.reject(call.id); true })
-            if (!call.hidden && !call.number.isNullOrBlank()) add(CustomAccessibilityAction("Reply with a message") { onReply(); true })
-            if (!call.silenced) add(CustomAccessibilityAction("Stop ringing") { CallManager.ignore(call.id); true })
+            add(CustomAccessibilityAction(res.getString(R.string.incall_answer)) { CallManager.answer(call.id); true })
+            add(CustomAccessibilityAction(res.getString(R.string.incall_decline)) { CallManager.reject(call.id); true })
+            if (!call.hidden && !call.number.isNullOrBlank()) add(CustomAccessibilityAction(res.getString(R.string.incall_reply_a11y)) { onReply(); true })
+            if (!call.silenced) add(CustomAccessibilityAction(res.getString(R.string.incall_stop_ringing)) { CallManager.ignore(call.id); true })
         }
     }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = a11y) {
@@ -342,20 +355,20 @@ private fun CallerHeader(
             CallTimeRing(if (ended) null else timing, avatarSize) {
                 Avatar(
                     call.title, call.photoUri, size = avatarSize,
-                    modifier = Modifier.clickable(enabled = !call.hidden, onClickLabel = "Open contact") { onOpenContact(call) },
+                    modifier = Modifier.clickable(enabled = !call.hidden, onClickLabel = stringResource(R.string.incall_open_contact)) { onOpenContact(call) },
                 )
             }
             Spacer(Modifier.height(20.dp))
         }
         Text(
-            call.title,
+            call.displayTitle,
             style = if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        val sub = listOfNotNull(call.label, call.number?.takeIf { call.name != null }).joinToString(" · ")
+        val sub = listOfNotNull(call.label, call.number?.takeIf { call.name != null }?.let(Bidi::ltr)).joinToString(stringResource(R.string.tc_separator))
         if (sub.isNotEmpty()) {
             Text(sub, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         }
@@ -378,7 +391,7 @@ private fun CallerHeader(
             }
         }
         if (call.unknown && call.state == CallState.RINGING) {
-            Text(listOfNotNull("Not in your contacts", call.location).joinToString(" · "), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+            Text(listOfNotNull(stringResource(R.string.incall_not_in_contacts), call.location).joinToString(stringResource(R.string.tc_separator)), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
         }
         // Screening verdict (B2): "Likely spam · FTC list", "Allowed by 'Plumber'".
         if (call.verdict != null && call.state == CallState.RINGING) {
@@ -392,11 +405,11 @@ private fun CallerHeader(
             // While dialling, the SIM already shows in the status line.
             if (call.state != CallState.DIALING && call.state != CallState.CONNECTING && call.state != CallState.NEW) call.accountLabel?.let { Chip(Icons.Rounded.SimCard, it) }
             when (call.verification) {
-                Verification.PASSED -> Chip(Icons.Rounded.Verified, "Verified number")
-                Verification.FAILED -> Chip(Icons.Rounded.Warning, "Possibly spoofed", warn = true)
+                Verification.PASSED -> Chip(Icons.Rounded.Verified, stringResource(R.string.incall_verified_number))
+                Verification.FAILED -> Chip(Icons.Rounded.Warning, stringResource(R.string.incall_possibly_spoofed), warn = true)
                 Verification.NOT_VERIFIED -> Unit
             }
-            if (call.isEmergency) Chip(Icons.Rounded.Warning, "Emergency call", warn = true)
+            if (call.isEmergency) Chip(Icons.Rounded.Warning, stringResource(R.string.incall_emergency_call), warn = true)
         }
     }
 }
@@ -404,15 +417,15 @@ private fun CallerHeader(
 @Composable
 private fun StatusLine(call: CallUi, ended: Boolean) {
     val text = when {
-        ended -> call.disconnectReason ?: "Call ended"
-        call.silenced -> call.silenceReason ?: "Silenced by your blocking rules"
-        call.state == CallState.RINGING -> "Incoming call"
+        ended -> call.disconnectReason ?: stringResource(R.string.incall_call_ended)
+        call.silenced -> call.silenceReason ?: stringResource(R.string.call_silenced_rules)
+        call.state == CallState.RINGING -> stringResource(R.string.notif_incoming_call)
         // The SIM the call goes out on, even before Telecom has settled on it (A10).
         call.state == CallState.DIALING || call.state == CallState.CONNECTING || call.state == CallState.NEW ->
-            call.accountLabel?.let { "Calling via $it…" } ?: "Calling…"
-        call.state == CallState.HOLDING -> "On hold"
-        call.state == CallState.SELECT_ACCOUNT -> "Choose a SIM"
-        call.state == CallState.DISCONNECTING -> "Ending…"
+            call.accountLabel?.let { stringResource(R.string.incall_status_calling_via, it) } ?: stringResource(R.string.incall_status_calling)
+        call.state == CallState.HOLDING -> stringResource(R.string.incall_status_on_hold)
+        call.state == CallState.SELECT_ACCOUNT -> stringResource(R.string.incall_status_choose_sim)
+        call.state == CallState.DISCONNECTING -> stringResource(R.string.incall_status_ending)
         call.state == CallState.ACTIVE -> null
         else -> ""
     }
@@ -427,7 +440,8 @@ private fun StatusLine(call: CallUi, ended: Boolean) {
 private fun CallTimer(connectTime: Long) {
     val elapsed by rememberCallSeconds(connectTime)
     val txt = clockText(elapsed)
-    Text(txt, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.semantics { contentDescription = "Call duration ${spokenDuration(elapsed)}" })
+    val spoken = stringResource(R.string.incall_duration_description, spokenDuration(LocalResources.current, elapsed))
+    Text(txt, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.semantics { contentDescription = spoken })
 }
 
 @Composable
@@ -454,12 +468,12 @@ private fun OtherCallBanner(call: CallUi, onSwap: () -> Unit) {
             Avatar(call.title, call.photoUri, 36.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(call.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(call.displayTitle, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
                     when (call.state) {
-                        CallState.ACTIVE -> "Active"
-                        CallState.RINGING -> "Incoming"
-                        else -> "Connecting…"
+                        CallState.ACTIVE -> stringResource(R.string.incall_other_active)
+                        CallState.RINGING -> stringResource(R.string.incall_other_incoming)
+                        else -> stringResource(R.string.incall_other_connecting)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -479,23 +493,23 @@ private fun ControlGrid(
     onAddCall: () -> Unit,
     onManage: () -> Unit,
 ) {
-    val audioBtn = audioButton(audio)
+    val audioBtn = audioButton(LocalResources.current, audio)
     val audioIcon = audio.current?.let { routeIcon(it) } ?: Icons.AutoMirrored.Rounded.VolumeUp
     val canSwap = others.any { it.state == CallState.HOLDING } || call.canSwap
     val held = call.state == CallState.HOLDING
     val controls = buildList {
-        add(ControlSpec(Icons.Rounded.MicOff, if (audio.muted) "Muted" else "Mute", "Mute", toggle = true, active = audio.muted, enabled = call.canMute) { CallManager.setMuted(!audio.muted) })
-        add(ControlSpec(Icons.Rounded.Dialpad, "Keypad", "Keypad", onClick = onKeypad))
+        add(ControlSpec(Icons.Rounded.MicOff, if (audio.muted) stringResource(R.string.incall_muted) else stringResource(R.string.incall_mute), stringResource(R.string.incall_mute), toggle = true, active = audio.muted, enabled = call.canMute) { CallManager.setMuted(!audio.muted) })
+        add(ControlSpec(Icons.Rounded.Dialpad, stringResource(R.string.incall_keypad), stringResource(R.string.incall_keypad), onClick = onKeypad))
         add(ControlSpec(audioIcon, audioBtn.label, audioBtn.spoken, toggle = audioBtn.isToggle, active = audioBtn.on, enabled = audio.routes.isNotEmpty(), onClick = onAudio))
-        add(ControlSpec(Icons.Rounded.Pause, if (held) "Resume" else "Hold", "Hold", toggle = true, active = held, enabled = call.canHold) { CallManager.toggleHold(call.id) })
+        add(ControlSpec(Icons.Rounded.Pause, if (held) stringResource(R.string.incall_resume) else stringResource(R.string.incall_hold), stringResource(R.string.incall_hold), toggle = true, active = held, enabled = call.canHold) { CallManager.toggleHold(call.id) })
         when {
-            call.canMerge -> add(ControlSpec(Icons.AutoMirrored.Rounded.CallMerge, "Merge", "Merge calls") { CallManager.merge(call.id) })
-            canSwap -> add(ControlSpec(Icons.Rounded.SwapCalls, "Swap", "Swap calls") { CallManager.swap(call.id) })
-            else -> add(ControlSpec(Icons.Rounded.Add, "Add call", "Add call", enabled = others.isEmpty(), onClick = onAddCall))
+            call.canMerge -> add(ControlSpec(Icons.AutoMirrored.Rounded.CallMerge, stringResource(R.string.incall_merge), stringResource(R.string.incall_merge_calls)) { CallManager.merge(call.id) })
+            canSwap -> add(ControlSpec(Icons.Rounded.SwapCalls, stringResource(R.string.incall_swap), stringResource(R.string.incall_swap_calls)) { CallManager.swap(call.id) })
+            else -> add(ControlSpec(Icons.Rounded.Add, stringResource(R.string.incall_add_call), stringResource(R.string.incall_add_call), enabled = others.isEmpty(), onClick = onAddCall))
         }
-        if (call.isConference) add(ControlSpec(Icons.Rounded.Groups, "Manage", "Manage conference", onClick = onManage))
-        else if (call.canMerge || canSwap) add(ControlSpec(Icons.Rounded.Add, "Add call", "Add call", onClick = onAddCall))
-        else add(ControlSpec(Icons.Rounded.PhoneInTalk, "Contacts", "Contacts", onClick = onAddCall))
+        if (call.isConference) add(ControlSpec(Icons.Rounded.Groups, stringResource(R.string.incall_manage), stringResource(R.string.incall_manage_conference), onClick = onManage))
+        else if (call.canMerge || canSwap) add(ControlSpec(Icons.Rounded.Add, stringResource(R.string.incall_add_call), stringResource(R.string.incall_add_call), onClick = onAddCall))
+        else add(ControlSpec(Icons.Rounded.PhoneInTalk, stringResource(R.string.incall_contacts), stringResource(R.string.incall_contacts), onClick = onAddCall))
     }
     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         controls.chunked(3).forEach { row ->
@@ -523,6 +537,8 @@ private data class ControlSpec(
 @Composable
 private fun ControlButton(spec: ControlSpec) {
     val scheme = MaterialTheme.colorScheme
+    val on = stringResource(R.string.tc_on)
+    val off = stringResource(R.string.tc_off)
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(96.dp)) {
         Box(
             Modifier
@@ -532,7 +548,7 @@ private fun ControlButton(spec: ControlSpec) {
                 .clickable(enabled = spec.enabled, role = if (spec.toggle) Role.Switch else Role.Button, onClick = spec.onClick)
                 .semantics {
                     contentDescription = spec.spoken
-                    if (spec.toggle) stateDescription = if (spec.active) "on" else "off"
+                    if (spec.toggle) stateDescription = if (spec.active) on else off
                 },
             contentAlignment = Alignment.Center,
         ) {
@@ -554,13 +570,14 @@ private fun ControlButton(spec: ControlSpec) {
 
 @Composable
 private fun EndCallButton(onClick: () -> Unit) {
+    val endCall = stringResource(R.string.incall_end_call)
     Box(
         Modifier
             .size(width = 160.dp, height = 72.dp)
             .clip(RoundedCornerShape(36.dp))
             .background(CallColors.Decline)
             .clickable(role = Role.Button, onClick = onClick)
-            .semantics { contentDescription = "End call" },
+            .semantics { contentDescription = endCall },
         contentAlignment = Alignment.Center,
     ) {
         Icon(Icons.Rounded.CallEnd, null, tint = Color.White, modifier = Modifier.size(32.dp))
@@ -581,7 +598,7 @@ private fun SimPicker(call: CallUi) {
         }
     }
     Column(Modifier.fillMaxWidth().padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Call with", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.incall_call_with), style = MaterialTheme.typography.titleMedium)
         accounts.forEach { (id, label) ->
             Surface(
                 shape = RoundedCornerShape(20.dp),
@@ -595,7 +612,7 @@ private fun SimPicker(call: CallUi) {
                 }
             }
         }
-        TextButton(onClick = { CallManager.hangup(call.id) }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Cancel") }
+        TextButton(onClick = { CallManager.hangup(call.id) }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text(stringResource(R.string.tc_cancel)) }
     }
 }
 
@@ -604,10 +621,12 @@ private fun DtmfKeypad(callId: String, onClose: () -> Unit, scroll: Boolean = tr
     var typed by rememberSaveable { mutableStateOf("") }
     // One running tone per key (V7): a key's release only stops its own tone.
     val tokens = remember { HashMap<Char, Long>() }
+    val res = LocalResources.current
     // In the two-pane layout the whole pane scrolls instead.
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = if (scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier) {
-        Text(typed.takeLast(20), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.height(40.dp))
-        listOf("123", "456", "789", "*0#").forEach { row ->
+        Text(Bidi.ltr(typed.takeLast(20)), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.height(40.dp))
+        // L3: the keypad reads 1 2 3 left to right in every language.
+        ForceLtr { Column(horizontalAlignment = Alignment.CenterHorizontally) { listOf("123", "456", "789", "*0#").forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 6.dp)) {
                 row.forEach { c ->
                     Box(
@@ -620,19 +639,19 @@ private fun DtmfKeypad(callId: String, onClose: () -> Unit, scroll: Boolean = tr
                                 },
                                 onToneStop = { after -> tokens.remove(c)?.let { CallManager.stopDtmf(callId, it, after) } },
                             )
-                            .semantics { contentDescription = dtmfName(c) },
+                            .semantics { contentDescription = dtmfName(res, c) },
                         contentAlignment = Alignment.Center,
                     ) { Text(c.toString(), style = MaterialTheme.typography.headlineSmall) }
                 }
             }
-        }
-        TextButton(onClose) { Text("Hide keypad") }
+        } } }
+        TextButton(onClose) { Text(stringResource(R.string.incall_hide_keypad)) }
     }
 }
 
-private fun dtmfName(c: Char): String = when (c) {
-    '*' -> "star"
-    '#' -> "pound"
+private fun dtmfName(res: android.content.res.Resources, c: Char): String = when (c) {
+    '*' -> res.getString(app.parley.ui.R.string.ui_key_star)
+    '#' -> res.getString(app.parley.ui.R.string.ui_key_pound)
     else -> c.toString()
 }
 

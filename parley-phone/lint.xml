@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Shared lint settings for every module (L1/L2). A string that isn't translated yet falls back to English, so a
+  missing translation is a warning, not a build failure. Text written straight into layouts or setText() calls is
+  reported; Compose text is checked by the checkHardcodedText task (see the root build.gradle.kts).
+-->
+<lint>
+    <issue id="MissingTranslation" severity="warning" />
+    <issue id="ExtraTranslation" severity="warning" />
+    <issue id="HardcodedText" severity="warning" />
+    <issue id="SetTextI18n" severity="warning" />
+    <issue id="RtlHardcoded" severity="warning" />
+    <issue id="RtlSymmetry" severity="warning" />
+    <!-- Machine-assisted translations: spelling is for the native reviewers, not for lint. -->
+    <issue id="Typos" severity="ignore" />
+</lint>

@@ -30,6 +30,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import app.parley.telecom.R
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -74,32 +76,31 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
             },
     ) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
-            Text("Not in your contacts", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.incall_not_in_contacts), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(
-                listOfNotNull(call.location, "What do you want to do with this number?").joinToString(" · "),
+                listOfNotNull(call.location, stringResource(R.string.postcall_what_to_do)).joinToString(stringResource(R.string.tc_separator)),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Action(Icons.Rounded.Block, "Block") { onChoice(PostCallChoice.Block(number)) }
-                Action(Icons.Rounded.Lock, "Save privately") { saving = true }
-                Action(Icons.AutoMirrored.Rounded.Chat, "Message on…") { onChoice(PostCallChoice.MessageOn(number, call.accountId)) }
-                Action(Icons.Rounded.Flag, "Report") { onChoice(PostCallChoice.Report(number)) }
+                Action(Icons.Rounded.Block, stringResource(R.string.postcall_block)) { onChoice(PostCallChoice.Block(number)) }
+                Action(Icons.Rounded.Lock, stringResource(R.string.postcall_save_privately)) { saving = true }
+                Action(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.postcall_message_on)) { onChoice(PostCallChoice.MessageOn(number, call.accountId)) }
+                Action(Icons.Rounded.Flag, stringResource(R.string.postcall_report)) { onChoice(PostCallChoice.Report(number)) }
             }
-            TextButton({ onChoice(PostCallChoice.Done) }, modifier = Modifier.align(Alignment.End)) { Text("Done") }
+            TextButton({ onChoice(PostCallChoice.Done) }, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.tc_done)) }
         }
     }
     if (saving) {
         var name by remember { mutableStateOf(runCatching { TelecomGraph.dependencies.suggestedName(number) }.getOrDefault(number)) }
         AlertDialog(
             onDismissRequest = { saving = false },
-            title = { Text("Save privately for 7 days") },
+            title = { Text(stringResource(R.string.postcall_save_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
+                    OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.postcall_name)) }, singleLine = true)
                     Text(
-                        "Kept in Parley's private contacts, where other apps can't see it, and deleted automatically after 7 days " +
-                            "with its call history. You can keep it from Temporary contacts.",
+                        stringResource(R.string.postcall_save_explainer),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -108,9 +109,9 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
                 TextButton({
                     saving = false
                     onChoice(PostCallChoice.SavePrivately(number, name.trim().ifEmpty { number }))
-                }) { Text("Save") }
+                }) { Text(stringResource(R.string.tc_save)) }
             },
-            dismissButton = { TextButton({ saving = false }) { Text("Cancel") } },
+            dismissButton = { TextButton({ saving = false }) { Text(stringResource(R.string.tc_cancel)) } },
         )
     }
 }

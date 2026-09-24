@@ -21,6 +21,12 @@ import app.parley.ui.ParleyRoot
 import app.parley.ui.ParleyTheme
 
 class MainActivity : androidx.fragment.app.FragmentActivity() {
+    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(newBase)
+        app.parley.ui.AppLocale.override(this, newBase)
+    }
+
     private val vm: AppViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {

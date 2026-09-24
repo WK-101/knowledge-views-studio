@@ -53,8 +53,10 @@ data class CallUi(
     val noContact: Boolean = false,
     /** The number of the SIM the call is on, when Android knows it and two SIMs are in use (V5). */
     val accountNumber: String? = null,
+    /** Localised "Private number" / "Unknown", shown when there is neither a name nor a number. */
+    val fallbackTitle: String = "",
 ) {
-    val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: if (hidden) "Private number" else "Unknown"
+    val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING
 
     /** "Work · …4567": which SIM a call came in on, for the answer control on dual-SIM phones (V5). */
@@ -68,6 +70,7 @@ data class CallUi(
 
 enum class RouteType { EARPIECE, SPEAKER, BLUETOOTH, WIRED, STREAMING }
 
+/** [name] is the device's own name, or blank for a generic route (the UI names it in the user's language). */
 data class AudioRoute(val key: String, val type: RouteType, val name: String)
 
 data class AudioUi(

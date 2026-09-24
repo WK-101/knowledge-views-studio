@@ -34,7 +34,7 @@ class CallNotifier(private val context: Context) {
     init {
         instance = this
         nm.createNotificationChannel(
-            NotificationChannel(CH_INCOMING, "Incoming calls", NotificationManager.IMPORTANCE_HIGH).apply {
+            NotificationChannel(CH_INCOMING, context.getString(R.string.channel_incoming_calls), NotificationManager.IMPORTANCE_HIGH).apply {
                 // Telecom plays the ringtone and vibration; the channel itself stays silent.
                 setSound(null, null)
                 enableVibration(false)
@@ -42,13 +42,13 @@ class CallNotifier(private val context: Context) {
             },
         )
         nm.createNotificationChannel(
-            NotificationChannel(CH_ONGOING, "Ongoing calls", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            NotificationChannel(CH_ONGOING, context.getString(R.string.channel_ongoing_calls), NotificationManager.IMPORTANCE_DEFAULT).apply {
                 setSound(null, null)
                 enableVibration(false)
             },
         )
         nm.createNotificationChannel(
-            NotificationChannel(CH_SILENCED, "Silenced calls", NotificationManager.IMPORTANCE_LOW).apply { setSound(null, null) },
+            NotificationChannel(CH_SILENCED, context.getString(R.string.channel_silenced_calls), NotificationManager.IMPORTANCE_LOW).apply { setSound(null, null) },
         )
     }
 
@@ -146,13 +146,13 @@ class CallNotifier(private val context: Context) {
         return NotificationCompat.Builder(context, if (ringing) CH_INCOMING else CH_ONGOING)
             .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
             .setContentTitle(call.title)
-            .setContentText(if (ringing) "Incoming call" else "Ongoing call")
+            .setContentText(context.getString(if (ringing) R.string.notif_incoming_call else R.string.notif_ongoing_call))
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(contentIntent())
             .apply { if (ringing) setFullScreenIntent(contentIntent(), true) }
-            .addAction(0, if (ringing) "Decline" else "Hang up", action(if (ringing) CallActionReceiver.ACTION_DECLINE else CallActionReceiver.ACTION_HANGUP, call.id, 9))
+            .addAction(0, context.getString(if (ringing) R.string.notif_decline else R.string.notif_hang_up), action(if (ringing) CallActionReceiver.ACTION_DECLINE else CallActionReceiver.ACTION_HANGUP, call.id, 9))
             .setDeleteIntent(dismissIntent(if (ringing) INCOMING_ID else ONGOING_ID, call.id))
             .build()
     }
@@ -198,7 +198,7 @@ class CallNotifier(private val context: Context) {
         app.parley.common.NotificationPrivacy.shownLabel(call.label),
         call.number?.takeIf { call.name != null },
         call.accountLabel,
-    ).joinToString(" · ")
+    ).joinToString(context.getString(R.string.tc_separator))
 
     private fun answerIntent(call: CallUi): PendingIntent = PendingIntent.getActivity(
         context, 2,
@@ -220,17 +220,17 @@ class CallNotifier(private val context: Context) {
         return NotificationCompat.Builder(context, CH_INCOMING)
             .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
             .setContentTitle(call.title)
-            .setContentText(subtitle(call).ifEmpty { "Incoming call" })
+            .setContentText(subtitle(call).ifEmpty { context.getString(R.string.notif_incoming_call) })
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setPublicVersion(publicVersion(call, CH_INCOMING, "Incoming call"))
+            .setPublicVersion(publicVersion(call, CH_INCOMING, context.getString(R.string.notif_incoming_call)))
             .setContentIntent(contentIntent())
             .setFullScreenIntent(contentIntent(), true)
             .setStyle(NotificationCompat.CallStyle.forIncomingCall(person(call), action(CallActionReceiver.ACTION_DECLINE, call.id, 3), answer))
-            .addAction(0, "Ignore", action(CallActionReceiver.ACTION_IGNORE, call.id, 10))
+            .addAction(0, context.getString(R.string.notif_ignore), action(CallActionReceiver.ACTION_IGNORE, call.id, 10))
             .setDeleteIntent(dismissIntent(INCOMING_ID, call.id))
             .build()
     }
@@ -238,13 +238,13 @@ class CallNotifier(private val context: Context) {
     private fun buildSilenced(call: CallUi): android.app.Notification =
         NotificationCompat.Builder(context, CH_SILENCED)
             .setSmallIcon(app.parley.ui.R.drawable.ic_stat_block)
-            .setContentTitle("Silenced call · ${call.title}")
-            .setContentText(if (CallManager.isScreening(call.id)) "Checking…" else "Ringing silently")
+            .setContentTitle(context.getString(R.string.notif_silenced_call_title, call.title))
+            .setContentText(context.getString(if (CallManager.isScreening(call.id)) R.string.notif_checking else R.string.notif_ringing_silently))
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setOngoing(true)
             .setContentIntent(contentIntent())
-            .addAction(0, "Decline", action(CallActionReceiver.ACTION_DECLINE, call.id, 4))
-            .addAction(0, "Answer", answerIntent(call))
+            .addAction(0, context.getString(R.string.notif_decline), action(CallActionReceiver.ACTION_DECLINE, call.id, 4))
+            .addAction(0, context.getString(R.string.notif_answer), answerIntent(call))
             .setDeleteIntent(dismissIntent(INCOMING_ID, call.id))
             .build()
 
@@ -256,9 +256,9 @@ class CallNotifier(private val context: Context) {
             .setContentTitle(call.title)
             .setContentText(
                 when (call.state) {
-                    CallState.DIALING, CallState.CONNECTING -> "Calling…"
-                    CallState.HOLDING -> "On hold"
-                    else -> if (limited) endsText(timing, chrono) else subtitle(call).ifEmpty { "Ongoing call" }
+                    CallState.DIALING, CallState.CONNECTING -> context.getString(R.string.incall_status_calling)
+                    CallState.HOLDING -> context.getString(R.string.incall_status_on_hold)
+                    else -> if (limited) endsText(timing, chrono) else subtitle(call).ifEmpty { context.getString(R.string.notif_ongoing_call) }
                 },
             )
             .setCategory(NotificationCompat.CATEGORY_CALL)
@@ -266,20 +266,20 @@ class CallNotifier(private val context: Context) {
             .setOnlyAlertOnce(true)
             .setSilent(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setPublicVersion(publicVersion(call, CH_ONGOING, "Ongoing call"))
+            .setPublicVersion(publicVersion(call, CH_ONGOING, context.getString(R.string.notif_ongoing_call)))
             .setContentIntent(contentIntent())
             .setDeleteIntent(dismissIntent(ONGOING_ID, call.id))
             // CallStyle needs a full-screen intent or a foreground service. The ongoing channel is not
             // high-importance, so this never pops up; it only satisfies the platform check.
             .setFullScreenIntent(contentIntent(), false)
             .setStyle(NotificationCompat.CallStyle.forOngoingCall(person(call), action(CallActionReceiver.ACTION_HANGUP, call.id, 6)))
-            .addAction(0, if (audio.muted) "Unmute" else "Mute", action(CallActionReceiver.ACTION_MUTE, call.id, 7))
+            .addAction(0, context.getString(if (audio.muted) R.string.notif_unmute else R.string.notif_mute), action(CallActionReceiver.ACTION_MUTE, call.id, 7))
         if (limited && timing.canExtend) {
             // Wrap-up actions replace Speaker while a limit runs (T3).
-            b.addAction(0, "+5 min", action(CallActionReceiver.ACTION_EXTEND, call.id, 11))
-            b.addAction(0, "Don't end", action(CallActionReceiver.ACTION_KEEP_GOING, call.id, 12))
+            b.addAction(0, context.getString(R.string.notif_plus_5_min), action(CallActionReceiver.ACTION_EXTEND, call.id, 11))
+            b.addAction(0, context.getString(R.string.notif_dont_end), action(CallActionReceiver.ACTION_KEEP_GOING, call.id, 12))
         } else {
-            b.addAction(0, if (audio.current?.type == RouteType.SPEAKER) "Speaker off" else "Speaker", action(CallActionReceiver.ACTION_SPEAKER, call.id, 8))
+            b.addAction(0, context.getString(if (audio.current?.type == RouteType.SPEAKER) R.string.notif_speaker_off else R.string.notif_speaker), action(CallActionReceiver.ACTION_SPEAKER, call.id, 8))
         }
         if ((call.state == CallState.ACTIVE || call.state == CallState.HOLDING) && call.connectTimeMillis > 0) {
             b.setUsesChronometer(true).setChronometerCountDown(chrono.countDown).setWhen(chrono.whenMillis).setShowWhen(true)
@@ -289,7 +289,7 @@ class CallNotifier(private val context: Context) {
 
     private fun endsText(timing: CallTiming, chrono: CallChronometer.Display): String {
         val at = android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(chrono.whenMillis))
-        return listOfNotNull(timing.source, "ends at $at").joinToString(" · ").replaceFirstChar { it.uppercase() }
+        return listOfNotNull(timing.source, context.getString(R.string.notif_ends_at, at)).joinToString(context.getString(R.string.tc_separator)).replaceFirstChar { it.uppercase() }
     }
 
     companion object {

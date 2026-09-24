@@ -26,6 +26,12 @@ import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 
 class InCallActivity : ComponentActivity() {
+    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(newBase)
+        app.parley.ui.AppLocale.override(this, newBase)
+    }
+
     private var showDialpad by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,7 +97,7 @@ class InCallActivity : ComponentActivity() {
             is PostCallChoice.SavePrivately -> unlockThen {
                 lifecycleScope.launch {
                     val said = runCatching { deps.savePrivately(choice.number, choice.name) }.getOrNull()
-                    Toast.makeText(this@InCallActivity, said ?: "Couldn't save the number", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@InCallActivity, said ?: getString(app.parley.telecom.R.string.incall_save_failed), Toast.LENGTH_LONG).show()
                     if (said != null && CallManager.state.value.isEmpty()) finishAndRemoveTask()
                 }
             }

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared UI components (core/ui). "Parley" is the product name: never translate it. -->
+<resources>
+    <!-- TalkBack names of keypad keys, shared by the dialer and the in-call keypad. -->
+    <string name="ui_key_star">star</string>
+    <string name="ui_key_pound">pound</string>
+    <string name="ui_key_plus">plus</string>
+    <!-- Avatar of a contact that is only a company. -->
+    <string name="ui_company">Company</string>
+</resources>

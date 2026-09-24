@@ -75,6 +75,12 @@ import kotlinx.coroutines.withContext
  * to find numbers and is never stored. This activity doesn't handle `tel:` links (the keypad does).
  */
 class NumberActionActivity : ComponentActivity() {
+    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(newBase)
+        app.parley.ui.AppLocale.override(this, newBase)
+    }
+
     private sealed interface Stage {
         data object NoNumber : Stage
         /** M8: "Message a number" (tile, launcher shortcut): an empty field with Paste and the country. */

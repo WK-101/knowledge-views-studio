@@ -14,6 +14,11 @@ import android.service.quicksettings.TileService
  * screen, so a locked phone asks to unlock first and nothing (no recent numbers, no history) shows before that.
  */
 class MessageNumberTileService : TileService() {
+    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(app.parley.ui.AppLocale.wrap(newBase))
+    }
+
     override fun onStartListening() {
         super.onStartListening()
         val tile = qsTile ?: return

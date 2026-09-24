@@ -489,10 +489,10 @@ object CallManager {
             canRespondViaText = can(Call.Details.CAPABILITY_RESPOND_VIA_TEXT),
             accountLabel = accountLabel(account),
             verification = verificationOf(call),
-            disconnectReason = if (id in endedByLimit) "Call time limit reached" else d.disconnectCause?.let { disconnectText(it) },
+            disconnectReason = if (id in endedByLimit) str(R.string.call_limit_reached) else d.disconnectCause?.let { disconnectText(it) },
             postDialWait = postDial[id],
             silenced = id in silenced,
-            silenceReason = if (id in quotaSilenced) "Silenced: your call time with this person is used up" else null,
+            silenceReason = if (id in quotaSilenced) str(R.string.call_silenced_quota) else null,
             accountId = account?.id,
             heldSinceElapsed = heldSince[id] ?: 0L,
             isEmergency = isEmergency(number),
@@ -506,6 +506,7 @@ object CallManager {
             verdictWarn = outcomes[id]?.warn == true,
             noContact = id in noContact && found == null,
             accountNumber = accountNumber(account),
+            fallbackTitle = str(if (hidden) R.string.call_private_number else R.string.call_unknown).orEmpty(),
         )
     }
 
@@ -544,12 +545,15 @@ object CallManager {
 
     private fun disconnectText(c: DisconnectCause): String? = when (c.code) {
         DisconnectCause.LOCAL, DisconnectCause.REMOTE -> null
-        DisconnectCause.BUSY -> "Busy"
-        DisconnectCause.MISSED -> "Missed call"
-        DisconnectCause.REJECTED -> "Declined"
-        DisconnectCause.ERROR -> c.label?.toString()?.ifBlank { null } ?: "Call failed"
+        DisconnectCause.BUSY -> str(R.string.call_disconnect_busy)
+        DisconnectCause.MISSED -> str(R.string.call_disconnect_missed)
+        DisconnectCause.REJECTED -> str(R.string.call_disconnect_declined)
+        DisconnectCause.ERROR -> c.label?.toString()?.ifBlank { null } ?: str(R.string.call_disconnect_failed)
         else -> c.label?.toString()?.ifBlank { null }
     }
+
+    /** A UI text in the user's language; null before [init] (calls only arrive after it). */
+    private fun str(res: Int): String? = if (::appContext.isInitialized) appContext.getString(res) else null
 
     private fun isEmergency(number: String?): Boolean = try {
         number != null && ::appContext.isInitialized &&
@@ -596,10 +600,10 @@ object CallManager {
         val block = o?.decision as? Decision.Block
         val silenceReason = when {
             id !in silenced -> null
-            id in quotaSilenced -> "Silenced: your call time with this person is used up"
-            block?.action == BlockAction.SILENCE -> o.verdict?.takeIf { it.isNotBlank() } ?: "Silenced by your blocking rules"
-            id in ignoredByUser -> "Ignored: you stopped the ringing"
-            else -> "Silenced"
+            id in quotaSilenced -> str(R.string.call_silenced_quota)
+            block?.action == BlockAction.SILENCE -> o.verdict?.takeIf { it.isNotBlank() } ?: str(R.string.call_silenced_rules)
+            id in ignoredByUser -> str(R.string.call_silenced_ignored)
+            else -> str(R.string.call_silenced)
         }
         val tone = when {
             block != null -> RingtoneSource.NONE to null

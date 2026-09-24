@@ -7,13 +7,14 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import app.parley.R
 
 object Intents {
     private fun launch(context: Context, intent: Intent) {
         try {
             context.startActivity(intent)
         } catch (_: ActivityNotFoundException) {
-            Toast.makeText(context, "No app available for this action", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.main_no_app), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -28,7 +29,7 @@ object Intents {
     fun shareVcard(context: Context, uri: Uri, name: String) {
         val i = Intent(Intent.ACTION_SEND).setType("text/x-vcard").putExtra(Intent.EXTRA_STREAM, uri)
             .putExtra(Intent.EXTRA_SUBJECT, name).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        launch(context, Intent.createChooser(i, "Share contact"))
+        launch(context, Intent.createChooser(i, context.getString(R.string.main_share_contact)))
     }
 
     fun shareText(context: Context, text: String) {
@@ -37,6 +38,6 @@ object Intents {
 
     fun copy(context: Context, text: String) {
         context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("number", text))
-        Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.main_copied), Toast.LENGTH_SHORT).show()
     }
 }

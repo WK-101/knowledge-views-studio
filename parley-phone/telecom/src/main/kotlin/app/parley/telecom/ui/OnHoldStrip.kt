@@ -22,6 +22,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalResources
+import app.parley.telecom.R
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -52,6 +54,7 @@ internal fun OnHoldStrip(held: CallUi, front: CallUi?, modifier: Modifier = Modi
     val canSwap = front == null || (front.state == CallState.ACTIVE && (front.canHold || front.canSwap))
     val swap = { if (front != null) CallManager.swap(front.id) else CallManager.toggleHold(held.id) }
     val canMerge = frontActive && front?.canMerge == true
+    val res = LocalResources.current
     Surface(
         color = MaterialTheme.colorScheme.secondaryContainer,
         shape = RoundedCornerShape(20.dp),
@@ -59,13 +62,13 @@ internal fun OnHoldStrip(held: CallUi, front: CallUi?, modifier: Modifier = Modi
             .fillMaxWidth()
             .padding(top = 12.dp)
             .clip(RoundedCornerShape(20.dp))
-            .clickable(enabled = canSwap, role = Role.Button, onClickLabel = "Switch to this call", onClick = swap)
+            .clickable(enabled = canSwap, role = Role.Button, onClickLabel = res.getString(R.string.incall_switch_to_call), onClick = swap)
             .semantics(mergeDescendants = true) {
-                contentDescription = "${held.title} on hold, ${spokenDuration(heldFor)}"
+                contentDescription = res.getString(R.string.incall_held_description, held.title, spokenDuration(res, heldFor))
                 customActions = buildList {
-                    if (canSwap) add(CustomAccessibilityAction("Swap calls") { swap(); true })
-                    if (canMerge) add(CustomAccessibilityAction("Merge calls") { CallManager.merge(front.id); true })
-                    add(CustomAccessibilityAction("End held call") { CallManager.hangup(held.id); true })
+                    if (canSwap) add(CustomAccessibilityAction(res.getString(R.string.incall_swap_calls)) { swap(); true })
+                    if (canMerge) add(CustomAccessibilityAction(res.getString(R.string.incall_merge_calls)) { CallManager.merge(front.id); true })
+                    add(CustomAccessibilityAction(res.getString(R.string.incall_end_held_call)) { CallManager.hangup(held.id); true })
                 }
             },
     ) {
@@ -73,17 +76,17 @@ internal fun OnHoldStrip(held: CallUi, front: CallUi?, modifier: Modifier = Modi
             Avatar(held.title, held.photoUri, 36.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(held.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("On hold · ${clockText(heldFor)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                Text(held.displayTitle, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(res.getString(R.string.incall_on_hold_for, clockText(heldFor)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
             }
-            if (canSwap) FilledTonalIconButton(onClick = swap) { Icon(Icons.Rounded.SwapCalls, "Swap calls") }
+            if (canSwap) FilledTonalIconButton(onClick = swap) { Icon(Icons.Rounded.SwapCalls, res.getString(R.string.incall_swap_calls)) }
             if (canMerge) {
-                FilledTonalIconButton(onClick = { CallManager.merge(front.id) }) { Icon(Icons.AutoMirrored.Rounded.CallMerge, "Merge calls") }
+                FilledTonalIconButton(onClick = { CallManager.merge(front.id) }) { Icon(Icons.AutoMirrored.Rounded.CallMerge, res.getString(R.string.incall_merge_calls)) }
             }
             FilledTonalIconButton(
                 onClick = { CallManager.hangup(held.id) },
                 colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = CallColors.Decline, contentColor = Color.White),
-            ) { Icon(Icons.Rounded.CallEnd, "End held call") }
+            ) { Icon(Icons.Rounded.CallEnd, res.getString(R.string.incall_end_held_call)) }
         }
     }
 }

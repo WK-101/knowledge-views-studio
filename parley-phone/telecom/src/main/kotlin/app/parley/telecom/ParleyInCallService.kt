@@ -20,6 +20,11 @@ import app.parley.telecom.ui.InCallActivity
 // Telephony calls here are covered by the default-dialer role and each one handles SecurityException.
 @SuppressLint("MissingPermission")
 class ParleyInCallService : InCallService() {
+    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(app.parley.ui.AppLocale.wrap(newBase))
+    }
+
     private lateinit var notifier: CallNotifier
     private lateinit var proximity: ProximityController
     private var endpoints: List<CallEndpoint> = emptyList()
@@ -151,18 +156,18 @@ class ParleyInCallService : InCallService() {
         }
         val routes = ArrayList<AudioRoute>()
         val mask = audioState.supportedRouteMask
-        if (mask and CallAudioState.ROUTE_EARPIECE != 0) routes += AudioRoute("earpiece", RouteType.EARPIECE, "Phone")
-        if (mask and CallAudioState.ROUTE_WIRED_HEADSET != 0) routes += AudioRoute("wired", RouteType.WIRED, "Wired headset")
-        if (mask and CallAudioState.ROUTE_SPEAKER != 0) routes += AudioRoute("speaker", RouteType.SPEAKER, "Speaker")
+        if (mask and CallAudioState.ROUTE_EARPIECE != 0) routes += AudioRoute("earpiece", RouteType.EARPIECE, "")
+        if (mask and CallAudioState.ROUTE_WIRED_HEADSET != 0) routes += AudioRoute("wired", RouteType.WIRED, "")
+        if (mask and CallAudioState.ROUTE_SPEAKER != 0) routes += AudioRoute("speaker", RouteType.SPEAKER, "")
         btDevices.clear()
         var active: AudioRoute? = null
         if (mask and CallAudioState.ROUTE_BLUETOOTH != 0) {
             val devices = if (Build.VERSION.SDK_INT >= 28) audioState.supportedBluetoothDevices.toList() else emptyList()
             if (devices.isEmpty()) {
-                routes += AudioRoute("bt", RouteType.BLUETOOTH, "Bluetooth")
+                routes += AudioRoute("bt", RouteType.BLUETOOTH, "")
             } else {
                 devices.forEach { d ->
-                    val name = try { d.name } catch (_: SecurityException) { null } ?: "Bluetooth"
+                    val name = try { d.name } catch (_: SecurityException) { null }.orEmpty()
                     btDevices[d.address] = d
                     val r = AudioRoute(d.address, RouteType.BLUETOOTH, name)
                     routes += r
