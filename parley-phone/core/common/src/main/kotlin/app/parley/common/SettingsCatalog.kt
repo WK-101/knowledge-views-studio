@@ -1,6 +1,10 @@
 package app.parley.common
 
-/** Top-level groups of Settings, in the order they're listed. */
+/**
+ * Top-level groups of Settings, in the order they're listed. [title] and [summary] are the English reference
+ * texts: the app shows its localised string resources (keyed by the enum name) and keeps these for search, so
+ * English words still find a setting in every language.
+ */
 enum class SettingsCategory(val title: String, val summary: String) {
     APPEARANCE("Appearance", "Theme, colours, navigation bar, names"),
     CALLS("Calls", "Answering, SIMs, ringtones, carrier settings"),
@@ -17,8 +21,10 @@ enum class SettingsCategory(val title: String, val summary: String) {
 }
 
 /**
- * One searchable setting. [title] and [summary] are what the settings screens show (a screen may replace the
- * summary with a live value such as "Last backup 2 h ago"); [keywords] are extra words people search with.
+ * One searchable setting, identified by its stable [key]. In [SettingsCatalog], [title], [summary] and [keywords]
+ * are the English reference texts: the app maps [key] to localised string resources for what the screens show
+ * (a screen may replace the summary with a live value such as "Last backup 2 h ago") and builds localised
+ * entries for search with [localized]. [categoryTitles] are the category names search matches.
  */
 data class SettingEntry(
     val key: String,
@@ -26,7 +32,20 @@ data class SettingEntry(
     val summary: String,
     val category: SettingsCategory,
     val keywords: List<String> = emptyList(),
-)
+    val categoryTitles: List<String> = listOf(category.title),
+) {
+    /**
+     * This entry with localised texts, for search. The English title, keywords and category name stay
+     * searchable as keywords, so "dark mode" still finds the theme when the app runs in another language.
+     */
+    fun localized(title: String, summary: String, keywords: List<String>, categoryTitle: String): SettingEntry = copy(
+        title = title,
+        summary = summary,
+        keywords = (keywords + listOfNotNull(this.title.takeIf { it != title }) + this.keywords)
+            .map { it.trim() }.filter { it.isNotEmpty() }.distinct(),
+        categoryTitles = (listOf(categoryTitle) + categoryTitles).distinct(),
+    )
+}
 
 /**
  * Every setting Parley has, one place. The category screens take their titles from here and Settings search
@@ -211,7 +230,7 @@ object SettingsSearch {
             e.keywords.any { k -> TextSearch.normalize(k).split(' ').any { it.startsWith(word) } } -> 60
             title.contains(word) -> 50
             e.keywords.any { TextSearch.normalize(it).contains(word) } -> 40
-            TextSearch.normalize(e.category.title).split(' ').any { it.startsWith(word) } -> 20
+            e.categoryTitles.any { c -> TextSearch.normalize(c).split(' ').any { it.startsWith(word) } } -> 20
             word.length >= 3 && TextSearch.normalize(e.summary).split(' ', ',', '.', '(', ')').any { it.startsWith(word) } -> 10
             else -> 0
         }

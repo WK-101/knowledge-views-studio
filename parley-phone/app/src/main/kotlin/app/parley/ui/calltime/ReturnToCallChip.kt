@@ -26,18 +26,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.parley.R
 import app.parley.telecom.CallClock
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallState
 import app.parley.telecom.CallUi
 import app.parley.telecom.ui.InCallActivity
 import app.parley.ui.CallColors
+import app.parley.ui.settings.bidiLtr
+import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.delay
 
 /**
@@ -62,10 +67,10 @@ fun ReturnToCallChip(modifier: Modifier = Modifier) {
             }
         }
         val (text, spoken) = when {
-            call != null -> describe(call, live.size, timings[call.id]?.remainingMs(now))
+            call != null -> describe(context, call, live.size, timings[call.id]?.remainingMs(now))
             else -> {
                 val p = pending
-                val t = p?.simLabel?.let { "Calling via $it…" } ?: "Calling…"
+                val t = p?.simLabel?.let { stringResource(R.string.ct_chip_calling_via, it) } ?: stringResource(R.string.ct_chip_calling)
                 t to t
             }
         }
@@ -77,7 +82,7 @@ fun ReturnToCallChip(modifier: Modifier = Modifier) {
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 6.dp)
                 .clip(RoundedCornerShape(20.dp))
-                .clickable(onClickLabel = "Return to call") { context.startActivity(InCallActivity.intent(context, false)) }
+                .clickable(onClickLabel = stringResource(R.string.ct_chip_return_to_call)) { context.startActivity(InCallActivity.intent(context, false)) }
                 .semantics(mergeDescendants = true) { contentDescription = spoken },
         ) {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -85,23 +90,23 @@ fun ReturnToCallChip(modifier: Modifier = Modifier) {
                 Spacer(Modifier.width(10.dp))
                 Text(text, color = Color.White, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
-                Text("Return", color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.ct_chip_return), color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
         }
     }
 }
 
-private fun describe(call: CallUi, count: Int, remainingMs: Long?): Pair<String, String> {
+private fun describe(context: android.content.Context, call: CallUi, count: Int, remainingMs: Long?): Pair<String, String> {
     val who = call.title
     val more = if (count > 1) " +${count - 1}" else ""
     val status = when (call.state) {
-        CallState.RINGING -> "Incoming call from $who"
-        CallState.DIALING, CallState.CONNECTING, CallState.NEW, CallState.SELECT_ACCOUNT -> "Calling $who…"
-        CallState.HOLDING -> "$who on hold"
-        else -> "On call with $who"
+        CallState.RINGING -> context.getString(R.string.ct_chip_incoming, who)
+        CallState.DIALING, CallState.CONNECTING, CallState.NEW, CallState.SELECT_ACCOUNT -> context.getString(R.string.ct_chip_calling_who, who)
+        CallState.HOLDING -> context.getString(R.string.ct_chip_on_hold, who)
+        else -> context.getString(R.string.ct_chip_on_call, who)
     }
     val time = when {
-        remainingMs != null -> clock(remainingMs / 1000) + " left"
+        remainingMs != null -> context.getString(R.string.ct_chip_left, clock(remainingMs / 1000))
         call.state == CallState.ACTIVE && call.connectTimeMillis > 0 -> clock((System.currentTimeMillis() - call.connectTimeMillis) / 1000)
         else -> null
     }

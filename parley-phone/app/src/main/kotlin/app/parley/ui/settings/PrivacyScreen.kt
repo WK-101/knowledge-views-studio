@@ -29,27 +29,30 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.ui.CallColors
 import app.parley.ui.contact.Section
 
 private val reasons = mapOf(
-    "android.permission.CALL_PHONE" to "Place the calls you start.",
-    "android.permission.READ_PHONE_STATE" to "List your SIM cards and show which one a call uses.",
-    "android.permission.ANSWER_PHONE_CALLS" to "Answer and end calls from headsets and notifications.",
-    "android.permission.READ_CALL_LOG" to "Show your call history.",
-    "android.permission.WRITE_CALL_LOG" to "Delete call history entries when you ask.",
-    "android.permission.READ_CONTACTS" to "Show your contacts and caller names.",
-    "android.permission.WRITE_CONTACTS" to "Create, edit, merge and delete contacts.",
-    "android.permission.GET_ACCOUNTS" to "Let you choose which account a contact is saved in.",
-    "android.permission.POST_NOTIFICATIONS" to "Show incoming, ongoing and missed-call notifications.",
-    "android.permission.USE_FULL_SCREEN_INTENT" to "Show incoming calls over the lock screen.",
-    "android.permission.WAKE_LOCK" to "Turn the screen off when the phone is at your ear, and keep a call time limit on time.",
-    "android.permission.VIBRATE" to "Keypad and call vibrations.",
-    "android.permission.MODIFY_AUDIO_SETTINGS" to "Switch between earpiece, speaker and headsets.",
-    "android.permission.READ_PHONE_NUMBERS" to "Optional: know your own number for neighbour-spoofing protection.",
-    "android.permission.BLUETOOTH_CONNECT" to "Optional: show Bluetooth headset names during calls.",
-    "android.permission.READ_SYNC_SETTINGS" to "Tell you in the health check when contacts sync is off for an account.",
+    "android.permission.CALL_PHONE" to R.string.set_perm_call_phone,
+    "android.permission.READ_PHONE_STATE" to R.string.set_perm_read_phone_state,
+    "android.permission.ANSWER_PHONE_CALLS" to R.string.set_perm_answer_phone_calls,
+    "android.permission.READ_CALL_LOG" to R.string.set_perm_read_call_log,
+    "android.permission.WRITE_CALL_LOG" to R.string.set_perm_write_call_log,
+    "android.permission.READ_CONTACTS" to R.string.set_perm_read_contacts,
+    "android.permission.WRITE_CONTACTS" to R.string.set_perm_write_contacts,
+    "android.permission.GET_ACCOUNTS" to R.string.set_perm_get_accounts,
+    "android.permission.POST_NOTIFICATIONS" to R.string.set_perm_post_notifications,
+    "android.permission.USE_FULL_SCREEN_INTENT" to R.string.set_perm_full_screen_intent,
+    "android.permission.WAKE_LOCK" to R.string.set_perm_wake_lock,
+    "android.permission.VIBRATE" to R.string.set_perm_vibrate,
+    "android.permission.MODIFY_AUDIO_SETTINGS" to R.string.set_perm_modify_audio,
+    "android.permission.READ_PHONE_NUMBERS" to R.string.set_perm_read_phone_numbers,
+    "android.permission.BLUETOOTH_CONNECT" to R.string.set_perm_bluetooth_connect,
+    "android.permission.READ_SYNC_SETTINGS" to R.string.set_perm_read_sync_settings,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,7 +64,7 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
     }
     val hasInternet = "android.permission.INTERNET" in requested
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Privacy dashboard") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+        TopAppBar(title = { Text(settingTitle("privacy_dashboard")) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } })
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
@@ -72,10 +75,9 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.WifiOff, null, Modifier.padding(end = 16.dp))
                         Column {
-                            Text(if (hasInternet) "Internet permission present" else "No internet access", style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(if (hasInternet) R.string.set_privacy_internet_present else R.string.set_no_internet), style = MaterialTheme.typography.titleMedium)
                             Text(
-                                if (hasInternet) "This build requests internet access. Official builds never do."
-                                else "Android itself confirms this app did not request the INTERNET permission. Your contacts and calls cannot leave this phone through Parley.",
+                                stringResource(if (hasInternet) R.string.set_privacy_internet_present_body else R.string.set_privacy_no_internet_body),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
@@ -84,44 +86,55 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
             }
             item {
                 Text(
-                    "No analytics, no crash reporting, no ads, no accounts. Backups are files you export yourself.",
+                    stringResource(R.string.set_privacy_no_analytics),
                     Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
                 )
             }
             item { app.parley.ui.calltime.NotificationHealthCard(vm) }
             item { app.parley.ui.people.PrivacyLinks(vm) }
-            item { Section("What Parley keeps private") }
+            item { Section(stringResource(R.string.set_privacy_keeps_private)) }
             item {
                 val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()
                 val priv by vm.c.vault.privateCalls.collectAsStateWithLifecycle()
                 val s by vm.settings.collectAsStateWithLifecycle()
                 val journalCount by androidx.compose.runtime.produceState(0) { value = vm.c.meta.journalCount() }
-                ListItem(headlineContent = { Text("${vault.size} private contacts") }, supportingContent = { Text("Encrypted; invisible to every other app") })
-                ListItem(headlineContent = { Text("${priv.size} private calls") }, supportingContent = { Text("Kept out of the system call log") })
+                ListItem(
+                    headlineContent = { Text(pluralStringResource(R.plurals.set_privacy_private_contacts, vault.size, vault.size)) },
+                    supportingContent = { Text(stringResource(R.string.set_privacy_private_contacts_body)) },
+                )
+                ListItem(
+                    headlineContent = { Text(pluralStringResource(R.plurals.set_privacy_private_calls, priv.size, priv.size)) },
+                    supportingContent = { Text(stringResource(R.string.set_privacy_private_calls_body)) },
+                )
                 app.parley.messaging.MessagedRecordSection { vm.navigate(app.parley.NavEvent.Route(app.parley.messaging.MessagingRoutes.MESSAGED)) }
                 val archiveOn by vm.c.history.prefs.state.collectAsStateWithLifecycle()
                 ListItem(
-                    headlineContent = { Text(if (s.callLogRetentionDays > 0) "Call history kept ${s.callLogRetentionDays} days" else "Parley never deletes call history on its own") },
-                    supportingContent = {
+                    headlineContent = {
                         Text(
-                            if (archiveOn.archiveEnabled) "Android may keep only recent calls on some phones, so Parley keeps its own encrypted copy on this phone. Change in Settings › Recents & history"
-                            else "Android itself may keep only recent calls on some phones; turn on “Keep full call history” in Settings › Recents & history to keep them all",
+                            if (s.callLogRetentionDays > 0) pluralStringResource(R.plurals.set_privacy_history_kept, s.callLogRetentionDays, s.callLogRetentionDays)
+                            else stringResource(R.string.set_privacy_history_never_deleted),
                         )
                     },
+                    supportingContent = {
+                        Text(stringResource(if (archiveOn.archiveEnabled) R.string.set_privacy_archive_on else R.string.set_privacy_archive_off))
+                    },
                 )
-                ListItem(headlineContent = { Text("$journalCount changes you can undo") }, supportingContent = { Text("Deleted and edited contacts are kept for 30 days on this phone only") })
                 ListItem(
-                    headlineContent = { Text(if (s.appLock) "App lock on" else "App lock off") },
-                    supportingContent = { Text(if (s.secureScreen) "Screen content hidden from screenshots" else "Screenshots allowed") },
+                    headlineContent = { Text(pluralStringResource(R.plurals.set_privacy_undo_changes, journalCount, journalCount)) },
+                    supportingContent = { Text(stringResource(R.string.set_privacy_undo_body)) },
+                )
+                ListItem(
+                    headlineContent = { Text(stringResource(if (s.appLock) R.string.set_privacy_app_lock_on else R.string.set_privacy_app_lock_off)) },
+                    supportingContent = { Text(stringResource(if (s.secureScreen) R.string.set_privacy_screenshots_hidden else R.string.set_privacy_screenshots_allowed)) },
                 )
             }
-            item { Section("Permissions") }
+            item { Section(stringResource(R.string.set_privacy_permissions)) }
             items(requested.filter { it.startsWith("android.permission.") }) { perm ->
                 val granted = context.checkSelfPermission(perm) == PackageManager.PERMISSION_GRANTED
                 ListItem(
                     leadingContent = { Icon(if (granted) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (granted) CallColors.Accept else MaterialTheme.colorScheme.outline) },
                     headlineContent = { Text(perm.removePrefix("android.permission.").lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }) },
-                    supportingContent = { Text(reasons[perm] ?: "") },
+                    supportingContent = { Text(reasons[perm]?.let { stringResource(it) } ?: "") },
                 )
             }
         }

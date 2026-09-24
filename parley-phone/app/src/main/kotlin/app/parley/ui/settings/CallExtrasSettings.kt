@@ -14,6 +14,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.RecentFilter
@@ -31,39 +34,43 @@ internal fun CallExtrasGroups(vm: AppViewModel) {
     val cfg by vm.c.callExtras.config.collectAsStateWithLifecycle()
     // Android has no intent for "Power button ends call" alone: the Accessibility page opens and the row says where to look.
     val powerEnds = remember { powerButtonEndsCall(context) }
-    SegmentedGroup("Missed calls and voicemail") {
-        val choices = MissedReAlert.CHOICES
+    val choices = MissedReAlert.CHOICES
+    val choiceLabels = choices.map { if (it == 0) stringResource(R.string.set_off) else pluralStringResource(R.plurals.set_every_minutes, it, it) }
+    val reAlertSub = if (cfg.missedReAlertMinutes == 0) null else stringResource(R.string.set_missed_realert_on, cfg.missedReAlertMinutes)
+    val voicemailSub = stringResource(R.string.set_voicemail_sub)
+    val pocketSub = stringResource(R.string.set_pocket_guard_sub)
+    val proximitySub = stringResource(if (cfg.proximitySensor) R.string.set_proximity_on else R.string.set_proximity_off)
+    val powerSub = listOfNotNull(
+        when (powerEnds) {
+            true -> stringResource(R.string.set_on)
+            false -> stringResource(R.string.set_off)
+            null -> null
+        },
+        stringResource(R.string.set_power_button_sub),
+    ).joinToString(". ")
+    SegmentedGroup(stringResource(R.string.set_group_missed_voicemail)) {
         menuRow(
-            "missed_realert", choices.map { if (it == 0) "Off" else "Every $it minutes" }, choices.indexOf(cfg.missedReAlertMinutes).coerceAtLeast(0),
+            "missed_realert", choiceLabels, choices.indexOf(cfg.missedReAlertMinutes).coerceAtLeast(0),
             Icons.Rounded.NotificationsActive,
-            sub = if (cfg.missedReAlertMinutes == 0) entry("missed_realert").summary
-            else "Every ${cfg.missedReAlertMinutes} min for up to 3 hours, never during Do Not Disturb. Stops when you open Recents.",
+            sub = reAlertSub,
         ) { i -> vm.c.callExtras.update { it.copy(missedReAlertMinutes = choices[i]) } }
-        linkRow("voicemail", Icons.Rounded.Voicemail, sub = "In Recents › Voicemail") {
+        linkRow("voicemail", Icons.Rounded.Voicemail, sub = voicemailSub) {
             vm.recentFilter.value = RecentFilter.VOICEMAIL
             vm.navigate(NavEvent.Tab(StartTab.RECENTS))
         }
     }
-    SegmentedGroup("During calls") {
+    SegmentedGroup(stringResource(R.string.set_group_during_calls)) {
         switchRow(
             "pocket_guard", cfg.pocketGuard, Icons.Rounded.PhonelinkLock,
-            sub = "A favourite, the direct-dial widget or a shortcut asks first while the proximity sensor is covered",
+            sub = pocketSub,
         ) { v -> vm.c.callExtras.update { it.copy(pocketGuard = v) } }
         switchRow(
             "proximity_sensor", cfg.proximitySensor, Icons.Rounded.Sensors,
-            sub = if (cfg.proximitySensor) "The screen turns off at your ear so your cheek can't press buttons. Turn off if the sensor is broken or the screen goes dark in your pocket."
-            else "Off: the screen stays on during earpiece calls. Be careful not to press buttons with your cheek.",
+            sub = proximitySub,
         ) { v -> vm.c.callExtras.update { it.copy(proximitySensor = v) } }
         linkRow(
             "power_button_ends_call", Icons.Rounded.Accessibility, external = true,
-            sub = listOfNotNull(
-                when (powerEnds) {
-                    true -> "On"
-                    false -> "Off"
-                    null -> null
-                },
-                "Opens Android's Accessibility settings: look for “Power button ends call” (under System controls or Interaction controls on some phones).",
-            ).joinToString(". "),
+            sub = powerSub,
         ) { runCatching { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } }
     }
 }

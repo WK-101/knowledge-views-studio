@@ -1,5 +1,7 @@
 package app.parley.calltime
 
+import android.content.Context
+import app.parley.R
 import app.parley.common.CallType
 import app.parley.common.PhoneNumbers
 import app.parley.common.calltime.CallFacts
@@ -72,7 +74,9 @@ class CallTimePlanner(private val c: DataContainer) {
         val config = c.calling.config.value
         if (config.rules.isEmpty() && config.reminders.everyMinutes <= 0 && config.reminders.perContact.isEmpty()) return CallTimePlan.NONE
         val s = subject(number, accountId, incoming)
-        return CallLimits.plan(config, s.facts, quotas(s))
+        val plan = CallLimits.plan(config, s.facts, quotas(s))
+        // The in-call screen shows where the limit comes from: in the app's language instead of CallLimits' English.
+        return if (plan.source == null) plan else plan.copy(source = CallLimits.ruleFor(config, s.facts)?.let { describe(c.appContext, it) } ?: plan.source)
     }
 
     suspend fun silenceIncoming(number: String, accountId: String?): Boolean {
@@ -88,29 +92,44 @@ class CallTimePlanner(private val c: DataContainer) {
         if (config.rules.none { it.hasQuota }) return null
         val s = subject(number, accountId, incoming = false)
         val used = CallLimits.outgoingBlocker(config, s.facts, quotas(s)) ?: return null
-        val period = if (used.period == QuotaPeriod.DAY) "today" else "this week"
-        val who = s.name?.let { " with $it" }.orEmpty()
-        return "You've used your ${used.allowanceSec / 60} minutes$who $period."
+        val res = c.appContext.resources
+        val minutes = (used.allowanceSec / 60).toInt()
+        val day = used.period == QuotaPeriod.DAY
+        return when {
+            s.name != null && day -> res.getQuantityString(R.plurals.ct_used_with_today, minutes, minutes, s.name)
+            s.name != null -> res.getQuantityString(R.plurals.ct_used_with_week, minutes, minutes, s.name)
+            day -> res.getQuantityString(R.plurals.ct_used_today, minutes, minutes)
+            else -> res.getQuantityString(R.plurals.ct_used_week, minutes, minutes)
+        }
     }
 
     companion object {
         private const val LOG_WAIT_MS = 1500L
 
         /** Label for a rule's allowance, e.g. "30 min a day · 2 h a week". */
-        fun allowanceText(rule: LimitRule): String = listOfNotNull(
-            rule.perCallMinutes.takeIf { it > 0 }?.let { "${minutes(it)} per call" },
-            rule.dailyMinutes.takeIf { it > 0 }?.let { "${minutes(it)} a day" },
-            rule.weeklyMinutes.takeIf { it > 0 }?.let { "${minutes(it)} a week" },
-        ).joinToString(" · ") + when {
-            rule.incoming && !rule.outgoing -> " · incoming only"
-            !rule.incoming && rule.outgoing -> " · outgoing only"
-            else -> ""
+        fun allowanceText(context: Context, rule: LimitRule): String = listOfNotNull(
+            rule.perCallMinutes.takeIf { it > 0 }?.let { context.getString(R.string.ct_per_call, minutes(context, it)) },
+            rule.dailyMinutes.takeIf { it > 0 }?.let { context.getString(R.string.ct_a_day, minutes(context, it)) },
+            rule.weeklyMinutes.takeIf { it > 0 }?.let { context.getString(R.string.ct_a_week, minutes(context, it)) },
+            when {
+                rule.incoming && !rule.outgoing -> context.getString(R.string.ct_incoming_only)
+                !rule.incoming && rule.outgoing -> context.getString(R.string.ct_outgoing_only)
+                else -> null
+            },
+        ).joinToString(" · ")
+
+        fun minutes(context: Context, m: Int): String = when {
+            m % 60 == 0 -> context.getString(R.string.ct_hours_short, m / 60)
+            m > 60 -> context.getString(R.string.ct_hours_minutes_short, m / 60, m % 60)
+            else -> context.getString(R.string.ct_minutes_short, m)
         }
 
-        fun minutes(m: Int): String = when {
-            m % 60 == 0 -> "${m / 60} h"
-            m > 60 -> "${m / 60} h ${m % 60} min"
-            else -> "$m min"
+        /** [CallLimits.describe] in the app's language: "Limit for Ana", shown during the call. */
+        fun describe(context: Context, rule: LimitRule): String = when (rule.scope) {
+            LimitScope.CONTACT -> context.getString(R.string.ct_limit_for, rule.title.ifBlank { context.getString(R.string.ct_this_contact) })
+            LimitScope.LABEL -> if (rule.title.isBlank()) context.getString(R.string.ct_limit_for_a_label) else context.getString(R.string.ct_limit_for_label, rule.title)
+            LimitScope.SIM -> context.getString(R.string.ct_limit_for, rule.title.ifBlank { context.getString(R.string.ct_this_sim) })
+            LimitScope.GLOBAL -> context.getString(R.string.ct_limit_for_all)
         }
     }
 }

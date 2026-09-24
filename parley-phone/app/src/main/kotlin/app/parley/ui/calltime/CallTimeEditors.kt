@@ -28,13 +28,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
+import app.parley.R
 import app.parley.common.calltime.CallingConfig
 import app.parley.common.calltime.LimitRule
 import app.parley.security.AppLock
 import app.parley.security.VaultSession
+import app.parley.ui.settings.bidiLtr
+import app.parley.ui.settings.settingTitle
 
 /**
  * Supervised mode (T7): limits can only be changed after proving presence with the app lock (fingerprint,
@@ -75,20 +81,20 @@ fun LimitRuleDialog(
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "Leave a field empty for no limit. A limit warns you, then ends that call. Emergency calls are never limited.",
+                    stringResource(R.string.ct_editor_help),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                MinutesField("Minutes per call", perCall) { perCall = it }
-                MinutesField("Minutes per day", daily) { daily = it }
-                MinutesField("Minutes per week", weekly) { weekly = it }
+                MinutesField(stringResource(R.string.ct_minutes_per_call), perCall) { perCall = it }
+                MinutesField(stringResource(R.string.ct_minutes_per_day), daily) { daily = it }
+                MinutesField(stringResource(R.string.ct_minutes_per_week), weekly) { weekly = it }
                 Text(
-                    "When a daily or weekly allowance is used up, calling asks first. It never cuts a call.",
+                    stringResource(R.string.ct_editor_allowance_help),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                CheckRow("Incoming calls", incoming) { incoming = it; if (!it && !outgoing) outgoing = true }
-                CheckRow("Outgoing calls", outgoing) { outgoing = it; if (!it && !incoming) incoming = true }
+                CheckRow(stringResource(R.string.ct_incoming_calls), incoming) { incoming = it; if (!it && !outgoing) outgoing = true }
+                CheckRow(stringResource(R.string.ct_outgoing_calls), outgoing) { outgoing = it; if (!it && !incoming) incoming = true }
                 extra?.invoke()
             }
         },
@@ -96,12 +102,12 @@ fun LimitRuleDialog(
             TextButton({
                 onSave(rule.copy(perCallMinutes = minutes(perCall), dailyMinutes = minutes(daily), weeklyMinutes = minutes(weekly), incoming = incoming, outgoing = outgoing))
                 onDismiss()
-            }) { Text("Save") }
+            }) { Text(stringResource(R.string.set_save)) }
         },
         dismissButton = {
             Row {
-                if (!rule.isEmpty) TextButton({ onSave(rule.copy(perCallMinutes = 0, dailyMinutes = 0, weeklyMinutes = 0)); onDismiss() }) { Text("Remove") }
-                TextButton(onDismiss) { Text("Cancel") }
+                if (!rule.isEmpty) TextButton({ onSave(rule.copy(perCallMinutes = 0, dailyMinutes = 0, weeklyMinutes = 0)); onDismiss() }) { Text(stringResource(R.string.ct_remove)) }
+                TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) }
             }
         },
     )
@@ -116,6 +122,8 @@ private fun MinutesField(label: String, value: String, onChange: (String) -> Uni
         onValueChange = { v -> onChange(v.filter { it.isDigit() }.take(5)) },
         label = { Text(label) },
         singleLine = true,
+        // Digits stay left-to-right in Arabic and Urdu.
+        textStyle = androidx.compose.material3.LocalTextStyle.current.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier = Modifier.fillMaxWidth(),
     )
@@ -160,4 +168,9 @@ fun ChoiceRow(title: String, options: List<String>, selected: Int, leading: (@Co
 }
 
 /** "Every 15 min" / "Off". */
-fun reminderText(minutes: Int): String = if (minutes <= 0) "Off" else "Every $minutes min"
+fun reminderText(context: android.content.Context, minutes: Int): String =
+    if (minutes <= 0) context.getString(R.string.set_off) else context.getString(R.string.ct_every_min, minutes)
+
+/** "every 15 min" / "off", inside a sentence. */
+fun reminderTextInline(context: android.content.Context, minutes: Int): String =
+    if (minutes <= 0) context.getString(R.string.ct_off_inline) else context.getString(R.string.ct_every_min_inline, minutes)

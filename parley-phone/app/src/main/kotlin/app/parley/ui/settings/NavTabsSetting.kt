@@ -41,6 +41,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 import app.parley.common.NavTabs
 import app.parley.common.StartTab
 import app.parley.ui.home.icon
@@ -60,6 +62,10 @@ fun NavTabsEditor(tabs: NavTabs, onChange: (NavTabs) -> Unit) {
     var rowHeight by remember { mutableIntStateOf(1) }
     val latestTabs by androidx.compose.runtime.rememberUpdatedState(tabs)
     val latestOnChange by androidx.compose.runtime.rememberUpdatedState(onChange)
+    val shownText = stringResource(R.string.set_tab_shown)
+    val hiddenText = stringResource(R.string.set_tab_hidden)
+    val moveUp = stringResource(R.string.set_move_up)
+    val moveDown = stringResource(R.string.set_move_down)
 
     Column(Modifier.padding(vertical = 4.dp)) {
         order.forEachIndexed { i, t ->
@@ -77,10 +83,10 @@ fun NavTabsEditor(tabs: NavTabs, onChange: (NavTabs) -> Unit) {
                         .heightIn(min = 56.dp)
                         .toggleable(shown, enabled = shown.not() || tabs.canHide(t), role = Role.Switch) { v -> onChange(tabs.copy(order = order).setVisible(t, v)) }
                         .semantics {
-                            stateDescription = if (shown) "Shown in the navigation bar" else "Hidden"
+                            stateDescription = if (shown) shownText else hiddenText
                             customActions = listOfNotNull(
-                                if (i > 0) CustomAccessibilityAction("Move up") { onChange(tabs.copy(order = order).moveUp(t)); true } else null,
-                                if (i < order.size - 1) CustomAccessibilityAction("Move down") { onChange(tabs.copy(order = order).moveDown(t)); true } else null,
+                                if (i > 0) CustomAccessibilityAction(moveUp) { onChange(tabs.copy(order = order).moveUp(t)); true } else null,
+                                if (i < order.size - 1) CustomAccessibilityAction(moveDown) { onChange(tabs.copy(order = order).moveDown(t)); true } else null,
                             )
                         }
                         .padding(horizontal = 8.dp),
@@ -124,7 +130,7 @@ fun NavTabsEditor(tabs: NavTabs, onChange: (NavTabs) -> Unit) {
                     Column(Modifier.weight(1f)) {
                         Text(t.label, style = MaterialTheme.typography.bodyLarge)
                         if (shown && !tabs.canHide(t)) {
-                            Text("At least one tab stays", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.set_tab_one_stays), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     Switch(shown, onCheckedChange = null, enabled = !shown || tabs.canHide(t), modifier = Modifier.padding(end = 8.dp))

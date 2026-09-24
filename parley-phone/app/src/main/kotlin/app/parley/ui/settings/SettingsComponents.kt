@@ -52,8 +52,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import app.parley.common.SettingEntry
-import app.parley.common.SettingsCatalog
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 import app.parley.ui.SegmentedGroupScope
 
 /** Rows sit on the segmented card's surface, so their own container is transparent. */
@@ -133,7 +133,7 @@ fun MenuRow(title: String, options: List<String>, selected: Int, icon: ImageVect
     var open by remember { mutableStateOf(false) }
     Box {
         ListItem(
-            modifier = Modifier.clickable(onClickLabel = "Change") { open = true },
+            modifier = Modifier.clickable(onClickLabel = stringResource(R.string.set_action_change)) { open = true },
             headlineContent = { Text(title) },
             supportingContent = { Text(listOfNotNull(options.getOrElse(selected) { "" }, sub).joinToString(" · ")) },
             leadingContent = icon?.let { { RowIcon(it) } },
@@ -151,21 +151,20 @@ fun MenuRow(title: String, options: List<String>, selected: Int, icon: ImageVect
     }
 }
 
-// Builder helpers: rows keyed by their catalog entry, so titles come from SettingsCatalog and search can find them.
-
-internal fun entry(key: String): SettingEntry = SettingsCatalog[key]
+// Builder helpers: rows keyed by their catalog entry, so titles come from SettingsText (the localised
+// SettingsCatalog) and search can find them.
 
 fun SegmentedGroupScope.switchRow(key: String, value: Boolean, icon: ImageVector? = null, sub: String? = null, enabled: Boolean = true, onChange: (Boolean) -> Unit) =
-    item(key) { SwitchRow(entry(key).title, sub ?: entry(key).summary, value, icon, enabled, onChange) }
+    item(key) { SwitchRow(settingTitle(key), sub ?: settingSummary(key), value, icon, enabled, onChange) }
 
 fun SegmentedGroupScope.linkRow(key: String, icon: ImageVector? = null, sub: String? = null, external: Boolean = false, onClick: () -> Unit) =
-    item(key) { LinkRow(entry(key).title, sub ?: entry(key).summary, icon, external, onClick) }
+    item(key) { LinkRow(settingTitle(key), sub ?: settingSummary(key), icon, external, onClick) }
 
 fun SegmentedGroupScope.menuRow(key: String, options: List<String>, selected: Int, icon: ImageVector? = null, sub: String? = null, onPick: (Int) -> Unit) =
-    item(key) { MenuRow(entry(key).title, options, selected, icon, sub, onPick) }
+    item(key) { MenuRow(settingTitle(key), options, selected, icon, sub, onPick) }
 
 fun SegmentedGroupScope.choiceRow(key: String, options: List<String>, selected: Int, icon: ImageVector? = null, onPick: (Int) -> Unit) =
-    item(key) { ChoiceRow(entry(key).title, options, selected, icon, onPick) }
+    item(key) { ChoiceRow(settingTitle(key), options, selected, icon, onPick) }
 
 /**
  * A settings screen: large title that collapses as you scroll (with the scroll-linked tint), grouped content
@@ -185,7 +184,7 @@ fun SettingsScaffold(
         topBar = {
             LargeTopAppBar(
                 title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } },
                 actions = { actions() },
                 scrollBehavior = scroll,
             )
