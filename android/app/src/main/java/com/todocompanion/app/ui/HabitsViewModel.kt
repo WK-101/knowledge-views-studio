@@ -111,9 +111,9 @@ class HabitsViewModel(
     fun refreshHabitWidgets() {
         com.todocompanion.app.widget.HabitsWidget.refresh(app.appCtx)
         com.todocompanion.app.widget.HabitStatsWidget.refresh(app.appCtx)
-        com.todocompanion.app.widget.StrengthLineWidget.refresh(app.appCtx)
         com.todocompanion.app.widget.WeekRowWidget.refresh(app.appCtx)
-        com.todocompanion.app.widget.StreaksWidget.refresh(app.appCtx)
+        // R106 — Habit Insight (keystone / streaks / strength / correlation) folds in the former standalone widgets.
+        com.todocompanion.app.widget.HabitInsightWidget.refresh(app.appCtx)
         // R104 — the momentum score folds in habit strength, so keep it live on habit changes too.
         com.todocompanion.app.widget.MomentumWidget.refresh(app.appCtx)
     }

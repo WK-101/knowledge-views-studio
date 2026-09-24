@@ -78,7 +78,8 @@ class WidgetConfigActivity : ComponentActivity() {
         val isList = isAgenda || providerClass.endsWith("DoNextWidget") || providerClass.endsWith("RecordWidget") ||
             providerClass.endsWith("HabitsWidget") || providerClass.endsWith("DayWidget")
         // Widgets that render one chosen habit — they get a habit picker.
-        val isSingleHabit = providerClass.endsWith("WeekRowWidget") || providerClass.endsWith("KeystoneWidget")
+        val isSingleHabit = providerClass.endsWith("WeekRowWidget")
+        val isHabitInsight = providerClass.endsWith("HabitInsightWidget")
         val isHabitZero = providerClass.endsWith("HabitZeroWidget")
         fun suffix(name: String) = providerClass.endsWith(name)
         // Simple card widgets themed via applyCardBackground (light/dark/auto) — they honour theme but not
@@ -92,11 +93,8 @@ class WidgetConfigActivity : ComponentActivity() {
             suffix("HabitsWidget") -> "Habits widget"
             suffix("HabitStatsWidget") -> "Habit Ring widget"
             suffix("HabitZeroWidget") -> "Habit Zero widget"
-            suffix("StrengthLineWidget") -> "Habit Strength widget"
             suffix("WeekRowWidget") -> "Habit Week widget"
-            suffix("StreaksWidget") -> "Streaks widget"
-            suffix("KeystoneWidget") -> "Keystone Habit widget"
-            suffix("CorrelationWidget") -> "Habit Insight widget"
+            suffix("HabitInsightWidget") -> "Habit Insight widget"
             suffix("DayWidget") -> "Day widget"
             suffix("MatrixWidget") -> "Priority Matrix widget"
             suffix("Next7Widget") -> "Next 7 Days widget"
@@ -117,8 +115,8 @@ class WidgetConfigActivity : ComponentActivity() {
                 androidx.compose.runtime.LaunchedEffect(Unit) { lists = app.repository.allListsOnce().filter { !it.archived } }
                 // Build habits, for the single-habit picker (Habit Week / Keystone) + Habit Zero's group list.
                 var habits by remember { mutableStateOf<List<com.todocompanion.app.data.entity.HabitEntity>>(emptyList()) }
-                androidx.compose.runtime.LaunchedEffect(isSingleHabit, isHabitZero) {
-                    if (isSingleHabit || isHabitZero) habits = app.repository.wsHabitsOnce().filter { !it.archived && !it.paused && it.habitType != "break" }
+                androidx.compose.runtime.LaunchedEffect(isSingleHabit, isHabitZero, isHabitInsight) {
+                    if (isSingleHabit || isHabitZero || isHabitInsight) habits = app.repository.wsHabitsOnce().filter { !it.archived && !it.paused && it.habitType != "break" }
                 }
                 val groups = remember(habits) { habits.map { it.category.trim() }.filter { it.isNotBlank() }.distinct().sorted() }
 
@@ -130,6 +128,7 @@ class WidgetConfigActivity : ComponentActivity() {
                 var compact by remember { mutableStateOf(WidgetPrefs.compact(this, widgetId)) }
                 var habitPin by remember { mutableStateOf(WidgetPrefs.habitId(this, widgetId)) }
                 var groupPin by remember { mutableStateOf(WidgetPrefs.group(this, widgetId)) }
+                var insightMode by remember { mutableStateOf(WidgetPrefs.insightMode(this, widgetId)) }
                 val isMatrix = suffix("MatrixWidget")
                 var mxRows by remember { mutableIntStateOf(WidgetPrefs.matrixRows(this, widgetId)) }
                 val isQuickBar = suffix("QuickBarWidget")
@@ -151,8 +150,7 @@ class WidgetConfigActivity : ComponentActivity() {
                                 isQuickBar -> "cluster"
                                 isMatrix -> "matrix"
                                 suffix("HabitStatsWidget") || suffix("HabitZeroWidget") || suffix("WeekRowWidget") ||
-                                    suffix("KeystoneWidget") || suffix("StreaksWidget") || suffix("CorrelationWidget") ||
-                                    suffix("StrengthLineWidget") -> "ring"
+                                    isHabitInsight -> "ring"
                                 suffix("TimeWidget") -> "timer"
                                 suffix("CountdownWidget") || suffix("MomentumWidget") ||
                                     suffix("Next7Widget") -> "tile"
@@ -176,9 +174,18 @@ class WidgetConfigActivity : ComponentActivity() {
                                 Spacer(Modifier.size(18.dp))
                             }
 
-                            if (isSingleHabit) {
+                            if (isHabitInsight) {
+                                SectionLabel("Lens")
+                                ChoiceRow("Keystone — the habit that predicts a good day", insightMode == "keystone") { insightMode = "keystone" }
+                                ChoiceRow("Streaks — your chains, longest first", insightMode == "streaks") { insightMode = "streaks" }
+                                ChoiceRow("Strength — your consistency trend line", insightMode == "strength") { insightMode = "strength" }
+                                ChoiceRow("Correlation — a pattern the coach found", insightMode == "correlation") { insightMode = "correlation" }
+                                Spacer(Modifier.size(18.dp))
+                            }
+
+                            if (isSingleHabit || (isHabitInsight && insightMode == "keystone")) {
                                 SectionLabel("Habit")
-                                ChoiceRow(if (suffix("KeystoneWidget")) "Auto — your keystone habit" else "Auto — first habit", habitPin == null) { habitPin = null }
+                                ChoiceRow(if (isHabitInsight) "Auto — your keystone habit" else "Auto — first habit", habitPin == null) { habitPin = null }
                                 habits.forEach { h ->
                                     ChoiceRow((h.emoji?.plus(" ") ?: "") + h.name, habitPin == h.id) { habitPin = h.id }
                                 }
@@ -240,7 +247,8 @@ class WidgetConfigActivity : ComponentActivity() {
                             Button(onClick = {
                                 if (isAgenda) WidgetPrefs.save(this@WidgetConfigActivity, widgetId, scope, title.trim(), theme)
                                 else WidgetPrefs.saveTheme(this@WidgetConfigActivity, widgetId, theme)
-                                if (isSingleHabit) WidgetPrefs.saveHabit(this@WidgetConfigActivity, widgetId, habitPin)
+                                if (isSingleHabit || isHabitInsight) WidgetPrefs.saveHabit(this@WidgetConfigActivity, widgetId, habitPin)
+                                if (isHabitInsight) WidgetPrefs.saveInsightMode(this@WidgetConfigActivity, widgetId, insightMode)
                                 if (isHabitZero) WidgetPrefs.saveGroup(this@WidgetConfigActivity, widgetId, groupPin)
                                 if (isMatrix) WidgetPrefs.saveMatrixRows(this@WidgetConfigActivity, widgetId, mxRows)
                                 if (isQuickBar) WidgetPrefs.saveQuick(this@WidgetConfigActivity, widgetId, qcCount, qcSlots.toList())
@@ -265,7 +273,7 @@ class WidgetConfigActivity : ComponentActivity() {
             providerClass.endsWith("HabitStatsWidget") -> HabitStatsWidget.refresh(this)
             providerClass.endsWith("HabitZeroWidget") -> HabitZeroWidget.updateOne(this, widgetId)
             providerClass.endsWith("WeekRowWidget") -> WeekRowWidget.updateOne(this, widgetId)
-            providerClass.endsWith("KeystoneWidget") -> KeystoneWidget.refresh(this)
+            providerClass.endsWith("HabitInsightWidget") -> HabitInsightWidget.updateOne(this, widgetId)
             else -> {
                 // Generic: broadcast an update to that provider so it re-renders with the new prefs.
                 runCatching {

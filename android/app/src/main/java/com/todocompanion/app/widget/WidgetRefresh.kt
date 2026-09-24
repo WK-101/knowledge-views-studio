@@ -32,11 +32,8 @@ object Widgets {
         runCatching { HabitsWidget.refresh(context) }
         runCatching { HabitStatsWidget.refresh(context) }
         runCatching { HabitZeroWidget.refresh(context) }
-        runCatching { StrengthLineWidget.refresh(context) }
         runCatching { WeekRowWidget.refresh(context) }
-        runCatching { StreaksWidget.refresh(context) }
-        runCatching { KeystoneWidget.refresh(context) }
-        runCatching { CorrelationWidget.refresh(context) }
+        runCatching { HabitInsightWidget.refresh(context) }
         runCatching { TimeWidget.refresh(context) }
     }
 
@@ -45,11 +42,8 @@ object Widgets {
         runCatching { HabitsWidget.refresh(context) }
         runCatching { HabitStatsWidget.refresh(context) }
         runCatching { HabitZeroWidget.refresh(context) }
-        runCatching { StrengthLineWidget.refresh(context) }
         runCatching { WeekRowWidget.refresh(context) }
-        runCatching { StreaksWidget.refresh(context) }
-        runCatching { KeystoneWidget.refresh(context) }
-        runCatching { CorrelationWidget.refresh(context) }
+        runCatching { HabitInsightWidget.refresh(context) }
         runCatching { MomentumWidget.refresh(context) }
     }
 

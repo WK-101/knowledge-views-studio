@@ -16,11 +16,8 @@
     <string name="widget_next7_name">Next 7 Days</string>
     <string name="widget_habitstats_name">Habit Ring</string>
     <string name="widget_habitgrid_name">Habit Year</string>
-    <string name="widget_habitline_name">Habit Strength</string>
     <string name="widget_weekrow_name">Habit Week</string>
-    <string name="widget_streaks_name">Streaks</string>
-    <string name="widget_keystone_name">Keystone Habit</string>
-    <string name="widget_correlation_name">Habit Insight</string>
+    <string name="widget_habit_insight_name">Habit Insight</string>
     <string name="widget_momentum_name">Momentum</string>
     <string name="widget_habitzero_name">Habit Zero</string>
     <string name="widget_time_name">Time Tracker</string>
@@ -39,11 +36,8 @@
     <string name="tile_capture_label">Add task</string>
     <string name="widget_habitstats_desc">Today\'s practice as a ring — done, left and your streak</string>
     <string name="widget_habitgrid_desc">A full-year contribution grid of every day you showed up</string>
-    <string name="widget_habitline_desc">Your habit-strength trend — the Loop-style consistency line</string>
     <string name="widget_weekrow_desc">One habit\'s week as tappable days — check any day off in place</string>
-    <string name="widget_streaks_desc">Your live streaks, longest first — don\'t break the chain</string>
-    <string name="widget_keystone_desc">Your keystone habit — the one that best predicts a good day — tap to check it</string>
-    <string name="widget_correlation_desc">A plain-language pattern the on-device coach found across your habits and tasks</string>
+    <string name="widget_habit_insight_desc">On-device habit insight — pick a lens: keystone habit, live streaks, strength trend, or a pattern the coach found</string>
     <string name="widget_momentum_desc">Your unified momentum — habits, task reliability and focus in one score</string>
     <string name="widget_habitzero_desc">Today\'s remaining habits — each one you finish leaves the list and the meter grows, until you hit zero</string>
     <string name="widget_time_desc">Start, switch and stop time tracking from the home screen — a live timer for the running activity</string>

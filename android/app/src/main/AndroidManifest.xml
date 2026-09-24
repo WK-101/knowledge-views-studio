@@ -444,14 +444,6 @@
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_habitstats_info" />
         </receiver>
 
-        <!-- Loop-style habit-strength trend line, drawn as a bitmap. Offline. -->
-        <receiver android:name=".widget.StrengthLineWidget" android:label="@string/widget_habitline_name" android:exported="false">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_habitline_info" />
-        </receiver>
-
         <!-- One habit's week as 7 tappable day cells. Offline. -->
         <receiver android:name=".widget.WeekRowWidget" android:label="@string/widget_weekrow_name" android:exported="false">
             <intent-filter>
@@ -461,26 +453,13 @@
         </receiver>
         <receiver android:name=".widget.WeekRowReceiver" android:exported="false" />
 
-        <!-- Your live streaks, longest first. Offline. -->
-        <receiver android:name=".widget.StreaksWidget" android:label="@string/widget_streaks_name" android:exported="false">
+        <!-- Habit Insight: one widget, four on-device lenses (keystone · streaks · strength ·
+             correlation) chosen per instance in config. Tap the keystone check to log. Offline. -->
+        <receiver android:name=".widget.HabitInsightWidget" android:label="@string/widget_habit_insight_name" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_streaks_info" />
-        </receiver>
-
-        <!-- The moat: keystone habit (tap to check) + a cross-module correlation. Offline. -->
-        <receiver android:name=".widget.KeystoneWidget" android:label="@string/widget_keystone_name" android:exported="false">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_keystone_info" />
-        </receiver>
-        <receiver android:name=".widget.CorrelationWidget" android:label="@string/widget_correlation_name" android:exported="false">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_correlation_info" />
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_habit_insight_info" />
         </receiver>
 
         <!-- R1: Momentum widget — the unified habit+task+focus score. Offline. -->

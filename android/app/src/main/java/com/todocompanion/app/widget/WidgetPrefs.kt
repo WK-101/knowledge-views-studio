@@ -76,6 +76,14 @@ object WidgetPrefs {
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putInt("mxrows_$id", rows.coerceIn(0, 50)).apply()
     }
 
+    /** Habit Insight — which lens this instance shows: keystone | streaks | strength | correlation. */
+    fun insightMode(ctx: Context, id: Int): String =
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getString("imode_$id", "keystone") ?: "keystone"
+
+    fun saveInsightMode(ctx: Context, id: Int, mode: String) {
+        ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putString("imode_$id", mode).apply()
+    }
+
     /** Habit Zero — limit the widget to one habit category/group ("" = all habits). */
     fun group(ctx: Context, id: Int): String =
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getString("group_$id", "") ?: ""
@@ -129,7 +137,7 @@ object WidgetPrefs {
             .remove("scope_$id").remove("title_$id").remove("theme_$id")
             .remove("energy_$id").remove("time_$id")
             .remove("opacity_$id").remove("font_$id").remove("compact_$id").remove("toolbar_$id")
-            .remove("dayoff_$id").remove("habit_$id").remove("group_$id").remove("mxrows_$id")
+            .remove("dayoff_$id").remove("habit_$id").remove("group_$id").remove("mxrows_$id").remove("imode_$id")
             .remove("qccount_$id").remove("qcslots_$id").remove("qcappmig_$id").remove("qcctrapp2_$id")
             .apply()
     }
