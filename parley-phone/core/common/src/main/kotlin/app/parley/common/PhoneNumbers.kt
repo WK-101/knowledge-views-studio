@@ -38,21 +38,26 @@ object PhoneNumbers {
         val c = clean(raw)
         if (c.isEmpty() || c.contains('*') || c.contains('#')) return null
         if (c.startsWith("+")) return c.takeIf { it.length >= 8 }
-        if (c.startsWith("00") && c.length > 8) return "+" + c.substring(2)
-        val iso = countryIso?.uppercase() ?: return null
-        val cc = CountryCodes.callingCode(iso) ?: return null
+        val iso = countryIso?.uppercase()
+        val cc = iso?.let { CountryCodes.callingCode(it) }
+        // International dialling prefix (00 in most places, 011 in NANP, 0011 in Australia, 810 in Russia…).
+        val intl = iso?.let { CountryCodes.internationalPrefixes(it) } ?: listOf("00")
+        intl.firstOrNull { c.startsWith(it) && c.length > it.length + 7 }?.let { return "+" + c.substring(it.length) }
+        if (iso == null || cc == null) return null
         if (cc == "1") {
             return when {
-                c.startsWith("011") && c.length > 8 -> "+" + c.substring(3)
                 c.length == 10 -> "+1$c"
                 c.length == 11 && c.startsWith("1") -> "+$c"
                 else -> null
             }
         }
         if (c.length < 6) return null
+        val trunk = CountryCodes.trunkPrefix(iso)
         return when {
             iso in CountryCodes.KEEPS_TRUNK_ZERO -> "+$cc$c"
-            c.startsWith("0") -> "+$cc${c.substring(1)}"
+            trunk != null && c.startsWith(trunk) -> "+$cc${c.substring(trunk.length)}"
+            // Written as international digits without '+' (e.g. 33612345678 in France).
+            c.startsWith(cc) && c.length - cc.length in 8..12 -> "+$c"
             iso in CountryCodes.NO_TRUNK_PREFIX -> "+$cc$c"
             // Number written without trunk prefix in a trunk-prefix country: assume national significant number.
             c.length >= 8 -> "+$cc$c"

@@ -49,6 +49,16 @@ object CallManager {
     val lastEnded: StateFlow<CallUi?> = _lastEnded.asStateFlow()
 
     internal var service: ParleyInCallService? = null
+
+    /** Whether the in-call screen is in the foreground (proximity screen-off only applies then). */
+    @Volatile
+    var uiVisible: Boolean = false
+        private set
+
+    fun setUiVisible(visible: Boolean) {
+        uiVisible = visible
+        onChanged?.invoke(_calls.value)
+    }
     internal var onChanged: ((List<CallUi>) -> Unit)? = null
     private lateinit var appContext: Context
 
@@ -63,7 +73,9 @@ object CallManager {
 
     private val postDial = HashMap<String, String>()
 
-    fun idOf(call: Call): String = ids.getOrPut(call) { "c${++counter}" }
+    private val idPrefix = "c" + android.os.SystemClock.elapsedRealtime().toString(36) + "_"
+
+    fun idOf(call: Call): String = ids.getOrPut(call) { idPrefix + (++counter) }
 
     internal fun add(context: Context, call: Call) {
         appContext = context.applicationContext
@@ -83,10 +95,12 @@ object CallManager {
         val incoming = call.stateCompat() == Call.STATE_RINGING
 
         // Screening runs before we show any UI, bounded by a hard timeout so ringing is never held up.
-        if (incoming && (hidden || deps.screeningActive())) {
+        // Never screen right after an emergency call (call-backs must get through).
+        val earlier = if (incoming) ScreeningGuard.recall(number) else null
+        if (incoming && !ScreeningGuard.inEmergencyWindow(context) && (earlier != null || hidden || deps.screeningActive())) {
             screening += id
             scope.launch {
-                val decision = withTimeoutOrNull(SCREEN_TIMEOUT_MS) { deps.screen(number, hidden, verificationOf(call)) }
+                val decision = earlier ?: withTimeoutOrNull(SCREEN_TIMEOUT_MS) { deps.screen(number, hidden, verificationOf(call)) }
                 screening -= id
                 if (decision is Decision.Block && calls.contains(call)) {
                     when (decision.action) {
@@ -124,7 +138,9 @@ object CallManager {
 
     internal fun remove(call: Call) {
         val id = idOf(call)
-        _lastEnded.value = toUi(call)
+        val ended = toUi(call)
+        _lastEnded.value = ended
+        if (ended.isEmergency && ::appContext.isInitialized) ScreeningGuard.noteEmergencyCall(appContext)
         call.unregisterCallback(callback)
         calls -= call
         info.remove(id)
@@ -137,6 +153,7 @@ object CallManager {
     internal fun clear() {
         calls.toList().forEach { it.unregisterCallback(callback) }
         calls.clear()
+        accountLabels.clear()
         publish()
     }
 
@@ -171,7 +188,7 @@ object CallManager {
             connectTimeMillis = d.connectTimeMillis,
             isConference = d.hasProperty(Call.Details.PROPERTY_CONFERENCE),
             children = call.children.map { toUi(it) },
-            canHold = can(Call.Details.CAPABILITY_HOLD) || can(Call.Details.CAPABILITY_SUPPORT_HOLD),
+            canHold = can(Call.Details.CAPABILITY_HOLD),
             canMerge = can(Call.Details.CAPABILITY_MERGE_CONFERENCE) || conferenceable,
             canSwap = can(Call.Details.CAPABILITY_SWAP_CONFERENCE),
             canMute = can(Call.Details.CAPABILITY_MUTE),
@@ -198,7 +215,7 @@ object CallManager {
         Call.STATE_RINGING, Call.STATE_SIMULATED_RINGING -> CallState.RINGING
         Call.STATE_DIALING -> CallState.DIALING
         Call.STATE_CONNECTING, Call.STATE_PULLING_CALL -> CallState.CONNECTING
-        Call.STATE_ACTIVE, Call.STATE_AUDIO_PROCESSING -> CallState.ACTIVE
+        Call.STATE_ACTIVE -> CallState.ACTIVE
         Call.STATE_HOLDING -> CallState.HOLDING
         Call.STATE_DISCONNECTING -> CallState.DISCONNECTING
         Call.STATE_DISCONNECTED -> CallState.DISCONNECTED
@@ -261,7 +278,12 @@ object CallManager {
         val waiting = find(id) ?: return
         calls.filter { it != waiting && it.parent == null && mapState(it.stateCompat()) == CallState.ACTIVE }.forEach { it.disconnect() }
         scope.launch {
-            delay(300)
+            // Answer once the ended call is really gone (or after 3 s at most).
+            var waited = 0
+            while (waited < 3000 && calls.any { it != waiting && it.parent == null && mapState(it.stateCompat()) == CallState.ACTIVE }) {
+                delay(100)
+                waited += 100
+            }
             waiting.answer(VideoProfile.STATE_AUDIO_ONLY)
         }
     }

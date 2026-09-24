@@ -61,47 +61,61 @@ class CallNotifier(private val context: Context) {
             cancelAll()
             return
         }
+        // Incoming (ringing) and ongoing calls use separate notifications, so a call-waiting call
+        // is a *new* notification that pops up (heads-up / full-screen) rather than a silent update.
         val ringing = live.firstOrNull { it.state == CallState.RINGING && !CallManager.isScreening(it.id) }
-        val ringingPending = live.any { it.state == CallState.RINGING && CallManager.isScreening(it.id) }
-        val primary = ringing ?: live.firstOrNull { it.state == CallState.ACTIVE } ?: live.firstOrNull { it.state != CallState.RINGING }
-        if (primary == null) {
-            if (!ringingPending) cancelAll()
-            return
-        }
-        if (primary.state == CallState.RINGING && primary.silenced) {
-            post(buildSilenced(primary), primary)
-            return
-        }
-        if (primary.state == CallState.RINGING) {
-            val otherActive = live.any { it.id != primary.id && it.state != CallState.RINGING }
-            if ((!canUseFullScreen() || !notificationsAllowed()) && !otherActive && directlyLaunched.add(primary.id)) {
+        val ongoing = live.firstOrNull { it.state == CallState.ACTIVE }
+            ?: live.firstOrNull { it.state != CallState.RINGING }
+
+        if (ringing == null) {
+            cancel(INCOMING_ID)
+        } else if (ringing.silenced) {
+            post(INCOMING_ID, ringing, "s") { buildSilenced(ringing) }
+        } else {
+            if ((!canUseFullScreen() || !notificationsAllowed()) && ongoing == null && directlyLaunched.add(ringing.id)) {
                 context.startActivity(InCallActivity.intent(context, false).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
-            post(buildIncoming(primary), primary)
+            post(INCOMING_ID, ringing, "i") { buildIncoming(ringing) }
+        }
+
+        if (ongoing == null) {
+            cancel(ONGOING_ID)
         } else {
-            post(buildOngoing(primary), primary)
+            val a = CallManager.audio.value
+            post(ONGOING_ID, ongoing, "o${a.muted}${a.current?.type}") { buildOngoing(ongoing) }
         }
     }
 
-    private fun post(n: android.app.Notification, call: CallUi) {
+    private val lastPosted = HashMap<Int, String>()
+
+    /** Posts unless the visible content is unchanged (NotificationManager rate-limits updates). */
+    private fun post(id: Int, call: CallUi, variant: String, build: () -> android.app.Notification) {
+        val photo = call.photoUri
+        val photoReady = photo != null && PhotoCache.peek("$photo@256") != null
+        val signature = listOf(variant, call.id, call.state, call.title, call.label, call.number, call.accountLabel, call.connectTimeMillis, photoReady).joinToString("|")
+        if (lastPosted[id] == signature) return
+        lastPosted[id] = signature
         val nmc = NotificationManagerCompat.from(context)
         try {
-            nmc.notify(NOTIFICATION_ID, n)
+            nmc.notify(id, build())
         } catch (_: SecurityException) {
         } catch (_: IllegalArgumentException) {
             // Some Android versions reject CallStyle outside a foreground service: fall back to a plain notification.
             try {
-                nmc.notify(NOTIFICATION_ID, plainFallback(call))
+                nmc.notify(id, plainFallback(call))
             } catch (_: Exception) {
             }
         }
-        val photo = call.photoUri
-        if (photo != null && photoLoaded.add(call.id + photo)) {
+        if (photo != null && !photoReady && photoLoaded.add(call.id + photo)) {
             scope.launch {
                 PhotoCache.load(context, photo, 256)
                 update(CallManager.state.value)
             }
         }
+    }
+
+    private fun cancel(id: Int) {
+        if (lastPosted.remove(id) != null) nm.cancel(id)
     }
 
     private fun plainFallback(call: CallUi): android.app.Notification {
@@ -120,7 +134,9 @@ class CallNotifier(private val context: Context) {
     }
 
     fun cancelAll() {
-        nm.cancel(NOTIFICATION_ID)
+        nm.cancel(INCOMING_ID)
+        nm.cancel(ONGOING_ID)
+        lastPosted.clear()
         directlyLaunched.clear()
     }
 
@@ -215,6 +231,7 @@ class CallNotifier(private val context: Context) {
         const val CH_INCOMING = "incoming_calls_v1"
         const val CH_ONGOING = "ongoing_calls_v1"
         const val CH_SILENCED = "silenced_calls_v1"
-        const val NOTIFICATION_ID = 4711
+        const val INCOMING_ID = 4711
+        const val ONGOING_ID = 4713
     }
 }

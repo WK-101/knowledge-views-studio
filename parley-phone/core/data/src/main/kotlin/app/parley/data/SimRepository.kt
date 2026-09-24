@@ -17,11 +17,13 @@ class SimRepository(private val context: Context) {
     /** Call-capable accounts (SIMs, plus SIP accounts if configured). */
     fun accounts(): List<SimAccount> = try {
         val subs = subscriptionSlots()
+        val iccSlots = iccIdSlots()
         telecom.callCapablePhoneAccounts.mapNotNull { h ->
             val acc = telecom.getPhoneAccount(h) ?: return@mapNotNull null
             handles[h.id] = h
             val subId = subIdFor(h)
-            val slot = subs[subId] ?: -1
+            // Android 10: the handle id is usually the SIM's ICCID rather than the subscription id.
+            val slot = subs[subId] ?: iccSlots[h.id] ?: -1
             SimAccount(
                 id = h.id,
                 label = acc.label?.toString()?.ifBlank { null } ?: "SIM ${slot + 1}",
@@ -65,11 +67,19 @@ class SimRepository(private val context: Context) {
         emptyMap()
     }
 
+    @Suppress("DEPRECATION")
+    private fun iccIdSlots(): Map<String, Int> = try {
+        context.getSystemService(SubscriptionManager::class.java).activeSubscriptionInfoList.orEmpty()
+            .mapNotNull { info -> info.iccId?.takeIf { it.isNotBlank() }?.let { it to info.simSlotIndex } }.toMap()
+    } catch (_: Exception) {
+        emptyMap()
+    }
+
     private fun subIdFor(h: PhoneAccountHandle): Int = try {
         if (android.os.Build.VERSION.SDK_INT >= 30) {
             context.getSystemService(TelephonyManager::class.java).getSubscriptionId(h)
         } else {
-            h.id.toIntOrNull() ?: -1
+            -1
         }
     } catch (_: Exception) {
         -1

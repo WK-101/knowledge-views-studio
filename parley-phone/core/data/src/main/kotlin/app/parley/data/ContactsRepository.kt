@@ -157,7 +157,27 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         }
     }
 
-    suspend fun details(contactId: Long): ContactDetails? = withContext(Dispatchers.IO) {
+    /** Aggregated view of a contact (all sources), for display. */
+    suspend fun details(contactId: Long): ContactDetails? = load(contactId, forEdit = false)
+
+    /**
+     * Editable view: only the rows of one writable raw contact, so edits never touch another
+     * account's copy (e.g. a messenger's read-only entry).
+     */
+    suspend fun editable(contactId: Long): ContactDetails? = load(contactId, forEdit = true)
+
+    private fun writableTypes(): Set<String> = try {
+        ContentResolver.getSyncAdapterTypes()
+            .filter { it.authority == ContactsContract.AUTHORITY && it.supportsUploading() }
+            .map { it.accountType }.toSet() - IGNORED_ACCOUNT_TYPES
+    } catch (_: Exception) {
+        emptySet()
+    }
+
+    private fun isWritable(a: AccountRef, types: Set<String>, local: AccountRef): Boolean =
+        a.type == null || a.type == local.type || a.type in types
+
+    private suspend fun load(contactId: Long, forEdit: Boolean): ContactDetails? = withContext(Dispatchers.IO) {
         var base: ContactDetails = cr.safeQuery(
             ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId),
             arrayOf(
@@ -182,7 +202,16 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         )?.use { c ->
             while (c.moveToNext()) raws += RawContactRef(c.getLong(0), AccountRef(c.getString(1), c.getString(2)))
         }
-        base = base.copy(rawContacts = raws)
+        val types = writableTypes()
+        val local = localAccount()
+        val writable = raws.filter { isWritable(it.account, types, local) }
+        val target = writable.firstOrNull { it.account.type == "com.google" } ?: writable.firstOrNull { !it.account.isLocal } ?: writable.firstOrNull()
+        base = base.copy(rawContacts = raws, editRawId = target?.id, writableRawIds = writable.map { it.id })
+        if (forEdit && target == null) {
+            // Nothing writable: start from the aggregated name only; save() adds a linked device entry.
+            val shown = load(contactId, forEdit = false) ?: return@withContext null
+            return@withContext base.copy(given = shown.given, family = shown.family, middle = shown.middle, prefix = shown.prefix, suffix = shown.suffix)
+        }
 
         val phones = ArrayList<DataItem>()
         val emails = ArrayList<DataItem>()
@@ -196,8 +225,8 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
                 Data._ID, Data.MIMETYPE, Data.DATA1, Data.DATA2, Data.DATA3, Data.DATA4, Data.DATA5, Data.DATA6,
                 Data.DATA7, Data.DATA8, Data.DATA9, Data.DATA10, Data.IS_SUPER_PRIMARY,
             ),
-            "${Data.CONTACT_ID}=?",
-            arrayOf(contactId.toString()),
+            if (forEdit) "${Data.RAW_CONTACT_ID}=?" else "${Data.CONTACT_ID}=?",
+            arrayOf(if (forEdit) target!!.id.toString() else contactId.toString()),
         )?.use { c ->
             while (c.moveToNext()) {
                 val id = c.getLong(0)
@@ -227,7 +256,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
             }
         }
         base.copy(
-            phones = phones.distinctBy { PhoneNumbers.matchKey(it.value) + it.type },
+            phones = if (forEdit) phones else phones.distinctBy { PhoneNumbers.matchKey(it.value) + it.type },
             emails = emails, websites = sites, addresses = addrs, events = events, groupIds = groups,
         )
     }
@@ -297,8 +326,9 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
             val ops = ArrayList<ContentProviderOperation>()
             val rawId: Long?
             val insertTarget: (ContentProviderOperation.Builder) -> ContentProviderOperation.Builder
-            if (original == null) {
-                val acc = account ?: localAccount()
+            val linkTo: List<Long> = if (original != null && original.editRawId == null) original.rawContacts.map { it.id } else emptyList()
+            if (original == null || original.editRawId == null) {
+                val acc = if (original == null) account ?: localAccount() else localAccount()
                 ops += ContentProviderOperation.newInsert(RawContacts.CONTENT_URI)
                     .withValue(RawContacts.ACCOUNT_TYPE, acc.type)
                     .withValue(RawContacts.ACCOUNT_NAME, acc.name)
@@ -306,8 +336,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
                 rawId = null
                 insertTarget = { it.withValueBackReference(Data.RAW_CONTACT_ID, 0) }
             } else {
-                rawId = original.rawContacts.firstOrNull { !it.account.isReadOnly() }?.id ?: original.rawContacts.firstOrNull()?.id
-                    ?: return@withContext null
+                rawId = original.editRawId
                 insertTarget = { it.withValue(Data.RAW_CONTACT_ID, rawId) }
             }
 
@@ -407,19 +436,20 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
                         ).build()
                 }
             }
-            if (removePhoto && rawId != null) {
-                ops += ContentProviderOperation.newDelete(Data.CONTENT_URI)
-                    .withSelection("${Data.RAW_CONTACT_ID}=? AND ${Data.MIMETYPE}=?", arrayOf(rawId.toString(), Photo.CONTENT_ITEM_TYPE))
-                    .build()
+            if (removePhoto) {
+                (original?.writableRawIds.orEmpty() + listOfNotNull(rawId)).distinct().forEach { rid ->
+                    ops += ContentProviderOperation.newDelete(Data.CONTENT_URI)
+                        .withSelection("${Data.RAW_CONTACT_ID}=? AND ${Data.MIMETYPE}=?", arrayOf(rid.toString(), Photo.CONTENT_ITEM_TYPE))
+                        .build()
+                }
             }
 
             val results = cr.applyBatch(ContactsContract.AUTHORITY, ops)
             val finalRawId = rawId ?: results.firstOrNull()?.uri?.let { ContentUris.parseId(it) } ?: return@withContext null
+            if (linkTo.isNotEmpty()) setAggregation(linkTo + finalRawId, AggregationExceptions.TYPE_KEEP_TOGETHER)
             if (photo != null) writePhoto(finalRawId, photo)
             contactIdForRaw(finalRawId)
         }
-
-    private fun AccountRef.isReadOnly(): Boolean = false
 
     private fun localAccount(): AccountRef {
         if (Build.VERSION.SDK_INT >= 35) {

@@ -344,7 +344,7 @@ private fun ControlGrid(
     val audioLabel = if (audio.hasExternal) audio.current?.name ?: "Audio" else "Speaker"
     val canSwap = others.any { it.state == CallState.HOLDING } || call.canSwap
     val controls = buildList {
-        add(ControlSpec(Icons.Rounded.MicOff, if (audio.muted) "Unmute" else "Mute", audio.muted, true) { CallManager.setMuted(!audio.muted) })
+        add(ControlSpec(Icons.Rounded.MicOff, if (audio.muted) "Unmute" else "Mute", audio.muted, call.canMute) { CallManager.setMuted(!audio.muted) })
         add(ControlSpec(Icons.Rounded.Dialpad, "Keypad", false, true, onKeypad))
         add(ControlSpec(audioIcon, audioLabel, speakerOn || (audio.hasExternal && audio.current?.type != RouteType.EARPIECE), audio.routes.isNotEmpty(), onAudio))
         add(ControlSpec(Icons.Rounded.Pause, if (call.state == CallState.HOLDING) "Resume" else "Hold", call.state == CallState.HOLDING, call.canHold) { CallManager.toggleHold(call.id) })

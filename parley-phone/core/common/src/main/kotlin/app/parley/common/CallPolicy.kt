@@ -91,7 +91,8 @@ object CallPolicy {
             if (cc != null && e.startsWith("+$cc")) {
                 val national = e.substring(cc.length + 1)
                 out += national
-                if (countryIso.uppercase() !in CountryCodes.NO_TRUNK_PREFIX && cc != "1") out += "0$national"
+                val trunk = CountryCodes.trunkPrefix(countryIso)
+                if (trunk != null) out += trunk + national
             }
         }
         return out

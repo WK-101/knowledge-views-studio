@@ -14,6 +14,35 @@ object CountryCodes {
 
     fun callingCode(iso: String): String? = MAP[iso.uppercase()]
 
+    /** Prefixes used to dial abroad, longest first. Default: 00. */
+    fun internationalPrefixes(iso: String): List<String> {
+        val i = iso.uppercase()
+        return when {
+            callingCode(i) == "1" -> listOf("011")
+            i == "AU" -> listOf("0011")
+            i == "JP" -> listOf("010")
+            i in setOf("RU", "KZ", "BY") -> listOf("810", "00")
+            i == "KR" -> listOf("001", "002", "00700")
+            i == "IL" -> listOf("00", "012", "013", "014")
+            i == "HK" || i == "SG" -> listOf("001", "00")
+            i == "TH" -> listOf("001", "00")
+            else -> listOf("00")
+        }.sortedByDescending { it.length }
+    }
+
+    /** National trunk prefix, or null where there is none. */
+    fun trunkPrefix(iso: String): String? {
+        val i = iso.uppercase()
+        return when {
+            i in NO_TRUNK_PREFIX || i in KEEPS_TRUNK_ZERO -> null
+            callingCode(i) == "1" -> "1"
+            i in setOf("RU", "KZ", "BY", "TM", "TJ", "UZ") -> "8"
+            i == "HU" -> "06"
+            i == "MN" -> "01"
+            else -> "0"
+        }
+    }
+
     private val MAP: Map<String, String> = """
         AD376 AE971 AF93 AG1 AI1 AL355 AM374 AO244 AR54 AS1 AT43 AU61 AW297 AZ994 BA387 BB1 BD880
         BE32 BF226 BG359 BH973 BI257 BJ229 BM1 BN673 BO591 BR55 BS1 BT975 BW267 BY375 BZ501 CA1

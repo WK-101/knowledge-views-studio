@@ -78,6 +78,13 @@ data class ContactDetails(
     val events: List<EventItem> = emptyList(),
     val groupIds: Set<Long> = emptySet(),
     val rawContacts: List<RawContactRef> = emptyList(),
+    /**
+     * Raw contact the editor writes to (a writable account). Null for display-only loads, or when
+     * every source is read-only (e.g. messenger apps); saving then creates a linked device entry.
+     */
+    val editRawId: Long? = null,
+    /** All raw contacts in writable accounts (used to remove a photo everywhere). */
+    val writableRawIds: List<Long> = emptyList(),
 ) {
     val composedName: String
         get() = listOf(prefix, given, middle, family, suffix).filter { it.isNotBlank() }.joinToString(" ").trim()

@@ -28,6 +28,15 @@ class PhoneNumbersTest {
         assertNull(PhoneNumbers.toE164("*100#", "IN"))
     }
 
+    @Test fun e164_regional_prefixes() {
+        assertEquals("+442071234567", PhoneNumbers.toE164("0011 44 20 7123 4567", "AU"))
+        assertEquals("+61412345678", PhoneNumbers.toE164("0412 345 678", "AU"))
+        assertEquals("+79161234567", PhoneNumbers.toE164("8 916 123-45-67", "RU"))
+        assertEquals("+33612345678", PhoneNumbers.toE164("33612345678", "FR"))
+        assertEquals("+34612345678", PhoneNumbers.toE164("612 34 56 78", "ES"))
+        assertEquals("+36301234567", PhoneNumbers.toE164("06 30 123 4567", "HU"))
+    }
+
     @Test fun same_number_across_formats() {
         assertTrue(PhoneNumbers.same("+33 6 12 34 56 78", "06 12 34 56 78", "FR"))
         assertTrue(PhoneNumbers.same("+33612345678", "0612345678", null))

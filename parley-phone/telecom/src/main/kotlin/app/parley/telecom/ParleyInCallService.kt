@@ -34,7 +34,7 @@ class ParleyInCallService : InCallService() {
         CallManager.service = this
         CallManager.onChanged = { calls ->
             notifier.update(calls)
-            proximity.update(calls, CallManager.audio.value)
+            proximity.update(calls, CallManager.audio.value, CallManager.uiVisible)
         }
     }
 
@@ -44,7 +44,9 @@ class ParleyInCallService : InCallService() {
         val state = CallManager.state.value.firstOrNull { it.id == CallManager.idOf(call) }?.state
         // Outgoing calls open the call screen straight away. Incoming calls are shown by
         // CallNotifier (full-screen notification, or a direct launch when that is not allowed).
-        if (state != CallState.RINGING) launchUi(false)
+        if (state in setOf(CallState.NEW, CallState.DIALING, CallState.CONNECTING, CallState.ACTIVE, CallState.HOLDING, CallState.SELECT_ACCOUNT)) {
+            launchUi(false)
+        }
     }
 
     override fun onCallRemoved(call: Call) {

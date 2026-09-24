@@ -111,12 +111,12 @@ fun ContactEditScreen(
         account = accounts.firstOrNull { it.type == s.defaultAccountType && it.name == s.defaultAccountName }
             ?: accounts.firstOrNull { it.type == "com.google" } ?: accounts.firstOrNull()
         if (contactId != null) {
-            val d = vm.c.contacts.details(contactId)
+            val d = vm.c.contacts.editable(contactId)
             original = d
             var e = d ?: ContactDetails()
             if (addPhone.isNotBlank()) e = e.copy(phones = e.phones + DataItem(value = addPhone, type = Phone.TYPE_MOBILE))
             draft = e
-            account = d?.rawContacts?.firstOrNull()?.account
+            account = d?.rawContacts?.firstOrNull { it.id == d.editRawId }?.account ?: AccountRef(null, null)
         } else {
             val parts = prefillName.trim().split(Regex("\\s+"), limit = 2)
             draft = ContactDetails(

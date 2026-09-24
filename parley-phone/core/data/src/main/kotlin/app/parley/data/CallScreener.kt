@@ -14,15 +14,20 @@ class CallScreener(
     private val sims: SimRepository,
     private val settings: SettingsRepository,
 ) {
-    /** True when any screening feature is on; lets the call path skip I/O entirely otherwise. */
+    /**
+     * True when any screening feature is on; lets the call path skip I/O entirely otherwise.
+     * Numbers on the system block list are already rejected by Telecom before we see the call.
+     * Until settings have been read from disk we can't know, so we assume screening is on.
+     */
     fun isActive(): Boolean {
+        if (!settings.loaded.value) return true
         val s = settings.settings.value.screening
         return s.blockHidden || s.blockNonContacts || s.blockNeighbourSpoofing || s.blockFailedVerification ||
-            blocks.rules.value.any { it.enabled } || blocks.canUseSystemList()
+            blocks.rules.value.any { it.enabled }
     }
 
     suspend fun screen(number: String?, hidden: Boolean, verification: Verification): Decision {
-        val s = settings.settings.value.screening
+        val s = settings.current().screening
         val emergency = PhoneEnv.isEmergency(context, number)
         val facts = IncomingCallFacts(
             number = number,

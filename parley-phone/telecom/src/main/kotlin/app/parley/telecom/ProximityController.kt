@@ -13,10 +13,10 @@ class ProximityController(context: Context) {
             null
         }
 
-    fun update(calls: List<CallUi>, audio: AudioUi) {
+    fun update(calls: List<CallUi>, audio: AudioUi, uiVisible: Boolean) {
         val inCall = calls.any { it.state == CallState.ACTIVE || it.state == CallState.DIALING || it.state == CallState.CONNECTING }
         val earpiece = audio.current == null || audio.current.type == RouteType.EARPIECE
-        if (inCall && earpiece) acquire() else release()
+        if (inCall && earpiece && uiVisible) acquire() else release()
     }
 
     private fun acquire() {

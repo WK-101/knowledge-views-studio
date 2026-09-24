@@ -32,8 +32,13 @@ class ParleyCallScreeningService : CallScreeningService() {
             Connection.VERIFICATION_STATUS_FAILED -> Verification.FAILED
             else -> Verification.NOT_VERIFIED
         }
+        if (ScreeningGuard.inEmergencyWindow(this)) {
+            respondToCall(details, CallResponse.Builder().build())
+            return
+        }
         scope.launch {
             val decision = withTimeoutOrNull(3000) { TelecomGraph.dependencies.screen(number, number.isNullOrBlank(), verification) }
+            ScreeningGuard.remember(number, decision ?: Decision.Allow)
             val response = CallResponse.Builder()
             if (decision is Decision.Block) {
                 when (decision.action) {

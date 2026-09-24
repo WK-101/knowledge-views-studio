@@ -29,7 +29,9 @@ class InCallActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setShowWhenLocked(true)
         setTurnScreenOn(true)
-        handleIntent(intent)
+        // Only act on a fresh launch: a re-created activity (or one opened from Recents) must never
+        // replay an old "answer" action onto a different, newer call.
+        if (savedInstanceState == null && (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0) handleIntent(intent)
         val deps = TelecomGraph.dependencies
         setContent {
             val look by deps.appearance.collectAsStateWithLifecycle()
@@ -73,7 +75,18 @@ class InCallActivity : ComponentActivity() {
         if (intent?.getBooleanExtra(EXTRA_DIALPAD, false) == true) showDialpad = true
         if (intent?.action == ACTION_ANSWER) {
             intent.getStringExtra(CallActionReceiver.EXTRA_ID)?.let { CallManager.answer(it) }
+            setIntent(Intent(intent).setAction(null))
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        CallManager.setUiVisible(true)
+    }
+
+    override fun onPause() {
+        CallManager.setUiVisible(false)
+        super.onPause()
     }
 
     private fun unlockThen(block: () -> Unit) {

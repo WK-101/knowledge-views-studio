@@ -18,6 +18,7 @@ import app.parley.common.ThemeMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
@@ -33,6 +34,9 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
     val settings: StateFlow<AppSettings> = store.data
         .map { it.toSettings().also { _loaded.value = true } }
         .stateIn(scope, SharingStarted.Eagerly, AppSettings())
+
+    /** Current settings, reading from disk if the flow hasn't emitted yet (e.g. process woken by a call). */
+    suspend fun current(): AppSettings = if (_loaded.value) settings.value else store.data.first().toSettings()
 
     suspend fun update(transform: (AppSettings) -> AppSettings) {
         store.edit { prefs ->
