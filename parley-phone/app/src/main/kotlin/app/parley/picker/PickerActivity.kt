@@ -76,7 +76,7 @@ class PickerActivity : androidx.fragment.app.FragmentActivity() {
                 PickerScreen(
                     kind = if (joinTarget != null) PickKind.CONTACT else kind,
                     multiple = multiple && joinTarget == null,
-                    title = if (joinTarget != null) "Link with…" else null,
+                    title = if (joinTarget != null) getString(app.parley.R.string.picker_link_with) else null,
                     excludeContactId = joinTarget,
                     onCancel = { setResult(Activity.RESULT_CANCELED); finish() },
                     onPicked = { picks -> if (joinTarget != null) join(joinTarget, picks) else deliver(picks) },
@@ -156,16 +156,16 @@ data class Pick(val contactId: Long, val uri: Uri, val title: String, val subtit
 private fun OneFieldDialog(pick: Pick, phones: List<Pair<String, Uri>>, onWhole: () -> Unit, onNumber: (Uri) -> Unit, onDismiss: () -> Unit) {
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { androidx.compose.material3.Text("Share ${pick.title}") },
+        title = { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.parley.R.string.picker_share_title, pick.title)) },
         text = {
             androidx.compose.foundation.layout.Column {
-                androidx.compose.material3.Text("Share only one number instead of the whole contact? Some apps may not accept a single number.")
+                androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.parley.R.string.picker_share_one))
                 phones.forEach { (n, uri) ->
-                    androidx.compose.material3.TextButton({ onNumber(uri) }) { androidx.compose.material3.Text("Only $n") }
+                    androidx.compose.material3.TextButton({ onNumber(uri) }) { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.parley.R.string.picker_only, app.parley.ui.DataL10n.ltr(n))) }
                 }
             }
         },
-        confirmButton = { androidx.compose.material3.TextButton(onWhole) { androidx.compose.material3.Text("Whole contact") } },
-        dismissButton = { androidx.compose.material3.TextButton(onDismiss) { androidx.compose.material3.Text("Cancel") } },
+        confirmButton = { androidx.compose.material3.TextButton(onWhole) { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.parley.R.string.picker_whole)) } },
+        dismissButton = { androidx.compose.material3.TextButton(onDismiss) { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.parley.R.string.dc_cancel)) } },
     )
 }

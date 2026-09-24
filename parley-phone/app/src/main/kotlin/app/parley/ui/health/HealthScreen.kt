@@ -39,20 +39,25 @@ import app.parley.ui.EmptyState
 import app.parley.ui.Routes
 import app.parley.ui.contact.Section
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 private val titles = mapOf(
-    HealthKind.NO_COUNTRY_CODE to "Numbers without country code",
-    HealthKind.TITLE_IS_COMPANY to "Job title copies the company",
-    HealthKind.NUMBER_AS_NAME to "Contacts with no name",
-    HealthKind.EMPTY to "Empty contacts",
-    HealthKind.SHARED_NUMBER to "Same number in several contacts",
-    HealthKind.STALE to "Not called in over 2 years",
+    HealthKind.NO_COUNTRY_CODE to R.string.health_no_country,
+    HealthKind.TITLE_IS_COMPANY to R.string.health_title_company,
+    HealthKind.NUMBER_AS_NAME to R.string.health_no_name,
+    HealthKind.EMPTY to R.string.health_empty,
+    HealthKind.SHARED_NUMBER to R.string.health_shared,
+    HealthKind.STALE to R.string.health_stale,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     val calls by vm.c.callLog.calls.collectAsStateWithLifecycle()
     val scanner = remember { HealthScanner(vm.c.appContext) }
@@ -63,10 +68,10 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     confirmStale?.let { list ->
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { confirmStale = null },
-            title = { Text("Delete ${list.size} contacts in 30 days?") },
+            title = { Text(pluralStringResource(R.plurals.health_stale_confirm_title, list.size, list.size)) },
             text = {
                 androidx.compose.foundation.layout.Column {
-                    Text("Unless you keep them, these contacts are deleted from every account listed, 30 days from now. You can undo each one from its page.")
+                    Text(stringResource(R.string.health_stale_confirm_text))
                     LazyColumn(Modifier.padding(top = 8.dp).heightIn(max = 320.dp)) {
                         items(list.size) { k ->
                             val (_, name, where) = list[k]
@@ -80,18 +85,18 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     confirmStale = null
                     scope.launch {
                         list.forEach { (i, _, _) -> vm.c.temporaries.mark(i.contactId, 30, purgeHistory = false) }
-                        vm.toast("${list.size} contacts will delete themselves in 30 days unless you change it")
+                        vm.toast(context.resources.getQuantityString(R.plurals.health_stale_done, list.size, list.size))
                     }
-                }) { Text("Delete in 30 days") }
+                }) { Text(stringResource(R.string.health_delete_in_30)) }
             },
-            dismissButton = { TextButton({ confirmStale = null }) { Text("Cancel") } },
+            dismissButton = { TextButton({ confirmStale = null }) { Text(stringResource(R.string.dc_cancel)) } },
         )
     }
 
     // U7: scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        TopAppBar(title = { Text("Contact health check") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } }, scrollBehavior = barTint)
+        TopAppBar(title = { Text(stringResource(R.string.health_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
     }) { p ->
         val list = issues
         if (list == null) {
@@ -101,7 +106,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         if (list.isEmpty()) {
             androidx.compose.foundation.layout.Column(Modifier.padding(p).verticalScroll(androidx.compose.foundation.rememberScrollState())) {
                 app.parley.ui.people.AccountDiagnosticsSection(vm)
-                EmptyState(Icons.Rounded.HealthAndSafety, "All tidy", "No problems found in your contacts.")
+                EmptyState(Icons.Rounded.HealthAndSafety, stringResource(R.string.health_all_tidy), stringResource(R.string.health_all_tidy_text))
             }
             return@Scaffold
         }
@@ -110,26 +115,27 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             titles.forEach { (kind, title) ->
                 val group = list.filter { it.kind == kind }
                 if (group.isEmpty()) return@forEach
-                item { Section("$title (${group.size})") }
+                item { Section(stringResource(R.string.health_group, stringResource(title), group.size)) }
                 item {
                     when (kind) {
                         HealthKind.NO_COUNTRY_CODE, HealthKind.TITLE_IS_COMPANY -> Button(
-                            onClick = { scope.launch { val n = scanner.fix(group); vm.toast("Fixed $n entries"); round++ } },
+                            onClick = { scope.launch { val n = scanner.fix(group); vm.toast(context.resources.getQuantityString(R.plurals.health_fixed, n, n)); round++ } },
                             modifier = Modifier.padding(horizontal = 16.dp),
-                        ) { Text("Fix all ${group.size}") }
-                        HealthKind.SHARED_NUMBER -> TextButton({ open(Routes.DUPLICATES) }, Modifier.padding(horizontal = 8.dp)) { Text("Review duplicates") }
+                        ) { Text(stringResource(R.string.health_fix_all, group.size)) }
+                        HealthKind.SHARED_NUMBER -> TextButton({ open(Routes.DUPLICATES) }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_review_duplicates)) }
                         HealthKind.STALE -> TextButton({
+                            val phoneLabel = context.getString(R.string.health_phone)
                             // Never with one tap: list who and where first (F18).
                             scope.launch {
                                 confirmStale = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                     group.map { i ->
                                         val where = vm.c.contacts.details(i.contactId)?.rawContacts.orEmpty().map { it.account.displayLabel }.distinct()
-                                        Triple(i, i.name, where.joinToString(", ").ifEmpty { "Phone" })
+                                        Triple(i, i.name, where.joinToString(", ").ifEmpty { phoneLabel })
                                     }
                                 }
                             }
-                        }, Modifier.padding(horizontal = 8.dp)) { Text("Auto-delete these in 30 days") }
-                        HealthKind.EMPTY -> TextButton({ vm.deleteContacts(group.map { it.contactId }); round++ }, Modifier.padding(horizontal = 8.dp)) { Text("Delete all ${group.size}") }
+                        }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_auto_delete)) }
+                        HealthKind.EMPTY -> TextButton({ vm.deleteContacts(group.map { it.contactId }); round++ }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_delete_all, group.size)) }
                         HealthKind.NUMBER_AS_NAME -> Unit
                     }
                 }

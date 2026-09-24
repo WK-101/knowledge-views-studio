@@ -37,6 +37,8 @@ import app.parley.ui.contact.describeEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 data class UpcomingEvent(val event: ContactEvent, val days: Long, val parsed: EventDate)
 
@@ -53,27 +55,27 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
     // U7: scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        TopAppBar(title = { Text("Birthdays & dates") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } }, scrollBehavior = barTint)
+        TopAppBar(title = { Text(stringResource(R.string.bday_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
     }) { p ->
         val items = list
         if (items != null && items.isEmpty()) {
-            EmptyState(Icons.Rounded.Cake, "No dates yet", "Add birthdays and anniversaries to contacts to see them here and get a reminder on the day.", Modifier.padding(p))
+            EmptyState(Icons.Rounded.Cake, stringResource(R.string.bday_empty_title), stringResource(R.string.bday_empty_text), Modifier.padding(p))
             return@Scaffold
         }
         val deceased = items.orEmpty().filter { app.parley.common.people.LifeEvents.isDeath(it.event.type, it.event.label) }.map { it.event.contactId }.toSet()
         LazyColumn(Modifier.padding(p)) {
             val groups = items.orEmpty().groupBy {
                 when {
-                    it.days == 0L -> "Today"
-                    it.days <= 7 -> "This week"
-                    it.days <= 31 -> "This month"
-                    else -> "Later"
+                    it.days == 0L -> R.string.bday_today
+                    it.days <= 7 -> R.string.bday_this_week
+                    it.days <= 31 -> R.string.bday_this_month
+                    else -> R.string.bday_later
                 }
             }
-            listOf("Today", "This week", "This month", "Later").forEach { title ->
+            listOf(R.string.bday_today, R.string.bday_this_week, R.string.bday_this_month, R.string.bday_later).forEach { title ->
                 val g = groups[title].orEmpty()
                 if (g.isNotEmpty()) {
-                    item { Section(title) }
+                    item { Section(stringResource(title)) }
                     g.forEach { u ->
                         item {
                             val e = u.event
@@ -87,7 +89,7 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
                                     Text(
                                         "$kind · " + if (e.type == Event.TYPE_BIRTHDAY && e.contactId in deceased && birth != null) {
                                             describeEvent(e.date, false).substringBefore(" ·") +
-                                                (app.parley.common.people.LifeEvents.wouldHaveTurned(birth, java.time.LocalDate.now())?.let { " · would have turned $it" } ?: "") +
+                                                (app.parley.common.people.LifeEvents.wouldHaveTurned(birth, java.time.LocalDate.now())?.let { " · " + resources.getString(R.string.bday_would_have_turned, it) } ?: "") +
                                                 " · " + describeEvent(e.date, false).substringAfterLast(" · ")
                                         } else {
                                             describeEvent(e.date, e.type == Event.TYPE_BIRTHDAY)
@@ -97,8 +99,8 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
                                 trailingContent = {
                                     e.phone?.let { n ->
                                         androidx.compose.foundation.layout.Row {
-                                            IconButton({ Intents.sms(context, n) }) { Icon(Icons.AutoMirrored.Rounded.Message, "Message ${e.name}") }
-                                            IconButton({ vm.requestCall(n, e.name) }) { Icon(Icons.Rounded.Call, "Call ${e.name}", tint = MaterialTheme.colorScheme.primary) }
+                                            IconButton({ Intents.sms(context, n) }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.bday_message, e.name)) }
+                                            IconButton({ vm.requestCall(n, e.name) }) { Icon(Icons.Rounded.Call, stringResource(R.string.bday_call, e.name), tint = MaterialTheme.colorScheme.primary) }
                                         }
                                     }
                                 },

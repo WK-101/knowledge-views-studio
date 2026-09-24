@@ -53,10 +53,10 @@ class ShortcutActivity : Activity() {
                 return@launch
             }
             android.app.AlertDialog.Builder(this@ShortcutActivity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle("Call $number?")
+                .setTitle(getString(app.parley.R.string.shortcut_call_confirm, app.parley.ui.DataL10n.ltr(number)))
                 .setMessage(PocketGuard.QUESTION)
-                .setPositiveButton("Call") { _, _ -> c.scope.launch { c.placer.call(number) } }
-                .setNegativeButton("Cancel", null)
+                .setPositiveButton(getString(app.parley.R.string.shortcut_call)) { _, _ -> c.scope.launch { c.placer.call(number) } }
+                .setNegativeButton(getString(app.parley.R.string.dc_cancel), null)
                 .setOnDismissListener { finish() }
                 .show()
         }

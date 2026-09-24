@@ -39,6 +39,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 @Composable
 fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
@@ -53,7 +55,7 @@ fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
 
     val role = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         vm.refreshEnvironment()
-        if (vm.isDefaultDialer.value) finish() else vm.toast("You can set this later in Settings")
+        if (vm.isDefaultDialer.value) finish() else vm.toast(context.getString(R.string.onb_set_later))
     }
     val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { finish() }
 
@@ -63,13 +65,13 @@ fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Spacer(Modifier.height(32.dp))
-            Text("Parley", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-            Text("Your phone, contacts and calls — in one private app.", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+            Text(stringResource(R.string.onb_tagline), style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(8.dp))
-            Promise(Icons.Rounded.WifiOff, "Works without internet", "Parley has no internet permission. Nothing you store or call leaves your phone.")
-            Promise(Icons.Rounded.Block, "Spam blocking with your rules", "Block hidden numbers, prefixes and patterns — decided on your phone.")
-            Promise(Icons.Rounded.Code, "Open source, no ads, no accounts", "Free software under GPL-3.0. No trackers, ever.")
-            Promise(Icons.Rounded.Phone, "One system prompt", "Setting Parley as your phone app gives it everything it needs — no permission maze.")
+            Promise(Icons.Rounded.WifiOff, stringResource(R.string.onb_offline_title), stringResource(R.string.onb_offline_text))
+            Promise(Icons.Rounded.Block, stringResource(R.string.onb_spam_title), stringResource(R.string.onb_spam_text))
+            Promise(Icons.Rounded.Code, stringResource(R.string.onb_open_title), stringResource(R.string.onb_open_text))
+            Promise(Icons.Rounded.Phone, stringResource(R.string.onb_prompt_title), stringResource(R.string.onb_prompt_text))
             Spacer(Modifier.weight(1f))
             Button(
                 onClick = {
@@ -81,7 +83,7 @@ fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-            ) { Text("Set as default phone app") }
+            ) { Text(stringResource(R.string.onb_set_default)) }
             TextButton(
                 onClick = {
                     perms.launch(
@@ -92,7 +94,7 @@ fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
                     )
                 },
                 modifier = Modifier.align(Alignment.CenterHorizontally),
-            ) { Text("Not now — just use contacts and calling") }
+            ) { Text(stringResource(R.string.onb_not_now)) }
         }
     }
 }

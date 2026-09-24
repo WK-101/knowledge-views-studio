@@ -105,7 +105,7 @@ class PrivateNameProvider : ContentProvider() {
             val pm = ctx.packageManager
             val label = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
             ctx.getSystemService(NotificationManager::class.java)
-                .createNotificationChannel(NotificationChannel(CHANNEL, "Private name requests", NotificationManager.IMPORTANCE_DEFAULT))
+                .createNotificationChannel(NotificationChannel(CHANNEL, ctx.getString(app.parley.R.string.privnames_channel), NotificationManager.IMPORTANCE_DEFAULT))
             val id = pkg.hashCode()
             fun decide(allow: Boolean) = PendingIntent.getBroadcast(
                 ctx, id * 2 + if (allow) 1 else 0,
@@ -115,17 +115,12 @@ class PrivateNameProvider : ContentProvider() {
             val open = PendingIntent.getActivity(ctx, id, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE)
             val n = NotificationCompat.Builder(ctx, CHANNEL)
                 .setSmallIcon(app.parley.R.drawable.ic_tile_private)
-                .setContentTitle("$label wants to show private names")
-                .setStyle(
-                    NotificationCompat.BigTextStyle().bigText(
-                        "$label asked Parley for the name of a phone number that may belong to one of your private contacts. " +
-                            "If you allow it, $label can ask for one number's name at a time; it never gets a list.",
-                    ),
-                )
+                .setContentTitle(ctx.getString(app.parley.R.string.privnames_request_title, label))
+                .setStyle(NotificationCompat.BigTextStyle().bigText(ctx.getString(app.parley.R.string.privnames_request_text, label)))
                 .setContentIntent(open)
                 .setAutoCancel(true)
-                .addAction(0, "Allow", decide(true))
-                .addAction(0, "Don't allow", decide(false))
+                .addAction(0, ctx.getString(app.parley.R.string.privnames_allow), decide(true))
+                .addAction(0, ctx.getString(app.parley.R.string.privnames_deny), decide(false))
                 .build()
             try {
                 NotificationManagerCompat.from(ctx).notify(NOTIFICATION_TAG, id, n)

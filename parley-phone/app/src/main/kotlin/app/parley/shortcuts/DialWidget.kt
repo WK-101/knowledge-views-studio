@@ -65,7 +65,7 @@ class DialWidget : AppWidgetProvider() {
             val icon = photo?.let { runCatching { context.contentResolver.openInputStream(android.net.Uri.parse(it))?.use { s -> android.graphics.BitmapFactory.decodeStream(s) } }.getOrNull() }
                 ?: Shortcuts.monogram(name, 160)
             views.setImageViewBitmap(R.id.widget_photo, circle(icon))
-            views.setContentDescription(R.id.widget_root, "Call $name")
+            views.setContentDescription(R.id.widget_root, context.getString(app.parley.R.string.widget_call_name, name))
             val pi = PendingIntent.getActivity(
                 context, id, Shortcuts.intent(context, Shortcuts.Kind.CALL, number, p.getLong("$id.contact", -1)),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -112,7 +112,7 @@ class DialWidgetConfigActivity : FragmentActivity() {
                     return@ParleyTheme
                 }
                 PickerScreen(
-                    kind = PickKind.PHONE, multiple = false, title = "Direct-dial widget", excludeContactId = null,
+                    kind = PickKind.PHONE, multiple = false, title = getString(app.parley.R.string.widget_pick_title), excludeContactId = null,
                     onCancel = { finish() },
                     onPicked = { picks ->
                         val pick = picks.firstOrNull() ?: return@PickerScreen finish()

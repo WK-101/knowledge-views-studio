@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Backup outcomes (core/data) -->
+    <string name="data_bkp_need_pass">Set a backup passphrase first</string>
+    <string name="data_bkp_need_folder">Choose a backup folder first</string>
+    <string name="data_bkp_folder_gone">The backup folder is no longer accessible. Choose it again.</string>
+    <string name="data_bkp_failed">Backup failed: %1$s</string>
+    <string name="data_bkp_not_verified">The written backup didn\'t verify, so it was discarded. Check free space and try again.</string>
+    <plurals name="data_bkp_ready">
+        <item quantity="one">Backup ready: %1$d contact</item>
+        <item quantity="other">Backup ready: %1$d contacts</item>
+    </plurals>
+    <string name="data_bkp_unchanged">Unchanged since the last backup</string>
+    <string name="data_bkp_nothing_changed">Nothing changed since the last backup</string>
+    <plurals name="data_contacts_count">
+        <item quantity="one">%1$d contact</item>
+        <item quantity="other">%1$d contacts</item>
+    </plurals>
+    <plurals name="data_calls_count">
+        <item quantity="one">%1$d call</item>
+        <item quantity="other">%1$d calls</item>
+    </plurals>
+    <string name="data_bkp_result">Backed up %1$s and %2$s</string>
+    <string name="data_bkp_result_vault_missing">Backed up %1$s and %2$s. Private contacts were not included: open Parley and unlock them, then back up again.</string>
+    <plurals name="data_bkp_backed_up">
+        <item quantity="one">Backed up %1$d contact</item>
+        <item quantity="other">Backed up %1$d contacts</item>
+    </plurals>
+    <plurals name="data_bkp_backed_up_paused">
+        <item quantity="one">Backed up %1$d contact — rotation paused because many contacts disappeared</item>
+        <item quantity="other">Backed up %1$d contacts — rotation paused because many contacts disappeared</item>
+    </plurals>
+    <string name="data_rst_safety_failed">Nothing was changed: the safety backup of your current contacts failed (%1$s)</string>
+    <string name="data_rst_some_contacts">some contacts (%1$s)</string>
+    <string name="data_rst_part_calls">call history</string>
+    <string name="data_rst_part_blocking">blocking rules</string>
+    <string name="data_rst_part_speed_dial">speed dial</string>
+    <string name="data_rst_part_settings">settings</string>
+    <string name="data_rst_part_vault_locked">private contacts (unlock them and restore again)</string>
+    <string name="data_rst_part_vault">private contacts</string>
+    <plurals name="data_rst_added">
+        <item quantity="one">%1$d contact added</item>
+        <item quantity="other">%1$d contacts added</item>
+    </plurals>
+    <plurals name="data_rst_enriched">
+        <item quantity="one">%1$d updated with %2$d details</item>
+        <item quantity="other">%1$d updated with %2$d details</item>
+    </plurals>
+    <plurals name="data_rst_replaced">
+        <item quantity="one">%1$d replaced</item>
+        <item quantity="other">%1$d replaced</item>
+    </plurals>
+    <plurals name="data_rst_rules">
+        <item quantity="one">%1$d blocking rule</item>
+        <item quantity="other">%1$d blocking rules</item>
+    </plurals>
+    <plurals name="data_rst_vault">
+        <item quantity="one">%1$d private contact</item>
+        <item quantity="other">%1$d private contacts</item>
+    </plurals>
+    <plurals name="data_rst_failed">
+        <item quantity="one">%1$d failed</item>
+        <item quantity="other">%1$d failed</item>
+    </plurals>
+    <string name="data_rst_not_restored">not restored: %1$s</string>
+
+    <!-- Folder sync reports (core/data) -->
+    <plurals name="data_sync_imported">
+        <item quantity="one">%1$d new from the folder</item>
+        <item quantity="other">%1$d new from the folder</item>
+    </plurals>
+    <plurals name="data_sync_updated">
+        <item quantity="one">%1$d updated from the folder</item>
+        <item quantity="other">%1$d updated from the folder</item>
+    </plurals>
+    <plurals name="data_sync_written">
+        <item quantity="one">%1$d written to the folder</item>
+        <item quantity="other">%1$d written to the folder</item>
+    </plurals>
+    <plurals name="data_sync_deleted_local">
+        <item quantity="one">%1$d removed (deleted on another device)</item>
+        <item quantity="other">%1$d removed (deleted on another device)</item>
+    </plurals>
+    <plurals name="data_sync_deleted_files">
+        <item quantity="one">%1$d file removed</item>
+        <item quantity="other">%1$d files removed</item>
+    </plurals>
+    <plurals name="data_sync_linked">
+        <item quantity="one">%1$d matched to an existing contact</item>
+        <item quantity="other">%1$d matched to existing contacts</item>
+    </plurals>
+    <plurals name="data_sync_conflicts">
+        <item quantity="one">%1$d conflict kept as a .conflict file</item>
+        <item quantity="other">%1$d conflicts kept as .conflict files</item>
+    </plurals>
+    <string name="data_sync_in_sync">Everything is in sync</string>
+    <string name="data_sync_no_permission">Not synced: Parley needs access to contacts</string>
+    <string name="data_sync_folder_gone">Not synced: the folder can\'t be opened. Choose it again if it moved.</string>
+    <plurals name="data_sync_paused">
+        <item quantity="one">Paused: this sync would delete %1$d contact or file. Check the folder, then confirm.</item>
+        <item quantity="other">Paused: this sync would delete %1$d contacts or files. Check the folder, then confirm.</item>
+    </plurals>
+
+    <!-- Contact health check (core/data) -->
+    <string name="data_health_number_as_name">No name, only a number</string>
+    <string name="data_health_empty">No number or e-mail</string>
+    <string name="data_health_shared">Same number as %1$s</string>
+    <string name="data_health_stale">No calls in over 2 years</string>
+    <string name="data_health_country_code">%1$s → %2$s</string>
+    <string name="data_health_title_company">Title “%1$s” duplicates the company</string>
+</resources>

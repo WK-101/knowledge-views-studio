@@ -38,6 +38,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 /**
  * App lock for Parley's own screens. The in-call screen is a separate activity and is never
@@ -93,7 +95,7 @@ object AppLock {
     }
 
     /** Shows the system prompt. Failed attempts are allowed; only cancel/error keeps the lock. */
-    fun authenticate(activity: FragmentActivity, title: String = "Unlock Parley", onResult: (Boolean) -> Unit = {}) {
+    fun authenticate(activity: FragmentActivity, title: String? = null, onResult: (Boolean) -> Unit = {}) {
         if (!canAuthenticate(activity)) {
             // No screen lock set up: the app lock can't work, don't trap the user.
             locked.value = false
@@ -116,7 +118,7 @@ object AppLock {
         )
         prompt.authenticate(
             BiometricPrompt.PromptInfo.Builder()
-                .setTitle(title)
+                .setTitle(title ?: activity.getString(R.string.lock_unlock_parley))
                 .setAllowedAuthenticators(authenticators)
                 .build(),
         )
@@ -128,10 +130,10 @@ object AppLock {
      * through the keyguard instead.
      */
     fun authenticateForVault(activity: FragmentActivity, onResult: (Boolean) -> Unit) {
-        if (Build.VERSION.SDK_INT >= 30) return authenticate(activity, "Unlock private contacts", onResult)
+        if (Build.VERSION.SDK_INT >= 30) return authenticate(activity, activity.getString(R.string.lock_unlock_private), onResult)
         val km = activity.getSystemService(KeyguardManager::class.java)
         @Suppress("DEPRECATION")
-        val intent = km?.takeIf { it.isDeviceSecure }?.createConfirmDeviceCredentialIntent("Unlock private contacts", null)
+        val intent = km?.takeIf { it.isDeviceSecure }?.createConfirmDeviceCredentialIntent(activity.getString(R.string.lock_unlock_private), null)
         if (intent == null) {
             onResult(true)
             return
@@ -198,13 +200,13 @@ fun LockScreen(onUnlock: () -> Unit) {
         Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Rounded.Lock, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(16.dp))
-            Text("Parley is locked", style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.lock_locked), style = MaterialTheme.typography.headlineSmall)
             Text(
-                "Incoming calls still show normally.", style = MaterialTheme.typography.bodyMedium,
+                stringResource(R.string.lock_calls_show), style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp),
             )
             Spacer(Modifier.height(24.dp))
-            Button(onUnlock) { Text("Unlock") }
+            Button(onUnlock) { Text(stringResource(R.string.lock_unlock)) }
         }
     }
 }

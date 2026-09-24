@@ -45,6 +45,8 @@ import app.parley.ui.Avatar
 import app.parley.ui.EmptyState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,17 +73,17 @@ fun PickerScreen(
                 title = {
                     Text(
                         title ?: when (kind) {
-                            PickKind.CONTACT -> if (multiple) "Choose contacts" else "Choose a contact"
-                            PickKind.PHONE -> "Choose a phone number"
-                            PickKind.EMAIL -> "Choose an e-mail"
-                            PickKind.POSTAL -> "Choose an address"
+                            PickKind.CONTACT -> if (multiple) stringResource(R.string.picker_choose_contacts) else stringResource(R.string.picker_choose_contact)
+                            PickKind.PHONE -> stringResource(R.string.picker_choose_phone)
+                            PickKind.EMAIL -> stringResource(R.string.picker_choose_email)
+                            PickKind.POSTAL -> stringResource(R.string.picker_choose_address)
                         },
                     )
                 },
-                navigationIcon = { IconButton(onCancel) { Icon(Icons.Rounded.Close, "Cancel") } },
+                navigationIcon = { IconButton(onCancel) { Icon(Icons.Rounded.Close, stringResource(R.string.dc_cancel)) } },
                 actions = {
                     if (multiple) Button({ onPicked(selected.toList()) }, enabled = selected.isNotEmpty(), modifier = Modifier.padding(end = 8.dp)) {
-                        Text("Done (${selected.size})")
+                        Text(stringResource(R.string.picker_done_n, selected.size))
                     }
                 },
             )
@@ -96,12 +98,12 @@ fun PickerScreen(
             LazyColumn(Modifier.fillMaxSize()) {
                 item {
                     OutlinedTextField(
-                        query, { query = it }, placeholder = { Text("Search") }, singleLine = true,
+                        query, { query = it }, placeholder = { Text(stringResource(R.string.picker_search)) }, singleLine = true,
                         leadingIcon = { Icon(Icons.Rounded.Search, null) },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     )
                 }
-                if (shown.isEmpty()) item { EmptyState(Icons.Rounded.Search, "Nothing found") }
+                if (shown.isEmpty()) item { EmptyState(Icons.Rounded.Search, stringResource(R.string.picker_nothing)) }
                 items(shown, key = { it.uri.toString() }) { pick ->
                     val checked = pick in selected
                     ListItem(

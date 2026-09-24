@@ -34,8 +34,8 @@ class VaultTileService : TileService() {
     private fun render(hidden: Boolean) {
         val tile = qsTile ?: return
         tile.state = if (hidden) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-        tile.label = if (hidden) "Private hidden" else "Private shown"
-        if (android.os.Build.VERSION.SDK_INT >= 29) tile.subtitle = "Parley"
+        tile.label = getString(if (hidden) app.parley.R.string.tile_private_hidden else app.parley.R.string.tile_private_shown)
+        if (android.os.Build.VERSION.SDK_INT >= 29) tile.subtitle = getString(app.parley.R.string.app_name)
         tile.updateTile()
     }
 }

@@ -22,6 +22,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
+import android.content.res.Resources
+import app.parley.data.R
 
 data class SyncStatus(
     val folderUri: String? = null,
@@ -42,15 +44,16 @@ data class SyncReport(
     val conflicts: Int = 0,
     val linked: Int = 0,
 ) {
-    fun summary(): String = buildList {
-        if (imported > 0) add("$imported new from the folder")
-        if (updatedFromFolder > 0) add("$updatedFromFolder updated from the folder")
-        if (written > 0) add("$written written to the folder")
-        if (deletedLocal > 0) add("$deletedLocal removed (deleted on another device)")
-        if (deletedFiles > 0) add("$deletedFiles files removed")
-        if (linked > 0) add("$linked matched to existing contacts")
-        if (conflicts > 0) add("$conflicts conflicts kept as .conflict files")
-    }.ifEmpty { listOf("Everything is in sync") }.joinToString(" · ")
+    fun summary(res: Resources): String = buildList {
+        fun n(id: Int, v: Int) = res.getQuantityString(id, v, v)
+        if (imported > 0) add(n(R.plurals.data_sync_imported, imported))
+        if (updatedFromFolder > 0) add(n(R.plurals.data_sync_updated, updatedFromFolder))
+        if (written > 0) add(n(R.plurals.data_sync_written, written))
+        if (deletedLocal > 0) add(n(R.plurals.data_sync_deleted_local, deletedLocal))
+        if (deletedFiles > 0) add(n(R.plurals.data_sync_deleted_files, deletedFiles))
+        if (linked > 0) add(n(R.plurals.data_sync_linked, linked))
+        if (conflicts > 0) add(n(R.plurals.data_sync_conflicts, conflicts))
+    }.ifEmpty { listOf(res.getString(R.string.data_sync_in_sync)) }.joinToString(" · ")
 }
 
 /**
@@ -133,7 +136,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
         withContext(Dispatchers.IO) {
             val folder = status.value.folderUri?.let(Uri::parse) ?: return@withContext SyncReport()
             if (!Permissions.has(context, android.Manifest.permission.READ_CONTACTS) || !Permissions.has(context, android.Manifest.permission.WRITE_CONTACTS)) {
-                finish("Not synced: Parley needs access to contacts")
+                finish(context.getString(R.string.data_sync_no_permission))
                 return@withContext SyncReport()
             }
             var rep = SyncReport()
@@ -160,7 +163,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                 false
             }
             if (!listed) {
-                finish("Not synced: the folder can't be opened. Choose it again if it moved.")
+                finish(context.getString(R.string.data_sync_folder_gone))
                 return@withContext SyncReport()
             }
 
@@ -183,7 +186,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                 if (rec == null && file?.bytes != null && sha(file.bytes) == e.fileHash) deletions++
             }
             if (!allowMassDelete && deletions > 3 && deletions * 4 > state.size) {
-                finish("Paused: this sync would delete $deletions contacts or files. Check the folder, then confirm.", deletions)
+                finish(context.resources.getQuantityString(R.plurals.data_sync_paused, deletions, deletions), deletions)
                 return@withContext SyncReport()
             }
 
@@ -279,7 +282,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
             }
 
             writeState(state)
-            finish(rep.summary())
+            finish(rep.summary(context.resources))
             contacts.refresh()
             rep
         }

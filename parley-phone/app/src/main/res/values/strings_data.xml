@@ -466,4 +466,322 @@
     <string name="temp_also_history">Also delete its call history</string>
     <string name="temp_visible">Save visible to other apps</string>
     <string name="temp_save_privately">Save privately</string>
+
+    <!-- Private contact (vault) page -->
+    <string name="vault_unlock_to_remember">Unlock to remember this choice</string>
+    <string name="vault_title">Private contact</string>
+    <string name="dc_edit">Edit</string>
+    <string name="dc_more">More</string>
+    <string name="vault_move_out">Move to phone contacts</string>
+    <string name="vault_move_failed">Couldn\'t move: %1$s</string>
+    <string name="vault_moved_out">Moved to phone contacts</string>
+    <string name="vault_share_qr">Share privately (QR)</string>
+    <string name="vault_expires">Expires…</string>
+    <string name="vault_only_in_parley">Only visible in Parley · encrypted</string>
+    <string name="vault_deletes_on">Deletes itself on %1$s</string>
+    <string name="vault_call">Call</string>
+    <string name="vault_sms">SMS</string>
+    <string name="vault_message">Message</string>
+    <string name="vault_choose_message">Choose how to message</string>
+    <string name="vault_email">Email</string>
+    <string name="vault_shown_when_call">Shown when they call</string>
+    <string name="vault_unlock_all">Unlock to see all details</string>
+    <string name="vault_unlock_all_summary">Names and numbers work without unlocking so calls still show who\'s calling.</string>
+    <string name="vault_phone">Phone</string>
+    <string name="vault_message_number">Message this number</string>
+    <string name="vault_message_on">Message on…</string>
+    <string name="vault_messengers">Messengers</string>
+    <string name="vault_about">About</string>
+    <string name="vault_address">Address</string>
+    <string name="vault_website">Website</string>
+    <string name="vault_note">Note</string>
+    <string name="vault_call_history">Private call history</string>
+    <string name="vault_delete_title">Delete this private contact?</string>
+    <string name="vault_delete_text">This also deletes its private call history. It can\'t be undone.</string>
+    <string name="vault_expiry_title">Delete automatically after</string>
+    <string name="vault_expiry_1_day">1 day</string>
+    <string name="vault_expiry_1_week">1 week</string>
+    <string name="vault_expiry_30_days">30 days</string>
+    <string name="vault_expiry_3_months">3 months</string>
+    <string name="vault_expiry_1_year">1 year</string>
+    <string name="vault_expiry_never">Never (keep)</string>
+
+    <!-- Backup -->
+    <string name="bkp_backing_up">Backing up…</string>
+    <string name="bkp_vault_skipped">%1$s (private contacts skipped: unlock them first)</string>
+    <string name="bkp_preparing">Preparing encrypted file…</string>
+    <string name="bkp_send_chooser">Send to your new phone</string>
+    <string name="bkp_title">Backup &amp; restore</string>
+    <string name="bkp_last_backup">Last backup %1$s</string>
+    <string name="bkp_no_backup">No backup yet</string>
+    <string name="bkp_verified">Verified %1$s · encrypted</string>
+    <string name="bkp_verified_key">Verified %1$s · encrypted · key %2$s</string>
+    <string name="bkp_rotation_paused">Many contacts disappeared since the last backup, so old backups are being kept.</string>
+    <string name="bkp_resume_rotation">That\'s expected, resume rotation</string>
+    <string name="bkp_explain">Contacts with full photos, call history, blocking rules, speed dial, settings and private contacts, in one encrypted file in a folder you choose (sync it with Syncthing, Nextcloud or a USB drive).</string>
+    <string name="bkp_back_up_now">Back up now</string>
+    <string name="bkp_set_up">Set up</string>
+    <string name="bkp_change_pass">Change backup passphrase</string>
+    <string name="bkp_set_pass">Set a backup passphrase</string>
+    <string name="bkp_change_pass_summary">Scheduled backups never need it; only restoring does</string>
+    <string name="bkp_set_pass_summary">Required: backups are always encrypted</string>
+    <string name="bkp_folder">Backup folder</string>
+    <string name="bkp_folder_none">Not chosen</string>
+    <string name="bkp_automatic">Automatic backups</string>
+    <string name="bkp_schedule_off">Off</string>
+    <string name="bkp_schedule_daily">Daily</string>
+    <string name="bkp_schedule_weekly">Weekly</string>
+    <string name="bkp_keep">Keep</string>
+    <string name="bkp_keep_smart">Smart</string>
+    <string name="bkp_keep_smart_summary">Smart keeps 7 daily, 5 weekly, 12 monthly and 3 yearly backups.</string>
+    <string name="bkp_restore">Restore</string>
+    <string name="bkp_restore_file">Restore from a file…</string>
+    <string name="bkp_restore_file_summary">A .parley backup from this or another phone</string>
+    <string name="bkp_move_phone">Move to a new phone</string>
+    <string name="bkp_move_phone_summary">Sends one encrypted file via Quick Share, Bluetooth or any app. On the new phone: install Parley → Backup → Restore from a file, and enter your passphrase.</string>
+    <plurals name="bkp_undo_done">
+        <item quantity="one">Removed %1$d contact added by the last restore</item>
+        <item quantity="other">Removed %1$d contacts added by the last restore</item>
+    </plurals>
+    <string name="bkp_undo_restore">Undo last restore</string>
+    <plurals name="bkp_undo_restore_summary">
+        <item quantity="one">Removes the %1$d contact it added (it stays in Recently deleted)</item>
+        <item quantity="other">Removes the %1$d contacts it added (they stay in Recently deleted)</item>
+    </plurals>
+    <string name="bkp_in_folder">Backups in the folder</string>
+    <string name="bkp_pass_changed">Passphrase changed</string>
+    <string name="bkp_pass_wrong">The current passphrase is wrong</string>
+    <string name="bkp_recovery_title">Your recovery key</string>
+    <string name="bkp_recovery_text">If you forget your passphrase, this key is the only other way to open your backups. Write it down and keep it somewhere safe. Parley can\'t show it again.</string>
+    <string name="bkp_recovery_saved">I\'ve saved it</string>
+    <string name="bkp_copy">Copy</string>
+    <string name="bkp_change_pass_title">Change passphrase</string>
+    <string name="bkp_pass_title">Backup passphrase</string>
+    <string name="bkp_current_pass">Current passphrase</string>
+    <string name="bkp_new_pass">New passphrase (10+ characters)</string>
+    <string name="bkp_repeat">Repeat</string>
+    <string name="bkp_pass_hint">A few unrelated words make a strong, memorable passphrase.</string>
+
+    <!-- Restore flow -->
+    <string name="rst_open_title">Open backup</string>
+    <string name="rst_recovery_key">Recovery key</string>
+    <string name="rst_use_recovery">Use recovery key instead</string>
+    <string name="rst_not_recovery">That doesn\'t look like a recovery key</string>
+    <string name="rst_decrypting">Decrypting and checking the backup…</string>
+    <string name="rst_wrong_recovery">Wrong recovery key</string>
+    <string name="rst_wrong_pass">Wrong passphrase</string>
+    <string name="rst_damaged">This file is damaged or not a Parley backup (%1$s)</string>
+    <string name="rst_open">Open</string>
+    <string name="rst_backup_from">Backup from %1$s</string>
+    <string name="rst_how">How to restore contacts</string>
+    <string name="rst_mode_merge">Merge (recommended): add what\'s missing, never delete</string>
+    <string name="rst_mode_add_all">Add everything as new contacts</string>
+    <string name="rst_mode_replace">Replace: delete current contacts first (a safety backup is made automatically)</string>
+    <string name="rst_what">What to restore</string>
+    <string name="rst_with_count">%1$s (%2$d)</string>
+    <string name="rst_contacts">Contacts</string>
+    <string name="rst_call_history">Call history</string>
+    <string name="rst_blocking">Blocking rules &amp; blocked numbers</string>
+    <string name="rst_speed_dial">Speed dial &amp; SIM choices</string>
+    <string name="rst_private">Private contacts</string>
+    <string name="rst_settings">Settings (theme, blocking options…)</string>
+    <string name="rst_comparing">Comparing with your current contacts…</string>
+    <string name="rst_ready">Ready to restore</string>
+    <plurals name="rst_new">
+        <item quantity="one">%1$d new contact will be added</item>
+        <item quantity="other">%1$d new contacts will be added</item>
+    </plurals>
+    <plurals name="rst_enrich">
+        <item quantity="one">%1$d existing contact gets missing details (%2$d in total)</item>
+        <item quantity="other">%1$d existing contacts get missing details (%2$d in total)</item>
+    </plurals>
+    <plurals name="rst_identical">
+        <item quantity="one">%1$d is already identical and stays as it is</item>
+        <item quantity="other">%1$d are already identical and stay as they are</item>
+    </plurals>
+    <plurals name="rst_conflict">
+        <item quantity="one">%1$d looks like the same person but differs (e.g. name or photo)</item>
+        <item quantity="other">%1$d look like the same person but differ (e.g. name or photo)</item>
+    </plurals>
+    <string name="rst_apply_conflicts">Add their missing details anyway</string>
+    <plurals name="rst_to_delete">
+        <item quantity="one">%1$d current contact will be replaced (kept in Recently deleted for 30 days)</item>
+        <item quantity="other">%1$d current contacts will be replaced (kept in Recently deleted for 30 days)</item>
+    </plurals>
+    <string name="rst_merge_note">Nothing is deleted in Merge mode, and you can undo the added contacts afterwards.</string>
+    <string name="rst_restoring">Restoring…</string>
+    <string name="rst_finished">Restore finished</string>
+    <string name="rst_undone">Restore undone</string>
+
+    <!-- Folder sync -->
+    <string name="sync_failed">Sync failed: %1$s</string>
+    <string name="sync_title">Sync between your phones</string>
+    <string name="sync_card_title">No server, no account</string>
+    <string name="sync_card_text">Parley keeps one .vcf file per contact in a folder you choose. Sync that folder between devices with Syncthing, Nextcloud, or any folder-sync app, and set up the same folder in Parley on your other phone. Edits flow both ways; if the same contact changed on both phones, both versions are kept.</string>
+    <string name="sync_folder">Sync folder</string>
+    <string name="sync_auto">Sync automatically</string>
+    <string name="sync_auto_summary">When you open Parley, after changes, and every hour</string>
+    <string name="sync_last">Last sync %1$s</string>
+    <string name="sync_never">Not synced yet</string>
+    <plurals name="sync_apply_deletions">
+        <item quantity="one">Apply %1$d deletion</item>
+        <item quantity="other">Apply %1$d deletions</item>
+    </plurals>
+    <string name="sync_now">Sync now</string>
+    <string name="sync_stop">Stop syncing</string>
+
+    <!-- Time machine (version history, what changed) -->
+    <string name="tm_row_name">Name: %1$s</string>
+    <string name="tm_row_phone">Phone: %1$s</string>
+    <string name="tm_row_email">E-mail: %1$s</string>
+    <string name="tm_row_address">Address: %1$s</string>
+    <string name="tm_row_work">Work: %1$s</string>
+    <string name="tm_row_note">Note: %1$s</string>
+    <string name="tm_row_date">Date: %1$s</string>
+    <string name="tm_row_website">Website: %1$s</string>
+    <string name="tm_row_nickname">Nickname: %1$s</string>
+    <string name="tm_row_relation">Relation: %1$s</string>
+    <string name="tm_row_photo">Photo</string>
+    <string name="tm_history_title">Version history</string>
+    <string name="tm_no_versions">No earlier versions yet</string>
+    <plurals name="tm_no_versions_text">
+        <item quantity="one">Parley keeps a daily snapshot of your contacts for %1$d day. Earlier versions of this contact will show up here.</item>
+        <item quantity="other">Parley keeps a daily snapshot of your contacts for %1$d days. Earlier versions of this contact will show up here.</item>
+    </plurals>
+    <string name="tm_now">Now</string>
+    <string name="tm_didnt_exist">Didn\'t exist</string>
+    <string name="tm_later">Later: +%1$d / −%2$d details</string>
+    <string name="tm_later_removed">Later: +%1$d / −%2$d details (removed %3$s)</string>
+    <string name="tm_restored_version">Restored this version</string>
+    <string name="tm_restore_version">Restore this version</string>
+    <string name="tm_saved_copy">Saved as a separate contact</string>
+    <string name="tm_save_copy">Save as copy</string>
+    <string name="tm_changes_title">What changed</string>
+    <string name="tm_since_yesterday">Since yesterday</string>
+    <string name="tm_last_week">Last week</string>
+    <string name="tm_last_month">Last month</string>
+    <string name="tm_6_months">6 months</string>
+    <string name="tm_no_changes">No changes</string>
+    <string name="tm_no_changes_text">Nothing was added, removed or edited in this period (or no snapshot is old enough yet).</string>
+    <string name="tm_removed">Removed (%1$d)</string>
+    <string name="tm_restored_name">Restored %1$s</string>
+    <string name="tm_changed">Changed (%1$d)</string>
+    <string name="tm_field_changed">%1$s changed</string>
+    <string name="tm_field_name">Name</string>
+    <string name="tm_field_starred">Favourite</string>
+    <string name="tm_field_ringtone">Ringtone</string>
+    <string name="tm_field_voicemail">Send to voicemail</string>
+    <string name="tm_field_accounts">Accounts</string>
+    <string name="tm_added">Added (%1$d)</string>
+
+    <!-- Recently deleted & changed (journal) -->
+    <string name="jr_deleted">Deleted</string>
+    <string name="jr_edited">Edited (version before the change)</string>
+    <string name="jr_merged">Merged (version before merging)</string>
+    <string name="jr_separated">Separated</string>
+    <string name="jr_title">Recently deleted &amp; changed</string>
+    <string name="jr_empty_title">Nothing here</string>
+    <string name="jr_empty_text">Contacts you delete, edit or merge in Parley are kept here for 30 days, so you can undo.</string>
+    <string name="jr_restored_suffix">%1$s · restored</string>
+    <string name="jr_restored_name">Restored %1$s</string>
+    <string name="jr_restored_copy">Restored the earlier version as a separate contact</string>
+    <string name="jr_restore_failed">Couldn\'t restore</string>
+    <string name="jr_restore_copy">Restore copy</string>
+
+    <!-- Contact health check -->
+    <string name="health_no_country">Numbers without country code</string>
+    <string name="health_title_company">Job title copies the company</string>
+    <string name="health_no_name">Contacts with no name</string>
+    <string name="health_empty">Empty contacts</string>
+    <string name="health_shared">Same number in several contacts</string>
+    <string name="health_stale">Not called in over 2 years</string>
+    <plurals name="health_stale_confirm_title">
+        <item quantity="one">Delete %1$d contact in 30 days?</item>
+        <item quantity="other">Delete %1$d contacts in 30 days?</item>
+    </plurals>
+    <string name="health_stale_confirm_text">Unless you keep them, these contacts are deleted from every account listed, 30 days from now. You can undo each one from its page.</string>
+    <plurals name="health_stale_done">
+        <item quantity="one">%1$d contact will delete itself in 30 days unless you change it</item>
+        <item quantity="other">%1$d contacts will delete themselves in 30 days unless you change it</item>
+    </plurals>
+    <string name="health_delete_in_30">Delete in 30 days</string>
+    <string name="health_title">Contact health check</string>
+    <string name="health_all_tidy">All tidy</string>
+    <string name="health_all_tidy_text">No problems found in your contacts.</string>
+    <string name="health_group">%1$s (%2$d)</string>
+    <plurals name="health_fixed">
+        <item quantity="one">Fixed %1$d entry</item>
+        <item quantity="other">Fixed %1$d entries</item>
+    </plurals>
+    <string name="health_fix_all">Fix all %1$d</string>
+    <string name="health_review_duplicates">Review duplicates</string>
+    <string name="health_phone">Phone</string>
+    <string name="health_auto_delete">Auto-delete these in 30 days</string>
+    <string name="health_delete_all">Delete all %1$d</string>
+
+    <!-- Birthdays & dates -->
+    <string name="bday_title">Birthdays &amp; dates</string>
+    <string name="bday_empty_title">No dates yet</string>
+    <string name="bday_empty_text">Add birthdays and anniversaries to contacts to see them here and get a reminder on the day.</string>
+    <string name="bday_today">Today</string>
+    <string name="bday_this_week">This week</string>
+    <string name="bday_this_month">This month</string>
+    <string name="bday_later">Later</string>
+    <string name="bday_would_have_turned">would have turned %1$d</string>
+    <string name="bday_message">Message %1$s</string>
+    <string name="bday_call">Call %1$s</string>
+
+    <!-- Onboarding -->
+    <string name="onb_set_later">You can set this later in Settings</string>
+    <string name="onb_tagline">Your phone, contacts and calls — in one private app.</string>
+    <string name="onb_offline_title">Works without internet</string>
+    <string name="onb_offline_text">Parley has no internet permission. Nothing you store or call leaves your phone.</string>
+    <string name="onb_spam_title">Spam blocking with your rules</string>
+    <string name="onb_spam_text">Block hidden numbers, prefixes and patterns — decided on your phone.</string>
+    <string name="onb_open_title">Open source, no ads, no accounts</string>
+    <string name="onb_open_text">Free software under GPL-3.0. No trackers, ever.</string>
+    <string name="onb_prompt_title">One system prompt</string>
+    <string name="onb_prompt_text">Setting Parley as your phone app gives it everything it needs — no permission maze.</string>
+    <string name="onb_set_default">Set as default phone app</string>
+    <string name="onb_not_now">Not now — just use contacts and calling</string>
+
+    <!-- Contact picker -->
+    <string name="picker_link_with">Link with…</string>
+    <string name="picker_share_title">Share %1$s</string>
+    <string name="picker_share_one">Share only one number instead of the whole contact? Some apps may not accept a single number.</string>
+    <string name="picker_only">Only %1$s</string>
+    <string name="picker_whole">Whole contact</string>
+    <string name="picker_choose_contacts">Choose contacts</string>
+    <string name="picker_choose_contact">Choose a contact</string>
+    <string name="picker_choose_phone">Choose a phone number</string>
+    <string name="picker_choose_email">Choose an e-mail</string>
+    <string name="picker_choose_address">Choose an address</string>
+    <string name="picker_done_n">Done (%1$d)</string>
+    <string name="picker_search">Search</string>
+    <string name="picker_nothing">Nothing found</string>
+
+    <!-- App lock and quick settings tile -->
+    <string name="lock_unlock_parley">Unlock Parley</string>
+    <string name="lock_unlock_private">Unlock private contacts</string>
+    <string name="lock_locked">Parley is locked</string>
+    <string name="lock_calls_show">Incoming calls still show normally.</string>
+    <string name="lock_unlock">Unlock</string>
+    <string name="tile_private_hidden">Private hidden</string>
+    <string name="tile_private_shown">Private shown</string>
+
+    <!-- Shortcuts and widget -->
+    <string name="shortcut_text_name">Text %1$s</string>
+    <string name="shortcut_new_contact">New contact</string>
+    <string name="shortcut_call_confirm">Call %1$s?</string>
+    <string name="shortcut_call">Call</string>
+    <string name="widget_call_name">Call %1$s</string>
+    <string name="widget_pick_title">Direct-dial widget</string>
+
+    <!-- Private names for other apps -->
+    <string name="privnames_directory">Parley private contacts</string>
+    <string name="privnames_channel">Private name requests</string>
+    <string name="privnames_request_title">%1$s wants to show private names</string>
+    <string name="privnames_request_text">%1$s asked Parley for the name of a phone number that may belong to one of your private contacts. If you allow it, %1$s can ask for one number\'s name at a time; it never gets a list.</string>
+    <string name="privnames_allow">Allow</string>
+    <string name="privnames_deny">Don\'t allow</string>
 </resources>

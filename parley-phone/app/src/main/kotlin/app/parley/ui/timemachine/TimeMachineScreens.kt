@@ -49,33 +49,47 @@ import app.parley.ui.contact.Section
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.content.res.Resources
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 /** Human-readable one-liner for a stored data row. */
-fun describe(row: DataRow): String? {
+fun describe(res: Resources, row: DataRow): String? {
     val v = row["data1"]?.takeIf { it.isNotBlank() }
     return when (row.mimeType) {
-        Mime.NAME -> v?.let { "Name: $it" }
-        Mime.PHONE -> v?.let { "Phone: $it" }
-        Mime.EMAIL -> v?.let { "E-mail: $it" }
-        Mime.POSTAL -> v?.let { "Address: $it" }
-        Mime.ORG -> listOfNotNull(v, row["data4"]).joinToString(", ").takeIf { it.isNotBlank() }?.let { "Work: $it" }
-        Mime.NOTE -> v?.let { "Note: " + it.take(60) }
-        Mime.EVENT -> v?.let { "Date: $it" }
-        Mime.WEBSITE -> v?.let { "Website: $it" }
-        Mime.NICKNAME -> v?.let { "Nickname: $it" }
-        Mime.RELATION -> v?.let { "Relation: $it" }
-        Mime.PHOTO -> "Photo"
+        Mime.NAME -> v?.let { res.getString(R.string.tm_row_name, it) }
+        Mime.PHONE -> v?.let { res.getString(R.string.tm_row_phone, app.parley.ui.DataL10n.ltr(it)) }
+        Mime.EMAIL -> v?.let { res.getString(R.string.tm_row_email, it) }
+        Mime.POSTAL -> v?.let { res.getString(R.string.tm_row_address, it) }
+        Mime.ORG -> listOfNotNull(v, row["data4"]).joinToString(", ").takeIf { it.isNotBlank() }?.let { res.getString(R.string.tm_row_work, it) }
+        Mime.NOTE -> v?.let { res.getString(R.string.tm_row_note, it.take(60)) }
+        Mime.EVENT -> v?.let { res.getString(R.string.tm_row_date, it) }
+        Mime.WEBSITE -> v?.let { res.getString(R.string.tm_row_website, it) }
+        Mime.NICKNAME -> v?.let { res.getString(R.string.tm_row_nickname, it) }
+        Mime.RELATION -> v?.let { res.getString(R.string.tm_row_relation, it) }
+        Mime.PHOTO -> res.getString(R.string.tm_row_photo)
         Mime.GROUP -> null
         else -> null
     }
 }
 
-private fun lines(r: ContactRecord) = r.raws.flatMap { it.rows }.mapNotNull(::describe).distinct()
+private fun lines(res: Resources, r: ContactRecord) = r.raws.flatMap { it.rows }.mapNotNull { describe(res, it) }.distinct()
+
+private fun fieldLabel(res: Resources, field: String): String = when (field) {
+    "displayName" -> res.getString(R.string.tm_field_name)
+    "starred" -> res.getString(R.string.tm_field_starred)
+    "customRingtone" -> res.getString(R.string.tm_field_ringtone)
+    "sendToVoicemail" -> res.getString(R.string.tm_field_voicemail)
+    "accounts" -> res.getString(R.string.tm_field_accounts)
+    else -> field
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
+    val res = context.resources
     val scope = rememberCoroutineScope()
     val versions by produceState<List<ContactVersion>?>(null, contactId) {
         value = withContext(Dispatchers.IO) {
@@ -86,12 +100,15 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
     }
     var chosen by remember { mutableStateOf<ContactVersion?>(null) }
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Version history") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+        TopAppBar(title = { Text(stringResource(R.string.tm_history_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })
     }) { p ->
         val list = versions
         when {
             list == null -> CircularProgressIndicator(Modifier.padding(p).padding(32.dp))
-            list.size <= 1 -> EmptyState(Icons.Rounded.History, "No earlier versions yet", "Parley keeps a daily snapshot of your contacts for ${app.parley.data.backup.TimeMachine.KEEP_DAYS} days. Earlier versions of this contact will show up here.", Modifier.padding(p))
+            list.size <= 1 -> EmptyState(
+                Icons.Rounded.History, stringResource(R.string.tm_no_versions),
+                app.parley.data.backup.TimeMachine.KEEP_DAYS.toInt().let { pluralStringResource(R.plurals.tm_no_versions_text, it, it) }, Modifier.padding(p),
+            )
             else -> LazyColumn(Modifier.padding(p)) {
                 list.forEachIndexed { i, v ->
                     item {
@@ -100,13 +117,15 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
                         val change = if (rec != null && newer != null) Snapshots.diffRecords(rec, newer) else null
                         ListItem(
                             modifier = Modifier.clickable(enabled = rec != null && i > 0) { chosen = v },
-                            headlineContent = { Text(if (i == 0) "Now" else Format.fullDate(context, v.timestamp)) },
+                            headlineContent = { Text(if (i == 0) stringResource(R.string.tm_now) else Format.fullDate(context, v.timestamp)) },
                             supportingContent = {
                                 Text(
                                     when {
-                                        rec == null -> "Didn't exist"
-                                        change == null -> lines(rec).take(2).joinToString(" · ")
-                                        else -> "Later: +${change.addedRows.size} / −${change.removedRows.size} details" + (change.removedRows.mapNotNull(::describe).firstOrNull()?.let { " (removed $it)" } ?: "")
+                                        rec == null -> stringResource(R.string.tm_didnt_exist)
+                                        change == null -> lines(res, rec).take(2).joinToString(" · ")
+                                        else -> change.removedRows.mapNotNull { describe(res, it) }.firstOrNull()
+                                            ?.let { stringResource(R.string.tm_later_removed, change.addedRows.size, change.removedRows.size, it) }
+                                            ?: stringResource(R.string.tm_later, change.addedRows.size, change.removedRows.size)
                                     },
                                 )
                             },
@@ -120,28 +139,28 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
         AlertDialog(
             onDismissRequest = { chosen = null },
             title = { Text(rec.displayName) },
-            text = { Column { lines(rec).forEach { Text(it) } } },
+            text = { Column { lines(res, rec).forEach { Text(it) } } },
             confirmButton = {
                 TextButton({
                     chosen = null
                     scope.launch {
                         vm.c.contacts.delete(listOf(contactId)) // journaled
                         val id = withContext(Dispatchers.IO) { vm.c.records.insert(rec, target = null) }
-                        vm.toast("Restored this version")
+                        vm.toast(context.getString(R.string.tm_restored_version))
                         back()
                         id?.let { open(Routes.contact(it)) }
                     }
-                }) { Text("Restore this version") }
+                }) { Text(stringResource(R.string.tm_restore_version)) }
             },
             dismissButton = {
                 TextButton({
                     chosen = null
                     scope.launch {
                         val id = withContext(Dispatchers.IO) { vm.c.records.insert(rec, target = null) }
-                        vm.toast("Saved as a separate contact")
+                        vm.toast(context.getString(R.string.tm_saved_copy))
                         id?.let { open(Routes.contact(it)) }
                     }
-                }) { Text("Save as copy") }
+                }) { Text(stringResource(R.string.tm_save_copy)) }
             },
         )
     }
@@ -151,6 +170,8 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
 @Composable
 fun ChangesScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val res = context.resources
     var days by remember { mutableLongStateOf(7L) }
     var round by remember { mutableLongStateOf(0L) }
     val diff by produceState<SnapshotDiff?>(null, days, round) {
@@ -158,13 +179,13 @@ fun ChangesScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         value = vm.c.timeMachine.changesSince(System.currentTimeMillis() - days * 86_400_000L)
     }
     Scaffold(topBar = {
-        TopAppBar(title = { Text("What changed") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+        TopAppBar(title = { Text(stringResource(R.string.tm_changes_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(1L to "Since yesterday", 7L to "Last week", 30L to "Last month", 180L to "6 months").forEach { (d, label) ->
-                        FilterChip(days == d, { days = d }, label = { Text(label) })
+                    listOf(1L to R.string.tm_since_yesterday, 7L to R.string.tm_last_week, 30L to R.string.tm_last_month, 180L to R.string.tm_6_months).forEach { (d, label) ->
+                        FilterChip(days == d, { days = d }, label = { Text(stringResource(label)) })
                     }
                 }
             }
@@ -173,24 +194,24 @@ fun ChangesScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                 item { CircularProgressIndicator(Modifier.padding(32.dp)) }
                 return@LazyColumn
             }
-            if (d.isEmpty) item { EmptyState(Icons.Rounded.History, "No changes", "Nothing was added, removed or edited in this period (or no snapshot is old enough yet).") }
+            if (d.isEmpty) item { EmptyState(Icons.Rounded.History, stringResource(R.string.tm_no_changes), stringResource(R.string.tm_no_changes_text)) }
             if (d.removed.isNotEmpty()) {
-                item { Section("Removed (${d.removed.size})") }
+                item { Section(stringResource(R.string.tm_removed, d.removed.size)) }
                 d.removed.forEach { r ->
                     item {
                         ListItem(
                             leadingContent = { Avatar(r.displayName, null) },
                             headlineContent = { Text(r.displayName) },
-                            supportingContent = { Text(lines(r).take(2).joinToString(" · ")) },
+                            supportingContent = { Text(lines(res, r).take(2).joinToString(" · ")) },
                             trailingContent = {
-                                TextButton({ scope.launch { withContext(Dispatchers.IO) { vm.c.records.insert(r, target = null) }; vm.toast("Restored ${r.displayName}"); round++ } }) { Text("Restore") }
+                                TextButton({ scope.launch { withContext(Dispatchers.IO) { vm.c.records.insert(r, target = null) }; vm.toast(context.getString(R.string.tm_restored_name, r.displayName)); round++ } }) { Text(stringResource(R.string.dc_restore)) }
                             },
                         )
                     }
                 }
             }
             if (d.changed.isNotEmpty()) {
-                item { Section("Changed (${d.changed.size})") }
+                item { Section(stringResource(R.string.tm_changed, d.changed.size)) }
                 d.changed.forEach { ch ->
                     item {
                         ListItem(
@@ -203,8 +224,8 @@ fun ChangesScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                             headlineContent = { Text(ch.after.displayName) },
                             supportingContent = {
                                 Text(
-                                    (ch.addedRows.mapNotNull(::describe).map { "+ $it" } + ch.removedRows.mapNotNull(::describe).map { "− $it" }).take(4).joinToString("\n")
-                                        .ifEmpty { ch.fields.joinToString { "$it changed" } },
+                                    (ch.addedRows.mapNotNull { describe(res, it) }.map { "+ $it" } + ch.removedRows.mapNotNull { describe(res, it) }.map { "− $it" }).take(4).joinToString("\n")
+                                        .ifEmpty { ch.fields.joinToString { res.getString(R.string.tm_field_changed, fieldLabel(res, it)) } },
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             },
@@ -213,8 +234,8 @@ fun ChangesScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                 }
             }
             if (d.added.isNotEmpty()) {
-                item { Section("Added (${d.added.size})") }
-                d.added.forEach { r -> item { ListItem(headlineContent = { Text(r.displayName) }, supportingContent = { Text(lines(r).take(1).joinToString()) }) } }
+                item { Section(stringResource(R.string.tm_added, d.added.size)) }
+                d.added.forEach { r -> item { ListItem(headlineContent = { Text(r.displayName) }, supportingContent = { Text(lines(res, r).take(1).joinToString()) }) } }
             }
         }
     }

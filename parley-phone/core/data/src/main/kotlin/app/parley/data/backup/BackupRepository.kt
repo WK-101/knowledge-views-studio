@@ -50,6 +50,8 @@ import org.json.JSONObject
 import java.time.Instant
 import java.time.ZoneId
 import javax.crypto.SecretKey
+import android.content.res.Resources
+import app.parley.data.R
 
 data class BackupOutcome(
     val ok: Boolean,
@@ -96,15 +98,15 @@ data class RestoreReport(
     /** Parts that couldn't be restored (e.g. private contacts while the vault is locked). */
     val skipped: List<String> = emptyList(),
 ) {
-    fun summary() = error ?: buildList {
-        add("$added contacts added")
-        if (enriched > 0) add("$enriched updated with $rowsAdded details")
-        if (deleted > 0) add("$deleted replaced")
-        if (calls > 0) add("$calls calls")
-        if (rules > 0) add("$rules blocking rules")
-        if (vault > 0) add("$vault private contacts")
-        if (failed > 0) add("$failed failed")
-        skipped.forEach { add("not restored: $it") }
+    fun summary(res: Resources) = error ?: buildList {
+        add(res.getQuantityString(R.plurals.data_rst_added, added, added))
+        if (enriched > 0) add(res.getQuantityString(R.plurals.data_rst_enriched, enriched, enriched, rowsAdded))
+        if (deleted > 0) add(res.getQuantityString(R.plurals.data_rst_replaced, deleted, deleted))
+        if (calls > 0) add(res.getQuantityString(R.plurals.data_calls_count, calls, calls))
+        if (rules > 0) add(res.getQuantityString(R.plurals.data_rst_rules, rules, rules))
+        if (vault > 0) add(res.getQuantityString(R.plurals.data_rst_vault, vault, vault))
+        if (failed > 0) add(res.getQuantityString(R.plurals.data_rst_failed, failed, failed))
+        skipped.forEach { add(res.getString(R.string.data_rst_not_restored, it)) }
     }.joinToString(" · ")
 }
 
@@ -168,10 +170,10 @@ class BackupRepository(
      * being restored from.
      */
     suspend fun backupNow(scheduled: Boolean, target: Uri? = null, safety: Boolean = false): BackupOutcome = withContext(Dispatchers.IO + NonCancellable) {
-        val bundle = prefs.keyBundle() ?: return@withContext BackupOutcome(false, message = "Set a backup passphrase first")
+        val bundle = prefs.keyBundle() ?: return@withContext BackupOutcome(false, message = context.getString(R.string.data_bkp_need_pass))
         val state = prefs.state.value
         val folder = state.folderUri?.let(Uri::parse)
-        if (target == null && folder == null) return@withContext BackupOutcome(false, message = "Choose a backup folder first")
+        if (target == null && folder == null) return@withContext BackupOutcome(false, message = context.getString(R.string.data_bkp_need_folder))
 
         if (target == null) cleanupPartials(folder!!)
         val now = Instant.now()
@@ -181,7 +183,7 @@ class BackupRepository(
             DocumentsContract.createDocument(cr, parent, "application/octet-stream", "$finalName.partial")
         } catch (e: Exception) {
             null
-        } ?: return@withContext fail("The backup folder is no longer accessible. Choose it again.")
+        } ?: return@withContext fail(context.getString(R.string.data_bkp_folder_gone))
 
         var contactCount = 0
         var callCount = 0
@@ -210,7 +212,7 @@ class BackupRepository(
             }
         } catch (e: Exception) {
             runCatching { DocumentsContract.deleteDocument(cr, doc) }
-            return@withContext fail("Backup failed: ${e.message}")
+            return@withContext fail(context.getString(R.string.data_bkp_failed, e.message.toString()))
         }
 
         // Verify: decrypt with this archive's key and check every entry's hash.
@@ -222,17 +224,17 @@ class BackupRepository(
         }
         if (!verified) {
             runCatching { DocumentsContract.deleteDocument(cr, doc) }
-            return@withContext fail("The written backup didn't verify, so it was discarded. Check free space and try again.")
+            return@withContext fail(context.getString(R.string.data_bkp_not_verified))
         }
         if (target != null) {
-            return@withContext BackupOutcome(true, null, contactCount, callCount, verified = true, vaultIncluded = vaultIncluded, message = "Backup ready: $contactCount contacts")
+            return@withContext BackupOutcome(true, null, contactCount, callCount, verified = true, vaultIncluded = vaultIncluded, message = context.resources.getQuantityString(R.plurals.data_bkp_ready, contactCount, contactCount))
         }
 
         val hash = manifest.contentHash()
         if (scheduled && hash == state.lastContentHash) {
             runCatching { DocumentsContract.deleteDocument(cr, doc) }
-            prefs.update { it.putLong("verifiedAt", System.currentTimeMillis()).putString("lastResult", "Unchanged since the last backup") }
-            return@withContext BackupOutcome(true, state.lastBackupName, contactCount, callCount, unchanged = true, verified = true, message = "Nothing changed since the last backup")
+            prefs.update { it.putLong("verifiedAt", System.currentTimeMillis()).putString("lastResult", context.getString(R.string.data_bkp_unchanged)) }
+            return@withContext BackupOutcome(true, state.lastBackupName, contactCount, callCount, unchanged = true, verified = true, message = context.getString(R.string.data_bkp_nothing_changed))
         }
         val renamed = runCatching { DocumentsContract.renameDocument(cr, doc, finalName) }.getOrNull() ?: doc
 
@@ -241,7 +243,12 @@ class BackupRepository(
         val paused = !safety && state.lastContactCount >= 0 && RetentionDecider.mustPauseRotation(state.lastContactCount, contactCount)
         val vaultMissing = !vaultIncluded && vault.contacts.value.isNotEmpty()
         if (!paused && !safety) rotate(protect = if (vaultIncluded) finalName else state.lastVaultBackupName)
-        val result = "Backed up $contactCount contacts and $callCount calls" + if (vaultMissing) ". Private contacts were not included: open Parley and unlock them, then back up again." else ""
+        val res = context.resources
+        val result = context.getString(
+            if (vaultMissing) R.string.data_bkp_result_vault_missing else R.string.data_bkp_result,
+            res.getQuantityString(R.plurals.data_contacts_count, contactCount, contactCount),
+            res.getQuantityString(R.plurals.data_calls_count, callCount, callCount),
+        )
         prefs.update {
             it.putLong("lastAt", System.currentTimeMillis()).putString("lastName", finalName).putLong("verifiedAt", System.currentTimeMillis())
                 .putString("lastHash", hash).putBoolean("paused", paused)
@@ -249,7 +256,7 @@ class BackupRepository(
             if (!paused && !safety) it.putInt("lastCount", contactCount)
             if (vaultIncluded) it.putString("vaultName", finalName)
         }
-        BackupOutcome(true, finalName, contactCount, callCount, verified = true, rotationPaused = paused, vaultIncluded = vaultIncluded, message = "Backed up $contactCount contacts" + if (paused) " — rotation paused because many contacts disappeared" else "")
+        BackupOutcome(true, finalName, contactCount, callCount, verified = true, rotationPaused = paused, vaultIncluded = vaultIncluded, message = res.getQuantityString(if (paused) R.plurals.data_bkp_backed_up_paused else R.plurals.data_bkp_backed_up, contactCount, contactCount))
     }
 
     /** Accepts the current contact count after a rotation pause, so old backups rotate again. */
@@ -374,7 +381,7 @@ class BackupRepository(
         val skipped = ArrayList<String>()
         if (o.contacts && plan.mode == RestoreMode.REPLACE && plan.toDelete.isNotEmpty()) {
             val safety = backupNow(scheduled = false, safety = true)
-            if (!safety.ok) return@withContext RestoreReport(error = "Nothing was changed: the safety backup of your current contacts failed (${safety.message})")
+            if (!safety.ok) return@withContext RestoreReport(error = context.getString(R.string.data_rst_safety_failed, safety.message))
         }
         val insertedRaws = ArrayList<Long>()
         fun remember() = prefs.update { it.putString("restoreRawIds", insertedRaws.joinToString(",")) }
@@ -405,25 +412,25 @@ class BackupRepository(
                 if (n > 0) r = r.copy(enriched = r.enriched + 1, rowsAdded = r.rowsAdded + n)
             }
         } catch (e: Exception) {
-            skipped += "some contacts (${e.message ?: e.javaClass.simpleName})"
+            skipped += context.getString(R.string.data_rst_some_contacts, e.message ?: e.javaClass.simpleName)
         }
         suspend fun part(name: String, block: suspend () -> Unit) = try {
             block()
         } catch (e: Exception) {
             skipped += name
         }
-        if (o.callLog) part("call history") {
+        if (o.callLog) part(context.getString(R.string.data_rst_part_calls)) {
             r = r.copy(calls = restoreCallLog(opened))
             val h = callHistory
             val archived = if (h != null) opened.reader.callHistory { it.toList() } else null
             if (h != null && archived != null) r = r.copy(calls = r.calls + h.restoreLines(archived))
         }
-        if (o.blocking) part("blocking rules") { r = r.copy(rules = restoreBlocking(opened)) }
-        if (o.speedDial) part("speed dial") {
+        if (o.blocking) part(context.getString(R.string.data_rst_part_blocking)) { r = r.copy(rules = restoreBlocking(opened)) }
+        if (o.speedDial) part(context.getString(R.string.data_rst_part_speed_dial)) {
             opened.reader.speedDial()?.forEach { prefsRepo.setSpeedDial(it.slot, it.number, it.label) }
             opened.reader.numberSims()?.forEach { db.prefsDao().setSim(app.parley.data.db.NumberSimEntity(it.matchKey, it.phoneAccountId)) }
         }
-        if (o.settings) part("settings") {
+        if (o.settings) part(context.getString(R.string.data_rst_part_settings)) {
             opened.reader.settings()?.let { all ->
                 settings.importMap(all.filterKeys { !it.startsWith(BackupExtras.PREFIX) })
                 // Off hours' "only this label" names a label of the old phone: keep it only if that title exists here.
@@ -436,9 +443,9 @@ class BackupRepository(
         if (o.vault) try {
             r = r.copy(vault = restoreVault(opened))
         } catch (e: VaultCrypto.LockedException) {
-            skipped += "private contacts (unlock them and restore again)"
+            skipped += context.getString(R.string.data_rst_part_vault_locked)
         } catch (e: Exception) {
-            skipped += "private contacts"
+            skipped += context.getString(R.string.data_rst_part_vault)
         }
         contacts.refresh()
         r.copy(skipped = skipped)

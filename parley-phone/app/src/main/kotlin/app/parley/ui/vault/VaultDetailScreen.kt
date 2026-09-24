@@ -69,6 +69,9 @@ import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.PushPin
 import app.parley.ui.home.callTypeIcon
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import app.parley.R
+import app.parley.ui.DataL10n
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -116,7 +119,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
     }
     // M7 for private contacts: the choice is kept in their encrypted record (needs the unlocked details).
     fun savePrefs(p: app.parley.common.people.MessengerPrefs) {
-        val d = details ?: return vm.toast("Unlock to remember this choice")
+        val d = details ?: return vm.toast(context.getString(R.string.vault_unlock_to_remember))
         val next = d.copy(messengerPrefs = p.encode().orEmpty())
         details = next
         scope.launch { runCatching { vm.c.vault.save(id, next) } }
@@ -131,17 +134,17 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Lock, null); Text("  Private contact") } },
+            title = { Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Lock, null); Text("  " + stringResource(R.string.vault_title)) } },
             colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = barColor, scrolledContainerColor = barColor),
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
+            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
             actions = {
                 if (details != null) {
-                    IconButton({ open(Routes.edit(vault = id)) }) { Icon(Icons.Rounded.Edit, "Edit") }
-                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, "More") }
+                    IconButton({ open(Routes.edit(vault = id)) }) { Icon(Icons.Rounded.Edit, stringResource(R.string.dc_edit)) }
+                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more)) }
                     DropdownMenu(menu, { menu = false }) {
-                        DropdownMenuItem({ Text("Move to phone contacts") }, leadingIcon = { Icon(Icons.Rounded.LockOpen, null) }, onClick = {
+                        DropdownMenuItem({ Text(stringResource(R.string.vault_move_out)) }, leadingIcon = { Icon(Icons.Rounded.LockOpen, null) }, onClick = {
                             menu = false
-                            scope.launchVault(context as? FragmentActivity, { e -> vm.toast("Couldn't move: ${e.message}") }) {
+                            scope.launchVault(context as? FragmentActivity, { e -> vm.toast(context.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
                                 val d = details ?: return@launchVault
                                 val s = vm.settings.value
                                 val account = app.parley.data.AccountRef(s.defaultAccountType, s.defaultAccountName)
@@ -161,15 +164,15 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                                             )
                                         }
                                     }
-                                    vm.toast("Moved to phone contacts")
+                                    vm.toast(context.getString(R.string.vault_moved_out))
                                     back()
                                     open(Routes.contact(newId))
                                 }
                             }
                         })
-                        DropdownMenuItem({ Text("Share privately (QR)") }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = { menu = false; shareQr = true })
-                        DropdownMenuItem({ Text("Expires…") }, leadingIcon = { Icon(Icons.Rounded.Timer, null) }, onClick = { menu = false; expiry = true })
-                        DropdownMenuItem({ Text("Delete") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
+                        DropdownMenuItem({ Text(stringResource(R.string.vault_share_qr)) }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = { menu = false; shareQr = true })
+                        DropdownMenuItem({ Text(stringResource(R.string.vault_expires)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) }, onClick = { menu = false; expiry = true })
+                        DropdownMenuItem({ Text(stringResource(R.string.dc_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
                     }
                 }
             },
@@ -182,17 +185,18 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                     Text(summary?.name ?: "", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 12.dp))
                     card?.subtitle?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     card?.context?.let { Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp)) }
-                    Text("Only visible in Parley · encrypted", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                    summary?.expiresAt?.let { Text("Deletes itself on ${Format.fullDate(context, it)}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                    Text(stringResource(R.string.vault_only_in_parley), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    summary?.expiresAt?.let { Text(stringResource(R.string.vault_deletes_on, Format.fullDate(context, it)), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                     Spacer(Modifier.height(16.dp))
                     val first = summary?.numbers?.firstOrNull()
                     // U3 tiles; M6 "Message on…" for private contacts too.
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ActionTile(Icons.Rounded.Call, "Call", first != null) { first?.let { vm.requestCall(it, summary.name) } }
-                        val usual = prefs.message?.let { m -> if (m == app.parley.common.people.MessengerPrefs.SMS) "SMS" else app.parley.common.MessengerApp.forPackage(m)?.label }
-                        ActionTile(Icons.AutoMirrored.Rounded.Message, usual ?: "Message", first != null, onLongClick = { messageSheet = first.orEmpty() }, longClickLabel = "Choose how to message") { message() }
+                        ActionTile(Icons.Rounded.Call, stringResource(R.string.vault_call), first != null) { first?.let { vm.requestCall(it, summary.name) } }
+                        val sms = stringResource(R.string.vault_sms)
+                        val usual = prefs.message?.let { m -> if (m == app.parley.common.people.MessengerPrefs.SMS) sms else app.parley.common.MessengerApp.forPackage(m)?.label }
+                        ActionTile(Icons.AutoMirrored.Rounded.Message, usual ?: stringResource(R.string.vault_message), first != null, onLongClick = { messageSheet = first.orEmpty() }, longClickLabel = stringResource(R.string.vault_choose_message)) { message() }
                         val email = details?.emails?.firstOrNull()?.value
-                        ActionTile(Icons.Rounded.Email, "Email", email != null) { email?.let { Intents.email(context, it) } }
+                        ActionTile(Icons.Rounded.Email, stringResource(R.string.vault_email), email != null) { email?.let { Intents.email(context, it) } }
                     }
                 }
             }
@@ -204,7 +208,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                                 colors = app.parley.ui.contact.groupRowColors(),
                                 leadingContent = { Icon(Icons.Rounded.PushPin, null, tint = MaterialTheme.colorScheme.primary) },
                                 headlineContent = { Text(note) },
-                                supportingContent = { Text("Shown when they call") },
+                                supportingContent = { Text(stringResource(R.string.vault_shown_when_call)) },
                             )
                         }
                     }
@@ -215,8 +219,8 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                     SegmentedGroup {
                         item {
                             ListItem(
-                                headlineContent = { Text("Unlock to see all details") },
-                                supportingContent = { Text("Names and numbers work without unlocking so calls still show who's calling.") },
+                                headlineContent = { Text(stringResource(R.string.vault_unlock_all)) },
+                                supportingContent = { Text(stringResource(R.string.vault_unlock_all_summary)) },
                                 leadingContent = { Icon(Icons.Rounded.Lock, null) },
                                 colors = app.parley.ui.contact.groupRowColors(),
                                 modifier = Modifier.clickable { unlock() },
@@ -229,16 +233,16 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
             if (d != null) {
                 val phones = d.phones.filter { it.value.isNotBlank() }
                 if (phones.isNotEmpty()) item {
-                    SegmentedGroup("Phone") {
+                    SegmentedGroup(stringResource(R.string.vault_phone)) {
                         phones.forEachIndexed { i, ph ->
                             item {
                                 app.parley.ui.contact.GroupDataRow(
                                     Icons.Rounded.Call, i == 0, ph.value, Format.phoneType(context.resources, ph.type, ph.label),
                                     onClick = { vm.requestCall(ph.value, d.displayName) },
-                                    headline = { Text(Format.number(ph.value, vm.countryIso)) },
-                                    trailing = { IconButton({ message(ph.value) }) { Icon(Icons.AutoMirrored.Rounded.Chat, "Message this number") } },
+                                    headline = { Text(DataL10n.ltr(Format.number(ph.value, vm.countryIso))) },
+                                    trailing = { IconButton({ message(ph.value) }) { Icon(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.vault_message_number)) } },
                                     menu = { close ->
-                                        DropdownMenuItem({ Text("Message on…") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = { close(); messageSheet = ph.value })
+                                        DropdownMenuItem({ Text(stringResource(R.string.vault_message_on)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = { close(); messageSheet = ph.value })
                                     },
                                 )
                             }
@@ -246,27 +250,30 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                     }
                 }
                 if (d.emails.isNotEmpty()) item {
-                    SegmentedGroup("Email") {
+                    SegmentedGroup(stringResource(R.string.vault_email)) {
                         d.emails.forEachIndexed { i, e -> item { app.parley.ui.contact.GroupDataRow(Icons.Rounded.Email, i == 0, e.value, null, onClick = { Intents.email(context, e.value) }) } }
                     }
                 }
                 if (d.handles.isNotEmpty()) item {
-                    SegmentedGroup("Messengers") {
+                    SegmentedGroup(stringResource(R.string.vault_messengers)) {
                         handleRows(d.handles, Icons.Rounded.Forum, onWeb = { webLink = it })
                     }
                 }
                 if (d.addresses.isNotEmpty() || d.note.isNotBlank() || d.websites.isNotEmpty()) item {
-                    SegmentedGroup("About") {
-                        d.addresses.forEachIndexed { i, a -> item { app.parley.ui.contact.GroupDataRow(Icons.Rounded.LocationOn, i == 0, a.formatted, "Address", onClick = { Intents.map(context, a.formatted) }) } }
-                        d.websites.forEachIndexed { i, w -> item { app.parley.ui.contact.GroupDataRow(Icons.Rounded.Language, i == 0, w.value, "Website", onClick = { Intents.web(context, w.value) }) } }
-                        if (d.note.isNotBlank()) item { app.parley.ui.contact.GroupDataRow(Icons.AutoMirrored.Rounded.Notes, true, d.note, "Note", onClick = {}, headline = { LinkifiedText(d.note) }) }
+                    val addressLabel = stringResource(R.string.vault_address)
+                    val websiteLabel = stringResource(R.string.vault_website)
+                    val noteLabel = stringResource(R.string.vault_note)
+                    SegmentedGroup(stringResource(R.string.vault_about)) {
+                        d.addresses.forEachIndexed { i, a -> item { app.parley.ui.contact.GroupDataRow(Icons.Rounded.LocationOn, i == 0, a.formatted, addressLabel, onClick = { Intents.map(context, a.formatted) }) } }
+                        d.websites.forEachIndexed { i, w -> item { app.parley.ui.contact.GroupDataRow(Icons.Rounded.Language, i == 0, w.value, websiteLabel, onClick = { Intents.web(context, w.value) }) } }
+                        if (d.note.isNotBlank()) item { app.parley.ui.contact.GroupDataRow(Icons.AutoMirrored.Rounded.Notes, true, d.note, noteLabel, onClick = {}, headline = { LinkifiedText(d.note) }) }
                     }
                 }
             }
             val mine = calls.filter { it.vaultId == id }
             if (mine.isNotEmpty()) {
                 item {
-                    SegmentedGroup("Private call history") {
+                    SegmentedGroup(stringResource(R.string.vault_call_history)) {
                         mine.forEach { c ->
                             item {
                                 val type = app.parley.data.CallLogRepository.mapType(c.type)
@@ -275,7 +282,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                                     colors = app.parley.ui.contact.groupRowColors(),
                                     leadingContent = { Icon(icon, null, tint = tint) },
                                     headlineContent = { Text(Format.fullDate(context, c.date)) },
-                                    supportingContent = { Text(listOf(Format.number(c.number, vm.countryIso), Format.duration(c.durationSec)).filter { it.isNotBlank() }.joinToString(" · ")) },
+                                    supportingContent = { Text(listOf(DataL10n.ltr(Format.number(c.number, vm.countryIso)), Format.duration(c.durationSec)).filter { it.isNotBlank() }.joinToString(" · ")) },
                                 )
                             }
                         }
@@ -294,10 +301,10 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete this private contact?") },
-            text = { Text("This also deletes its private call history. It can't be undone.") },
-            confirmButton = { TextButton({ confirmDelete = false; scope.launch { vm.c.vault.delete(id); back() } }) { Text("Delete") } },
-            dismissButton = { TextButton({ confirmDelete = false }) { Text("Cancel") } },
+            title = { Text(stringResource(R.string.vault_delete_title)) },
+            text = { Text(stringResource(R.string.vault_delete_text)) },
+            confirmButton = { TextButton({ confirmDelete = false; scope.launch { vm.c.vault.delete(id); back() } }) { Text(stringResource(R.string.dc_delete)) } },
+            dismissButton = { TextButton({ confirmDelete = false }) { Text(stringResource(R.string.dc_cancel)) } },
         )
     }
     if (expiry) {
@@ -313,16 +320,16 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
 fun ExpiryDialog(onDismiss: () -> Unit, onPick: (Int?) -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Delete automatically after") },
+        title = { Text(stringResource(R.string.vault_expiry_title)) },
         text = {
             Column {
-                listOf(1 to "1 day", 7 to "1 week", 30 to "30 days", 90 to "3 months", 365 to "1 year").forEach { (d, label) ->
-                    ListItem(headlineContent = { Text(label) }, modifier = Modifier.clickable { onPick(d) })
+                listOf(1 to R.string.vault_expiry_1_day, 7 to R.string.vault_expiry_1_week, 30 to R.string.vault_expiry_30_days, 90 to R.string.vault_expiry_3_months, 365 to R.string.vault_expiry_1_year).forEach { (d, label) ->
+                    ListItem(headlineContent = { Text(stringResource(label)) }, modifier = Modifier.clickable { onPick(d) })
                 }
-                ListItem(headlineContent = { Text("Never (keep)") }, modifier = Modifier.clickable { onPick(null) })
+                ListItem(headlineContent = { Text(stringResource(R.string.vault_expiry_never)) }, modifier = Modifier.clickable { onPick(null) })
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }

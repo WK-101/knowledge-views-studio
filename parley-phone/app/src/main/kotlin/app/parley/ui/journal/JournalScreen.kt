@@ -28,13 +28,16 @@ import app.parley.ui.EmptyState
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
 import kotlinx.coroutines.launch
+import androidx.annotation.StringRes
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
-private fun actionText(a: String) = when (a) {
-    "DELETE" -> "Deleted"
-    "EDIT" -> "Edited (version before the change)"
-    "MERGE" -> "Merged (version before merging)"
-    "SEPARATE" -> "Separated"
-    else -> a.lowercase()
+@StringRes private fun actionText(a: String): Int? = when (a) {
+    "DELETE" -> R.string.jr_deleted
+    "EDIT" -> R.string.jr_edited
+    "MERGE" -> R.string.jr_merged
+    "SEPARATE" -> R.string.jr_separated
+    else -> null
 }
 
 /** "Recently deleted & changed": 30 days of undo for anything Parley changed. */
@@ -47,10 +50,10 @@ fun JournalScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     // U7: scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        TopAppBar(title = { Text("Recently deleted & changed") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } }, scrollBehavior = barTint)
+        TopAppBar(title = { Text(stringResource(R.string.jr_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
     }) { p ->
         if (entries.isEmpty()) {
-            EmptyState(Icons.Rounded.History, "Nothing here", "Contacts you delete, edit or merge in Parley are kept here for 30 days, so you can undo.", Modifier.padding(p))
+            EmptyState(Icons.Rounded.History, stringResource(R.string.jr_empty_title), stringResource(R.string.jr_empty_text), Modifier.padding(p))
             return@Scaffold
         }
         LazyColumn(Modifier.padding(p)) {
@@ -58,19 +61,22 @@ fun JournalScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                 ListItem(
                     leadingContent = { Avatar(e.displayName, null) },
                     headlineContent = { Text(e.displayName) },
-                    supportingContent = { Text("${actionText(e.action)} · ${Format.fullDate(context, e.time)}" + if (e.restored) " · restored" else "") },
+                    supportingContent = {
+                        val line = "${actionText(e.action)?.let { stringResource(it) } ?: e.action.lowercase()} · ${Format.fullDate(context, e.time)}"
+                        Text(if (e.restored) stringResource(R.string.jr_restored_suffix, line) else line)
+                    },
                     trailingContent = {
                         TextButton(onClick = {
                             scope.launch {
                                 val id = vm.c.journal.restore(e.id)
                                 if (id != null) {
-                                    vm.toast(if (e.action == "DELETE") "Restored ${e.displayName}" else "Restored the earlier version as a separate contact")
+                                    vm.toast(if (e.action == "DELETE") context.getString(R.string.jr_restored_name, e.displayName) else context.getString(R.string.jr_restored_copy))
                                     open(Routes.contact(id))
                                 } else {
-                                    vm.toast("Couldn't restore")
+                                    vm.toast(context.getString(R.string.jr_restore_failed))
                                 }
                             }
-                        }) { Text(if (e.action == "DELETE") "Restore" else "Restore copy", color = MaterialTheme.colorScheme.primary) }
+                        }) { Text(if (e.action == "DELETE") stringResource(R.string.dc_restore) else stringResource(R.string.jr_restore_copy), color = MaterialTheme.colorScheme.primary) }
                     },
                 )
             }

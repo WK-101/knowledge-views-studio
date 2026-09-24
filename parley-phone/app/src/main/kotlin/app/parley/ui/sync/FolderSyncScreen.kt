@@ -39,6 +39,9 @@ import app.parley.AppViewModel
 import app.parley.ui.common.Format
 import app.parley.work.FolderSyncWorker
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,19 +62,19 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
         scope.launch {
             val r = runCatching { sync.syncNow(allowMassDelete) }
             running = false
-            vm.toast(r.getOrNull()?.summary() ?: "Sync failed: ${r.exceptionOrNull()?.message}")
+            vm.toast(r.getOrNull()?.summary(context.resources) ?: context.getString(R.string.sync_failed, r.exceptionOrNull()?.message.toString()))
         }
     }
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Sync between your phones") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+        TopAppBar(title = { Text(stringResource(R.string.sync_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
                 Card(Modifier.fillMaxWidth().padding(16.dp)) {
                     Column(Modifier.padding(16.dp)) {
-                        Text("No server, no account", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.sync_card_title), style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "Parley keeps one .vcf file per contact in a folder you choose. Sync that folder between devices with Syncthing, Nextcloud, or any folder-sync app, and set up the same folder in Parley on your other phone. Edits flow both ways; if the same contact changed on both phones, both versions are kept.",
+                            stringResource(R.string.sync_card_text),
                             style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp),
                         )
                     }
@@ -81,26 +84,26 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
                 ListItem(
                     modifier = Modifier.clickable { picker.launch(null) },
                     leadingContent = { Icon(Icons.Rounded.Folder, null) },
-                    headlineContent = { Text("Sync folder") },
-                    supportingContent = { Text(st.folderName ?: "Not chosen") },
+                    headlineContent = { Text(stringResource(R.string.sync_folder)) },
+                    supportingContent = { Text(st.folderName ?: stringResource(R.string.bkp_folder_none)) },
                 )
                 ListItem(
                     modifier = Modifier.clickable { sync.setAuto(!st.auto); FolderSyncWorker.schedule(context, !st.auto && st.folderUri != null) },
-                    headlineContent = { Text("Sync automatically") },
-                    supportingContent = { Text("When you open Parley, after changes, and every hour") },
+                    headlineContent = { Text(stringResource(R.string.sync_auto)) },
+                    supportingContent = { Text(stringResource(R.string.sync_auto_summary)) },
                     trailingContent = { Switch(st.auto, { sync.setAuto(it); FolderSyncWorker.schedule(context, it && st.folderUri != null) }) },
                 )
                 ListItem(
-                    headlineContent = { Text(if (st.lastSyncAt > 0) "Last sync ${Format.shortWhen(context, st.lastSyncAt)}" else "Not synced yet") },
+                    headlineContent = { Text(if (st.lastSyncAt > 0) stringResource(R.string.sync_last, Format.shortWhen(context, st.lastSyncAt)) else stringResource(R.string.sync_never)) },
                     supportingContent = st.lastResult?.let { r -> { Text(r) } },
                     leadingContent = { Icon(Icons.Rounded.Sync, null) },
                 )
                 if (st.pendingDeletions > 0 && !running) {
-                    OutlinedButton({ run(allowMassDelete = true) }, Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { Text("Apply ${st.pendingDeletions} deletions") }
+                    OutlinedButton({ run(allowMassDelete = true) }, Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { Text(pluralStringResource(R.plurals.sync_apply_deletions, st.pendingDeletions, st.pendingDeletions)) }
                 }
-                Button({ run() }, enabled = st.folderUri != null && !running, modifier = Modifier.padding(horizontal = 16.dp)) { Text("Sync now") }
+                Button({ run() }, enabled = st.folderUri != null && !running, modifier = Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.sync_now)) }
                 if (running) LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp))
-                if (st.folderUri != null) TextButton({ sync.setFolder(null, null); FolderSyncWorker.schedule(context, false) }, Modifier.padding(horizontal = 8.dp)) { Text("Stop syncing") }
+                if (st.folderUri != null) TextButton({ sync.setFolder(null, null); FolderSyncWorker.schedule(context, false) }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.sync_stop)) }
             }
         }
     }
