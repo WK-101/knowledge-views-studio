@@ -46,9 +46,21 @@ data class CallUi(
     /** Screening verdict for the caller card: "Blocked by rule 'Telemarketing' · 7 calls", "Likely spam · FTC list". */
     val verdict: String? = null,
     val verdictWarn: Boolean = false,
+    /** The caller lookup finished and the number is neither a contact nor a private contact (any direction; V4). */
+    val noContact: Boolean = false,
+    /** The number of the SIM the call is on, when Android knows it and two SIMs are in use (V5). */
+    val accountNumber: String? = null,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: if (hidden) "Private number" else "Unknown"
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING
+
+    /** "Work · …4567": which SIM a call came in on, for the answer control on dual-SIM phones (V5). */
+    val simHint: String?
+        get() = accountLabel?.let { l -> listOfNotNull(l, accountNumber?.filter { it.isDigit() }?.takeLast(4)?.takeIf { it.length == 4 }?.let { "…$it" }).joinToString(" · ") }
+
+    /** Show the post-call card: an ended call with a number that isn't in contacts (V4). */
+    val postCallCard: Boolean
+        get() = noContact && !hidden && !isEmergency && !number.isNullOrBlank() && number.count { it.isDigit() } >= 3
 }
 
 enum class RouteType { EARPIECE, SPEAKER, BLUETOOTH, WIRED, STREAMING }

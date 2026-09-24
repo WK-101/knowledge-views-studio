@@ -1,20 +1,16 @@
 package app.parley
 
 import android.annotation.SuppressLint
-import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.telecom.TelecomManager
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
-import app.parley.common.NotificationPrivacy
+import app.parley.calls.MissedCallNotifier
 import app.parley.data.PlaceResult
 import kotlinx.coroutines.launch
 
-/** Shows our own missed-call notification (Telecom delegates it to the default dialer). */
+/** Shows our own missed-call notifications (Telecom delegates them to the default dialer). See [MissedCallNotifier]. */
 class MissedCallReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != TelecomManager.ACTION_SHOW_MISSED_CALLS_NOTIFICATION) return
@@ -23,101 +19,16 @@ class MissedCallReceiver : BroadcastReceiver() {
         val pending = goAsync()
         context.container.scope.launch {
             try {
-                show(context, count, number)
+                MissedCallNotifier.show(context, count, number)
             } finally {
                 pending.finish()
             }
         }
     }
 
-    private suspend fun show(context: Context, count: Int, number: String?) {
-        val nm = context.getSystemService(NotificationManager::class.java)
-        if (count <= 0) {
-            nm.cancel(ID)
-            return
-        }
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Missed calls", NotificationManager.IMPORTANCE_DEFAULT))
-        val c = context.container
-        val hideVault = c.settings.current().hideVault
-        val contactName = number?.let { c.contacts.lookup(it)?.name }
-        val vaultName = if (contactName == null && number != null) c.vault.lookup(number)?.second?.name else null
-        // F14: a private contact's name never shows in discreet mode.
-        val name = NotificationPrivacy.missedCallName(contactName, vaultName, hideVault, number)
-        val title = if (count == 1) "Missed call" else "$count missed calls"
-        val text = if (count == 1) (name ?: "Private number") else name?.let { "Latest: $it" } ?: ""
-        val open = PendingIntent.getActivity(
-            context, 10,
-            Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_SHOW_MISSED).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-        val b = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_missed)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
-            .setContentIntent(open)
-            .setAutoCancel(true)
-            .setNumber(count)
-            .setDeleteIntent(action(context, MissedCallActionReceiver.ACTION_CLEAR, null, 13))
-            // F14: when the lock screen hides sensitive content it shows this version, with no name or number
-            // (private contacts included). Private, never public, so the system setting is respected.
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setPublicVersion(
-                NotificationCompat.Builder(context, CHANNEL)
-                    .setSmallIcon(app.parley.ui.R.drawable.ic_stat_missed)
-                    .setContentTitle(title)
-                    .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
-                    .setNumber(count)
-                    .build(),
-            )
-        // One-ring scams and premium lines: no one-tap call back from the notification (B10); the app asks first.
-        val risky = count == 1 && !number.isNullOrBlank() && c.dialGuard.check(number).any { it.severe }
-        if (count == 1 && !number.isNullOrBlank() && !risky) {
-            b.addAction(0, "Call back", action(context, MissedCallActionReceiver.ACTION_CALL_BACK, number, 11))
-            b.addAction(
-                0, "Message",
-                // "Message on…": SMS or a chat app, chosen in a small sheet.
-                PendingIntent.getActivity(
-                    context, 12,
-                    app.parley.messaging.MessageOn.intent(context, number, missedCallAccount(context, number)),
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                ),
-            )
-        }
-        try {
-            NotificationManagerCompat.from(context).notify(ID, b.build())
-        } catch (_: SecurityException) {
-        }
-    }
-
-    /** F19: the SIM that took the latest missed call from [number], so "Message on…" reads it with that SIM's country. */
-    private fun missedCallAccount(context: Context, number: String): String? = try {
-        context.contentResolver.query(
-            android.provider.CallLog.Calls.CONTENT_URI,
-            arrayOf(android.provider.CallLog.Calls.NUMBER, android.provider.CallLog.Calls.PHONE_ACCOUNT_ID),
-            "${android.provider.CallLog.Calls.TYPE} = ?", arrayOf(android.provider.CallLog.Calls.MISSED_TYPE.toString()),
-            "${android.provider.CallLog.Calls.DATE} DESC",
-        )?.use { c ->
-            var found: String? = null
-            var n = 0
-            while (found == null && n++ < 20 && c.moveToNext()) {
-                if (app.parley.common.PhoneNumbers.same(c.getString(0), number, null)) found = c.getString(1)
-            }
-            found
-        }
-    } catch (_: Exception) {
-        null
-    }
-
-    private fun action(context: Context, action: String, number: String?, req: Int) = PendingIntent.getBroadcast(
-        context, req,
-        Intent(context, MissedCallActionReceiver::class.java).setAction(action).putExtra("number", number),
-        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-    )
-
     companion object {
-        const val CHANNEL = "missed_calls_v1"
-        const val ID = 4712
+        const val CHANNEL = MissedCallNotifier.CHANNEL
+        const val ID = MissedCallNotifier.ID
     }
 }
 
@@ -129,14 +40,30 @@ class MissedCallActionReceiver : BroadcastReceiver() {
         val pending = goAsync()
         c.scope.launch {
             try {
-                if (intent.action == ACTION_CALL_BACK) {
-                    intent.getStringExtra("number")?.let { c.placer.call(it) as PlaceResult }
-                    context.getSystemService(NotificationManager::class.java).cancel(MissedCallReceiver.ID)
-                }
-                c.callLog.markMissedRead()
-                try {
-                    context.getSystemService(TelecomManager::class.java).cancelMissedCallsNotification()
-                } catch (_: SecurityException) {
+                val nm = context.getSystemService(NotificationManager::class.java)
+                when (intent.action) {
+                    ACTION_CALL_BACK -> {
+                        intent.getStringExtra("number")?.let { c.placer.call(it) as PlaceResult }
+                        MissedCallNotifier.cancelAll(context)
+                        seen(context)
+                    }
+                    // V2: block from the notification (only after unlocking, see MissedCallNotifier.blockAction).
+                    ACTION_BLOCK -> {
+                        intent.getStringExtra("number")?.takeIf { it.isNotBlank() }?.let { n ->
+                            if (!c.blocks.blockNumber(n)) app.parley.blocking.BlockingActions.blockNumberRule(c, n)
+                        }
+                        nm.cancel(intent.getIntExtra(EXTRA_ID, MissedCallNotifier.ID))
+                        if (!MissedCallNotifier.anyShowing(context, childrenOnly = true)) {
+                            MissedCallNotifier.cancelAll(context)
+                            seen(context)
+                        }
+                    }
+                    // One caller's notification was swiped away: once none is left, they've all been seen.
+                    ACTION_DISMISSED_ONE -> if (!MissedCallNotifier.anyShowing(context, childrenOnly = true)) {
+                        MissedCallNotifier.cancelAll(context)
+                        seen(context)
+                    }
+                    else -> seen(context)
                 }
             } finally {
                 pending.finish()
@@ -144,8 +71,21 @@ class MissedCallActionReceiver : BroadcastReceiver() {
         }
     }
 
+    /** Marks missed calls seen: clears Telecom's count and stops the re-alert (V3). */
+    private suspend fun seen(context: Context) {
+        MissedCallNotifier.stopReAlert(context)
+        context.container.callLog.markMissedRead()
+        try {
+            context.getSystemService(TelecomManager::class.java).cancelMissedCallsNotification()
+        } catch (_: SecurityException) {
+        }
+    }
+
     companion object {
         const val ACTION_CALL_BACK = "app.parley.CALL_BACK"
         const val ACTION_CLEAR = "app.parley.CLEAR_MISSED"
+        const val ACTION_BLOCK = "app.parley.BLOCK_MISSED"
+        const val ACTION_DISMISSED_ONE = "app.parley.DISMISSED_ONE_MISSED"
+        const val EXTRA_ID = "notification_id"
     }
 }

@@ -201,6 +201,7 @@ internal fun CallsPage(vm: AppViewModel, open: (String) -> Unit) {
             )
         }
     }
+    CallExtrasGroups(vm)
     SegmentedGroup("SIMs and carrier") {
         linkRow("sims", Icons.Rounded.SimCard) { open(HistoryRoutes.SIMS) }
         linkRow("sim_accounts", Icons.Rounded.SettingsPhone, external = true) { context.startSafely(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }

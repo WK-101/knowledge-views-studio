@@ -47,6 +47,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -86,20 +87,45 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
     fun toggleSelected(g: RecentGroup) {
         vm.recentSelection.value = selected.let { if (g.key in it) it - g.key else it + g.key }
     }
+    // V11: opening Recents (or coming back to it) clears Telecom's missed-call count and stops the re-alert.
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        vm.onRecentsShown()
+        onPauseOrDispose { }
+    }
+    // V1: the Voicemail chip, with the number of unheard voicemails, while Parley can read them (default phone app).
+    val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
+    val voicemail by vm.c.voicemail.state.collectAsStateWithLifecycle()
+    val query by vm.recentQuery.collectAsStateWithLifecycle()
 
     LazyColumn(Modifier.fillMaxWidth()) {
         if (selected.isNotEmpty()) stickyHeader(key = "selection") { app.parley.ui.blocking.RecentsSelectionBar(vm, groups.orEmpty()) }
         item(key = "filters") {
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 RecentFilter.entries.forEach { f ->
+                    if (f == RecentFilter.VOICEMAIL && !isDefault && filter != f) return@forEach
                     FilterChip(
                         selected = filter == f,
                         onClick = { vm.recentFilter.value = f },
-                        label = { Text(f.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                        label = {
+                            Text(f.name.lowercase().replaceFirstChar { it.uppercase() })
+                            if (f == RecentFilter.VOICEMAIL && voicemail.unheard > 0) {
+                                Spacer(Modifier.width(6.dp))
+                                androidx.compose.material3.Badge { Text(voicemail.unheard.toString()) }
+                            }
+                        },
+                        modifier = if (f == RecentFilter.VOICEMAIL && voicemail.unheard > 0) {
+                            Modifier.semantics { contentDescription = "Voicemail, ${voicemail.unheard} new" }
+                        } else {
+                            Modifier
+                        },
                     )
                 }
                 app.parley.ui.history.SavedFilterChips(vm)
             }
+        }
+        if (filter == RecentFilter.VOICEMAIL) {
+            item(key = "voicemail") { app.parley.ui.calls.VoicemailInbox(vm, query) }
+            return@LazyColumn
         }
         item(key = "archive-notes") { app.parley.ui.history.ArchiveNotices(vm, open) }
         val list = groups

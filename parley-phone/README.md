@@ -27,12 +27,13 @@ This project is independent of the rest of this repository.
 | **Keypad** | Keypad alphabets (Russian, Ukrainian, Belarusian, Bulgarian, Serbian, Greek, Hebrew, Arabic) with a second row of letters; **Chinese, Japanese and Korean** search by syllables or initials; `0`/`1` as word separators; every number of a contact in the results; editable number with paste (no clipboard snooping); **hardware keyboards and flip phones**; honest `*#06#` sheet; carrier **USSD replies** in a dialog |
 | **Calling extras** | **Call-waiting sheet** (hold & answer, end & answer, decline, reply); on-hold strip with swap/merge; "Return to call" chip; **notification health check**; audio button that adapts to Bluetooth; call haptics; two-pane layout in landscape; **Quick Settings tile to hang up**; per-contact call-screen picture; full TalkBack labels |
 | **Contacts extras** | "Second line" under names (company, nickname, account…); label filters (unlabelled, any/all), merge labels, **label pages** with message/email all and a label ringtone; drag-to-reorder favourites with pinch-to-zoom grid; actionable "Saved in" chips (edit this copy, move losslessly, unlink); **"already exists" warning** while typing; account diagnostics; **SIM import/copy**; date of death; "why did this change?" line; **Who can see your contacts** (honest per-app audit, private by default, one-contact sharing, GrapheneOS Contact Scopes pointer); protected private-name lookup for approved apps; diagnostics export with masked numbers |
+| **Calls & voicemail (v3.1)** | **Voicemail inbox** in Recents (chip with a badge): play on speaker or earpiece, seek, transcription, mark heard, call back, share the audio, delete; **richer missed-call notifications** (photo, SIM, time, one per caller with a count, "Why didn't it ring?", Call back · Message on… · Block); optional **missed-call re-alert** every 5–30 min that respects Do Not Disturb; **post-call card** for unknown numbers (Block, Save privately, Message on…, Report); the **SIM on the answer control**; proximity-sensor switch; keypad tones on touch with roll-over and **DTMF held while pressed**; **pocket-dial guard** for favourites, the widget and shortcuts; **"Why did my phone ring, or not?"** (Do Not Disturb, ringer, ringtone, where it was answered) in number history; link to "Power button ends call"; Recents clears the missed-call count and loads the newest 100 calls first |
 | **Look & feel** | Material 3 Expressive with dynamic colour; avatars and names animate into the contact page; navigation rail on tablets and foldables; light/dark/AMOLED (system-bar icons follow Parley's theme); compact density; optional call/message buttons on contact rows; **one header on every tab** (title, search that expands in place, the tab's actions, "Lock now" with the app lock); **customisable navigation bar** (show, hide and reorder tabs); **Settings in categories** with grouped cards and a **search over every setting**; Android's "App settings" gear opens Parley's Settings |
 
 **Not included:**
 
 - **Call recording.** Android does not allow it for non-system apps.
-- **Syncing visual voicemail ourselves.** That needs internet.
+- **Syncing visual voicemail ourselves.** That needs internet. Parley shows what the carrier's voicemail app or Android has already downloaded (see "Voicemail" below).
 - **Online spam lookups.** By design, nothing is sent anywhere.
 - **A separate Android Auto app.** Android Auto's own phone screen already shows the same contacts and call history; a car app for calling needs Google Play review, so it's planned for the Play release.
 - **Whole-address-book transfer by animated QR.** That would need Parley to have camera access. "Move to a new phone" sends one encrypted file instead.
@@ -44,7 +45,7 @@ This project is independent of the rest of this repository.
 | Tab | Header actions | Its own ⋮ items |
 |---|---|---|
 | Favorites | Search (filters favourites and frequent) | — (sort and "Reorder" stay above the grid) |
-| Recents | Search, Call insights | Export…, Call history settings (filter chips and saved filters stay above the list) |
+| Recents | Search, Call insights | Export…, Call history settings (filter chips, including **Voicemail** with its badge, and saved filters stay above the list) |
 | Contacts | Search, Labels, Lock now (with the app lock) | Select all, Find & merge duplicates, Contacts settings (label/account/private filter chips and "Temporary (n)" stay above the list) |
 | Keypad | Search (all contacts), Speed dial | Speed dial, SIMs & plan minutes, Keypad settings |
 
@@ -57,7 +58,7 @@ Shared ⋮ items on every tab: Birthdays & dates, Temporary contacts, Recently d
 | Category | Settings |
 |---|---|
 | Appearance | Theme, Pure black, Wallpaper colours · Navigation bar, Open on · List density, Call & message buttons on contacts · Sort names by, Second line under names, Prefer nicknames |
-| Calls | Default phone app · Answer by, Confirm before calling, Vibrate on call events, Ringtone for unknown callers · SIMs, SIM & calling accounts, Call forwarding/waiting/voicemail |
+| Calls | Default phone app · Answer by, Confirm before calling, Vibrate on call events, Ringtone for unknown callers · Remind me of missed calls, Voicemail · Ask before pocket calls, Turn the screen off at your ear, Power button ends call · SIMs, SIM & calling accounts, Call forwarding/waiting/voicemail |
 | Keypad | Keypad tones, Keypad vibration · Keypad letters, Speed dial, USSD replies |
 | Call time | Reminders & limits, Plan minutes per SIM |
 | Blocking & spam | Blocking & screening, Let repeat callers through, Expecting a call · Spam lists, Rule templates, Test a call, Import & share rules |
@@ -70,6 +71,10 @@ Shared ⋮ items on every tab: Birthdays & dates, Temporary contacts, Recently d
 | About | Version, Export diagnostics |
 
 **Temporary contacts.** Type a number on the keypad and choose "Save temporary contact" (name; 1, 7 or 30 days or custom; whether its call history goes too; private by default, or "Save visible to other apps"), or pick "Delete automatically" on a contact's page. They're listed in Contacts (chip "Temporary (n)" and ⋮) and Settings › Contacts › Temporary contacts, with the time left and Extend / Keep permanently / Delete now.
+
+**Voicemail.** Recents › chip "Voicemail" (the badge counts unheard messages). It reads Android's voicemail store (`VoicemailContract`). Android's contacts provider (`VoicemailPermissions` in AOSP `ContactsProvider`) gives the **default or system dialer** full read and write access to every voicemail, including the audio, without `READ_VOICEMAIL`/`WRITE_VOICEMAIL`: those are signature/privileged permissions that no store app can hold, and Parley doesn't declare them. So the inbox works only while Parley is the default phone app; otherwise the chip is hidden. The messages come from whichever app fills that store: the carrier's visual voicemail app, or Android's built-in visual voicemail on carriers that support it. Parley has no internet access, so it can't sync or download a message itself: "Download" only asks the owning app to fetch it. Delete marks the voicemail deleted so the owning app can remove it from the mailbox on its next sync. "Call voicemail" (and long-press 1) always works, and "Voicemail settings" opens Android's voicemail settings (`TelephonyManager.ACTION_CONFIGURE_VOICEMAIL`). Some carriers deliver visual voicemail only to the phone maker's own dialer; then only "Call voicemail" helps.
+
+**After a call and when you miss one.** An unknown number gets a post-call card on the call-ended screen (Block opens the rule editor with the number, Save privately saves a private temporary contact for 7 days, Message on…, Report). Missed calls get one notification per caller with the contact photo, SIM, time, a count and "Why didn't it ring?" (from the stored screening decision and the ring facts), plus Call back, Message on… and, for numbers that aren't contacts, Block (it asks to unlock first). Settings › Calls › Remind me of missed calls re-alerts every 5–30 minutes for up to 3 hours, never in Do Not Disturb, using an inexact alarm (no exact-alarm permission); opening Recents stops it. The number history's "Why it rang, or didn't" shows, for each incoming call, Do Not Disturb, the ringer mode and volume, vibration, which ringtone played and where the call was answered (Bluetooth device, speaker, another device). These facts stay on the phone for 60 days.
 
 ## Permissions Parley doesn't ask for, and why
 

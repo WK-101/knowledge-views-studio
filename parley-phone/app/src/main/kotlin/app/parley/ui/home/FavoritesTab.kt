@@ -167,7 +167,7 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "") {
                 )
             } else {
                 Tile(c.displayName, c.photoUri, modifier = base, onClick = {
-                    c.phones.firstOrNull()?.let { p -> vm.requestCall(p.number, c.displayName) } ?: open(Routes.contact(c.id))
+                    c.phones.firstOrNull()?.let { p -> vm.requestCall(p.number, c.displayName, source = app.parley.common.calls.CallSource.FAVORITE) } ?: open(Routes.contact(c.id))
                 }, onLong = { open(Routes.contact(c.id)) })
             }
         }
@@ -176,7 +176,7 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "") {
                 Text("Frequent", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp))
             }
             items(shownFrequents, key = { "q" + it.key }) { g ->
-                Tile(g.title, g.contact?.photoUri, onClick = { vm.requestCall(g.number, g.contact?.displayName) }, onLong = {
+                Tile(g.title, g.contact?.photoUri, onClick = { vm.requestCall(g.number, g.contact?.displayName, source = app.parley.common.calls.CallSource.FAVORITE) }, onLong = {
                     g.contact?.let { open(Routes.contact(it.id)) } ?: open(Routes.history(g.number))
                 })
             }

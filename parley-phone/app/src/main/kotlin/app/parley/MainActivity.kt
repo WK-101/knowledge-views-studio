@@ -131,6 +131,15 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                     !number.isNullOrBlank() -> vm.navigate(NavEvent.History(number))
                 }
             }
+            // V4: the post-call card's "Block" and "Report" for an unknown number.
+            ACTION_POST_CALL -> intent.getStringExtra(EXTRA_NUMBER)?.takeIf { it.isNotBlank() }?.let { number ->
+                when (intent.getStringExtra(EXTRA_POST_CALL_ACTION)) {
+                    "BLOCK" -> vm.navigate(
+                        NavEvent.Route(app.parley.ui.blocking.BlockingRoutes.rule(0, app.parley.common.RuleKind.BLOCK, app.parley.common.RuleType.EXACT, number)),
+                    )
+                    "REPORT" -> app.parley.ui.blocking.BlockingDialogs.show(app.parley.ui.blocking.BlockingDialog.Report(number))
+                }
+            }
             Intent.ACTION_INSERT -> vm.navigate(NavEvent.NewContact(InsertPrefill.from(intent)))
             Intent.ACTION_INSERT_OR_EDIT -> vm.navigate(NavEvent.InsertOrEdit(InsertPrefill.from(intent)))
         }
@@ -172,6 +181,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         const val SHOW_OR_CREATE = "com.android.contacts.action.SHOW_OR_CREATE_CONTACT"
         const val ACTION_SHOW_MISSED = "app.parley.SHOW_MISSED"
         const val ACTION_SHOW_CALLER = "app.parley.SHOW_CALLER"
+        const val ACTION_POST_CALL = "app.parley.POST_CALL"
+        const val EXTRA_POST_CALL_ACTION = "post_call_action"
         const val EXTRA_CONTACT_ID = "contact_id"
         const val EXTRA_NUMBER = "number"
     }

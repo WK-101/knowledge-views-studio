@@ -21,9 +21,24 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
     private val cr = context.contentResolver
     private val reload = MutableStateFlow(0)
 
+    private val _preview = MutableStateFlow<List<CallEntry>?>(null)
+
+    @Volatile
+    private var fullLoaded = false
+
+    /**
+     * V11: the newest [PREVIEW_ROWS] calls, read first so Recents can show them while the full log loads. Only filled
+     * before the first full load; use [calls] for anything that needs the whole log.
+     */
+    val preview: StateFlow<List<CallEntry>?> = _preview
+
     // F29: a refresh after READ_CALL_LOG is granted also registers the observer, so Recents update live.
     val calls: StateFlow<List<CallEntry>?> = combine(cr.changes(Calls.CONTENT_URI, retry = reload), reload) { _, _ -> }
-        .map { load() }
+        .map {
+            // Two-stage load (V11): a quick first page on the first load only, then everything.
+            if (_preview.value == null && !fullLoaded) _preview.value = load(PREVIEW_ROWS)
+            load().also { fullLoaded = true }
+        }
         .flowOn(Dispatchers.IO)
         .stateIn(scope, SharingStarted.Eagerly, null)
 
@@ -83,6 +98,8 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
     }
 
     companion object {
+        const val PREVIEW_ROWS = 100
+
         fun mapType(t: Int): CallType = when (t) {
             Calls.INCOMING_TYPE -> CallType.INCOMING
             Calls.OUTGOING_TYPE -> CallType.OUTGOING

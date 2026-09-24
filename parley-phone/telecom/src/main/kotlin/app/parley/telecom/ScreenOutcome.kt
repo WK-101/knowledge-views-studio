@@ -22,6 +22,10 @@ data class ScreenOutcome(
      * service): the InCallService must screen again with the SIM.
      */
     val deferredToSim: Boolean = false,
+    /** Where [ringtone] comes from, for "Why did my phone ring?" (V9). */
+    val ringtoneSource: app.parley.common.calls.RingtoneSource? = null,
+    /** The rule or label named by [ringtoneSource]. */
+    val ringtoneName: String? = null,
 )
 
 /**

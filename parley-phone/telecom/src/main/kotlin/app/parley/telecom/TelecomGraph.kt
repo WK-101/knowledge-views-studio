@@ -8,6 +8,7 @@ import app.parley.common.ListDensity
 import app.parley.common.ThemeMode
 import app.parley.common.Verification
 import app.parley.common.calltime.CallTimePlan
+import app.parley.common.calls.RingFacts
 import kotlinx.coroutines.flow.StateFlow
 
 data class CallerDisplay(
@@ -84,7 +85,25 @@ interface TelecomDependencies {
 
     /** An incoming call stopped ringing: how long it rang and whether it was answered (B10 one-ring guard). */
     fun onRingFinished(number: String?, startedAt: Long, ringMillis: Long, answered: Boolean) {}
+
+    /** V6: turn the screen off near the ear during earpiece calls (Settings › Calls). Read from memory. */
+    fun proximityEnabled(): Boolean = true
+
+    /** V9: ring-side facts of an incoming call that has ended ("Why did my phone ring, or not?"). Off the call path. */
+    fun onRingFacts(number: String?, facts: RingFacts) {}
+
+    /** V4: an intent into the app for a post-call action on an unknown number, or null when not available. */
+    fun postCallIntent(context: Context, action: PostCallAction, number: String): Intent? = null
+
+    /** V4: saves [number] as a private temporary contact; returns what to tell the user, or null on failure. */
+    suspend fun savePrivately(number: String, name: String): String? = null
+
+    /** V4: a name to suggest when saving an unknown number ("Caller from Lyon"). */
+    fun suggestedName(number: String): String = number
 }
+
+/** Post-call card actions handled by the app (V4). */
+enum class PostCallAction { BLOCK, REPORT }
 
 object TelecomGraph {
     @Volatile

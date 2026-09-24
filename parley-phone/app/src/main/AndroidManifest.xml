@@ -341,6 +341,10 @@
         <receiver
             android:name=".MissedCallActionReceiver"
             android:exported="false" />
+        <!-- "Remind me of missed calls": an inexact alarm, so no exact-alarm permission (V3). -->
+        <receiver
+            android:name=".calls.MissedReAlertReceiver"
+            android:exported="false" />
 
         <!-- Protected private-name lookup: one number per query, only for approved apps holding the permission. -->
         <provider

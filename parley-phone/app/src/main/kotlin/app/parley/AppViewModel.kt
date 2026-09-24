@@ -25,6 +25,11 @@ import app.parley.shortcuts.Shortcuts
 import app.parley.calltime.CallTimePlanner
 import app.parley.calltime.UssdSession
 import app.parley.common.calltime.Ussd
+import app.parley.common.calls.CallSource
+import app.parley.common.calls.PocketGuard
+import app.parley.calls.MissedCallNotifier
+import app.parley.calls.ProximityProbe
+import app.parley.data.DialWarning
 import app.parley.telecom.CallManager
 import app.parley.ui.people.PeopleUi
 import kotlinx.coroutines.Dispatchers
@@ -45,7 +50,8 @@ import kotlinx.coroutines.withContext
 import java.text.Collator
 import java.util.concurrent.TimeUnit
 
-enum class RecentFilter { ALL, MISSED, INCOMING, OUTGOING, BLOCKED }
+/** Recents filter chips. VOICEMAIL shows the voicemail inbox (V1) instead of the call list. */
+enum class RecentFilter { ALL, MISSED, INCOMING, OUTGOING, BLOCKED, VOICEMAIL }
 
 data class RecentGroup(
     val key: String,
@@ -218,8 +224,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val recentQuery = MutableStateFlow("")
 
     /** System call log (plus Parley's archive) + private (vault) calls, newest first. */
-    private val allCalls = combine(c.history.calls, c.vault.privateCalls, settings.map { it.hideVault }.distinctUntilChanged()) { sys, priv, hidden ->
-        if (sys == null) return@combine null
+    // V11: until the full log (and the archive) have loaded, the first page of the call log is shown.
+    private val allCalls = combine(c.history.calls, c.callLog.preview, c.vault.privateCalls, settings.map { it.hideVault }.distinctUntilChanged()) { full, preview, priv, hidden ->
+        val sys = full ?: preview ?: return@combine null
         if (hidden || priv.isEmpty()) return@combine sys
         (sys + priv.map { p ->
             CallEntry(-p.id, p.number, p.name, CallLogRepository.mapType(p.type), p.date, p.durationSec, null, false, false)
@@ -246,6 +253,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 RecentFilter.INCOMING -> it.type == CallType.INCOMING || it.type == CallType.ANSWERED_EXTERNALLY
                 RecentFilter.OUTGOING -> it.type == CallType.OUTGOING
                 RecentFilter.BLOCKED -> it.type == CallType.BLOCKED
+                RecentFilter.VOICEMAIL -> it.type == CallType.VOICEMAIL
             }
         }
         val out = ArrayList<RecentGroup>()
@@ -285,7 +293,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val missedCount: StateFlow<Int> = c.callLog.calls.map { list -> list.orEmpty().count { it.type == CallType.MISSED && it.isNew } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
+    /** V11: Recents is on screen: Telecom's missed-call count goes, and so does the re-alert. */
+    fun onRecentsShown() {
+        MissedCallNotifier.stopReAlert(getApplication())
+        try {
+            getApplication<Application>().getSystemService(TelecomManager::class.java).cancelMissedCallsNotification()
+        } catch (_: Exception) {
+        }
+        if (missedCount.value > 0) markMissedSeen()
+    }
+
     fun markMissedSeen() {
+        MissedCallNotifier.stopReAlert(getApplication())
         viewModelScope.launch {
             c.callLog.markMissedRead()
             try {
@@ -341,7 +360,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * Every call starts here (see [CallGate]): one question for the dial guard, the allowance, confirm-before-call
      * and the SIM, then the call. [simId]: a SIM the user already picked ("call with SIM").
      */
-    fun requestCall(number: String, name: String? = null, skipConfirm: Boolean = false, simId: String? = null) {
+    fun requestCall(number: String, name: String? = null, skipConfirm: Boolean = false, simId: String? = null, source: CallSource = CallSource.OTHER) {
         if (number.isBlank()) return
         if (Ussd.isUssd(number)) {
             ussd.start(number.trim(), sims.value, null)
@@ -354,8 +373,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch {
             val p = gate.check(number, name, sims.value.size, simId, skipConfirm)
+            // V8: a one-tap call (favourite) while the proximity sensor is covered asks first: probably a pocket.
+            val pocket = PocketGuard.GUARDED.contains(source) && c.callExtras.config.value.pocketGuard &&
+                PocketGuard.shouldAsk(true, source, ProximityProbe.isCovered(ctx))
+            val ask = if (pocket) {
+                val covered = DialWarning("Phone covered", PocketGuard.QUESTION + " Call only if you meant to.")
+                (p ?: PendingCall(number, name, needConfirm = true, chooseSim = false, simId = simId)).let { it.copy(needConfirm = true, warnings = listOf(covered) + it.warnings) }
+            } else {
+                p
+            }
             // Nothing to ask: the allowance was checked too.
-            if (p != null) pendingCall.value = p else place(number, simId, confirmed = true)
+            if (ask != null) pendingCall.value = ask else place(number, simId, confirmed = true)
         }
     }
 

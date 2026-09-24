@@ -40,6 +40,11 @@ class DataContainer(context: Context) {
     val placer by lazy { CallPlacer(appContext, sims, prefs) }
     val records by lazy { ContactRecordStore(appContext) }
     val calling by lazy { app.parley.data.calltime.CallingRepository(appContext) }
+
+    /** v3.1 call switches (proximity, pocket guard, missed-call re-alert), ring facts (V9) and voicemail (V1). */
+    val callExtras by lazy { app.parley.data.calls.CallExtrasRepository(appContext) }
+    val ringFacts by lazy { app.parley.data.calls.RingFactsStore(appContext) }
+    val voicemail by lazy { app.parley.data.calls.VoicemailRepository(appContext, scope) }
     val vcards by lazy { VCardIO(appContext, contacts, records) { vault.allNumbers() } }
 
     /** Lossless moves into and out of the private vault (F4). */

@@ -17,9 +17,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.telecom.CallActionReceiver
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallState
+import app.parley.telecom.PostCallAction
 import app.parley.telecom.TelecomGraph
 import app.parley.ui.ParleyTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import android.widget.Toast
+import androidx.lifecycle.lifecycleScope
 
 class InCallActivity : ComponentActivity() {
     private var showDialpad by mutableStateOf(false)
@@ -39,15 +43,17 @@ class InCallActivity : ComponentActivity() {
             val audio by CallManager.audio.collectAsStateWithLifecycle()
             val ended by CallManager.lastEnded.collectAsStateWithLifecycle()
             var keypad by remember { mutableStateOf(showDialpad) }
+            LaunchedEffect(calls.isNotEmpty()) { if (calls.isNotEmpty()) keepEnded = false }
             val ringing = calls.any { it.state == CallState.RINGING }
             LaunchedEffect(ringing) {
                 if (ringing) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
-            LaunchedEffect(calls.isEmpty()) {
-                if (calls.isEmpty()) {
-                    delay(1200)
-                    if (CallManager.state.value.isEmpty()) finishAndRemoveTask()
+            LaunchedEffect(calls.isEmpty(), keepEnded) {
+                if (calls.isEmpty() && !keepEnded) {
+                    // V4: the post-call card for an unknown number stays a little longer, and for good once touched.
+                    delay(if (CallManager.lastEnded.value?.postCallCard == true) POST_CALL_CARD_MS else ENDED_MS)
+                    if (CallManager.state.value.isEmpty() && !keepEnded) finishAndRemoveTask()
                 }
             }
             ParleyTheme(look.themeMode, look.amoled, look.dynamicColor, look.density) {
@@ -61,9 +67,48 @@ class InCallActivity : ComponentActivity() {
                     onKeypad = { keypad = it; showDialpad = false },
                     onAddCall = { unlockThen { startActivity(deps.mainIntent(this, dialpad = true)) } },
                     onOpenContact = { c -> unlockThen { startActivity(deps.contactIntent(this, c.contactId, c.number)) } },
+                    onPostCall = ::onPostCall,
                 )
             }
         }
+    }
+
+    /** The call-ended screen stays up while the user uses the post-call card (V4). */
+    private var keepEnded by mutableStateOf(false)
+
+    private fun onPostCall(choice: PostCallChoice) {
+        val deps = TelecomGraph.dependencies
+        when (choice) {
+            PostCallChoice.Touched -> keepEnded = true
+            PostCallChoice.Done -> finishAndRemoveTask()
+            is PostCallChoice.Block -> openApp { deps.postCallIntent(this, PostCallAction.BLOCK, choice.number) }
+            is PostCallChoice.Report -> openApp { deps.postCallIntent(this, PostCallAction.REPORT, choice.number) }
+            // Explicit intent into the app's "Message on…" sheet (this module can't depend on the app).
+            is PostCallChoice.MessageOn -> openApp {
+                Intent(ACTION_MESSAGE_ON).setClassName(packageName, MESSAGE_ON_ACTIVITY).putExtra("number", choice.number)
+                    .apply { choice.accountId?.let { putExtra("account_id", it) } }
+            }
+            is PostCallChoice.SavePrivately -> unlockThen {
+                lifecycleScope.launch {
+                    val said = runCatching { deps.savePrivately(choice.number, choice.name) }.getOrNull()
+                    Toast.makeText(this@InCallActivity, said ?: "Couldn't save the number", Toast.LENGTH_LONG).show()
+                    if (said != null && CallManager.state.value.isEmpty()) finishAndRemoveTask()
+                }
+            }
+        }
+    }
+
+    /** Unlocks, opens the app with [intent] and closes the call-ended screen. */
+    private fun openApp(intent: () -> Intent?) = unlockThen {
+        val i = intent() ?: return@unlockThen
+        runCatching { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        if (CallManager.state.value.isEmpty()) finishAndRemoveTask()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Left with the post-call card still up (home button, screen off): nothing more to show.
+        if (keepEnded && CallManager.state.value.isEmpty() && !isChangingConfigurations) finishAndRemoveTask()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -102,6 +147,10 @@ class InCallActivity : ComponentActivity() {
 
     companion object {
         const val ACTION_ANSWER = "app.parley.telecom.ui.ANSWER"
+        private const val ENDED_MS = 1200L
+        private const val POST_CALL_CARD_MS = 8000L
+        private const val ACTION_MESSAGE_ON = "app.parley.action.MESSAGE_ON"
+        private const val MESSAGE_ON_ACTIVITY = "app.parley.messaging.NumberActionActivity"
         private const val EXTRA_DIALPAD = "dialpad"
         fun intent(context: Context, dialpad: Boolean): Intent =
             Intent(context, InCallActivity::class.java).putExtra(EXTRA_DIALPAD, dialpad)
