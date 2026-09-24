@@ -32,6 +32,7 @@ class ParleyInCallService : InCallService() {
         notifier = CallNotifier(this)
         proximity = ProximityController(this)
         CallManager.service = this
+        CallClock.attach(this)
         CallManager.onChanged = { calls ->
             notifier.update(calls)
             proximity.update(calls, CallManager.audio.value, CallManager.uiVisible)
@@ -65,6 +66,7 @@ class ParleyInCallService : InCallService() {
 
     override fun onDestroy() {
         CallManager.clear()
+        CallClock.detach()
         CallManager.service = null
         CallManager.onChanged = null
         notifier.cancelAll()
