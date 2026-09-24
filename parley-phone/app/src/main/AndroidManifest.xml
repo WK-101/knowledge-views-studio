@@ -171,6 +171,33 @@
             </intent-filter>
         </activity>
 
+        <!-- Home-screen shortcuts and widget trampoline (not exported; launchers start it for us). -->
+        <activity
+            android:name=".shortcuts.ShortcutActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <activity
+            android:name=".shortcuts.DialWidgetConfigActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+        <receiver
+            android:name=".shortcuts.DialWidget"
+            android:exported="false"
+            android:label="Direct dial">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_dial_info" />
+        </receiver>
+
         <!-- Telecom delegates missed-call notifications to the default dialer. Only the system can send it. -->
         <receiver
             android:name=".MissedCallReceiver"

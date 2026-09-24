@@ -31,6 +31,10 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.AddToHomeScreen
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.LocationOn
@@ -101,6 +105,20 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     var simFor by remember { mutableStateOf<String?>(null) }
     var showPhoto by remember { mutableStateOf(false) }
     var askExpiry by remember { mutableStateOf(false) }
+    var pinDialog by remember { mutableStateOf(false) }
+    var editNote by remember { mutableStateOf(false) }
+    var messengers by remember { mutableStateOf<List<app.parley.data.MessengerAction>>(emptyList()) }
+    var meta by remember { mutableStateOf<app.parley.data.db.ContactMetaEntity?>(null) }
+    LaunchedEffect(contactId, all) {
+        messengers = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { app.parley.data.Messengers.actions(context, contactId) }
+    }
+    LaunchedEffect(details?.lookupKey) { details?.lookupKey?.let { meta = vm.c.meta.meta(it) } }
+    fun saveMeta(f: (app.parley.data.db.ContactMetaEntity) -> app.parley.data.db.ContactMetaEntity) {
+        val key = details?.lookupKey ?: return
+        val next = f(meta ?: app.parley.data.db.ContactMetaEntity(key))
+        meta = next
+        scope.launch { vm.c.meta.setMeta(next) }
+    }
     val temps by vm.c.meta.temporaryContacts().collectAsStateWithLifecycle(emptyList())
     val temp = details?.lookupKey?.let { k -> temps.firstOrNull { it.lookupKey == k } }
 
@@ -134,6 +152,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                 menu = false; Intents.shareVcard(context, vm.c.contacts.vcardUri(d.lookupKey), d.displayName)
                             })
                             DropdownMenuItem({ Text("Show QR code") }, leadingIcon = { Icon(Icons.Rounded.QrCode2, null) }, onClick = { menu = false; showQr = true })
+                            DropdownMenuItem({ Text("Add to home screen") }, leadingIcon = { Icon(Icons.Rounded.AddToHomeScreen, null) }, onClick = { menu = false; pinDialog = true })
                             DropdownMenuItem({ Text("Set ringtone") }, leadingIcon = { Icon(Icons.Rounded.MusicNote, null) }, onClick = {
                                 menu = false
                                 ringtonePicker.launch(
@@ -192,11 +211,23 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                     Spacer(Modifier.height(20.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                        QuickAction(Icons.Rounded.Call, "Call", primary != null) { primary?.let { vm.requestCall(it.value, d.displayName) } }
+                        val preferredCall = messengers.firstOrNull { it.accountType == meta?.preferredMessenger && it.isCall && !it.isVideo }
+                        QuickAction(Icons.Rounded.Call, if (preferredCall != null) "Call (${preferredCall.appName})" else "Call", primary != null || preferredCall != null) {
+                            if (preferredCall != null) runCatching { context.startActivity(preferredCall.intent()) } else primary?.let { vm.requestCall(it.value, d.displayName) }
+                        }
                         QuickAction(Icons.AutoMirrored.Rounded.Message, "Message", primary != null) { primary?.let { Intents.sms(context, it.value) } }
                         QuickAction(Icons.Rounded.Email, "Email", d.emails.isNotEmpty()) { d.emails.firstOrNull()?.let { Intents.email(context, it.value) } }
                     }
                 }
+            }
+            item {
+                val note = meta?.pinnedNote
+                ListItem(
+                    modifier = Modifier.clickable { editNote = true },
+                    leadingContent = { Icon(Icons.Rounded.PushPin, null, tint = if (note != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
+                    headlineContent = { Text(note ?: "Add a note for calls") },
+                    supportingContent = { Text(if (note != null) "Shown when they call" else "Private reminder shown on the call screen") },
+                )
             }
             if (d.phones.isNotEmpty()) item { Section("Phone") }
             d.phones.forEach { p ->
@@ -244,6 +275,25 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 )
             }
 
+            if (messengers.isNotEmpty()) {
+                item { Section("Messengers") }
+                messengers.forEach { m ->
+                    item {
+                        val preferred = meta?.preferredMessenger == m.accountType && (m.isCall || m.isVideo)
+                        ListItem(
+                            modifier = Modifier.combinedClickable(
+                                onClick = { runCatching { context.startActivity(m.intent()) }.onFailure { vm.toast("${m.appName} isn't available") } },
+                                onLongClick = { if (m.isCall) saveMeta { it.copy(preferredMessenger = if (preferred) null else m.accountType) } },
+                                onLongClickLabel = "Set as preferred way to call",
+                            ),
+                            leadingContent = { Icon(if (m.isVideo) Icons.Rounded.Videocam else if (m.isCall) Icons.Rounded.Call else Icons.AutoMirrored.Rounded.Message, null) },
+                            headlineContent = { Text(m.label) },
+                            supportingContent = { Text(m.appName + if (preferred) " · preferred for calls" else "") },
+                            trailingContent = { if (preferred) Icon(Icons.Rounded.Star, "Preferred", tint = MaterialTheme.colorScheme.primary) },
+                        )
+                    }
+                }
+            }
             item { Section("Settings") }
             item {
                 ListItem(
@@ -281,6 +331,42 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
 
         if (showQr) QrDialog(d) { showQr = false }
+        if (editNote) {
+            var text by remember { mutableStateOf(meta?.pinnedNote.orEmpty()) }
+            AlertDialog(
+                onDismissRequest = { editNote = false },
+                title = { Text("Note for calls") },
+                text = { androidx.compose.material3.OutlinedTextField(text, { text = it }, placeholder = { Text("e.g. Ask about the invoice") }, minLines = 2) },
+                confirmButton = { TextButton({ editNote = false; saveMeta { it.copy(pinnedNote = text.trim().ifEmpty { null }) } }) { Text("Save") } },
+                dismissButton = { TextButton({ editNote = false }) { Text("Cancel") } },
+            )
+        }
+        if (pinDialog) {
+            AlertDialog(
+                onDismissRequest = { pinDialog = false },
+                title = { Text("Add to home screen") },
+                text = {
+                    Column {
+                        d.phones.forEach { p ->
+                            ListItem(headlineContent = { Text("Call ${Format.number(p.value, vm.countryIso)}") }, leadingContent = { Icon(Icons.Rounded.Call, null) }, modifier = Modifier.clickable {
+                                pinDialog = false
+                                app.parley.shortcuts.Shortcuts.pin(context, app.parley.shortcuts.Shortcuts.Kind.CALL, d.displayName, p.value, contactId, d.photoUri)
+                            })
+                            ListItem(headlineContent = { Text("Message ${Format.number(p.value, vm.countryIso)}") }, leadingContent = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, modifier = Modifier.clickable {
+                                pinDialog = false
+                                app.parley.shortcuts.Shortcuts.pin(context, app.parley.shortcuts.Shortcuts.Kind.MESSAGE, d.displayName, p.value, contactId, d.photoUri)
+                            })
+                        }
+                        ListItem(headlineContent = { Text("Open contact") }, leadingContent = { Icon(Icons.Rounded.Person, null) }, modifier = Modifier.clickable {
+                            pinDialog = false
+                            app.parley.shortcuts.Shortcuts.pin(context, app.parley.shortcuts.Shortcuts.Kind.OPEN, d.displayName, null, contactId, d.photoUri)
+                        })
+                    }
+                },
+                confirmButton = {},
+                dismissButton = { TextButton({ pinDialog = false }) { Text("Cancel") } },
+            )
+        }
         if (askExpiry) app.parley.ui.vault.ExpiryDialog(onDismiss = { askExpiry = false }) { days ->
             askExpiry = false
             scope.launch {

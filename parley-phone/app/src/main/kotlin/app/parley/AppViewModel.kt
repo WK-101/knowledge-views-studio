@@ -18,6 +18,7 @@ import app.parley.data.Permissions
 import app.parley.data.CallLogRepository
 import app.parley.data.PhoneEnv
 import app.parley.data.PlaceResult
+import app.parley.shortcuts.Shortcuts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
@@ -358,6 +359,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             c.blocks.unblockNumber(number)
             toast("Unblocked $number")
+        }
+    }
+
+    // Declared last: needs [favorites] initialised.
+    init {
+        viewModelScope.launch(Dispatchers.Default) {
+            favorites.debounce(1000).distinctUntilChanged().collect { Shortcuts.updateDynamic(getApplication(), it) }
         }
     }
 }
