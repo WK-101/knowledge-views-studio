@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Backup outcomes (core/data) -->
+    <string name="data_bkp_need_pass">Lege zuerst eine Backup-Passphrase fest</string>
+    <string name="data_bkp_need_folder">Wähle zuerst einen Backup-Ordner</string>
+    <string name="data_bkp_folder_gone">Auf den Backup-Ordner kann nicht mehr zugegriffen werden. Wähle ihn erneut.</string>
+    <string name="data_bkp_failed">Backup fehlgeschlagen: %1$s</string>
+    <string name="data_bkp_not_verified">Das geschriebene Backup ließ sich nicht prüfen und wurde verworfen. Prüfe den freien Speicher und versuche es erneut.</string>
+    <plurals name="data_bkp_ready">
+        <item quantity="one">Backup bereit: %1$d Kontakt</item>
+        <item quantity="other">Backup bereit: %1$d Kontakte</item>
+    </plurals>
+    <string name="data_bkp_unchanged">Seit dem letzten Backup unverändert</string>
+    <string name="data_bkp_nothing_changed">Seit dem letzten Backup hat sich nichts geändert</string>
+    <plurals name="data_contacts_count">
+        <item quantity="one">%1$d Kontakt</item>
+        <item quantity="other">%1$d Kontakte</item>
+    </plurals>
+    <plurals name="data_calls_count">
+        <item quantity="one">%1$d Anruf</item>
+        <item quantity="other">%1$d Anrufe</item>
+    </plurals>
+    <string name="data_bkp_result">%1$s und %2$s gesichert</string>
+    <string name="data_bkp_result_vault_missing">%1$s und %2$s gesichert. Private Kontakte sind nicht enthalten: Öffne Parley, entsperre sie und sichere erneut.</string>
+    <plurals name="data_bkp_backed_up">
+        <item quantity="one">%1$d Kontakt gesichert</item>
+        <item quantity="other">%1$d Kontakte gesichert</item>
+    </plurals>
+    <plurals name="data_bkp_backed_up_paused">
+        <item quantity="one">%1$d Kontakt gesichert – Rotation pausiert, weil viele Kontakte verschwunden sind</item>
+        <item quantity="other">%1$d Kontakte gesichert – Rotation pausiert, weil viele Kontakte verschwunden sind</item>
+    </plurals>
+    <string name="data_rst_safety_failed">Nichts wurde geändert: Das Sicherheits-Backup deiner aktuellen Kontakte ist fehlgeschlagen (%1$s)</string>
+    <string name="data_rst_some_contacts">einige Kontakte (%1$s)</string>
+    <string name="data_rst_part_calls">Anrufliste</string>
+    <string name="data_rst_part_blocking">Sperrregeln</string>
+    <string name="data_rst_part_speed_dial">Kurzwahl</string>
+    <string name="data_rst_part_settings">Einstellungen</string>
+    <string name="data_rst_part_vault_locked">private Kontakte (entsperre sie und stelle erneut wieder her)</string>
+    <string name="data_rst_part_vault">private Kontakte</string>
+    <plurals name="data_rst_added">
+        <item quantity="one">%1$d Kontakt hinzugefügt</item>
+        <item quantity="other">%1$d Kontakte hinzugefügt</item>
+    </plurals>
+    <plurals name="data_rst_enriched">
+        <item quantity="one">%1$d ergänzt um %2$d Angaben</item>
+        <item quantity="other">%1$d ergänzt um %2$d Angaben</item>
+    </plurals>
+    <plurals name="data_rst_replaced">
+        <item quantity="one">%1$d ersetzt</item>
+        <item quantity="other">%1$d ersetzt</item>
+    </plurals>
+    <plurals name="data_rst_rules">
+        <item quantity="one">%1$d Sperrregel</item>
+        <item quantity="other">%1$d Sperrregeln</item>
+    </plurals>
+    <plurals name="data_rst_vault">
+        <item quantity="one">%1$d privater Kontakt</item>
+        <item quantity="other">%1$d private Kontakte</item>
+    </plurals>
+    <plurals name="data_rst_failed">
+        <item quantity="one">%1$d fehlgeschlagen</item>
+        <item quantity="other">%1$d fehlgeschlagen</item>
+    </plurals>
+    <string name="data_rst_not_restored">nicht wiederhergestellt: %1$s</string>
+
+    <!-- Folder sync reports (core/data) -->
+    <plurals name="data_sync_imported">
+        <item quantity="one">%1$d neu aus dem Ordner</item>
+        <item quantity="other">%1$d neu aus dem Ordner</item>
+    </plurals>
+    <plurals name="data_sync_updated">
+        <item quantity="one">%1$d aus dem Ordner aktualisiert</item>
+        <item quantity="other">%1$d aus dem Ordner aktualisiert</item>
+    </plurals>
+    <plurals name="data_sync_written">
+        <item quantity="one">%1$d in den Ordner geschrieben</item>
+        <item quantity="other">%1$d in den Ordner geschrieben</item>
+    </plurals>
+    <plurals name="data_sync_deleted_local">
+        <item quantity="one">%1$d entfernt (auf einem anderen Gerät gelöscht)</item>
+        <item quantity="other">%1$d entfernt (auf einem anderen Gerät gelöscht)</item>
+    </plurals>
+    <plurals name="data_sync_deleted_files">
+        <item quantity="one">%1$d Datei entfernt</item>
+        <item quantity="other">%1$d Dateien entfernt</item>
+    </plurals>
+    <plurals name="data_sync_linked">
+        <item quantity="one">%1$d einem vorhandenen Kontakt zugeordnet</item>
+        <item quantity="other">%1$d vorhandenen Kontakten zugeordnet</item>
+    </plurals>
+    <plurals name="data_sync_conflicts">
+        <item quantity="one">%1$d Konflikt als .conflict-Datei behalten</item>
+        <item quantity="other">%1$d Konflikte als .conflict-Dateien behalten</item>
+    </plurals>
+    <string name="data_sync_in_sync">Alles ist synchron</string>
+    <string name="data_sync_no_permission">Nicht synchronisiert: Parley braucht Zugriff auf die Kontakte</string>
+    <string name="data_sync_folder_gone">Nicht synchronisiert: Der Ordner lässt sich nicht öffnen. Wähle ihn erneut, falls er verschoben wurde.</string>
+    <plurals name="data_sync_paused">
+        <item quantity="one">Pausiert: Diese Synchronisierung würde %1$d Kontakt oder Datei löschen. Prüfe den Ordner und bestätige dann.</item>
+        <item quantity="other">Pausiert: Diese Synchronisierung würde %1$d Kontakte oder Dateien löschen. Prüfe den Ordner und bestätige dann.</item>
+    </plurals>
+
+    <!-- Contact health check (core/data) -->
+    <string name="data_health_number_as_name">Kein Name, nur eine Nummer</string>
+    <string name="data_health_empty">Keine Nummer oder E-Mail</string>
+    <string name="data_health_shared">Gleiche Nummer wie %1$s</string>
+    <string name="data_health_stale">Seit über 2 Jahren keine Anrufe</string>
+    <string name="data_health_country_code">%1$s → %2$s</string>
+    <string name="data_health_title_company">Titel „%1$s“ wiederholt die Firma</string>
+
+    <!-- Moving and writing contacts (core/data) -->
+    <string name="data_move_copy_gone">Diese Kopie gibt es nicht mehr</string>
+    <string name="data_move_read_failed">Der Kontakt konnte nicht gelesen werden</string>
+    <string name="data_move_copy_read_failed">Diese Kopie konnte nicht gelesen werden</string>
+    <string name="data_move_already_there">Er ist dort schon gespeichert</string>
+    <string name="data_move_already_phone">Er ist schon auf diesem Telefon gespeichert</string>
+    <string name="data_move_not_writable">In diesem Konto können keine Kontakte gespeichert werden</string>
+    <string name="data_move_no_undo">Es konnte keine Kopie zum Rückgängigmachen angelegt werden, daher wurde nichts verschoben</string>
+    <string name="data_move_write_failed">Die Kopie im neuen Konto konnte nicht geschrieben werden</string>
+    <string name="data_move_nothing_to_unlink">Es gibt nichts zu trennen</string>
+    <string name="data_write_only_messenger">Nichts zu importieren (nur schreibgeschützte Messenger-Daten)</string>
+    <string name="data_write_not_written">Nicht geschrieben</string>
+    <string name="data_write_failed">Der Kontakt konnte nicht geschrieben werden</string>
+    <plurals name="data_write_fields_failed">
+        <item quantity="one">%1$d Feld konnte nicht geschrieben werden</item>
+        <item quantity="other">%1$d Felder konnten nicht geschrieben werden</item>
+    </plurals>
+    <string name="data_write_photo_failed">Das Foto konnte nicht gespeichert werden</string>
+    <string name="data_write_not_found">Der Kontakt wurde nach dem Schreiben nicht gefunden</string>
+
+    <!-- Labels (core/data) -->
+    <string name="data_label_offhours_off">Ruhezeiten ließen nur „%1$s“ klingeln, daher sind sie ausgeschaltet. Schalte sie unter Sperren › Ruhezeiten wieder ein.</string>
+
+    <!-- Who can see your contacts (core/data) -->
+    <string name="data_audit_messaging">Messenger-Apps nutzen Kontakte, um zu zeigen, wer wer ist</string>
+    <string name="data_audit_email">E-Mail-Apps nutzen Kontakte, um Adressen vorzuschlagen</string>
+    <string name="data_audit_phone">Telefon-Apps nutzen Kontakte, um anzuzeigen, wer anruft</string>
+
+    <!-- SIM phonebook (core/data) -->
+    <string name="data_sim_full">Die SIM hat es nicht angenommen (sie ist vielleicht voll)</string>
+    <string name="data_sim_not_allowed">Android hat das Schreiben auf diese SIM nicht erlaubt</string>
+    <string name="data_sim_rejected">Die SIM hat es nicht angenommen</string>
+    <string name="data_sim_slot">SIM %1$d</string>
+
+    <!-- Call history, files, vault (core/data) -->
+    <string name="data_file_too_large">Die Datei ist größer als 20 MB</string>
+    <string name="data_file_open_failed">Die Datei konnte nicht geöffnet werden</string>
+    <string name="data_archive_locked">Parleys Anrufarchiv kann gerade nicht entsperrt werden. Versuche es später erneut.</string>
+    <string name="data_file_write_failed">Die Datei konnte nicht zum Schreiben geöffnet werden</string>
+    <string name="data_file_read_failed">Die Datei konnte nicht geöffnet werden</string>
+    <string name="data_vault_fallback_name">Privater Kontakt</string>
+
+    <!-- Visual voicemail source problems -->
+    <string name="data_vm_can_configure">Visual Voicemail kann in ihren Einstellungen eingeschaltet werden</string>
+    <string name="data_vm_not_configured">Visual Voicemail ist nicht eingerichtet</string>
+    <string name="data_vm_no_data">Der Mailbox-Server ist nicht erreichbar (er braucht mobile Daten)</string>
+    <string name="data_vm_server_problem">Der Mailbox-Server hat ein Problem gemeldet</string>
+    <string name="data_vm_no_connection">Keine Verbindung zum Mailbox-Dienst</string>
+</resources>

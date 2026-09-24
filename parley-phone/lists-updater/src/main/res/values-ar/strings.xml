@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<resources xmlns:tools="http://schemas.android.com/tools">    <string name="app_name">Parley Lists</string>
+    <string name="permission_read_lists_label">قراءة قوائم الرسائل المزعجة في Parley</string>
+    <string name="permission_read_lists_description">يسمح لـParley بنسخ قوائم المتصلين المزعجين التي نزّلها هذا التطبيق.</string>
+
+    <!-- Updater screen -->
+    <string name="lists_never">أبداً</string>
+    <string name="lists_card_title">قوائم عامة لـParley</string>
+    <string name="lists_card_text">ينزّل هذا التطبيق قوائم عامة للمتصلين المزعجين ويسلّمها إلى Parley. لا يمكنه رؤية جهات اتصالك أو مكالماتك أو رسائلك، ولا يرسل أي رقم هاتف إلى أي مكان: كل تنزيل هو الملف الثابت نفسه للجميع. أما Parley نفسه فليس لديه وصول إلى الإنترنت.</string>
+    <string name="lists_last_update">آخر تحديث: %1$s</string>
+    <string name="lists_last_update_error">آخر تحديث: %1$s · %2$s</string>
+    <plurals name="lists_summary">
+        <item quantity="zero">%1$d قائمة · %2$s (+ %3$s من أيام FTC المخزنة مؤقتاً)</item>
+        <item quantity="one">قائمة واحدة · %2$s (+ %3$s من أيام FTC المخزنة مؤقتاً)</item>
+        <item quantity="two">%1$d قائمة · %2$s (+ %3$s من أيام FTC المخزنة مؤقتاً)</item>
+        <item quantity="few">%1$d قائمة · %2$s (+ %3$s من أيام FTC المخزنة مؤقتاً)</item>
+        <item quantity="many">%1$d قائمة · %2$s (+ %3$s من أيام FTC المخزنة مؤقتاً)</item>
+        <item quantity="other">%1$d قائمة · %2$s (+ %3$s من أيام FTC المخزنة مؤقتاً)</item>
+    </plurals>
+    <string name="lists_update_now">حدّث الآن</string>
+    <string name="lists_ready">القوائم الجاهزة لـParley</string>
+    <string name="lists_none">لا شيء بعد. انقر على حدّث الآن.</string>
+    <plurals name="lists_numbers">
+        <item quantity="zero">%1$s رقم</item>
+        <item quantity="one">%1$s رقم</item>
+        <item quantity="two">%1$s رقم</item>
+        <item quantity="few">%1$s رقم</item>
+        <item quantity="many">%1$s رقم</item>
+        <item quantity="other">%1$s رقم</item>
+    </plurals>
+    <plurals name="lists_ranges">
+        <item quantity="zero">%1$d نطاق</item>
+        <item quantity="one">%1$d نطاق</item>
+        <item quantity="two">%1$d نطاق</item>
+        <item quantity="few">%1$d نطاق</item>
+        <item quantity="many">%1$d نطاق</item>
+        <item quantity="other">%1$d نطاق</item>
+    </plurals>
+    <string name="lists_built">أُنشئت %1$s</string>
+    <string name="lists_signed">موقّعة</string>
+    <string name="lists_unsigned">غير موقّعة</string>
+    <string name="lists_sources">المصادر</string>
+    <string name="lists_ftc_title">FTC الأمريكية: مكالمات مُبلّغ عنها</string>
+    <string name="lists_ftc_text">أرقام أبلغ عنها الناس إلى سجل Do Not Call التابع لـFTC. بيانات عامة تُحدّث كل يوم عمل، ولم تتحقق منها FTC.</string>
+    <string name="lists_keep_last">الاحتفاظ بالبلاغات من آخر</string>
+    <plurals name="lists_days" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">%1$d يوماً</item>
+        <item quantity="one">يوم واحد</item>
+        <item quantity="two">يومين</item>
+        <item quantity="few">%1$d أيام</item>
+        <item quantity="many">%1$d يوماً</item>
+        <item quantity="other">%1$d يوماً</item>
+    </plurals>
+    <string name="lists_arcep_title">فرنسا: نطاقات التسويق الهاتفي من ARCEP</string>
+    <string name="lists_arcep_text">كتل الأرقام الـ12 التي حجزتها ARCEP لمنصات الاتصال الآلي. مدمجة: لا شيء للتنزيل.</string>
+    <string name="lists_community">قائمة المجتمع</string>
+    <string name="lists_remove">إزالة</string>
+    <string name="lists_schedule">الجدول</string>
+    <string name="lists_auto">التحديث تلقائياً</string>
+    <string name="lists_twice_daily">مرتين يومياً</string>
+    <string name="lists_daily">يومياً</string>
+    <string name="lists_weekly">أسبوعياً</string>
+    <string name="lists_unmetered">فقط عبر Wi-Fi أو شبكات أخرى غير محدودة</string>
+    <string name="lists_idle">فقط عندما يكون الهاتف خاملاً</string>
+    <string name="lists_idle_summary">يُجري Android التحديث عندما لا تستخدم الهاتف</string>
+    <string name="lists_charging">فقط أثناء الشحن</string>
+    <string name="lists_how">كيف يحصل Parley على القوائم</string>
+    <string name="lists_how_text">ينسخ Parley القوائم عبر رابط محمي لا تفتحه إلا التطبيقات الموقّعة من المطوّر نفسه، ويتحقق من المجاميع الاختبارية والتوقيع لكل ملف، ويحدّثها مرة يومياً. القوائم المنشأة هنا موقّعة بمفتاح هذا التثبيت:</string>
+    <string name="lists_checked">تم الفحص %1$s</string>
+    <string name="lists_checked_downloaded">تم الفحص %1$s · تم التنزيل %2$s</string>
+    <string name="lists_only_https">روابط https://‎ فقط</string>
+    <string name="lists_already">مضافة بالفعل</string>
+    <string name="lists_add_text">أضف قائمة من المجتمع: رابط إلى ملف ‎.parleylist. يُحتفظ بتوقيع ناشرها ويتحقق منه Parley.</string>
+    <string name="lists_add">إضافة</string>
+
+    <!-- Update errors -->
+    <string name="lists_err_some">تعذّر تحديث بعض القوائم</string>
+    <string name="lists_err_failed">فشل التحديث</string>
+    <string name="lists_err_ftc_format">ملف FTC ليوم %1$s بتنسيق غير متوقع</string>
+    <string name="lists_err_reserved">تستخدم هذه القائمة معرّفاً محجوزاً (%1$s)</string>
+    <string name="lists_err_taken">رابط آخر يوفّر القائمة %1$s بالفعل</string>
+    <string name="lists_err_new_key">القائمة موقّعة الآن بمفتاح مختلف؛ أزل الرابط وأضفه مرة أخرى لقبولها</string>
+    <string name="lists_err_invalid">ليست قائمة صالحة</string>
+    <string name="lists_err_404">لم يعد الرابط موجوداً (404)</string>
+    <string name="lists_err_https">يُسمح بروابط https://‎ فقط</string>
+    <string name="lists_err_link">رابط غير صالح</string>
+    <string name="lists_err_redirect">إعادة توجيه بلا وجهة</string>
+    <string name="lists_err_status">ردّ الخادم بـ%1$d</string>
+    <string name="lists_err_too_large">الملف كبير جداً</string>
+    <string name="lists_err_network">خطأ في الشبكة: %1$s</string>
+    <string name="lists_err_redirects">عمليات إعادة توجيه كثيرة جداً</string>
+</resources>

@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Backup outcomes (core/data) -->
+    <string name="data_bkp_need_pass">پہلے بیک اپ پاس فریز سیٹ کریں</string>
+    <string name="data_bkp_need_folder">پہلے بیک اپ فولڈر منتخب کریں</string>
+    <string name="data_bkp_folder_gone">بیک اپ فولڈر تک اب رسائی نہیں۔ اسے دوبارہ منتخب کریں۔</string>
+    <string name="data_bkp_failed">بیک اپ ناکام: %1$s</string>
+    <string name="data_bkp_not_verified">لکھا گیا بیک اپ تصدیق نہیں ہو سکا، اس لیے ہٹا دیا گیا۔ خالی جگہ دیکھیں اور دوبارہ کوشش کریں۔</string>
+    <plurals name="data_bkp_ready">
+        <item quantity="one">بیک اپ تیار: %1$d رابطہ</item>
+        <item quantity="other">بیک اپ تیار: %1$d رابطے</item>
+    </plurals>
+    <string name="data_bkp_unchanged">پچھلے بیک اپ کے بعد سے کوئی تبدیلی نہیں</string>
+    <string name="data_bkp_nothing_changed">پچھلے بیک اپ کے بعد کچھ نہیں بدلا</string>
+    <plurals name="data_contacts_count">
+        <item quantity="one">%1$d رابطہ</item>
+        <item quantity="other">%1$d رابطے</item>
+    </plurals>
+    <plurals name="data_calls_count">
+        <item quantity="one">%1$d کال</item>
+        <item quantity="other">%1$d کالز</item>
+    </plurals>
+    <string name="data_bkp_result">%1$s اور %2$s کا بیک اپ لیا گیا</string>
+    <string name="data_bkp_result_vault_missing">%1$s اور %2$s کا بیک اپ لیا گیا۔ نجی رابطے شامل نہیں ہوئے: Parley کھولیں، انہیں ان لاک کریں اور دوبارہ بیک اپ لیں۔</string>
+    <plurals name="data_bkp_backed_up">
+        <item quantity="one">%1$d رابطے کا بیک اپ لیا گیا</item>
+        <item quantity="other">%1$d رابطوں کا بیک اپ لیا گیا</item>
+    </plurals>
+    <plurals name="data_bkp_backed_up_paused">
+        <item quantity="one">%1$d رابطے کا بیک اپ لیا گیا — بہت سے رابطے غائب ہونے کی وجہ سے روٹیشن رکی ہوئی ہے</item>
+        <item quantity="other">%1$d رابطوں کا بیک اپ لیا گیا — بہت سے رابطے غائب ہونے کی وجہ سے روٹیشن رکی ہوئی ہے</item>
+    </plurals>
+    <string name="data_rst_safety_failed">کچھ نہیں بدلا: آپ کے موجودہ رابطوں کا حفاظتی بیک اپ ناکام رہا (%1$s)</string>
+    <string name="data_rst_some_contacts">کچھ رابطے (%1$s)</string>
+    <string name="data_rst_part_calls">کال ہسٹری</string>
+    <string name="data_rst_part_blocking">بلاکنگ کے اصول</string>
+    <string name="data_rst_part_speed_dial">اسپیڈ ڈائل</string>
+    <string name="data_rst_part_settings">ترتیبات</string>
+    <string name="data_rst_part_vault_locked">نجی رابطے (انہیں ان لاک کر کے دوبارہ بحال کریں)</string>
+    <string name="data_rst_part_vault">نجی رابطے</string>
+    <plurals name="data_rst_added">
+        <item quantity="one">%1$d رابطہ شامل کیا گیا</item>
+        <item quantity="other">%1$d رابطے شامل کیے گئے</item>
+    </plurals>
+    <plurals name="data_rst_enriched">
+        <item quantity="one">%1$d میں %2$d تفصیلات شامل کی گئیں</item>
+        <item quantity="other">%1$d میں %2$d تفصیلات شامل کی گئیں</item>
+    </plurals>
+    <plurals name="data_rst_replaced">
+        <item quantity="one">%1$d تبدیل کیا گیا</item>
+        <item quantity="other">%1$d تبدیل کیے گئے</item>
+    </plurals>
+    <plurals name="data_rst_rules">
+        <item quantity="one">%1$d بلاکنگ اصول</item>
+        <item quantity="other">%1$d بلاکنگ اصول</item>
+    </plurals>
+    <plurals name="data_rst_vault">
+        <item quantity="one">%1$d نجی رابطہ</item>
+        <item quantity="other">%1$d نجی رابطے</item>
+    </plurals>
+    <plurals name="data_rst_failed">
+        <item quantity="one">%1$d ناکام</item>
+        <item quantity="other">%1$d ناکام</item>
+    </plurals>
+    <string name="data_rst_not_restored">بحال نہیں ہوا: %1$s</string>
+
+    <!-- Folder sync reports (core/data) -->
+    <plurals name="data_sync_imported">
+        <item quantity="one">فولڈر سے %1$d نیا</item>
+        <item quantity="other">فولڈر سے %1$d نئے</item>
+    </plurals>
+    <plurals name="data_sync_updated">
+        <item quantity="one">فولڈر سے %1$d اپ ڈیٹ ہوا</item>
+        <item quantity="other">فولڈر سے %1$d اپ ڈیٹ ہوئے</item>
+    </plurals>
+    <plurals name="data_sync_written">
+        <item quantity="one">فولڈر میں %1$d لکھا گیا</item>
+        <item quantity="other">فولڈر میں %1$d لکھے گئے</item>
+    </plurals>
+    <plurals name="data_sync_deleted_local">
+        <item quantity="one">%1$d ہٹایا گیا (دوسرے آلے پر حذف کیا گیا)</item>
+        <item quantity="other">%1$d ہٹائے گئے (دوسرے آلے پر حذف کیے گئے)</item>
+    </plurals>
+    <plurals name="data_sync_deleted_files">
+        <item quantity="one">%1$d فائل ہٹائی گئی</item>
+        <item quantity="other">%1$d فائلیں ہٹائی گئیں</item>
+    </plurals>
+    <plurals name="data_sync_linked">
+        <item quantity="one">%1$d موجودہ رابطے سے ملایا گیا</item>
+        <item quantity="other">%1$d موجودہ رابطوں سے ملائے گئے</item>
+    </plurals>
+    <plurals name="data_sync_conflicts">
+        <item quantity="one">%1$d تنازع .conflict فائل کے طور پر رکھا گیا</item>
+        <item quantity="other">%1$d تنازعات .conflict فائلوں کے طور پر رکھے گئے</item>
+    </plurals>
+    <string name="data_sync_in_sync">سب کچھ ہم آہنگ ہے</string>
+    <string name="data_sync_no_permission">ہم آہنگ نہیں ہوا: Parley کو رابطوں تک رسائی چاہیے</string>
+    <string name="data_sync_folder_gone">ہم آہنگ نہیں ہوا: فولڈر نہیں کھل رہا۔ اگر منتقل ہوا ہے تو اسے دوبارہ منتخب کریں۔</string>
+    <plurals name="data_sync_paused">
+        <item quantity="one">رکا ہوا: یہ ہم آہنگی %1$d رابطہ یا فائل حذف کر دے گی۔ فولڈر دیکھیں، پھر تصدیق کریں۔</item>
+        <item quantity="other">رکا ہوا: یہ ہم آہنگی %1$d رابطے یا فائلیں حذف کر دے گی۔ فولڈر دیکھیں، پھر تصدیق کریں۔</item>
+    </plurals>
+
+    <!-- Contact health check (core/data) -->
+    <string name="data_health_number_as_name">کوئی نام نہیں، صرف نمبر</string>
+    <string name="data_health_empty">کوئی نمبر یا ای میل نہیں</string>
+    <string name="data_health_shared">%1$s جیسا ہی نمبر</string>
+    <string name="data_health_stale">2 سال سے زیادہ سے کوئی کال نہیں</string>
+    <string name="data_health_country_code">%1$s → %2$s</string>
+    <string name="data_health_title_company">عہدہ “%1$s” کمپنی کو دہراتا ہے</string>
+
+    <!-- Moving and writing contacts (core/data) -->
+    <string name="data_move_copy_gone">وہ کاپی اب موجود نہیں</string>
+    <string name="data_move_read_failed">رابطہ پڑھا نہیں جا سکا</string>
+    <string name="data_move_copy_read_failed">وہ کاپی پڑھی نہیں جا سکی</string>
+    <string name="data_move_already_there">یہ وہاں پہلے سے محفوظ ہے</string>
+    <string name="data_move_already_phone">یہ اس فون پر پہلے سے محفوظ ہے</string>
+    <string name="data_move_not_writable">اس اکاؤنٹ میں رابطے محفوظ نہیں کیے جا سکتے</string>
+    <string name="data_move_no_undo">واپس لینے کے لیے کاپی نہیں رکھی جا سکی، اس لیے کچھ منتقل نہیں ہوا</string>
+    <string name="data_move_write_failed">نئے اکاؤنٹ میں کاپی لکھی نہیں جا سکی</string>
+    <string name="data_move_nothing_to_unlink">الگ کرنے کو کچھ نہیں</string>
+    <string name="data_write_only_messenger">درآمد کرنے کو کچھ نہیں (صرف پڑھنے کے قابل میسنجر ڈیٹا)</string>
+    <string name="data_write_not_written">لکھا نہیں گیا</string>
+    <string name="data_write_failed">رابطہ لکھا نہیں جا سکا</string>
+    <plurals name="data_write_fields_failed">
+        <item quantity="one">%1$d فیلڈ لکھی نہیں جا سکی</item>
+        <item quantity="other">%1$d فیلڈز لکھی نہیں جا سکیں</item>
+    </plurals>
+    <string name="data_write_photo_failed">تصویر محفوظ نہیں ہو سکی</string>
+    <string name="data_write_not_found">لکھنے کے بعد رابطہ نہیں ملا</string>
+
+    <!-- Labels (core/data) -->
+    <string name="data_label_offhours_off">آف آورز میں صرف “%1$s” کی گھنٹی بجتی تھی، اس لیے انہیں بند کر دیا گیا ہے۔ بلاکنگ › آف آورز میں دوبارہ آن کریں۔</string>
+
+    <!-- Who can see your contacts (core/data) -->
+    <string name="data_audit_messaging">میسجنگ ایپس رابطوں سے دکھاتی ہیں کہ کون کون ہے</string>
+    <string name="data_audit_email">ای میل ایپس رابطوں سے پتے تجویز کرتی ہیں</string>
+    <string name="data_audit_phone">فون ایپس رابطوں سے دکھاتی ہیں کہ کون کال کر رہا ہے</string>
+
+    <!-- SIM phonebook (core/data) -->
+    <string name="data_sim_full">SIM نے اسے قبول نہیں کیا (شاید بھری ہوئی ہے)</string>
+    <string name="data_sim_not_allowed">Android نے اس SIM پر لکھنے کی اجازت نہیں دی</string>
+    <string name="data_sim_rejected">SIM نے اسے قبول نہیں کیا</string>
+    <string name="data_sim_slot">SIM %1$d</string>
+
+    <!-- Call history, files, vault (core/data) -->
+    <string name="data_file_too_large">فائل 20 MB سے بڑی ہے</string>
+    <string name="data_file_open_failed">فائل نہیں کھل سکی</string>
+    <string name="data_archive_locked">Parley کا کال آرکائیو ابھی ان لاک نہیں ہو سکتا۔ بعد میں دوبارہ کوشش کریں۔</string>
+    <string name="data_file_write_failed">فائل لکھنے کے لیے نہیں کھل سکی</string>
+    <string name="data_file_read_failed">فائل نہیں کھل سکی</string>
+    <string name="data_vault_fallback_name">نجی رابطہ</string>
+
+    <!-- Visual voicemail source problems -->
+    <string name="data_vm_can_configure">بصری وائس میل اس کی ترتیبات میں آن کی جا سکتی ہے</string>
+    <string name="data_vm_not_configured">بصری وائس میل سیٹ اپ نہیں</string>
+    <string name="data_vm_no_data">وائس میل سرور تک رسائی نہیں ہو رہی (اسے موبائل ڈیٹا چاہیے)</string>
+    <string name="data_vm_server_problem">وائس میل سرور نے مسئلہ بتایا</string>
+    <string name="data_vm_no_connection">وائس میل سروس سے کوئی کنکشن نہیں</string>
+</resources>

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<resources xmlns:tools="http://schemas.android.com/tools">    <string name="app_name">Parley Lists</string>
+    <string name="permission_read_lists_label">lire les listes anti-spam de Parley</string>
+    <string name="permission_read_lists_description">Permet à Parley de copier les listes anti-spam téléchargées par cette appli.</string>
+
+    <!-- Updater screen -->
+    <string name="lists_never">jamais</string>
+    <string name="lists_card_title">Listes publiques pour Parley</string>
+    <string name="lists_card_text">Cette appli télécharge des listes publiques de spam et les transmet à Parley. Elle ne voit ni vos contacts, ni vos appels, ni vos messages, et n\'envoie jamais de numéro de téléphone nulle part : chaque téléchargement est le même fichier statique pour tout le monde. Parley n\'a lui-même aucun accès à internet.</string>
+    <string name="lists_last_update">Dernière mise à jour : %1$s</string>
+    <string name="lists_last_update_error">Dernière mise à jour : %1$s · %2$s</string>
+    <plurals name="lists_summary">
+        <item quantity="one">%1$d liste · %2$s (+ %3$s de jours FTC en cache)</item>
+        <item quantity="many">%1$d listes · %2$s (+ %3$s de jours FTC en cache)</item>
+        <item quantity="other">%1$d listes · %2$s (+ %3$s de jours FTC en cache)</item>
+    </plurals>
+    <string name="lists_update_now">Mettre à jour</string>
+    <string name="lists_ready">Listes prêtes pour Parley</string>
+    <string name="lists_none">Aucune pour l\'instant. Touchez Mettre à jour.</string>
+    <plurals name="lists_numbers">
+        <item quantity="one">%1$s numéro</item>
+        <item quantity="many">%1$s numéros</item>
+        <item quantity="other">%1$s numéros</item>
+    </plurals>
+    <plurals name="lists_ranges">
+        <item quantity="one">%1$d plage</item>
+        <item quantity="many">%1$d plages</item>
+        <item quantity="other">%1$d plages</item>
+    </plurals>
+    <string name="lists_built">créée %1$s</string>
+    <string name="lists_signed">signée</string>
+    <string name="lists_unsigned">non signée</string>
+    <string name="lists_sources">Sources</string>
+    <string name="lists_ftc_title">FTC (États-Unis) : appels signalés</string>
+    <string name="lists_ftc_text">Numéros signalés au registre Do Not Call de la FTC. Données publiques, mises à jour chaque jour ouvré ; non vérifiées par la FTC.</string>
+    <string name="lists_keep_last">Garder les signalements des derniers</string>
+    <plurals name="lists_days">
+        <item quantity="one">%1$d jour</item>
+        <item quantity="many">%1$d jours</item>
+        <item quantity="other">%1$d jours</item>
+    </plurals>
+    <string name="lists_arcep_title">France : plages de démarchage ARCEP</string>
+    <string name="lists_arcep_text">Les 12 blocs de numéros que l\'ARCEP a réservés aux plateformes d\'appels automatisés. Intégré : rien à télécharger.</string>
+    <string name="lists_community">Liste communautaire</string>
+    <string name="lists_remove">Retirer</string>
+    <string name="lists_schedule">Planification</string>
+    <string name="lists_auto">Mettre à jour automatiquement</string>
+    <string name="lists_twice_daily">Deux fois par jour</string>
+    <string name="lists_daily">Tous les jours</string>
+    <string name="lists_weekly">Toutes les semaines</string>
+    <string name="lists_unmetered">Seulement en Wi-Fi ou sur d\'autres réseaux illimités</string>
+    <string name="lists_idle">Seulement quand le téléphone est inactif</string>
+    <string name="lists_idle_summary">Android fait la mise à jour quand vous n\'utilisez pas le téléphone</string>
+    <string name="lists_charging">Seulement pendant la charge</string>
+    <string name="lists_how">Comment Parley récupère les listes</string>
+    <string name="lists_how_text">Parley copie les listes par un lien protégé que seules les applis signées par le même développeur peuvent ouvrir, vérifie les sommes de contrôle et la signature de chaque fichier et les actualise une fois par jour. Les listes créées ici sont signées avec la clé de cette installation :</string>
+    <string name="lists_checked">Vérifié %1$s</string>
+    <string name="lists_checked_downloaded">Vérifié %1$s · téléchargé %2$s</string>
+    <string name="lists_only_https">Liens https:// uniquement</string>
+    <string name="lists_already">Déjà ajoutée</string>
+    <string name="lists_add_text">Ajouter une liste communautaire : un lien vers un fichier .parleylist. La signature de son éditeur est conservée et Parley la vérifie.</string>
+    <string name="lists_add">Ajouter</string>
+
+    <!-- Update errors -->
+    <string name="lists_err_some">Certaines listes n\'ont pas pu être mises à jour</string>
+    <string name="lists_err_failed">Échec de la mise à jour</string>
+    <string name="lists_err_ftc_format">Le fichier FTC du %1$s a un format inattendu</string>
+    <string name="lists_err_reserved">Cette liste utilise un identifiant réservé (%1$s)</string>
+    <string name="lists_err_taken">Un autre lien fournit déjà la liste %1$s</string>
+    <string name="lists_err_new_key">La liste est maintenant signée par une autre clé ; retirez le lien et ajoutez-le à nouveau pour l\'accepter</string>
+    <string name="lists_err_invalid">Liste non valide</string>
+    <string name="lists_err_404">Le lien n\'existe plus (404)</string>
+    <string name="lists_err_https">Seuls les liens https:// sont autorisés</string>
+    <string name="lists_err_link">Lien non valide</string>
+    <string name="lists_err_redirect">Redirection sans cible</string>
+    <string name="lists_err_status">Le serveur a répondu %1$d</string>
+    <string name="lists_err_too_large">Le fichier est trop volumineux</string>
+    <string name="lists_err_network">Erreur réseau : %1$s</string>
+    <string name="lists_err_redirects">Trop de redirections</string>
+</resources>

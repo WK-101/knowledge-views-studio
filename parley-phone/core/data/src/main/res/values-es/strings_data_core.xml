@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Backup outcomes (core/data) -->
+    <string name="data_bkp_need_pass">Primero define una frase de contraseña para la copia</string>
+    <string name="data_bkp_need_folder">Primero elige una carpeta para la copia</string>
+    <string name="data_bkp_folder_gone">Ya no se puede acceder a la carpeta de copias. Vuelve a elegirla.</string>
+    <string name="data_bkp_failed">La copia ha fallado: %1$s</string>
+    <string name="data_bkp_not_verified">La copia escrita no se pudo verificar y se ha descartado. Comprueba el espacio libre e inténtalo de nuevo.</string>
+    <plurals name="data_bkp_ready">
+        <item quantity="one">Copia lista: %1$d contacto</item>
+        <item quantity="many">Copia lista: %1$d contactos</item>
+        <item quantity="other">Copia lista: %1$d contactos</item>
+    </plurals>
+    <string name="data_bkp_unchanged">Sin cambios desde la última copia</string>
+    <string name="data_bkp_nothing_changed">No ha cambiado nada desde la última copia</string>
+    <plurals name="data_contacts_count">
+        <item quantity="one">%1$d contacto</item>
+        <item quantity="many">%1$d contactos</item>
+        <item quantity="other">%1$d contactos</item>
+    </plurals>
+    <plurals name="data_calls_count">
+        <item quantity="one">%1$d llamada</item>
+        <item quantity="many">%1$d llamadas</item>
+        <item quantity="other">%1$d llamadas</item>
+    </plurals>
+    <string name="data_bkp_result">Copia de %1$s y %2$s</string>
+    <string name="data_bkp_result_vault_missing">Copia de %1$s y %2$s. Los contactos privados no se incluyeron: abre Parley, desbloquéalos y vuelve a hacer la copia.</string>
+    <plurals name="data_bkp_backed_up">
+        <item quantity="one">%1$d contacto copiado</item>
+        <item quantity="many">%1$d contactos copiados</item>
+        <item quantity="other">%1$d contactos copiados</item>
+    </plurals>
+    <plurals name="data_bkp_backed_up_paused">
+        <item quantity="one">%1$d contacto copiado; rotación en pausa porque desaparecieron muchos contactos</item>
+        <item quantity="many">%1$d contactos copiados; rotación en pausa porque desaparecieron muchos contactos</item>
+        <item quantity="other">%1$d contactos copiados; rotación en pausa porque desaparecieron muchos contactos</item>
+    </plurals>
+    <string name="data_rst_safety_failed">No se ha cambiado nada: falló la copia de seguridad de tus contactos actuales (%1$s)</string>
+    <string name="data_rst_some_contacts">algunos contactos (%1$s)</string>
+    <string name="data_rst_part_calls">historial de llamadas</string>
+    <string name="data_rst_part_blocking">reglas de bloqueo</string>
+    <string name="data_rst_part_speed_dial">marcación rápida</string>
+    <string name="data_rst_part_settings">ajustes</string>
+    <string name="data_rst_part_vault_locked">contactos privados (desbloquéalos y vuelve a restaurar)</string>
+    <string name="data_rst_part_vault">contactos privados</string>
+    <plurals name="data_rst_added">
+        <item quantity="one">%1$d contacto añadido</item>
+        <item quantity="many">%1$d contactos añadidos</item>
+        <item quantity="other">%1$d contactos añadidos</item>
+    </plurals>
+    <plurals name="data_rst_enriched">
+        <item quantity="one">%1$d actualizado con %2$d datos</item>
+        <item quantity="many">%1$d actualizados con %2$d datos</item>
+        <item quantity="other">%1$d actualizados con %2$d datos</item>
+    </plurals>
+    <plurals name="data_rst_replaced">
+        <item quantity="one">%1$d sustituido</item>
+        <item quantity="many">%1$d sustituidos</item>
+        <item quantity="other">%1$d sustituidos</item>
+    </plurals>
+    <plurals name="data_rst_rules">
+        <item quantity="one">%1$d regla de bloqueo</item>
+        <item quantity="many">%1$d reglas de bloqueo</item>
+        <item quantity="other">%1$d reglas de bloqueo</item>
+    </plurals>
+    <plurals name="data_rst_vault">
+        <item quantity="one">%1$d contacto privado</item>
+        <item quantity="many">%1$d contactos privados</item>
+        <item quantity="other">%1$d contactos privados</item>
+    </plurals>
+    <plurals name="data_rst_failed">
+        <item quantity="one">%1$d con error</item>
+        <item quantity="many">%1$d con error</item>
+        <item quantity="other">%1$d con error</item>
+    </plurals>
+    <string name="data_rst_not_restored">sin restaurar: %1$s</string>
+
+    <!-- Folder sync reports (core/data) -->
+    <plurals name="data_sync_imported">
+        <item quantity="one">%1$d nuevo desde la carpeta</item>
+        <item quantity="many">%1$d nuevos desde la carpeta</item>
+        <item quantity="other">%1$d nuevos desde la carpeta</item>
+    </plurals>
+    <plurals name="data_sync_updated">
+        <item quantity="one">%1$d actualizado desde la carpeta</item>
+        <item quantity="many">%1$d actualizados desde la carpeta</item>
+        <item quantity="other">%1$d actualizados desde la carpeta</item>
+    </plurals>
+    <plurals name="data_sync_written">
+        <item quantity="one">%1$d escrito en la carpeta</item>
+        <item quantity="many">%1$d escritos en la carpeta</item>
+        <item quantity="other">%1$d escritos en la carpeta</item>
+    </plurals>
+    <plurals name="data_sync_deleted_local">
+        <item quantity="one">%1$d quitado (eliminado en otro dispositivo)</item>
+        <item quantity="many">%1$d quitados (eliminados en otro dispositivo)</item>
+        <item quantity="other">%1$d quitados (eliminados en otro dispositivo)</item>
+    </plurals>
+    <plurals name="data_sync_deleted_files">
+        <item quantity="one">%1$d archivo quitado</item>
+        <item quantity="many">%1$d archivos quitados</item>
+        <item quantity="other">%1$d archivos quitados</item>
+    </plurals>
+    <plurals name="data_sync_linked">
+        <item quantity="one">%1$d asociado a un contacto existente</item>
+        <item quantity="many">%1$d asociados a contactos existentes</item>
+        <item quantity="other">%1$d asociados a contactos existentes</item>
+    </plurals>
+    <plurals name="data_sync_conflicts">
+        <item quantity="one">%1$d conflicto guardado como archivo .conflict</item>
+        <item quantity="many">%1$d conflictos guardados como archivos .conflict</item>
+        <item quantity="other">%1$d conflictos guardados como archivos .conflict</item>
+    </plurals>
+    <string name="data_sync_in_sync">Todo está sincronizado</string>
+    <string name="data_sync_no_permission">Sin sincronizar: Parley necesita acceso a los contactos</string>
+    <string name="data_sync_folder_gone">Sin sincronizar: no se puede abrir la carpeta. Vuelve a elegirla si se ha movido.</string>
+    <plurals name="data_sync_paused">
+        <item quantity="one">En pausa: esta sincronización eliminaría %1$d contacto o archivo. Revisa la carpeta y confirma.</item>
+        <item quantity="many">En pausa: esta sincronización eliminaría %1$d contactos o archivos. Revisa la carpeta y confirma.</item>
+        <item quantity="other">En pausa: esta sincronización eliminaría %1$d contactos o archivos. Revisa la carpeta y confirma.</item>
+    </plurals>
+
+    <!-- Contact health check (core/data) -->
+    <string name="data_health_number_as_name">Sin nombre, solo un número</string>
+    <string name="data_health_empty">Sin número ni correo</string>
+    <string name="data_health_shared">Mismo número que %1$s</string>
+    <string name="data_health_stale">Sin llamadas en más de 2 años</string>
+    <string name="data_health_country_code">%1$s → %2$s</string>
+    <string name="data_health_title_company">El cargo «%1$s» repite la empresa</string>
+
+    <!-- Moving and writing contacts (core/data) -->
+    <string name="data_move_copy_gone">Esa copia ya no existe</string>
+    <string name="data_move_read_failed">No se pudo leer el contacto</string>
+    <string name="data_move_copy_read_failed">No se pudo leer esa copia</string>
+    <string name="data_move_already_there">Ya está guardado ahí</string>
+    <string name="data_move_already_phone">Ya está guardado en este teléfono</string>
+    <string name="data_move_not_writable">No se pueden guardar contactos en esa cuenta</string>
+    <string name="data_move_no_undo">No se pudo guardar una copia para deshacer, así que no se movió nada</string>
+    <string name="data_move_write_failed">No se pudo escribir la copia en la nueva cuenta</string>
+    <string name="data_move_nothing_to_unlink">No hay nada que desvincular</string>
+    <string name="data_write_only_messenger">Nada que importar (solo datos de mensajería de solo lectura)</string>
+    <string name="data_write_not_written">No escrito</string>
+    <string name="data_write_failed">No se pudo escribir el contacto</string>
+    <plurals name="data_write_fields_failed">
+        <item quantity="one">No se pudo escribir %1$d campo</item>
+        <item quantity="many">No se pudieron escribir %1$d campos</item>
+        <item quantity="other">No se pudieron escribir %1$d campos</item>
+    </plurals>
+    <string name="data_write_photo_failed">No se pudo guardar la foto</string>
+    <string name="data_write_not_found">No se encontró el contacto después de escribirlo</string>
+
+    <!-- Labels (core/data) -->
+    <string name="data_label_offhours_off">Las horas de descanso solo dejaban sonar a «%1$s», así que se han desactivado. Vuelve a activarlas en Bloqueo › Horas de descanso.</string>
+
+    <!-- Who can see your contacts (core/data) -->
+    <string name="data_audit_messaging">Las apps de mensajería usan los contactos para mostrar quién es quién</string>
+    <string name="data_audit_email">Las apps de correo usan los contactos para sugerir direcciones</string>
+    <string name="data_audit_phone">Las apps de teléfono usan los contactos para mostrar quién llama</string>
+
+    <!-- SIM phonebook (core/data) -->
+    <string name="data_sim_full">La SIM no lo aceptó (puede estar llena)</string>
+    <string name="data_sim_not_allowed">Android no permitió escribir en esta SIM</string>
+    <string name="data_sim_rejected">La SIM no lo aceptó</string>
+    <string name="data_sim_slot">SIM %1$d</string>
+
+    <!-- Call history, files, vault (core/data) -->
+    <string name="data_file_too_large">El archivo ocupa más de 20 MB</string>
+    <string name="data_file_open_failed">No se pudo abrir el archivo</string>
+    <string name="data_archive_locked">El archivo de llamadas de Parley no se puede desbloquear ahora. Inténtalo más tarde.</string>
+    <string name="data_file_write_failed">No se pudo abrir el archivo para escribir</string>
+    <string name="data_file_read_failed">No se pudo abrir el archivo</string>
+    <string name="data_vault_fallback_name">Contacto privado</string>
+
+    <!-- Visual voicemail source problems -->
+    <string name="data_vm_can_configure">El buzón de voz visual se puede activar en sus ajustes</string>
+    <string name="data_vm_not_configured">El buzón de voz visual no está configurado</string>
+    <string name="data_vm_no_data">No se puede contactar con el servidor del buzón (necesita datos móviles)</string>
+    <string name="data_vm_server_problem">El servidor del buzón informó de un problema</string>
+    <string name="data_vm_no_connection">Sin conexión con el servicio de buzón de voz</string>
+</resources>

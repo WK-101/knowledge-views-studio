@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Backup outcomes (core/data) -->
+    <string name="data_bkp_need_pass">عيّن عبارة مرور للنسخ الاحتياطي أولاً</string>
+    <string name="data_bkp_need_folder">اختر مجلد النسخ الاحتياطي أولاً</string>
+    <string name="data_bkp_folder_gone">لم يعد الوصول إلى مجلد النسخ الاحتياطي ممكناً. اختره مرة أخرى.</string>
+    <string name="data_bkp_failed">فشل النسخ الاحتياطي: %1$s</string>
+    <string name="data_bkp_not_verified">تعذّر التحقق من النسخة الاحتياطية المكتوبة فتم تجاهلها. تحقق من المساحة الفارغة وحاول مرة أخرى.</string>
+    <plurals name="data_bkp_ready" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">النسخة الاحتياطية جاهزة: %1$d جهة اتصال</item>
+        <item quantity="one">النسخة الاحتياطية جاهزة: جهة اتصال واحدة</item>
+        <item quantity="two">النسخة الاحتياطية جاهزة: جهتا اتصال</item>
+        <item quantity="few">النسخة الاحتياطية جاهزة: %1$d جهات اتصال</item>
+        <item quantity="many">النسخة الاحتياطية جاهزة: %1$d جهة اتصال</item>
+        <item quantity="other">النسخة الاحتياطية جاهزة: %1$d جهة اتصال</item>
+    </plurals>
+    <string name="data_bkp_unchanged">لم يتغير شيء منذ آخر نسخة احتياطية</string>
+    <string name="data_bkp_nothing_changed">لم يتغير شيء منذ آخر نسخة احتياطية</string>
+    <plurals name="data_contacts_count" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">%1$d جهة اتصال</item>
+        <item quantity="one">جهة اتصال واحدة</item>
+        <item quantity="two">جهتا اتصال</item>
+        <item quantity="few">%1$d جهات اتصال</item>
+        <item quantity="many">%1$d جهة اتصال</item>
+        <item quantity="other">%1$d جهة اتصال</item>
+    </plurals>
+    <plurals name="data_calls_count" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">%1$d مكالمة</item>
+        <item quantity="one">مكالمة واحدة</item>
+        <item quantity="two">مكالمتان</item>
+        <item quantity="few">%1$d مكالمات</item>
+        <item quantity="many">%1$d مكالمة</item>
+        <item quantity="other">%1$d مكالمة</item>
+    </plurals>
+    <string name="data_bkp_result">تم نسخ %1$s و%2$s احتياطياً</string>
+    <string name="data_bkp_result_vault_missing">تم نسخ %1$s و%2$s احتياطياً. لم تُضمَّن جهات الاتصال الخاصة: افتح Parley وافتح قفلها ثم انسخ احتياطياً مرة أخرى.</string>
+    <plurals name="data_bkp_backed_up" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">تم نسخ %1$d جهة اتصال احتياطياً</item>
+        <item quantity="one">تم نسخ جهة اتصال واحدة احتياطياً</item>
+        <item quantity="two">تم نسخ %1$d جهة اتصال احتياطياً</item>
+        <item quantity="few">تم نسخ %1$d جهة اتصال احتياطياً</item>
+        <item quantity="many">تم نسخ %1$d جهة اتصال احتياطياً</item>
+        <item quantity="other">تم نسخ %1$d جهة اتصال احتياطياً</item>
+    </plurals>
+    <plurals name="data_bkp_backed_up_paused" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">تم نسخ %1$d جهة اتصال احتياطياً — التدوير متوقف لأن جهات اتصال كثيرة اختفت</item>
+        <item quantity="one">تم نسخ جهة اتصال واحدة احتياطياً — التدوير متوقف لأن جهات اتصال كثيرة اختفت</item>
+        <item quantity="two">تم نسخ %1$d جهة اتصال احتياطياً — التدوير متوقف لأن جهات اتصال كثيرة اختفت</item>
+        <item quantity="few">تم نسخ %1$d جهة اتصال احتياطياً — التدوير متوقف لأن جهات اتصال كثيرة اختفت</item>
+        <item quantity="many">تم نسخ %1$d جهة اتصال احتياطياً — التدوير متوقف لأن جهات اتصال كثيرة اختفت</item>
+        <item quantity="other">تم نسخ %1$d جهة اتصال احتياطياً — التدوير متوقف لأن جهات اتصال كثيرة اختفت</item>
+    </plurals>
+    <string name="data_rst_safety_failed">لم يتغير شيء: فشلت النسخة الاحتياطية الوقائية لجهات اتصالك الحالية (%1$s)</string>
+    <string name="data_rst_some_contacts">بعض جهات الاتصال (%1$s)</string>
+    <string name="data_rst_part_calls">سجل المكالمات</string>
+    <string name="data_rst_part_blocking">قواعد الحظر</string>
+    <string name="data_rst_part_speed_dial">الاتصال السريع</string>
+    <string name="data_rst_part_settings">الإعدادات</string>
+    <string name="data_rst_part_vault_locked">جهات الاتصال الخاصة (افتح قفلها واستعد مرة أخرى)</string>
+    <string name="data_rst_part_vault">جهات الاتصال الخاصة</string>
+    <plurals name="data_rst_added" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">أضيفت %1$d جهة اتصال</item>
+        <item quantity="one">أضيفت جهة اتصال واحدة</item>
+        <item quantity="two">أضيفت %1$d جهة اتصال</item>
+        <item quantity="few">أضيفت %1$d جهة اتصال</item>
+        <item quantity="many">أضيفت %1$d جهة اتصال</item>
+        <item quantity="other">أضيفت %1$d جهة اتصال</item>
+    </plurals>
+    <plurals name="data_rst_enriched">
+        <item quantity="zero">تم تحديث %1$d بـ%2$d من التفاصيل</item>
+        <item quantity="one">تم تحديث %1$d بـ%2$d من التفاصيل</item>
+        <item quantity="two">تم تحديث %1$d بـ%2$d من التفاصيل</item>
+        <item quantity="few">تم تحديث %1$d بـ%2$d من التفاصيل</item>
+        <item quantity="many">تم تحديث %1$d بـ%2$d من التفاصيل</item>
+        <item quantity="other">تم تحديث %1$d بـ%2$d من التفاصيل</item>
+    </plurals>
+    <plurals name="data_rst_replaced">
+        <item quantity="zero">تم استبدال %1$d</item>
+        <item quantity="one">تم استبدال %1$d</item>
+        <item quantity="two">تم استبدال %1$d</item>
+        <item quantity="few">تم استبدال %1$d</item>
+        <item quantity="many">تم استبدال %1$d</item>
+        <item quantity="other">تم استبدال %1$d</item>
+    </plurals>
+    <plurals name="data_rst_rules" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">%1$d قاعدة حظر</item>
+        <item quantity="one">قاعدة حظر واحدة</item>
+        <item quantity="two">%1$d قاعدة حظر</item>
+        <item quantity="few">%1$d قاعدة حظر</item>
+        <item quantity="many">%1$d قاعدة حظر</item>
+        <item quantity="other">%1$d قاعدة حظر</item>
+    </plurals>
+    <plurals name="data_rst_vault" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">%1$d جهة اتصال خاصة</item>
+        <item quantity="one">جهة اتصال خاصة واحدة</item>
+        <item quantity="two">%1$d جهة اتصال خاصة</item>
+        <item quantity="few">%1$d جهة اتصال خاصة</item>
+        <item quantity="many">%1$d جهة اتصال خاصة</item>
+        <item quantity="other">%1$d جهة اتصال خاصة</item>
+    </plurals>
+    <plurals name="data_rst_failed">
+        <item quantity="zero">فشل %1$d</item>
+        <item quantity="one">فشل %1$d</item>
+        <item quantity="two">فشل %1$d</item>
+        <item quantity="few">فشل %1$d</item>
+        <item quantity="many">فشل %1$d</item>
+        <item quantity="other">فشل %1$d</item>
+    </plurals>
+    <string name="data_rst_not_restored">لم تتم استعادة: %1$s</string>
+
+    <!-- Folder sync reports (core/data) -->
+    <plurals name="data_sync_imported">
+        <item quantity="zero">%1$d جديدة من المجلد</item>
+        <item quantity="one">%1$d جديدة من المجلد</item>
+        <item quantity="two">%1$d جديدة من المجلد</item>
+        <item quantity="few">%1$d جديدة من المجلد</item>
+        <item quantity="many">%1$d جديدة من المجلد</item>
+        <item quantity="other">%1$d جديدة من المجلد</item>
+    </plurals>
+    <plurals name="data_sync_updated">
+        <item quantity="zero">%1$d محدّثة من المجلد</item>
+        <item quantity="one">%1$d محدّثة من المجلد</item>
+        <item quantity="two">%1$d محدّثة من المجلد</item>
+        <item quantity="few">%1$d محدّثة من المجلد</item>
+        <item quantity="many">%1$d محدّثة من المجلد</item>
+        <item quantity="other">%1$d محدّثة من المجلد</item>
+    </plurals>
+    <plurals name="data_sync_written">
+        <item quantity="zero">%1$d مكتوبة في المجلد</item>
+        <item quantity="one">%1$d مكتوبة في المجلد</item>
+        <item quantity="two">%1$d مكتوبة في المجلد</item>
+        <item quantity="few">%1$d مكتوبة في المجلد</item>
+        <item quantity="many">%1$d مكتوبة في المجلد</item>
+        <item quantity="other">%1$d مكتوبة في المجلد</item>
+    </plurals>
+    <plurals name="data_sync_deleted_local">
+        <item quantity="zero">أزيلت %1$d (حُذفت على جهاز آخر)</item>
+        <item quantity="one">أزيلت %1$d (حُذفت على جهاز آخر)</item>
+        <item quantity="two">أزيلت %1$d (حُذفت على جهاز آخر)</item>
+        <item quantity="few">أزيلت %1$d (حُذفت على جهاز آخر)</item>
+        <item quantity="many">أزيلت %1$d (حُذفت على جهاز آخر)</item>
+        <item quantity="other">أزيلت %1$d (حُذفت على جهاز آخر)</item>
+    </plurals>
+    <plurals name="data_sync_deleted_files" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">أزيل %1$d ملف</item>
+        <item quantity="one">أزيل ملف واحد</item>
+        <item quantity="two">أزيل %1$d ملف</item>
+        <item quantity="few">أزيل %1$d ملف</item>
+        <item quantity="many">أزيل %1$d ملف</item>
+        <item quantity="other">أزيل %1$d ملف</item>
+    </plurals>
+    <plurals name="data_sync_linked">
+        <item quantity="zero">طوبقت %1$d مع جهات اتصال موجودة</item>
+        <item quantity="one">طوبقت %1$d مع جهات اتصال موجودة</item>
+        <item quantity="two">طوبقت %1$d مع جهات اتصال موجودة</item>
+        <item quantity="few">طوبقت %1$d مع جهات اتصال موجودة</item>
+        <item quantity="many">طوبقت %1$d مع جهات اتصال موجودة</item>
+        <item quantity="other">طوبقت %1$d مع جهات اتصال موجودة</item>
+    </plurals>
+    <plurals name="data_sync_conflicts">
+        <item quantity="zero">%1$d تعارض محفوظ كملفات ‎.conflict</item>
+        <item quantity="one">%1$d تعارض محفوظ كملفات ‎.conflict</item>
+        <item quantity="two">%1$d تعارض محفوظ كملفات ‎.conflict</item>
+        <item quantity="few">%1$d تعارض محفوظ كملفات ‎.conflict</item>
+        <item quantity="many">%1$d تعارض محفوظ كملفات ‎.conflict</item>
+        <item quantity="other">%1$d تعارض محفوظ كملفات ‎.conflict</item>
+    </plurals>
+    <string name="data_sync_in_sync">كل شيء متزامن</string>
+    <string name="data_sync_no_permission">لم تتم المزامنة: يحتاج Parley إلى الوصول إلى جهات الاتصال</string>
+    <string name="data_sync_folder_gone">لم تتم المزامنة: تعذّر فتح المجلد. اختره مرة أخرى إذا نُقل.</string>
+    <plurals name="data_sync_paused">
+        <item quantity="zero">متوقفة مؤقتاً: هذه المزامنة ستحذف %1$d من جهات الاتصال أو الملفات. تحقق من المجلد ثم أكّد.</item>
+        <item quantity="one">متوقفة مؤقتاً: هذه المزامنة ستحذف %1$d من جهات الاتصال أو الملفات. تحقق من المجلد ثم أكّد.</item>
+        <item quantity="two">متوقفة مؤقتاً: هذه المزامنة ستحذف %1$d من جهات الاتصال أو الملفات. تحقق من المجلد ثم أكّد.</item>
+        <item quantity="few">متوقفة مؤقتاً: هذه المزامنة ستحذف %1$d من جهات الاتصال أو الملفات. تحقق من المجلد ثم أكّد.</item>
+        <item quantity="many">متوقفة مؤقتاً: هذه المزامنة ستحذف %1$d من جهات الاتصال أو الملفات. تحقق من المجلد ثم أكّد.</item>
+        <item quantity="other">متوقفة مؤقتاً: هذه المزامنة ستحذف %1$d من جهات الاتصال أو الملفات. تحقق من المجلد ثم أكّد.</item>
+    </plurals>
+
+    <!-- Contact health check (core/data) -->
+    <string name="data_health_number_as_name">بلا اسم، رقم فقط</string>
+    <string name="data_health_empty">بلا رقم أو بريد إلكتروني</string>
+    <string name="data_health_shared">نفس رقم %1$s</string>
+    <string name="data_health_stale">لا مكالمات منذ أكثر من سنتين</string>
+    <string name="data_health_country_code">%1$s ← %2$s</string>
+    <string name="data_health_title_company">المسمى الوظيفي «%1$s» يكرر اسم الشركة</string>
+
+    <!-- Moving and writing contacts (core/data) -->
+    <string name="data_move_copy_gone">لم تعد تلك النسخة موجودة</string>
+    <string name="data_move_read_failed">تعذّرت قراءة جهة الاتصال</string>
+    <string name="data_move_copy_read_failed">تعذّرت قراءة تلك النسخة</string>
+    <string name="data_move_already_there">محفوظة هناك بالفعل</string>
+    <string name="data_move_already_phone">محفوظة على هذا الهاتف بالفعل</string>
+    <string name="data_move_not_writable">لا يمكن حفظ جهات الاتصال في ذلك الحساب</string>
+    <string name="data_move_no_undo">تعذّر الاحتفاظ بنسخة للتراجع، لذا لم يُنقل شيء</string>
+    <string name="data_move_write_failed">تعذّرت كتابة النسخة في الحساب الجديد</string>
+    <string name="data_move_nothing_to_unlink">لا يوجد ما يُفصل</string>
+    <string name="data_write_only_messenger">لا شيء للاستيراد (بيانات مراسلة للقراءة فقط)</string>
+    <string name="data_write_not_written">لم تُكتب</string>
+    <string name="data_write_failed">تعذّرت كتابة جهة الاتصال</string>
+    <plurals name="data_write_fields_failed" tools:ignore="ImpliedQuantity">
+        <item quantity="zero">تعذّرت كتابة %1$d حقل</item>
+        <item quantity="one">تعذّرت كتابة حقل واحد</item>
+        <item quantity="two">تعذّرت كتابة %1$d حقل</item>
+        <item quantity="few">تعذّرت كتابة %1$d حقل</item>
+        <item quantity="many">تعذّرت كتابة %1$d حقل</item>
+        <item quantity="other">تعذّرت كتابة %1$d حقل</item>
+    </plurals>
+    <string name="data_write_photo_failed">تعذّر حفظ الصورة</string>
+    <string name="data_write_not_found">لم يُعثر على جهة الاتصال بعد الكتابة</string>
+
+    <!-- Labels (core/data) -->
+    <string name="data_label_offhours_off">أوقات الراحة كانت تسمح برنين «%1$s» فقط، لذا أوقفت. أعد تشغيلها من الحظر › أوقات الراحة.</string>
+
+    <!-- Who can see your contacts (core/data) -->
+    <string name="data_audit_messaging">تستخدم تطبيقات المراسلة جهات الاتصال لتعرض من هو من</string>
+    <string name="data_audit_email">تستخدم تطبيقات البريد جهات الاتصال لاقتراح العناوين</string>
+    <string name="data_audit_phone">تستخدم تطبيقات الهاتف جهات الاتصال لتعرض من المتصل</string>
+
+    <!-- SIM phonebook (core/data) -->
+    <string name="data_sim_full">لم تقبلها الشريحة (قد تكون ممتلئة)</string>
+    <string name="data_sim_not_allowed">لم يسمح Android بالكتابة على هذه الشريحة</string>
+    <string name="data_sim_rejected">لم تقبلها الشريحة</string>
+    <string name="data_sim_slot">الشريحة %1$d</string>
+
+    <!-- Call history, files, vault (core/data) -->
+    <string name="data_file_too_large">حجم الملف أكبر من 20 ميغابايت</string>
+    <string name="data_file_open_failed">تعذّر فتح الملف</string>
+    <string name="data_archive_locked">لا يمكن فتح أرشيف مكالمات Parley الآن. حاول لاحقاً.</string>
+    <string name="data_file_write_failed">تعذّر فتح الملف للكتابة</string>
+    <string name="data_file_read_failed">تعذّر فتح الملف</string>
+    <string name="data_vault_fallback_name">جهة اتصال خاصة</string>
+
+    <!-- Visual voicemail source problems -->
+    <string name="data_vm_can_configure">يمكن تشغيل البريد الصوتي المرئي من إعداداته</string>
+    <string name="data_vm_not_configured">البريد الصوتي المرئي غير مُعدّ</string>
+    <string name="data_vm_no_data">تعذّر الوصول إلى خادم البريد الصوتي (يحتاج إلى بيانات الجوال)</string>
+    <string name="data_vm_server_problem">أبلغ خادم البريد الصوتي عن مشكلة</string>
+    <string name="data_vm_no_connection">لا اتصال بخدمة البريد الصوتي</string>
+</resources>

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<resources xmlns:tools="http://schemas.android.com/tools">    <string name="app_name">Parley Lists</string>
+    <string name="permission_read_lists_label">Parley की स्पैम सूचियाँ पढ़ें</string>
+    <string name="permission_read_lists_description">Parley को इस ऐप की डाउनलोड की हुई स्पैम सूचियाँ कॉपी करने देता है।</string>
+
+    <!-- Updater screen -->
+    <string name="lists_never">कभी नहीं</string>
+    <string name="lists_card_title">Parley के लिए सार्वजनिक सूचियाँ</string>
+    <string name="lists_card_text">यह ऐप सार्वजनिक स्पैम सूचियाँ डाउनलोड करके Parley को देता है। यह आपके संपर्क, कॉल या संदेश नहीं देख सकता और कभी कोई फ़ोन नंबर कहीं नहीं भेजता: हर डाउनलोड सभी के लिए एक ही स्थिर फ़ाइल है। Parley के पास खुद इंटरनेट की पहुँच नहीं है।</string>
+    <string name="lists_last_update">पिछला अपडेट: %1$s</string>
+    <string name="lists_last_update_error">पिछला अपडेट: %1$s · %2$s</string>
+    <plurals name="lists_summary">
+        <item quantity="one">%1$d सूची · %2$s (+ कैश किए गए FTC दिनों के %3$s)</item>
+        <item quantity="other">%1$d सूचियाँ · %2$s (+ कैश किए गए FTC दिनों के %3$s)</item>
+    </plurals>
+    <string name="lists_update_now">अभी अपडेट करें</string>
+    <string name="lists_ready">Parley के लिए तैयार सूचियाँ</string>
+    <string name="lists_none">अभी कोई नहीं। अभी अपडेट करें पर टैप करें।</string>
+    <plurals name="lists_numbers">
+        <item quantity="one">%1$s नंबर</item>
+        <item quantity="other">%1$s नंबर</item>
+    </plurals>
+    <plurals name="lists_ranges">
+        <item quantity="one">%1$d रेंज</item>
+        <item quantity="other">%1$d रेंज</item>
+    </plurals>
+    <string name="lists_built">%1$s को बनी</string>
+    <string name="lists_signed">हस्ताक्षरित</string>
+    <string name="lists_unsigned">बिना हस्ताक्षर</string>
+    <string name="lists_sources">स्रोत</string>
+    <string name="lists_ftc_title">US FTC: रिपोर्ट की गई कॉल</string>
+    <string name="lists_ftc_text">वे नंबर जिन्हें लोगों ने FTC की Do Not Call रजिस्ट्री में रिपोर्ट किया। सार्वजनिक डेटा, हर कार्यदिवस अपडेट; FTC द्वारा सत्यापित नहीं।</string>
+    <string name="lists_keep_last">इतने पिछले दिनों की रिपोर्ट रखें</string>
+    <plurals name="lists_days">
+        <item quantity="one">%1$d दिन</item>
+        <item quantity="other">%1$d दिन</item>
+    </plurals>
+    <string name="lists_arcep_title">फ़्रांस: ARCEP टेलीमार्केटिंग रेंज</string>
+    <string name="lists_arcep_text">ARCEP द्वारा स्वचालित कॉलिंग प्लेटफ़ॉर्म के लिए आरक्षित 12 नंबर ब्लॉक। अंतर्निहित: कुछ डाउनलोड नहीं करना।</string>
+    <string name="lists_community">समुदाय सूची</string>
+    <string name="lists_remove">हटाएँ</string>
+    <string name="lists_schedule">शेड्यूल</string>
+    <string name="lists_auto">अपने-आप अपडेट करें</string>
+    <string name="lists_twice_daily">दिन में दो बार</string>
+    <string name="lists_daily">रोज़</string>
+    <string name="lists_weekly">हर हफ़्ते</string>
+    <string name="lists_unmetered">सिर्फ़ Wi-Fi या अन्य असीमित नेटवर्क पर</string>
+    <string name="lists_idle">सिर्फ़ जब फ़ोन निष्क्रिय हो</string>
+    <string name="lists_idle_summary">जब आप फ़ोन इस्तेमाल नहीं कर रहे होते, Android तब अपडेट करता है</string>
+    <string name="lists_charging">सिर्फ़ चार्ज होते समय</string>
+    <string name="lists_how">Parley सूचियाँ कैसे पाता है</string>
+    <string name="lists_how_text">Parley एक सुरक्षित लिंक से सूचियाँ कॉपी करता है जिसे सिर्फ़ उसी डेवलपर के हस्ताक्षर वाले ऐप खोल सकते हैं, हर फ़ाइल के चेकसम और हस्ताक्षर जाँचता है, और उन्हें दिन में एक बार ताज़ा करता है। यहाँ बनी सूचियाँ इस इंस्टॉल की कुंजी से हस्ताक्षरित होती हैं:</string>
+    <string name="lists_checked">%1$s को जाँचा</string>
+    <string name="lists_checked_downloaded">%1$s को जाँचा · %2$s डाउनलोड हुआ</string>
+    <string name="lists_only_https">सिर्फ़ https:// लिंक</string>
+    <string name="lists_already">पहले से जोड़ी गई</string>
+    <string name="lists_add_text">समुदाय सूची जोड़ें: किसी .parleylist फ़ाइल का लिंक। प्रकाशक का हस्ताक्षर रखा जाता है और Parley उसे जाँचता है।</string>
+    <string name="lists_add">जोड़ें</string>
+
+    <!-- Update errors -->
+    <string name="lists_err_some">कुछ सूचियाँ अपडेट नहीं हो सकीं</string>
+    <string name="lists_err_failed">अपडेट विफल</string>
+    <string name="lists_err_ftc_format">%1$s की FTC फ़ाइल का फ़ॉर्मैट अनपेक्षित है</string>
+    <string name="lists_err_reserved">यह सूची एक आरक्षित id (%1$s) इस्तेमाल करती है</string>
+    <string name="lists_err_taken">एक दूसरा लिंक पहले से सूची %1$s देता है</string>
+    <string name="lists_err_new_key">सूची अब दूसरी कुंजी से हस्ताक्षरित है; इसे स्वीकार करने के लिए लिंक हटाकर फिर से जोड़ें</string>
+    <string name="lists_err_invalid">मान्य सूची नहीं</string>
+    <string name="lists_err_404">लिंक अब मौजूद नहीं है (404)</string>
+    <string name="lists_err_https">सिर्फ़ https:// लिंक की अनुमति है</string>
+    <string name="lists_err_link">अमान्य लिंक</string>
+    <string name="lists_err_redirect">बिना लक्ष्य का रीडायरेक्ट</string>
+    <string name="lists_err_status">सर्वर ने %1$d जवाब दिया</string>
+    <string name="lists_err_too_large">फ़ाइल बहुत बड़ी है</string>
+    <string name="lists_err_network">नेटवर्क त्रुटि: %1$s</string>
+    <string name="lists_err_redirects">बहुत ज़्यादा रीडायरेक्ट</string>
+</resources>

@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Backup outcomes (core/data) -->
+    <string name="data_bkp_need_pass">Defina primeiro uma senha de backup</string>
+    <string name="data_bkp_need_folder">Escolha primeiro uma pasta de backup</string>
+    <string name="data_bkp_folder_gone">A pasta de backup não está mais acessível. Escolha-a novamente.</string>
+    <string name="data_bkp_failed">Falha no backup: %1$s</string>
+    <string name="data_bkp_not_verified">O backup gravado não pôde ser verificado e foi descartado. Verifique o espaço livre e tente novamente.</string>
+    <plurals name="data_bkp_ready">
+        <item quantity="one">Backup pronto: %1$d contato</item>
+        <item quantity="many">Backup pronto: %1$d contatos</item>
+        <item quantity="other">Backup pronto: %1$d contatos</item>
+    </plurals>
+    <string name="data_bkp_unchanged">Sem mudanças desde o último backup</string>
+    <string name="data_bkp_nothing_changed">Nada mudou desde o último backup</string>
+    <plurals name="data_contacts_count">
+        <item quantity="one">%1$d contato</item>
+        <item quantity="many">%1$d contatos</item>
+        <item quantity="other">%1$d contatos</item>
+    </plurals>
+    <plurals name="data_calls_count">
+        <item quantity="one">%1$d chamada</item>
+        <item quantity="many">%1$d chamadas</item>
+        <item quantity="other">%1$d chamadas</item>
+    </plurals>
+    <string name="data_bkp_result">Backup de %1$s e %2$s</string>
+    <string name="data_bkp_result_vault_missing">Backup de %1$s e %2$s. Os contatos privados não foram incluídos: abra o Parley, desbloqueie-os e faça o backup novamente.</string>
+    <plurals name="data_bkp_backed_up">
+        <item quantity="one">Backup de %1$d contato</item>
+        <item quantity="many">Backup de %1$d contatos</item>
+        <item quantity="other">Backup de %1$d contatos</item>
+    </plurals>
+    <plurals name="data_bkp_backed_up_paused">
+        <item quantity="one">Backup de %1$d contato — rotação pausada porque muitos contatos sumiram</item>
+        <item quantity="many">Backup de %1$d contatos — rotação pausada porque muitos contatos sumiram</item>
+        <item quantity="other">Backup de %1$d contatos — rotação pausada porque muitos contatos sumiram</item>
+    </plurals>
+    <string name="data_rst_safety_failed">Nada foi alterado: o backup de segurança dos seus contatos atuais falhou (%1$s)</string>
+    <string name="data_rst_some_contacts">alguns contatos (%1$s)</string>
+    <string name="data_rst_part_calls">histórico de chamadas</string>
+    <string name="data_rst_part_blocking">regras de bloqueio</string>
+    <string name="data_rst_part_speed_dial">discagem rápida</string>
+    <string name="data_rst_part_settings">configurações</string>
+    <string name="data_rst_part_vault_locked">contatos privados (desbloqueie-os e restaure novamente)</string>
+    <string name="data_rst_part_vault">contatos privados</string>
+    <plurals name="data_rst_added">
+        <item quantity="one">%1$d contato adicionado</item>
+        <item quantity="many">%1$d contatos adicionados</item>
+        <item quantity="other">%1$d contatos adicionados</item>
+    </plurals>
+    <plurals name="data_rst_enriched">
+        <item quantity="one">%1$d atualizado com %2$d dados</item>
+        <item quantity="many">%1$d atualizados com %2$d dados</item>
+        <item quantity="other">%1$d atualizados com %2$d dados</item>
+    </plurals>
+    <plurals name="data_rst_replaced">
+        <item quantity="one">%1$d substituído</item>
+        <item quantity="many">%1$d substituídos</item>
+        <item quantity="other">%1$d substituídos</item>
+    </plurals>
+    <plurals name="data_rst_rules">
+        <item quantity="one">%1$d regra de bloqueio</item>
+        <item quantity="many">%1$d regras de bloqueio</item>
+        <item quantity="other">%1$d regras de bloqueio</item>
+    </plurals>
+    <plurals name="data_rst_vault">
+        <item quantity="one">%1$d contato privado</item>
+        <item quantity="many">%1$d contatos privados</item>
+        <item quantity="other">%1$d contatos privados</item>
+    </plurals>
+    <plurals name="data_rst_failed">
+        <item quantity="one">%1$d com falha</item>
+        <item quantity="many">%1$d com falha</item>
+        <item quantity="other">%1$d com falha</item>
+    </plurals>
+    <string name="data_rst_not_restored">não restaurado: %1$s</string>
+
+    <!-- Folder sync reports (core/data) -->
+    <plurals name="data_sync_imported">
+        <item quantity="one">%1$d novo da pasta</item>
+        <item quantity="many">%1$d novos da pasta</item>
+        <item quantity="other">%1$d novos da pasta</item>
+    </plurals>
+    <plurals name="data_sync_updated">
+        <item quantity="one">%1$d atualizado pela pasta</item>
+        <item quantity="many">%1$d atualizados pela pasta</item>
+        <item quantity="other">%1$d atualizados pela pasta</item>
+    </plurals>
+    <plurals name="data_sync_written">
+        <item quantity="one">%1$d gravado na pasta</item>
+        <item quantity="many">%1$d gravados na pasta</item>
+        <item quantity="other">%1$d gravados na pasta</item>
+    </plurals>
+    <plurals name="data_sync_deleted_local">
+        <item quantity="one">%1$d removido (excluído em outro dispositivo)</item>
+        <item quantity="many">%1$d removidos (excluídos em outro dispositivo)</item>
+        <item quantity="other">%1$d removidos (excluídos em outro dispositivo)</item>
+    </plurals>
+    <plurals name="data_sync_deleted_files">
+        <item quantity="one">%1$d arquivo removido</item>
+        <item quantity="many">%1$d arquivos removidos</item>
+        <item quantity="other">%1$d arquivos removidos</item>
+    </plurals>
+    <plurals name="data_sync_linked">
+        <item quantity="one">%1$d associado a um contato existente</item>
+        <item quantity="many">%1$d associados a contatos existentes</item>
+        <item quantity="other">%1$d associados a contatos existentes</item>
+    </plurals>
+    <plurals name="data_sync_conflicts">
+        <item quantity="one">%1$d conflito mantido como arquivo .conflict</item>
+        <item quantity="many">%1$d conflitos mantidos como arquivos .conflict</item>
+        <item quantity="other">%1$d conflitos mantidos como arquivos .conflict</item>
+    </plurals>
+    <string name="data_sync_in_sync">Tudo sincronizado</string>
+    <string name="data_sync_no_permission">Não sincronizado: o Parley precisa de acesso aos contatos</string>
+    <string name="data_sync_folder_gone">Não sincronizado: a pasta não pode ser aberta. Escolha-a novamente se ela foi movida.</string>
+    <plurals name="data_sync_paused">
+        <item quantity="one">Pausado: esta sincronização excluiria %1$d contato ou arquivo. Confira a pasta e confirme.</item>
+        <item quantity="many">Pausado: esta sincronização excluiria %1$d contatos ou arquivos. Confira a pasta e confirme.</item>
+        <item quantity="other">Pausado: esta sincronização excluiria %1$d contatos ou arquivos. Confira a pasta e confirme.</item>
+    </plurals>
+
+    <!-- Contact health check (core/data) -->
+    <string name="data_health_number_as_name">Sem nome, só um número</string>
+    <string name="data_health_empty">Sem número nem e-mail</string>
+    <string name="data_health_shared">Mesmo número que %1$s</string>
+    <string name="data_health_stale">Sem chamadas há mais de 2 anos</string>
+    <string name="data_health_country_code">%1$s → %2$s</string>
+    <string name="data_health_title_company">O cargo “%1$s” repete a empresa</string>
+
+    <!-- Moving and writing contacts (core/data) -->
+    <string name="data_move_copy_gone">Essa cópia não existe mais</string>
+    <string name="data_move_read_failed">Não foi possível ler o contato</string>
+    <string name="data_move_copy_read_failed">Não foi possível ler essa cópia</string>
+    <string name="data_move_already_there">Ele já está salvo lá</string>
+    <string name="data_move_already_phone">Ele já está salvo neste telefone</string>
+    <string name="data_move_not_writable">Não é possível salvar contatos nessa conta</string>
+    <string name="data_move_no_undo">Não foi possível guardar uma cópia para desfazer, então nada foi movido</string>
+    <string name="data_move_write_failed">Não foi possível gravar a cópia na nova conta</string>
+    <string name="data_move_nothing_to_unlink">Não há nada para desvincular</string>
+    <string name="data_write_only_messenger">Nada para importar (só dados de mensageiros somente leitura)</string>
+    <string name="data_write_not_written">Não gravado</string>
+    <string name="data_write_failed">Não foi possível gravar o contato</string>
+    <plurals name="data_write_fields_failed">
+        <item quantity="one">%1$d campo não pôde ser gravado</item>
+        <item quantity="many">%1$d campos não puderam ser gravados</item>
+        <item quantity="other">%1$d campos não puderam ser gravados</item>
+    </plurals>
+    <string name="data_write_photo_failed">Não foi possível salvar a foto</string>
+    <string name="data_write_not_found">O contato não foi encontrado depois de gravado</string>
+
+    <!-- Labels (core/data) -->
+    <string name="data_label_offhours_off">O horário de descanso só deixava tocar “%1$s”, então foi desativado. Ative-o novamente em Bloqueio › Horário de descanso.</string>
+
+    <!-- Who can see your contacts (core/data) -->
+    <string name="data_audit_messaging">Apps de mensagens usam os contatos para mostrar quem é quem</string>
+    <string name="data_audit_email">Apps de e-mail usam os contatos para sugerir endereços</string>
+    <string name="data_audit_phone">Apps de telefone usam os contatos para mostrar quem está ligando</string>
+
+    <!-- SIM phonebook (core/data) -->
+    <string name="data_sim_full">O SIM não aceitou (pode estar cheio)</string>
+    <string name="data_sim_not_allowed">O Android não permitiu gravar neste SIM</string>
+    <string name="data_sim_rejected">O SIM não aceitou</string>
+    <string name="data_sim_slot">SIM %1$d</string>
+
+    <!-- Call history, files, vault (core/data) -->
+    <string name="data_file_too_large">O arquivo tem mais de 20 MB</string>
+    <string name="data_file_open_failed">Não foi possível abrir o arquivo</string>
+    <string name="data_archive_locked">O arquivo de chamadas do Parley não pode ser desbloqueado agora. Tente mais tarde.</string>
+    <string name="data_file_write_failed">Não foi possível abrir o arquivo para gravação</string>
+    <string name="data_file_read_failed">Não foi possível abrir o arquivo</string>
+    <string name="data_vault_fallback_name">Contato privado</string>
+
+    <!-- Visual voicemail source problems -->
+    <string name="data_vm_can_configure">O correio de voz visual pode ser ativado nas configurações dele</string>
+    <string name="data_vm_not_configured">O correio de voz visual não está configurado</string>
+    <string name="data_vm_no_data">Não é possível acessar o servidor do correio de voz (ele precisa de dados móveis)</string>
+    <string name="data_vm_server_problem">O servidor do correio de voz informou um problema</string>
+    <string name="data_vm_no_connection">Sem conexão com o serviço de correio de voz</string>
+</resources>
