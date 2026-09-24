@@ -191,6 +191,14 @@ internal fun CallsPage(vm: AppViewModel, open: (String) -> Unit) {
     }
     val gestures = listOf(stringResource(R.string.set_answer_swipe), stringResource(R.string.set_answer_tap))
     val sameAsUsual = stringResource(R.string.set_same_as_usual)
+    // The ringtone's title comes from the media provider: read it off the main thread.
+    val toneName by androidx.compose.runtime.produceState<String?>(null, s.unknownRingtone) {
+        value = s.unknownRingtone?.let { u ->
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching { android.media.RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull()
+            }
+        }
+    }
     SegmentedGroup {
         item("default_dialer") {
             InfoRow(
@@ -207,7 +215,6 @@ internal fun CallsPage(vm: AppViewModel, open: (String) -> Unit) {
         choiceRow("answer_gesture", gestures, s.answerGesture.ordinal, Icons.Rounded.TouchApp) { i -> set { it.copy(answerGesture = AnswerGesture.entries[i]) } }
         switchRow("confirm_call", s.confirmBeforeCall, Icons.Rounded.CheckCircle) { v -> set { it.copy(confirmBeforeCall = v) } }
         item("call_haptics") { CallHapticsRow(vm, Icons.Rounded.Vibration) }
-        val toneName = s.unknownRingtone?.let { u -> runCatching { android.media.RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull() }
         linkRow("unknown_ringtone", Icons.Rounded.MusicNote, sub = toneName ?: sameAsUsual) {
             unknownTonePicker.launch(
                 Intent(android.media.RingtoneManager.ACTION_RINGTONE_PICKER)

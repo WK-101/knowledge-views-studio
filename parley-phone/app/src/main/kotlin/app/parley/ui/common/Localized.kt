@@ -12,3 +12,7 @@ fun ImportReport.localizedSummary(res: Resources): String = buildList {
     val unmapped = unmappedProperties.values.sum()
     if (unmapped > 0) add(res.getQuantityString(R.plurals.import_summary_unmapped, unmapped, unmapped))
 }.joinToString(res.getString(R.string.main_separator))
+
+/** An [ImportReport.unmappedProperties] key as shown: a vCard property name as it is, a CSV column in the user's language. */
+fun unmappedLabel(res: Resources, key: String): String =
+    ImportReport.csvColumnName(key)?.let { res.getString(R.string.import_csv_column, it) } ?: key

@@ -1167,7 +1167,7 @@
     <string name="pn_off_default">Off by default</string>
     <string name="pn_intro">Apps you approve can ask Parley for the name of one phone number at a time, for example to show who is calling. They get only that name, never a list, and only after you allow each app. Parley asks you with a notification the first time an app tries, and every request is listed below.</string>
     <string name="pn_directory_section">Phone apps (contacts directory)</string>
-    <string name="pn_directory_summary">Off by default. Uses the same approvals and log as above</string>
+    <string name="pn_directory_summary">Off by default. Apps are allowed separately; same limit and log as above</string>
     <string name="pn_directory_text">When this is on, Android lists Parley as a contacts directory. A phone app that looks callers up in directories (for example Google Phone, also when it runs in your car) can then ask for the name of one number, and only after you allow that app. It never gets a list, a photo or a contact to open, and nothing is answered in discreet mode. Not every phone app asks directories: Google Phone does, others may only look in your contacts.</string>
     <string name="pn_apps">Apps</string>
     <string name="pn_no_app">No app has asked yet</string>
@@ -1360,4 +1360,8 @@
     <string name="handle_problem_server">Needs the server too, like name@server</string>
     <string name="handle_problem_signal">Signal usernames end with a dot and digits, like name.01</string>
     <string name="life_date_of_death">Date of death</string>
+    <string name="privnames_dir_request_title">%1$s wants private names from the directory</string>
+    <string name="privnames_dir_request_text">%1$s looked a caller up in Parley\'s contacts directory. If you allow it, %1$s can show a private contact\'s name when they call, one number at a time; it never gets a list. This is separate from “Let apps show private names”.</string>
+    <string name="pn_directory_apps">Phone apps using the directory</string>
+    <string name="import_csv_column">CSV column “%1$s”</string>
 </resources>

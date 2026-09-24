@@ -781,4 +781,5 @@
         <item quantity="other">%d साल पहले</item>
     </plurals>
     <string name="save_contact_details">संपर्क विवरण सहेजें</string>
+    <string name="vm_messenger_copies_remain">निजी संपर्कों में ले जाया गया। WhatsApp, Signal और दूसरे मैसेंजर में कॉपी तब तक रहती हैं जब तक वह ऐप अपने संपर्क फिर से सिंक नहीं करता</string>
 </resources>

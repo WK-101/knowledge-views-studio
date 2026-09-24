@@ -65,8 +65,10 @@ fun SwipeActionRow(
     onAction: (SwipeAction) -> Unit,
     content: @Composable () -> Unit,
 ) {
-    val towardsEnd = config.action(true).takeIf { config.available(it, hasNumber, canDelete) } ?: SwipeAction.NONE
-    val towardsStart = config.action(false).takeIf { config.available(it, hasNumber, canDelete) } ?: SwipeAction.NONE
+    // "Swipe right" is physically rightwards in every language (L3), whichever way the row is laid out.
+    val rtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
+    val towardsEnd = config.action(true, rtl).takeIf { config.available(it, hasNumber, canDelete) } ?: SwipeAction.NONE
+    val towardsStart = config.action(false, rtl).takeIf { config.available(it, hasNumber, canDelete) } ?: SwipeAction.NONE
     if (towardsEnd == SwipeAction.NONE && towardsStart == SwipeAction.NONE) {
         content()
         return

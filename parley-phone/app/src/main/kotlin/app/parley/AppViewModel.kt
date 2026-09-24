@@ -434,13 +434,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * time-machine versions are purged. Throws [app.parley.data.vault.VaultCrypto.LockedException] if locked.
      */
     suspend fun moveToVault(contactId: Long, d: app.parley.data.ContactDetails): Long {
+        // The pinned note moves into the vault entry (it's shown on the call screen from there).
+        val note = d.pinnedNote.ifBlank { d.lookupKey.takeIf { it.isNotEmpty() }?.let { c.meta.meta(it)?.pinnedNote }.orEmpty() }
         // Lossless: the vault keeps the full contact record (photo included); local copies are purged at once (F4).
-        val moved = c.vaultMoves.moveIn(contactId, d)
+        val moved = c.vaultMoves.moveIn(contactId, d.copy(pinnedNote = note))
         if (d.lookupKey.isNotEmpty()) {
             c.journal.forget(d.lookupKey)
             c.timeMachine.purge(d.lookupKey)
+            // Nothing about the person stays outside the vault: notes, links, call background.
+            runCatching { c.contactKeys.forget(d.lookupKey) }
         }
-        if (moved.removedAfterSync) toast(str(R.string.vm_removed_after_sync))
+        when {
+            moved.messengerCopies -> toast(str(R.string.vm_messenger_copies_remain))
+            moved.removedAfterSync -> toast(str(R.string.vm_removed_after_sync))
+        }
         return moved.vaultId
     }
 

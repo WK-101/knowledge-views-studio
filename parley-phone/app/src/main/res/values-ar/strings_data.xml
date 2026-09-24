@@ -1412,7 +1412,7 @@
     <string name="pn_off_default">متوقف افتراضياً</string>
     <string name="pn_intro">يمكن للتطبيقات التي توافق عليها أن تطلب من Parley اسم رقم هاتف واحد في كل مرة، مثلاً لعرض هوية المتصل. تحصل على ذلك الاسم فقط، لا على قائمة أبداً، وفقط بعد أن تسمح لكل تطبيق. يسألك Parley بإشعار في أول مرة يحاول فيها تطبيق ما، وكل طلب مدرج أدناه.</string>
     <string name="pn_directory_section">تطبيقات الهاتف (دليل جهات الاتصال)</string>
-    <string name="pn_directory_summary">متوقف افتراضياً. يستخدم الموافقات والسجل نفسيهما المذكورين أعلاه</string>
+    <string name="pn_directory_summary">متوقف افتراضياً. تُمنح الموافقة للتطبيقات بشكل منفصل؛ الحد والسجل نفساهما المذكوران أعلاه</string>
     <string name="pn_directory_text">عند التفعيل، يدرج Android تطبيق Parley كدليل لجهات الاتصال. يمكن عندها لتطبيق هاتف يبحث عن المتصلين في الأدلة (مثل Google Phone، وأيضاً عند تشغيله في سيارتك) أن يطلب اسم رقم واحد، وفقط بعد أن تسمح لذلك التطبيق. لا يحصل أبداً على قائمة أو صورة أو جهة اتصال لفتحها، ولا يُجاب على شيء في الوضع المتحفظ. لا تسأل كل تطبيقات الهاتف الأدلة: Google Phone يفعل، وقد تبحث تطبيقات أخرى في جهات اتصالك فقط.</string>
     <string name="pn_apps">التطبيقات</string>
     <string name="pn_no_app">لم يطلب أي تطبيق بعد</string>
@@ -1629,4 +1629,8 @@
     <string name="handle_problem_server">يحتاج إلى الخادم أيضاً، مثل name@server</string>
     <string name="handle_problem_signal">تنتهي أسماء مستخدمي Signal بنقطة وأرقام، مثل name.01</string>
     <string name="life_date_of_death">تاريخ الوفاة</string>
+    <string name="privnames_dir_request_title">يريد %1$s الأسماء الخاصة من الدليل</string>
+    <string name="privnames_dir_request_text">بحث %1$s عن متصل في دليل جهات اتصال Parley. إذا سمحت بذلك، يمكن لـ %1$s عرض اسم جهة اتصال خاصة عندما تتصل، رقمًا واحدًا في كل مرة؛ ولا يحصل أبدًا على قائمة. هذا منفصل عن “السماح للتطبيقات بعرض الأسماء الخاصة”.</string>
+    <string name="pn_directory_apps">تطبيقات الهاتف التي تستخدم الدليل</string>
+    <string name="import_csv_column">عمود CSV “%1$s”</string>
 </resources>

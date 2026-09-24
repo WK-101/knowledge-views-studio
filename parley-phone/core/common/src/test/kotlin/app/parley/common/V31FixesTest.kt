@@ -105,6 +105,62 @@ class RegionPickTest {
     }
 }
 
+class PromptAndDirectoryTest {
+    private val day = app.parley.common.people.LookupPolicy.ASK_INTERVAL_MS
+
+    @Test fun prompts_at_most_once_a_day_and_never_once_decided() {
+        val p = app.parley.common.people.LookupPolicy
+        val pending = app.parley.common.people.LookupApproval.PENDING
+        assertTrue(p.shouldAsk(null, 0, 1_000))
+        assertFalse(p.shouldAsk(pending, 1_000, 1_000 + day - 1))
+        assertTrue(p.shouldAsk(pending, 1_000, 1_000 + day))
+        assertFalse(p.shouldAsk(app.parley.common.people.LookupApproval.DENIED, 0, 1_000))
+        assertFalse(p.shouldAsk(app.parley.common.people.LookupApproval.ALLOWED, 0, 1_000))
+    }
+
+    @Test fun directory_row_ids_never_look_like_contact_ids() {
+        val d = app.parley.common.people.DirectoryPolicy
+        val id = d.rowId(42)
+        assertTrue(id > 0 && d.isDirectoryRowId(id))
+        assertFalse(d.isDirectoryRowId(42))
+        assertTrue(id != d.rowId(43))
+    }
+}
+
+class SwipeDirectionTest {
+    private val c = app.parley.common.people.SwipeConfig(enabled = true, right = app.parley.common.people.SwipeAction.CALL, left = app.parley.common.people.SwipeAction.MESSAGE)
+
+    @Test fun right_is_physically_right_in_both_directions() {
+        // Left to right: towards the end is rightwards.
+        assertEquals(app.parley.common.people.SwipeAction.CALL, c.action(towardsEnd = true, rtl = false))
+        // Right to left: towards the end is leftwards, so it runs the left action.
+        assertEquals(app.parley.common.people.SwipeAction.MESSAGE, c.action(towardsEnd = true, rtl = true))
+        assertEquals(app.parley.common.people.SwipeAction.CALL, c.action(towardsEnd = false, rtl = true))
+    }
+}
+
+class StoredTextTest {
+    @Test fun status_round_trips_and_old_text_stays_text() {
+        val s = StoredStatus.of("report", 1, 2, 3)
+        assertEquals(s, StoredStatus.decode(s.encode()))
+        assertEquals(3, StoredStatus.decode(s.encode())!!.int(2))
+        assertEquals(null, StoredStatus.decode("Backed up 12 contacts"))
+        assertEquals(null, StoredStatus.decode(null))
+    }
+
+    @Test fun csv_columns_are_keys_not_text() {
+        val k = app.parley.common.vcard.ImportReport.csvColumn("Shoe size")
+        assertEquals("Shoe size", app.parley.common.vcard.ImportReport.csvColumnName(k))
+        assertEquals(null, app.parley.common.vcard.ImportReport.csvColumnName("X-SHOE"))
+    }
+
+    @Test fun vault_label_is_a_marker() {
+        assertTrue(NotificationPrivacy.isVaultLabel(NotificationPrivacy.VAULT_LABEL))
+        assertFalse(NotificationPrivacy.isVaultLabel("Mobile"))
+        assertEquals(null, NotificationPrivacy.shownLabel(NotificationPrivacy.VAULT_LABEL))
+    }
+}
+
 class DeferredKeyPressTest {
     private fun tracker() = app.parley.common.calls.KeyPressTracker(deferPress = true)
     private val press = app.parley.common.calls.KeyAction.Press

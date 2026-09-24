@@ -1229,7 +1229,7 @@
     <string name="pn_off_default">Desactivado por defecto</string>
     <string name="pn_intro">Las apps que apruebes pueden pedir a Parley el nombre de un número cada vez, por ejemplo para mostrar quién llama. Solo reciben ese nombre, nunca una lista, y solo después de que permitas cada app. Parley te pregunta con una notificación la primera vez que una app lo intenta, y cada solicitud aparece abajo.</string>
     <string name="pn_directory_section">Apps de teléfono (directorio de contactos)</string>
-    <string name="pn_directory_summary">Desactivado por defecto. Usa las mismas aprobaciones y el mismo registro que arriba</string>
+    <string name="pn_directory_summary">Desactivado por defecto. Las apps se aprueban por separado; mismo límite y registro que arriba</string>
     <string name="pn_directory_text">Con esto activado, Android muestra Parley como directorio de contactos. Una app de teléfono que busca a quien llama en directorios (por ejemplo Teléfono de Google, también cuando se usa en el coche) puede pedir el nombre de un número, y solo después de que permitas esa app. Nunca recibe una lista, una foto ni un contacto que abrir, y en el modo discreto no se responde nada. No todas las apps de teléfono consultan directorios: Teléfono de Google sí, otras quizá solo busquen en tus contactos.</string>
     <string name="pn_apps">Apps</string>
     <string name="pn_no_app">Ninguna app lo ha pedido aún</string>
@@ -1428,4 +1428,8 @@
     <string name="handle_problem_server">Falta el servidor, como nombre@servidor</string>
     <string name="handle_problem_signal">Los usuarios de Signal terminan con un punto y cifras, como nombre.01</string>
     <string name="life_date_of_death">Fecha de fallecimiento</string>
+    <string name="privnames_dir_request_title">%1$s quiere nombres privados del directorio</string>
+    <string name="privnames_dir_request_text">%1$s buscó a quien llama en el directorio de contactos de Parley. Si lo permites, %1$s podrá mostrar el nombre de un contacto privado cuando llame, un número cada vez; nunca recibe una lista. Esto es independiente de «Permitir que las apps muestren nombres privados».</string>
+    <string name="pn_directory_apps">Apps de teléfono que usan el directorio</string>
+    <string name="import_csv_column">Columna CSV «%1$s»</string>
 </resources>

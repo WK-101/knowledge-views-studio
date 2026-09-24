@@ -9,6 +9,7 @@ import app.parley.common.MessagedRecord
 import app.parley.common.MessengerApp
 import app.parley.data.PhoneEnv
 import app.parley.data.vault.VaultCrypto
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -74,9 +75,23 @@ class MessagingStore(
     /** Set while a chat with an unknown number is open in a messenger (in memory only). */
     val openedChat: StateFlow<OpenedChat?> = _openedChat.asStateFlow()
 
+    /** Completed once the record was read: changes wait for it, so none is applied to (and saved over) an empty list. */
+    private val loaded = CompletableDeferred<Unit>()
+
+    private val _recordUnreadable = MutableStateFlow(false)
+    /**
+     * The stored record couldn't be decrypted (a Keystore hiccup, or the key is gone). Its ciphertext is kept as it
+     * is: nothing is saved over it until it reads again, except "Clear all" / turning the record off.
+     */
+    val recordUnreadable: StateFlow<Boolean> = _recordUnreadable.asStateFlow()
+
     init {
         scope.launch(Dispatchers.IO) {
-            recordLock.withLock { publish(loadRecord()) }
+            try {
+                recordLock.withLock { publish(loadRecord()) }
+            } finally {
+                loaded.complete(Unit)
+            }
             // M10: expired entries go as soon as the record is loaded, not only in the daily housekeeping.
             runCatching { pruneExpired() }
         }
@@ -142,8 +157,8 @@ class MessagingStore(
     /** Per-item delete by record key (for entries kept from before F13, which have no number). */
     suspend fun forgetKey(key: String) = update { list -> list.filterNot { it.key == key } }
 
-    /** "Clear all". */
-    suspend fun clearAll() = update { emptyList() }
+    /** "Clear all" (also removes a record that can't be read any more). */
+    suspend fun clearAll() = update(force = true) { emptyList() }
 
     /** Call-history retention: drops entries older than [before]. */
     suspend fun pruneOlderThan(before: Long) = update { MessagedRecord.prune(it, before) }
@@ -171,12 +186,22 @@ class MessagingStore(
         if (!enabled) clearAll()
     }
 
-    private suspend fun update(change: (List<MessagedEntry>) -> List<MessagedEntry>) = withContext(Dispatchers.IO) {
+    /**
+     * Applies [change] to the record once it has loaded. While the stored record can't be decrypted nothing is
+     * written over it (it's read again first, in case the key is back); [force] ("Clear all") replaces it anyway.
+     */
+    private suspend fun update(force: Boolean = false, change: (List<MessagedEntry>) -> List<MessagedEntry>) = withContext(Dispatchers.IO) {
+        loaded.await()
         recordLock.withLock {
+            if (_recordUnreadable.value && !force) {
+                val again = loadRecord()
+                if (_recordUnreadable.value) return@withLock
+                publish(again)
+            }
             val next = change(entries)
-            if (next == entries) return@withLock
+            if (next == entries && !(force && _recordUnreadable.value)) return@withLock
             publish(next)
-            saveRecord(next)
+            if (saveRecord(next) && force) _recordUnreadable.value = false
         }
     }
 
@@ -189,8 +214,11 @@ class MessagingStore(
 
     private fun loadRecord(): List<MessagedEntry> {
         prefs.getString(K_RECORD, null)?.let { enc ->
-            return runCatching { decode(String(VaultCrypto.openCallerId(Base64.decode(enc, Base64.NO_WRAP)))) }.getOrDefault(emptyList())
+            val read = runCatching { decode(String(VaultCrypto.openCallerId(Base64.decode(enc, Base64.NO_WRAP)))) }
+            _recordUnreadable.value = read.isFailure
+            return read.getOrDefault(emptyList())
         }
+        _recordUnreadable.value = false
         // The plain record from before F13: convert once, then remove it.
         val plain = prefs.getString(K_LAST_MESSAGED_PLAIN, null) ?: return emptyList()
         val migrated = runCatching {

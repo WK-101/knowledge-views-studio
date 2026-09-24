@@ -1229,7 +1229,7 @@
     <string name="pn_off_default">Désactivé par défaut</string>
     <string name="pn_intro">Les apps que vous approuvez peuvent demander à Parley le nom d\'un numéro à la fois, par exemple pour afficher qui appelle. Elles ne reçoivent que ce nom, jamais de liste, et seulement après que vous avez autorisé chaque app. Parley vous le demande par une notification la première fois qu\'une app essaie, et chaque demande est listée ci-dessous.</string>
     <string name="pn_directory_section">Apps de téléphone (annuaire de contacts)</string>
-    <string name="pn_directory_summary">Désactivé par défaut. Utilise les mêmes autorisations et le même journal que ci-dessus</string>
+    <string name="pn_directory_summary">Désactivé par défaut. Les apps sont autorisées séparément ; même limite et même journal que ci-dessus</string>
     <string name="pn_directory_text">Quand cette option est activée, Android présente Parley comme un annuaire de contacts. Une app de téléphone qui cherche les appelants dans les annuaires (par exemple Téléphone de Google, y compris dans votre voiture) peut alors demander le nom d\'un numéro, et seulement après que vous avez autorisé cette app. Elle ne reçoit jamais de liste, de photo ni de contact à ouvrir, et rien n\'est répondu en mode discret. Toutes les apps de téléphone n\'interrogent pas les annuaires : Téléphone de Google le fait, d\'autres ne cherchent peut-être que dans vos contacts.</string>
     <string name="pn_apps">Apps</string>
     <string name="pn_no_app">Aucune app n\'a encore demandé</string>
@@ -1428,4 +1428,8 @@
     <string name="handle_problem_server">Il faut aussi le serveur, comme nom@serveur</string>
     <string name="handle_problem_signal">Les noms Signal finissent par un point et des chiffres, comme nom.01</string>
     <string name="life_date_of_death">Date du décès</string>
+    <string name="privnames_dir_request_title">%1$s veut les noms privés de l’annuaire</string>
+    <string name="privnames_dir_request_text">%1$s a cherché un appelant dans l’annuaire de contacts de Parley. Si vous l’autorisez, %1$s pourra afficher le nom d’un contact privé quand il appelle, un numéro à la fois ; l’app ne reçoit jamais de liste. C’est indépendant de « Laisser les apps afficher les noms privés ».</string>
+    <string name="pn_directory_apps">Apps de téléphone utilisant l’annuaire</string>
+    <string name="import_csv_column">Colonne CSV « %1$s »</string>
 </resources>

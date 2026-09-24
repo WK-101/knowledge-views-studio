@@ -191,4 +191,5 @@
     <string name="postcall_save_title">Save privately for 7 days</string>
     <string name="postcall_name">Name</string>
     <string name="postcall_save_explainer">Kept in Parley\'s private contacts, where other apps can\'t see it, and deleted automatically after 7 days with its call history. You can keep it from Temporary contacts.</string>
+    <string name="tc_private_label">Private</string>
 </resources>

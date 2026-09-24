@@ -1229,7 +1229,7 @@
     <string name="pn_off_default">Desativado por padrão</string>
     <string name="pn_intro">Apps que você aprovar podem pedir ao Parley o nome de um número por vez, por exemplo para mostrar quem está ligando. Eles recebem só esse nome, nunca uma lista, e só depois que você permitir cada app. O Parley pergunta por uma notificação na primeira vez que um app tenta, e cada pedido aparece abaixo.</string>
     <string name="pn_directory_section">Apps de telefone (diretório de contatos)</string>
-    <string name="pn_directory_summary">Desativado por padrão. Usa as mesmas aprovações e o mesmo registro de cima</string>
+    <string name="pn_directory_summary">Desativado por padrão. Os apps são aprovados separadamente; mesmo limite e registro de cima</string>
     <string name="pn_directory_text">Com isto ativado, o Android lista o Parley como um diretório de contatos. Um app de telefone que procura quem liga em diretórios (por exemplo o Telefone do Google, inclusive no carro) pode então pedir o nome de um número, e só depois que você permitir esse app. Ele nunca recebe uma lista, uma foto nem um contato para abrir, e nada é respondido no modo discreto. Nem todo app de telefone consulta diretórios: o Telefone do Google consulta, outros podem procurar só nos seus contatos.</string>
     <string name="pn_apps">Apps</string>
     <string name="pn_no_app">Nenhum app pediu ainda</string>
@@ -1428,4 +1428,8 @@
     <string name="handle_problem_server">Precisa do servidor também, como nome@servidor</string>
     <string name="handle_problem_signal">Nomes do Signal terminam com ponto e números, como nome.01</string>
     <string name="life_date_of_death">Data de falecimento</string>
+    <string name="privnames_dir_request_title">%1$s quer nomes privados do diretório</string>
+    <string name="privnames_dir_request_text">%1$s procurou quem está ligando no diretório de contatos do Parley. Se você permitir, %1$s poderá mostrar o nome de um contato privado quando ele ligar, um número por vez; nunca recebe uma lista. Isso é separado de “Permitir que apps mostrem nomes privados”.</string>
+    <string name="pn_directory_apps">Apps de telefone que usam o diretório</string>
+    <string name="import_csv_column">Coluna CSV “%1$s”</string>
 </resources>

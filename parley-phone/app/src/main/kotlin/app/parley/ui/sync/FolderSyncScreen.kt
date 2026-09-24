@@ -96,7 +96,7 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
                 )
                 ListItem(
                     headlineContent = { Text(if (st.lastSyncAt > 0) stringResource(R.string.sync_last, Format.shortWhen(context, st.lastSyncAt)) else stringResource(R.string.sync_never)) },
-                    supportingContent = st.lastResult?.let { r -> { Text(r) } },
+                    supportingContent = st.resultText(androidx.compose.ui.platform.LocalResources.current)?.let { r -> { Text(r) } },
                     leadingContent = { Icon(Icons.Rounded.Sync, null) },
                 )
                 if (st.pendingDeletions > 0 && !running) {

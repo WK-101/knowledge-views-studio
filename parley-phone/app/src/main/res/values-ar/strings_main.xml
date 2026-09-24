@@ -969,4 +969,5 @@
         <item quantity="other">قبل %d سنة</item>
     </plurals>
     <string name="save_contact_details">حفظ بيانات جهة الاتصال</string>
+    <string name="vm_messenger_copies_remain">نُقلت إلى جهات الاتصال الخاصة. تبقى النسخ في WhatsApp وSignal وتطبيقات المراسلة الأخرى حتى يعيد ذلك التطبيق مزامنة جهات اتصاله</string>
 </resources>

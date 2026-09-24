@@ -18,5 +18,11 @@ object NotificationPrivacy {
             ?: number?.takeIf { it.isNotBlank() }
 
     /** A number label that may be shown in a call notification ("Mobile", "Work"), or null. */
-    fun shownLabel(label: String?): String? = label?.takeUnless { it.isBlank() || it.equals(VAULT_LABEL, ignoreCase = true) }
+    fun shownLabel(label: String?): String? = label?.takeUnless { it.isBlank() || isVaultLabel(it) }
+
+    /**
+     * Whether [label] is the vault's marker. It's a marker, not text: the call screen shows it in the user's
+     * language (and notifications never show it).
+     */
+    fun isVaultLabel(label: String?): Boolean = label != null && label.equals(VAULT_LABEL, ignoreCase = true)
 }

@@ -781,4 +781,5 @@
         <item quantity="other">%d سال پہلے</item>
     </plurals>
     <string name="save_contact_details">رابطے کی تفصیلات محفوظ کریں</string>
+    <string name="vm_messenger_copies_remain">نجی رابطوں میں منتقل کر دیا گیا۔ WhatsApp، Signal اور دوسرے میسنجرز میں کاپیاں تب تک رہیں گی جب تک وہ ایپ اپنے رابطے دوبارہ سنک نہ کرے</string>
 </resources>

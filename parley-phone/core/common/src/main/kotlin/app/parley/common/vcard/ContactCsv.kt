@@ -276,7 +276,7 @@ object ContactCsv {
             val raw = cells.joinToString(delimiter.toString())
             try {
                 fun cell(name: String): String = idx[name.lowercase()]?.let { cells.getOrNull(it) }?.let(::unescapeFormula)?.trim().orEmpty()
-                unknownCols.forEach { c -> if (cell(c).isNotEmpty()) report.unmapped("CSV column “$c”") }
+                unknownCols.forEach { c -> if (cell(c).isNotEmpty()) report.unmapped(ImportReport.csvColumn(c)) }
                 val rows = ArrayList<DataRow>()
                 fun put(mime: String, vararg pairs: Pair<String, String?>) {
                     val v = linkedMapOf<String, String>()

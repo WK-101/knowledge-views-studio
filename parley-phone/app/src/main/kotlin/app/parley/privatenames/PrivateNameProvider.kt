@@ -17,7 +17,6 @@ import app.parley.MainActivity
 import app.parley.common.people.LookupApproval
 import app.parley.common.people.LookupOutcome
 import app.parley.common.people.LookupPolicy
-import app.parley.data.DataContainer
 import app.parley.ParleyApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -42,7 +41,7 @@ class PrivateNameProvider : ContentProvider() {
         val ctx = context ?: return result
         val caller = callingPackage ?: return result
         if (caller == ctx.packageName) return result
-        val c = container(ctx) ?: return result
+        val c = (ctx.applicationContext as? ParleyApp)?.containerOrNull ?: return result
         val access = c.people.privateNames
         val segments = uri.pathSegments
         val number = if (segments.size == 2 && segments[0] == PATH && selection.isNullOrEmpty() && selectionArgs.isNullOrEmpty()) LookupPolicy.parseNumber(segments[1]) else null
@@ -50,8 +49,8 @@ class PrivateNameProvider : ContentProvider() {
         val approval = access.approval(caller)
         var outcome = LookupPolicy.decide(access.state.value.enabled, approval, number != null, access.recentQueries(caller, now), now)
         when (outcome) {
-            LookupOutcome.ASKED -> if (approval == null) {
-                access.setApproval(caller, LookupApproval.PENDING)
+            LookupOutcome.ASKED -> if (access.takePrompt(caller, directory = false, now = now)) {
+                if (approval == null) access.setApproval(caller, LookupApproval.PENDING)
                 askUser(ctx, caller)
             }
             LookupOutcome.ANSWERED -> {
@@ -74,19 +73,6 @@ class PrivateNameProvider : ContentProvider() {
 
     override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?): Int = 0
 
-    /** Providers can be queried while the app is still starting: wait briefly for the container. */
-    private fun container(ctx: Context): DataContainer? {
-        val app = ctx.applicationContext as? ParleyApp ?: return null
-        repeat(40) {
-            try {
-                return app.container
-            } catch (_: UninitializedPropertyAccessException) {
-                Thread.sleep(50)
-            }
-        }
-        return null
-    }
-
     companion object {
         const val PATH = "lookup"
         private val COLUMNS = arrayOf("display_name", "photo_uri")
@@ -101,22 +87,23 @@ class PrivateNameProvider : ContentProvider() {
             runCatching { context.packageManager.resolveContentProvider(authority(context), 0)?.readPermission }
                 .getOrNull() ?: "app.parley.permission.LOOKUP_PRIVATE_NAME"
 
-        internal fun askUser(ctx: Context, pkg: String) {
+        /** [directory]: the request is for the contacts Directory (I7), which has its own approvals and text. */
+        internal fun askUser(ctx: Context, pkg: String, directory: Boolean = false) {
             val pm = ctx.packageManager
             val label = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
             ctx.getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(NotificationChannel(CHANNEL, ctx.getString(app.parley.R.string.privnames_channel), NotificationManager.IMPORTANCE_DEFAULT))
-            val id = pkg.hashCode()
+            val id = notificationId(pkg, directory)
             fun decide(allow: Boolean) = PendingIntent.getBroadcast(
                 ctx, id * 2 + if (allow) 1 else 0,
-                Intent(ctx, PrivateNameDecisionReceiver::class.java).putExtra(EXTRA_PACKAGE, pkg).putExtra(EXTRA_ALLOW, allow),
+                Intent(ctx, PrivateNameDecisionReceiver::class.java).putExtra(EXTRA_PACKAGE, pkg).putExtra(EXTRA_ALLOW, allow).putExtra(EXTRA_DIRECTORY, directory),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
             val open = PendingIntent.getActivity(ctx, id, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE)
             val n = NotificationCompat.Builder(ctx, CHANNEL)
                 .setSmallIcon(app.parley.R.drawable.ic_tile_private)
-                .setContentTitle(ctx.getString(app.parley.R.string.privnames_request_title, label))
-                .setStyle(NotificationCompat.BigTextStyle().bigText(ctx.getString(app.parley.R.string.privnames_request_text, label)))
+                .setContentTitle(ctx.getString(if (directory) app.parley.R.string.privnames_dir_request_title else app.parley.R.string.privnames_request_title, label))
+                .setStyle(NotificationCompat.BigTextStyle().bigText(ctx.getString(if (directory) app.parley.R.string.privnames_dir_request_text else app.parley.R.string.privnames_request_text, label)))
                 .setContentIntent(open)
                 .setAutoCancel(true)
                 .addAction(0, ctx.getString(app.parley.R.string.privnames_allow), decide(true))
@@ -130,8 +117,11 @@ class PrivateNameProvider : ContentProvider() {
 
         const val EXTRA_PACKAGE = "package"
         const val EXTRA_ALLOW = "allow"
+        const val EXTRA_DIRECTORY = "directory"
 
-        fun cancel(ctx: Context, pkg: String) = NotificationManagerCompat.from(ctx).cancel(NOTIFICATION_TAG, pkg.hashCode())
+        private fun notificationId(pkg: String, directory: Boolean) = if (directory) ("directory:" + pkg).hashCode() else pkg.hashCode()
+
+        fun cancel(ctx: Context, pkg: String, directory: Boolean = false) = NotificationManagerCompat.from(ctx).cancel(NOTIFICATION_TAG, notificationId(pkg, directory))
     }
 }
 
@@ -140,7 +130,9 @@ class PrivateNameDecisionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val pkg = intent.getStringExtra(PrivateNameProvider.EXTRA_PACKAGE) ?: return
         val allow = intent.getBooleanExtra(PrivateNameProvider.EXTRA_ALLOW, false)
-        (context.applicationContext as? ParleyApp)?.container?.people?.privateNames?.setApproval(pkg, if (allow) LookupApproval.ALLOWED else LookupApproval.DENIED)
-        PrivateNameProvider.cancel(context, pkg)
+        val directory = intent.getBooleanExtra(PrivateNameProvider.EXTRA_DIRECTORY, false)
+        (context.applicationContext as? ParleyApp)?.containerOrNull?.people?.privateNames
+            ?.setApproval(pkg, if (allow) LookupApproval.ALLOWED else LookupApproval.DENIED, directory)
+        PrivateNameProvider.cancel(context, pkg, directory)
     }
 }

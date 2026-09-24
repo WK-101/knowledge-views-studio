@@ -828,4 +828,5 @@
         <item quantity="other">il y a %d ans</item>
     </plurals>
     <string name="save_contact_details">Enregistrer les coordonnées</string>
+    <string name="vm_messenger_copies_remain">Déplacé vers les contacts privés. Les copies dans WhatsApp, Signal et les autres messageries restent jusqu’à ce que l’app resynchronise ses contacts</string>
 </resources>

@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import java.security.MessageDigest
 import app.parley.common.people.LookupApproval
 import app.parley.common.people.LookupOutcome
+import app.parley.common.people.LookupPolicy
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.json.JSONArray
@@ -19,6 +20,8 @@ data class PrivateNameState(
     val log: List<LookupLogEntry> = emptyList(),
     /** I7: the contacts Directory that approved phone apps can ask (off by default). */
     val directory: Boolean = false,
+    /** I7: approvals for the Directory, kept apart from the lookup provider's (allowing one never allows the other). */
+    val directoryApprovals: Map<String, LookupApproval> = emptyMap(),
 )
 
 /**
@@ -54,34 +57,51 @@ class PrivateNameAccess(context: Context) {
      * otherwise it's as if the app never asked.
      */
     @Synchronized
-    fun approval(pkg: String): LookupApproval? {
-        val a = _state.value.approvals[pkg] ?: return null
+    fun approval(pkg: String, directory: Boolean = false): LookupApproval? {
+        val a = approvalsOf(directory)[pkg] ?: return null
         if (a != LookupApproval.ALLOWED) return a
-        val cert = certs()[pkg] ?: return null
+        val cert = certs(directory)[pkg] ?: return null
         return if (signedWith(pkg, cert)) a else null
     }
 
+    /** [directory]: the Directory's approval (I7), separate from the lookup provider's. */
     @Synchronized
-    fun setApproval(pkg: String, a: LookupApproval?) {
+    fun setApproval(pkg: String, a: LookupApproval?, directory: Boolean = false) {
         // Allowing needs the app's certificate: an app that can't be looked up now is asked again on its next query.
         val cert = if (a == LookupApproval.ALLOWED) currentCert(pkg) else null
-        store(pkg, if (a == LookupApproval.ALLOWED && cert == null) null else a, cert)
+        store(pkg, if (a == LookupApproval.ALLOWED && cert == null) null else a, cert, directory)
     }
 
-    private fun store(pkg: String, a: LookupApproval?, cert: String?) {
-        val m = _state.value.approvals.toMutableMap()
+    /**
+     * Whether to show [pkg] an approval prompt now; records the prompt when it returns true. At most one prompt per
+     * app and scope a day ([LookupPolicy.shouldAsk]), so an app that keeps querying can't flood the user.
+     */
+    @Synchronized
+    fun takePrompt(pkg: String, directory: Boolean, now: Long = System.currentTimeMillis()): Boolean {
+        val key = (if (directory) "d:" else "p:") + pkg
+        val asked = runCatching { JSONObject(prefs.getString(K_ASKED, "{}")!!) }.getOrDefault(JSONObject())
+        if (!LookupPolicy.shouldAsk(approval(pkg, directory), asked.optLong(key, 0L), now)) return false
+        asked.put(key, now)
+        prefs.edit().putString(K_ASKED, asked.toString()).apply()
+        return true
+    }
+
+    private fun approvalsOf(directory: Boolean) = if (directory) _state.value.directoryApprovals else _state.value.approvals
+
+    private fun store(pkg: String, a: LookupApproval?, cert: String?, directory: Boolean = false) {
+        val m = approvalsOf(directory).toMutableMap()
         if (a == null) m.remove(pkg) else m[pkg] = a
-        val c = certs().toMutableMap()
+        val c = certs(directory).toMutableMap()
         if (cert == null) c.remove(pkg) else c[pkg] = cert
         prefs.edit()
-            .putString(K_APPROVALS, JSONObject(m.mapValues { it.value.name }).toString())
-            .putString(K_CERTS, JSONObject(c.toMap()).toString())
+            .putString(if (directory) K_DIR_APPROVALS else K_APPROVALS, JSONObject(m.mapValues { it.value.name }).toString())
+            .putString(if (directory) K_DIR_CERTS else K_CERTS, JSONObject(c.toMap()).toString())
             .apply()
         _state.value = read()
     }
 
-    private fun certs(): Map<String, String> = runCatching {
-        val o = JSONObject(prefs.getString(K_CERTS, "{}")!!)
+    private fun certs(directory: Boolean = false): Map<String, String> = runCatching {
+        val o = JSONObject(prefs.getString(if (directory) K_DIR_CERTS else K_CERTS, "{}")!!)
         o.keys().asSequence().associateWith { o.getString(it) }
     }.getOrDefault(emptyMap())
 
@@ -124,10 +144,11 @@ class PrivateNameAccess(context: Context) {
     }
 
     private fun read(): PrivateNameState {
-        val approvals = runCatching {
-            val o = JSONObject(prefs.getString(K_APPROVALS, "{}")!!)
+        fun approvals(key: String) = runCatching {
+            val o = JSONObject(prefs.getString(key, "{}")!!)
             o.keys().asSequence().mapNotNull { k -> LookupApproval.entries.firstOrNull { it.name == o.getString(k) }?.let { k to it } }.toMap()
         }.getOrDefault(emptyMap())
+        val approvals = approvals(K_APPROVALS)
         val log = runCatching {
             val a = JSONArray(prefs.getString(K_LOG, "[]")!!)
             (0 until a.length()).mapNotNull { i ->
@@ -135,15 +156,18 @@ class PrivateNameAccess(context: Context) {
                 LookupOutcome.entries.firstOrNull { it.name == o.optString("o") }?.let { LookupLogEntry(o.getString("p"), o.getLong("t"), it, o.optBoolean("d")) }
             }
         }.getOrDefault(emptyList())
-        return PrivateNameState(prefs.getBoolean(K_ENABLED, false), approvals, log, prefs.getBoolean(K_DIRECTORY, false))
+        return PrivateNameState(prefs.getBoolean(K_ENABLED, false), approvals, log, prefs.getBoolean(K_DIRECTORY, false), approvals(K_DIR_APPROVALS))
     }
 
     /** Approvals for the backup, each with the certificate it was given to (the log is not backed up). */
     fun exportApprovals(): String {
-        val certs = certs()
         val out = JSONObject()
-        _state.value.approvals.filterValues { it != LookupApproval.PENDING }.forEach { (pkg, a) ->
-            out.put(pkg, JSONObject().put("approval", a.name).apply { certs[pkg]?.let { put("cert", it) } })
+        for (directory in listOf(false, true)) {
+            val certs = certs(directory)
+            approvalsOf(directory).filterValues { it != LookupApproval.PENDING }.forEach { (pkg, a) ->
+                // Directory approvals carry a prefix no package name can have; older versions skip them (not installed).
+                out.put((if (directory) DIR_PREFIX else "") + pkg, JSONObject().put("approval", a.name).apply { certs[pkg]?.let { put("cert", it) } })
+            }
         }
         return out.toString()
     }
@@ -156,14 +180,16 @@ class PrivateNameAccess(context: Context) {
     fun importApprovals(json: String) {
         runCatching {
             val o = JSONObject(json)
-            for (pkg in o.keys()) {
-                val entry = o.optJSONObject(pkg)
-                val a = LookupApproval.entries.firstOrNull { it.name == (entry?.optString("approval") ?: o.optString(pkg)) } ?: continue
+            for (key in o.keys()) {
+                val entry = o.optJSONObject(key)
+                val a = LookupApproval.entries.firstOrNull { it.name == (entry?.optString("approval") ?: o.optString(key)) } ?: continue
+                val directory = key.startsWith(DIR_PREFIX)
+                val pkg = key.removePrefix(DIR_PREFIX)
                 when (a) {
-                    LookupApproval.DENIED -> store(pkg, a, null)
+                    LookupApproval.DENIED -> store(pkg, a, null, directory)
                     LookupApproval.ALLOWED -> {
                         val cert = entry?.optString("cert")?.takeIf { it.matches(Regex("[0-9a-f]{64}")) } ?: continue
-                        if (signedWith(pkg, cert)) store(pkg, a, cert)
+                        if (signedWith(pkg, cert)) store(pkg, a, cert, directory)
                     }
                     LookupApproval.PENDING -> Unit
                 }
@@ -177,6 +203,10 @@ class PrivateNameAccess(context: Context) {
         const val K_LOG = "log"
         const val K_CERTS = "approval_certs"
         const val K_DIRECTORY = "directory"
+        const val K_DIR_APPROVALS = "directory_approvals"
+        const val K_DIR_CERTS = "directory_approval_certs"
+        const val K_ASKED = "asked_at"
+        const val DIR_PREFIX = "directory:"
         const val MAX_LOG = 200
     }
 }

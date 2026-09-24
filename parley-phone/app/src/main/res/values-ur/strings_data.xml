@@ -1168,7 +1168,7 @@
     <string name="pn_off_default">ڈیفالٹ طور پر بند</string>
     <string name="pn_intro">جن ایپس کو آپ منظوری دیتے ہیں وہ Parley سے ایک وقت میں ایک فون نمبر کا نام پوچھ سکتی ہیں، مثلاً یہ دکھانے کے لیے کہ کون کال کر رہا ہے۔ انہیں صرف وہ نام ملتا ہے، کبھی فہرست نہیں، اور صرف تب جب آپ ہر ایپ کو اجازت دیں۔ جب کوئی ایپ پہلی بار کوشش کرتی ہے تو Parley اطلاع کے ذریعے آپ سے پوچھتا ہے، اور ہر درخواست نیچے درج ہوتی ہے۔</string>
     <string name="pn_directory_section">فون ایپس (رابطوں کی ڈائریکٹری)</string>
-    <string name="pn_directory_summary">ڈیفالٹ طور پر بند۔ اوپر والی منظوریاں اور لاگ ہی استعمال کرتا ہے</string>
+    <string name="pn_directory_summary">ڈیفالٹ طور پر بند۔ ایپس کو الگ سے منظوری دی جاتی ہے؛ اوپر والی حد اور لاگ ہی</string>
     <string name="pn_directory_text">یہ آن ہونے پر Android، Parley کو رابطوں کی ڈائریکٹری کے طور پر دکھاتا ہے۔ جو فون ایپ کال کرنے والوں کو ڈائریکٹریوں میں تلاش کرتی ہے (مثلاً Google فون، گاڑی میں چلتے ہوئے بھی) وہ ایک نمبر کا نام پوچھ سکتی ہے، اور صرف تب جب آپ اس ایپ کو اجازت دیں۔ اسے کبھی فہرست، تصویر یا کھولنے کے لیے رابطہ نہیں ملتا، اور خفیہ موڈ میں کوئی جواب نہیں دیا جاتا۔ ہر فون ایپ ڈائریکٹریوں سے نہیں پوچھتی: Google فون پوچھتی ہے، دوسری شاید صرف آپ کے رابطوں میں دیکھیں۔</string>
     <string name="pn_apps">ایپس</string>
     <string name="pn_no_app">ابھی کسی ایپ نے نہیں پوچھا</string>
@@ -1361,4 +1361,8 @@
     <string name="handle_problem_server">سرور بھی چاہیے، جیسے name@server</string>
     <string name="handle_problem_signal">Signal یوزرنیم نقطے اور ہندسوں پر ختم ہوتے ہیں، جیسے name.01</string>
     <string name="life_date_of_death">تاریخِ وفات</string>
+    <string name="privnames_dir_request_title">%1$s ڈائریکٹری سے نجی نام چاہتا ہے</string>
+    <string name="privnames_dir_request_text">%1$s نے Parley کی رابطہ ڈائریکٹری میں کال کرنے والے کو تلاش کیا۔ اجازت دینے پر %1$s کال آنے پر کسی نجی رابطے کا نام دکھا سکتا ہے، ایک وقت میں ایک نمبر؛ اسے کبھی فہرست نہیں ملتی۔ یہ “ایپس کو نجی نام دکھانے دیں” سے الگ ہے۔</string>
+    <string name="pn_directory_apps">ڈائریکٹری استعمال کرنے والی فون ایپس</string>
+    <string name="import_csv_column">CSV کالم “%1$s”</string>
 </resources>

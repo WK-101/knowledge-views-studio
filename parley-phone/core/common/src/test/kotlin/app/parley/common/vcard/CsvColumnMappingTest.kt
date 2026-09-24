@@ -144,7 +144,7 @@ class CsvColumnMappingTest {
         assertEquals(1, list.size)
         assertEquals("=cmd", rows(list[0], Mime.NAME).single()[Col.D1])
         assertEquals(1, report.failures.size)
-        assertEquals(2, report.unmappedProperties["CSV column “Extra”"])
+        assertEquals(2, report.unmappedProperties[ImportReport.csvColumn("Extra")])
     }
 
     @Test fun phone_and_email_type_labels() {

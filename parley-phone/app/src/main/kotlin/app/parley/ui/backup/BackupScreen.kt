@@ -140,7 +140,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                             state.keyId?.let { stringResource(R.string.bkp_verified_key, Format.fullDate(context, state.lastVerifiedAt), it) }
                                 ?: stringResource(R.string.bkp_verified, Format.fullDate(context, state.lastVerifiedAt)),
                             style = MaterialTheme.typography.bodySmall)
-                        state.lastResult?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                        state.resultText(androidx.compose.ui.platform.LocalResources.current)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                         if (state.rotationPaused) Row { Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.error); Text("  " + stringResource(R.string.bkp_rotation_paused), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                         if (state.rotationPaused) TextButton({ repo.resumeRotation() }) { Text(stringResource(R.string.bkp_resume_rotation)) }
                         Text(

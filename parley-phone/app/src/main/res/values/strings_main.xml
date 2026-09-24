@@ -866,4 +866,5 @@
         <item quantity="other">%d years ago</item>
     </plurals>
     <string name="save_contact_details">Save contact details</string>
+    <string name="vm_messenger_copies_remain">Moved to private contacts. Copies in WhatsApp, Signal and other messengers stay until that app syncs its contacts again</string>
 </resources>

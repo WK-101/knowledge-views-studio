@@ -21,6 +21,20 @@ data class ImportReport(
 ) {
     val cardsFailed: Int get() = failures.size
 
+    companion object {
+        private const val CSV_COLUMN = "csv-column:"
+
+        /**
+         * The [unmappedProperties] key for a CSV column [name] (or 1-based number). Not text to show: the app turns
+         * it into "CSV column “name”" in the user's language ([csvColumnName] tells such keys apart). vCard property
+         * names never contain ':', so the keys can't collide.
+         */
+        fun csvColumn(name: String): String = CSV_COLUMN + name
+
+        /** The column name of a [csvColumn] key, or null for a vCard property. */
+        fun csvColumnName(key: String): String? = key.takeIf { it.startsWith(CSV_COLUMN) }?.removePrefix(CSV_COLUMN)
+    }
+
     /** One-line summary, e.g. "Imported 12 of 14 · 1 duplicate skipped · 1 failed". */
     fun summary(): String = buildList {
         add("Imported $imported of ${cardsParsed + cardsFailed}")

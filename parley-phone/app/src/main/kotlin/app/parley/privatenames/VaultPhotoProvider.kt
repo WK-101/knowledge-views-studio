@@ -20,7 +20,8 @@ class VaultPhotoProvider : ContentProvider() {
         if (mode != "r") throw FileNotFoundException("Read only")
         val id = uri.pathSegments.firstOrNull()?.toLongOrNull() ?: throw FileNotFoundException(uri.toString())
         val app = context?.applicationContext as? ParleyApp ?: throw FileNotFoundException(uri.toString())
-        val bytes = app.container.vault.photoBytes(id) ?: throw FileNotFoundException(uri.toString())
+        // Never waits for the app to finish starting (the shared non-blocking helper): no photo until then.
+        val bytes = app.containerOrNull?.vault?.photoBytes(id) ?: throw FileNotFoundException(uri.toString())
         val (read, write) = ParcelFileDescriptor.createPipe()
         Thread {
             runCatching { ParcelFileDescriptor.AutoCloseOutputStream(write).use { it.write(bytes) } }

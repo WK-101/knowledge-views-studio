@@ -26,7 +26,8 @@ class VaultMoves(
     private val contacts: ContactsRepository,
     private val records: ContactRecordStore,
 ) {
-    data class MovedIn(val vaultId: Long, val removedAfterSync: Boolean)
+    /** [messengerCopies]: WhatsApp, Signal… copies stay until that app resyncs its contacts. */
+    data class MovedIn(val vaultId: Long, val removedAfterSync: Boolean, val messengerCopies: Boolean = false)
 
     /** Throws [VaultCrypto.LockedException] when the vault must be unlocked first; nothing is deleted then. */
     suspend fun moveIn(contactId: Long, shown: ContactDetails): MovedIn = withContext(Dispatchers.IO) {
@@ -35,9 +36,9 @@ class VaultMoves(
         // I6: the contact's photo becomes the private contact's (encrypted) caller photo.
         record?.raws?.asSequence()?.flatMap { it.rows }?.firstOrNull { it.mimeType == Mime.PHOTO && (it.blob?.size ?: 0) > 0 }?.blob
             ?.let { runCatching { vault.setPhoto(id, it) } }
-        val synced = contacts.purgeForVault(contactId)
+        val purged = contacts.purgeForVault(contactId)
         contacts.refresh()
-        MovedIn(id, synced)
+        MovedIn(id, purged.synced, purged.messengerCopies)
     }
 
     /**

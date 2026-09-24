@@ -183,7 +183,7 @@ class BackupRepository(
             DocumentsContract.createDocument(cr, parent, "application/octet-stream", "$finalName.partial")
         } catch (e: Exception) {
             null
-        } ?: return@withContext fail(context.getString(R.string.data_bkp_folder_gone))
+        } ?: return@withContext fail(context.getString(R.string.data_bkp_folder_gone), app.parley.common.StoredStatus.of(BackupState.FOLDER_GONE))
 
         var contactCount = 0
         var callCount = 0
@@ -212,7 +212,7 @@ class BackupRepository(
             }
         } catch (e: Exception) {
             runCatching { DocumentsContract.deleteDocument(cr, doc) }
-            return@withContext fail(context.getString(R.string.data_bkp_failed, e.message.toString()))
+            return@withContext fail(context.getString(R.string.data_bkp_failed, e.message.toString()), app.parley.common.StoredStatus.of(BackupState.FAILED, e.message.toString()))
         }
 
         // Verify: decrypt with this archive's key and check every entry's hash.
@@ -224,7 +224,7 @@ class BackupRepository(
         }
         if (!verified) {
             runCatching { DocumentsContract.deleteDocument(cr, doc) }
-            return@withContext fail(context.getString(R.string.data_bkp_not_verified))
+            return@withContext fail(context.getString(R.string.data_bkp_not_verified), app.parley.common.StoredStatus.of(BackupState.NOT_VERIFIED))
         }
         if (target != null) {
             return@withContext BackupOutcome(true, null, contactCount, callCount, verified = true, vaultIncluded = vaultIncluded, message = context.resources.getQuantityString(R.plurals.data_bkp_ready, contactCount, contactCount))
@@ -233,7 +233,7 @@ class BackupRepository(
         val hash = manifest.contentHash()
         if (scheduled && hash == state.lastContentHash) {
             runCatching { DocumentsContract.deleteDocument(cr, doc) }
-            prefs.update { it.putLong("verifiedAt", System.currentTimeMillis()).putString("lastResult", context.getString(R.string.data_bkp_unchanged)) }
+            prefs.update { it.putLong("verifiedAt", System.currentTimeMillis()).putString("lastResult", app.parley.common.StoredStatus.of(BackupState.UNCHANGED).encode()) }
             return@withContext BackupOutcome(true, state.lastBackupName, contactCount, callCount, unchanged = true, verified = true, message = context.getString(R.string.data_bkp_nothing_changed))
         }
         val renamed = runCatching { DocumentsContract.renameDocument(cr, doc, finalName) }.getOrNull() ?: doc
@@ -244,11 +244,8 @@ class BackupRepository(
         val vaultMissing = !vaultIncluded && vault.contacts.value.isNotEmpty()
         if (!paused && !safety) rotate(protect = if (vaultIncluded) finalName else state.lastVaultBackupName)
         val res = context.resources
-        val result = context.getString(
-            if (vaultMissing) R.string.data_bkp_result_vault_missing else R.string.data_bkp_result,
-            res.getQuantityString(R.plurals.data_contacts_count, contactCount, contactCount),
-            res.getQuantityString(R.plurals.data_calls_count, callCount, callCount),
-        )
+        // Stored as what happened, rendered in the current language when shown (BackupState.resultText).
+        val result = app.parley.common.StoredStatus.of(BackupState.RESULT, if (vaultMissing) 1 else 0, contactCount, callCount).encode()
         prefs.update {
             it.putLong("lastAt", System.currentTimeMillis()).putString("lastName", finalName).putLong("verifiedAt", System.currentTimeMillis())
                 .putString("lastHash", hash).putBoolean("paused", paused)
@@ -262,8 +259,8 @@ class BackupRepository(
     /** Accepts the current contact count after a rotation pause, so old backups rotate again. */
     fun resumeRotation() = prefs.update { it.putInt("lastCount", -1).putBoolean("paused", false) }
 
-    private fun fail(msg: String): BackupOutcome {
-        prefs.update { it.putString("lastResult", msg) }
+    private fun fail(msg: String, status: app.parley.common.StoredStatus): BackupOutcome {
+        prefs.update { it.putString("lastResult", status.encode()) }
         return BackupOutcome(false, message = msg)
     }
 

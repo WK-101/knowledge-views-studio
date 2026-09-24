@@ -170,4 +170,5 @@
     <string name="postcall_save_title">الحفظ بشكل خاص لمدة 7 أيام</string>
     <string name="postcall_name">الاسم</string>
     <string name="postcall_save_explainer">يُحفظ في جهات اتصال Parley الخاصة، حيث لا تراه التطبيقات الأخرى، ويُحذف تلقائيًا مع سجل مكالماته بعد 7 أيام. يمكنك الاحتفاظ به من جهات الاتصال المؤقتة.</string>
+    <string name="tc_private_label">خاص</string>
 </resources>

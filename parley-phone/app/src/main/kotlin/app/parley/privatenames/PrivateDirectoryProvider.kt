@@ -13,10 +13,10 @@ import android.provider.ContactsContract.Directory
 import android.provider.ContactsContract.PhoneLookup
 import app.parley.ParleyApp
 import app.parley.common.people.DirectoryPolicy
+import app.parley.data.DataContainer
 import app.parley.common.people.LookupApproval
 import app.parley.common.people.LookupOutcome
 import app.parley.common.people.LookupPolicy
-import app.parley.data.DataContainer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -78,27 +78,30 @@ class PrivateDirectoryProvider : ContentProvider() {
         val caller = DirectoryPolicy.effectiveCaller(callingPackage, contactsProviderPackage(ctx), uri.getQueryParameter(DirectoryPolicy.CALLER_PACKAGE_PARAM))
             ?: return result
         if (caller == ctx.packageName) return result
-        val c = container(ctx) ?: return result
+        // Never blocks the binder thread: nothing while the app is still starting.
+        val c = (ctx.applicationContext as? ParleyApp)?.containerOrNull ?: return result
         val access = c.people.privateNames
         val number = LookupPolicy.parseNumber(uri.pathSegments.getOrNull(1))
         val now = System.currentTimeMillis()
-        val approval = access.approval(caller)
+        // The Directory has its own approvals: allowing an app to use the lookup provider doesn't allow this.
+        val approval = access.approval(caller, directory = true)
         var outcome = LookupPolicy.decide(access.state.value.directory, approval, number != null, access.recentQueries(caller, now), now)
         when (outcome) {
-            LookupOutcome.ASKED -> if (approval == null) {
-                access.setApproval(caller, LookupApproval.PENDING)
-                PrivateNameProvider.askUser(ctx, caller)
+            LookupOutcome.ASKED -> if (access.takePrompt(caller, directory = true, now = now)) {
+                if (approval == null) access.setApproval(caller, LookupApproval.PENDING, directory = true)
+                PrivateNameProvider.askUser(ctx, caller, directory = true)
             }
             LookupOutcome.ANSWERED -> {
                 val hidden = c.settings.settings.value.hideVault
-                val hit = if (hidden) null else runBlocking(Dispatchers.IO) { withTimeoutOrNull(2_000) { c.vault.lookup(number!!, exact = true) } }
+                val hit = if (hidden) null else runBlocking(Dispatchers.IO) { withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { c.vault.lookup(number!!, exact = true) } }
                 if (hit == null) {
                     outcome = if (hidden) LookupOutcome.OFF else LookupOutcome.NOT_FOUND
                 } else {
                     result.addRow(
                         cols.map { col ->
                             when (col) {
-                                PhoneLookup._ID, PhoneLookup.CONTACT_ID -> hit.first
+                                // Never a real contact's id (see DirectoryPolicy.rowId); no lookup key either.
+                                PhoneLookup._ID, PhoneLookup.CONTACT_ID -> DirectoryPolicy.rowId(hit.first)
                                 PhoneLookup.DISPLAY_NAME, ContactsContract.Contacts.DISPLAY_NAME_ALTERNATIVE -> hit.second.name
                                 PhoneLookup.NUMBER, PhoneLookup.NORMALIZED_NUMBER -> number
                                 PhoneLookup.TYPE -> 0
@@ -124,19 +127,10 @@ class PrivateDirectoryProvider : ContentProvider() {
 
     override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?): Int = 0
 
-    private fun container(ctx: Context): DataContainer? {
-        val app = ctx.applicationContext as? ParleyApp ?: return null
-        repeat(40) {
-            try {
-                return app.container
-            } catch (_: UninitializedPropertyAccessException) {
-                Thread.sleep(50)
-            }
-        }
-        return null
-    }
-
     companion object {
+        /** The longest a lookup may hold the Contacts Provider's binder thread; slower answers are "not found". */
+        private const val LOOKUP_TIMEOUT_MS = 200L
+
         private val DIRECTORY_COLUMNS = arrayOf(
             Directory.ACCOUNT_NAME, Directory.ACCOUNT_TYPE, Directory.DISPLAY_NAME, Directory.TYPE_RESOURCE_ID,
             Directory.EXPORT_SUPPORT, Directory.SHORTCUT_SUPPORT, Directory.PHOTO_SUPPORT,

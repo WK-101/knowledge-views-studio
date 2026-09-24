@@ -84,7 +84,8 @@ class ContactCsvTest {
         assertEquals("O'Brien, Jr", list[1].rows(Mime.NAME).single()[Col.D3])
         assertEquals("555\n9999", list[1].rows(Mime.PHONE).single()[Col.D1])
         assertEquals("2", list[1].rows(Mime.PHONE).single()[Col.D2])
-        assertEquals(mapOf("CSV column “Shoe size”" to 1), report.unmappedProperties)
+        assertEquals(mapOf(ImportReport.csvColumn("Shoe size") to 1), report.unmappedProperties)
+        assertEquals("Shoe size", ImportReport.csvColumnName(report.unmappedProperties.keys.single()))
     }
 
     @Test fun parser_handles_rfc4180_quoting() {

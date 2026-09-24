@@ -158,4 +158,5 @@
     <string name="postcall_save_title">7 دن کے لیے نجی طور پر محفوظ کریں</string>
     <string name="postcall_name">نام</string>
     <string name="postcall_save_explainer">Parley کے نجی رابطوں میں رکھا جاتا ہے، جہاں دوسری ایپس اسے نہیں دیکھ سکتیں، اور 7 دن بعد اس کی کال ہسٹری سمیت خود بخود حذف ہو جاتا ہے۔ آپ اسے عارضی رابطوں سے رکھ سکتے ہیں۔</string>
+    <string name="tc_private_label">نجی</string>
 </resources>

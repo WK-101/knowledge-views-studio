@@ -22,6 +22,7 @@ data class BackupState(
     val lastVerifiedAt: Long = 0,
     val lastContactCount: Int = -1,
     val lastContentHash: String? = null,
+    /** Stored as a [app.parley.common.StoredStatus] (older versions: text); shown with [resultText]. */
     val lastResult: String? = null,
     val rotationPaused: Boolean = false,
     /** Raw contacts the last restore created (raw, not aggregate ids: a restored entry may have joined an existing contact). */
@@ -30,6 +31,31 @@ data class BackupState(
     val lastVaultBackupName: String? = null,
 ) {
     val policy: RetentionPolicy get() = if (keepLast > 0) RetentionPolicy.Simple(keepLast) else RetentionPolicy.Periodic(daily = 7, weekly = 5, monthly = 12, yearly = 3)
+
+    /** The last result in the current language (rendered now, not when it was stored). */
+    fun resultText(res: android.content.res.Resources): String? {
+        val s = app.parley.common.StoredStatus.decode(lastResult) ?: return lastResult
+        return when (s.kind) {
+            UNCHANGED -> res.getString(app.parley.data.R.string.data_bkp_unchanged)
+            FOLDER_GONE -> res.getString(app.parley.data.R.string.data_bkp_folder_gone)
+            NOT_VERIFIED -> res.getString(app.parley.data.R.string.data_bkp_not_verified)
+            FAILED -> res.getString(app.parley.data.R.string.data_bkp_failed, s.args.getOrNull(0).orEmpty())
+            RESULT -> res.getString(
+                if (s.args.getOrNull(0) == "1") app.parley.data.R.string.data_bkp_result_vault_missing else app.parley.data.R.string.data_bkp_result,
+                res.getQuantityString(app.parley.data.R.plurals.data_contacts_count, s.int(1), s.int(1)),
+                res.getQuantityString(app.parley.data.R.plurals.data_calls_count, s.int(2), s.int(2)),
+            )
+            else -> null
+        }
+    }
+
+    companion object {
+        const val UNCHANGED = "unchanged"
+        const val FOLDER_GONE = "folder_gone"
+        const val NOT_VERIFIED = "not_verified"
+        const val FAILED = "failed"
+        const val RESULT = "result"
+    }
 }
 
 /** Backup configuration and status (SharedPreferences; the key bundle holds no secret in clear). */

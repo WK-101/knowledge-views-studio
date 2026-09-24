@@ -21,8 +21,13 @@ enum class SwipeAction {
 
 /** U4 settings: off by default; right swipe calls and left swipe messages once turned on. */
 data class SwipeConfig(val enabled: Boolean = false, val right: SwipeAction = SwipeAction.CALL, val left: SwipeAction = SwipeAction.MESSAGE) {
-    /** The action for a swipe towards the end (right in left-to-right languages) or the start. */
-    fun action(towardsEnd: Boolean): SwipeAction = if (!enabled) SwipeAction.NONE else if (towardsEnd) right else left
+    /**
+     * The action for a swipe towards the end or the start of a row laid out [rtl] or not. [right] and [left] are
+     * physical directions (as the settings say), so in right-to-left languages a swipe towards the end (leftwards)
+     * runs the left action.
+     */
+    fun action(towardsEnd: Boolean, rtl: Boolean = false): SwipeAction =
+        if (!enabled) SwipeAction.NONE else if (towardsEnd != rtl) right else left
 
     /** Actions a row can offer: a row without a number can only be deleted; Recents rows can't be blocked twice… */
     fun available(action: SwipeAction, hasNumber: Boolean, canDelete: Boolean): Boolean = when (action) {

@@ -1168,7 +1168,7 @@
     <string name="pn_off_default">डिफ़ॉल्ट रूप से बंद</string>
     <string name="pn_intro">जिन ऐप को आप मंज़ूरी देते हैं वे Parley से एक बार में एक फ़ोन नंबर का नाम पूछ सकते हैं, जैसे यह दिखाने के लिए कि कौन कॉल कर रहा है। उन्हें सिर्फ़ वह नाम मिलता है, कभी सूची नहीं, और तभी जब आप हर ऐप को अनुमति दें। जब कोई ऐप पहली बार कोशिश करता है तो Parley सूचना से आपसे पूछता है, और हर अनुरोध नीचे दिखता है।</string>
     <string name="pn_directory_section">फ़ोन ऐप (संपर्क निर्देशिका)</string>
-    <string name="pn_directory_summary">डिफ़ॉल्ट रूप से बंद। ऊपर वाली ही मंज़ूरियाँ और लॉग इस्तेमाल करता है</string>
+    <string name="pn_directory_summary">डिफ़ॉल्ट रूप से बंद। ऐप्स को अलग से मंज़ूरी दी जाती है; ऊपर वाली ही सीमा और लॉग</string>
     <string name="pn_directory_text">यह चालू होने पर Android Parley को संपर्क निर्देशिका के रूप में दिखाता है। जो फ़ोन ऐप कॉल करने वालों को निर्देशिकाओं में ढूँढता है (जैसे Google फ़ोन, कार में चलने पर भी) वह एक नंबर का नाम पूछ सकता है, और सिर्फ़ तब जब आप उस ऐप को अनुमति दें। उसे कभी सूची, फ़ोटो या खोलने लायक़ संपर्क नहीं मिलता, और गुप्त मोड में कोई जवाब नहीं दिया जाता। हर फ़ोन ऐप निर्देशिकाओं से नहीं पूछता: Google फ़ोन पूछता है, दूसरे शायद सिर्फ़ आपके संपर्कों में देखें।</string>
     <string name="pn_apps">ऐप</string>
     <string name="pn_no_app">अभी किसी ऐप ने नहीं पूछा</string>
@@ -1361,4 +1361,8 @@
     <string name="handle_problem_server">सर्वर भी चाहिए, जैसे name@server</string>
     <string name="handle_problem_signal">Signal यूज़रनेम बिंदु और अंकों पर ख़त्म होते हैं, जैसे name.01</string>
     <string name="life_date_of_death">मृत्यु की तारीख़</string>
+    <string name="privnames_dir_request_title">%1$s डायरेक्टरी से निजी नाम चाहता है</string>
+    <string name="privnames_dir_request_text">%1$s ने Parley की संपर्क डायरेक्टरी में कॉल करने वाले को खोजा। अनुमति देने पर %1$s कॉल आने पर किसी निजी संपर्क का नाम दिखा सकता है, एक बार में एक नंबर; उसे कभी सूची नहीं मिलती। यह “ऐप्स को निजी नाम दिखाने दें” से अलग है।</string>
+    <string name="pn_directory_apps">डायरेक्टरी इस्तेमाल करने वाले फ़ोन ऐप्स</string>
+    <string name="import_csv_column">CSV कॉलम “%1$s”</string>
 </resources>

@@ -328,6 +328,7 @@ internal fun importSummary(report: ImportReport): String = buildList {
 /** What an import did: counts, then every failed card with its reason, then fields that had no place. */
 @Composable
 internal fun ImportReportDialog(report: ImportReport, onDismiss: () -> Unit) {
+    val res = androidx.compose.ui.platform.LocalResources.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.set_import_finished)) },
@@ -349,7 +350,7 @@ internal fun ImportReportDialog(report: ImportReport, onDismiss: () -> Unit) {
                 }
                 if (report.unmappedProperties.isNotEmpty()) {
                     Text(stringResource(R.string.set_unmapped_fields), style = MaterialTheme.typography.titleSmall)
-                    Text(report.unmappedProperties.entries.joinToString("\n") { "${it.key} × ${it.value}" }, style = MaterialTheme.typography.bodySmall)
+                    Text(report.unmappedProperties.entries.joinToString("\n") { app.parley.ui.common.unmappedLabel(res, it.key) + " × ${it.value}" }, style = MaterialTheme.typography.bodySmall)
                 }
             }
         },

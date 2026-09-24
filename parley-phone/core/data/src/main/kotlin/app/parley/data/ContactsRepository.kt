@@ -957,12 +957,20 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     /**
      * Removes a contact that moved into the private vault, leaving as little readable behind as possible (F4):
      * phone-only and never-synced copies are purged at once (CALLER_IS_SYNCADAPTER, like AccountDiagnostics does);
-     * synced copies are deleted normally so their account removes them on the server too. Returns true when some
-     * copy was synced, i.e. other apps may still see it until the next sync.
+     * synced copies are deleted normally so their account removes them on the server too. Messenger copies
+     * (WhatsApp, Signal…) belong to their app and can't be deleted here: they stay until that app syncs its contacts.
      */
-    suspend fun purgeForVault(contactId: Long): Boolean = withContext(Dispatchers.IO) {
+    data class VaultPurge(
+        /** Some copy was synced: other apps may still see it until the account's next sync. */
+        val synced: Boolean,
+        /** Messenger copies remain until that app resyncs its contacts. */
+        val messengerCopies: Boolean,
+    )
+
+    suspend fun purgeForVault(contactId: Long): VaultPurge = withContext(Dispatchers.IO) {
         val local = localAccount()
         var synced = false
+        var messengers = false
         val ops = ArrayList<ContentProviderOperation>()
         cr.safeQuery(
             RawContacts.CONTENT_URI, arrayOf(RawContacts._ID, RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME, RawContacts.SOURCE_ID),
@@ -970,7 +978,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         )?.use { c ->
             while (c.moveToNext()) {
                 val account = AccountRef(c.getString(1), c.getString(2))
-                if (app.parley.common.record.Messengers.isMessengerAccount(account.type)) continue // the messenger owns it
+                if (app.parley.common.record.Messengers.isMessengerAccount(account.type)) { messengers = true; continue } // the messenger owns it
                 val uri = ContentUris.withAppendedId(RawContacts.CONTENT_URI, c.getLong(0))
                 val unsynced = DeviceAccounts.isLocal(account, local) || c.isNull(3)
                 if (unsynced) {
@@ -982,7 +990,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
             }
         }
         Batches.chunks(ops).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
-        synced
+        VaultPurge(synced, messengers)
     }
 
     fun vcardUri(lookupKey: String): Uri = Uri.withAppendedPath(Contacts.CONTENT_VCARD_URI, Uri.encode(lookupKey))

@@ -56,4 +56,17 @@ object LookupPolicy {
         recentQueries.count { now - it < 3_600_000L } >= maxPerHour -> LookupOutcome.RATE_LIMITED
         else -> LookupOutcome.ANSWERED // or NOT_FOUND once the vault was consulted
     }
+
+    /** At most one approval prompt per app (and scope) a day, however often it queries. */
+    const val ASK_INTERVAL_MS = 24 * 3_600_000L
+
+    /**
+     * Whether to ask the user about an app now: never once decided; an app that never asked is asked, and one
+     * still waiting ([LookupApproval.PENDING], its notification ignored or swiped away) again only after
+     * [ASK_INTERVAL_MS] since the last prompt ([lastAskedAt], 0 when unknown).
+     */
+    fun shouldAsk(approval: LookupApproval?, lastAskedAt: Long, now: Long): Boolean = when (approval) {
+        LookupApproval.ALLOWED, LookupApproval.DENIED -> false
+        null, LookupApproval.PENDING -> lastAskedAt <= 0 || now - lastAskedAt >= ASK_INTERVAL_MS || now < lastAskedAt
+    }
 }

@@ -204,6 +204,33 @@ private fun AppIcon(pkg: String) {
     if (bmp != null) Image(bmp, null, Modifier.size(40.dp)) else Icon(Icons.Rounded.Android, null, Modifier.size(40.dp))
 }
 
+/** One app's decision, with a menu to allow, deny or forget it. */
+@Composable
+private fun ApprovalRow(pkg: String, label: String, a: LookupApproval, set: (LookupApproval?) -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    ListItem(
+        modifier = Modifier.clickable { menu = true },
+        leadingContent = { AppIcon(pkg) },
+        headlineContent = { Text(label) },
+        supportingContent = {
+            Text(
+                when (a) {
+                    LookupApproval.ALLOWED -> stringResource(R.string.pn_allowed)
+                    LookupApproval.DENIED -> stringResource(R.string.pn_not_allowed)
+                    LookupApproval.PENDING -> stringResource(R.string.pn_waiting)
+                },
+            )
+        },
+        trailingContent = {
+            DropdownMenu(menu, { menu = false }) {
+                DropdownMenuItem({ Text(stringResource(R.string.privnames_allow)) }, onClick = { menu = false; set(LookupApproval.ALLOWED) })
+                DropdownMenuItem({ Text(stringResource(R.string.privnames_deny)) }, onClick = { menu = false; set(LookupApproval.DENIED) })
+                DropdownMenuItem({ Text(stringResource(R.string.pn_forget)) }, onClick = { menu = false; set(null) })
+            }
+        },
+    )
+}
+
 /** Settings › Privacy › "Let apps show private names": approvals and the access log for the lookup provider. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -240,31 +267,17 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
                     Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
                 )
             }
+            if (st.directory || st.directoryApprovals.isNotEmpty()) {
+                item { Section(stringResource(R.string.pn_directory_apps)) }
+                if (st.directoryApprovals.isEmpty()) item { ListItem(headlineContent = { Text(stringResource(R.string.pn_no_app)) }) }
+                items(st.directoryApprovals.entries.sortedBy { label(it.key).lowercase() }, key = { "d:" + it.key }) { (pkg, a) ->
+                    ApprovalRow(pkg, label(pkg), a) { access.setApproval(pkg, it, directory = true) }
+                }
+            }
             item { Section(stringResource(R.string.pn_apps)) }
             if (st.approvals.isEmpty()) item { ListItem(headlineContent = { Text(stringResource(R.string.pn_no_app)) }) }
             items(st.approvals.entries.sortedBy { label(it.key).lowercase() }, key = { it.key }) { (pkg, a) ->
-                var menu by remember { mutableStateOf(false) }
-                ListItem(
-                    modifier = Modifier.clickable { menu = true },
-                    leadingContent = { AppIcon(pkg) },
-                    headlineContent = { Text(label(pkg)) },
-                    supportingContent = {
-                        Text(
-                            when (a) {
-                                LookupApproval.ALLOWED -> stringResource(R.string.pn_allowed)
-                                LookupApproval.DENIED -> stringResource(R.string.pn_not_allowed)
-                                LookupApproval.PENDING -> stringResource(R.string.pn_waiting)
-                            },
-                        )
-                    },
-                    trailingContent = {
-                        DropdownMenu(menu, { menu = false }) {
-                            DropdownMenuItem({ Text(stringResource(R.string.privnames_allow)) }, onClick = { menu = false; access.setApproval(pkg, LookupApproval.ALLOWED) })
-                            DropdownMenuItem({ Text(stringResource(R.string.privnames_deny)) }, onClick = { menu = false; access.setApproval(pkg, LookupApproval.DENIED) })
-                            DropdownMenuItem({ Text(stringResource(R.string.pn_forget)) }, onClick = { menu = false; access.setApproval(pkg, null) })
-                        }
-                    },
-                )
+                ApprovalRow(pkg, label(pkg), a) { access.setApproval(pkg, it) }
             }
             item { Section(stringResource(R.string.pn_log)) }
             if (st.log.isEmpty()) item { ListItem(headlineContent = { Text(stringResource(R.string.pn_no_requests)) }) }

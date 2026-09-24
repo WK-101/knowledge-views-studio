@@ -161,4 +161,5 @@
     <string name="postcall_save_title">Enregistrer en privé pendant 7 jours</string>
     <string name="postcall_name">Nom</string>
     <string name="postcall_save_explainer">Conservé dans les contacts privés de Parley, invisibles pour les autres apps, et supprimé automatiquement avec son historique d\'appels après 7 jours. Vous pouvez le garder depuis Contacts temporaires.</string>
+    <string name="tc_private_label">Privé</string>
 </resources>

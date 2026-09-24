@@ -828,4 +828,5 @@
         <item quantity="other">há %d anos</item>
     </plurals>
     <string name="save_contact_details">Salvar dados do contato</string>
+    <string name="vm_messenger_copies_remain">Movido para contatos privados. As cópias no WhatsApp, Signal e outros mensageiros ficam até esse app sincronizar os contatos de novo</string>
 </resources>

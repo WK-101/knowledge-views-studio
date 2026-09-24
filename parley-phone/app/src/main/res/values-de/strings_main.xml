@@ -781,4 +781,5 @@
         <item quantity="other">vor %d Jahren</item>
     </plurals>
     <string name="save_contact_details">Kontaktdaten speichern</string>
+    <string name="vm_messenger_copies_remain">In private Kontakte verschoben. Kopien in WhatsApp, Signal und anderen Messengern bleiben, bis die App ihre Kontakte erneut synchronisiert</string>
 </resources>

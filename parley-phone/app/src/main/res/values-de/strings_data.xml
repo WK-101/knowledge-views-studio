@@ -1168,7 +1168,7 @@
     <string name="pn_off_default">Standardmäßig aus</string>
     <string name="pn_intro">Apps, die du erlaubst, können Parley jeweils nach dem Namen einer Telefonnummer fragen, zum Beispiel um anzuzeigen, wer anruft. Sie bekommen nur diesen Namen, nie eine Liste, und erst nachdem du jede App erlaubt hast. Parley fragt dich per Benachrichtigung, wenn eine App es zum ersten Mal versucht, und jede Anfrage wird unten aufgeführt.</string>
     <string name="pn_directory_section">Telefon-Apps (Kontaktverzeichnis)</string>
-    <string name="pn_directory_summary">Standardmäßig aus. Verwendet dieselben Freigaben und dasselbe Protokoll wie oben</string>
+    <string name="pn_directory_summary">Standardmäßig aus. Apps werden getrennt freigegeben; dasselbe Limit und Protokoll wie oben</string>
     <string name="pn_directory_text">Ist dies an, führt Android Parley als Kontaktverzeichnis. Eine Telefon-App, die Anrufer in Verzeichnissen nachschlägt (zum Beispiel Google Telefon, auch im Auto), kann dann nach dem Namen einer Nummer fragen – und nur, nachdem du diese App erlaubt hast. Sie bekommt nie eine Liste, ein Foto oder einen Kontakt zum Öffnen, und im diskreten Modus wird nichts beantwortet. Nicht jede Telefon-App fragt Verzeichnisse: Google Telefon tut es, andere suchen vielleicht nur in deinen Kontakten.</string>
     <string name="pn_apps">Apps</string>
     <string name="pn_no_app">Noch keine App hat gefragt</string>
@@ -1361,4 +1361,8 @@
     <string name="handle_problem_server">Braucht auch den Server, z. B. name@server</string>
     <string name="handle_problem_signal">Signal-Benutzernamen enden mit Punkt und Ziffern, z. B. name.01</string>
     <string name="life_date_of_death">Todestag</string>
+    <string name="privnames_dir_request_title">%1$s möchte private Namen aus dem Verzeichnis</string>
+    <string name="privnames_dir_request_text">%1$s hat einen Anrufer in Parleys Kontaktverzeichnis gesucht. Wenn du es erlaubst, kann %1$s den Namen eines privaten Kontakts anzeigen, wenn er anruft, jeweils für eine Nummer; eine Liste bekommt die App nie. Das ist unabhängig von „Apps private Namen anzeigen lassen“.</string>
+    <string name="pn_directory_apps">Telefon-Apps, die das Verzeichnis nutzen</string>
+    <string name="import_csv_column">CSV-Spalte „%1$s“</string>
 </resources>

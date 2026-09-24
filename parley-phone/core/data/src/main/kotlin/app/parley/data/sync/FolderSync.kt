@@ -30,10 +30,30 @@ data class SyncStatus(
     val folderName: String? = null,
     val auto: Boolean = true,
     val lastSyncAt: Long = 0,
+    /** Stored as a [app.parley.common.StoredStatus] (older versions: text); shown with [resultText]. */
     val lastResult: String? = null,
     /** Deletions a paused run is waiting for the user to confirm. */
     val pendingDeletions: Int = 0,
-)
+) {
+    /** The last result in the current language (rendered now, not when it was stored). */
+    fun resultText(res: Resources): String? {
+        val s = app.parley.common.StoredStatus.decode(lastResult) ?: return lastResult
+        return when (s.kind) {
+            NO_PERMISSION -> res.getString(R.string.data_sync_no_permission)
+            FOLDER_GONE -> res.getString(R.string.data_sync_folder_gone)
+            PAUSED -> res.getQuantityString(R.plurals.data_sync_paused, s.int(0), s.int(0))
+            REPORT -> SyncReport(s.int(0), s.int(1), s.int(2), s.int(3), s.int(4), s.int(5), s.int(6)).summary(res)
+            else -> null
+        }
+    }
+
+    companion object {
+        const val NO_PERMISSION = "no_permission"
+        const val FOLDER_GONE = "folder_gone"
+        const val PAUSED = "paused"
+        const val REPORT = "report"
+    }
+}
 
 data class SyncReport(
     val written: Int = 0,
@@ -122,8 +142,8 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
     /** Hashed, so names are short, filesystem-safe and never collide after sanitising. */
     private fun fileNameFor(key: String) = sha(key.toByteArray()).take(32) + ".vcf"
 
-    private fun finish(message: String, pending: Int = 0) {
-        prefs.edit().putLong("lastAt", System.currentTimeMillis()).putString("lastResult", message).putInt("pendingDeletions", pending).apply()
+    private fun finish(status: app.parley.common.StoredStatus, pending: Int = 0) {
+        prefs.edit().putLong("lastAt", System.currentTimeMillis()).putString("lastResult", status.encode()).putInt("pendingDeletions", pending).apply()
         _status.value = load()
     }
 
@@ -136,7 +156,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
         withContext(Dispatchers.IO) {
             val folder = status.value.folderUri?.let(Uri::parse) ?: return@withContext SyncReport()
             if (!Permissions.has(context, android.Manifest.permission.READ_CONTACTS) || !Permissions.has(context, android.Manifest.permission.WRITE_CONTACTS)) {
-                finish(context.getString(R.string.data_sync_no_permission))
+                finish(app.parley.common.StoredStatus.of(SyncStatus.NO_PERMISSION))
                 return@withContext SyncReport()
             }
             var rep = SyncReport()
@@ -163,7 +183,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                 false
             }
             if (!listed) {
-                finish(context.getString(R.string.data_sync_folder_gone))
+                finish(app.parley.common.StoredStatus.of(SyncStatus.FOLDER_GONE))
                 return@withContext SyncReport()
             }
 
@@ -186,7 +206,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                 if (rec == null && file?.bytes != null && sha(file.bytes) == e.fileHash) deletions++
             }
             if (!allowMassDelete && deletions > 3 && deletions * 4 > state.size) {
-                finish(context.resources.getQuantityString(R.plurals.data_sync_paused, deletions, deletions), deletions)
+                finish(app.parley.common.StoredStatus.of(SyncStatus.PAUSED, deletions), deletions)
                 return@withContext SyncReport()
             }
 
@@ -282,7 +302,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
             }
 
             writeState(state)
-            finish(rep.summary(context.resources))
+            finish(app.parley.common.StoredStatus.of(SyncStatus.REPORT, rep.written, rep.imported, rep.updatedFromFolder, rep.deletedLocal, rep.deletedFiles, rep.conflicts, rep.linked))
             contacts.refresh()
             rep
         }

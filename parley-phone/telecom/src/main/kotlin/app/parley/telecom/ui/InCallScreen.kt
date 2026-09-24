@@ -369,7 +369,7 @@ private fun CallerHeader(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        val sub = listOfNotNull(call.label, call.number?.takeIf { call.name != null }?.let(Bidi::ltr)).joinToString(stringResource(R.string.tc_separator))
+        val sub = listOfNotNull(call.label?.let { l -> if (app.parley.common.NotificationPrivacy.isVaultLabel(l)) stringResource(R.string.tc_private_label) else l }, call.number?.takeIf { call.name != null }?.let(Bidi::ltr)).joinToString(stringResource(R.string.tc_separator))
         if (sub.isNotEmpty()) {
             Text(sub, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         }

@@ -86,6 +86,16 @@ object DirectoryPolicy {
 
     enum class Request { DIRECTORIES, PHONE_LOOKUP, OTHER }
 
+    /**
+     * Row ids of directory results live in their own namespace (bit 62 set), so they can never be taken for a real
+     * contact's id by an app that opens them; opening one reaches Parley's directory, which answers nothing.
+     */
+    const val ID_NAMESPACE = 1L shl 62
+
+    fun rowId(vaultId: Long): Long = ID_NAMESPACE or (vaultId and (ID_NAMESPACE - 1))
+
+    fun isDirectoryRowId(id: Long): Boolean = id and ID_NAMESPACE != 0L && id > 0
+
     /** Only these two paths are ever answered; every other query (lists, filters, lookups by key) gets nothing. */
     fun request(segments: List<String>): Request = when {
         segments == listOf("directories") -> Request.DIRECTORIES

@@ -44,6 +44,25 @@ class ContactKeys(
         mutex.withLock { moveLocked(from, to, toId) }
     }
 
+    /**
+     * Forgets everything Parley kept for [key] outside the contact itself, after it moved into the vault (F4): its
+     * contact_meta row (the pinned note travels in the vault entry), its call background, a temporary flag, and the
+     * relation links other contacts had to it.
+     */
+    suspend fun forget(key: String) = withContext(Dispatchers.IO) {
+        if (key.isEmpty()) return@withContext
+        mutex.withLock {
+            meta.deleteMeta(key)
+            meta.clearTemporary(key)
+            runCatching { backgrounds().clear(key) }
+            for (r in meta.allMetaNow()) {
+                val links = RelationLinks.decode(r.relationLinks)
+                if (links.values.none { it.lookupKey == key }) continue
+                meta.setMeta(r.copy(relationLinks = RelationLinks.encode(links.filterValues { it.lookupKey != key })))
+            }
+        }
+    }
+
     /** Re-resolves every stored key; returns how many rows moved. */
     suspend fun sweep(): Int = withContext(Dispatchers.IO) {
         mutex.withLock {

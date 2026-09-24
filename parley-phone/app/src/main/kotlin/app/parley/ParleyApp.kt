@@ -10,6 +10,12 @@ class ParleyApp : Application() {
     lateinit var container: DataContainer
         private set
 
+    /**
+     * The container, or null while the app is still starting. For content providers: they can be queried on a
+     * binder thread before onCreate has built it, and must answer at once (nothing) rather than wait.
+     */
+    val containerOrNull: DataContainer? get() = if (::container.isInitialized) container else null
+
     // L1: on Android 10-12 the in-app language also applies to notifications and toasts.
     override fun attachBaseContext(base: android.content.Context) {
         super.attachBaseContext(app.parley.ui.AppLocale.wrap(base))

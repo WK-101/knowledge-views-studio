@@ -300,7 +300,7 @@ object CsvColumnMapping {
             try {
                 cells.forEachIndexed { i, c ->
                     if (c.isNotBlank() && mapping.getOrNull(i)?.field.let { it == null || it == CsvField.IGNORE }) {
-                        report.unmapped("CSV column “" + (header.getOrNull(i)?.trim()?.ifEmpty { null } ?: "${i + 1}") + "”")
+                        report.unmapped(ImportReport.csvColumn(header.getOrNull(i)?.trim()?.ifEmpty { null } ?: "${i + 1}"))
                     }
                 }
                 val record = toRecord(cells, mapping)

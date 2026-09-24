@@ -157,16 +157,24 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     /** SHOW_OR_CREATE_CONTACT: open the matching contact, or offer to create one. */
     private fun showOrCreate(data: android.net.Uri?) {
         data ?: return
+        val intent = intent
+        lifecycleScope.launch { showOrCreate(data, intent) }
+    }
+
+    /** The provider lookups run off the main thread; navigation happens back on it. */
+    private suspend fun showOrCreate(data: android.net.Uri, intent: Intent) {
         val value = data.schemeSpecificPart.orEmpty()
-        val id: Long? = when (data.scheme) {
-            "tel" -> vm.c.contacts.lookup(value)?.contactId
-            "mailto" -> runCatching {
-                contentResolver.query(
-                    android.net.Uri.withAppendedPath(ContactsContract.CommonDataKinds.Email.CONTENT_LOOKUP_URI, android.net.Uri.encode(value)),
-                    arrayOf(ContactsContract.Data.CONTACT_ID), null, null, null,
-                )?.use { c -> if (c.moveToFirst()) c.getLong(0) else null }
-            }.getOrNull()
-            else -> null
+        val id: Long? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            when (data.scheme) {
+                "tel" -> runCatching { vm.c.contacts.lookup(value)?.contactId }.getOrNull()
+                "mailto" -> runCatching {
+                    contentResolver.query(
+                        android.net.Uri.withAppendedPath(ContactsContract.CommonDataKinds.Email.CONTENT_LOOKUP_URI, android.net.Uri.encode(value)),
+                        arrayOf(ContactsContract.Data.CONTACT_ID), null, null, null,
+                    )?.use { c -> if (c.moveToFirst()) c.getLong(0) else null }
+                }.getOrNull()
+                else -> null
+            }
         }
         if (id != null) {
             vm.navigate(NavEvent.Contact(id))
