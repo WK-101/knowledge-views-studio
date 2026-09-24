@@ -148,6 +148,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                 SwitchRow("Confirm before calling", "Avoids accidental calls from lists and search", s.confirmBeforeCall) { v -> set { it.copy(confirmBeforeCall = v) } }
                 SwitchRow("Keypad tones", null, s.dialpadTones) { v -> set { it.copy(dialpadTones = v) } }
                 SwitchRow("Keypad vibration", null, s.dialpadHaptics) { v -> set { it.copy(dialpadHaptics = v) } }
+                KeypadAndMessagingSettings(vm)
                 SwitchRow("Show SIM in call history", "Only when two SIMs are active", s.showSimLabels) { v -> set { it.copy(showSimLabels = v) } }
                 LinkRow("Quick reply messages", s.quickReplies.joinToString(" · ")) { editReplies = true }
                 LinkRow("Speed dial", "Long-press 2–9 on the keypad") { open(Routes.SPEED_DIAL) }

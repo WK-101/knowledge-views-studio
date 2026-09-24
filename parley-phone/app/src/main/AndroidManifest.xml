@@ -46,6 +46,15 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
         </intent>
+        <!-- "Message on…" lists only these chat apps, and only when installed. -->
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
+        <package android:name="org.thoughtcrime.securesms" />
+        <package android:name="im.molly.app" />
+        <package android:name="org.telegram.messenger" />
+        <package android:name="org.telegram.messenger.web" />
+        <package android:name="org.thunderdog.challegram" />
+        <package android:name="com.viber.voip" />
     </queries>
 
     <application
@@ -175,6 +184,29 @@
             <intent-filter>
                 <action android:name="com.android.contacts.action.JOIN_CONTACT" />
                 <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- "Call / Message with Parley" for numbers in selected or shared text, and the "Message on…" sheet.
+             Deliberately no tel: filter here: phone links stay with the keypad. -->
+        <activity
+            android:name=".messaging.NumberActionActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="Call / Message with Parley"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Parley.Sheet"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter android:label="Call / Message with Parley">
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter android:label="Call or message a number">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
 

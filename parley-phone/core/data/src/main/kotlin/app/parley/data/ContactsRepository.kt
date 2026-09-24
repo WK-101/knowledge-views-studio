@@ -107,14 +107,15 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         val seen = HashMap<Long, MutableSet<String>>()
         cr.safeQuery(
             Phone.CONTENT_URI,
-            arrayOf(Phone.CONTACT_ID, Phone.NUMBER, Phone.TYPE, Phone.LABEL, Phone.IS_SUPER_PRIMARY),
+            arrayOf(Phone.CONTACT_ID, Phone.NUMBER, Phone.TYPE, Phone.LABEL, Phone.IS_SUPER_PRIMARY, Phone.IS_PRIMARY),
         )?.use { c ->
             while (c.moveToNext()) {
                 val id = c.getLong(0)
                 val number = c.getString(1) ?: continue
                 val key = PhoneNumbers.matchKey(number)
                 if (!seen.getOrPut(id) { HashSet() }.add(key)) continue
-                phones.getOrPut(id) { ArrayList(2) } += PhoneEntry(number, c.getInt(2), c.getString(3), c.getInt(4) != 0)
+                // Default number: super-primary across the contact, or primary within its account.
+                phones.getOrPut(id) { ArrayList(2) } += PhoneEntry(number, c.getInt(2), c.getString(3), c.getInt(4) != 0 || c.getInt(5) != 0)
             }
         }
         val emails = HashMap<Long, MutableList<String>>()
@@ -129,7 +130,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
             Contacts.CONTENT_URI,
             arrayOf(
                 Contacts._ID, Contacts.LOOKUP_KEY, Contacts.DISPLAY_NAME_PRIMARY, Contacts.DISPLAY_NAME_ALTERNATIVE,
-                Contacts.PHOTO_THUMBNAIL_URI, Contacts.STARRED,
+                Contacts.PHOTO_THUMBNAIL_URI, Contacts.STARRED, Contacts.PHONETIC_NAME,
             ),
             sort = Contacts.SORT_KEY_PRIMARY + " COLLATE LOCALIZED ASC",
         )?.use { c ->
@@ -148,6 +149,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
                     phones = phones[id].orEmpty(),
                     emails = emails[id].orEmpty(),
                     displayNameAlt = c.getString(3)?.takeIf { it.isNotBlank() } ?: name,
+                    phoneticName = c.getString(6)?.takeIf { it.isNotBlank() },
                 )
             }
         }

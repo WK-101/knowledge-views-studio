@@ -1,12 +1,22 @@
 package app.parley.ui.home
 
+import android.content.ClipDescription
+import android.content.ClipboardManager
+import android.content.Intent
+import android.content.res.Configuration
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.os.Build
 import android.provider.Settings
+import android.telephony.PhoneNumberUtils
+import android.view.KeyEvent as AndroidKeyEvent
+import android.view.textclassifier.TextClassifier
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +25,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,37 +34,73 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.InputTransformation
+import androidx.compose.foundation.text.input.OutputTransformation
+import androidx.compose.foundation.text.input.TextFieldBuffer
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.delete
+import androidx.compose.foundation.text.input.insert
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Backspace
-import androidx.compose.material.icons.automirrored.rounded.Message
+import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.ContentPaste
+import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Voicemail
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.InterceptPlatformTextInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -60,14 +108,18 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.DialResult
+import app.parley.common.DialText
+import app.parley.common.KeypadLayout
+import app.parley.common.NumberText
 import app.parley.common.PhoneNumbers
+import app.parley.messaging.MessageOnSheet
 import app.parley.ui.Avatar
 import app.parley.ui.CallColors
 import app.parley.ui.MatchStyle
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
-import app.parley.ui.common.Intents
 import app.parley.ui.highlight
+import kotlinx.coroutines.awaitCancellation
 
 private val keys = listOf(
     "1" to "", "2" to "ABC", "3" to "DEF",
@@ -83,7 +135,10 @@ private val dtmfTone = mapOf(
     '9' to ToneGenerator.TONE_DTMF_9, '*' to ToneGenerator.TONE_DTMF_S, '#' to ToneGenerator.TONE_DTMF_P,
 )
 
-@OptIn(ExperimentalFoundationApi::class)
+/** `*#06#`: Android only shows the IMEI to the system, so Parley explains where to find it (K5). */
+private const val IMEI_CODE = "*#06#"
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun KeypadTab(vm: AppViewModel, open: (String) -> Unit) {
     val context = LocalContext.current
@@ -91,8 +146,19 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit) {
     val results by vm.dialResults.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
+    val layout by vm.keypadLayout.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
     var unassigned by remember { mutableStateOf<Int?>(null) }
+    var messageOn by remember { mutableStateOf<String?>(null) }
+    var imeiSheet by remember { mutableStateOf(false) }
+    /** Result row focused with the D-pad; Call/Enter calls it. */
+    var focusedResult by remember { mutableStateOf<DialResult?>(null) }
+
+    // K7: phones with a hardware keypad or keyboard type on it; the on-screen keypad starts hidden.
+    val configuration = LocalConfiguration.current
+    val hasHardwareKeys = hardwareKeysAvailable(configuration)
+    val qwerty = configuration.keyboard == Configuration.KEYBOARD_QWERTY && hasHardwareKeys
+    var showKeypad by rememberSaveable(hasHardwareKeys) { mutableStateOf(!hasHardwareKeys) }
 
     val tone = remember {
         try { ToneGenerator(AudioManager.STREAM_DTMF, 70) } catch (_: Exception) { null }
@@ -100,37 +166,101 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit) {
     DisposableEffect(Unit) { onDispose { tone?.release() } }
     val systemTones = remember { Settings.System.getInt(context.contentResolver, Settings.System.DTMF_TONE_WHEN_DIALING, 1) == 1 }
 
+    // K4: the number is an editable field (cursor, selection, paste) that never opens the on-screen keyboard.
+    val field = rememberTextFieldState(vm.dialInput.value)
+    LaunchedEffect(input) { if (field.text.toString() != input) field.setTextAndPlaceCursorAtEnd(input) }
+    LaunchedEffect(field) { snapshotFlow { field.text.toString() }.collect { if (it != vm.dialInput.value) vm.dialInput.value = it } }
+    LaunchedEffect(input) { if (input == IMEI_CODE) imeiSheet = true }
+
+    fun insert(text: String) = field.insertAtCursor(text)
+
     fun press(c: Char) {
-        vm.dialInput.value = input + c
+        insert(c.toString())
         if (settings.dialpadHaptics) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         if (settings.dialpadTones && systemTones) dtmfTone[c]?.let { tone?.startTone(it, 120) }
     }
 
+    fun callResult(r: DialResult) = vm.requestCall(r.number, r.contact?.displayName)
+
+    /** Letters typed on a hardware keyboard are a name search, so Call means the best match. */
+    fun isTextSearch() = input.any { it.isLetter() }
+
     fun callNow() {
         val n = input.trim()
         if (n.isEmpty()) {
-            // Recall the last dialled number, like most dialers.
-            vm.c.callLog.calls.value?.firstOrNull { it.type == app.parley.common.CallType.OUTGOING }?.let { vm.dialInput.value = it.number }
+            // A7: recall the last dialled number, like most dialers.
+            vm.recallLastNumber()
+            return
+        }
+        if (isTextSearch()) {
+            results.firstOrNull()?.let(::callResult)
             return
         }
         vm.requestCall(n, results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, n, vm.countryIso) }?.contact?.displayName)
     }
 
-    Column(Modifier.fillMaxSize()) {
+    fun callWithSim(simId: String) {
+        val target = if (isTextSearch()) results.firstOrNull()?.number else input.trim()
+        if (!target.isNullOrEmpty()) vm.place(target, simId)
+    }
+
+    fun onKey(e: KeyEvent): Boolean {
+        val native = e.nativeKeyEvent
+        val down = e.type == KeyEventType.KeyDown
+        if (native.isCtrlPressed || native.isMetaPressed) return false
+        when (native.keyCode) {
+            AndroidKeyEvent.KEYCODE_CALL -> { if (down) focusedResult?.let(::callResult) ?: callNow(); return true }
+            AndroidKeyEvent.KEYCODE_ENTER, AndroidKeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                if (down) focusedResult?.let(::callResult) ?: callNow()
+                return true
+            }
+            AndroidKeyEvent.KEYCODE_DEL -> {
+                if (input.isEmpty()) return false
+                if (down) field.deleteBeforeCursor()
+                return true
+            }
+            AndroidKeyEvent.KEYCODE_FORWARD_DEL -> {
+                if (down) field.deleteAfterCursor()
+                return input.isNotEmpty()
+            }
+        }
+        val ch = native.getUnicodeChar(native.metaState).takeIf { it > 0 }?.toChar() ?: return false
+        val digit = app.parley.common.T9.asciiDigit(ch)
+        return when {
+            digit != null || ch == '*' || ch == '#' || ch == '+' -> { if (down) press(digit ?: ch); true }
+            // QWERTY: letters search names as text; space separates words.
+            qwerty && (ch.isLetter() || (ch == ' ' && isTextSearch())) -> { if (down) insert(ch.toString()); true }
+            else -> false
+        }
+    }
+
+    val rootFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
+
+    Column(Modifier.fillMaxSize().focusRequester(rootFocus).onPreviewKeyEvent(::onKey).focusable()) {
         // Results
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (input.isEmpty()) {
-                Text(
-                    "Type a number or letters of a name (T9)",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.align(Alignment.Center).padding(24.dp),
-                    textAlign = TextAlign.Center,
-                )
+                Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        if (qwerty) "Type a number, or letters of a name" else "Type a number or letters of a name (T9)",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center,
+                    )
+                    PasteChip(vm.countryIso) { text -> field.setTextAndPlaceCursorAtEnd(text) }
+                }
             } else {
-                LazyColumn(Modifier.fillMaxSize(), reverseLayout = false) {
-                    items(results, key = { (it.contact?.id?.toString() ?: "n") + it.number }) { r -> DialResultRow(r, vm.countryIso) { vm.requestCall(r.number, r.contact?.displayName) } }
-                    if (results.none { it.contact != null } && input.length >= 3) {
+                LazyColumn(Modifier.fillMaxSize()) {
+                    items(results, key = { (it.contact?.id?.toString() ?: "n") + it.number }) { r ->
+                        DialResultRow(
+                            r, vm.countryIso,
+                            modifier = Modifier.onFocusChanged { s ->
+                                if (s.isFocused) focusedResult = r else if (focusedResult == r) focusedResult = null
+                            },
+                        ) { callResult(r) }
+                    }
+                    if (results.none { it.contact != null } && input.length >= 3 && !isTextSearch()) {
                         item {
                             ListItem(
                                 headlineContent = { Text("Create new contact") },
@@ -143,9 +273,10 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit) {
                                 modifier = Modifier.clickable { open(Routes.pick(input)) },
                             )
                             ListItem(
-                                headlineContent = { Text("Send message") },
-                                leadingContent = { Icon(Icons.AutoMirrored.Rounded.Message, null) },
-                                modifier = Modifier.clickable { Intents.sms(context, input) },
+                                headlineContent = { Text("Message on…") },
+                                supportingContent = { Text("SMS, WhatsApp, Signal, Telegram, Viber") },
+                                leadingContent = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
+                                modifier = Modifier.clickable { messageOn = input },
                             )
                         }
                     }
@@ -156,51 +287,61 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit) {
         Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
             Column(Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 // Number display
-                Row(Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Spacer(Modifier.width(48.dp))
-                    Text(
-                        Format.number(input, vm.countryIso).ifEmpty { input },
-                        style = MaterialTheme.typography.headlineMedium.copy(fontSize = if (input.length > 14) 24.sp else 32.sp),
-                        textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.StartEllipsis,
-                        modifier = Modifier.weight(1f).semantics { contentDescription = "Number: $input" },
-                    )
+                Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (hasHardwareKeys) {
+                        IconButton({ showKeypad = !showKeypad }) {
+                            Icon(Icons.Rounded.Dialpad, if (showKeypad) "Hide on-screen keypad" else "Show on-screen keypad")
+                        }
+                    } else {
+                        Spacer(Modifier.width(48.dp))
+                    }
+                    NumberField(field, vm.countryIso, Modifier.weight(1f))
                     Box(
                         Modifier.size(48.dp).clip(CircleShape).combinedClickable(
                             enabled = input.isNotEmpty(),
-                            onClick = { vm.dialInput.value = input.dropLast(1) },
-                            onLongClick = { vm.dialInput.value = "" },
+                            onClick = { field.deleteBeforeCursor() },
+                            onLongClick = { field.clearText() },
                         ).semantics { contentDescription = "Delete" },
                         contentAlignment = Alignment.Center,
                     ) { if (input.isNotEmpty()) Icon(Icons.AutoMirrored.Rounded.Backspace, null) }
                 }
-                keys.chunked(3).forEach { row ->
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        row.forEach { (digit, letters) ->
-                            val d = digit[0]
-                            DialKey(
-                                digit, letters,
-                                onClick = { press(d) },
-                                onLong = when (d) {
-                                    '0' -> ({ vm.dialInput.value = input + "+" })
-                                    '1' -> ({ vm.callVoicemail() })
-                                    in '2'..'9' -> ({ vm.speedDial(d - '0') { unassigned = d - '0' } })
-                                    '*' -> ({ vm.dialInput.value = input + "," })
-                                    '#' -> ({ vm.dialInput.value = input + ";" })
-                                    else -> null
-                                },
-                            )
+                if (showKeypad) {
+                    keys.chunked(3).forEach { row ->
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            row.forEach { (digit, letters) ->
+                                val d = digit[0]
+                                DialKey(
+                                    digit, letters, localLetters(layout, d),
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { press(d) },
+                                    onLong = when (d) {
+                                        '0' -> ({ insert("+") })
+                                        '1' -> ({ vm.callVoicemail() })
+                                        in '2'..'9' -> ({ vm.speedDial(d - '0') { unassigned = d - '0' } })
+                                        '*' -> ({ insert(",") })
+                                        '#' -> ({ insert(";") })
+                                        else -> null
+                                    },
+                                )
+                            }
                         }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
-                if (sims.size >= 2 && input.isNotEmpty()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        sims.take(2).forEach { sim ->
-                            CallButton(label = sim.label) { vm.place(input.trim(), sim.id) }
-                        }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // M2: message the typed number in a chat app.
+                    if (input.isNotEmpty() && !isTextSearch() && !PhoneNumbers.isServiceCode(input)) {
+                        AssistChip(
+                            onClick = { messageOn = input.trim() },
+                            label = { Text("Message") },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
+                        )
                     }
-                } else {
-                    CallButton(label = null, onClick = ::callNow)
+                    if (sims.size >= 2 && input.isNotEmpty()) {
+                        sims.take(2).forEach { sim -> CallButton(label = sim.label) { callWithSim(sim.id) } }
+                    } else {
+                        CallButton(label = null, onClick = ::callNow)
+                    }
                 }
             }
         }
@@ -215,25 +356,196 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit) {
             dismissButton = { TextButton({ unassigned = null }) { Text("Cancel") } },
         )
     }
+    messageOn?.let { n -> MessageOnSheet(n, onDismiss = { messageOn = null }) }
+    if (imeiSheet) {
+        ImeiSheet(onDismiss = {
+            imeiSheet = false
+            if (field.text.toString() == IMEI_CODE) field.clearText()
+        })
+    }
 }
 
+/** Whether a hardware keypad (flip phones) or keyboard (QWERTY phones) is available and open. */
+private fun hardwareKeysAvailable(c: Configuration): Boolean =
+    (c.keyboard == Configuration.KEYBOARD_12KEY || c.keyboard == Configuration.KEYBOARD_QWERTY) &&
+        c.hardKeyboardHidden != Configuration.HARDKEYBOARDHIDDEN_YES
+
+/** Second row of letters on a key for the chosen alphabet (K6); none for Latin only. */
+private fun localLetters(layout: KeypadLayout, digit: Char): String = layout.lettersFor(digit)
+
+private fun TextFieldState.insertAtCursor(text: String) = edit {
+    val start = minOf(selection.start, selection.end)
+    val end = maxOf(selection.start, selection.end)
+    replace(start, end, text)
+    selection = TextRange(start + text.length)
+}
+
+private fun TextFieldState.deleteBeforeCursor() = edit {
+    val start = minOf(selection.start, selection.end)
+    val end = maxOf(selection.start, selection.end)
+    when {
+        start != end -> { delete(start, end); selection = TextRange(start) }
+        start > 0 -> { delete(start - 1, start); selection = TextRange(start - 1) }
+    }
+}
+
+private fun TextFieldState.deleteAfterCursor() = edit {
+    val start = minOf(selection.start, selection.end)
+    val end = maxOf(selection.start, selection.end)
+    when {
+        start != end -> { delete(start, end); selection = TextRange(start) }
+        start < length -> delete(start, start + 1)
+    }
+}
+
+/** Pasted or cut text keeps only what can be dialled. */
+private object DialInputFilter : InputTransformation {
+    override fun TextFieldBuffer.transformInput() {
+        val text = asCharSequence().toString()
+        // Deleting (cut) needs no cleaning, and keeps letters typed on a hardware keyboard for name search.
+        if (text.length < originalText.length) return
+        val clean = DialText.sanitize(text)
+        if (clean != text) {
+            replace(0, length, clean)
+            selection = TextRange(clean.length)
+        }
+    }
+}
+
+/** Shows the number formatted for the country ("06 12 34 56 78") while editing the plain digits. */
+private class FormattedNumber(private val countryIso: String) : OutputTransformation {
+    override fun TextFieldBuffer.transformOutput() {
+        val raw = asCharSequence().toString()
+        if (raw.length < 4 || raw.any { !(it.isDigit() || it == '+') }) return
+        val formatted = PhoneNumberUtils.formatNumber(raw, countryIso) ?: return
+        val inserts = DialText.formattingInserts(raw, formatted) ?: return
+        var offset = 0
+        for ((at, ch) in inserts) {
+            insert(at + offset, ch.toString())
+            offset++
+        }
+    }
+}
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun NumberField(state: TextFieldState, countryIso: String, modifier: Modifier) {
+    val long = state.text.length > 14
+    val style = MaterialTheme.typography.headlineMedium.copy(
+        fontSize = if (long) 24.sp else 32.sp,
+        textAlign = TextAlign.Center,
+        color = MaterialTheme.colorScheme.onSurface,
+    )
+    val output = remember(countryIso) { FormattedNumber(countryIso) }
+    // Tapping places the cursor and long-press offers Paste, but the on-screen keyboard never opens: the keypad
+    // below (or a hardware keypad) is the keyboard.
+    InterceptPlatformTextInput(interceptor = { _, _ -> awaitCancellation() }) {
+        BasicTextField(
+            state = state,
+            modifier = modifier.semantics { contentDescription = "Number: ${state.text}" },
+            textStyle = style,
+            lineLimits = TextFieldLineLimits.SingleLine,
+            inputTransformation = DialInputFilter,
+            outputTransformation = output,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, showKeyboardOnFocus = false),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        )
+    }
+}
+
+private enum class ClipHint { NONE, TEXT, NUMBER }
+
+/**
+ * Whether the clipboard may hold a number, without reading it: only the clip description is checked (no
+ * "pasted from your clipboard" notice on Android 12+). The text is read only when the chip is tapped.
+ */
+@Composable
+private fun PasteChip(countryIso: String, onPaste: (String) -> Unit) {
+    val context = LocalContext.current
+    val cm = remember { context.getSystemService(ClipboardManager::class.java) }
+    var hint by remember { mutableStateOf(ClipHint.NONE) }
+    val focused = LocalWindowInfo.current.isWindowFocused
+    LaunchedEffect(focused) { if (focused) hint = clipHint(cm) }
+    DisposableEffect(cm) {
+        val listener = ClipboardManager.OnPrimaryClipChangedListener { hint = clipHint(cm) }
+        cm?.addPrimaryClipChangedListener(listener)
+        onDispose { cm?.removePrimaryClipChangedListener(listener) }
+    }
+    if (hint == ClipHint.NONE) return
+    AssistChip(
+        modifier = Modifier.padding(top = 12.dp),
+        onClick = {
+            val text = runCatching { cm?.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() }.getOrNull().orEmpty()
+            val number = NumberText.find(text, countryIso).firstOrNull()?.raw?.let(DialText::sanitize)
+            if (number.isNullOrEmpty()) Toast.makeText(context, "No phone number on the clipboard", Toast.LENGTH_SHORT).show()
+            else onPaste(number)
+        },
+        label = { Text(if (hint == ClipHint.NUMBER) "Paste number" else "Paste") },
+        leadingIcon = { Icon(Icons.Rounded.ContentPaste, null) },
+    )
+}
+
+private fun clipHint(cm: ClipboardManager?): ClipHint = try {
+    val d = if (cm?.hasPrimaryClip() == true) cm.primaryClipDescription else null
+    when {
+        d == null || !d.hasMimeType("text/*") -> ClipHint.NONE
+        Build.VERSION.SDK_INT >= 31 && d.classificationStatus == ClipDescription.CLASSIFICATION_COMPLETE ->
+            if (d.getConfidenceScore(TextClassifier.TYPE_PHONE) >= 0.5f) ClipHint.NUMBER else ClipHint.NONE
+        else -> ClipHint.TEXT
+    }
+} catch (_: Exception) {
+    ClipHint.NONE
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ImeiSheet(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("IMEI and device identifiers", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "Android shows the IMEI only to the system, not to apps like Parley. You can find it in About phone.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button({
+                runCatching { context.startActivity(Intent(Settings.ACTION_DEVICE_INFO_SETTINGS)) }
+                onDismiss()
+            }) { Text("Open About phone") }
+            TextButton(onDismiss) { Text("Close") }
+        }
+    }
+}
+
+/**
+ * One keypad key: the digit, its Latin letters, and optionally a second row with the chosen alphabet's letters.
+ * The key grows with the system font size (the digit up to 1.5×, the letters fully) so both letter rows stay
+ * readable at 200 %.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun DialKey(digit: String, letters: String, onClick: () -> Unit, onLong: (() -> Unit)?) {
+private fun DialKey(digit: String, letters: String, local: String, modifier: Modifier = Modifier, onClick: () -> Unit, onLong: (() -> Unit)?) {
+    val fontScale = LocalDensity.current.fontScale
+    val digitSize = (30f * minOf(fontScale, 1.5f) / fontScale).sp
     Column(
-        Modifier
-            .size(width = 96.dp, height = 64.dp)
+        modifier
+            .padding(horizontal = 4.dp)
+            .heightIn(min = 64.dp)
             .clip(RoundedCornerShape(32.dp))
             .combinedClickable(onClick = onClick, onLongClick = onLong)
+            .padding(vertical = 4.dp)
             .semantics { contentDescription = digit + if (letters.isNotEmpty()) " $letters" else "" },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(digit, fontSize = 30.sp, fontWeight = FontWeight.Normal)
+        Text(digit, fontSize = digitSize, lineHeight = digitSize, fontWeight = FontWeight.Normal)
         if (digit == "1") {
             Icon(Icons.Rounded.Voicemail, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            Text(letters, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else if (letters.isNotEmpty() || local.isEmpty()) {
+            Text(letters, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false)
+        }
+        if (local.isNotEmpty()) {
+            Text(local, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, softWrap = false)
         }
     }
 }
@@ -254,12 +566,28 @@ private fun CallButton(label: String?, onClick: () -> Unit) {
     }
 }
 
+/**
+ * A keypad result. Main rows show the contact with the matched letters highlighted and the number that will be
+ * dialled ("Mobile · Primary · 06 12…"); [DialResult.secondary] rows list the contact's other numbers (K3).
+ */
 @Composable
-private fun DialResultRow(r: DialResult, countryIso: String, onClick: () -> Unit) {
+private fun DialResultRow(r: DialResult, countryIso: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val context = LocalContext.current
     val c = r.contact
+    val phone = c?.phones?.firstOrNull { it.number == r.number }
+    val type = phone?.let { Format.phoneType(context.resources, it.type, it.label) }
+    if (r.secondary) {
+        ListItem(
+            modifier = modifier.clickable(onClick = onClick),
+            leadingContent = { Spacer(Modifier.width(40.dp)) },
+            headlineContent = { Text(Format.number(r.number, countryIso), style = MaterialTheme.typography.bodyLarge) },
+            supportingContent = type?.let { { Text(it) } },
+            trailingContent = { Icon(Icons.Rounded.Call, "Call ${c?.displayName.orEmpty()} ${type.orEmpty()}", tint = MaterialTheme.colorScheme.primary) },
+        )
+        return
+    }
     ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = modifier.clickable(onClick = onClick),
         leadingContent = { Avatar(c?.displayName ?: r.number, c?.photoUri, 40.dp) },
         headlineContent = {
             if (c != null) Text(highlight(c.displayName, r.match.nameRanges, MatchStyle), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -267,8 +595,7 @@ private fun DialResultRow(r: DialResult, countryIso: String, onClick: () -> Unit
         },
         supportingContent = {
             if (c != null) {
-                val p = c.phones.firstOrNull { it.number == r.number }
-                Text(listOfNotNull(p?.let { Format.phoneType(context.resources, it.type, it.label) }, Format.number(r.number, countryIso)).joinToString(" · "))
+                Text(listOfNotNull(type, if (r.primary) "Primary" else null, Format.number(r.number, countryIso)).joinToString(" · "), maxLines = 1, overflow = TextOverflow.Ellipsis)
             } else {
                 Text("Recent")
             }

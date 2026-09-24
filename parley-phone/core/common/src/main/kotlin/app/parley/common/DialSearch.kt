@@ -177,3 +177,42 @@ class DialSearch {
             calls?.firstOrNull { it.type == CallType.OUTGOING && it.number.isNotBlank() && !it.presentationHidden }?.number
     }
 }
+
+/** Text handling for the keypad's number field. */
+object DialText {
+    /**
+     * Keeps what can be dialled from pasted text: digits (any script, as 0–9), a leading "+", `*`, `#`, and the
+     * pause/wait characters `,` and `;`. "Tel: +1 (555) 123-4567" becomes "+15551234567".
+     */
+    fun sanitize(text: String): String = buildString {
+        for (c in text) {
+            val d = T9.asciiDigit(c)
+            when {
+                d != null -> append(d)
+                c == '+' -> if (isEmpty()) append(c)
+                c == '*' || c == '#' || c == ',' || c == ';' -> append(c)
+            }
+        }
+    }
+
+    /**
+     * Where the characters that [formatted] adds to [raw] go, as (index in raw, character) pairs, so a formatted
+     * number ("06 12 34") can be shown while the cursor still moves over the typed digits. Null when [formatted]
+     * isn't [raw] plus formatting characters.
+     */
+    fun formattingInserts(raw: String, formatted: String): List<Pair<Int, Char>>? {
+        if (formatted == raw) return emptyList()
+        val out = ArrayList<Pair<Int, Char>>()
+        var i = 0
+        for (ch in formatted) {
+            if (i < raw.length && ch == raw[i]) {
+                i++
+            } else if (ch.isDigit() || ch == '+' || ch == '*' || ch == '#') {
+                return null
+            } else {
+                out += i to ch
+            }
+        }
+        return if (i == raw.length) out else null
+    }
+}

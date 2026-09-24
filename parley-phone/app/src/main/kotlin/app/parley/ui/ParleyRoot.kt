@@ -229,6 +229,7 @@ fun ParleyRoot(vm: AppViewModel) {
       }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 80.dp))
     }
+    app.parley.messaging.ChatThenDecideHost(snackbar) { id -> nav.navigate(Routes.contact(id)) { launchSingleTop = true } }
     CallDialogs(vm)
 
     insertOrEdit?.let { p ->

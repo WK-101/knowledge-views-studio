@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.telecom.TelecomManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -60,10 +59,11 @@ class MissedCallReceiver : BroadcastReceiver() {
             b.addAction(0, "Call back", action(context, MissedCallActionReceiver.ACTION_CALL_BACK, number, 11))
             b.addAction(
                 0, "Message",
+                // "Message on…": SMS or a chat app, chosen in a small sheet.
                 PendingIntent.getActivity(
                     context, 12,
-                    Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", number, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                    PendingIntent.FLAG_IMMUTABLE,
+                    app.parley.messaging.MessageOn.intent(context, number),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                 ),
             )
         }

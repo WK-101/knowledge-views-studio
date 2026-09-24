@@ -25,6 +25,7 @@ import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CallEnd
 import androidx.compose.material.icons.rounded.Voicemail
 import androidx.compose.material.icons.automirrored.rounded.Message
+import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.PersonAdd
@@ -68,7 +69,9 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
     val context = LocalContext.current
     val simLabels = remember(sims) { if (sims.size > 1) sims.associate { it.id to it.label } else emptyMap() }
     var menuFor by remember { mutableStateOf<RecentGroup?>(null) }
-    menuFor?.let { g -> RecentActionsSheet(vm, g, open) { menuFor = null } }
+    var messageFor by remember { mutableStateOf<String?>(null) }
+    menuFor?.let { g -> RecentActionsSheet(vm, g, open, onMessageOn = { messageFor = it }) { menuFor = null } }
+    messageFor?.let { n -> app.parley.messaging.MessageOnSheet(n, onDismiss = { messageFor = null }) }
 
     LazyColumn(Modifier.fillMaxWidth()) {
         item(key = "filters") {
@@ -173,7 +176,7 @@ fun callTypeIcon(type: CallType): Pair<ImageVector, Color> = when (type) {
 /** Long-press actions for a Recents row. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun RecentActionsSheet(vm: AppViewModel, g: RecentGroup, open: (String) -> Unit, onDismiss: () -> Unit) {
+private fun RecentActionsSheet(vm: AppViewModel, g: RecentGroup, open: (String) -> Unit, onMessageOn: (String) -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     fun act(block: () -> Unit) { onDismiss(); block() }
@@ -186,6 +189,7 @@ private fun RecentActionsSheet(vm: AppViewModel, g: RecentGroup, open: (String) 
         }
         row("Call", Icons.Rounded.Call, hasNumber) { act { vm.requestCall(g.number, g.contact?.displayName) } }
         row("Send message", Icons.AutoMirrored.Rounded.Message, hasNumber) { act { app.parley.ui.common.Intents.sms(context, g.number) } }
+        row("Message on…", Icons.AutoMirrored.Rounded.Chat, hasNumber) { act { onMessageOn(g.number) } }
         row("Edit number before calling", Icons.Rounded.Dialpad, hasNumber) {
             act { vm.navigate(app.parley.NavEvent.Tab(app.parley.common.StartTab.KEYPAD, dial = g.number)) }
         }

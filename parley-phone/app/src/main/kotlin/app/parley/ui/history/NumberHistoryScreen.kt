@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Message
+import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -56,6 +57,8 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     val contact = index[PhoneNumbers.matchKey(number)]
     val history = calls.orEmpty().filter { PhoneNumbers.same(it.number, number, vm.countryIso) }
     var blocked by remember { mutableStateOf(false) }
+    var messageOn by remember { mutableStateOf(false) }
+    if (messageOn) app.parley.messaging.MessageOnSheet(number, onDismiss = { messageOn = false })
     val notes by vm.c.meta.callNotes(PhoneNumbers.matchKey(number)).collectAsStateWithLifecycle(emptyList())
     LaunchedEffect(number) { blocked = vm.c.blocks.isSystemBlocked(number) }
     val simLabels = sims.associate { it.id to it.label }.takeIf { sims.size > 1 }.orEmpty()
@@ -79,10 +82,14 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     val where = remember(number) { app.parley.data.NumberInfo.location(number, vm.countryIso) }
                     val flag = remember(number) { app.parley.data.NumberInfo.flag(app.parley.data.NumberInfo.region(number, vm.countryIso)) }
                     if (where != null || flag != null) Text(listOfNotNull(flag, where).joinToString(" "), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    app.parley.messaging.LastMessagedNote(number)
                     Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         AssistChip({ vm.requestCall(number, contact?.displayName) }, { Text("Call") }, leadingIcon = { Icon(Icons.Rounded.Call, null) })
                         AssistChip({ Intents.sms(context, number) }, { Text("Message") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) })
                         AssistChip({ Intents.copy(context, number) }, { Text("Copy") }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) })
+                    }
+                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AssistChip({ messageOn = true }, { Text("Message on…") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) })
                     }
                     Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (contact == null) {

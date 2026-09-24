@@ -8,6 +8,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.parley.common.CallEntry
 import app.parley.common.CallType
+import app.parley.common.DialSearch
+import app.parley.common.KeypadLayout
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneNumbers
 import app.parley.common.PhoneEntry
@@ -18,6 +20,7 @@ import app.parley.data.Permissions
 import app.parley.data.CallLogRepository
 import app.parley.data.PhoneEnv
 import app.parley.data.PlaceResult
+import app.parley.data.messaging.Romanizer
 import app.parley.shortcuts.Shortcuts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -53,7 +56,8 @@ data class RecentGroup(
     val title: String get() = contact?.displayName ?: cachedName?.takeIf { it.isNotBlank() } ?: number.ifBlank { if (hidden) "Private number" else "Unknown" }
 }
 
-data class DialResult(val contact: ContactSummary?, val number: String, val match: T9.Match)
+/** One keypad result row (see [app.parley.common.DialHit]). */
+typealias DialResult = app.parley.common.DialHit
 
 data class PendingCall(
     val number: String,
@@ -268,42 +272,37 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     val dialInput = MutableStateFlow("")
 
-    private val encoded = contacts.map { list -> list.orEmpty().map { it to T9.Encoded(it.displayName) } }
+    /** Keypad alphabet in use: the one chosen in settings, or the phone language's. */
+    val keypadLayout: StateFlow<KeypadLayout> = c.messaging.keypadLayoutChoice.map { c.messaging.effectiveLayout(it) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, c.messaging.effectiveLayout())
+
+    private fun keypadEntry(contact: ContactSummary, layout: KeypadLayout) = DialSearch.Entry(
+        contact,
+        T9.Encoded(contact.displayName, layout, Romanizer.syllables(contact.displayName), Romanizer.phonetic(contact.phoneticName)),
+    )
+
+    private val encoded = combine(contacts, keypadLayout) { list, layout -> list.orEmpty().map { keypadEntry(it, layout) } }
         .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    private val encodedVault = combine(c.vault.contacts, settings.map { it.hideVault }.distinctUntilChanged()) { list, hidden ->
+    private val encodedVault = combine(c.vault.contacts, settings.map { it.hideVault }.distinctUntilChanged(), keypadLayout) { list, hidden, layout ->
         if (hidden) emptyList() else list.map { v ->
-            ContactSummary(id = -v.id, lookupKey = "", displayName = v.name, photoUri = null, starred = false, phones = v.numbers.map { PhoneEntry(it, 2, null) }) to T9.Encoded(v.name)
+            keypadEntry(ContactSummary(id = -v.id, lookupKey = "", displayName = v.name, photoUri = null, starred = false, phones = v.numbers.map { PhoneEntry(it, 2, null) }), layout)
         }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    val dialResults: StateFlow<List<DialResult>> = combine(dialInput, combine(encoded, encodedVault) { a, b -> a + b }, c.callLog.calls) { input, enc, calls ->
-        val q = PhoneNumbers.clean(input).removePrefix("+")
-        if (q.isEmpty() || q.any { it == '*' || it == '#' }) return@combine emptyList()
-        // People you called recently rank higher among equally good matches.
-        val now = System.currentTimeMillis()
-        val lastCalled = HashMap<String, Long>()
-        calls.orEmpty().take(1500).forEach { e -> if (e.number.isNotBlank()) lastCalled.putIfAbsent(PhoneNumbers.matchKey(e.number), e.date) }
-        fun recencyBonus(contact: ContactSummary): Int {
-            val newest = contact.phones.mapNotNull { lastCalled[PhoneNumbers.matchKey(it.number)] }.maxOrNull() ?: return 0
-            val days = (now - newest) / 86_400_000L
-            return (60 - days * 2).coerceIn(0, 60).toInt()
-        }
-        val results = ArrayList<DialResult>()
-        for ((contact, e) in enc) {
-            val m = T9.match(q, e, contact.phones.map { it.number }) ?: continue
-            results += DialResult(contact, m.matchedNumber ?: contact.phones.firstOrNull()?.number.orEmpty(), m.copy(score = m.score + recencyBonus(contact) + if (contact.starred) 15 else 0))
-        }
-        results.sortByDescending { it.match.score }
-        val seen = results.flatMap { r -> r.contact?.phones.orEmpty().map { PhoneNumbers.matchKey(it.number) } }.toHashSet()
-        calls.orEmpty().asSequence()
-            .filter { it.number.isNotBlank() && !it.presentationHidden }
-            .distinctBy { PhoneNumbers.matchKey(it.number) }
-            .filter { PhoneNumbers.matchKey(it.number) !in seen && PhoneNumbers.digits(it.number).contains(q) }
-            .take(5)
-            .forEach { results += DialResult(null, it.number, T9.Match(400, emptyList(), it.number)) }
-        results.filter { it.contact == null || it.number.isNotEmpty() }.take(50)
+    private val dialSearch = DialSearch()
+
+    /** Keypad results; narrows the previous results while you type (see [DialSearch]). */
+    val dialResults: StateFlow<List<DialResult>> = combine(dialInput, combine(encoded, encodedVault) { a, b -> a + b }, c.callLog.calls) { input, entries, calls ->
+        dialSearch.search(input, entries, calls)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Call pressed with nothing typed: the last number you called goes back on the keypad (like most dialers). */
+    fun recallLastNumber(): Boolean {
+        val n = DialSearch.lastOutgoing(c.callLog.calls.value) ?: return false
+        dialInput.value = n
+        return true
+    }
 
     // ---------- Calling ----------
 
