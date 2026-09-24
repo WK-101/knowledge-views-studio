@@ -71,10 +71,6 @@ class AgendaWidget : BaseWidgetProvider() {
         manager.notifyAppWidgetViewDataChanged(id, R.id.widget_list)
     }
 
-    override fun onDeleted(context: Context, ids: IntArray) {
-        ids.forEach { WidgetPrefs.clear(context, it) }
-    }
-
     private fun activityIntent(context: Context, code: Int, action: String?): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP

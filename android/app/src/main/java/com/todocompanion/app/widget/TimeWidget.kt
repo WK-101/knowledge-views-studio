@@ -122,10 +122,19 @@ class TimeTrackReceiver : BroadcastReceiver() {
                     ACTION_START -> intent.getStringExtra(EXTRA_ACTIVITY_ID)?.let { actId ->
                         val taskId = intent.getStringExtra(EXTRA_TASK_ID)
                         val multi = app.repository.settingsSnapshot().multiTimer
+                        // A stop-first start will end whatever is running; if that's a focus session,
+                        // clear its alarm + ongoing notification too, or they outlive the interval.
+                        if (!multi && app.repository.runningTimeEntry()?.kind == "focus") FocusTimer.cancelPending(context)
                         app.repository.startTimeTracking(actId, taskId = taskId, stopFirst = !multi)
                         com.todocompanion.app.reminders.AutomationRunner.onStart(context, app.repository, actId)
                     }
-                    ACTION_STOP -> app.repository.stopTimeTracking()
+                    ACTION_STOP -> {
+                        // Stopping a focus session from the Time widget must also cancel its FocusTimer
+                        // alarm/notification, or a phantom "focus done" chime fires at the old target time.
+                        val focus = app.repository.runningTimeEntry()?.kind == "focus"
+                        app.repository.stopTimeTracking()
+                        if (focus) FocusTimer.cancelPending(context)
+                    }
                 }
                 TimeWidget.refresh(context)
             } finally { pending.finish() }

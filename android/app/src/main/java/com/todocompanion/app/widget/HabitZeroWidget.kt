@@ -2,7 +2,6 @@ package com.todocompanion.app.widget
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
-import android.appwidget.AppWidgetProvider
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
@@ -33,7 +32,7 @@ import kotlin.math.roundToInt
  * Per-type tap ([HabitZeroReceiver]): a yes/no habit checks off in place; a numeric one opens the
  * amount-entry popup (so "8,000 steps" is typed, never blindly +1'd); a timed one opens its timer.
  */
-class HabitZeroWidget : AppWidgetProvider() {
+class HabitZeroWidget : BaseWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = render(context, manager, ids)
     override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, newOptions: android.os.Bundle) =
         render(context, manager, intArrayOf(id))

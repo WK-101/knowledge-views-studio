@@ -30,9 +30,6 @@ class DoNextWidget : BaseWidgetProvider() {
         ids.forEach { id -> render(context, manager, id) }
     }
 
-    override fun onDeleted(context: Context, ids: IntArray) {
-        ids.forEach { WidgetPrefs.clear(context, it) }
-    }
 
     private fun render(context: Context, manager: AppWidgetManager, id: Int) {
         val views = RemoteViews(context.packageName, R.layout.widget_donext)

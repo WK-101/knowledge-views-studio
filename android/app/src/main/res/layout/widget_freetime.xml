@@ -45,7 +45,7 @@
                 android:ellipsize="end"
                 android:text="All clear"
                 android:textColor="@color/w_text_primary"
-                android:textSize="17sp"
+                android:textSize="16sp"
                 android:textStyle="bold" />
 
             <TextView

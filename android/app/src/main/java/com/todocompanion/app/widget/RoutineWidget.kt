@@ -38,11 +38,21 @@ class RoutineWidget : BaseWidgetProvider() {
                 val ranToday = runs.filter { it.finished && it.epochDay == today }.map { it.routineId }.toSet()
 
                 val runnable = routines.filter { it.isRunnable }
-                val dueToday = runnable.filter {
-                    it.scheduledOn(today) && it.id !in ranToday && (it.whenReminderMin != null || it.days.isNotEmpty())
+                val scheduledToday = runnable.filter {
+                    it.scheduledOn(today) && (it.whenReminderMin != null || it.days.isNotEmpty())
                 }
-                // Show what's due; if nothing is scheduled, offer every routine so a tap is always there.
-                val show = (if (dueToday.isNotEmpty()) dueToday else runnable).take(4)
+                val dueToday = scheduledToday.filter { it.id !in ranToday }
+                // Rows to show, and — when there are none — which empty state fits:
+                //  • due today → list them
+                //  • all of today's scheduled routines already ran → celebrate
+                //  • nothing scheduled but routines exist → offer them all as a launcher
+                //  • no runnable routines at all → prompt to build one
+                val show = when {
+                    dueToday.isNotEmpty() -> dueToday.take(4)
+                    scheduledToday.isNotEmpty() -> emptyList()      // ran them all today
+                    else -> runnable.take(4)                         // unscheduled launcher
+                }
+                val allDone = show.isEmpty() && scheduledToday.isNotEmpty()
 
                 ids.forEach { id ->
                     val style = WidgetStyle.resolve(context, id)
@@ -64,7 +74,10 @@ class RoutineWidget : BaseWidgetProvider() {
                     }
                     views.setViewVisibility(R.id.rt_empty, if (show.isEmpty()) View.VISIBLE else View.GONE)
                     if (show.isEmpty()) {
-                        views.setTextViewText(R.id.rt_empty, if (routines.isEmpty()) "No routines yet — build one in the app." else "All routines done for today 🎉")
+                        views.setTextViewText(R.id.rt_empty, when {
+                            allDone -> "All routines done for today 🎉"
+                            else -> "No routines yet — build one in the app."
+                        })
                         views.setTextColor(R.id.rt_empty, style.textSecondary)
                     }
                     views.setOnClickPendingIntent(R.id.rt_title, openRoutines(context))

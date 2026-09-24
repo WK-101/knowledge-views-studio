@@ -223,7 +223,6 @@ class HabitInsightWidget : BaseWidgetProvider() {
 
     companion object {
         fun updateOne(context: Context, id: Int) {
-            val m = AppWidgetManager.getInstance(context) ?: return
             context.sendBroadcast(Intent(context, HabitInsightWidget::class.java).apply {
                 action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(id))

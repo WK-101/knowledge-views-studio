@@ -41,9 +41,9 @@
                 android:layout_height="wrap_content"
                 android:text="PATTERN THE COACH FOUND"
                 android:textColor="@color/w_accent_text"
-                android:textSize="10sp"
+                android:textSize="11sp"
                 android:textStyle="bold"
-                android:letterSpacing="0.06" />
+                android:letterSpacing="0.08" />
 
             <TextView
                 android:id="@+id/co_body"

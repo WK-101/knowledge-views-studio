@@ -36,7 +36,7 @@
                 android:ellipsize="end"
                 android:text="Habit"
                 android:textColor="@color/w_text_primary"
-                android:textSize="15sp"
+                android:textSize="16sp"
                 android:textStyle="bold" />
 
             <TextView

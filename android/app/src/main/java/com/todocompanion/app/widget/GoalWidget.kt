@@ -23,7 +23,7 @@ import kotlin.math.roundToInt
  * and whether you're on pace. Reads the on-device goal model (key-result / milestone completion and the
  * 12-week cycle); no standalone tracker links a goal to its live progress this way. Fully offline.
  *
- * "Top" goal = the config-pinned goal, else the nearest real deadline, else the first active goal.
+ * "Top" goal = the nearest real deadline, else the first active goal.
  */
 class GoalWidget : BaseWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
@@ -33,15 +33,15 @@ class GoalWidget : BaseWidgetProvider() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
-                val goals = app.repository.wsGoalsOnce().filter { !it.archived }
-                val reviews = runCatching { app.repository.goalReviewsOnce() }.getOrDefault(emptyList())
+                val goals = runCatching { app.repository.wsGoalsOnce() }.getOrDefault(emptyList())
+                    .filter { !it.archived }
 
                 // Lead with the nearest real deadline, else the first active goal.
                 val goal = goals.filter { it.targetEpochDay > 0 }.minByOrNull { it.targetEpochDay }
                     ?: goals.firstOrNull()
                 ids.forEach { id ->
                     val style = WidgetStyle.resolve(context, id)
-                    renderGoal(context, manager, id, style, goal, reviews, today)
+                    renderGoal(context, manager, id, style, goal, today)
                 }
             } finally { pending.finish() }
         }
@@ -49,7 +49,7 @@ class GoalWidget : BaseWidgetProvider() {
 
     private fun renderGoal(
         context: Context, manager: AppWidgetManager, id: Int, style: WidgetStyle,
-        goal: Goal?, reviews: List<com.todocompanion.app.domain.GoalReview>, today: Long,
+        goal: Goal?, today: Long,
     ) {
         val views = RemoteViews(context.packageName, R.layout.widget_goal)
         WidgetStyle.applyListCard(views, R.id.gw_card, context, id)
@@ -120,14 +120,6 @@ class GoalWidget : BaseWidgetProvider() {
     }
 
     companion object {
-        fun updateOne(context: Context, id: Int) {
-            AppWidgetManager.getInstance(context) ?: return
-            context.sendBroadcast(Intent(context, GoalWidget::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(id))
-            })
-        }
-
         fun refresh(context: Context) {
             val m = AppWidgetManager.getInstance(context) ?: return
             val ids = m.getAppWidgetIds(ComponentName(context, GoalWidget::class.java))

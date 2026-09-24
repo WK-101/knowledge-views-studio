@@ -10,7 +10,8 @@
         android:layout_height="match_parent"
         android:scaleType="fitXY"
         android:src="@drawable/widget_bg"
-        android:importantForAccessibility="no" />
+        android:importantForAccessibility="no"
+        android:contentDescription="@null" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -24,7 +25,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="MOMENTUM"
-            android:textColor="@color/w_text_tertiary"
+            android:textColor="@color/w_accent_text"
             android:textSize="11sp"
             android:letterSpacing="0.08"
             android:textStyle="bold" />

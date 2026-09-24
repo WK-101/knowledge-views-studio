@@ -143,6 +143,16 @@ object FocusTimer {
         }
     }
 
+    /**
+     * Clear a running focus session's completion alarm + ongoing notification WITHOUT finalizing the
+     * interval — for when the interval is being stopped through another path (e.g. the Time widget's
+     * Stop, or a stop-first start there). Prevents a phantom "focus done" chime firing later.
+     */
+    fun cancelPending(context: Context) {
+        cancelAlarm(context)
+        runCatching { NotificationManagerCompat.from(context).cancel(NOTIF_ID) }
+    }
+
     private fun cancelAlarm(context: Context) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
         // The entry id is baked into the PendingIntent, but action+requestCode match for cancel.

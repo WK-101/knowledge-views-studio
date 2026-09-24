@@ -25,8 +25,6 @@ class QuickBarWidget : BaseWidgetProvider() {
     override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, newOptions: android.os.Bundle) =
         render(context, manager, id)
 
-    override fun onDeleted(context: Context, ids: IntArray) { ids.forEach { WidgetPrefs.clear(context, it) } }
-
     private fun render(context: Context, manager: AppWidgetManager, id: Int) {
         val style = WidgetStyle.resolve(context, id)
         val views = RemoteViews(context.packageName, R.layout.widget_quickbar)

@@ -33,7 +33,7 @@
                 android:layout_weight="1"
                 android:text="Habit strength"
                 android:textColor="@color/w_text_primary"
-                android:textSize="15sp"
+                android:textSize="16sp"
                 android:textStyle="bold" />
 
             <TextView

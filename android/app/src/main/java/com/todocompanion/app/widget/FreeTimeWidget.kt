@@ -59,9 +59,13 @@ class FreeTimeWidget : BaseWidgetProvider() {
                 val tkItem = nextTask?.let { NextItem(it.title, it.dueDate!!, false) }
                 val next = listOfNotNull(evItem, tkItem).minByOrNull { it.startMillis }
 
-                // Free minutes in the working window today (events + timed tasks removed).
+                // Free minutes left in the REST of today's working window: start the window at the
+                // current hour (clamped into an 8–22 day) so the number reflects time still ahead, not
+                // hours already gone. (A future refinement is honouring the user's stored availability
+                // config; this keeps a sensible default while staying directionally correct.)
                 val freeMin = runCatching {
-                    val cfg = Availability.Config(setOf(1, 2, 3, 4, 5, 6, 7), 8, 22, 15, 0)
+                    val startH = LocalTime.now(zone).hour.coerceIn(8, 22)
+                    val cfg = Availability.Config(setOf(1, 2, 3, 4, 5, 6, 7), startH, 22, 15, 0)
                     val taskBusy = Availability.taskBusyIntervals(tasks, zone)
                     Availability.forDays(events, listOf(today), cfg, zone, extraBusy = taskBusy).firstOrNull()?.freeMin ?: 0
                 }.getOrDefault(0)
@@ -93,7 +97,7 @@ class FreeTimeWidget : BaseWidgetProvider() {
                         views.setTextViewText(R.id.ft_when, fmt.format(Instant.ofEpochMilli(next.startMillis)) + " · " + rel)
                     }
 
-                    views.setTextViewText(R.id.ft_free, if (freeMin >= 15) "${Availability.fmtMinutes(freeMin)} open today" else "")
+                    views.setTextViewText(R.id.ft_free, if (freeMin >= 15) "${Availability.fmtMinutes(freeMin)} left today" else "")
                     views.setOnClickPendingIntent(R.id.ft_root, openCalendar(context))
                     manager.updateAppWidget(id, views)
                 }

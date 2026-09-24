@@ -43,8 +43,6 @@ class DayWidget : BaseWidgetProvider() {
         }
     }
 
-    override fun onDeleted(context: Context, ids: IntArray) { ids.forEach { WidgetPrefs.clear(context, it) } }
-
     override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, newOptions: android.os.Bundle) {
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
