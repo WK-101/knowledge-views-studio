@@ -60,6 +60,44 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
         val tmp = File(dir, target.name + ".tmp")
         tmp.writeBytes(jpeg)
         tmp.renameTo(target)
+        remember(lookupKey)
+        _version.value++
+    }
+
+    // ---- Keys (F8). File names are hashes, so an index remembers which lookup key each background belongs to;
+    // when a contact's key changes (link, unlink, first sync, move) the background can follow it.
+
+    private val indexFile = File(dir, "index.txt")
+
+    /** Lookup keys that have a background, as far as the index knows. */
+    @Synchronized
+    fun indexedKeys(): Set<String> = runCatching { indexFile.readLines().filter { it.isNotBlank() && fileFor(it).isFile }.toSet() }.getOrDefault(emptySet())
+
+    @Synchronized
+    private fun writeIndex(keys: Set<String>) {
+        dir.mkdirs()
+        val tmp = File(dir, "index.txt.tmp")
+        tmp.writeText(keys.sorted().joinToString("\n"))
+        tmp.renameTo(indexFile)
+    }
+
+    /** Records that [lookupKey] has a background (also used to index backgrounds made before the index existed). */
+    @Synchronized
+    fun remember(lookupKey: String) {
+        if (!fileFor(lookupKey).isFile) return
+        val keys = indexedKeys()
+        if (lookupKey !in keys) writeIndex(keys + lookupKey)
+    }
+
+    /** Moves the background of [from] to [to]; an existing background of [to] wins. */
+    @Synchronized
+    fun move(from: String, to: String) {
+        if (from == to) return
+        val src = fileFor(from)
+        if (!src.isFile) return
+        val dst = fileFor(to)
+        if (dst.isFile) src.delete() else src.renameTo(dst)
+        writeIndex(indexedKeys() - from + to)
         _version.value++
     }
 

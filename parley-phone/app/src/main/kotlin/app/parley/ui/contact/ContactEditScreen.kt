@@ -32,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddAPhoto
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.AlertDialog
@@ -71,6 +72,7 @@ import app.parley.data.GroupInfo
 import app.parley.data.PostalItem
 import app.parley.ui.Avatar
 import app.parley.common.people.LifeEvents
+import app.parley.common.people.RelationLinks
 import app.parley.ui.people.applyBackground
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
@@ -118,6 +120,7 @@ fun ContactEditScreen(
     var moreName by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
+    var askKeep by remember { mutableStateOf<Pair<String, Long>?>(null) }
     var start by remember { mutableStateOf<ContactDetails?>(null) }
     // New contacts go to the private vault when "Private by default" is on (the Save-to menu can change it).
     var privateNew by remember { mutableStateOf(false) }
@@ -184,8 +187,14 @@ fun ContactEditScreen(
 
     fun save() {
         val e = draft ?: return
-        if (e.composedName.isBlank() && e.phones.all { it.value.isBlank() } && e.emails.all { it.value.isBlank() } && e.company.isBlank()) {
-            vm.toast("Add a name or a number first")
+        // A contact holding only an address, a note or a website is fine (F24); a completely empty one is not.
+        val empty = e.composedName.isBlank() && e.nickname.isBlank() && e.company.isBlank() && e.title.isBlank() && e.note.isBlank() &&
+            (e.phones + e.emails + e.websites + e.relations).all { it.value.isBlank() } && e.addresses.all { it.isBlank } &&
+            e.events.all { it.date.isBlank() } && e.phoneticGiven.isBlank() && e.phoneticFamily.isBlank()
+        // Clearing one copy of a linked contact is allowed: that empty copy is removed and the others stay.
+        val orig = original
+        if (empty && photo == null && (orig == null || orig.rawContacts.size < 2 || orig.editRawId == null)) {
+            vm.toast(if (original == null) "Add a name or a number first" else "Nothing left to save. Delete the contact instead.")
             return
         }
         saving = true
@@ -195,8 +204,9 @@ fun ContactEditScreen(
                     val id = vm.c.vault.save(vaultId?.takeIf { it > 0 }, e)
                     -id // negative ids mark vault contacts for the caller
                 } else {
-                    vm.c.contacts.save(original, e, account, photo, removePhoto).also {
+                    vm.c.contacts.save(original, e, account, photo, removePhoto).also { saved ->
                         original?.lookupKey?.let { key -> vm.applyBackground(key, bgChange) }
+                        if (saved != null) rememberRelations(vm, saved, e)
                     }
                 }
             } catch (ex: Exception) {
@@ -204,7 +214,10 @@ fun ContactEditScreen(
                 null
             }
             saving = false
-            if (id != null) done(id)
+            if (id == null) return@launch
+            // A temporary contact the user just edited for real: ask once whether to keep it (F2).
+            val key = original?.lookupKey
+            if (!isVault && !key.isNullOrEmpty() && vm.c.temporaries.needsKeepPrompt(key)) askKeep = key to id else done(id)
         }
     }
 
@@ -219,7 +232,7 @@ fun ContactEditScreen(
     ) { padding ->
         if (d == null) return@Scaffold
         fun update(f: (ContactDetails) -> ContactDetails) { draft = f(d) }
-        androidx.compose.runtime.CompositionLocalProvider(LocalCountryIso provides vm.countryIso) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalCountryIso provides vm.countryIso, LocalLocked provides original?.readOnlyDataIds.orEmpty()) {
         Column(
             Modifier.padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -261,8 +274,8 @@ fun ContactEditScreen(
                 Text("Saved in ${account?.displayLabel ?: "Phone"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            Field("First name", d.given, KeyboardCapitalization.Words) { v -> update { it.copy(given = v) } }
-            Field("Last name", d.family, KeyboardCapitalization.Words) { v -> update { it.copy(family = v) } }
+            Field("First name", d.given, KeyboardCapitalization.Words, rowId = d.nameId) { v -> update { it.copy(given = v) } }
+            Field("Last name", d.family, KeyboardCapitalization.Words, rowId = d.nameId) { v -> update { it.copy(family = v) } }
             Row(Modifier.clickable { moreName = !moreName }, verticalAlignment = Alignment.CenterVertically) {
                 Icon(if (moreName) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
                 Text(if (moreName) "Fewer name fields" else "More name fields", style = MaterialTheme.typography.labelLarge)
@@ -275,8 +288,8 @@ fun ContactEditScreen(
                 Field("Phonetic last name", d.phoneticFamily, KeyboardCapitalization.Words) { v -> update { it.copy(phoneticFamily = v) } }
                 Field("Nickname", d.nickname, KeyboardCapitalization.Words) { v -> update { it.copy(nickname = v) } }
             }
-            Field("Company", d.company, KeyboardCapitalization.Words) { v -> update { it.copy(company = v) } }
-            Field("Title", d.title, KeyboardCapitalization.Words) { v -> update { it.copy(title = v) } }
+            Field("Company", d.company, KeyboardCapitalization.Words, rowId = d.orgId) { v -> update { it.copy(company = v) } }
+            Field("Title", d.title, KeyboardCapitalization.Words, rowId = d.orgId) { v -> update { it.copy(title = v) } }
 
             MultiSection(
                 "Phone", d.phones, phoneTypes, { Phone.getTypeLabel(res, it, null).toString() }, KeyboardType.Phone,
@@ -296,7 +309,14 @@ fun ContactEditScreen(
                     }
                     IconButton({ update { it.copy(addresses = it.addresses.filterIndexed { j, _ -> j != i }) } }) { Icon(Icons.Rounded.Close, "Remove address") }
                 }
-                Field("Street", a.street, KeyboardCapitalization.Words) { set(a.copy(street = it)) }
+                Field("Street", a.street, KeyboardCapitalization.Words, rowId = a.id) { set(a.copy(street = it)) }
+                // Shown when the address has them, so editing never drops a PO box or neighbourhood (F25).
+                if (a.poBox.isNotEmpty() || a.neighborhood.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.weight(0.4f)) { Field("PO box", a.poBox, rowId = a.id) { set(a.copy(poBox = it)) } }
+                        Box(Modifier.weight(0.6f)) { Field("Neighbourhood", a.neighborhood, KeyboardCapitalization.Words, rowId = a.id) { set(a.copy(neighborhood = it)) } }
+                    }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(Modifier.weight(0.4f)) { Field("Postcode", a.postcode) { set(a.copy(postcode = it)) } }
                     Box(Modifier.weight(0.6f)) { Field("City", a.city, KeyboardCapitalization.Words) { set(a.copy(city = it)) } }
@@ -376,6 +396,15 @@ fun ContactEditScreen(
         }
     }
 
+    askKeep?.let { (key, id) ->
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Keep this contact?") },
+            text = { Text("It was saved as a temporary contact and deletes itself soon. Keep it now that you've added to it?") },
+            confirmButton = { TextButton({ askKeep = null; scope.launch { vm.c.temporaries.answerKeep(key, true); done(id) } }) { Text("Keep") } },
+            dismissButton = { TextButton({ askKeep = null; scope.launch { vm.c.temporaries.answerKeep(key, false); done(id) } }) { Text("Still delete it") } },
+        )
+    }
     if (confirmDiscard) {
         AlertDialog(
             onDismissRequest = { confirmDiscard = false },
@@ -384,6 +413,19 @@ fun ContactEditScreen(
             dismissButton = { TextButton({ confirmDiscard = false }) { Text("Keep editing") } },
         )
     }
+}
+
+/** Remembers which contact each relation names, by lookup key, beside the name-only Data row (F23). */
+private suspend fun rememberRelations(vm: AppViewModel, contactId: Long, e: ContactDetails) = withContext(Dispatchers.IO) {
+    val key = vm.c.contacts.lookupKeyOf(contactId) ?: return@withContext
+    val m = vm.c.meta.meta(key)
+    val existing = RelationLinks.decode(m?.relationLinks)
+    val names = e.relations.map { it.value }.filter { it.isNotBlank() }
+    if (names.isEmpty() && existing.isEmpty()) return@withContext
+    val people = vm.c.contacts.snapshot().map { Triple(it.id, it.displayName, it.lookupKey) }
+    val links = RelationLinks.update(names, existing, people, self = contactId)
+    if (links == existing) return@withContext
+    vm.c.meta.setMeta((m ?: app.parley.data.db.ContactMetaEntity(key)).copy(contactId = contactId, relationLinks = RelationLinks.encode(links).ifEmpty { null }))
 }
 
 @Composable
@@ -400,16 +442,25 @@ private fun AddButton(label: String, onClick: () -> Unit) {
     }
 }
 
+/** Fields whose Data row the provider marks read-only (F12): shown, but locked. */
+private val LocalLocked = androidx.compose.runtime.staticCompositionLocalOf<Set<Long>> { emptySet() }
+
+@Composable
+private fun LockIcon() = Icon(Icons.Rounded.Lock, "Can't be changed here: the account that owns this field keeps it read-only")
+
 @Composable
 private fun Field(
     label: String,
     value: String,
     cap: KeyboardCapitalization = KeyboardCapitalization.None,
     keyboard: KeyboardType = KeyboardType.Text,
+    rowId: Long? = null,
     onChange: (String) -> Unit,
 ) {
+    val locked = rowId != null && rowId in LocalLocked.current
     OutlinedTextField(
         value, onChange, label = { Text(label) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+        readOnly = locked, trailingIcon = if (locked) { { LockIcon() } } else null,
         keyboardOptions = KeyboardOptions(capitalization = cap, keyboardType = keyboard),
     )
 }
@@ -426,6 +477,7 @@ private fun MultiSection(
 ) {
     SectionTitle(title)
     items.forEachIndexed { i, item ->
+        val locked = item.id != null && item.id in LocalLocked.current
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val iso = LocalCountryIso.current
             val flag = if (keyboard == KeyboardType.Phone && item.value.length >= 6) remember(item.value) { app.parley.data.NumberInfo.flag(app.parley.data.NumberInfo.region(item.value, iso)) } else null
@@ -433,8 +485,13 @@ private fun MultiSection(
                 item.value, { v -> onChange(items.toMutableList().also { it[i] = item.copy(value = v) }) },
                 label = { Text(title) }, singleLine = true, modifier = Modifier.weight(0.6f),
                 prefix = flag?.let { f -> { Text("$f ") } },
+                readOnly = locked, trailingIcon = if (locked) { { LockIcon() } } else null,
                 keyboardOptions = KeyboardOptions(keyboardType = keyboard),
             )
+            if (locked) {
+                Text(typeLabel(item.type).takeIf { item.type != 0 } ?: item.label.orEmpty(), Modifier.weight(0.4f).padding(start = 4.dp))
+                return@Row
+            }
             Box(Modifier.weight(0.4f)) {
                 var customLabel by remember { mutableStateOf(false) }
                 Dropdown("Type", if (item.type == 0) item.label ?: "Custom" else typeLabel(item.type), types.map(typeLabel) + "Custom…") { t ->

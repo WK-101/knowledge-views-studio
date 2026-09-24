@@ -2,6 +2,10 @@ package app.parley.data.vault
 
 import android.content.Context
 import android.provider.CallLog
+import android.util.Base64
+import app.parley.common.backup.RecordJson
+import app.parley.common.record.ContactRecord
+import app.parley.common.PhoneNumbers
 import app.parley.common.NotificationPrivacy
 import app.parley.common.VaultNumberKeys
 import androidx.room.withTransaction
@@ -95,9 +99,17 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     /**
      * Saves a private contact. [expiresAt] makes it temporary (null keeps the current expiry); [purgeHistory] (null
-     * keeps the current choice) removes its call history when it expires.
+     * keeps the current choice) removes its call history when it expires. [record]: the lossless image of the phone
+     * contact it came from ("Move to private", F4); it is sealed with the details (photo included) so moving back out
+     * restores every field. Editing an entry later keeps the stored record (see [storedRecord]).
      */
-    suspend fun save(id: Long?, d: ContactDetails, expiresAt: Long? = null, purgeHistory: Boolean? = null): Long = withContext(Dispatchers.IO) {
+    suspend fun save(
+        id: Long?,
+        d: ContactDetails,
+        expiresAt: Long? = null,
+        purgeHistory: Boolean? = null,
+        record: ContactRecord? = null,
+    ): Long = withContext(Dispatchers.IO) {
         val name = d.composedName.ifBlank { d.company.ifBlank { d.phones.firstOrNull()?.value ?: "Private contact" } }
         val numbers = d.phones.map { it.value }.filter { it.isNotBlank() }
         val existing = id?.let { dao.get(it) }
@@ -107,10 +119,23 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             // F15: when it was last saved, so the newest of two entries sharing a number wins.
             .put("u", System.currentTimeMillis())
             .apply { if (purge) put("purge", true) }
+        val detailsJson = ContactDetailsJson.encode(d)
+        val detail = JSONObject(detailsJson)
+        if (record != null) {
+            val blobs = JSONObject()
+            detail.put(REC, RecordJson.encode(record) { h, b -> blobs.put(h, Base64.encodeToString(b, Base64.NO_WRAP)) })
+            detail.put(REC_BLOBS, blobs)
+            detail.put(REC_OF, RecordJson.sha256Hex(ContactDetailsJson.encode(ContactDetailsJson.decode(detailsJson)).toByteArray()))
+        } else if (existing != null) {
+            // Keep the original record through edits (the details hash then no longer matches: it was edited).
+            runCatching { JSONObject(String(VaultCrypto.openDetail(existing.detailBlob))) }.getOrNull()?.let { old ->
+                listOf(REC, REC_BLOBS, REC_OF).forEach { k -> if (old.has(k)) detail.put(k, old.get(k)) }
+            }
+        }
         val entity = VaultContactEntity(
             id = id ?: 0,
             callerIdBlob = VaultCrypto.sealCallerId(caller.toString().toByteArray()),
-            detailBlob = VaultCrypto.sealDetail(ContactDetailsJson.encode(d).toByteArray()),
+            detailBlob = VaultCrypto.sealDetail(detail.toString().toByteArray()),
             expiresAt = expiresAt ?: existing?.expiresAt,
             createdAt = existing?.createdAt ?: System.currentTimeMillis(),
         )
@@ -238,11 +263,35 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     suspend fun expired(now: Long) = withContext(Dispatchers.IO) { dao.expired(now).map { it.id } }
 
+    /** The lossless phone-contact image stored by "Move to private", and whether the details were edited since. */
+    data class StoredRecord(val record: ContactRecord, val editedSince: Boolean)
+
+    /**
+     * The [StoredRecord] of entry [id], or null for entries made in the vault or before records were kept. Throws
+     * [VaultCrypto.LockedException] when the vault must be unlocked first.
+     */
+    suspend fun storedRecord(id: Long): StoredRecord? = withContext(Dispatchers.IO) {
+        val e = dao.get(id) ?: return@withContext null
+        val o = JSONObject(String(VaultCrypto.openDetail(e.detailBlob)))
+        val line = o.optString(REC).takeIf { it.isNotEmpty() } ?: return@withContext null
+        val blobs = o.optJSONObject(REC_BLOBS)
+        val record = runCatching { RecordJson.decode(line) { h -> blobs?.optString(h)?.takeIf { it.isNotEmpty() }?.let { Base64.decode(it, Base64.NO_WRAP) } } }.getOrNull()
+            ?: return@withContext null
+        val now = ContactDetailsJson.encode(ContactDetailsJson.decode(o.toString()))
+        StoredRecord(record, RecordJson.sha256Hex(now.toByteArray()) != o.optString(REC_OF))
+    }
+
+    /** Every private contact's numbers, read straight from the database (import duplicate checks, F17). */
+    suspend fun allNumbers(): List<String> = withContext(Dispatchers.IO) { dao.all().mapNotNull { summarize(it) }.flatMap { it.numbers } }
+
     private companion object {
         const val PREFS = "vault"
         const val K_KEYS_VERSION = "number_keys_version"
         const val K_KEYS_ATTEMPTS = "number_keys_attempts"
         /** 1: last 9 digits (before F7); 2: E.164 with the last digits only as a fallback. */
         const val KEYS_VERSION = 2
+        const val REC = "parleyRecord"
+        const val REC_BLOBS = "parleyRecordBlobs"
+        const val REC_OF = "parleyRecordOf"
     }
 }

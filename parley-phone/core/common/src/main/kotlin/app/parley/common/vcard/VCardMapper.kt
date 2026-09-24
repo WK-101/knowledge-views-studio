@@ -137,7 +137,7 @@ object VCardMapper {
                     photoIsDefault = r.isSuperPrimary
                 }
                 else -> {
-                    val key = n.canonicalKey + "|" + (n.values - Col.ALL.toSet()).toSortedMap() + "|" + n.blob?.contentHashCode()
+                    val key = rowIdentity(n)
                     val at = index[key]
                     if (at == null) {
                         index[key] = rows.size
@@ -167,6 +167,16 @@ object VCardMapper {
             raws = listOf(RawRecord(null, null, rows = sortRows(canonicalSlots(onePrimaryPerKind(named))))),
         )
     }
+
+    /**
+     * One data row in the form [canonical] gives it (derived columns dropped, types, dates and IM protocols
+     * normalised), or null when the row holds nothing a vCard would keep. Used to compare rows read from the
+     * provider with rows parsed from a vCard without every row looking changed.
+     */
+    fun canonicalRow(r: DataRow, groupTitles: Map<Long, String> = emptyMap()): DataRow? = normalizeRow(r, groupTitles)
+
+    /** Identity of a [canonicalRow] result: its content, ignoring primary flags. */
+    fun rowIdentity(n: DataRow): String = n.canonicalKey + "|" + (n.values - Col.ALL.toSet()).toSortedMap() + "|" + n.blob?.contentHashCode()
 
     private fun normalizeRow(r: DataRow, groupTitles: Map<Long, String>): DataRow? {
         val v = LinkedHashMap<String, String>()

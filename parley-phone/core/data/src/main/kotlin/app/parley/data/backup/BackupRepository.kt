@@ -296,7 +296,15 @@ class BackupRepository(
         val arr = JSONArray()
         for (v in list) {
             val d = runCatching { vault.details(v.id) }.getOrNull() ?: continue
-            arr.put(JSONObject().put("details", ContactDetailsJson.encode(d)).put("expiresAt", v.expiresAt ?: 0L))
+            val o = JSONObject().put("details", ContactDetailsJson.encode(d)).put("expiresAt", v.expiresAt ?: 0L)
+            // The lossless phone-contact image of a moved contact (F4), while its details are unedited. Optional:
+            // older Parley versions ignore it.
+            runCatching { vault.storedRecord(v.id) }.getOrNull()?.takeIf { !it.editedSince }?.let { s ->
+                val blobs = JSONObject()
+                o.put("record", app.parley.common.backup.RecordJson.encode(s.record) { h, b -> blobs.put(h, android.util.Base64.encodeToString(b, android.util.Base64.NO_WRAP)) })
+                o.put("recordBlobs", blobs)
+            }
+            arr.put(o)
         }
         return JSONObject().put("contacts", arr).toString().toByteArray()
     }
@@ -550,7 +558,15 @@ class BackupRepository(
             val d = ContactDetailsJson.decode(o.getString("details"))
             val sig = d.displayName to d.phones.map { it.value }.toSet()
             if (sig in have) continue
-            vault.save(null, d, o.optLong("expiresAt").takeIf { it > 0 })
+            val blobs = o.optJSONObject("recordBlobs")
+            val record = o.optString("record").takeIf { it.isNotEmpty() }?.let { line ->
+                runCatching {
+                    app.parley.common.backup.RecordJson.decode(line) { h ->
+                        blobs?.optString(h)?.takeIf { it.isNotEmpty() }?.let { android.util.Base64.decode(it, android.util.Base64.NO_WRAP) }
+                    }
+                }.getOrNull()
+            }
+            vault.save(null, d, o.optLong("expiresAt").takeIf { it > 0 }, record = record)
             n++
         }
         return n

@@ -138,8 +138,84 @@ object ContactCsv {
     private fun quote(v: String): String =
         if (v.any { it == ',' || it == '"' || it == '\n' || it == '\r' } || v.startsWith(' ') || v.endsWith(' ')) "\"" + v.replace("\"", "\"\"") + "\"" else v
 
-    /** RFC 4180 parser: quoted cells may hold commas, quotes and line breaks. Returns rows of cells. */
-    fun parse(input: Reader): Sequence<List<String>> = sequence {
+    /**
+     * The cell separator of a CSV file from its first line: comma, semicolon (spreadsheets in locales with a decimal
+     * comma) or tab, whichever occurs most outside quotes; comma when none occurs.
+     */
+    fun detectDelimiter(firstLine: String): Char {
+        val counts = HashMap<Char, Int>()
+        var quoted = false
+        for (c in firstLine) {
+            if (c == '"') quoted = !quoted
+            else if (!quoted && c in DELIMITERS) counts[c] = (counts[c] ?: 0) + 1
+        }
+        return DELIMITERS.maxByOrNull { counts[it] ?: 0 }?.takeIf { (counts[it] ?: 0) > 0 } ?: ','
+    }
+
+    private val DELIMITERS = listOf(',', ';', '\t')
+    private val NUMBER_CELL = Regex("""^\+?[0-9 ()./\-]{5,}$""")
+
+    /** A cell that is a phone number and nothing else. */
+    fun isPhoneNumber(cell: String): Boolean {
+        val t = unescapeFormula(cell.trim().trim('"')).trim()
+        return NUMBER_CELL.matches(t) && t.count(Char::isDigit) >= 5
+    }
+
+    /**
+     * Whether sampled [lines] form a plain list of phone numbers, one per line (optionally under a one-cell header
+     * such as "Phone"): no separator anywhere and at least one number.
+     */
+    fun looksLikeNumberList(lines: List<String>): Boolean {
+        val l = lines.map { it.trim().trimStart('﻿') }.filter { it.isNotEmpty() }
+        if (l.isEmpty() || l.any { line -> line.any { it in DELIMITERS } }) return false
+        val body = if (isPhoneNumber(l.first())) l else l.drop(1)
+        return body.isNotEmpty() && body.all(::isPhoneNumber)
+    }
+
+    /** Reads a one-number-per-line list: each number becomes a contact that shows the number as its name. */
+    fun readNumberList(input: Reader, report: ImportReportBuilder, onRecord: (ParsedCard) -> Unit) {
+        val r = if (input is java.io.BufferedReader) input else java.io.BufferedReader(input)
+        var line = 0
+        r.lineSequence().forEach { raw ->
+            line++
+            val cell = unescapeFormula(raw.trim().trimStart('﻿').trim('"')).trim()
+            if (cell.isEmpty()) return@forEach
+            if (!isPhoneNumber(cell)) {
+                if (line > 1) report.fail(line, "Not a phone number", raw)
+                return@forEach
+            }
+            val row = DataRow(Mime.PHONE, mapOf(Col.D1 to cell, Col.D2 to "2"))
+            val record = ContactRecord(key = "", displayName = "", raws = listOf(RawRecord(null, null, rows = listOf(row))))
+            report.cardsParsed++
+            onRecord(ParsedCard(line, VCardMapper.canonical(record), raw))
+        }
+    }
+
+    /**
+     * Looks at the start of [input] and says how to read it: the separator, and whether it is a plain list of
+     * numbers. The reader is reset to where it was.
+     */
+    fun sniff(input: java.io.BufferedReader): Pair<Char, Boolean> {
+        input.mark(SNIFF_CHARS)
+        val buf = CharArray(SNIFF_CHARS - 1)
+        var n = 0
+        while (n < buf.size) {
+            val k = input.read(buf, n, buf.size - n)
+            if (k < 0) break
+            n += k
+        }
+        input.reset()
+        val head = String(buf, 0, n).trimStart('﻿')
+        var lines = head.split('\n').map { it.trimEnd('\r') }
+        if (n == buf.size && lines.size > 1) lines = lines.dropLast(1) // the last line may be cut off
+        lines = lines.take(50)
+        return detectDelimiter(lines.firstOrNull().orEmpty()) to looksLikeNumberList(lines)
+    }
+
+    private const val SNIFF_CHARS = 16 * 1024
+
+    /** RFC 4180 parser: quoted cells may hold [delimiter]s, quotes and line breaks. Returns rows of cells. */
+    fun parse(input: Reader, delimiter: Char = ','): Sequence<List<String>> = sequence {
         val r = if (input is java.io.BufferedReader) input else java.io.BufferedReader(input)
         val row = ArrayList<String>()
         val cell = StringBuilder()
@@ -161,7 +237,7 @@ object ContactCsv {
             }
             when (c) {
                 '"' -> if (cell.isEmpty()) quoted = true else cell.append(c)
-                ',' -> { row += cell.toString(); cell.setLength(0) }
+                delimiter -> { row += cell.toString(); cell.setLength(0) }
                 '\r', '\n' -> {
                     if (c == '\r') { r.mark(1); if (r.read() != '\n'.code) r.reset() }
                     row += cell.toString(); cell.setLength(0)
@@ -183,7 +259,10 @@ object ContactCsv {
      * Unknown columns are counted in [report] as unmapped; each non-empty line becomes one record.
      */
     fun read(input: Reader, report: ImportReportBuilder, onRecord: (ParsedCard) -> Unit) {
-        val lines = parse(input).iterator()
+        val buffered = if (input is java.io.BufferedReader) input else java.io.BufferedReader(input)
+        val (delimiter, numberList) = sniff(buffered)
+        if (numberList) return readNumberList(buffered, report, onRecord)
+        val lines = parse(buffered, delimiter).iterator()
         if (!lines.hasNext()) return
         val header = lines.next().map { it.trim() }
         val idx = HashMap<String, Int>()
@@ -194,7 +273,7 @@ object ContactCsv {
         while (lines.hasNext()) {
             val cells = lines.next()
             line++
-            val raw = cells.joinToString(",")
+            val raw = cells.joinToString(delimiter.toString())
             try {
                 fun cell(name: String): String = idx[name.lowercase()]?.let { cells.getOrNull(it) }?.let(::unescapeFormula)?.trim().orEmpty()
                 unknownCols.forEach { c -> if (cell(c).isNotEmpty()) report.unmapped("CSV column “$c”") }

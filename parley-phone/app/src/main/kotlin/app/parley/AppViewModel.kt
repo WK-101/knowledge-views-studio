@@ -393,13 +393,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * time-machine versions are purged. Throws [app.parley.data.vault.VaultCrypto.LockedException] if locked.
      */
     suspend fun moveToVault(contactId: Long, d: app.parley.data.ContactDetails): Long {
-        val id = c.vault.save(null, d)
-        c.contacts.deleteUnjournaled(listOf(contactId))
+        // Lossless: the vault keeps the full contact record (photo included); local copies are purged at once (F4).
+        val moved = c.vaultMoves.moveIn(contactId, d)
         if (d.lookupKey.isNotEmpty()) {
             c.journal.forget(d.lookupKey)
             c.timeMachine.purge(d.lookupKey)
         }
-        return id
+        if (moved.removedAfterSync) toast("Removed from other apps after the next sync")
+        return moved.vaultId
     }
 
     /** Deletes contacts (the journal keeps a copy for 30 days) and offers undo. */

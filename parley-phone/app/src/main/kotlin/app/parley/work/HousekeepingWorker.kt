@@ -18,12 +18,35 @@ import java.util.concurrent.TimeUnit
  */
 class HousekeepingWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        runHousekeeping(applicationContext.container)
+        val notices = runHousekeeping(applicationContext.container)
+        notices.forEachIndexed { i, n -> notify(applicationContext, i, n) }
         return Result.success()
+    }
+
+    /** "X expired; the details you merged were kept" (F2). */
+    private fun notify(ctx: Context, i: Int, n: app.parley.data.people.TemporaryContactStore.Notice) {
+        val nm = ctx.getSystemService(android.app.NotificationManager::class.java)
+        nm.createNotificationChannel(android.app.NotificationChannel(CHANNEL, "Contacts housekeeping", android.app.NotificationManager.IMPORTANCE_LOW))
+        val open = android.app.PendingIntent.getActivity(
+            ctx, 0, android.content.Intent(ctx, app.parley.MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+            android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
+        val b = androidx.core.app.NotificationCompat.Builder(ctx, CHANNEL)
+            .setSmallIcon(app.parley.R.drawable.ic_stat_cake)
+            .setContentTitle("Temporary contact expired")
+            .setContentText(n.text)
+            .setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(n.text))
+            .setContentIntent(open)
+            .setAutoCancel(true)
+        try {
+            androidx.core.app.NotificationManagerCompat.from(ctx).notify("temporary", i, b.build())
+        } catch (_: SecurityException) {
+        }
     }
 
     companion object {
         private const val NAME = "parley-housekeeping"
+        private const val CHANNEL = "contacts_housekeeping_v1"
 
         fun schedule(context: Context) {
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
@@ -32,23 +55,14 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
             )
         }
 
-        suspend fun runHousekeeping(c: DataContainer) {
+        /** Returns notices to show about temporary contacts that were merged into someone else. */
+        suspend fun runHousekeeping(c: DataContainer): List<app.parley.data.people.TemporaryContactStore.Notice> {
             val now = System.currentTimeMillis()
             val settings = c.settings.current()
-            // 1. Temporary contacts
-            for (t in c.meta.expiredContacts(now)) {
-                // Resolve by lookup key: the stored id may now belong to another contact.
-                val id = c.contacts.resolve(t.lookupKey, t.contactId)
-                if (id == null) { c.meta.clearTemporary(t.lookupKey); continue }
-                // F13: its numbers leave the "last messaged" record too.
-                c.contacts.details(id)?.phones?.forEach { p -> runCatching { c.messaging.forget(p.value) } }
-                if (t.purgeHistory) {
-                    // Straight from the call log and the archive (Recents may never have loaded in this process),
-                    // and with no undo copy: the point is that nothing stays.
-                    c.contacts.details(id)?.phones?.forEach { p -> runCatching { c.history.purgeNumber(p.value) } }
-                }
-                if (runCatching { c.contacts.delete(listOf(id)) }.isSuccess) c.meta.clearTemporary(t.lookupKey)
-            }
+            // 0. Follow lookup-key changes first, so temporary entries and notes point at the right people.
+            runCatching { c.contactKeys.sweep() }
+            // 1. Temporary contacts: only the raw contacts Parley recorded are deleted; merged details stay (F2).
+            val notices = runCatching { c.temporaries.expire(now) }.getOrDefault(emptyList())
             // 2. Expired vault entries
             //    (F5: private temporary contacts take their call history and "last messaged" entry with them)
             for (v in c.vault.expiredEntries(now)) {
@@ -76,6 +90,7 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
             c.meta.pruneJournal(now - TimeUnit.DAYS.toMillis(30))
             // 6. Daily time-machine snapshot (incremental)
             runCatching { c.timeMachine.snapshotIfDue() }
+            return notices
         }
     }
 }

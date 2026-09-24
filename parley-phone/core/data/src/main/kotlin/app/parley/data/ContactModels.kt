@@ -18,11 +18,14 @@ data class PostalItem(
     val country: String = "",
     val type: Int = 0,
     val label: String? = null,
+    /** StructuredPostal.POBOX: loaded, shown and saved, never dropped (F25). */
+    val poBox: String = "",
+    /** StructuredPostal.NEIGHBORHOOD. */
+    val neighborhood: String = "",
 ) {
     val formatted: String
-        get() = listOf(street, listOf(postcode, city).filter { it.isNotBlank() }.joinToString(" "), region, country)
-            .filter { it.isNotBlank() }.joinToString(", ")
-    val isBlank: Boolean get() = listOf(street, city, region, postcode, country).all { it.isBlank() }
+        get() = app.parley.common.people.ContactText.postal(street, poBox, neighborhood, postcode, city, region, country)
+    val isBlank: Boolean get() = listOf(street, poBox, neighborhood, city, region, postcode, country).all { it.isBlank() }
 }
 
 data class EventItem(
@@ -34,10 +37,11 @@ data class EventItem(
 )
 
 data class AccountRef(val type: String?, val name: String?) {
-    val isLocal: Boolean get() = type == null
+    /** Phone-only storage: no account, or an OEM phone account such as Samsung's `vnd.sec.contact.phone` (F10). */
+    val isLocal: Boolean get() = app.parley.common.record.AccountKinds.isLocalType(type)
     val displayLabel: String
         get() = when {
-            type == null -> "Phone only (not synced)"
+            type == null || isLocal -> "Phone only (not synced)"
             type == "com.google" -> "Google · $name"
             type.contains("davdroid") || type.contains("davx5") || type.contains("bitfire") -> "CardDAV · $name"
             else -> name ?: type
@@ -87,6 +91,11 @@ data class ContactDetails(
     val editRawId: Long? = null,
     /** All raw contacts in writable accounts (used to remove a photo everywhere). */
     val writableRawIds: List<Long> = emptyList(),
+    /**
+     * Data rows the provider marks read-only (Data.IS_READ_ONLY, set by some sync adapters). The editor shows them
+     * locked and saving never changes or deletes them (F12).
+     */
+    val readOnlyDataIds: Set<Long> = emptySet(),
 ) {
     val composedName: String
         get() = listOf(prefix, given, middle, family, suffix).filter { it.isNotBlank() }.joinToString(" ").trim()

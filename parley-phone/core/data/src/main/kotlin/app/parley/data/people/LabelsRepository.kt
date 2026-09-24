@@ -6,6 +6,7 @@ import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds.GroupMembership
 import android.provider.ContactsContract.Data
 import android.provider.ContactsContract.Groups
+import app.parley.common.people.Batches
 import app.parley.data.AccountRef
 import app.parley.data.ContactsRepository
 import app.parley.data.GroupInfo
@@ -29,6 +30,15 @@ class LabelsRepository(
 ) {
     private val cr = context.contentResolver
 
+    /**
+     * Only user labels may be renamed, merged, deleted or emptied: system groups ("My Contacts"), read-only groups
+     * and the favourites group ("Starred in Android", whose members are the starred contacts) are refused (F11).
+     */
+    private fun safe(groups: List<GroupInfo>): List<GroupInfo> {
+        val ok = contacts.userGroupIds(groups.map { it.id })
+        return groups.filter { it.id in ok }
+    }
+
     suspend fun labels(): List<Label> = withContext(Dispatchers.IO) {
         contacts.groups().groupBy { it.title.trim() }.map { (t, g) -> Label(t, g) }.sortedBy { it.title.lowercase() }
     }
@@ -48,7 +58,7 @@ class LabelsRepository(
         val existing = label(t)
         val source = label(title) ?: return@withContext 0
         if (existing != null) return@withContext merge(setOf(title), t)
-        val ops = source.groups.map {
+        val ops = safe(source.groups).map {
             ContentProviderOperation.newUpdate(ContentUris.withAppendedId(Groups.CONTENT_URI, it.id)).withValue(Groups.TITLE, t).build()
         }
         val n = cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(ops)).size
@@ -62,7 +72,7 @@ class LabelsRepository(
      */
     suspend fun delete(title: String): String? = withContext(Dispatchers.IO) {
         val l = label(title) ?: return@withContext null
-        val ops = l.groups.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(Groups.CONTENT_URI, it.id)).build() }
+        val ops = safe(l.groups).map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(Groups.CONTENT_URI, it.id)).build() }
         cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(ops))
         refs?.deleted(setOf(l.title))
     }
@@ -78,7 +88,7 @@ class LabelsRepository(
         var added = 0
         val deletes = ArrayList<ContentProviderOperation>()
         for (src in all.filter { it.title in sources && it.title != target }) {
-            for (g in src.groups) {
+            for (g in safe(src.groups)) {
                 val targetGroupId = targetLabel?.groups?.firstOrNull { it.account == g.account }?.id ?: contacts.createGroup(target, g.account) ?: continue
                 val rawMembers = rawMembers(g.id)
                 val already = rawMembers(targetGroupId)
@@ -89,12 +99,12 @@ class LabelsRepository(
                         .withValue(GroupMembership.GROUP_ROW_ID, targetGroupId)
                         .build()
                 }
-                ops.chunked(300).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
+                Batches.chunks(ops).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
                 added += ops.size
                 deletes += ContentProviderOperation.newDelete(ContentUris.withAppendedId(Groups.CONTENT_URI, g.id)).build()
             }
         }
-        if (deletes.isNotEmpty()) cr.applyBatch(ContactsContract.AUTHORITY, deletes)
+        Batches.chunks(deletes).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
         refs?.renamed(sources.filter { it != target }.associateWith { target })
         added
     }
@@ -103,7 +113,7 @@ class LabelsRepository(
     suspend fun removeMembers(title: String, contactIds: Collection<Long>) = withContext(Dispatchers.IO) {
         val l = label(title) ?: return@withContext
         val ids = contactIds.joinToString(",")
-        for (g in l.groups) {
+        for (g in safe(l.groups)) {
             cr.delete(
                 Data.CONTENT_URI,
                 "${Data.MIMETYPE}=? AND ${GroupMembership.GROUP_ROW_ID}=? AND ${Data.CONTACT_ID} IN ($ids)",

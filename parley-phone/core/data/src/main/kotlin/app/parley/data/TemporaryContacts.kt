@@ -1,7 +1,6 @@
 package app.parley.data
 
 import android.provider.ContactsContract
-import app.parley.data.db.TemporaryContactEntity
 
 /**
  * Temporary contacts: a name and a number that delete themselves (and, by default, their call history) after a
@@ -11,7 +10,7 @@ import app.parley.data.db.TemporaryContactEntity
  * app that can read contacts never sees them. [save] with `private = false` ("Save visible to other apps") keeps
  * the old behaviour, a phone-only system contact.
  *
- * Merge note: the contacts data layer also offers a high-level temporary-contact API; this facade is the one entry
+ * This facade is the one entry
  * point for both kinds so callers don't need to know where each is stored.
  */
 object TemporaryContacts {
@@ -40,10 +39,9 @@ object TemporaryContacts {
             c.messaging.forget(number)
             return Saved(id, private = true)
         }
-        // Kept on this phone only (never synced to an account): it's meant to disappear.
-        val id = c.contacts.save(null, details, null, null, false) ?: return null
-        val key = c.contacts.details(id)?.lookupKey?.takeIf { it.isNotEmpty() } ?: return Saved(id, private = false)
-        c.meta.setTemporary(TemporaryContactEntity(key, id, expiresAt, purgeHistory = purgeHistory))
+        // Kept on this phone only (never synced to an account): it's meant to disappear. The store records the raw
+        // contact it created, and only that one is ever deleted (F2; see app.parley.data.people.TemporaryContactStore).
+        val id = c.temporaries.createPhone(details, expiresAt, purgeHistory) ?: return null
         return Saved(id, private = false)
     }
 }

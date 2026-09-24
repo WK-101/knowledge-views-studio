@@ -32,6 +32,8 @@ class VCardIO(
     private val context: Context,
     private val contacts: ContactsRepository,
     private val store: ContactRecordStore,
+    /** Numbers of private (vault) contacts, so an import doesn't duplicate them as visible contacts (F17). */
+    private val vaultNumbers: suspend () -> List<String> = { emptyList() },
 ) {
     private val cr = context.contentResolver
 
@@ -119,7 +121,16 @@ class VCardIO(
     ): ImportReport {
         val report = ImportReportBuilder()
         val ctx = coroutineContext
-        val existing = if (skipDuplicates) DuplicateIndex().apply { contacts.contacts.value.orEmpty().forEach { add(it) } } else null
+        // Straight from the provider (the observed list may not have loaded yet on a cold start), plus private contacts.
+        val existing = if (skipDuplicates) {
+            DuplicateIndex().apply {
+                contacts.snapshot().forEach { add(it) }
+                val vault = runCatching { vaultNumbers() }.getOrDefault(emptyList())
+                if (vault.isNotEmpty()) add(ContactSummary(0, "", "", null, false, vault.map { app.parley.common.PhoneEntry(it, 2, null) }))
+            }
+        } else {
+            null
+        }
         val groups = store.groupResolver()
         val pending = ArrayList<ParsedCard>()
         var seen = 0
@@ -159,14 +170,19 @@ class VCardIO(
         0
     }
 
-    /** A file is treated as CSV when its first non-blank text is not a vCard and its first line has commas. */
+    /**
+     * A file is treated as CSV when its first non-blank text is not a vCard and its first line has a comma, semicolon
+     * or tab, or when it is a plain list of phone numbers, one per line (F17).
+     */
     private fun looksLikeCsv(source: Uri): Boolean = try {
         cr.openInputStream(source)?.use { input ->
             val head = ByteArray(4096)
             val n = BufferedInputStream(input).read(head)
             if (n <= 0) return@use false
             val text = String(head, 0, n, Charsets.UTF_8).trimStart('\uFEFF', ' ', '\r', '\n', '\t')
-            !text.startsWith("BEGIN:VCARD", ignoreCase = true) && text.substringBefore('\n').contains(',')
+            val first = text.substringBefore('\n')
+            !text.startsWith("BEGIN:VCARD", ignoreCase = true) &&
+                (first.any { it == ',' || it == ';' || it == '\t' } || ContactCsv.looksLikeNumberList(text.lines().let { if (n == head.size) it.dropLast(1) else it }))
         } ?: false
     } catch (_: Exception) {
         false

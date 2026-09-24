@@ -102,9 +102,9 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                                 val d = details ?: return@launchVault
                                 val s = vm.settings.value
                                 val account = app.parley.data.AccountRef(s.defaultAccountType, s.defaultAccountName)
-                                val newId = vm.c.contacts.save(null, d, account, null, false)
+                                // Restores the original contact losslessly when the vault kept its record (F4).
+                                val newId = vm.c.vaultMoves.moveOut(id, d, account)
                                 if (newId != null) {
-                                    vm.c.vault.delete(id)
                                     vm.toast("Moved to phone contacts")
                                     back()
                                     open(Routes.contact(newId))
