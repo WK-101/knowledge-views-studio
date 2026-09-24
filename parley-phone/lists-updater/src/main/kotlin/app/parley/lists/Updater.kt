@@ -45,10 +45,10 @@ object Updater {
                 ok = arcep(repo, cfg) and ok
                 ok = community(repo, cfg) and ok
                 prune(repo, cfg)
-                repo.update { it.copy(lastRun = System.currentTimeMillis(), lastRunError = if (ok) null else "Some lists couldn't be updated") }
+                repo.update { it.copy(lastRun = System.currentTimeMillis(), lastRunError = if (ok) null else repo.res.getString(R.string.lists_err_some)) }
             } catch (e: Exception) {
                 ok = false
-                repo.update { it.copy(lastRun = System.currentTimeMillis(), lastRunError = e.message ?: "Update failed") }
+                repo.update { it.copy(lastRun = System.currentTimeMillis(), lastRunError = e.message ?: repo.res.getString(R.string.lists_err_failed)) }
             } finally {
                 repo.update { it.copy(running = false) }
             }
@@ -105,12 +105,12 @@ object Updater {
             if (tally.exists()) continue
             // Holidays have no file. Recent days are retried: the file appears around noon Eastern time.
             if (missing.exists() && d.isBefore(today.minusDays(3))) continue
-            when (val r = Downloader.get(FtcDncSource.dailyUrl(d), FTC_MAX)) {
+            when (val r = Downloader.get(repo.res, FtcDncSource.dailyUrl(d), FTC_MAX)) {
                 is Downloader.Result.Ok -> {
                     downloaded += r.bytes.size
                     val csv = r.bytes.decodeToString()
                     if (!FtcDncSource.looksValid(csv)) {
-                        error = "The FTC file for $d has an unexpected format"
+                        error = repo.res.getString(R.string.lists_err_ftc_format, d.toString())
                         continue
                     }
                     val t = CsvPackConverter.tally(csv, FtcDncSource.SPEC)
@@ -178,14 +178,14 @@ object Updater {
             val known = repo.state.value.packs.firstOrNull { it.sourceUrl == src.url && it.origin == "community" }
             val now = System.currentTimeMillis()
             val useCache = known != null && repo.packFile(known.id)?.exists() == true
-            val r = Downloader.get(src.url, COMMUNITY_MAX, prev.etag.takeIf { useCache }, prev.lastModified.takeIf { useCache })
+            val r = Downloader.get(repo.res, src.url, COMMUNITY_MAX, prev.etag.takeIf { useCache }, prev.lastModified.takeIf { useCache })
             val error: String? = when (r) {
                 is Downloader.Result.Ok -> try {
                     val p = ListPack.parse(r.bytes)
                     when {
-                        p.manifest.id in reserved -> "This list uses a reserved id (${p.manifest.id})"
-                        repo.state.value.packs.any { it.id == p.manifest.id && it.sourceUrl != src.url } -> "Another link already provides the list ${p.manifest.id}"
-                        known?.fingerprint != null && p.fingerprint != known.fingerprint -> "The list is now signed by a different key; remove and add the link again to accept it"
+                        p.manifest.id in reserved -> repo.res.getString(R.string.lists_err_reserved, p.manifest.id)
+                        repo.state.value.packs.any { it.id == p.manifest.id && it.sourceUrl != src.url } -> repo.res.getString(R.string.lists_err_taken, p.manifest.id)
+                        known?.fingerprint != null && p.fingerprint != known.fingerprint -> repo.res.getString(R.string.lists_err_new_key)
                         else -> {
                             if (known != null && known.id != p.manifest.id) {
                                 repo.packFile(known.id)?.delete()
@@ -197,10 +197,10 @@ object Updater {
                         }
                     }
                 } catch (e: PackException) {
-                    e.message ?: "Not a valid list"
+                    e.message ?: repo.res.getString(R.string.lists_err_invalid)
                 }
                 Downloader.Result.NotModified -> null
-                Downloader.Result.NotFound -> "The link no longer exists (404)"
+                Downloader.Result.NotFound -> repo.res.getString(R.string.lists_err_404)
                 is Downloader.Result.Failed -> r.reason
             }
             status(repo, src.url) { it.copy(lastAttempt = now, lastSuccess = if (error == null) now else it.lastSuccess, error = error) }

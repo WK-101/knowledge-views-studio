@@ -49,7 +49,7 @@ class VCardIO(
         var n = 0
         val failures = ArrayList<String>()
         val titles = store.groupTitles()
-        val out = cr.openOutputStream(target, "wt") ?: return@withContext ExportResult(0, listOf("Could not open the file for writing"))
+        val out = cr.openOutputStream(target, "wt") ?: return@withContext ExportResult(0, listOf(context.getString(R.string.data_file_write_failed)))
         VCardStream.CardWriter(BufferedWriter(OutputStreamWriter(out, Charsets.UTF_8))).use { w ->
             var done = 0
             for (record in store.readAll(ids)) {
@@ -77,7 +77,7 @@ class VCardIO(
             records += r.withoutMessengers()
             if (records.size % PROGRESS_EVERY == 0) progress(records.size, list.size)
         }
-        val out = cr.openOutputStream(target, "wt") ?: return@withContext ExportResult(0, listOf("Could not open the file for writing"))
+        val out = cr.openOutputStream(target, "wt") ?: return@withContext ExportResult(0, listOf(context.getString(R.string.data_file_write_failed)))
         BufferedWriter(OutputStreamWriter(out, Charsets.UTF_8)).use { ContactCsv.write(records, it, store.groupTitles()) }
         progress(list.size, list.size)
         ExportResult(records.size)
@@ -99,7 +99,7 @@ class VCardIO(
         withContext(Dispatchers.IO) {
             val total = countCards(source)
             runImport(account, total, progress, skipDuplicates) { report, sink ->
-                val input = cr.openInputStream(source) ?: throw java.io.FileNotFoundException("Could not open the file")
+                val input = cr.openInputStream(source) ?: throw java.io.FileNotFoundException(context.getString(R.string.data_file_read_failed))
                 VCardStream.reader(input).use { VCardStream.read(it, report, sink) }
             }
         }
@@ -107,7 +107,7 @@ class VCardIO(
     suspend fun importCsv(source: Uri, account: AccountRef, progress: (Int, Int) -> Unit = { _, _ -> }, skipDuplicates: Boolean = false): ImportReport =
         withContext(Dispatchers.IO) {
             runImport(account, 0, progress, skipDuplicates) { report, sink ->
-                val input = cr.openInputStream(source) ?: throw java.io.FileNotFoundException("Could not open the file")
+                val input = cr.openInputStream(source) ?: throw java.io.FileNotFoundException(context.getString(R.string.data_file_read_failed))
                 VCardStream.reader(input).use { ContactCsv.read(it, report, sink) }
             }
         }
@@ -120,7 +120,7 @@ class VCardIO(
 
     suspend fun csvPreview(source: Uri, rows: Int = 30): CsvPreview? = withContext(Dispatchers.IO) {
         if (!looksLikeCsv(source)) return@withContext null
-        val input = cr.openInputStream(source) ?: throw java.io.FileNotFoundException("Could not open the file")
+        val input = cr.openInputStream(source) ?: throw java.io.FileNotFoundException(context.getString(R.string.data_file_read_failed))
         VCardStream.reader(input).buffered().use { r ->
             val (delimiter, numberList) = ContactCsv.sniff(r)
             val head = ContactCsv.parse(r, delimiter).take(rows).toList()
@@ -139,7 +139,7 @@ class VCardIO(
         skipDuplicates: Boolean = false,
     ): ImportReport = withContext(Dispatchers.IO) {
         runImport(account, 0, progress, skipDuplicates) { report, sink ->
-            val input = cr.openInputStream(source) ?: throw java.io.FileNotFoundException("Could not open the file")
+            val input = cr.openInputStream(source) ?: throw java.io.FileNotFoundException(context.getString(R.string.data_file_read_failed))
             VCardStream.reader(input).use { app.parley.common.vcard.CsvColumnMapping.read(it, delimiter, mapping, hasHeader, report, sink) }
         }
     }

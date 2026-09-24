@@ -123,7 +123,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         purgeHistory: Boolean? = null,
         record: ContactRecord? = null,
     ): Long = withContext(Dispatchers.IO) {
-        val name = d.composedName.ifBlank { d.company.ifBlank { d.phones.firstOrNull()?.value ?: "Private contact" } }
+        val name = d.composedName.ifBlank { d.company.ifBlank { d.phones.firstOrNull()?.value ?: context.getString(app.parley.data.R.string.data_vault_fallback_name) } }
         val numbers = d.phones.map { it.value }.filter { it.isNotBlank() }
         val existing = id?.let { dao.get(it) }
         val purge = purgeHistory ?: existing?.let { summarize(it)?.purgeHistory } ?: false

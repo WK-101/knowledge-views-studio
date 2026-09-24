@@ -42,6 +42,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import java.text.NumberFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,63 +58,62 @@ fun UpdaterScreen(repo: ListsRepo) {
         Updater.prune(repo, s.config)
     }
     fun size(b: Long) = Formatter.formatShortFileSize(context, b)
-    fun ago(t: Long) = if (t <= 0) "never" else DateUtils.getRelativeTimeSpanString(t, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
+    fun ago(t: Long) = if (t <= 0) context.getString(R.string.lists_never) else DateUtils.getRelativeTimeSpanString(t, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Parley Lists") }) }) { p ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.app_name)) }) }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
                 Card(Modifier.fillMaxWidth().padding(16.dp)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.Lock, null)
-                            Text("  Public lists for Parley", style = MaterialTheme.typography.titleMedium)
+                            Text("  " + stringResource(R.string.lists_card_title), style = MaterialTheme.typography.titleMedium)
                         }
                         Text(
-                            "This app downloads public spam lists and hands them to Parley. It can't see your contacts, calls or messages, " +
-                                "and it never sends a phone number anywhere: every download is the same static file for everyone. " +
-                                "Parley itself has no internet access.",
+                            stringResource(R.string.lists_card_text),
                             style = MaterialTheme.typography.bodySmall,
                         )
                         Text(
-                            "Last update: ${ago(state.lastRun)}" + (state.lastRunError?.let { " · $it" } ?: "") +
-                                "\n${state.packs.size} ${if (state.packs.size == 1) "list" else "lists"} · ${size(repo.totalBytes())} (+ ${size(repo.cacheBytes())} of cached FTC days)",
+                            (state.lastRunError?.let { stringResource(R.string.lists_last_update_error, ago(state.lastRun), it) } ?: stringResource(R.string.lists_last_update, ago(state.lastRun))) +
+                                "\n" + pluralStringResource(R.plurals.lists_summary, state.packs.size, state.packs.size, size(repo.totalBytes()), size(repo.cacheBytes())),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         if (state.running) LinearProgressIndicator(Modifier.fillMaxWidth())
                         Button({ UpdateWorker.runNow(context) }, enabled = !state.running) {
                             Icon(Icons.Rounded.Refresh, null)
-                            Text(" Update now")
+                            Text(" " + stringResource(R.string.lists_update_now))
                         }
                     }
                 }
             }
 
-            item { Header("Lists ready for Parley") }
-            if (state.packs.isEmpty()) item { Text("None yet. Tap Update now.", Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            item { Header(stringResource(R.string.lists_ready)) }
+            if (state.packs.isEmpty()) item { Text(stringResource(R.string.lists_none), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             items(state.packs.sortedBy { it.name.lowercase() }, key = { it.id }) { pk ->
                 ListItem(
                     headlineContent = { Text(pk.name) },
                     supportingContent = {
                         Text(
                             listOfNotNull(
-                                "%,d numbers".format(pk.entries) + if (pk.ranges > 0) " · ${pk.ranges} ranges" else "",
+                                pluralStringResource(R.plurals.lists_numbers, pk.entries, NumberFormat.getIntegerInstance().format(pk.entries)) +
+                                    if (pk.ranges > 0) " · " + pluralStringResource(R.plurals.lists_ranges, pk.ranges, pk.ranges) else "",
                                 size(pk.sizeBytes),
-                                "built ${ago(pk.updatedAt)}",
-                                if (pk.fingerprint != null) "signed" else "unsigned",
+                                stringResource(R.string.lists_built, ago(pk.updatedAt)),
+                                if (pk.fingerprint != null) stringResource(R.string.lists_signed) else stringResource(R.string.lists_unsigned),
                             ).joinToString(" · ") + (pk.licence.takeIf { it.isNotBlank() }?.let { "\n$it" } ?: ""),
                         )
                     },
                 )
             }
 
-            item { Header("Sources") }
+            item { Header(stringResource(R.string.lists_sources)) }
             item {
                 val st = state.status[Updater.FTC_KEY]
                 ListItem(
-                    headlineContent = { Text("US FTC: reported calls") },
+                    headlineContent = { Text(stringResource(R.string.lists_ftc_title)) },
                     supportingContent = {
                         Column {
-                            Text("Numbers people reported to the FTC's Do Not Call registry. Public data, updated each weekday; not verified by the FTC.")
+                            Text(stringResource(R.string.lists_ftc_text))
                             SourceLine(st, ::ago, ::size)
                         }
                     },
@@ -119,52 +121,51 @@ fun UpdaterScreen(repo: ListsRepo) {
                 )
                 if (cfg.ftcEnabled) {
                     Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Keep reports from the last", style = MaterialTheme.typography.bodySmall)
-                        listOf(7, 30, 90).forEach { d -> FilterChip(cfg.ftcDays == d, { setConfig { it.copy(ftcDays = d) } }, label = { Text("$d days") }) }
+                        Text(stringResource(R.string.lists_keep_last), style = MaterialTheme.typography.bodySmall)
+                        listOf(7, 30, 90).forEach { d -> FilterChip(cfg.ftcDays == d, { setConfig { it.copy(ftcDays = d) } }, label = { Text(pluralStringResource(R.plurals.lists_days, d, d)) }) }
                     }
                 }
             }
             item {
                 ListItem(
-                    headlineContent = { Text("France: ARCEP telemarketing ranges") },
-                    supportingContent = { Text("The 12 number blocks ARCEP reserved for automated calling platforms. Built in: nothing to download.") },
+                    headlineContent = { Text(stringResource(R.string.lists_arcep_title)) },
+                    supportingContent = { Text(stringResource(R.string.lists_arcep_text)) },
                     trailingContent = { Switch(cfg.arcepEnabled, { v -> setConfig { it.copy(arcepEnabled = v) } }) },
                 )
             }
             items(cfg.community, key = { "c" + it.url }) { src ->
                 ListItem(
-                    headlineContent = { Text(state.packs.firstOrNull { it.sourceUrl == src.url && it.origin == "community" }?.name ?: "Community list") },
+                    headlineContent = { Text(state.packs.firstOrNull { it.sourceUrl == src.url && it.origin == "community" }?.name ?: stringResource(R.string.lists_community)) },
                     supportingContent = {
                         Column {
                             Text(src.url, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
                             SourceLine(state.status[src.url], ::ago, ::size)
                         }
                     },
-                    trailingContent = { IconButton({ setConfig { c -> c.copy(community = c.community.filter { it.url != src.url }) } }) { Icon(Icons.Rounded.Delete, "Remove") } },
+                    trailingContent = { IconButton({ setConfig { c -> c.copy(community = c.community.filter { it.url != src.url }) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.lists_remove)) } },
                 )
             }
             item { AddCommunity(cfg) { url -> setConfig { c -> c.copy(community = c.community + CommunitySource(url, System.currentTimeMillis())) } } }
 
-            item { Header("Schedule") }
+            item { Header(stringResource(R.string.lists_schedule)) }
             item {
-                ToggleItem("Update automatically", null, cfg.auto) { v -> setConfig { it.copy(auto = v) } }
+                ToggleItem(stringResource(R.string.lists_auto), null, cfg.auto) { v -> setConfig { it.copy(auto = v) } }
                 if (cfg.auto) {
                     Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(12 to "Twice a day", 24 to "Daily", 168 to "Weekly").forEach { (h, label) ->
-                            FilterChip(cfg.intervalHours == h, { setConfig { it.copy(intervalHours = h) } }, label = { Text(label) })
+                        listOf(12 to R.string.lists_twice_daily, 24 to R.string.lists_daily, 168 to R.string.lists_weekly).forEach { (h, label) ->
+                            FilterChip(cfg.intervalHours == h, { setConfig { it.copy(intervalHours = h) } }, label = { Text(stringResource(label)) })
                         }
                     }
-                    ToggleItem("Only on Wi-Fi or other unmetered networks", null, cfg.unmeteredOnly) { v -> setConfig { it.copy(unmeteredOnly = v) } }
-                    ToggleItem("Only while the phone is idle", "Android runs the update when you're not using the phone", cfg.idleOnly) { v -> setConfig { it.copy(idleOnly = v) } }
-                    ToggleItem("Only while charging", null, cfg.chargingOnly) { v -> setConfig { it.copy(chargingOnly = v) } }
+                    ToggleItem(stringResource(R.string.lists_unmetered), null, cfg.unmeteredOnly) { v -> setConfig { it.copy(unmeteredOnly = v) } }
+                    ToggleItem(stringResource(R.string.lists_idle), stringResource(R.string.lists_idle_summary), cfg.idleOnly) { v -> setConfig { it.copy(idleOnly = v) } }
+                    ToggleItem(stringResource(R.string.lists_charging), null, cfg.chargingOnly) { v -> setConfig { it.copy(chargingOnly = v) } }
                 }
             }
 
-            item { Header("How Parley gets the lists") }
+            item { Header(stringResource(R.string.lists_how)) }
             item {
                 Text(
-                    "Parley copies lists through a protected link that only apps signed by the same developer can open, checks each file's " +
-                        "checksums and signature, and refreshes them once a day. Lists built here are signed with this install's key:",
+                    stringResource(R.string.lists_how_text),
                     Modifier.padding(horizontal = 16.dp),
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -186,7 +187,7 @@ private fun Header(text: String) {
 private fun SourceLine(st: SourceStatus?, ago: (Long) -> String, size: (Long) -> String) {
     if (st == null) return
     Text(
-        "Checked ${ago(st.lastAttempt)}" + (if (st.downloaded > 0) " · downloaded ${size(st.downloaded)}" else ""),
+        if (st.downloaded > 0) stringResource(R.string.lists_checked_downloaded, ago(st.lastAttempt), size(st.downloaded)) else stringResource(R.string.lists_checked, ago(st.lastAttempt)),
         style = MaterialTheme.typography.bodySmall,
     )
     st.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
@@ -207,19 +208,19 @@ private fun AddCommunity(cfg: UpdaterConfig, add: (String) -> Unit) {
     val trimmed = url.trim()
     val error = when {
         trimmed.isEmpty() -> null
-        !trimmed.startsWith("https://", ignoreCase = true) -> "Only https:// links"
-        cfg.community.any { it.url == trimmed } -> "Already added"
+        !trimmed.startsWith("https://", ignoreCase = true) -> stringResource(R.string.lists_only_https)
+        cfg.community.any { it.url == trimmed } -> stringResource(R.string.lists_already)
         else -> null
     }
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text("Add a community list: a link to a .parleylist file. Its publisher's signature is kept, and Parley checks it.", style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.lists_add_text), style = MaterialTheme.typography.bodySmall)
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 url, { url = it }, Modifier.weight(1f), singleLine = true, label = { Text("https://…/list.parleylist") },
                 isError = error != null, supportingText = error?.let { e -> { Text(e) } },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
             )
-            TextButton({ add(trimmed); url = "" }, enabled = trimmed.isNotEmpty() && error == null) { Text("Add") }
+            TextButton({ add(trimmed); url = "" }, enabled = trimmed.isNotEmpty() && error == null) { Text(stringResource(R.string.lists_add)) }
         }
     }
 }

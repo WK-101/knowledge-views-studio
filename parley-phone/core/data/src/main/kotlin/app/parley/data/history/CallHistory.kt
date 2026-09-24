@@ -467,9 +467,9 @@ class CallHistory(
     suspend fun planImport(uri: Uri, mapping: ColumnMapping? = null, dayFirst: Boolean = true): ImportPlan = withContext(Dispatchers.IO) {
         val text = cr.openInputStream(uri)?.use { input ->
             val bytes = input.readBytes()
-            require(bytes.size <= MAX_IMPORT_BYTES) { "The file is larger than 20 MB" }
+            require(bytes.size <= MAX_IMPORT_BYTES) { context.getString(app.parley.data.R.string.data_file_too_large) }
             String(bytes, Charsets.UTF_8)
-        } ?: throw IllegalArgumentException("Couldn't open the file")
+        } ?: throw IllegalArgumentException(context.getString(app.parley.data.R.string.data_file_open_failed))
         val existing = HashSet<String>()
         readProvider(null).forEach { existing += importKey(it) }
         _archive.value.orEmpty().forEach { existing += importKey(it.record) }
@@ -540,7 +540,7 @@ class CallHistory(
     override suspend fun backupLines(): List<CallHistoryLine> = withContext(Dispatchers.IO) {
         if (_archive.value == null) reload()
         // Rather fail the backup than silently leave the archive out.
-        if (_archive.value == null && prefs.current().archiveEnabled) throw IllegalStateException("Parley's call archive can't be unlocked right now. Try again later.")
+        if (_archive.value == null && prefs.current().archiveEnabled) throw IllegalStateException(context.getString(app.parley.data.R.string.data_archive_locked))
         val inProvider = readProvider(null).map { HistoryMerge.key(it.toEntry(0)) }.toHashSet()
         _archive.value.orEmpty().map { it.record }.filter { HistoryMerge.key(it.toEntry(0)) !in inProvider }.map { CallHistoryLine(call = it) } +
             _kept.value.values.map { CallHistoryLine(keepForever = it) }

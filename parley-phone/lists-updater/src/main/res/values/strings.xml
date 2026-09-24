@@ -3,4 +3,75 @@
     <string name="app_name">Parley Lists</string>
     <string name="permission_read_lists_label">read Parley spam lists</string>
     <string name="permission_read_lists_description">Lets Parley copy the spam lists this app downloaded.</string>
+
+    <!-- Updater screen -->
+    <string name="lists_never">never</string>
+    <string name="lists_card_title">Public lists for Parley</string>
+    <string name="lists_card_text">This app downloads public spam lists and hands them to Parley. It can\'t see your contacts, calls or messages, and it never sends a phone number anywhere: every download is the same static file for everyone. Parley itself has no internet access.</string>
+    <string name="lists_last_update">Last update: %1$s</string>
+    <string name="lists_last_update_error">Last update: %1$s · %2$s</string>
+    <plurals name="lists_summary">
+        <item quantity="one">%1$d list · %2$s (+ %3$s of cached FTC days)</item>
+        <item quantity="other">%1$d lists · %2$s (+ %3$s of cached FTC days)</item>
+    </plurals>
+    <string name="lists_update_now">Update now</string>
+    <string name="lists_ready">Lists ready for Parley</string>
+    <string name="lists_none">None yet. Tap Update now.</string>
+    <plurals name="lists_numbers">
+        <item quantity="one">%1$s number</item>
+        <item quantity="other">%1$s numbers</item>
+    </plurals>
+    <plurals name="lists_ranges">
+        <item quantity="one">%1$d range</item>
+        <item quantity="other">%1$d ranges</item>
+    </plurals>
+    <string name="lists_built">built %1$s</string>
+    <string name="lists_signed">signed</string>
+    <string name="lists_unsigned">unsigned</string>
+    <string name="lists_sources">Sources</string>
+    <string name="lists_ftc_title">US FTC: reported calls</string>
+    <string name="lists_ftc_text">Numbers people reported to the FTC\'s Do Not Call registry. Public data, updated each weekday; not verified by the FTC.</string>
+    <string name="lists_keep_last">Keep reports from the last</string>
+    <plurals name="lists_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <string name="lists_arcep_title">France: ARCEP telemarketing ranges</string>
+    <string name="lists_arcep_text">The 12 number blocks ARCEP reserved for automated calling platforms. Built in: nothing to download.</string>
+    <string name="lists_community">Community list</string>
+    <string name="lists_remove">Remove</string>
+    <string name="lists_schedule">Schedule</string>
+    <string name="lists_auto">Update automatically</string>
+    <string name="lists_twice_daily">Twice a day</string>
+    <string name="lists_daily">Daily</string>
+    <string name="lists_weekly">Weekly</string>
+    <string name="lists_unmetered">Only on Wi-Fi or other unmetered networks</string>
+    <string name="lists_idle">Only while the phone is idle</string>
+    <string name="lists_idle_summary">Android runs the update when you\'re not using the phone</string>
+    <string name="lists_charging">Only while charging</string>
+    <string name="lists_how">How Parley gets the lists</string>
+    <string name="lists_how_text">Parley copies lists through a protected link that only apps signed by the same developer can open, checks each file\'s checksums and signature, and refreshes them once a day. Lists built here are signed with this install\'s key:</string>
+    <string name="lists_checked">Checked %1$s</string>
+    <string name="lists_checked_downloaded">Checked %1$s · downloaded %2$s</string>
+    <string name="lists_only_https">Only https:// links</string>
+    <string name="lists_already">Already added</string>
+    <string name="lists_add_text">Add a community list: a link to a .parleylist file. Its publisher\'s signature is kept, and Parley checks it.</string>
+    <string name="lists_add">Add</string>
+
+    <!-- Update errors -->
+    <string name="lists_err_some">Some lists couldn\'t be updated</string>
+    <string name="lists_err_failed">Update failed</string>
+    <string name="lists_err_ftc_format">The FTC file for %1$s has an unexpected format</string>
+    <string name="lists_err_reserved">This list uses a reserved id (%1$s)</string>
+    <string name="lists_err_taken">Another link already provides the list %1$s</string>
+    <string name="lists_err_new_key">The list is now signed by a different key; remove and add the link again to accept it</string>
+    <string name="lists_err_invalid">Not a valid list</string>
+    <string name="lists_err_404">The link no longer exists (404)</string>
+    <string name="lists_err_https">Only https:// links are allowed</string>
+    <string name="lists_err_link">Invalid link</string>
+    <string name="lists_err_redirect">Redirect without a target</string>
+    <string name="lists_err_status">The server answered %1$d</string>
+    <string name="lists_err_too_large">The file is too large</string>
+    <string name="lists_err_network">Network error: %1$s</string>
+    <string name="lists_err_redirects">Too many redirects</string>
 </resources>

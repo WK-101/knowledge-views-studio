@@ -20,14 +20,14 @@ object Downloader {
 
     private const val USER_AGENT = "ParleyLists/1.0"
 
-    fun get(url: String, maxBytes: Long, etag: String? = null, lastModified: String? = null): Result {
+    fun get(res: android.content.res.Resources, url: String, maxBytes: Long, etag: String? = null, lastModified: String? = null): Result {
         var current = url
         repeat(5) {
-            if (!current.startsWith("https://", ignoreCase = true)) return Result.Failed("Only https:// links are allowed")
+            if (!current.startsWith("https://", ignoreCase = true)) return Result.Failed(res.getString(R.string.lists_err_https))
             val c = try {
                 URL(current).openConnection() as HttpURLConnection
             } catch (e: Exception) {
-                return Result.Failed("Invalid link")
+                return Result.Failed(res.getString(R.string.lists_err_link))
             }
             try {
                 c.instanceFollowRedirects = false
@@ -41,16 +41,16 @@ object Downloader {
                 val code = c.responseCode
                 when {
                     code in 300..399 && code != 304 -> {
-                        val loc = c.getHeaderField("Location") ?: return Result.Failed("Redirect without a target")
+                        val loc = c.getHeaderField("Location") ?: return Result.Failed(res.getString(R.string.lists_err_redirect))
                         current = URL(URL(current), loc).toString()
                         return@repeat
                     }
                     code == 304 -> return Result.NotModified
                     code == 404 || code == 410 -> return Result.NotFound
-                    code !in 200..299 -> return Result.Failed("The server answered $code")
+                    code !in 200..299 -> return Result.Failed(res.getString(R.string.lists_err_status, code))
                 }
                 val declared = c.contentLengthLong
-                if (declared > maxBytes) return Result.Failed("The file is too large")
+                if (declared > maxBytes) return Result.Failed(res.getString(R.string.lists_err_too_large))
                 val raw = c.inputStream
                 val input = if ("gzip".equals(c.contentEncoding, ignoreCase = true)) GZIPInputStream(raw) else raw
                 val out = ByteArrayOutputStream()
@@ -61,17 +61,17 @@ object Downloader {
                         val n = s.read(buf)
                         if (n < 0) break
                         total += n
-                        if (total > maxBytes) return Result.Failed("The file is too large")
+                        if (total > maxBytes) return Result.Failed(res.getString(R.string.lists_err_too_large))
                         out.write(buf, 0, n)
                     }
                 }
                 return Result.Ok(out.toByteArray(), c.getHeaderField("ETag"), c.getHeaderField("Last-Modified"))
             } catch (e: IOException) {
-                return Result.Failed("Network error: ${e.javaClass.simpleName}")
+                return Result.Failed(res.getString(R.string.lists_err_network, e.javaClass.simpleName))
             } finally {
                 c.disconnect()
             }
         }
-        return Result.Failed("Too many redirects")
+        return Result.Failed(res.getString(R.string.lists_err_redirects))
     }
 }

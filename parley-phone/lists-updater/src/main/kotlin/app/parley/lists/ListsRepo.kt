@@ -71,6 +71,9 @@ data class UpdaterState(
 /** Files and state of the updater. Everything lives in the app's private storage. */
 class ListsRepo private constructor(context: Context) {
     private val app = context.applicationContext
+
+    /** For wording update errors in the current language. */
+    internal val res: android.content.res.Resources get() = app.resources
     val packsDir: File = File(app.filesDir, "packs").apply { mkdirs() }
     val ftcDir: File = File(app.filesDir, "ftc").apply { mkdirs() }
     private val stateFile = File(app.filesDir, "state.json")

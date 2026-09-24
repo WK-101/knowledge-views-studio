@@ -142,4 +142,12 @@
     <string name="data_sim_not_allowed">Android didn\'t allow writing to this SIM</string>
     <string name="data_sim_rejected">The SIM didn\'t accept it</string>
     <string name="data_sim_slot">SIM %1$d</string>
+
+    <!-- Call history, files, vault (core/data) -->
+    <string name="data_file_too_large">The file is larger than 20 MB</string>
+    <string name="data_file_open_failed">Couldn\'t open the file</string>
+    <string name="data_archive_locked">Parley\'s call archive can\'t be unlocked right now. Try again later.</string>
+    <string name="data_file_write_failed">Could not open the file for writing</string>
+    <string name="data_file_read_failed">Could not open the file</string>
+    <string name="data_vault_fallback_name">Private contact</string>
 </resources>
