@@ -159,7 +159,7 @@ class CallScreener(
         val incoming = calls.filter { it.date >= since && it.type != CallType.OUTGOING && it.type != CallType.UNKNOWN }
         val contactCache = HashMap<String, Boolean>()
         val replay = incoming.map { e ->
-            val key = PhoneNumbers.matchKey(e.number)
+            val key = PhoneNumbers.lineKey(e.number, PhoneEnv.countryIso(context, e.accountId))
             val isContact = !e.presentationHidden && e.number.isNotBlank() && contactCache.getOrPut(key) { contacts.isContact(e.number) != false }
             ReplayCall(e.number, e.date, e.type, e.presentationHidden || e.number.isBlank(), e.durationSec, isContact)
         }
@@ -208,7 +208,8 @@ class CallScreener(
         tones: Map<String, String> = emptyMap(),
     ): Gathered {
         val number = req.number?.takeIf { it.isNotBlank() }
-        val iso = PhoneEnv.countryIso(context)
+        // F7: national numbers are read with the country of the SIM that took the call, when known.
+        val iso = PhoneEnv.countryIso(context, req.simId)
         if (number == null || req.hidden) {
             return Gathered(IncomingCallFacts(number = null, hidden = true, isContact = false, verification = req.verification, countryIso = iso, simId = req.simId), null)
         }
@@ -218,7 +219,7 @@ class CallScreener(
         var lookupFailed = false
         val isContact = knownContact ?: run {
             val inContacts = parts.map { contacts.isContact(it) }
-            val inVault = parts.map { p -> runCatching { vault.lookup(p) != null }.getOrNull() }
+            val inVault = parts.map { p -> runCatching { vault.lookup(p, iso) != null }.getOrNull() }
             val yes = inContacts.any { it == true } || inVault.any { it == true }
             lookupFailed = !yes && (inContacts.any { it == null } || inVault.any { it == null })
             yes || lookupFailed
@@ -240,7 +241,7 @@ class CallScreener(
                     if (needLabels) labels = contacts.labelTitlesOrNull(d.id) ?: throw IllegalStateException("contacts unavailable")
                 } ?: run {
                     // A vault contact: never starred, no labels.
-                    contactName = runCatching { vault.lookup(primary)?.second?.name }.getOrNull()
+                    contactName = runCatching { vault.lookup(primary, iso)?.second?.name }.getOrNull()
                 }
             } catch (_: Exception) {
                 labelFailed = true
@@ -330,7 +331,7 @@ class CallScreener(
      */
     private suspend fun commit(req: ScreenRequest, g: Gathered, result: ScreeningResult, s: ScreeningSettings, now: Long) = commitLock.withLock {
         val number = g.facts.number
-        val key = if (number == null) "hidden" else PhoneNumbers.matchKey(number)
+        val key = if (number == null) "hidden" else PhoneNumbers.lineKey(number, PhoneEnv.countryIso(context, req.simId))
         committed.entries.removeAll { now - it.value.at > RESCREEN_WINDOW_MS }
         val prev = committed[key]
         val entry = prev ?: Committed(now, null, HashSet(), HashSet()).also { committed[key] = it }

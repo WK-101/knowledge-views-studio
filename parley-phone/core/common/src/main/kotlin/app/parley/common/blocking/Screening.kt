@@ -99,8 +99,9 @@ object PersonalReputation {
      * [exclude]. No suggestion while the regret window runs, or when you called them back, talked to them
      * for longer, or they called again soon after (maybe it was urgent).
      */
-    fun suggestions(calls: List<CallEntry>, now: Long, exclude: (String) -> Boolean): List<Suggestion> {
-        val byNumber = calls.filter { it.number.isNotBlank() && !it.presentationHidden }.groupBy { PhoneNumbers.matchKey(it.number) }
+    fun suggestions(calls: List<CallEntry>, now: Long, countryOf: (CallEntry) -> String? = { null }, exclude: (String) -> Boolean): List<Suggestion> {
+        // F7: one line per E.164 number (national numbers read with the country of the call's SIM), not per last 9 digits.
+        val byNumber = calls.filter { it.number.isNotBlank() && !it.presentationHidden }.groupBy { PhoneNumbers.lineKey(it.number, countryOf(it)) }
         val out = ArrayList<Suggestion>()
         for ((_, list) in byNumber) {
             val number = list.first().number

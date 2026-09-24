@@ -11,6 +11,7 @@ import app.parley.common.MessengerLink
 import app.parley.common.MessengerLinks
 import app.parley.common.NumberText
 import app.parley.data.DataContainer
+import app.parley.data.TemporaryContacts
 
 /** Starts messenger links. Every link goes to its app directly; nothing is ever handed to a browser. */
 object MessengerLauncher {
@@ -53,19 +54,21 @@ object MessengerLauncher {
 }
 
 /**
- * "Save as a temporary contact": a contact that deletes itself (and its call history) after [DEFAULT_DAYS] days.
- * A thin wrapper over [app.parley.data.people.TemporaryContacts.create], the one API for temporary contacts.
+ * "Save as a temporary contact": deletes itself (and its call history) after [DEFAULT_DAYS]. F5: private (kept in
+ * Parley's vault, invisible to WhatsApp and other apps) unless the user chooses "Save visible to other apps".
  */
 object TemporaryContact {
-    const val DEFAULT_DAYS = app.parley.data.people.TemporaryContacts.DEFAULT_DAYS
+    const val DEFAULT_DAYS = TemporaryContacts.DEFAULT_DAYS
 
-    /**
-     * Saves [number] as a temporary contact. Returns the phone contact's id, or, when [private] (a vault contact,
-     * invisible to other apps), the negative vault id (`-vaultId`, as the editor does); null if nothing was saved.
-     * Callers open `Routes.vault(-id)` for negative ids.
-     */
-    suspend fun save(c: DataContainer, number: String, name: String, days: Int = DEFAULT_DAYS, private: Boolean = false): Long? =
-        c.temporaries.create(number, name, days, private)?.id
+    suspend fun save(c: DataContainer, number: String, name: String, private: Boolean = true, days: Int = DEFAULT_DAYS): TemporaryContacts.Saved? =
+        TemporaryContacts.save(c, name, number, days, private = private, purgeHistory = true)
+
+    /** What to tell the user after saving. */
+    fun savedMessage(saved: TemporaryContacts.Saved?): String = when {
+        saved == null -> "Couldn't save the contact"
+        saved.private -> "Saved privately for $DEFAULT_DAYS days"
+        else -> "Saved for $DEFAULT_DAYS days, visible to other apps"
+    }
 
     /** Suggested name for a number met through a messenger ("WhatsApp · +92 300 1234567"). */
     fun suggestedName(number: String, via: String?, region: String): String {

@@ -24,7 +24,7 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
     }
 
     /** "X expired; the details you merged were kept" (F2). */
-    private fun notify(ctx: Context, i: Int, n: app.parley.data.people.TemporaryContacts.Notice) {
+    private fun notify(ctx: Context, i: Int, n: app.parley.data.people.TemporaryContactStore.Notice) {
         val nm = ctx.getSystemService(android.app.NotificationManager::class.java)
         nm.createNotificationChannel(android.app.NotificationChannel(CHANNEL, "Contacts housekeeping", android.app.NotificationManager.IMPORTANCE_LOW))
         val open = android.app.PendingIntent.getActivity(
@@ -56,7 +56,7 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
         }
 
         /** Returns notices to show about temporary contacts that were merged into someone else. */
-        suspend fun runHousekeeping(c: DataContainer): List<app.parley.data.people.TemporaryContacts.Notice> {
+        suspend fun runHousekeeping(c: DataContainer): List<app.parley.data.people.TemporaryContactStore.Notice> {
             val now = System.currentTimeMillis()
             val settings = c.settings.current()
             // 0. Follow lookup-key changes first, so temporary entries and notes point at the right people.
@@ -64,7 +64,14 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
             // 1. Temporary contacts: only the raw contacts Parley recorded are deleted; merged details stay (F2).
             val notices = runCatching { c.temporaries.expire(now) }.getOrDefault(emptyList())
             // 2. Expired vault entries
-            c.vault.expired(now).forEach { c.vault.delete(it) }
+            //    (F5: private temporary contacts take their call history and "last messaged" entry with them)
+            for (v in c.vault.expiredEntries(now)) {
+                v.numbers.forEach { n ->
+                    if (v.purgeHistory) runCatching { c.history.purgeNumber(n) }
+                    runCatching { c.messaging.forget(n) }
+                }
+                c.vault.delete(v.id)
+            }
             // 3. Private call history
             if (settings.privateVaultHistory) c.vault.sweepCallLog(now - TimeUnit.DAYS.toMillis(30))
             // 4. Call-log retention (the archive copies new calls first and then follows the same setting,
@@ -76,6 +83,8 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
                 runCatching {
                     c.appContext.contentResolver.delete(CallLog.Calls.CONTENT_URI, "${CallLog.Calls.DATE} < ?", arrayOf(before.toString()))
                 }
+                // F13: the "last messaged" record follows the same retention.
+                runCatching { c.messaging.pruneOlderThan(before) }
             }
             // 5. Journal older than 30 days
             c.meta.pruneJournal(now - TimeUnit.DAYS.toMillis(30))

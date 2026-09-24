@@ -97,7 +97,7 @@ fun rememberRecentBadges(vm: AppViewModel): (RecentGroup) -> RecentBadge? {
                 val badge = if (vm.c.dialGuard.isWangiri(e.type, g.number, e.date, rings, iso)) {
                     RecentBadge("Don't call back", warn = true)
                 } else {
-                    verdicts[PhoneNumbers.matchKey(g.number)]?.takeIf { kotlin.math.abs(it.time - e.date) < 10 * 60_000L || it.time > e.date }
+                    verdicts[vm.c.blocks.verdictKey(g.number, e.accountId)]?.takeIf { kotlin.math.abs(it.time - e.date) < 10 * 60_000L || it.time > e.date }
                         ?.let { v -> RecentBadge(v.text, warn = v.blocked || v.kind == "LIKELY_SPAM" || v.kind == "REPORTED") }
                 }
                 if (badge != null) out[g.key] = badge

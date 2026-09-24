@@ -48,7 +48,7 @@ class DataContainer(context: Context) {
     val meta by lazy { db.metaDao() }
     val journal by lazy { JournalRepository(meta, records) }
     val folderSync by lazy { app.parley.data.sync.FolderSync(appContext, contacts, records) }
-    val messaging by lazy { app.parley.data.messaging.MessagingStore(appContext) }
+    val messaging by lazy { app.parley.data.messaging.MessagingStore(appContext, scope) { n -> vault.lookup(n) != null } }
     val timeMachine by lazy { app.parley.data.backup.TimeMachine(appContext, records) }
     val people by lazy { app.parley.data.people.PeopleContainer(this) }
     val backup by lazy {
@@ -59,7 +59,7 @@ class DataContainer(context: Context) {
     val history by lazy { app.parley.data.history.CallHistory(appContext, callLog, contacts, vault, scope) }
 
     /** Temporary contacts: the one API to create, mark, keep and expire them (F2). */
-    val temporaries by lazy { app.parley.data.people.TemporaryContacts(this) }
+    val temporaries by lazy { app.parley.data.people.TemporaryContactStore(this) }
 
     /** Keeps notes, backgrounds, relation links and temporary flags attached when lookup keys change (F8). */
     val contactKeys by lazy { app.parley.data.people.ContactKeys(contacts, meta) { people.backgrounds } }

@@ -209,11 +209,19 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             return@Scaffold
         }
         val primary = d.phones.firstOrNull { it.isPrimary } ?: d.phones.firstOrNull()
-        val history = calls.orEmpty().filter { e -> d.phones.any { PhoneNumbers.matchKey(it.value) == PhoneNumbers.matchKey(e.number) } }
+        // F7: same line by E.164 (read with this phone's country), not by the last 9 digits.
+        val history = remember(calls, d.phones) {
+            val mine = PhoneNumbers.LineSet(d.phones.map { it.value }, app.parley.data.PhoneEnv.countryIso(context))
+            calls.orEmpty().filter { e -> e.number in mine }
+        }
         LazyColumn(Modifier.padding(padding)) {
             item {
                 Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Avatar(d.displayName, d.photoUri, 120.dp, Modifier.shared("avatar-$contactId").clickable(enabled = d.photoUri != null, onClickLabel = "View photo") { showPhoto = true })
+                    Avatar(
+                        d.displayName, d.photoUri, 120.dp,
+                        Modifier.shared("avatar-$contactId").clickable(enabled = d.photoUri != null, onClickLabel = "View photo") { showPhoto = true },
+                        isCompany = d.composedName.isBlank() && d.company.isNotBlank(),
+                    )
                     Text(d.displayName, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp).shared("name-$contactId", bounds = true))
                     val sub = listOf(d.nickname, listOf(d.title, d.company).filter { it.isNotBlank() }.joinToString(", ")).filter { it.isNotBlank() }
                     if (sub.isNotEmpty()) Text(sub.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)

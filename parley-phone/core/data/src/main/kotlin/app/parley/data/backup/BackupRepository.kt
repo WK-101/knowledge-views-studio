@@ -566,7 +566,7 @@ class BackupRepository(
                     }
                 }.getOrNull()
             }
-            vault.save(null, d, o.optLong("expiresAt").takeIf { it > 0 }, record)
+            vault.save(null, d, o.optLong("expiresAt").takeIf { it > 0 }, record = record)
             n++
         }
         return n

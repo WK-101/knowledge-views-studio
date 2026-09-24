@@ -105,7 +105,8 @@ class CallHistory(
     /** Filter applied to Recents (H4); saved filters live in [prefs]. */
     val activeFilter = MutableStateFlow(HistoryFilter())
 
-    private val vaultKeys = vault.contacts.map { list -> list.flatMap { v -> v.numbers.map { PhoneNumbers.matchKey(it) } }.toSet() }
+    /** Private (vault) numbers, matched by line (F7: E.164, not the last 9 digits, so a foreign number sharing them stays). */
+    private val vaultKeys = vault.contacts.map { list -> PhoneNumbers.LineSet(list.flatMap { v -> v.numbers }, countryIso) }
         .distinctUntilChanged()
 
     /**
@@ -120,7 +121,7 @@ class CallHistory(
         when {
             sys == null -> null
             !on || arch.isNullOrEmpty() -> sys
-            else -> HistoryMerge.merge(sys, arch.asSequence().take(ARCHIVE_UI_WINDOW).map { it.toEntry() }.filter { PhoneNumbers.matchKey(it.number) !in vk || it.number.isBlank() }.toList())
+            else -> HistoryMerge.merge(sys, arch.asSequence().take(ARCHIVE_UI_WINDOW).map { it.toEntry() }.filter { it.number !in vk || it.number.isBlank() }.toList())
         }
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, null)
 
@@ -242,7 +243,7 @@ class CallHistory(
             val fresh = ArrayList<ArchivedCallEntity>()
             for (rec in readProvider(since)) {
                 val num = rec.number
-                if (!num.isNullOrBlank() && PhoneNumbers.matchKey(num) in vk) continue
+                if (!num.isNullOrBlank() && num in vk) continue
                 val key = crypto.mac(HistoryMerge.key(rec.toEntry(0)))
                 if (!known.add(key)) continue
                 fresh += entity(rec, key, iso, now)
@@ -266,9 +267,9 @@ class CallHistory(
     private fun personMac(number: String, iso: String = countryIso) = crypto.mac(NumberKeys.of(number, iso))
 
     /** Calls with private contacts never stay in the archive (they live in the vault's own history). */
-    private suspend fun purgeVault(vk: Set<String>): Boolean {
-        if (vk.isEmpty()) return false
-        val ids = _archive.value.orEmpty().filter { !it.record.number.isNullOrBlank() && PhoneNumbers.matchKey(it.record.number) in vk }.map { it.rowId }
+    private suspend fun purgeVault(vk: PhoneNumbers.LineSet): Boolean {
+        if (vk.isEmpty) return false
+        val ids = _archive.value.orEmpty().filter { !it.record.number.isNullOrBlank() && it.record.number in vk }.map { it.rowId }
         if (ids.isEmpty()) return false
         ids.chunked(500).forEach { dao.deleteIds(it) }
         knownKeys = null
@@ -431,16 +432,25 @@ class CallHistory(
     suspend fun trashBatches(): List<TrashBatch> = withContext(Dispatchers.IO) { dao.trashBatches() }
 
     /** Puts a deleted batch back into the system call log (and the archive). Returns calls restored. */
-    suspend fun undoDelete(batchId: Long): Int = withContext(Dispatchers.IO + NonCancellable) {
-        val rows = dao.trashed(batchId).mapNotNull { runCatching { decode(String(crypto.open(it.blob))) }.getOrNull() }
-        if (rows.isEmpty()) return@withContext 0
+    suspend fun undoDelete(batchId: Long): Int = withContext(Dispatchers.IO + NonCancellable) { undoLock.withLock { undoDeleteLocked(batchId) } }
+
+    /** One undo at a time: a second tap waits and then finds the batch gone (F21). */
+    private val undoLock = Mutex()
+
+    private suspend fun undoDeleteLocked(batchId: Long): Int {
+        val trashed = dao.trashed(batchId).mapNotNull { runCatching { decode(String(crypto.open(it.blob))) }.getOrNull() }
+        if (trashed.isEmpty()) return 0
+        // F21: idempotent. Rows the system log already has again (an earlier, interrupted undo) aren't inserted twice.
+        val from = trashed.minOf { it.date } - 1000
+        val present = readProvider(from).filter { it.date <= trashed.maxOf { r -> r.date } + 1000 }
+        val rows = HistoryMerge.missing(trashed, present) { HistoryMerge.key(it.toEntry(0)) }
         val values = rows.map { it.toValues() }.toTypedArray()
-        val n = runCatching { cr.bulkInsert(Calls.CONTENT_URI, values) }.getOrDefault(0)
+        val n = if (values.isEmpty()) 0 else runCatching { cr.bulkInsert(Calls.CONTENT_URI, values) }.getOrDefault(0)
         if (prefs.current().archiveEnabled) mutex.withLock {
             val known = keys()
             val iso = countryIso
             val now = System.currentTimeMillis()
-            val fresh = rows.mapNotNull { rec ->
+            val fresh = trashed.mapNotNull { rec ->
                 val key = crypto.mac(HistoryMerge.key(rec.toEntry(0)))
                 if (known.add(key)) entity(rec, key, iso, now) else null
             }
@@ -448,7 +458,7 @@ class CallHistory(
             reload()
         }
         dao.deleteBatch(batchId)
-        maxOf(n, rows.size.takeIf { prefs.current().archiveEnabled } ?: 0)
+        return maxOf(n, trashed.size.takeIf { prefs.current().archiveEnabled } ?: 0)
     }
 
     // ------------------------------------------------------------------ import (H8)

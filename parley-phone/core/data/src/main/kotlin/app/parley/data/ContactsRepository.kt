@@ -50,21 +50,44 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 
-/** Observes a content URI; emits Unit on start and on each change. */
-fun ContentResolver.changes(uri: Uri): Flow<Unit> = callbackFlow {
+/**
+ * Observes a content URI; emits Unit on start and on each change.
+ *
+ * F29: registering fails with a SecurityException while the permission is missing. When [retry] is given, each of
+ * its emissions (e.g. a refresh after the permission was granted) tries to register again, so the flow starts
+ * following changes without a restart.
+ */
+fun ContentResolver.changes(uri: Uri, retry: Flow<*>? = null): Flow<Unit> = callbackFlow {
     val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean) {
             trySend(Unit)
         }
     }
-    try {
+    fun register(): Boolean = try {
         registerContentObserver(uri, true, observer)
+        true
     } catch (_: SecurityException) {
+        false
     }
-    awaitClose { unregisterContentObserver(observer) }
+    var registered = register()
+    val retrying = retry?.let { r ->
+        launch {
+            r.collect {
+                if (!registered) {
+                    registered = register()
+                    if (registered) trySend(Unit)
+                }
+            }
+        }
+    }
+    awaitClose {
+        retrying?.cancel()
+        if (registered) unregisterContentObserver(observer)
+    }
 }.onStart { emit(Unit) }.conflate()
 
 class ContactsRepository(private val context: Context, scope: CoroutineScope) {
@@ -93,7 +116,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     /** Bumped after permission changes so observers reload. */
     private val reload = MutableStateFlow(0)
 
-    val contacts: StateFlow<List<ContactSummary>?> = kotlinx.coroutines.flow.combine(cr.changes(Contacts.CONTENT_URI), reload) { _, _ -> }
+    val contacts: StateFlow<List<ContactSummary>?> = kotlinx.coroutines.flow.combine(cr.changes(Contacts.CONTENT_URI, retry = reload), reload) { _, _ -> }
         .map { loadAll() }
         .flowOn(Dispatchers.IO)
         .stateIn(scope, SharingStarted.Eagerly, null)
@@ -342,7 +365,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
             }
         }
         base.copy(
-            phones = if (forEdit) phones else phones.distinctBy { PhoneNumbers.matchKey(it.value) + it.type },
+            phones = if (forEdit) phones else phones.distinctBy { PhoneNumbers.lineKey(it.value, PhoneEnv.countryIso(context)) + it.type },
             emails = emails, websites = sites, relations = relations, addresses = addrs, events = events, groupIds = groups,
             readOnlyDataIds = if (forEdit) readOnlyDataIds(dataIds) else emptySet(),
         )

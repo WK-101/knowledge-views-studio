@@ -21,6 +21,16 @@ object HistoryMerge {
     }
 
     fun key(e: CallEntry): String = NumberKeys.dedupe(if (e.presentationHidden) "" else e.number, e.date) + "|" + e.type
+
+    /**
+     * F21: the [rows] still to restore: those whose [key] isn't among [present] already, each once. Restoring the
+     * same batch twice (a double tap, a retry after a crash half-way) then adds nothing the second time.
+     */
+    fun <T> missing(rows: List<T>, present: Iterable<T>, key: (T) -> String): List<T> {
+        val have = HashSet<String>()
+        present.forEach { have += key(it) }
+        return rows.filter { have.add(key(it)) }
+    }
 }
 
 /** "Delete calls from…" choices for one number (K10). */

@@ -32,6 +32,7 @@ class CallNotifier(private val context: Context) {
     private val photoLoaded = HashSet<String>()
 
     init {
+        instance = this
         nm.createNotificationChannel(
             NotificationChannel(CH_INCOMING, "Incoming calls", NotificationManager.IMPORTANCE_HIGH).apply {
                 // Telecom plays the ringtone and vibration; the channel itself stays silent.
@@ -92,6 +93,24 @@ class CallNotifier(private val context: Context) {
 
     private val lastPosted = HashMap<Int, String>()
 
+    /**
+     * F6: the user swiped a call notification away (allowed for ongoing notifications since Android 14). Without it
+     * there's no way back to the call or its hang-up button, so it's posted again straight away — but only while
+     * the call it belonged to is still live.
+     */
+    fun onDismissed(id: Int, callId: String?) {
+        lastPosted.remove(id)
+        val live = CallManager.state.value.filter { it.isLive }
+        if (live.isEmpty() || (callId != null && live.none { it.id == callId })) return
+        update(CallManager.state.value)
+    }
+
+    /** Called when the in-call service goes away: no more re-posting from dismiss intents. */
+    fun release() {
+        cancelAll()
+        if (instance === this) instance = null
+    }
+
     /** Posts unless the visible content is unchanged (NotificationManager rate-limits updates). */
     private fun post(id: Int, call: CallUi, variant: String, build: () -> android.app.Notification) {
         val photo = call.photoUri
@@ -134,6 +153,7 @@ class CallNotifier(private val context: Context) {
             .setContentIntent(contentIntent())
             .apply { if (ringing) setFullScreenIntent(contentIntent(), true) }
             .addAction(0, if (ringing) "Decline" else "Hang up", action(if (ringing) CallActionReceiver.ACTION_DECLINE else CallActionReceiver.ACTION_HANGUP, call.id, 9))
+            .setDeleteIntent(dismissIntent(if (ringing) INCOMING_ID else ONGOING_ID, call.id))
             .build()
     }
 
@@ -160,8 +180,22 @@ class CallNotifier(private val context: Context) {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
+    /** Delete intent: re-posts the notification if the user swipes it away while the call is live (F6). */
+    private fun dismissIntent(notificationId: Int, callId: String): PendingIntent =
+        PendingIntent.getBroadcast(
+            context, 20 + notificationId % 100,
+            Intent(context, CallActionReceiver::class.java).setAction(CallActionReceiver.ACTION_DISMISSED)
+                .putExtra(CallActionReceiver.EXTRA_ID, callId)
+                .putExtra(CallActionReceiver.EXTRA_NOTIFICATION_ID, notificationId),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
+    /**
+     * F14: the vault's "Private" label never goes into a call notification: notifications can be shown on the lock
+     * screen (and read by notification listeners), and the label would reveal that the caller is a private contact.
+     */
     private fun subtitle(call: CallUi): String = listOfNotNull(
-        call.label,
+        app.parley.common.NotificationPrivacy.shownLabel(call.label),
         call.number?.takeIf { call.name != null },
         call.accountLabel,
     ).joinToString(" · ")
@@ -171,6 +205,15 @@ class CallNotifier(private val context: Context) {
         InCallActivity.intent(context, false).setAction(InCallActivity.ACTION_ANSWER).putExtra(CallActionReceiver.EXTRA_ID, call.id),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
+
+    /** What the lock screen shows when notification content is hidden: who (as on the call screen), no labels. */
+    private fun publicVersion(call: CallUi, channel: String, text: String): android.app.Notification =
+        NotificationCompat.Builder(context, channel)
+            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
+            .setContentTitle(call.title)
+            .setContentText(text)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .build()
 
     private fun buildIncoming(call: CallUi): android.app.Notification {
         val answer = answerIntent(call)
@@ -183,10 +226,12 @@ class CallNotifier(private val context: Context) {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setPublicVersion(publicVersion(call, CH_INCOMING, "Incoming call"))
             .setContentIntent(contentIntent())
             .setFullScreenIntent(contentIntent(), true)
             .setStyle(NotificationCompat.CallStyle.forIncomingCall(person(call), action(CallActionReceiver.ACTION_DECLINE, call.id, 3), answer))
             .addAction(0, "Ignore", action(CallActionReceiver.ACTION_IGNORE, call.id, 10))
+            .setDeleteIntent(dismissIntent(INCOMING_ID, call.id))
             .build()
     }
 
@@ -200,6 +245,7 @@ class CallNotifier(private val context: Context) {
             .setContentIntent(contentIntent())
             .addAction(0, "Decline", action(CallActionReceiver.ACTION_DECLINE, call.id, 4))
             .addAction(0, "Answer", answerIntent(call))
+            .setDeleteIntent(dismissIntent(INCOMING_ID, call.id))
             .build()
 
     private fun buildOngoing(call: CallUi, timing: CallTiming?, chrono: CallChronometer.Display): android.app.Notification {
@@ -220,7 +266,9 @@ class CallNotifier(private val context: Context) {
             .setOnlyAlertOnce(true)
             .setSilent(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setPublicVersion(publicVersion(call, CH_ONGOING, "Ongoing call"))
             .setContentIntent(contentIntent())
+            .setDeleteIntent(dismissIntent(ONGOING_ID, call.id))
             // CallStyle needs a full-screen intent or a foreground service. The ongoing channel is not
             // high-importance, so this never pops up; it only satisfies the platform check.
             .setFullScreenIntent(contentIntent(), false)
@@ -250,5 +298,8 @@ class CallNotifier(private val context: Context) {
         const val CH_SILENCED = "silenced_calls_v1"
         const val INCOMING_ID = 4711
         const val ONGOING_ID = 4713
+
+        /** The live notifier while the in-call service runs, for the dismiss intent (main thread only). */
+        internal var instance: CallNotifier? = null
     }
 }

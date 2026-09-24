@@ -96,6 +96,63 @@ object PhoneNumbers {
         return if (d.length > MIN_MATCH) d.substring(d.length - MIN_MATCH) else d
     }
 
+    /**
+     * F7: a key for one phone line, for maps and de-duplication. The E.164 form whenever it can be derived (national
+     * numbers are read with [countryIso], ideally the country of the SIM that handled the call), so numbers from
+     * different countries that share their last digits never collide. Only when no E.164 form can be derived does it
+     * fall back to the digits, prefixed with `~` so a fallback key never equals an E.164 key.
+     */
+    fun lineKey(raw: String?, countryIso: String?): String {
+        toE164(raw, countryIso)?.let { return it }
+        val d = digits(raw)
+        return if (d.isEmpty()) "" else "~" + looseKey(d)
+    }
+
+    /**
+     * The fallback form of [lineKey] regardless of whether an E.164 form exists: for reading records that were keyed
+     * by the last digits before F7.
+     */
+    fun fallbackLineKey(raw: String?): String {
+        val d = digits(raw)
+        return if (d.isEmpty()) "" else "~" + looseKey(d)
+    }
+
+    /** Short numbers compare by all their digits, longer ones by their last [MIN_MATCH] (as [same] does). */
+    private fun looseKey(d: String): String = if (d.length < 7) "d$d" else "k" + matchKey(d)
+
+    /**
+     * A set of numbers that answers "is this the same line as one of them?" with exactly the rules of [same] (E.164
+     * when both sides have one, the digit fallback otherwise), without comparing every pair. For a contact's call
+     * history, de-duplication and the like.
+     */
+    class LineSet(numbers: Iterable<String?>, private val countryIso: String?) {
+        private val e164 = HashSet<String>()
+        /** Fallback keys of the numbers without an E.164 form. */
+        private val looseWithoutE164 = HashSet<String>()
+        /** Fallback keys of every number (compared when the probe itself has no E.164 form). */
+        private val looseAll = HashSet<String>()
+
+        init {
+            for (n in numbers) {
+                val d = digits(n)
+                if (d.isEmpty()) continue
+                val loose = looseKey(d)
+                looseAll += loose
+                val e = toE164(n, countryIso)
+                if (e != null) e164 += e else looseWithoutE164 += loose
+            }
+        }
+
+        val isEmpty: Boolean get() = looseAll.isEmpty()
+
+        operator fun contains(raw: String?): Boolean {
+            val d = digits(raw)
+            if (d.isEmpty()) return false
+            val e = toE164(raw, countryIso)
+            return if (e != null) e in e164 || looseKey(d) in looseWithoutE164 else looseKey(d) in looseAll
+        }
+    }
+
     /** Whether two numbers refer to the same line. */
     fun same(a: String?, b: String?, countryIso: String?): Boolean {
         val ea = toE164(a, countryIso)

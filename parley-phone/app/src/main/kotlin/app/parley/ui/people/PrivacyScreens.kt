@@ -144,6 +144,15 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
                 )
             }
 
+            item {
+                // F30: messaging unsaved numbers keeps working without WhatsApp's Contacts permission, as far as Parley can tell.
+                ListItem(
+                    leadingContent = { Icon(Icons.Rounded.Info, null) },
+                    headlineContent = { Text("WhatsApp and other messengers") },
+                    supportingContent = { Text(app.parley.messaging.WhatsAppNotice.REVOKE_TEXT) },
+                )
+            }
+
             item { Section("Private by default") }
             item {
                 SwitchRow("Save new contacts as private", "New contacts go to your private contacts instead of an account", s.privateByDefault) { v ->

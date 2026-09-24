@@ -5,7 +5,6 @@ import android.provider.ContactsContract.Data
 import app.parley.common.people.TemporaryExpiry
 import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
-import app.parley.data.DataItem
 import app.parley.data.db.TemporaryContactEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -14,8 +13,10 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
- * Temporary contacts: people saved for a few days (a plumber, a delivery driver, someone you messaged once) that
- * delete themselves. **The one API for them**; screens and workers never write the table directly (F2).
+ * Visible (phone) temporary contacts: people saved for a few days that delete themselves (F2). New ones are created
+ * through the facade [app.parley.data.TemporaryContacts.save], which is the single entry point for both kinds
+ * (private ones live in the vault and expire with its `expiresAt`); it calls [createPhone] here. Screens and workers
+ * use this store to mark, keep, clear and expire them and never write the table directly.
  *
  * Safety rules:
  * - Parley records the raw contacts that make up a temporary contact and only ever deletes those. If the person now
@@ -23,58 +24,32 @@ import kotlinx.coroutines.withContext
  * - Linking a temporary contact with a real one (Duplicates, multi-select merge, the picker's "add to existing")
  *   clears the flag: the user chose to keep the details with a real person.
  * - The first real edit asks "Keep this contact?" ([needsKeepPrompt] / [answerKeep]).
- *
- * Private temporary contacts live in the vault (never visible to other apps) and expire through the vault's own
- * `expiresAt`.
  */
-class TemporaryContacts(private val c: DataContainer) {
+class TemporaryContactStore(private val c: DataContainer) {
     private val mutex = Mutex()
 
     /** Every temporary phone contact, soonest first. */
     val all: Flow<List<TemporaryContactEntity>> get() = c.meta.temporaryContacts()
 
-    /** What [create] made: a phone contact id, or a private (vault) contact when [private] (then [id] is `-vaultId`). */
-    data class Created(val id: Long, val private: Boolean) {
-        val vaultId: Long? get() = if (private) -id else null
-    }
-
     /** A temporary contact expired but not everything was deleted; tell the user. */
     data class Notice(val name: String, val text: String)
 
     /**
-     * Saves [number] as a temporary contact named [name] that deletes itself after [days] days.
-     *
-     * - `private = false`: a phone-only contact (no account, never synced). Other apps with contacts access can see
-     *   it until it expires. Its call history is purged with it.
-     * - `private = true`: a private (vault) contact, encrypted inside Parley and invisible to other apps; the vault
-     *   removes it (and its private call history) when it expires. Needs the vault key; throws the vault's
-     *   locked exception when it must be unlocked first.
-     *
-     * Returns null when nothing could be saved.
+     * Saves [details] as a phone-only contact (no account, never synced) that deletes itself at [expiresAt], recording
+     * the raw contact it created. Returns the contact id, or null when nothing could be saved. Use
+     * [app.parley.data.TemporaryContacts.save] rather than calling this directly.
      */
-    suspend fun create(number: String, name: String, days: Int = DEFAULT_DAYS, private: Boolean = false): Created? {
-        val details = ContactDetails(
-            given = name.trim().ifEmpty { number },
-            phones = listOf(DataItem(value = number, type = Phone.TYPE_MOBILE)),
+    suspend fun createPhone(details: ContactDetails, expiresAt: Long, purgeHistory: Boolean = true): Long? = mutex.withLock {
+        val id = c.contacts.save(null, details, null, null, false) ?: return@withLock null
+        val raw = c.contacts.lastSavedRawId
+        val key = c.contacts.lookupKeyOf(id)?.takeIf { it.isNotEmpty() } ?: return@withLock id
+        c.meta.setTemporary(
+            TemporaryContactEntity(
+                key, id, expiresAt, purgeHistory,
+                rawIds = raw?.let { TemporaryExpiry.encodeIds(listOf(it)) }, name = details.composedName.ifBlank { null },
+            ),
         )
-        val expiresAt = System.currentTimeMillis() + days * DAY
-        if (private) {
-            val id = c.vault.save(null, details, expiresAt)
-            return Created(-id, true)
-        }
-        return mutex.withLock {
-            // Kept on this phone only (never synced to an account): it's meant to disappear.
-            val id = c.contacts.save(null, details, null, null, false) ?: return@withLock null
-            val raw = c.contacts.lastSavedRawId
-            val key = c.contacts.lookupKeyOf(id)?.takeIf { it.isNotEmpty() } ?: return@withLock Created(id, false)
-            c.meta.setTemporary(
-                TemporaryContactEntity(
-                    key, id, expiresAt, purgeHistory = true,
-                    rawIds = raw?.let { TemporaryExpiry.encodeIds(listOf(it)) }, name = details.given,
-                ),
-            )
-            Created(id, false)
-        }
+        id
     }
 
     /**
@@ -152,14 +127,17 @@ class TemporaryContacts(private val c: DataContainer) {
                 }
                 val d = TemporaryExpiry.decide(stored, current, t.purgeHistory)
                 val name = t.name ?: c.contacts.contacts.value?.firstOrNull { it.lookupKey == t.lookupKey }?.displayName ?: "A temporary contact"
-                val numbers = if (d.purgeHistory) numbersOf(d.deleteRaws) else emptyList()
+                val numbers = numbersOf(d.deleteRaws)
                 if (d.deleteRaws.isNotEmpty()) {
                     // Journaled first; if that or the delete fails the entry stays and is retried tomorrow.
                     if (runCatching { c.contacts.deleteRaws(d.deleteRaws) }.isFailure) return@withLock
                 }
                 c.meta.clearTemporary(t.lookupKey)
                 // Only numbers no remaining contact uses lose their call history.
-                numbers.filter { c.contacts.isContact(it) == false }.forEach { n -> runCatching { c.history.purgeNumber(n) } }
+                val unused = numbers.filter { c.contacts.isContact(it) == false }
+                // F13: they leave the "last messaged" record too.
+                unused.forEach { n -> runCatching { c.messaging.forget(n) } }
+                if (d.purgeHistory) unused.forEach { n -> runCatching { c.history.purgeNumber(n) } }
                 if (d.keptMerged) {
                     notices += Notice(
                         name,
@@ -185,7 +163,6 @@ class TemporaryContacts(private val c: DataContainer) {
     }
 
     companion object {
-        const val DEFAULT_DAYS = 7
         private const val DAY = 86_400_000L
     }
 }

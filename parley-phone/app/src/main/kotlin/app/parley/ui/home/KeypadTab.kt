@@ -165,7 +165,13 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit) {
         try { ToneGenerator(AudioManager.STREAM_DTMF, 70) } catch (_: Exception) { null }
     }
     DisposableEffect(Unit) { onDispose { tone?.release() } }
-    val systemTones = remember { Settings.System.getInt(context.contentResolver, Settings.System.DTMF_TONE_WHEN_DIALING, 1) == 1 }
+    val audioManager = remember { context.getSystemService(AudioManager::class.java) }
+    /** F22: the system "Dial pad tones" setting and the ringer mode, read on every press (they can change any time). */
+    fun toneAllowed(): Boolean = app.parley.common.KeypadFeedback.playTone(
+        appSetting = settings.dialpadTones,
+        systemDialpadTones = runCatching { Settings.System.getInt(context.contentResolver, Settings.System.DTMF_TONE_WHEN_DIALING, 1) == 1 }.getOrDefault(true),
+        ringerNormal = audioManager?.ringerMode?.let { it == AudioManager.RINGER_MODE_NORMAL } ?: true,
+    )
 
     // K4: the number is an editable field (cursor, selection, paste) that never opens the on-screen keyboard.
     val field = rememberTextFieldState(input)
@@ -178,7 +184,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit) {
     fun press(c: Char) {
         insert(c.toString())
         if (settings.dialpadHaptics) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-        if (settings.dialpadTones && systemTones) dtmfTone[c]?.let { tone?.startTone(it, 120) }
+        if (toneAllowed()) dtmfTone[c]?.let { tone?.startTone(it, 120) }
     }
 
     fun callResult(r: DialResult) = vm.requestCall(r.number, r.contact?.displayName)

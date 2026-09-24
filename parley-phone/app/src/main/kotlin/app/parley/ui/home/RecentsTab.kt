@@ -72,9 +72,10 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
     val context = LocalContext.current
     val simLabels = remember(sims) { if (sims.size > 1) sims.associate { it.id to it.label } else emptyMap() }
     var menuFor by remember { mutableStateOf<RecentGroup?>(null) }
-    var messageFor by remember { mutableStateOf<String?>(null) }
-    menuFor?.let { g -> RecentActionsSheet(vm, g, open, onMessageOn = { messageFor = it }) { menuFor = null } }
-    messageFor?.let { n -> app.parley.messaging.MessageOnSheet(n, onDismiss = { messageFor = null }) }
+    // F19: the number with the SIM of its latest call, so a national number is read with that SIM's country.
+    var messageFor by remember { mutableStateOf<Pair<String, String?>?>(null) }
+    menuFor?.let { g -> RecentActionsSheet(vm, g, open, onMessageOn = { messageFor = it to g.latest.accountId }) { menuFor = null } }
+    messageFor?.let { (n, account) -> app.parley.messaging.MessageOnSheet(n, onDismiss = { messageFor = null }, accountId = account) }
     var daySummary by remember { mutableStateOf<Pair<Long, String>?>(null) }
     daySummary?.let { (day, title) -> app.parley.ui.history.DaySummarySheet(vm, day, title) { daySummary = null } }
     app.parley.ui.history.RecentsExportHost(vm)

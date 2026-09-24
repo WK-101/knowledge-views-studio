@@ -40,6 +40,9 @@ data class InCallAppearance(
 interface TelecomDependencies {
     val appearance: StateFlow<InCallAppearance>
     suspend fun callerInfo(number: String): CallerDisplay?
+
+    /** Caller info with the call's phone account (SIM), so national numbers are read with its country (F7). */
+    suspend fun callerInfo(number: String, accountId: String?): CallerDisplay? = callerInfo(number)
     fun screeningActive(): Boolean
     suspend fun screen(number: String?, hidden: Boolean, verification: Verification): Decision
     suspend fun preferredAccountId(number: String): String?

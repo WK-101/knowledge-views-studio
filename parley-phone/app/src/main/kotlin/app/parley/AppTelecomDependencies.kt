@@ -33,12 +33,14 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         .map { s -> InCallAppearance(s.themeMode, s.amoledBlack, s.dynamicColor, s.density, s.answerGesture, s.quickReplies) }
         .stateIn(c.scope, SharingStarted.Eagerly, InCallAppearance())
 
-    override suspend fun callerInfo(number: String): CallerDisplay? = withContext(Dispatchers.IO) {
+    override suspend fun callerInfo(number: String): CallerDisplay? = callerInfo(number, null)
+
+    override suspend fun callerInfo(number: String, accountId: String?): CallerDisplay? = withContext(Dispatchers.IO) {
         val last = lastCallSummary(number)
         c.contacts.lookup(number)?.let {
             val note = it.lookupKey?.let { k -> c.meta.meta(k)?.pinnedNote }
             CallerDisplay(it.name, it.photoUri, it.numberLabel, it.contactId, it.lookupKey, note, last, backgroundUri = c.people.backgrounds.forLookupKey(it.lookupKey))
-        } ?: c.vault.lookup(number)?.let { (_, info) -> CallerDisplay(info.name, null, info.numberLabel, null, null, null, last) }
+        } ?: c.vault.lookup(number, PhoneEnv.countryIso(app, accountId))?.let { (_, info) -> CallerDisplay(info.name, null, info.numberLabel, null, null, null, last) }
     }
 
     private fun lastCallSummary(number: String): String? {
