@@ -81,7 +81,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             QUICK_CONTACT, QUICK_CONTACT_LEGACY -> data?.let { vm.c.contacts.resolveContactId(it) }?.let { vm.navigate(NavEvent.Contact(it)) }
             SHOW_OR_CREATE -> showOrCreate(data)
             Intent.ACTION_DIAL, Intent.ACTION_VIEW -> when {
-                data != null && isVcard(intent.type ?: contentResolver.getType(data)) -> vm.navigate(NavEvent.ImportVcf(data))
+                data?.scheme == "parley" && data.host == "qr" -> vm.navigate(NavEvent.SecureQr(data))
+                data != null && data.scheme == "content" && isVcard(intent.type ?: contentResolver.getType(data)) -> vm.navigate(NavEvent.ImportVcf(data))
                 data?.scheme == "tel" -> vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = data.schemeSpecificPart.orEmpty()))
                 intent.type == "vnd.android.cursor.dir/calls" -> vm.navigate(NavEvent.Tab(StartTab.RECENTS))
                 intent.action == Intent.ACTION_DIAL -> vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = ""))

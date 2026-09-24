@@ -74,6 +74,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var expiry by remember { mutableStateOf(false) }
+    var shareQr by remember { mutableStateOf(false) }
 
     LaunchedEffect(id, attempt, summaries) {
         try {
@@ -109,6 +110,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                                 }
                             }
                         })
+                        DropdownMenuItem({ Text("Share privately (QR)") }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = { menu = false; shareQr = true })
                         DropdownMenuItem({ Text("Expires…") }, leadingIcon = { Icon(Icons.Rounded.Timer, null) }, onClick = { menu = false; expiry = true })
                         DropdownMenuItem({ Text("Delete") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
                     }
@@ -177,6 +179,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
         }
     }
 
+    if (shareQr) details?.let { app.parley.ui.contact.SecureQrDialog(it) { shareQr = false } }
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },

@@ -113,6 +113,13 @@
                 <data android:scheme="tel" />
                 <data android:scheme="mailto" />
             </intent-filter>
+            <!-- Encrypted contact QR codes (parley://qr?d=...) opened by any QR scanner. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="parley" android:host="qr" />
+            </intent-filter>
             <!-- Open or share a .vcf file to import it. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

@@ -95,6 +95,7 @@ fun ParleyRoot(vm: AppViewModel) {
     var tabRequest by remember { mutableStateOf<NavEvent.Tab?>(null) }
     var insertOrEdit by remember { mutableStateOf<app.parley.data.ContactDetails?>(null) }
     var importUri by remember { mutableStateOf<Uri?>(null) }
+    var secureQrUri by remember { mutableStateOf<Uri?>(null) }
 
     LaunchedEffect(Unit) {
         vm.navEvents.collect { e ->
@@ -107,6 +108,8 @@ fun ParleyRoot(vm: AppViewModel) {
                 }
                 is NavEvent.InsertOrEdit -> insertOrEdit = e.prefill
                 is NavEvent.ImportVcf -> importUri = e.uri
+                is NavEvent.SecureQr -> secureQrUri = e.uri
+                is NavEvent.Vault -> nav.navigate(Routes.vault(e.id)) { launchSingleTop = true }
                 is NavEvent.Tab -> {
                     nav.popBackStack(Routes.HOME, inclusive = false)
                     tabRequest = e
@@ -231,4 +234,10 @@ fun ParleyRoot(vm: AppViewModel) {
         )
     }
     importUri?.let { uri -> app.parley.ui.common.ImportVcfDialog(vm, uri) { importUri = null } }
+    secureQrUri?.let { uri ->
+        app.parley.ui.contact.ReceiveSecureQrDialog(vm, uri, onDone = { secureQrUri = null }) { details ->
+            vm.pendingPrefill = details
+            nav.navigate(Routes.edit(prefill = true))
+        }
+    }
 }

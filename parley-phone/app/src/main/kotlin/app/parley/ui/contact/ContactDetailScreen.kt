@@ -110,6 +110,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     var askExpiry by remember { mutableStateOf(false) }
     var pinDialog by remember { mutableStateOf(false) }
     var reachOut by remember { mutableStateOf(false) }
+    var secureQr by remember { mutableStateOf(false) }
     val allNotes by vm.c.meta.allCallNotes().collectAsStateWithLifecycle(emptyList())
     var editNote by remember { mutableStateOf(false) }
     var messengers by remember { mutableStateOf<List<app.parley.data.MessengerAction>>(emptyList()) }
@@ -157,6 +158,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                 menu = false; Intents.shareVcard(context, vm.c.contacts.vcardUri(d.lookupKey), d.displayName)
                             })
                             DropdownMenuItem({ Text("Show QR code") }, leadingIcon = { Icon(Icons.Rounded.QrCode2, null) }, onClick = { menu = false; showQr = true })
+                            DropdownMenuItem({ Text("Share privately (encrypted QR)") }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = { menu = false; secureQr = true })
                             DropdownMenuItem({ Text("Add to home screen") }, leadingIcon = { Icon(Icons.Rounded.AddToHomeScreen, null) }, onClick = { menu = false; pinDialog = true })
                             DropdownMenuItem({ Text("Set ringtone") }, leadingIcon = { Icon(Icons.Rounded.MusicNote, null) }, onClick = {
                                 menu = false
@@ -366,6 +368,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
 
         if (showQr) QrDialog(d) { showQr = false }
+        if (secureQr) SecureQrDialog(d) { secureQr = false }
         if (editNote) {
             var text by remember { mutableStateOf(meta?.pinnedNote.orEmpty()) }
             AlertDialog(
