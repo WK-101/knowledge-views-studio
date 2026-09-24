@@ -33,45 +33,51 @@ class TimeWidget : AppWidgetProvider() {
                 val activities = app.repository.wsTimeActivitiesOnce().filter { !it.archived }
                     .sortedBy { it.sortOrder }
                 val byId = activities.associateBy { it.id }
-                val views = RemoteViews(context.packageName, R.layout.widget_time)
-                val style = WidgetStyle.resolve(context)
-                // Header clock icon — running ticks accent, idle sits muted.
-                val iconPx = WidgetBitmaps.dp(context, 26f).toInt()
-                views.setImageViewBitmap(R.id.tw_icon, WidgetBitmaps.roundIcon(context, iconPx, 0, if (running != null) style.accent else style.textTertiary, "clock"))
+                ids.forEach { id ->
+                    // Resolve the style PER id so a forced Light/Dark widget themes its glyphs + text, not
+                    // just its card.
+                    val style = WidgetStyle.resolve(context, id)
+                    val views = RemoteViews(context.packageName, R.layout.widget_time)
+                    // Header clock icon — running ticks accent, idle sits muted.
+                    val iconPx = WidgetBitmaps.dp(context, 26f).toInt()
+                    views.setImageViewBitmap(R.id.tw_icon, WidgetBitmaps.roundIcon(context, iconPx, 0, if (running != null) style.accent else style.textTertiary, "clock"))
+                    views.setTextColor(R.id.tw_state, style.textPrimary)
 
-                if (running != null) {
-                    val a = byId[running.activityId]
-                    views.setTextViewText(R.id.tw_state, (a?.emoji?.plus(" ") ?: "") + (a?.name ?: "Tracking"))
-                    // Chronometer counts up from the interval's start using the monotonic clock base.
-                    val base = SystemClock.elapsedRealtime() - (System.currentTimeMillis() - running.startMillis)
-                    views.setChronometer(R.id.tw_timer, base, null, true)
-                    views.setViewVisibility(R.id.tw_timer, View.VISIBLE)
-                    views.setViewVisibility(R.id.tw_stop, View.VISIBLE)
-                    val stopPx = WidgetBitmaps.dp(context, 46f).toInt()
-                    views.setImageViewBitmap(R.id.tw_stop, WidgetBitmaps.roundIcon(context, stopPx, style.danger, style.onAccent, "stop"))
-                    views.setOnClickPendingIntent(R.id.tw_stop, action(context, ACTION_STOP, null, 1))
-                } else {
-                    views.setTextViewText(R.id.tw_state, if (activities.isEmpty()) "Add an activity in Time" else "Not tracking")
-                    views.setViewVisibility(R.id.tw_timer, View.GONE)
-                    views.setViewVisibility(R.id.tw_stop, View.GONE)
-                }
-
-                // Up to three start chips (the running one, if shown, doubles as a quick switch).
-                val chipIds = intArrayOf(R.id.tw_a1, R.id.tw_a2, R.id.tw_a3)
-                chipIds.forEachIndexed { i, vid ->
-                    val a = activities.getOrNull(i)
-                    if (a == null) { views.setViewVisibility(vid, View.INVISIBLE) }
-                    else {
-                        views.setViewVisibility(vid, View.VISIBLE)
-                        val label = (a.emoji?.plus(" ") ?: "") + a.name
-                        // A play glyph marks a start chip; the running one shows a filled ▶.
-                        views.setTextViewText(vid, if (running?.activityId == a.id) "▶ $label" else "▷ $label")
-                        views.setOnClickPendingIntent(vid, action(context, ACTION_START, a.id, 100 + i))
+                    if (running != null) {
+                        val a = byId[running.activityId]
+                        views.setTextViewText(R.id.tw_state, (a?.emoji?.plus(" ") ?: "") + (a?.name ?: "Tracking"))
+                        // Chronometer counts up from the interval's start using the monotonic clock base.
+                        val base = SystemClock.elapsedRealtime() - (System.currentTimeMillis() - running.startMillis)
+                        views.setChronometer(R.id.tw_timer, base, null, true)
+                        views.setViewVisibility(R.id.tw_timer, View.VISIBLE)
+                        views.setViewVisibility(R.id.tw_stop, View.VISIBLE)
+                        val stopPx = WidgetBitmaps.dp(context, 46f).toInt()
+                        views.setImageViewBitmap(R.id.tw_stop, WidgetBitmaps.roundIcon(context, stopPx, style.danger, style.onAccent, "stop"))
+                        views.setOnClickPendingIntent(R.id.tw_stop, action(context, ACTION_STOP, null, 1))
+                    } else {
+                        views.setTextViewText(R.id.tw_state, if (activities.isEmpty()) "Add an activity in Time" else "Not tracking")
+                        views.setViewVisibility(R.id.tw_timer, View.GONE)
+                        views.setViewVisibility(R.id.tw_stop, View.GONE)
                     }
+
+                    // Up to three start chips (the running one, if shown, doubles as a quick switch).
+                    val chipIds = intArrayOf(R.id.tw_a1, R.id.tw_a2, R.id.tw_a3)
+                    chipIds.forEachIndexed { i, vid ->
+                        val a = activities.getOrNull(i)
+                        if (a == null) { views.setViewVisibility(vid, View.INVISIBLE) }
+                        else {
+                            views.setViewVisibility(vid, View.VISIBLE)
+                            val label = (a.emoji?.plus(" ") ?: "") + a.name
+                            // A play glyph marks a start chip; the running one shows a filled ▶.
+                            views.setTextViewText(vid, if (running?.activityId == a.id) "▶ $label" else "▷ $label")
+                            views.setOnClickPendingIntent(vid, action(context, ACTION_START, a.id, 100 + i))
+                        }
+                    }
+                    // Tap the label opens the Time tab.
+                    views.setOnClickPendingIntent(R.id.tw_state, openTime(context))
+                    WidgetStyle.applyListCard(views, R.id.tw_card, context, id)
+                    manager.updateAppWidget(id, views)
                 }
-                // Tap the label opens the Time tab.
-                views.setOnClickPendingIntent(R.id.tw_state, openTime(context))
-                ids.forEach { id -> WidgetStyle.applyCardBackground(views, R.id.tw_root, context, id); manager.updateAppWidget(id, views) }
             } finally { pending.finish() }
         }
     }

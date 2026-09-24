@@ -44,20 +44,29 @@ class TodayWidget : AppWidgetProvider() {
                 val dueToday = active.count { it.dueDate != null && it.dueDate in startOfDay until startOfTomorrow }
                 val overdue = active.count { it.dueDate != null && it.dueDate < startOfDay }
 
-                val views = RemoteViews(context.packageName, R.layout.widget_today).apply {
-                    setTextViewText(R.id.widget_date, today.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault())))
-                    setTextViewText(R.id.widget_count, dueToday.toString())
-                    setTextViewText(R.id.widget_subtitle, if (dueToday == 1) "task due today" else "tasks due today")
-                    if (overdue > 0) {
-                        setViewVisibility(R.id.widget_overdue, android.view.View.VISIBLE)
-                        setTextViewText(R.id.widget_overdue, "$overdue overdue")
-                    } else {
-                        setViewVisibility(R.id.widget_overdue, android.view.View.GONE)
+                ids.forEach { id ->
+                    // Resolve PER id so a forced Light/Dark widget themes its text, not just its card.
+                    val style = WidgetStyle.resolve(context, id)
+                    val views = RemoteViews(context.packageName, R.layout.widget_today).apply {
+                        setTextViewText(R.id.widget_date, today.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault())))
+                        setTextColor(R.id.widget_date, style.textSecondary)
+                        setTextViewText(R.id.widget_count, dueToday.toString())
+                        setTextColor(R.id.widget_count, style.textPrimary)
+                        setTextViewText(R.id.widget_subtitle, if (dueToday == 1) "task due today" else "tasks due today")
+                        setTextColor(R.id.widget_subtitle, style.textSecondary)
+                        if (overdue > 0) {
+                            setViewVisibility(R.id.widget_overdue, android.view.View.VISIBLE)
+                            setTextViewText(R.id.widget_overdue, "$overdue overdue")
+                            setTextColor(R.id.widget_overdue, style.danger)
+                        } else {
+                            setViewVisibility(R.id.widget_overdue, android.view.View.GONE)
+                        }
+                        setOnClickPendingIntent(R.id.widget_root, openAppIntent(context, null))
+                        setOnClickPendingIntent(R.id.widget_add, openAppIntent(context, MainActivity.ACTION_QUICK_ADD))
                     }
-                    setOnClickPendingIntent(R.id.widget_root, openAppIntent(context, null))
-                    setOnClickPendingIntent(R.id.widget_add, openAppIntent(context, MainActivity.ACTION_QUICK_ADD))
+                    WidgetStyle.applyListCard(views, R.id.today_card, context, id)
+                    manager.updateAppWidget(id, views)
                 }
-                ids.forEach { id -> WidgetStyle.applyListCard(views, R.id.today_card, context, id); manager.updateAppWidget(id, views) }
             } finally {
                 pending.finish()
             }

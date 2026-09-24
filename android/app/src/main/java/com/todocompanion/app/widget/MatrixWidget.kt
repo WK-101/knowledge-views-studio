@@ -104,6 +104,10 @@ object MatrixData {
     // The app's quadrant names (MatrixScreen QUAD), in PriorityEngine.quadrant() index order.
     val NAMES = arrayOf("Urgent & Important", "Not Urgent & Important", "Urgent & Unimportant", "Not Urgent & Unimportant")
 
+    // Short-lived cache so the 5 loads that make up one Matrix update reuse a single DB read set.
+    @Volatile private var cache: Array<List<TaskEntity>>? = null
+    @Volatile private var cacheAt = 0L
+
     private fun expandFolderIds(seed: Set<String>, folders: List<FolderEntity>): Set<String> {
         if (seed.isEmpty()) return emptySet()
         val out = seed.toMutableSet()
@@ -140,6 +144,10 @@ object MatrixData {
     }
 
     fun load(app: App): Array<List<TaskEntity>> {
+        // One Matrix update calls this 5× (provider counts + 4 quadrant factories). Cache the result for
+        // a short window so the burst collapses to a single set of DB reads instead of ~20.
+        val cacheNow = android.os.SystemClock.elapsedRealtime()
+        synchronized(this) { cache?.let { if (cacheNow - cacheAt < 1500L) return it } }
         val s = runBlocking { app.repository.settingsSnapshot() }
         val tasks = runBlocking { app.repository.wsTasksOnce() }
         val lists = runBlocking { app.repository.allListsOnce() }
@@ -163,7 +171,9 @@ object MatrixData {
         }
         val cmp = sorter(s.matrixSort)
         val byQuad = visible.groupBy { PriorityEngine.quadrant(it, s.matrixImportanceThreshold, s.matrixUrgencyThreshold) }
-        return Array(4) { q -> (byQuad[q] ?: emptyList()).sortedWith(cmp) }
+        val result = Array(4) { q -> (byQuad[q] ?: emptyList()).sortedWith(cmp) }
+        synchronized(this) { cache = result; cacheAt = android.os.SystemClock.elapsedRealtime() }
+        return result
     }
 }
 

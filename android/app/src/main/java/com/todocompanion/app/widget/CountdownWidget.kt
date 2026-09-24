@@ -35,6 +35,7 @@ class CountdownWidget : AppWidgetProvider() {
                     ?: all.filter { until(it) >= 0 }.minByOrNull { until(it) }
                     ?: all.maxByOrNull { it.targetMillis }
                 val views = RemoteViews(context.packageName, R.layout.widget_countdown)
+                var daysColor: Int? = null
                 if (pick == null) {
                     views.setTextViewText(R.id.cd_title, "No occasions")
                     views.setTextViewText(R.id.cd_days, "–")
@@ -46,10 +47,18 @@ class CountdownWidget : AppWidgetProvider() {
                     views.setTextViewText(R.id.cd_title, "$glyph $label")
                     views.setTextViewText(R.id.cd_days, if (days == 0L) "TODAY" else kotlin.math.abs(days).toString())
                     views.setTextViewText(R.id.cd_label, when { days == 0L -> "today"; days > 0 -> "days left"; else -> "days ago" })
-                    pick.colorArgb?.let { views.setTextColor(R.id.cd_days, it.toInt()) }
+                    daysColor = pick.colorArgb?.toInt()
                 }
                 views.setOnClickPendingIntent(R.id.cd_root, openIntent(context))
-                ids.forEach { id -> WidgetStyle.applyListCard(views, R.id.cd_card, context, id); manager.updateAppWidget(id, views) }
+                ids.forEach { id ->
+                    // Resolve PER id so a forced Light/Dark widget themes its text, not just its card.
+                    val style = WidgetStyle.resolve(context, id)
+                    views.setTextColor(R.id.cd_title, style.textPrimary)
+                    views.setTextColor(R.id.cd_days, daysColor ?: style.accent)
+                    views.setTextColor(R.id.cd_label, style.textSecondary)
+                    WidgetStyle.applyListCard(views, R.id.cd_card, context, id)
+                    manager.updateAppWidget(id, views)
+                }
             } finally { pending.finish() }
         }
     }

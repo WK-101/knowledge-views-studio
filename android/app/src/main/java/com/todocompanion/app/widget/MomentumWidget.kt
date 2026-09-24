@@ -63,7 +63,14 @@ class MomentumWidget : AppWidgetProvider() {
                 views.setTextViewText(R.id.mo_score, "$momentum")
                 views.setTextViewText(R.id.mo_sub, sub)
                 views.setOnClickPendingIntent(R.id.mo_root, openMomentum(context))
-                ids.forEach { id -> WidgetStyle.applyListCard(views, R.id.mo_card, context, id); manager.updateAppWidget(id, views) }
+                ids.forEach { id ->
+                    // Resolve PER id so a forced Light/Dark widget themes its score + sub text, not just its card.
+                    val style = WidgetStyle.resolve(context, id)
+                    views.setTextColor(R.id.mo_score, style.textPrimary)
+                    views.setTextColor(R.id.mo_sub, style.textSecondary)
+                    WidgetStyle.applyListCard(views, R.id.mo_card, context, id)
+                    manager.updateAppWidget(id, views)
+                }
             } finally { pending.finish() }
         }
     }

@@ -184,65 +184,6 @@ object WidgetBitmaps {
         return bmp
     }
 
-    /** A Quick-bar action tile: a rounded-square filled [tileColor] with a white glyph for the action
-     *  ("task","note","habit","time","search","closeday","weekreview"). One bitmap per button. */
-    fun actionIcon(sizePx: Int, tileColor: Int, glyphColor: Int, kind: String): Bitmap {
-        val size = cap(sizePx, 240)
-        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val c = Canvas(bmp)
-        val s = size.toFloat()
-        paint().apply { style = Paint.Style.FILL; color = tileColor }
-            .let { c.drawRoundRect(RectF(0f, 0f, s, s), s * 0.28f, s * 0.28f, it) }
-        val cx = s / 2f
-        val stroke = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.075f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; color = glyphColor }
-        val fill = paint().apply { style = Paint.Style.FILL; color = glyphColor }
-        when (kind) {
-            "task" -> {
-                c.drawRoundRect(RectF(s * 0.30f, s * 0.30f, s * 0.70f, s * 0.70f), s * 0.07f, s * 0.07f, stroke)
-                val tick = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.075f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; color = glyphColor }
-                val p = Path().apply { moveTo(s * 0.38f, s * 0.50f); lineTo(s * 0.46f, s * 0.58f); lineTo(s * 0.63f, s * 0.40f) }
-                c.drawPath(p, tick)
-            }
-            "note" -> {
-                c.drawRoundRect(RectF(s * 0.32f, s * 0.28f, s * 0.68f, s * 0.72f), s * 0.05f, s * 0.05f, stroke)
-                val ln = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.055f; strokeCap = Paint.Cap.ROUND; color = glyphColor }
-                c.drawLine(s * 0.40f, s * 0.42f, s * 0.60f, s * 0.42f, ln)
-                c.drawLine(s * 0.40f, s * 0.52f, s * 0.60f, s * 0.52f, ln)
-                c.drawLine(s * 0.40f, s * 0.62f, s * 0.53f, s * 0.62f, ln)
-            }
-            "habit" -> {
-                c.drawCircle(cx, cx, s * 0.20f, stroke)
-                c.drawCircle(cx, cx, s * 0.075f, fill)
-            }
-            "time" -> {
-                c.drawCircle(cx, cx, s * 0.22f, stroke)
-                val hands = paint().apply { style = Paint.Style.STROKE; strokeWidth = s * 0.06f; strokeCap = Paint.Cap.ROUND; color = glyphColor }
-                c.drawLine(cx, cx, cx, cx - s * 0.13f, hands)
-                c.drawLine(cx, cx, cx + s * 0.10f, cx, hands)
-            }
-            "search" -> {
-                c.drawCircle(s * 0.44f, s * 0.44f, s * 0.16f, stroke)
-                c.drawLine(s * 0.56f, s * 0.56f, s * 0.68f, s * 0.68f, stroke)
-            }
-            "closeday" -> {
-                // A crescent moon (wind-down / close the day).
-                val moon = Path().apply {
-                    addCircle(s * 0.52f, cx, s * 0.22f, Path.Direction.CW)
-                }
-                val cut = Path().apply { addCircle(s * 0.62f, s * 0.42f, s * 0.20f, Path.Direction.CW) }
-                moon.op(cut, Path.Op.DIFFERENCE)
-                c.drawPath(moon, fill)
-            }
-            "weekreview" -> {
-                // Three ascending bars (a week's review / recap).
-                fun bar(xf: Float, hf: Float) = c.drawRoundRect(
-                    RectF(xf, cx + s * 0.20f - hf, xf + s * 0.10f, cx + s * 0.20f), s * 0.02f, s * 0.02f, fill)
-                bar(s * 0.32f, s * 0.18f); bar(s * 0.45f, s * 0.30f); bar(s * 0.58f, s * 0.42f)
-            }
-        }
-        return bmp
-    }
-
     /**
      * The chosen action's centre in the widget as (xFrac, yFrac), one per slot, for a given count.
      * These are the single source of truth for the Quick-bar "island": the drawing places each disc
@@ -417,36 +358,6 @@ object WidgetBitmaps {
     }
 
     /**
-     * A GitHub-style contribution grid: [cols] weeks across, [rows] days down, each cell's colour
-     * supplied by [colorAt]. Cells are rounded squares with a hairline gap.
-     */
-    fun heatmap(
-        cols: Int,
-        rows: Int,
-        cellPx: Float,
-        gapPx: Float,
-        colorAt: (col: Int, row: Int) -> Int,
-    ): Bitmap {
-        val cell = max(1f, cellPx)
-        val gap = max(0f, gapPx)
-        val w = cap((cols * (cell + gap) - gap).toInt())
-        val h = cap((rows * (cell + gap) - gap).toInt())
-        val bmp = Bitmap.createBitmap(max(1, w), max(1, h), Bitmap.Config.ARGB_8888)
-        val c = Canvas(bmp)
-        val p = paint().apply { style = Paint.Style.FILL }
-        val radius = cell * 0.28f
-        for (col in 0 until cols) {
-            for (row in 0 until rows) {
-                val left = col * (cell + gap)
-                val top = row * (cell + gap)
-                p.color = colorAt(col, row)
-                c.drawRoundRect(RectF(left, top, left + cell, top + cell), radius, radius, p)
-            }
-        }
-        return bmp
-    }
-
-    /**
      * A Loop-style strength/score line: a smooth-ish polyline over [values] (each 0..1), a soft
      * gradient area beneath it, and an emphasised endpoint dot — the "where's this habit trending"
      * read that no consumer tracker shows on the home screen.
@@ -564,11 +475,5 @@ object WidgetBitmaps {
         val fm = tp.fontMetrics
         c.drawText(label, cx, cx - (fm.ascent + fm.descent) / 2f, tp)
         return bmp
-    }
-
-    /** Fit a square bitmap edge (px) to a widget's min dimension in dp, within sane bounds. */
-    fun squareEdge(ctx: Context, minDimDp: Int, targetDp: Float, maxDp: Float): Int {
-        val target = min(minDimDp.toFloat(), maxDp) * (targetDp / maxDp)
-        return dp(ctx, max(48f, target)).toInt()
     }
 }

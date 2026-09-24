@@ -41,31 +41,36 @@ class Next7Widget : AppWidgetProvider() {
                 val tasks = app.repository.wsTasksOnce()
                 val settings = app.repository.settingsSnapshot()
 
-                val views = RemoteViews(context.packageName, R.layout.widget_next7)
-                val style = WidgetStyle.resolve(context)
-                var over = 0
-                for (off in 0..6) {
-                    val d = today.plusDays(off.toLong())
-                    val dayTasks = tasks.filter {
-                        !it.completed && !it.trashed && !it.abandoned && it.dueDate != null &&
-                            Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate() == d
-                    }
-                    val min = dayTasks.sumOf { it.estimateMin ?: it.estimateMax ?: it.durationMin ?: 0 }
-                    val capMin = settings.capacityMinutesFor(d.dayOfWeek).coerceAtLeast(30)
-                    val overCap = min > capMin
-                    if (overCap) over++
-                    val frac = (min.toFloat() / capMin).coerceIn(0f, 1f)
+                ids.forEach { id ->
+                    // Resolve the style PER id so a widget forced to Light/Dark themes its bars + text too,
+                    // not just its card.
+                    val style = WidgetStyle.resolve(context, id)
+                    val views = RemoteViews(context.packageName, R.layout.widget_next7)
+                    var over = 0
+                    for (off in 0..6) {
+                        val d = today.plusDays(off.toLong())
+                        val dayTasks = tasks.filter {
+                            !it.completed && !it.trashed && !it.abandoned && it.dueDate != null &&
+                                Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate() == d
+                        }
+                        val min = dayTasks.sumOf { it.estimateMin ?: it.estimateMax ?: it.durationMin ?: 0 }
+                        val capMin = settings.capacityMinutesFor(d.dayOfWeek).coerceAtLeast(30)
+                        val overCap = min > capMin
+                        if (overCap) over++
+                        val frac = (min.toFloat() / capMin).coerceIn(0f, 1f)
 
-                    views.setTextViewText(dayIds[off], d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()))
-                    views.setTextColor(dayIds[off], if (d == today) style.accentText else style.textSecondary)
-                    views.setProgressBar(barIds[off], 100, (frac * 100).toInt(), false)
-                    views.setTextViewText(hrsIds[off], if (min > 0) "${(min + 30) / 60}h" else "—")
-                    views.setTextColor(hrsIds[off], if (overCap) style.danger else style.textPrimary)
+                        views.setTextViewText(dayIds[off], d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()))
+                        views.setTextColor(dayIds[off], if (d == today) style.accentText else style.textSecondary)
+                        views.setProgressBar(barIds[off], 100, (frac * 100).toInt(), false)
+                        views.setTextViewText(hrsIds[off], if (min > 0) "${(min + 30) / 60}h" else "—")
+                        views.setTextColor(hrsIds[off], if (overCap) style.danger else style.textPrimary)
+                    }
+                    views.setTextViewText(R.id.n7_status, if (over == 0) "On track" else "$over over")
+                    views.setTextColor(R.id.n7_status, if (over == 0) style.success else style.danger)
+                    views.setOnClickPendingIntent(R.id.n7_root, openNext7(context))
+                    WidgetStyle.applyListCard(views, R.id.n7_card, context, id)
+                    manager.updateAppWidget(id, views)
                 }
-                views.setTextViewText(R.id.n7_status, if (over == 0) "On track" else "$over over")
-                views.setTextColor(R.id.n7_status, if (over == 0) style.success else style.danger)
-                views.setOnClickPendingIntent(R.id.n7_root, openNext7(context))
-                ids.forEach { id -> WidgetStyle.applyListCard(views, R.id.n7_card, context, id); manager.updateAppWidget(id, views) }
             } finally { pending.finish() }
         }
     }
