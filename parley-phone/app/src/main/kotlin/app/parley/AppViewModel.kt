@@ -146,6 +146,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     val contactQuery = MutableStateFlow("")
+
+    /** Contacts selected in the Contacts tab (multi-select mode when non-empty). */
+    val selection = MutableStateFlow<Set<Long>>(emptySet())
+
+    fun toggleSelection(id: Long) {
+        selection.value = selection.value.let { if (id in it) it - id else it + id }
+    }
     val selectedGroup = MutableStateFlow<Long?>(null)
     private val groupMembers = MutableStateFlow<Set<Long>?>(null)
 
@@ -305,6 +312,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val e = c.prefs.speedDial(key)
             if (e == null) onUnassigned() else requestCall(e.number, e.label)
+        }
+    }
+
+    /** Deletes contacts (the journal keeps a copy for 30 days) and offers undo. */
+    fun deleteContacts(ids: List<Long>) {
+        viewModelScope.launch {
+            c.contacts.delete(ids)
+            toast(if (ids.size == 1) "Contact deleted" else "${ids.size} contacts deleted")
         }
     }
 

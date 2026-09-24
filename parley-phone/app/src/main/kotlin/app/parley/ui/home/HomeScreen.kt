@@ -97,6 +97,9 @@ fun HomeScreen(
         if (tab == StartTab.RECENTS && missed > 0) vm.markMissedSeen()
         if (tab != StartTab.CONTACTS && tab != StartTab.RECENTS) searching = false
     }
+    val selection by vm.selection.collectAsStateWithLifecycle()
+    BackHandler(enabled = selection.isNotEmpty()) { vm.selection.value = emptySet() }
+    LaunchedEffect(tab) { if (tab != StartTab.CONTACTS) vm.selection.value = emptySet() }
     BackHandler(enabled = searching) {
         searching = false
         vm.contactQuery.value = ""
@@ -105,7 +108,9 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            if (tab != StartTab.KEYPAD) {
+            if (tab == StartTab.CONTACTS && selection.isNotEmpty()) {
+                SelectionBar(vm)
+            } else if (tab != StartTab.KEYPAD) {
                 HomeTopBar(
                     title = tabs.first { it.tab == tab }.label,
                     searchable = tab == StartTab.CONTACTS || tab == StartTab.RECENTS,
@@ -150,7 +155,11 @@ fun HomeScreen(
             }
         },
         floatingActionButton = {
-            if (tab == StartTab.CONTACTS) {
+            androidx.compose.animation.AnimatedVisibility(
+                tab == StartTab.CONTACTS && selection.isEmpty(),
+                enter = androidx.compose.animation.scaleIn(),
+                exit = androidx.compose.animation.scaleOut(),
+            ) {
                 FloatingActionButton(onClick = { open(Routes.edit()) }) { Icon(Icons.Rounded.PersonAdd, "Create contact") }
             }
         },

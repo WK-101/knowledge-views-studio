@@ -3,6 +3,10 @@ package app.parley.ui.home
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -66,6 +70,7 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
     val list by vm.filteredContacts.collectAsStateWithLifecycle()
     val query by vm.contactQuery.collectAsStateWithLifecycle()
     val selectedGroup by vm.selectedGroup.collectAsStateWithLifecycle()
+    val selection by vm.selection.collectAsStateWithLifecycle()
     var groups by remember { mutableStateOf<List<GroupInfo>>(emptyList()) }
     val all by vm.contacts.collectAsStateWithLifecycle()
     LaunchedEffect(all?.size) { groups = withContext(Dispatchers.IO) { vm.c.contacts.groups() } }
@@ -121,7 +126,14 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
                         )
                     }
                 }
-                item(key = c.id) { ContactRow(c) { open(Routes.contact(c.id)) } }
+                item(key = c.id) {
+                    ContactRow(
+                        c,
+                        selected = c.id in selection,
+                        selectionMode = selection.isNotEmpty(),
+                        onLongClick = { vm.toggleSelection(c.id) },
+                    ) { if (selection.isNotEmpty()) vm.toggleSelection(c.id) else open(Routes.contact(c.id)) }
+                }
             }
         }
         if (query.isBlank() && contacts.size > 30) {
@@ -132,11 +144,31 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ContactRow(c: ContactSummary, onClick: () -> Unit) {
+fun ContactRow(
+    c: ContactSummary,
+    selected: Boolean = false,
+    selectionMode: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
+    onClick: () -> Unit,
+) {
     ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
-        leadingContent = { Avatar(c.displayName, c.photoUri, avatarSize()) },
+        modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = "Select"),
+        colors = if (selected) androidx.compose.material3.ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else androidx.compose.material3.ListItemDefaults.colors(),
+        leadingContent = {
+            if (selectionMode) {
+                Box(
+                    Modifier.size(avatarSize()).clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (selected) androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Rounded.Check, "Selected", tint = MaterialTheme.colorScheme.onPrimary)
+                }
+            } else {
+                Avatar(c.displayName, c.photoUri, avatarSize())
+            }
+        },
         headlineContent = { Text(c.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
     )
 }

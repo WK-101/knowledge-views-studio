@@ -9,6 +9,7 @@ import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -80,7 +81,7 @@ import app.parley.ui.common.Intents
 import app.parley.ui.home.callTypeIcon
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
@@ -96,6 +97,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     var confirmDelete by remember { mutableStateOf(false) }
     var showQr by remember { mutableStateOf(false) }
     var simFor by remember { mutableStateOf<String?>(null) }
+    var showPhoto by remember { mutableStateOf(false) }
 
     LaunchedEffect(contactId, all) {
         details = vm.c.contacts.details(contactId)
@@ -162,10 +164,15 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         LazyColumn(Modifier.padding(padding)) {
             item {
                 Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Avatar(d.displayName, d.photoUri, 120.dp)
+                    Avatar(d.displayName, d.photoUri, 120.dp, Modifier.clickable(enabled = d.photoUri != null, onClickLabel = "View photo") { showPhoto = true })
                     Text(d.displayName, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp))
                     val sub = listOf(d.nickname, listOf(d.title, d.company).filter { it.isNotBlank() }.joinToString(", ")).filter { it.isNotBlank() }
                     if (sub.isNotEmpty()) Text(sub.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        d.rawContacts.map { it.account.displayLabel }.distinct().take(3).forEach { label ->
+                            androidx.compose.material3.SuggestionChip(onClick = {}, label = { Text(label, style = MaterialTheme.typography.labelSmall) }, icon = { Icon(Icons.Rounded.Sync, null, Modifier.size(14.dp)) })
+                        }
+                    }
                     Spacer(Modifier.height(20.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                         QuickAction(Icons.Rounded.Call, "Call", primary != null) { primary?.let { vm.requestCall(it.value, d.displayName) } }
@@ -179,7 +186,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 item {
                     val pinned = simPrefs.firstOrNull { it.matchKey == PhoneNumbers.matchKey(p.value) }?.phoneAccountId
                     ListItem(
-                        modifier = Modifier.clickable { vm.requestCall(p.value, d.displayName) },
+                        modifier = Modifier.combinedClickable(onClick = { vm.requestCall(p.value, d.displayName) }, onLongClick = { Intents.copy(context, p.value) }, onLongClickLabel = "Copy"),
                         leadingContent = { Icon(Icons.Rounded.Call, null) },
                         headlineContent = { Text(Format.number(p.value, vm.countryIso)) },
                         supportingContent = {
@@ -208,10 +215,17 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             }
             if (d.events.isNotEmpty() || d.websites.isNotEmpty() || d.note.isNotBlank()) item { Section("About") }
             d.events.forEach { ev ->
-                item { Row0(Icons.Rounded.Cake, ev.date, resources.getString(Event.getTypeResource(ev.type))) {} }
+                item { Row0(Icons.Rounded.Cake, describeEvent(ev.date, ev.type == Event.TYPE_BIRTHDAY), if (ev.type == 0 && !ev.label.isNullOrBlank()) ev.label!! else resources.getString(Event.getTypeResource(ev.type))) {} }
             }
             d.websites.forEach { w -> item { Row0(Icons.Rounded.Language, w.value, "Website") { Intents.web(context, w.value) } } }
-            if (d.note.isNotBlank()) item { Row0(Icons.Rounded.Notes, d.note, "Note") {} }
+            if (d.note.isNotBlank()) item {
+                ListItem(
+                    modifier = Modifier.combinedClickable(onClick = {}, onLongClick = { Intents.copy(context, d.note) }),
+                    leadingContent = { Icon(Icons.Rounded.Notes, null) },
+                    headlineContent = { LinkifiedText(d.note) },
+                    supportingContent = { Text("Note") },
+                )
+            }
 
             item { Section("Settings") }
             item {
@@ -250,6 +264,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
 
         if (showQr) QrDialog(d) { showQr = false }
+        d.photoUri?.takeIf { showPhoto }?.let { PhotoViewer(it) { showPhoto = false } }
         if (confirmDelete) {
             AlertDialog(
                 onDismissRequest = { confirmDelete = false },
@@ -296,10 +311,12 @@ fun Section(title: String) {
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun Row0(icon: ImageVector, text: String, label: String, onClick: () -> Unit) {
+    val context = LocalContext.current
     ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = { Intents.copy(context, text) }, onLongClickLabel = "Copy"),
         leadingContent = { Icon(icon, null) },
         headlineContent = { Text(text) },
         supportingContent = { Text(label) },

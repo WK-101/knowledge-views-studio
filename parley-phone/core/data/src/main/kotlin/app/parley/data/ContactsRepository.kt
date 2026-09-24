@@ -523,6 +523,45 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
 
     fun vcardUri(lookupKey: String): Uri = Uri.withAppendedPath(Contacts.CONTENT_VCARD_URI, Uri.encode(lookupKey))
 
+    /** One vCard stream for several contacts (the platform composer). */
+    fun multiVcardUri(lookupKeys: List<String>): Uri =
+        Uri.withAppendedPath(Contacts.CONTENT_MULTI_VCARD_URI, Uri.encode(lookupKeys.joinToString(":")))
+
+    /**
+     * Adds contacts to a label. Membership must live on a raw contact of the label's account;
+     * returns how many contacts could not be added (no raw contact in that account).
+     */
+    suspend fun addToGroup(contactIds: Collection<Long>, group: GroupInfo): Int = withContext(Dispatchers.IO) {
+        var skipped = 0
+        val ops = ArrayList<ContentProviderOperation>()
+        for (id in contactIds) {
+            val raw = cr.safeQuery(
+                RawContacts.CONTENT_URI, arrayOf(RawContacts._ID),
+                "${RawContacts.CONTACT_ID}=? AND ${RawContacts.DELETED}=0 AND " +
+                    (if (group.account.type == null) "${RawContacts.ACCOUNT_TYPE} IS NULL" else "${RawContacts.ACCOUNT_TYPE}=? AND ${RawContacts.ACCOUNT_NAME}=?"),
+                listOfNotNull(id.toString(), group.account.type, group.account.name.takeIf { group.account.type != null }).toTypedArray(),
+            )?.use { c -> if (c.moveToFirst()) c.getLong(0) else null }
+            if (raw == null) {
+                skipped++
+                continue
+            }
+            val exists = cr.safeQuery(
+                Data.CONTENT_URI, arrayOf(Data._ID),
+                "${Data.RAW_CONTACT_ID}=? AND ${Data.MIMETYPE}=? AND ${GroupMembership.GROUP_ROW_ID}=?",
+                arrayOf(raw.toString(), GroupMembership.CONTENT_ITEM_TYPE, group.id.toString()),
+            )?.use { it.count > 0 } ?: false
+            if (!exists) {
+                ops += ContentProviderOperation.newInsert(Data.CONTENT_URI)
+                    .withValue(Data.RAW_CONTACT_ID, raw)
+                    .withValue(Data.MIMETYPE, GroupMembership.CONTENT_ITEM_TYPE)
+                    .withValue(GroupMembership.GROUP_ROW_ID, group.id)
+                    .build()
+            }
+        }
+        ops.chunked(300).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
+        skipped
+    }
+
     fun contactUri(id: Long, lookupKey: String): Uri = Contacts.getLookupUri(id, lookupKey)
 
     /** Resolves a contact from a contacts URI (lookup or id based) coming from another app. */

@@ -117,6 +117,7 @@ fun ContactEditScreen(
             var e = d ?: ContactDetails()
             if (addPhone.isNotBlank()) e = e.copy(phones = e.phones + DataItem(value = addPhone, type = Phone.TYPE_MOBILE))
             if (prefill != null) e = app.parley.InsertPrefill.appendTo(e, prefill)
+            if (e.phones.isEmpty()) e = e.copy(phones = listOf(DataItem(type = Phone.TYPE_MOBILE)))
             draft = e
             account = d?.rawContacts?.firstOrNull { it.id == d.editRawId }?.account ?: AccountRef(null, null)
         } else {
@@ -248,7 +249,15 @@ fun ContactEditScreen(
                     Box(Modifier.weight(0.45f)) {
                         Dropdown("Type", res.getString(Event.getTypeResource(ev.type)), eventTypes.map { res.getString(Event.getTypeResource(it)) }) { t -> set(ev.copy(type = eventTypes[t])) }
                     }
-                    Box(Modifier.weight(0.55f)) { Field("YYYY-MM-DD", ev.date, keyboard = KeyboardType.Number) { set(ev.copy(date = it)) } }
+                    Box(Modifier.weight(0.55f)) {
+                        var picking by remember { mutableStateOf(false) }
+                        OutlinedTextField(
+                            if (ev.date.isBlank()) "" else describeEvent(ev.date, false).substringBefore(" ·"), {}, readOnly = true,
+                            label = { Text("Date") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        )
+                        Box(Modifier.matchParentSize().clickable { picking = true })
+                        if (picking) EventDateDialog(ev.date, onDismiss = { picking = false }) { set(ev.copy(date = it)); picking = false }
+                    }
                     IconButton({ update { it.copy(events = it.events.filterIndexed { j, _ -> j != i }) } }) { Icon(Icons.Rounded.Close, "Remove date") }
                 }
             }
