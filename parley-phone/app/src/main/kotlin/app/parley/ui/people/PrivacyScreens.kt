@@ -231,7 +231,7 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
                 // I7: the opt-in contacts Directory (same approvals, limit and log as the lookup above).
                 Section(stringResource(R.string.pn_directory_section))
                 SwitchRow(
-                    app.parley.common.SettingsCatalog["private_directory"].title,
+                    app.parley.ui.settings.settingTitle("private_directory"),
                     stringResource(R.string.pn_directory_summary),
                     st.directory,
                 ) { on -> app.parley.privatenames.PrivateDirectoryProvider.setEnabled(context, vm.c, on) }

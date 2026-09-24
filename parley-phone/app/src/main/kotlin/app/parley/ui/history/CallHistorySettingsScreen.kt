@@ -49,7 +49,7 @@ fun KeepFullHistoryRow(vm: AppViewModel, open: (String) -> Unit, icon: androidx.
         modifier = Modifier.clickable { open(HistoryRoutes.SETTINGS) },
         colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
         leadingContent = icon?.let { { Icon(it, null, tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant) } },
-        headlineContent = { Text(app.parley.common.SettingsCatalog["archive"].title) },
+        headlineContent = { Text(app.parley.ui.settings.settingTitle("archive")) },
         supportingContent = {
             Text(
                 if (prefs.archiveEnabled) stringResource(R.string.hist_archive_on_summary)

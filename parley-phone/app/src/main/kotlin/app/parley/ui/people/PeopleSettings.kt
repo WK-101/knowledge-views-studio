@@ -34,7 +34,7 @@ import app.parley.R
 fun SecondLineRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
     val s by vm.people.settings.collectAsStateWithLifecycle()
     app.parley.ui.settings.MenuRow(
-        app.parley.common.SettingsCatalog["second_line"].title,
+        app.parley.ui.settings.settingTitle("second_line"),
         SecondLineMode.entries.map { m ->
             stringResource(
                 when (m) {
@@ -55,7 +55,7 @@ fun SecondLineRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.Im
 @Composable
 fun PreferNicknameRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
     val s by vm.people.settings.collectAsStateWithLifecycle()
-    SwitchRow(app.parley.common.SettingsCatalog["prefer_nickname"].title, stringResource(R.string.prefer_nickname_summary), s.preferNickname, icon) { v ->
+    SwitchRow(app.parley.ui.settings.settingTitle("prefer_nickname"), stringResource(R.string.prefer_nickname_summary), s.preferNickname, icon) { v ->
         vm.people.update { it.copy(preferNickname = v) }
     }
 }
@@ -64,7 +64,7 @@ fun PreferNicknameRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vecto
 @Composable
 fun LabelsRow(vm: AppViewModel, open: (String) -> Unit, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
     val idx by vm.people.index.collectAsStateWithLifecycle()
-    LinkRow(app.parley.common.SettingsCatalog["labels"].title, pluralStringResource(R.plurals.labels_row_summary, idx.labelCounts.size, idx.labelCounts.size), icon) { open(PeopleRoutes.LABELS) }
+    LinkRow(app.parley.ui.settings.settingTitle("labels"), pluralStringResource(R.plurals.labels_row_summary, idx.labelCounts.size, idx.labelCounts.size), icon) { open(PeopleRoutes.LABELS) }
 }
 
 /** Whether "Export one account" applies (more than one account has contacts). */
@@ -89,7 +89,7 @@ fun ExportAccountRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector
             vm.toast(if (r.failures.isEmpty()) done else res.getQuantityString(R.plurals.export_account_failed, r.failures.size, done, r.failures.size))
         }
     }
-    LinkRow(app.parley.common.SettingsCatalog["export_account"].title, idx.accountCounts.entries.joinToString(" · ") { res.getString(R.string.ppl_account_count, it.key.displayLabel, it.value) }, icon) { chooseAccount = true }
+    LinkRow(app.parley.ui.settings.settingTitle("export_account"), idx.accountCounts.entries.joinToString(" · ") { res.getString(R.string.ppl_account_count, it.key.displayLabel, it.value) }, icon) { chooseAccount = true }
     if (chooseAccount) {
         AlertDialog(
             onDismissRequest = { chooseAccount = false },

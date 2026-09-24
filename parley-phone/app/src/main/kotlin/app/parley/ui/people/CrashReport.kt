@@ -76,8 +76,8 @@ fun CrashReportsRow(vm: AppViewModel) {
     val store = vm.c.people.crashes
     var on by remember { mutableStateOf(store.enabled.value) }
     SwitchRow(
-        app.parley.common.SettingsCatalog["crash_reports"].title,
-        app.parley.common.SettingsCatalog["crash_reports"].summary,
+        app.parley.ui.settings.settingTitle("crash_reports"),
+        app.parley.ui.settings.settingSummary("crash_reports"),
         on,
     ) { v ->
         store.setEnabled(v)

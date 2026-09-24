@@ -173,7 +173,7 @@ object MissedCallNotifier {
             screened.firstOrNull { e ->
                 !e.allowed && e.action == "SILENCE" && e.number != null && kotlin.math.abs(e.time - caller.latest) < 5 * 60_000L &&
                     PhoneNumbers.same(e.number, n, iso)
-            }?.verdict
+            }?.verdict?.let { v -> app.parley.blocking.BlockingText.verdict(context, v) }
         }
         val facts = runCatching { c.ringFacts.near(number, caller.latest) }.getOrNull()
         val why = app.parley.ui.calls.RingText.whyNoRing(context.resources, facts, verdict)

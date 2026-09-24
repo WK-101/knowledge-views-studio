@@ -19,7 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
-import app.parley.common.SettingsCatalog
 import app.parley.common.people.AvatarStyle
 import app.parley.common.people.SwipeAction
 import app.parley.ui.Avatar
@@ -34,12 +33,11 @@ import app.parley.R
 @Composable
 fun SwipeSettings(vm: AppViewModel) {
     val s by vm.people.settings.collectAsStateWithLifecycle()
-    val entry = SettingsCatalog["swipe_actions"]
     val choices = SwipeAction.entries
     var tried by remember { mutableStateOf<String?>(null) }
     val res = androidx.compose.ui.platform.LocalResources.current
     Column {
-        SwitchRow(entry.title, entry.summary, s.swipe.enabled, Icons.Rounded.Swipe) { v -> vm.people.update { it.copy(swipe = it.swipe.copy(enabled = v)) } }
+        SwitchRow(app.parley.ui.settings.settingTitle("swipe_actions"), app.parley.ui.settings.settingSummary("swipe_actions"), s.swipe.enabled, Icons.Rounded.Swipe) { v -> vm.people.update { it.copy(swipe = it.swipe.copy(enabled = v)) } }
         if (s.swipe.enabled) {
             MenuRow(stringResource(R.string.swipe_right), choices.map { swipeLabel(res, it) }, choices.indexOf(s.swipe.right), Icons.Rounded.SwipeRight) { i ->
                 vm.people.update { it.copy(swipe = it.swipe.copy(right = choices[i])) }
@@ -72,11 +70,10 @@ fun SwipeSettings(vm: AppViewModel) {
 @Composable
 fun AvatarStyleSetting(vm: AppViewModel) {
     val s by vm.people.settings.collectAsStateWithLifecycle()
-    val entry = SettingsCatalog["avatar_style"]
     val styles = AvatarStyle.entries
     Column {
         val avatarLabels = styles.map { st -> stringResource(if (st == AvatarStyle.GREY) R.string.avatar_grey else R.string.avatar_colourful) }
-        MenuRow(entry.title, avatarLabels, styles.indexOf(s.avatarStyle), Icons.Rounded.AccountCircle, sub = stringResource(R.string.avatar_emoji_hint)) { i ->
+        MenuRow(app.parley.ui.settings.settingTitle("avatar_style"), avatarLabels, styles.indexOf(s.avatarStyle), Icons.Rounded.AccountCircle, sub = stringResource(R.string.avatar_emoji_hint)) { i ->
             vm.people.update { it.copy(avatarStyle = styles[i]) }
         }
         androidx.compose.runtime.CompositionLocalProvider(LocalAvatarStyle provides s.avatarStyle) {
