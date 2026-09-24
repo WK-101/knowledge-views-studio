@@ -36,6 +36,9 @@ import app.parley.data.history.TrashBatch
 import app.parley.ui.common.Format
 import app.parley.ui.contact.Section
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 /** Settings › Calls entry: "Keep full call history" with its switch; tapping opens the details page. */
 @Composable
@@ -49,8 +52,8 @@ fun KeepFullHistoryRow(vm: AppViewModel, open: (String) -> Unit, icon: androidx.
         headlineContent = { Text(app.parley.common.SettingsCatalog["archive"].title) },
         supportingContent = {
             Text(
-                if (prefs.archiveEnabled) "On: Parley keeps its own encrypted copy, because Android may drop old calls"
-                else "Off: only what Android keeps",
+                if (prefs.archiveEnabled) stringResource(R.string.hist_archive_on_summary)
+                else stringResource(R.string.hist_archive_off_summary),
             )
         },
         trailingContent = { Switch(prefs.archiveEnabled, { v -> if (v) vm.setArchiveEnabled(true) else confirmOff = true }) },
@@ -66,10 +69,10 @@ private fun AppViewModel.setArchiveEnabled(on: Boolean) {
 private fun ArchiveOffDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Turn off the call-history archive?") },
-        text = { Text("Parley deletes its encrypted copy of your calls. Your phone's own call history is not changed, but calls Android already dropped are gone for good.") },
-        confirmButton = { TextButton({ vm.setArchiveEnabled(false); onDismiss() }) { Text("Turn off and delete") } },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        title = { Text(stringResource(R.string.hist_archive_off_title)) },
+        text = { Text(stringResource(R.string.hist_archive_off_text)) },
+        confirmButton = { TextButton({ vm.setArchiveEnabled(false); onDismiss() }) { Text(stringResource(R.string.hist_archive_off_confirm)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 
@@ -90,32 +93,30 @@ fun CallHistorySettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String)
     LaunchedEffect(Unit) { trash = vm.c.history.trashBatches() }
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Call history") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+        TopAppBar(title = { Text(stringResource(R.string.hist_settings_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
                 ListItem(
                     modifier = Modifier.clickable { if (prefs.archiveEnabled) confirmOff = true else vm.setArchiveEnabled(true) },
-                    headlineContent = { Text("Keep full call history") },
-                    supportingContent = { Text(if (prefs.archiveEnabled) "$count calls in Parley's archive" else "Off") },
+                    headlineContent = { Text(stringResource(R.string.hist_keep_full)) },
+                    supportingContent = { Text(if (prefs.archiveEnabled) pluralStringResource(R.plurals.hist_archive_count, count, count) else stringResource(R.string.dc_off)) },
                     trailingContent = { Switch(prefs.archiveEnabled, { v -> if (v) vm.setArchiveEnabled(true) else confirmOff = true }) },
                 )
             }
             item {
                 Text(
-                    "Some phones keep only the most recent calls. With this on, Parley copies every call into its own database on this phone, " +
-                        "encrypted with a key kept in Android's secure key store, and shows those calls in Recents. Nothing leaves the phone. " +
-                        "Calls you delete in Parley are removed from the copy too; calls deleted in other apps stay in it.\n\n" +
-                        (if (settings.callLogRetentionDays > 0) "Your setting keeps call history for ${settings.callLogRetentionDays} days; older calls are deleted from both, except numbers you keep forever."
-                        else "Your setting keeps call history forever."),
+                    stringResource(R.string.hist_archive_explain) + "\n\n" +
+                        (if (settings.callLogRetentionDays > 0) pluralStringResource(R.plurals.hist_retention_days, settings.callLogRetentionDays, settings.callLogRetentionDays)
+                        else stringResource(R.string.hist_retention_forever)),
                     Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             if (prefs.archiveEnabled) {
-                item { Section("Kept forever") }
+                item { Section(stringResource(R.string.hist_kept_forever)) }
                 if (kept.isEmpty()) item {
                     Text(
-                        "Open a contact or a number's history and turn on “Keep this call history forever” to keep it whatever the retention setting.",
+                        stringResource(R.string.hist_kept_forever_empty),
                         Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -124,47 +125,47 @@ fun CallHistorySettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String)
                         ListItem(
                             headlineContent = { Text(vm.contactFor(number)?.displayName ?: Format.number(number, vm.countryIso)) },
                             supportingContent = { Text(Format.number(number, vm.countryIso)) },
-                            trailingContent = { IconButton({ scope.launch { vm.c.history.removeKeepForeverKeys(listOf(key)) } }) { Icon(Icons.Rounded.Close, "Stop keeping forever") } },
+                            trailingContent = { IconButton({ scope.launch { vm.c.history.removeKeepForeverKeys(listOf(key)) } }) { Icon(Icons.Rounded.Close, stringResource(R.string.hist_stop_keeping)) } },
                         )
                     }
                 }
             }
-            item { Section("Recently deleted calls") }
-            if (trash.isEmpty()) item { Text("Nothing deleted in the last 30 days.", Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
+            item { Section(stringResource(R.string.hist_recently_deleted)) }
+            if (trash.isEmpty()) item { Text(stringResource(R.string.hist_recently_deleted_empty), Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
             trash.forEach { b ->
                 item(key = "t${b.batchId}") {
                     ListItem(
                         leadingContent = { Icon(Icons.Rounded.History, null) },
-                        headlineContent = { Text("${b.count} ${if (b.count == 1) "call" else "calls"} deleted") },
+                        headlineContent = { Text(pluralStringResource(R.plurals.hist_calls_deleted, b.count, b.count)) },
                         supportingContent = { Text(Format.fullDate(context, b.deletedAt)) },
                         trailingContent = {
                             TextButton({
                                 scope.launch {
                                     val n = vm.c.history.undoDelete(b.batchId)
-                                    vm.toast(if (n > 0) "Restored $n calls" else "Couldn't restore. Make Parley your default phone app first.")
+                                    vm.toast(if (n > 0) context.resources.getQuantityString(R.plurals.hist_restored_calls, n, n) else context.getString(R.string.hist_restore_failed_default))
                                     trash = vm.c.history.trashBatches()
                                 }
-                            }) { Text("Restore") }
+                            }) { Text(stringResource(R.string.dc_restore)) }
                         },
                     )
                 }
             }
-            item { Section("Export & import") }
+            item { Section(stringResource(R.string.hist_export_import)) }
             item {
                 ListItem(
                     modifier = Modifier.clickable { scope.launch { vm.c.history.prefs.setCsvBom(!prefs.csvBom) } },
-                    headlineContent = { Text("Excel-friendly CSV") },
-                    supportingContent = { Text("Adds a byte-order mark so accents show correctly in Excel") },
+                    headlineContent = { Text(stringResource(R.string.hist_csv_bom)) },
+                    supportingContent = { Text(stringResource(R.string.hist_csv_bom_summary)) },
                     trailingContent = { Switch(prefs.csvBom, { v -> scope.launch { vm.c.history.prefs.setCsvBom(v) } }) },
                 )
                 ListItem(
                     modifier = Modifier.clickable { open(HistoryRoutes.IMPORT) },
-                    headlineContent = { Text("Import call history from CSV") },
-                    supportingContent = { Text("From Parley, Logger or a spreadsheet") },
+                    headlineContent = { Text(stringResource(R.string.hist_import_csv)) },
+                    supportingContent = { Text(stringResource(R.string.hist_import_csv_summary)) },
                     trailingContent = { Icon(Icons.AutoMirrored.Rounded.ArrowForward, null) },
                 )
                 Text(
-                    "To export, open Recents › ⋮ › Export, or a number's history.",
+                    stringResource(R.string.hist_export_hint),
                     Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

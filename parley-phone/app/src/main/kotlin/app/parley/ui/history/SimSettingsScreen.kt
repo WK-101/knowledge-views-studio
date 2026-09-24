@@ -47,6 +47,12 @@ import app.parley.common.history.PlanConfig
 import app.parley.common.history.PlanUsage
 import app.parley.ui.contact.Section
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import app.parley.R
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 /** Settings › SIMs: one row per SIM, with its plan meter when set. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,11 +60,12 @@ import kotlinx.coroutines.launch
 fun SimListScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val sims by vm.sims.collectAsStateWithLifecycle()
     val usage by vm.c.history.planUsage.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     Scaffold(topBar = {
-        TopAppBar(title = { Text("SIMs") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+        TopAppBar(title = { Text(stringResource(R.string.hist_sims_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
-            if (sims.isEmpty()) item { Text("No SIM found. Parley needs to be the default phone app to list SIMs.", Modifier.padding(16.dp)) }
+            if (sims.isEmpty()) item { Text(stringResource(R.string.hist_sims_empty), Modifier.padding(16.dp)) }
             sims.forEach { sim ->
                 item(key = sim.id) {
                     ListItem(
@@ -67,7 +74,7 @@ fun SimListScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                             SimPlanBadge(vm, sim.id) { Icon(Icons.Rounded.SimCard, null, tint = if (sim.color != 0) Color(sim.color) else Color.Unspecified) }
                         },
                         headlineContent = { Text(sim.label) },
-                        supportingContent = { Text(usage[sim.id]?.summary() ?: listOfNotNull(sim.subtitle, "No plan set").joinToString(" · ")) },
+                        supportingContent = { Text(usage[sim.id]?.let { HistoryText.planSummary(context, it) } ?: listOfNotNull(sim.subtitle, stringResource(R.string.hist_no_plan)).joinToString(" · ")) },
                         trailingContent = { Icon(Icons.AutoMirrored.Rounded.ArrowForward, null) },
                     )
                 }
@@ -89,15 +96,15 @@ fun SimSettingsScreen(vm: AppViewModel, simId: String, back: () -> Unit) {
     fun save(p: PlanConfig) = scope.launch { vm.c.history.savePlan(p) }
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text(sim?.label ?: "SIM") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+        TopAppBar(title = { Text(sim?.label ?: stringResource(R.string.hist_filter_sim)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
-            item { Section("Plan minutes") }
+            item { Section(stringResource(R.string.hist_plan_section)) }
             item {
                 ListItem(
                     modifier = Modifier.clickable { save((plan ?: PlanConfig(simId)).copy(enabled = plan?.enabled != true)) },
-                    headlineContent = { Text("Track plan minutes") },
-                    supportingContent = { Text("Counted from your call history on this phone. Your carrier's bill is what counts.") },
+                    headlineContent = { Text(stringResource(R.string.hist_plan_track)) },
+                    supportingContent = { Text(stringResource(R.string.hist_plan_track_summary)) },
                     trailingContent = { Switch(plan?.enabled == true, { v -> save((plan ?: PlanConfig(simId)).copy(enabled = v)) }) },
                 )
             }
@@ -116,11 +123,15 @@ private fun UsageCard(u: PlanUsage) {
         colors = CardDefaults.cardColors(containerColor = if (u.isNear) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer),
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text(u.summary(), style = MaterialTheme.typography.titleMedium)
+            Text(HistoryText.planSummary(LocalContext.current, u), style = MaterialTheme.typography.titleMedium)
             LinearProgressIndicator(progress = { u.fraction.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
             Text(
-                "${u.callsCounted} calls, ${HistoryFormat.talk(u.talkSec)} of real talk time, billed as ${u.usedMinutes} min. " +
-                    "Cycle ${u.cycleStart} – ${u.cycleEnd.minusDays(1)}.",
+                DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).let { df ->
+                    pluralStringResource(
+                        R.plurals.hist_plan_detail, u.callsCounted, u.callsCounted, HistoryFormat.talk(u.talkSec), u.usedMinutes.toInt(),
+                        df.format(u.cycleStart), df.format(u.cycleEnd.minusDays(1)),
+                    )
+                },
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -138,7 +149,7 @@ private fun PlanEditor(plan: PlanConfig, save: (PlanConfig) -> Unit) {
                 minutes = v.filter { it.isDigit() }.take(6)
                 minutes.toIntOrNull()?.takeIf { it > 0 }?.let { save(plan.copy(allowanceMinutes = it)) }
             },
-            label = { Text("Minutes per cycle") },
+            label = { Text(stringResource(R.string.hist_plan_minutes)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             isError = minutes.toIntOrNull()?.let { it <= 0 } ?: true,
@@ -147,47 +158,47 @@ private fun PlanEditor(plan: PlanConfig, save: (PlanConfig) -> Unit) {
         var dayMenu by remember { mutableStateOf(false) }
         ListItem(
             modifier = Modifier.clickable { dayMenu = true },
-            headlineContent = { Text("Allowance renews on") },
-            supportingContent = { Text("Day ${plan.cycleStartDay} of each month" + if (plan.cycleStartDay > 28) " (or the last day)" else "") },
+            headlineContent = { Text(stringResource(R.string.hist_plan_renews)) },
+            supportingContent = { Text(stringResource(if (plan.cycleStartDay > 28) R.string.hist_plan_renews_day_last else R.string.hist_plan_renews_day, plan.cycleStartDay)) },
             trailingContent = {
                 DropdownMenu(dayMenu, { dayMenu = false }) {
-                    (1..31).forEach { d -> DropdownMenuItem({ Text("Day $d") }, onClick = { dayMenu = false; save(plan.copy(cycleStartDay = d)) }) }
+                    (1..31).forEach { d -> DropdownMenuItem({ Text(stringResource(R.string.hist_plan_day, d)) }, onClick = { dayMenu = false; save(plan.copy(cycleStartDay = d)) }) }
                 }
             },
         )
         ListItem(
-            headlineContent = { Text("Billing") },
+            headlineContent = { Text(stringResource(R.string.hist_plan_billing)) },
             supportingContent = {
                 Column {
-                    Text("How your carrier rounds each call. Only used for this meter; your call history keeps the real durations.")
+                    Text(stringResource(R.string.hist_plan_billing_summary))
                     SingleChoiceSegmentedButtonRow(Modifier.padding(top = 8.dp)) {
                         BillingIncrement.entries.forEachIndexed { i, b ->
                             SegmentedButton(plan.increment == b, { save(plan.copy(increment = b)) }, SegmentedButtonDefaults.itemShape(i, BillingIncrement.entries.size)) {
-                                Text(b.label)
+                                Text(stringResource(HistoryText.increment(b)))
                             }
                         }
                     }
                 }
             },
         )
-        Section("Counted calls")
-        Toggle("Mobile numbers", null, plan.countMobile) { save(plan.copy(countMobile = it)) }
-        Toggle("Landlines", null, plan.countLandline) { save(plan.copy(countLandline = it)) }
-        Toggle("International numbers", "Numbers from another country than your SIM", plan.countInternational) { save(plan.copy(countInternational = it)) }
-        Toggle("Other numbers", "Premium, shared-cost, VoIP and short numbers", plan.countOther) { save(plan.copy(countOther = it)) }
-        Toggle("Incoming calls too", "Some plans count received minutes", plan.countIncoming) { save(plan.copy(countIncoming = it)) }
+        Section(stringResource(R.string.hist_plan_counted))
+        Toggle(stringResource(R.string.hist_category_mobile), null, plan.countMobile) { save(plan.copy(countMobile = it)) }
+        Toggle(stringResource(R.string.hist_category_landline), null, plan.countLandline) { save(plan.copy(countLandline = it)) }
+        Toggle(stringResource(R.string.hist_plan_international), stringResource(R.string.hist_plan_international_summary), plan.countInternational) { save(plan.copy(countInternational = it)) }
+        Toggle(stringResource(R.string.hist_plan_other), stringResource(R.string.hist_plan_other_summary), plan.countOther) { save(plan.copy(countOther = it)) }
+        Toggle(stringResource(R.string.hist_plan_incoming), stringResource(R.string.hist_plan_incoming_summary), plan.countIncoming) { save(plan.copy(countIncoming = it)) }
         Text(
-            "Toll-free numbers are never counted. Parley warns you once per cycle at ${plan.warnAtPercent}% and shows a dot on this SIM's call button.",
+            stringResource(R.string.hist_plan_toll_free_note, plan.warnAtPercent),
             Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         var warnMenu by remember { mutableStateOf(false) }
         ListItem(
             modifier = Modifier.clickable { warnMenu = true },
-            headlineContent = { Text("Warn at") },
-            supportingContent = { Text("${plan.warnAtPercent}% of the allowance") },
+            headlineContent = { Text(stringResource(R.string.hist_plan_warn_at)) },
+            supportingContent = { Text(stringResource(R.string.hist_plan_warn_at_summary, plan.warnAtPercent)) },
             trailingContent = {
                 DropdownMenu(warnMenu, { warnMenu = false }) {
-                    listOf(50, 70, 80, 90, 100).forEach { pc -> DropdownMenuItem({ Text("$pc%") }, onClick = { warnMenu = false; save(plan.copy(warnAtPercent = pc)) }) }
+                    listOf(50, 70, 80, 90, 100).forEach { pc -> DropdownMenuItem({ Text(stringResource(R.string.hist_percent, pc)) }, onClick = { warnMenu = false; save(plan.copy(warnAtPercent = pc)) }) }
                 }
             },
         )
@@ -220,5 +231,6 @@ fun SimPlanBadge(vm: AppViewModel, simId: String, content: @Composable () -> Uni
 @Composable
 fun simPlanSummary(vm: AppViewModel, simId: String): String? {
     val usage by vm.c.history.planUsage.collectAsStateWithLifecycle()
-    return usage[simId]?.summary()
+    val context = LocalContext.current
+    return usage[simId]?.let { HistoryText.planSummary(context, it) }
 }

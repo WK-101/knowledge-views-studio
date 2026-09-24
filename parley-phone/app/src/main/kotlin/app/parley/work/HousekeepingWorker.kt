@@ -26,16 +26,18 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
     /** "X expired; the details you merged were kept" (F2). */
     private fun notify(ctx: Context, i: Int, n: app.parley.data.people.TemporaryContactStore.Notice) {
         val nm = ctx.getSystemService(android.app.NotificationManager::class.java)
-        nm.createNotificationChannel(android.app.NotificationChannel(CHANNEL, "Contacts housekeeping", android.app.NotificationManager.IMPORTANCE_LOW))
+        nm.createNotificationChannel(android.app.NotificationChannel(CHANNEL, ctx.getString(app.parley.R.string.work_channel_housekeeping), android.app.NotificationManager.IMPORTANCE_LOW))
         val open = android.app.PendingIntent.getActivity(
             ctx, 0, android.content.Intent(ctx, app.parley.MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
             android.app.PendingIntent.FLAG_IMMUTABLE,
         )
+        val name = n.name ?: ctx.getString(app.parley.R.string.work_temp_someone)
+        val text = ctx.getString(if (n.keptDetails) app.parley.R.string.work_temp_expired_kept else app.parley.R.string.work_temp_expired_merged, name)
         val b = androidx.core.app.NotificationCompat.Builder(ctx, CHANNEL)
             .setSmallIcon(app.parley.R.drawable.ic_stat_cake)
-            .setContentTitle("Temporary contact expired")
-            .setContentText(n.text)
-            .setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(n.text))
+            .setContentTitle(ctx.getString(app.parley.R.string.work_temp_expired_title))
+            .setContentText(text)
+            .setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(open)
             .setAutoCancel(true)
         try {

@@ -12,22 +12,23 @@ import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 /** How the carrier rounds each call. Only used to *calculate* usage; stored durations are never changed. */
-enum class BillingIncrement(val seconds: Int, val label: String) {
-    PER_SECOND(1, "Per second"),
-    HALF_MINUTE(30, "Per 30 seconds"),
-    PER_MINUTE(60, "Per minute"),
+enum class BillingIncrement(val seconds: Int) {
+    PER_SECOND(1),
+    HALF_MINUTE(30),
+    PER_MINUTE(60),
 }
 
 /** What kind of number a call went to (from libphonenumber's getNumberType plus the SIM country). */
-enum class NumberCategory(val label: String) {
-    MOBILE("Mobile numbers"),
-    LANDLINE("Landlines"),
+enum class NumberCategory {
+    MOBILE,
+    LANDLINE,
     /** Numbering plans that don't tell mobile from fixed (e.g. North America). Counted if either is. */
-    MOBILE_OR_LANDLINE("Mobile or landline"),
-    INTERNATIONAL("International"),
+    MOBILE_OR_LANDLINE,
+    INTERNATIONAL,
     /** Free for the caller: never counted. */
-    TOLL_FREE("Toll-free"),
-    OTHER("Other (premium, shared cost, VoIP, short codes)"),
+    TOLL_FREE,
+    /** Premium, shared cost, VoIP, short codes. */
+    OTHER,
 }
 
 /** A SIM's plan. [simId] is the phone account id the call log uses. */
@@ -82,8 +83,6 @@ data class PlanUsage(
     val isNear: Boolean get() = config.allowanceMinutes > 0 && usedMinutes * 100 >= config.allowanceMinutes.toLong() * config.warnAtPercent
     val isOver: Boolean get() = config.allowanceMinutes > 0 && usedMinutes > config.allowanceMinutes
 
-    /** "212 of 300 min used · 9 days left". */
-    fun summary(): String = "$usedMinutes of ${config.allowanceMinutes} min used · " + if (daysLeft == 1) "last day" else "$daysLeft days left"
 }
 
 object PlanMeter {

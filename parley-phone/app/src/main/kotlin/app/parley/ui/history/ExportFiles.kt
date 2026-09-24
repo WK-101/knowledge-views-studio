@@ -33,6 +33,7 @@ import java.io.FileOutputStream
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import app.parley.R
 
 /**
  * Readable exports of call history (H2): CSV, JSON, ICS and PDF files shared through the app's FileProvider,
@@ -64,11 +65,11 @@ object ExportFiles {
             ExportFormat.PDF -> {
                 val doc = PdfDocument()
                 try {
-                    val layout = PdfLayout(A4_WIDTH, A4_HEIGHT)
+                    val layout = PdfLayout(context, A4_WIDTH, A4_HEIGHT)
                     val pages = layout.paginate(rows)
                     pages.forEachIndexed { i, range ->
                         val page = doc.startPage(PdfDocument.PageInfo.Builder(A4_WIDTH, A4_HEIGHT, i + 1).create())
-                        layout.draw(page.canvas, title(subject), rows, range, i, pages.size, zone)
+                        layout.draw(page.canvas, title(context, subject), rows, range, i, pages.size, zone)
                         doc.finishPage(page)
                     }
                     FileOutputStream(file).use { doc.writeTo(it) }
@@ -88,14 +89,14 @@ object ExportFiles {
             .putExtra(Intent.EXTRA_SUBJECT, file.nameWithoutExtension)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         send.clipData = ClipData.newRawUri(file.name, uri)
-        context.startActivity(Intent.createChooser(send, "Share call history").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        context.startActivity(Intent.createChooser(send, context.getString(R.string.hist_share_chooser)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
     /** Opens the system print dialog ("Save as PDF" included). */
     fun print(context: Context, rows: List<ExportRow>, subject: String?) {
         val pm = context.getSystemService(PrintManager::class.java) ?: return
         val name = CallExport.fileName(subject, System.currentTimeMillis(), ZoneId.systemDefault(), ExportFormat.PDF).removeSuffix(".pdf")
-        pm.print(name, CallPrintAdapter(context.applicationContext, title(subject), rows), PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build())
+        pm.print(name, CallPrintAdapter(context.applicationContext, title(context, subject), rows), PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build())
     }
 
     /** Deletes export files (all of them by default). Plaintext exports never outlive the next start. */
@@ -104,13 +105,14 @@ object ExportFiles {
         dir(context).listFiles()?.forEach { f -> if (olderThanMillis == 0L || f.lastModified() < cutoff) f.delete() }
     }
 
-    private fun title(subject: String?) = if (subject.isNullOrBlank()) "Call history" else "Call history · $subject"
+    private fun title(context: Context, subject: String?) =
+        if (subject.isNullOrBlank()) context.getString(R.string.hist_export_title) else context.getString(R.string.hist_export_title_subject, subject)
 
     private const val A4_WIDTH = 595
     private const val A4_HEIGHT = 842
 
     /** Table layout in PostScript points, shared by the PDF file and the print adapter. */
-    internal class PdfLayout(private val width: Int, private val height: Int) {
+    internal class PdfLayout(private val context: Context, private val width: Int, private val height: Int) {
         private val margin = 36f
         private val rowH = 15f
         private val noteH = 12f
@@ -148,21 +150,21 @@ object ExportFiles {
             var y = margin + 14f
             canvas.drawText(title, margin, y, titleP)
             y += 16f
-            canvas.drawText("${rows.size} calls · made with Parley on ${fmt.format(Instant.now().atZone(zone))}", margin, y, grey)
+            canvas.drawText(context.resources.getQuantityString(R.plurals.hist_pdf_made_with, rows.size, rows.size, fmt.format(Instant.now().atZone(zone))), margin, y, grey)
             y += 24f
             val w = width - 2 * margin
             val cols = floatArrayOf(0f, 92f, 170f, w - 110f, w - 55f)
-            val heads = listOf("Date", "Type", "Name / number", "Duration", "SIM")
+            val heads = listOf(R.string.hist_pdf_col_date, R.string.hist_pdf_col_type, R.string.hist_pdf_col_who, R.string.hist_pdf_col_duration, R.string.hist_pdf_col_sim).map { context.getString(it) }
             heads.forEachIndexed { i, h -> canvas.drawText(h, margin + cols[i], y, bold) }
             y += 4f
             canvas.drawLine(margin, y, width - margin, y, line)
             y += rowH - 4f
             for (i in range) {
                 val r = rows[i]
-                val who = listOfNotNull(r.name, r.number.ifBlank { "Private number" }.takeIf { r.name == null || r.number.isNotBlank() }).joinToString(" · ")
+                val who = listOfNotNull(r.name, r.number.ifBlank { context.getString(R.string.hist_private_number) }.takeIf { r.name == null || r.number.isNotBlank() }).joinToString(" · ")
                 val cells = listOf(
                     fmt.format(Instant.ofEpochMilli(r.date).atZone(zone)),
-                    CallExport.typeLabel(r.type),
+                    context.getString(HistoryText.callType(r.type)),
                     who,
                     if (r.durationSec > 0) CallExport.hms(r.durationSec) else "–",
                     r.simLabel.orEmpty(),
@@ -173,13 +175,13 @@ object ExportFiles {
                 }
                 r.notes.take(3).forEach { n ->
                     y += noteH
-                    canvas.drawText(TextUtils.ellipsize("Note: " + n.replace('\n', ' '), grey, w - cols[2], TextUtils.TruncateAt.END).toString(), margin + cols[2], y, grey)
+                    canvas.drawText(TextUtils.ellipsize(context.getString(R.string.hist_pdf_note, n.replace('\n', ' ')), grey, w - cols[2], TextUtils.TruncateAt.END).toString(), margin + cols[2], y, grey)
                 }
                 y += 4f
                 canvas.drawLine(margin, y, width - margin, y, line)
                 y += rowH - 4f
             }
-            canvas.drawText("Page ${page + 1} of $pageCount", margin, height - margin, grey)
+            canvas.drawText(context.getString(R.string.hist_pdf_page, page + 1, pageCount), margin, height - margin, grey)
         }
     }
 
@@ -195,7 +197,7 @@ object ExportFiles {
             }
             attributes = new
             val media = new.mediaSize ?: PrintAttributes.MediaSize.ISO_A4
-            val l = PdfLayout(media.widthMils * 72 / 1000, media.heightMils * 72 / 1000)
+            val l = PdfLayout(context, media.widthMils * 72 / 1000, media.heightMils * 72 / 1000)
             layout = l
             pages = l.paginate(rows)
             val info = PrintDocumentInfo.Builder("calls.pdf").setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT).setPageCount(pages.size).build()

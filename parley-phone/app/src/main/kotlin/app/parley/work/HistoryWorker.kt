@@ -67,9 +67,9 @@ class HistoryWorker(context: Context, params: WorkerParameters) : CoroutineWorke
             if (due.isEmpty()) return
             val sims = c.sims.accounts().associate { it.id to it.label }
             val nm = context.getSystemService(NotificationManager::class.java)
-            nm.createNotificationChannel(NotificationChannel(CHANNEL, "Plan minutes", NotificationManager.IMPORTANCE_DEFAULT))
+            nm.createNotificationChannel(NotificationChannel(CHANNEL, context.getString(app.parley.R.string.work_channel_plan), NotificationManager.IMPORTANCE_DEFAULT))
             for (u in due) {
-                notify(context, u, sims[u.config.simId] ?: "SIM")
+                notify(context, u, sims[u.config.simId] ?: context.getString(app.parley.R.string.hist_filter_sim))
                 c.history.markWarned(u)
             }
         }
@@ -81,11 +81,12 @@ class HistoryWorker(context: Context, params: WorkerParameters) : CoroutineWorke
                 Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
-            val title = if (u.isOver) "$simLabel: plan minutes used up" else "$simLabel: ${(u.fraction * 100).toInt()}% of plan minutes used"
+            val title = if (u.isOver) context.getString(app.parley.R.string.work_plan_used_up, simLabel)
+            else context.getString(app.parley.R.string.work_plan_used_percent, simLabel, (u.fraction * 100).toInt())
             val b = NotificationCompat.Builder(context, CHANNEL)
                 .setSmallIcon(app.parley.R.drawable.ic_stat_timer)
                 .setContentTitle(title)
-                .setContentText(u.summary())
+                .setContentText(app.parley.ui.history.HistoryText.planSummary(context, u))
                 .setContentIntent(open)
                 .setAutoCancel(true)
             try {

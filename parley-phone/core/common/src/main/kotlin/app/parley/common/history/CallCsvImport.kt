@@ -64,10 +64,10 @@ object Csv {
     }
 }
 
-enum class ImportSource(val label: String) {
-    PARLEY("Parley export"),
-    LOGGER("Logger export"),
-    GENERIC("Other CSV"),
+enum class ImportSource {
+    PARLEY,
+    LOGGER,
+    GENERIC,
 }
 
 /** Which column holds what (indexes into a row; null = not present). */
@@ -149,7 +149,14 @@ object ProviderColumns {
     }
 }
 
-data class RowProblem(val line: Int, val reason: String)
+/** Why a row (or the whole file) can't be imported; the app maps each kind to a localised message. */
+enum class RowProblemKind { EMPTY_FILE, NEED_COLUMNS, UNREADABLE_ROW, UNKNOWN_TYPE, UNREADABLE_DATE, UNREADABLE_DURATION, NOT_A_NUMBER }
+
+/** [value] is the offending cell text, when there is one. */
+data class RowProblem(val line: Int, val kind: RowProblemKind, val value: String = "")
+
+/** Thrown by [CallCsvImport.parseRow] for a row that can't be read. */
+class RowProblemException(val kind: RowProblemKind, val value: String) : IllegalArgumentException("$kind '$value'")
 
 /** A dry run: what an import would do. Nothing is written until the user confirms. */
 data class ImportPlan(
@@ -162,11 +169,7 @@ data class ImportPlan(
     val problems: List<RowProblem>,
     val rowsRead: Int,
 ) {
-    fun summary(): String = buildList {
-        add("${toInsert.size} new calls")
-        if (duplicates > 0) add("$duplicates already in your history")
-        if (problems.isNotEmpty()) add("${problems.size} rows skipped")
-    }.joinToString(" · ")
+
 }
 
 /**
@@ -227,12 +230,12 @@ object CallCsvImport {
         dayFirst: Boolean = true,
     ): ImportPlan {
         val rows = Csv.parse(text)
-        if (rows.isEmpty()) return ImportPlan(ImportSource.GENERIC, emptyList(), ColumnMapping(), emptyList(), 0, listOf(RowProblem(1, "The file is empty")), 0)
+        if (rows.isEmpty()) return ImportPlan(ImportSource.GENERIC, emptyList(), ColumnMapping(), emptyList(), 0, listOf(RowProblem(1, RowProblemKind.EMPTY_FILE)), 0)
         val header = rows.first()
         val source = detect(header)
         val map = mapping ?: mappingFor(source, header)
         if (!map.isUsable) {
-            return ImportPlan(source, header, map, emptyList(), 0, listOf(RowProblem(1, "Choose which columns hold the number, type and date")), rows.size - 1)
+            return ImportPlan(source, header, map, emptyList(), 0, listOf(RowProblem(1, RowProblemKind.NEED_COLUMNS)), rows.size - 1)
         }
         val seen = HashSet<String>()
         val out = ArrayList<ImportedCall>()
@@ -243,8 +246,11 @@ object CallCsvImport {
             if (r.all { it.isBlank() }) return@forEachIndexed
             val call = try {
                 parseRow(r, map, zone, dayFirst)
-            } catch (e: IllegalArgumentException) {
-                problems += RowProblem(line, e.message ?: "Unreadable row")
+            } catch (e: RowProblemException) {
+                problems += RowProblem(line, e.kind, e.value)
+                return@forEachIndexed
+            } catch (_: IllegalArgumentException) {
+                problems += RowProblem(line, RowProblemKind.UNREADABLE_ROW)
                 return@forEachIndexed
             }
             val key = call.dedupeKey
@@ -256,12 +262,12 @@ object CallCsvImport {
     internal fun parseRow(r: List<String>, m: ColumnMapping, zone: ZoneId, dayFirst: Boolean): ImportedCall {
         fun cell(i: Int?): String? = i?.let { r.getOrNull(it) }?.trim()?.let(::unNeutralise)?.takeIf { it.isNotEmpty() && it != "null" }
         val number = cell(m.number).orEmpty()
-        val type = parseType(cell(m.type)) ?: throw IllegalArgumentException("Unknown call type '${cell(m.type).orEmpty()}'")
+        val type = parseType(cell(m.type)) ?: throw RowProblemException(RowProblemKind.UNKNOWN_TYPE, cell(m.type).orEmpty())
         val date = cell(m.timestamp)?.let { parseEpoch(it) }
             ?: parseDate(cell(m.date), cell(m.time), zone, dayFirst)
-            ?: throw IllegalArgumentException("Unreadable date '${listOfNotNull(cell(m.date), cell(m.time)).joinToString(" ")}'")
-        val duration = cell(m.duration)?.let { parseDuration(it) ?: throw IllegalArgumentException("Unreadable duration '$it'") } ?: 0L
-        if (number.isNotEmpty() && number.none { it.isDigit() }) throw IllegalArgumentException("Not a phone number '$number'")
+            ?: throw RowProblemException(RowProblemKind.UNREADABLE_DATE, listOfNotNull(cell(m.date), cell(m.time)).joinToString(" "))
+        val duration = cell(m.duration)?.let { parseDuration(it) ?: throw RowProblemException(RowProblemKind.UNREADABLE_DURATION, it) } ?: 0L
+        if (number.isNotEmpty() && number.none { it.isDigit() }) throw RowProblemException(RowProblemKind.NOT_A_NUMBER, number)
         return ImportedCall(number, date, duration, type, cell(m.name), cell(m.sim), cell(m.accountId))
     }
 

@@ -26,6 +26,13 @@ import app.parley.AppViewModel
 import app.parley.common.history.CallTotals
 import app.parley.common.history.Period
 import java.time.Instant
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import app.parley.R
+import android.icu.text.MeasureFormat
+import android.icu.util.Measure
+import android.icu.util.MeasureUnit
+import java.util.Locale
 
 /** H3: tap a Recents day header → that day's made / received / missed / rejected calls and talk time. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,14 +51,15 @@ fun DaySummarySheet(vm: AppViewModel, dayMillis: Long, title: String, onDismiss:
             val t = remember(date, idx) { idx.day(date) }
             val people = remember(date, idx) { idx.perPerson(Period.day(date, idx.zone)).size }
             Text(
-                if (t.isEmpty) "No calls" else "${t.total} calls with $people ${if (people == 1) "person" else "people"}",
+                if (t.isEmpty) stringResource(R.string.hist_no_calls)
+                else pluralStringResource(R.plurals.hist_day_calls_with, t.total, t.total, pluralStringResource(R.plurals.hist_people_count, people, people)),
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 16.dp),
             )
             StatGrid(t)
             Spacer(Modifier.height(12.dp))
-            Text("Talk time ${HistoryFormat.talk(t.talkSec)}", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.hist_talk_time, HistoryFormat.talk(t.talkSec)), style = MaterialTheme.typography.titleMedium)
             Text(
-                "${HistoryFormat.talk(t.talkOutSec)} on calls you made · ${HistoryFormat.talk(t.talkInSec)} on calls you received",
+                stringResource(R.string.hist_talk_split, HistoryFormat.talk(t.talkOutSec), HistoryFormat.talk(t.talkInSec)),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -62,11 +70,11 @@ fun DaySummarySheet(vm: AppViewModel, dayMillis: Long, title: String, onDismiss:
 @Composable
 fun StatGrid(t: CallTotals) {
     val tiles = buildList {
-        add("Made" to t.outgoing)
-        add("Received" to t.incoming)
-        add("Missed" to t.missed)
-        add("Rejected" to t.rejected)
-        if (t.blocked > 0) add("Blocked" to t.blocked)
+        add(stringResource(R.string.hist_stat_made) to t.outgoing)
+        add(stringResource(R.string.hist_stat_received) to t.incoming)
+        add(stringResource(R.string.hist_stat_missed) to t.missed)
+        add(stringResource(R.string.hist_stat_rejected) to t.rejected)
+        if (t.blocked > 0) add(stringResource(R.string.hist_stat_blocked) to t.blocked)
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         tiles.forEach { (label, n) ->
@@ -81,11 +89,14 @@ fun StatGrid(t: CallTotals) {
 }
 
 object HistoryFormat {
-    /** "0 min", "45 s", "12 min", "2 h 05 min". */
-    fun talk(sec: Long): String = when {
-        sec <= 0 -> "0 min"
-        sec < 60 -> "$sec s"
-        sec < 3600 -> "${sec / 60} min"
-        else -> "${sec / 3600} h %02d min".format((sec % 3600) / 60)
+    /** "0 min", "45 s", "12 min", "2 h 5 min", in the current locale's short unit style. */
+    fun talk(sec: Long): String {
+        val f = MeasureFormat.getInstance(Locale.getDefault(), MeasureFormat.FormatWidth.SHORT)
+        return when {
+            sec <= 0 -> f.format(Measure(0, MeasureUnit.MINUTE))
+            sec < 60 -> f.format(Measure(sec, MeasureUnit.SECOND))
+            sec < 3600 -> f.format(Measure(sec / 60, MeasureUnit.MINUTE))
+            else -> f.formatMeasures(Measure(sec / 3600, MeasureUnit.HOUR), Measure((sec % 3600) / 60, MeasureUnit.MINUTE))
+        }
     }
 }

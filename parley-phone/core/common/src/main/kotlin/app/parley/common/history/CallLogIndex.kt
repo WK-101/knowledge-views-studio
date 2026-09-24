@@ -128,10 +128,11 @@ data class UnreturnedCall(val person: Person, val last: IndexedCall, val count: 
 /** "You usually talk every [usualGapDays] days". */
 data class Rhythm(val usualGapDays: Int, val samples: Int, val daysSinceLast: Int, val suggestedReminderDays: Int)
 
-enum class AnswerWindow(val label: String) {
-    MORNING("usually answers before noon"),
-    AFTERNOON("usually answers between noon and 6 pm"),
-    EVENING("usually answers after 6 pm"),
+/** When calls usually get answered; the app maps each value to a localised phrase ("usually answers after 6 pm"). */
+enum class AnswerWindow {
+    MORNING,
+    AFTERNOON,
+    EVENING,
     ;
 
     companion object {

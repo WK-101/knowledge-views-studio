@@ -34,13 +34,13 @@ object HistoryMerge {
 }
 
 /** "Delete calls from…" choices for one number (K10). */
-enum class DeleteRange(val label: String) {
-    ALL("All calls"),
-    LAST_YEAR("The last year"),
-    LAST_MONTH("The last month"),
-    LAST_WEEK("The last week"),
-    LAST_DAY("The last 24 hours"),
-    SINCE_DATE("Since a date…"),
+enum class DeleteRange {
+    ALL,
+    LAST_YEAR,
+    LAST_MONTH,
+    LAST_WEEK,
+    LAST_DAY,
+    SINCE_DATE,
     ;
 
     /** Calls at or after the returned epoch millis are deleted. */

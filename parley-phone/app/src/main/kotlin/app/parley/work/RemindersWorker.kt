@@ -35,7 +35,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         val c = applicationContext.container
         val s = c.settings.current()
         val nm = applicationContext.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Birthdays & reminders", NotificationManager.IMPORTANCE_DEFAULT))
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, applicationContext.getString(app.parley.R.string.work_channel_reminders), NotificationManager.IMPORTANCE_DEFAULT))
         val today = LocalDate.now()
         if (s.birthdayReminders) {
             val events = c.contacts.events()
@@ -45,12 +45,13 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 val d = EventDate.parse(e.date) ?: return@forEach
                 if (d.daysUntil(today) != 0L) return@forEach
                 if (!app.parley.common.people.LifeEvents.remindBirthday(e.type, e.contactId in deceased)) return@forEach
-                val what = when (e.type) {
-                    Event.TYPE_BIRTHDAY -> d.turning(today)?.let { "turns $it today" } ?: "has a birthday today"
-                    Event.TYPE_ANNIVERSARY -> d.turning(today)?.let { "anniversary: $it years" } ?: "anniversary today"
-                    else -> (e.label ?: "special date") + " today"
+                val ctx = applicationContext
+                val title = when (e.type) {
+                    Event.TYPE_BIRTHDAY -> d.turning(today)?.let { ctx.getString(app.parley.R.string.work_turns_today, e.name, it) } ?: ctx.getString(app.parley.R.string.work_birthday_today, e.name)
+                    Event.TYPE_ANNIVERSARY -> d.turning(today)?.let { ctx.getString(app.parley.R.string.work_anniversary_years, e.name, it) } ?: ctx.getString(app.parley.R.string.work_anniversary_today, e.name)
+                    else -> ctx.getString(app.parley.R.string.work_event_today, e.name, e.label ?: ctx.getString(app.parley.R.string.work_special_date))
                 }
-                notify(e.contactId.toInt(), "${e.name} $what", e.phone, e.contactId)
+                notify(e.contactId.toInt(), title, e.phone, e.contactId)
             }
         }
         if (s.reachOutNudges) nudges(c)
@@ -73,7 +74,10 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
             val recentlyNudged = nudgedAt != null && now - nudgedAt < every * 86_400_000L / 2
             if (due && !recentlyNudged) {
                 val days = if (last > 0) (now - last) / 86_400_000L else null
-                notify(10_000 + contact.id.toInt(), "Catch up with ${contact.displayName}" + (days?.let { " — last talked $it days ago" } ?: ""), contact.phones.firstOrNull()?.number, contact.id)
+                val ctx = applicationContext
+                val title = days?.let { ctx.resources.getQuantityString(app.parley.R.plurals.work_catch_up_days, it.toInt(), it.toInt(), contact.displayName) }
+                    ?: ctx.getString(app.parley.R.string.work_catch_up, contact.displayName)
+                notify(10_000 + contact.id.toInt(), title, contact.phones.firstOrNull()?.number, contact.id)
                 c.meta.setMeta(m.copy(lastNudgedAt = now))
             }
         }
@@ -92,8 +96,8 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
             .setContentIntent(open)
             .setAutoCancel(true)
         if (phone != null) {
-            b.addAction(0, "Call", PendingIntent.getActivity(ctx, id + 1, Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, contactId), PendingIntent.FLAG_IMMUTABLE))
-            b.addAction(0, "Message", PendingIntent.getActivity(ctx, id + 2, Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", phone, null)), PendingIntent.FLAG_IMMUTABLE))
+            b.addAction(0, ctx.getString(app.parley.R.string.work_action_call), PendingIntent.getActivity(ctx, id + 1, Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, contactId), PendingIntent.FLAG_IMMUTABLE))
+            b.addAction(0, ctx.getString(app.parley.R.string.work_action_message), PendingIntent.getActivity(ctx, id + 2, Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", phone, null)), PendingIntent.FLAG_IMMUTABLE))
         }
         try {
             NotificationManagerCompat.from(ctx).notify("reminder", id, b.build())

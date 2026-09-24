@@ -31,6 +31,9 @@ import app.parley.AppViewModel
 import app.parley.common.CallEntry
 import app.parley.common.history.ExportFormat
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 /**
  * "Export…" for the current Recents view or one person: CSV, JSON, calendar (.ics) or PDF to share, or print.
@@ -51,7 +54,7 @@ fun ExportSheet(vm: AppViewModel, calls: List<CallEntry>, subject: String?, onDi
                 block()
                 onDismiss()
             } catch (e: Exception) {
-                vm.toast("Export failed: ${e.message ?: e.javaClass.simpleName}")
+                vm.toast(context.getString(R.string.hist_export_failed, e.message ?: e.javaClass.simpleName))
             } finally {
                 busy = false
             }
@@ -62,11 +65,11 @@ fun ExportSheet(vm: AppViewModel, calls: List<CallEntry>, subject: String?, onDi
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Text(
-            "Export ${calls.size} call" + if (calls.size == 1) "" else "s",
+            pluralStringResource(R.plurals.hist_export_count, calls.size, calls.size),
             style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
         )
         Text(
-            "Files are made on this phone and deleted from Parley's cache after sharing. Durations are the real talk time.",
+            stringResource(R.string.hist_export_explain),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 24.dp),
         )
@@ -78,19 +81,19 @@ fun ExportSheet(vm: AppViewModel, calls: List<CallEntry>, subject: String?, onDi
                 modifier = Modifier.clickable(enabled = !busy && calls.isNotEmpty(), onClick = onClick),
             )
         }
-        row("CSV", "For spreadsheets; notes included", Icons.Rounded.TableChart) {
+        row(stringResource(R.string.hist_export_csv), stringResource(R.string.hist_export_csv_summary), Icons.Rounded.TableChart) {
             run { ExportFiles.share(context, ExportFiles.write(context, rows(), subject, ExportFormat.CSV), ExportFormat.CSV) }
         }
-        row("JSON", "For your own scripts", Icons.Rounded.Code) {
+        row(stringResource(R.string.hist_export_json), stringResource(R.string.hist_export_json_summary), Icons.Rounded.Code) {
             run { ExportFiles.share(context, ExportFiles.write(context, rows(), subject, ExportFormat.JSON), ExportFormat.JSON) }
         }
-        row("Calendar (.ics)", "One event per call", Icons.Rounded.CalendarMonth) {
+        row(stringResource(R.string.hist_export_ics), stringResource(R.string.hist_export_ics_summary), Icons.Rounded.CalendarMonth) {
             run { ExportFiles.share(context, ExportFiles.write(context, rows(), subject, ExportFormat.ICS), ExportFormat.ICS) }
         }
-        row("PDF", "A printable table to share", Icons.Rounded.PictureAsPdf) {
+        row(stringResource(R.string.hist_export_pdf), stringResource(R.string.hist_export_pdf_summary), Icons.Rounded.PictureAsPdf) {
             run { ExportFiles.share(context, ExportFiles.write(context, rows(), subject, ExportFormat.PDF), ExportFormat.PDF) }
         }
-        row("Print", "Or save as PDF with the system print dialog", Icons.Rounded.Print) {
+        row(stringResource(R.string.hist_export_print), stringResource(R.string.hist_export_print_summary), Icons.Rounded.Print) {
             run { ExportFiles.print(context, rows(), subject) }
         }
         Spacer(Modifier.height(24.dp))

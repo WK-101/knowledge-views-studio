@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import app.parley.AppViewModel
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 /** Destinations of the call-history features. */
 object HistoryRoutes {
@@ -40,13 +42,13 @@ fun NavGraphBuilder.historyDestinations(vm: AppViewModel, nav: NavController) {
 /** Recents top-bar action: Insights (H5). */
 @Composable
 fun RecentsInsightsAction(open: (String) -> Unit) {
-    IconButton({ open(HistoryRoutes.INSIGHTS) }) { Icon(Icons.Rounded.Insights, "Call insights") }
+    IconButton({ open(HistoryRoutes.INSIGHTS) }) { Icon(Icons.Rounded.Insights, stringResource(R.string.hist_insights_action)) }
 }
 
 /** Recents overflow item "Export…" (H2); the sheet itself is shown by [RecentsExportHost] in Recents. */
 @Composable
 fun RecentsExportMenuItem(closeMenu: () -> Unit) {
-    DropdownMenuItem({ Text("Export…") }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) }, onClick = {
+    DropdownMenuItem({ Text(stringResource(R.string.hist_export_menu)) }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) }, onClick = {
         closeMenu()
         exportRequested.value = true
     })

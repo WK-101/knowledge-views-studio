@@ -32,7 +32,12 @@ class TemporaryContactStore(private val c: DataContainer) {
     val all: Flow<List<TemporaryContactEntity>> get() = c.meta.temporaryContacts()
 
     /** A temporary contact expired but not everything was deleted; tell the user. */
-    data class Notice(val name: String, val text: String)
+    /**
+     * An expired temporary contact that was merged with another one. [name] is null when unknown (the app says
+     * "A temporary contact"); [keptDetails] is true when the merged-in details were kept and the rest deleted,
+     * false when nothing was deleted.
+     */
+    data class Notice(val name: String?, val keptDetails: Boolean)
 
     /**
      * Saves [details] as a phone-only contact (no account, never synced) that deletes itself at [expiresAt], recording
@@ -126,7 +131,7 @@ class TemporaryContactStore(private val c: DataContainer) {
                     c.contacts.resolve(t.lookupKey, t.contactId)?.let { c.contacts.rawIds(it).toSet() }.orEmpty()
                 }
                 val d = TemporaryExpiry.decide(stored, current, t.purgeHistory)
-                val name = t.name ?: c.contacts.contacts.value?.firstOrNull { it.lookupKey == t.lookupKey }?.displayName ?: "A temporary contact"
+                val name = t.name ?: c.contacts.contacts.value?.firstOrNull { it.lookupKey == t.lookupKey }?.displayName
                 val numbers = numbersOf(d.deleteRaws)
                 if (d.deleteRaws.isNotEmpty()) {
                     // Journaled first; if that or the delete fails the entry stays and is retried tomorrow.
@@ -139,11 +144,7 @@ class TemporaryContactStore(private val c: DataContainer) {
                 unused.forEach { n -> runCatching { c.messaging.forget(n) } }
                 if (d.purgeHistory) unused.forEach { n -> runCatching { c.history.purgeNumber(n) } }
                 if (d.keptMerged) {
-                    notices += Notice(
-                        name,
-                        if (d.deleteRaws.isNotEmpty()) "$name expired; the details you merged were kept"
-                        else "$name expired, but it was merged with another contact, so nothing was deleted",
-                    )
+                    notices += Notice(name, keptDetails = d.deleteRaws.isNotEmpty())
                 }
             }
         }

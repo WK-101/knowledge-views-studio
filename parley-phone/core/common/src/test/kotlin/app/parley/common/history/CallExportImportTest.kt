@@ -248,7 +248,7 @@ class CallExportImportTest {
         assertEquals(java.time.LocalDate.of(2026, 3, 15), u.cycleStart)
         assertEquals(java.time.LocalDate.of(2026, 4, 15), u.cycleEnd)
         assertEquals(10, u.daysLeft)
-        assertEquals("10 of 300 min used · 10 days left", u.summary())
+        assertEquals(300, u.config.allowanceMinutes)
         assertFalse(u.isNear)
         assertTrue(PlanMeter.usage(cfg.copy(allowanceMinutes = 12), calls, cat, at(2026, 4, 5), UTC).isNear)
         assertEquals(20, PlanMeter.usage(cfg.copy(countIncoming = true), calls, cat, at(2026, 4, 5), UTC).usedMinutes)

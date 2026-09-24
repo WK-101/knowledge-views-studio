@@ -1,0 +1,469 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared actions (data area: history, people, backup, vault and friends) -->
+    <string name="dc_cancel">Cancel</string>
+    <string name="dc_back">Back</string>
+    <string name="dc_close">Close</string>
+    <string name="dc_ok">OK</string>
+    <string name="dc_got_it">Got it</string>
+    <string name="dc_restore">Restore</string>
+    <string name="dc_delete">Delete</string>
+    <string name="dc_save">Save</string>
+    <string name="dc_done">Done</string>
+    <string name="dc_next">Next</string>
+    <string name="dc_off">Off</string>
+    <string name="dc_on">On</string>
+
+    <!-- Call history: archive notices -->
+    <string name="hist_archive_reset_title">Parley\'s call archive was reset</string>
+    <string name="hist_archive_reset_text">Its encryption key was no longer available on this phone (this can happen after a system update or a security change), so a new archive was started. The old one was set aside, not deleted.</string>
+    <string name="hist_archive_intro_title">Parley keeps its own copy of your calls</string>
+    <string name="hist_archive_intro_text">Android may drop old calls, so Parley keeps an encrypted copy on this phone. Calls you clear in another app stay in Parley; delete them here, or turn the archive off in its settings.</string>
+    <string name="hist_archive_settings">Archive settings</string>
+
+    <!-- Call history settings -->
+    <string name="hist_archive_on_summary">On: Parley keeps its own encrypted copy, because Android may drop old calls</string>
+    <string name="hist_archive_off_summary">Off: only what Android keeps</string>
+    <string name="hist_archive_off_title">Turn off the call-history archive?</string>
+    <string name="hist_archive_off_text">Parley deletes its encrypted copy of your calls. Your phone\'s own call history is not changed, but calls Android already dropped are gone for good.</string>
+    <string name="hist_archive_off_confirm">Turn off and delete</string>
+    <string name="hist_settings_title">Call history</string>
+    <string name="hist_keep_full">Keep full call history</string>
+    <plurals name="hist_archive_count">
+        <item quantity="one">%1$d call in Parley\'s archive</item>
+        <item quantity="other">%1$d calls in Parley\'s archive</item>
+    </plurals>
+    <string name="hist_archive_explain">Some phones keep only the most recent calls. With this on, Parley copies every call into its own database on this phone, encrypted with a key kept in Android\'s secure key store, and shows those calls in Recents. Nothing leaves the phone. Calls you delete in Parley are removed from the copy too; calls deleted in other apps stay in it.</string>
+    <plurals name="hist_retention_days">
+        <item quantity="one">Your setting keeps call history for %1$d day; older calls are deleted from both, except numbers you keep forever.</item>
+        <item quantity="other">Your setting keeps call history for %1$d days; older calls are deleted from both, except numbers you keep forever.</item>
+    </plurals>
+    <string name="hist_retention_forever">Your setting keeps call history forever.</string>
+    <string name="hist_kept_forever">Kept forever</string>
+    <string name="hist_kept_forever_empty">Open a contact or a number\'s history and turn on “Keep this call history forever” to keep it whatever the retention setting.</string>
+    <string name="hist_stop_keeping">Stop keeping forever</string>
+    <string name="hist_recently_deleted">Recently deleted calls</string>
+    <string name="hist_recently_deleted_empty">Nothing deleted in the last 30 days.</string>
+    <plurals name="hist_calls_deleted">
+        <item quantity="one">%1$d call deleted</item>
+        <item quantity="other">%1$d calls deleted</item>
+    </plurals>
+    <plurals name="hist_restored_calls">
+        <item quantity="one">Restored %1$d call</item>
+        <item quantity="other">Restored %1$d calls</item>
+    </plurals>
+    <string name="hist_restore_failed_default">Couldn\'t restore. Make Parley your default phone app first.</string>
+    <string name="hist_export_import">Export &amp; import</string>
+    <string name="hist_csv_bom">Excel-friendly CSV</string>
+    <string name="hist_csv_bom_summary">Adds a byte-order mark so accents show correctly in Excel</string>
+    <string name="hist_import_csv">Import call history from CSV</string>
+    <string name="hist_import_csv_summary">From Parley, Logger or a spreadsheet</string>
+    <string name="hist_export_hint">To export, open Recents › ⋮ › Export, or a number\'s history.</string>
+    <string name="dc_joined_dot">%1$s · %2$s</string>
+    <string name="dc_list_separator">, </string>
+
+    <!-- Call history: enums from core -->
+    <string name="hist_answers_morning">Usually answers before noon</string>
+    <string name="hist_answers_afternoon">Usually answers between noon and 6 pm</string>
+    <string name="hist_answers_evening">Usually answers after 6 pm</string>
+    <string name="hist_period_any">Any time</string>
+    <string name="hist_period_today">Today</string>
+    <string name="hist_period_7_days">Last 7 days</string>
+    <string name="hist_period_30_days">Last 30 days</string>
+    <string name="hist_period_this_month">This month</string>
+    <string name="hist_period_90_days">Last 90 days</string>
+    <string name="hist_period_this_year">This year</string>
+    <string name="hist_type_incoming">Incoming</string>
+    <string name="hist_type_outgoing">Outgoing</string>
+    <string name="hist_type_missed">Missed</string>
+    <string name="hist_type_rejected">Rejected</string>
+    <string name="hist_type_blocked">Blocked</string>
+    <string name="hist_type_voicemail">Voicemail</string>
+    <string name="hist_range_all">All calls</string>
+    <string name="hist_range_year">The last year</string>
+    <string name="hist_range_month">The last month</string>
+    <string name="hist_range_week">The last week</string>
+    <string name="hist_range_day">The last 24 hours</string>
+    <string name="hist_range_since_date">Since a date…</string>
+    <string name="hist_increment_second">Per second</string>
+    <string name="hist_increment_half_minute">Per 30 seconds</string>
+    <string name="hist_increment_minute">Per minute</string>
+    <string name="hist_category_mobile">Mobile numbers</string>
+    <string name="hist_category_landline">Landlines</string>
+    <string name="hist_category_mobile_or_landline">Mobile or landline</string>
+    <string name="hist_category_international">International</string>
+    <string name="hist_category_toll_free">Toll-free</string>
+    <string name="hist_category_other">Other (premium, shared cost, VoIP, short codes)</string>
+    <string name="hist_source_parley">Parley export</string>
+    <string name="hist_source_logger">Logger export</string>
+    <string name="hist_source_generic">Other CSV</string>
+    <string name="hist_problem_empty_file">The file is empty</string>
+    <string name="hist_problem_need_columns">Choose which columns hold the number, type and date</string>
+    <string name="hist_problem_unreadable_row">Unreadable row</string>
+    <string name="hist_problem_unknown_type">Unknown call type \'%1$s\'</string>
+    <string name="hist_problem_unreadable_date">Unreadable date \'%1$s\'</string>
+    <string name="hist_problem_unreadable_duration">Unreadable duration \'%1$s\'</string>
+    <string name="hist_problem_not_a_number">Not a phone number \'%1$s\'</string>
+    <string name="hist_plan_used">%1$d of %2$d min used</string>
+    <string name="hist_plan_last_day">last day</string>
+    <plurals name="hist_plan_days_left">
+        <item quantity="one">%1$d day left</item>
+        <item quantity="other">%1$d days left</item>
+    </plurals>
+    <string name="hist_minutes_short">%1$d min</string>
+    <string name="hist_seconds_short">%1$d s</string>
+    <string name="hist_duration_between">%1$s–%2$s</string>
+    <string name="hist_duration_at_least">≥ %1$s</string>
+    <string name="hist_duration_at_most">≤ %1$s</string>
+    <string name="hist_all_calls">All calls</string>
+
+    <!-- Call insights (contact detail, number history) -->
+    <string name="hist_calls_section">Calls</string>
+    <string name="hist_last_call">Last call %1$s</string>
+    <plurals name="hist_insight_totals">
+        <item quantity="one">%1$d call · talk %2$s (%3$s out, %4$s in) · about %5$s a month</item>
+        <item quantity="other">%1$d calls · talk %2$s (%3$s out, %4$s in) · about %5$s a month</item>
+    </plurals>
+    <string name="hist_trend_up">More calls lately</string>
+    <string name="hist_trend_down">Fewer calls lately</string>
+    <string name="hist_trend_steady">About as often as before</string>
+    <plurals name="hist_trend_detail">
+        <item quantity="one">%1$d call in the last 90 days, %2$d in the 90 days before</item>
+        <item quantity="other">%1$d calls in the last 90 days, %2$d in the 90 days before</item>
+    </plurals>
+    <plurals name="hist_rhythm">
+        <item quantity="one">You usually talk every day</item>
+        <item quantity="other">You usually talk every %1$d days</item>
+    </plurals>
+    <string name="hist_last_talked_today">Last talked today</string>
+    <plurals name="hist_last_talked_days">
+        <item quantity="one">Last talked %1$d day ago</item>
+        <item quantity="other">Last talked %1$d days ago</item>
+    </plurals>
+    <string name="hist_answer_window_hint">From how often your calls get answered</string>
+    <string name="hist_when_you_talk">When you talk</string>
+    <string name="hist_keep_forever">Keep this call history forever</string>
+    <string name="hist_keep_forever_summary">Parley\'s archive keeps these calls even when history older than your retention setting is deleted</string>
+    <string name="hist_heatmap_peak">Most calls on %1$s around %2$s</string>
+    <string name="hist_no_calls">No calls</string>
+    <plurals name="hist_rhythm_if_not_talked">
+        <item quantity="one">If you haven\'t talked in %1$d day</item>
+        <item quantity="other">If you haven\'t talked in %1$d days</item>
+    </plurals>
+    <plurals name="hist_rhythm_suggested">
+        <item quantity="one">Suggested: you usually talk every day</item>
+        <item quantity="other">Suggested: you usually talk every %1$d days</item>
+    </plurals>
+
+    <!-- Day summary -->
+    <plurals name="hist_day_calls_with">
+        <item quantity="one">%1$d call with %2$s</item>
+        <item quantity="other">%1$d calls with %2$s</item>
+    </plurals>
+    <plurals name="hist_people_count">
+        <item quantity="one">%1$d person</item>
+        <item quantity="other">%1$d people</item>
+    </plurals>
+    <string name="hist_talk_time">Talk time %1$s</string>
+    <string name="hist_talk_split">%1$s on calls you made · %2$s on calls you received</string>
+    <string name="hist_stat_made">Made</string>
+    <string name="hist_stat_received">Received</string>
+    <string name="hist_stat_missed">Missed</string>
+    <string name="hist_stat_rejected">Rejected</string>
+    <string name="hist_stat_blocked">Blocked</string>
+    <string name="hist_type_answered_elsewhere">Answered elsewhere</string>
+    <string name="hist_type_unknown">Unknown type</string>
+
+    <!-- Export -->
+    <string name="hist_share_chooser">Share call history</string>
+    <string name="hist_export_title">Call history</string>
+    <string name="hist_export_title_subject">Call history · %1$s</string>
+    <plurals name="hist_pdf_made_with">
+        <item quantity="one">%1$d call · made with Parley on %2$s</item>
+        <item quantity="other">%1$d calls · made with Parley on %2$s</item>
+    </plurals>
+    <string name="hist_pdf_col_date">Date</string>
+    <string name="hist_pdf_col_type">Type</string>
+    <string name="hist_pdf_col_who">Name / number</string>
+    <string name="hist_pdf_col_duration">Duration</string>
+    <string name="hist_pdf_col_sim">SIM</string>
+    <string name="hist_private_number">Private number</string>
+    <string name="hist_pdf_note">Note: %1$s</string>
+    <string name="hist_pdf_page">Page %1$d of %2$d</string>
+    <string name="hist_export_failed">Export failed: %1$s</string>
+    <plurals name="hist_export_count">
+        <item quantity="one">Export %1$d call</item>
+        <item quantity="other">Export %1$d calls</item>
+    </plurals>
+    <string name="hist_export_explain">Files are made on this phone and deleted from Parley\'s cache after sharing. Durations are the real talk time.</string>
+    <string name="hist_export_csv">CSV</string>
+    <string name="hist_export_csv_summary">For spreadsheets; notes included</string>
+    <string name="hist_export_json">JSON</string>
+    <string name="hist_export_json_summary">For your own scripts</string>
+    <string name="hist_export_ics">Calendar (.ics)</string>
+    <string name="hist_export_ics_summary">One event per call</string>
+    <string name="hist_export_pdf">PDF</string>
+    <string name="hist_export_pdf_summary">A printable table to share</string>
+    <string name="hist_export_print">Print</string>
+    <string name="hist_export_print_summary">Or save as PDF with the system print dialog</string>
+    <string name="hist_insights_action">Call insights</string>
+    <string name="hist_export_menu">Export…</string>
+
+    <!-- Import call history -->
+    <string name="hist_import_reading">Reading the file…</string>
+    <string name="hist_import_read_failed">Couldn\'t read the file</string>
+    <string name="hist_import_title">Import call history</string>
+    <string name="hist_import_explain">Adds calls from a CSV file to your call history: Parley\'s own export, Logger\'s export or any spreadsheet with a number, a type and a date. You see what would happen before anything is written. Calls already in your history are skipped, and imported calls never show up as new missed calls.</string>
+    <string name="hist_import_need_default">Make Parley your default phone app first: Android only lets the phone app write call history.</string>
+    <string name="hist_import_choose">Choose a CSV file</string>
+    <string name="hist_import_choose_another">Choose another file</string>
+    <string name="hist_import_dry_run">Dry run · %1$s</string>
+    <plurals name="hist_import_rows_read">
+        <item quantity="one">%1$d row read</item>
+        <item quantity="other">%1$d rows read</item>
+    </plurals>
+    <plurals name="hist_import_new_calls">
+        <item quantity="one">%1$d new call</item>
+        <item quantity="other">%1$d new calls</item>
+    </plurals>
+    <plurals name="hist_import_already">
+        <item quantity="one">%1$d already in your history</item>
+        <item quantity="other">%1$d already in your history</item>
+    </plurals>
+    <plurals name="hist_import_rows_skipped">
+        <item quantity="one">%1$d row skipped</item>
+        <item quantity="other">%1$d rows skipped</item>
+    </plurals>
+    <string name="hist_import_columns">Columns</string>
+    <string name="hist_import_day_first">Dates are day first</string>
+    <string name="hist_import_day_first_on">03/04/2025 is 3 April</string>
+    <string name="hist_import_day_first_off">03/04/2025 is 4 March</string>
+    <string name="hist_import_first_calls">First calls to import</string>
+    <string name="hist_importing">Importing…</string>
+    <string name="hist_import_nothing">Nothing was imported. Android didn\'t accept the calls: check that Parley is your default phone app.</string>
+    <plurals name="hist_import_done">
+        <item quantity="one">Imported %1$d call</item>
+        <item quantity="other">Imported %1$d calls</item>
+    </plurals>
+    <plurals name="hist_import_done_dupes">
+        <item quantity="one">%1$d already in your history, skipped</item>
+        <item quantity="other">%1$d already in your history, skipped</item>
+    </plurals>
+    <plurals name="hist_import_done_problems">
+        <item quantity="one">%1$d unreadable row skipped</item>
+        <item quantity="other">%1$d unreadable rows skipped</item>
+    </plurals>
+    <plurals name="hist_import_button">
+        <item quantity="one">Import %1$d call</item>
+        <item quantity="other">Import %1$d calls</item>
+    </plurals>
+    <string name="hist_import_problems">Rows that can\'t be imported</string>
+    <string name="hist_import_line">Line %1$d: %2$s</string>
+    <string name="hist_import_more">…and %1$d more</string>
+    <string name="hist_import_finished">Import finished</string>
+    <string name="hist_call">Call</string>
+    <string name="hist_col_number">Number</string>
+    <string name="hist_col_type">Call type</string>
+    <string name="hist_col_date">Date (or date and time)</string>
+    <string name="hist_col_time">Time</string>
+    <string name="hist_col_timestamp">Timestamp (Unix)</string>
+    <string name="hist_col_duration">Duration</string>
+    <string name="hist_col_name">Name</string>
+    <string name="hist_col_sim">SIM</string>
+    <string name="hist_col_missing">Not in this file</string>
+    <string name="hist_col_n">Column %1$d</string>
+
+    <!-- Insights -->
+    <string name="hist_insight_week">7 days</string>
+    <string name="hist_insight_month">30 days</string>
+    <string name="hist_insight_quarter">90 days</string>
+    <string name="hist_insight_year">This year</string>
+    <string name="hist_insight_all">All time</string>
+    <string name="hist_insights_title">Insights</string>
+    <string name="hist_talk_time_label">Talk time</string>
+    <string name="hist_calls_you_made">Calls you made</string>
+    <string name="hist_calls_you_received">Calls you received</string>
+    <string name="hist_answered_rates">%1$d of %2$d calls you made were answered · %3$d of %4$d incoming calls answered</string>
+    <string name="hist_talk_per_week">Talk time per week</string>
+    <string name="hist_most_talk">Most talk time</string>
+    <plurals name="hist_talk_and_calls">
+        <item quantity="one">%2$s · %1$d call</item>
+        <item quantity="other">%2$s · %1$d calls</item>
+    </plurals>
+    <string name="hist_most_calls">Most calls</string>
+    <plurals name="hist_calls_and_talk">
+        <item quantity="one">%1$d call · %2$s</item>
+        <item quantity="other">%1$d calls · %2$s</item>
+    </plurals>
+    <string name="hist_by_sim">By SIM</string>
+    <string name="hist_no_sim">No SIM recorded</string>
+    <string name="hist_other_sim">Other SIM</string>
+    <plurals name="hist_sim_totals">
+        <item quantity="one">%1$d call · %2$d made · %3$d received · %4$d missed · talk %5$s</item>
+        <item quantity="other">%1$d calls · %2$d made · %3$d received · %4$d missed · talk %5$s</item>
+    </plurals>
+    <string name="hist_unreturned">Calls you didn\'t return</string>
+    <string name="hist_unreturned_none">None. Nice.</string>
+    <plurals name="hist_missed_last">
+        <item quantity="one">Missed %2$s</item>
+        <item quantity="other">%1$d missed calls · last %2$s</item>
+    </plurals>
+    <string name="hist_call_back">Call back</string>
+    <string name="hist_insights_footer">Worked out on this phone from your call history.</string>
+    <string name="hist_insights_footer_no_contacts">Worked out on this phone from your call history. Contacts couldn\'t be read, so people are shown by number.</string>
+    <string name="hist_weekly_desc">Weekly talk time, busiest week %1$s with %2$s</string>
+    <string name="hist_weekly_scale">Top line = %1$s · half = %2$s</string>
+
+    <!-- Number history -->
+    <plurals name="hist_deleted_calls">
+        <item quantity="one">Deleted %1$d call</item>
+        <item quantity="other">Deleted %1$d calls</item>
+    </plurals>
+    <string name="dc_undo">Undo</string>
+    <string name="dc_more_options">More options</string>
+    <string name="hist_delete_calls_menu">Delete calls…</string>
+    <string name="hist_action_call">Call</string>
+    <string name="hist_action_message">Message</string>
+    <string name="hist_action_copy">Copy</string>
+    <string name="hist_action_message_on">Message on…</string>
+    <string name="hist_action_new_contact">New contact</string>
+    <string name="hist_action_add_to_contact">Add to contact</string>
+    <string name="hist_action_view_contact">View contact</string>
+    <string name="hist_action_block">Block</string>
+    <string name="hist_action_unblock">Unblock</string>
+    <string name="hist_call_notes">Call notes</string>
+    <string name="hist_delete_note">Delete note</string>
+
+    <!-- Range delete -->
+    <string name="hist_range_title">Delete calls with this number</string>
+    <string name="hist_range_since">Since %1$s</string>
+    <plurals name="hist_n_calls">
+        <item quantity="one">%1$d call</item>
+        <item quantity="other">%1$d calls</item>
+    </plurals>
+    <string name="hist_range_undo_hint">You can undo this for 30 days (Settings › Recents &amp; history › Kept calls &amp; recently deleted).</string>
+    <string name="hist_range_delete_n">Delete %1$d</string>
+
+    <!-- Saved filters -->
+    <string name="hist_filter">Filter</string>
+    <string name="hist_filter_title">Filter calls</string>
+    <string name="hist_filter_type">Type</string>
+    <string name="hist_filter_sim">SIM</string>
+    <string name="hist_filter_any">Any</string>
+    <string name="hist_filter_when">When</string>
+    <string name="hist_filter_talk_time">Talk time</string>
+    <string name="hist_filter_name">Name (to save as a chip)</string>
+    <string name="hist_filter_clear">Clear</string>
+    <string name="hist_filter_save">Save chip</string>
+    <string name="hist_filter_apply">Apply</string>
+    <string name="hist_filter_saved">Saved chips</string>
+    <string name="hist_filter_delete">Delete %1$s</string>
+    <string name="hist_dur_not_answered">Not answered</string>
+    <string name="hist_dur_under_1">Under 1 min</string>
+    <string name="hist_dur_1_plus">1 min or more</string>
+    <string name="hist_dur_5_plus">5 min or more</string>
+    <string name="hist_dur_30_plus">30 min or more</string>
+
+    <!-- SIMs and plan meter -->
+    <string name="hist_sims_title">SIMs</string>
+    <string name="hist_sims_empty">No SIM found. Parley needs to be the default phone app to list SIMs.</string>
+    <string name="hist_no_plan">No plan set</string>
+    <string name="hist_plan_section">Plan minutes</string>
+    <string name="hist_plan_track">Track plan minutes</string>
+    <string name="hist_plan_track_summary">Counted from your call history on this phone. Your carrier\'s bill is what counts.</string>
+    <plurals name="hist_plan_detail">
+        <item quantity="one">%1$d call, %2$s of real talk time, billed as %3$d min. Cycle %4$s – %5$s.</item>
+        <item quantity="other">%1$d calls, %2$s of real talk time, billed as %3$d min. Cycle %4$s – %5$s.</item>
+    </plurals>
+    <string name="hist_plan_minutes">Minutes per cycle</string>
+    <string name="hist_plan_renews">Allowance renews on</string>
+    <string name="hist_plan_renews_day">Day %1$d of each month</string>
+    <string name="hist_plan_renews_day_last">Day %1$d of each month (or the last day)</string>
+    <string name="hist_plan_day">Day %1$d</string>
+    <string name="hist_plan_billing">Billing</string>
+    <string name="hist_plan_billing_summary">How your carrier rounds each call. Only used for this meter; your call history keeps the real durations.</string>
+    <string name="hist_plan_counted">Counted calls</string>
+    <string name="hist_plan_international">International numbers</string>
+    <string name="hist_plan_international_summary">Numbers from another country than your SIM</string>
+    <string name="hist_plan_other">Other numbers</string>
+    <string name="hist_plan_other_summary">Premium, shared-cost, VoIP and short numbers</string>
+    <string name="hist_plan_incoming">Incoming calls too</string>
+    <string name="hist_plan_incoming_summary">Some plans count received minutes</string>
+    <string name="hist_plan_toll_free_note">Toll-free numbers are never counted. Parley warns you once per cycle at %1$d%% and shows a dot on this SIM\'s call button.</string>
+    <string name="hist_plan_warn_at">Warn at</string>
+    <string name="hist_plan_warn_at_summary">%1$d%% of the allowance</string>
+    <string name="hist_percent">%1$d%%</string>
+
+    <!-- Background work notifications -->
+    <string name="work_channel_backups">Backups</string>
+    <string name="work_backup_title">Parley backup</string>
+    <string name="work_channel_plan">Plan minutes</string>
+    <string name="work_plan_used_up">%1$s: plan minutes used up</string>
+    <string name="work_plan_used_percent">%1$s: %2$d%% of plan minutes used</string>
+    <string name="work_channel_housekeeping">Contacts housekeeping</string>
+    <string name="work_temp_expired_title">Temporary contact expired</string>
+    <string name="work_temp_someone">A temporary contact</string>
+    <string name="work_temp_expired_kept">%1$s expired; the details you merged were kept</string>
+    <string name="work_temp_expired_merged">%1$s expired, but it was merged with another contact, so nothing was deleted</string>
+    <string name="work_channel_reminders">Birthdays &amp; reminders</string>
+    <string name="work_turns_today">%1$s turns %2$d today</string>
+    <string name="work_birthday_today">%1$s has a birthday today</string>
+    <string name="work_anniversary_years">%1$s anniversary: %2$d years</string>
+    <string name="work_anniversary_today">%1$s anniversary today</string>
+    <string name="work_special_date">special date</string>
+    <string name="work_event_today">%1$s %2$s today</string>
+    <string name="work_catch_up">Catch up with %1$s</string>
+    <plurals name="work_catch_up_days">
+        <item quantity="one">Catch up with %2$s — last talked %1$d day ago</item>
+        <item quantity="other">Catch up with %2$s — last talked %1$d days ago</item>
+    </plurals>
+    <string name="work_action_call">Call</string>
+    <string name="work_action_message">Message</string>
+
+    <!-- Temporary contacts -->
+    <string name="temp_fallback_name">Temporary contact</string>
+    <string name="temp_deletes_soon">Deletes soon</string>
+    <plurals name="temp_days_left">
+        <item quantity="one">%1$d day left</item>
+        <item quantity="other">%1$d days left</item>
+    </plurals>
+    <plurals name="temp_hours_left">
+        <item quantity="one">%1$d hour left</item>
+        <item quantity="other">%1$d hours left</item>
+    </plurals>
+    <string name="temp_within_hour">Deletes within the hour</string>
+    <string name="temp_title">Temporary contacts</string>
+    <string name="temp_empty_title">No temporary contacts</string>
+    <string name="temp_empty_text">Save a number for a while: the plumber, a delivery, a seller. Type it on the keypad and choose “Save temporary contact”, or pick “Delete automatically” on a contact\'s page.</string>
+    <string name="temp_intro">These contacts delete themselves when their time is up, with their call history if you chose so.</string>
+    <string name="temp_will_be_kept">%1$s will be kept</string>
+    <string name="temp_keep_for">Keep %1$s for</string>
+    <plurals name="temp_deletes_in_days">
+        <item quantity="one">Deletes itself in %1$d day</item>
+        <item quantity="other">Deletes itself in %1$d days</item>
+    </plurals>
+    <string name="temp_delete_now_title">Delete %1$s now?</string>
+    <string name="temp_delete_with_history">The contact and its call history are deleted.</string>
+    <string name="temp_delete_keep_history">The contact is deleted; its call history stays.</string>
+    <string name="temp_delete_restore_hint">You can restore the contact from Recently deleted for 30 days.</string>
+    <string name="temp_private">Private</string>
+    <string name="temp_keep_longer">Keep %1$s longer</string>
+    <string name="temp_more_actions">More actions for %1$s</string>
+    <string name="temp_extend">Extend…</string>
+    <string name="temp_keep_permanently">Keep permanently</string>
+    <string name="temp_delete_now">Delete now</string>
+    <plurals name="temp_n_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <string name="temp_custom">Custom</string>
+    <string name="temp_days">Days</string>
+    <string name="temp_save_title">Save temporary contact</string>
+    <string name="temp_save_visible_text">%1$s is saved in your contacts on this phone only, where apps that can read contacts (WhatsApp included) see it, and deletes itself when the time is up.</string>
+    <string name="temp_save_private_text">%1$s is saved privately in Parley, where other apps can\'t see it, and deletes itself when the time is up.</string>
+    <string name="temp_name">Name</string>
+    <string name="temp_delete_after">Delete after</string>
+    <string name="temp_also_history">Also delete its call history</string>
+    <string name="temp_visible">Save visible to other apps</string>
+    <string name="temp_save_privately">Save privately</string>
+</resources>

@@ -46,14 +46,14 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
 
         fun notify(context: Context, text: String) {
             val nm = context.getSystemService(NotificationManager::class.java)
-            nm.createNotificationChannel(NotificationChannel("backup_v1", "Backups", NotificationManager.IMPORTANCE_DEFAULT))
+            nm.createNotificationChannel(NotificationChannel("backup_v1", context.getString(app.parley.R.string.work_channel_backups), NotificationManager.IMPORTANCE_DEFAULT))
             val open = PendingIntent.getActivity(
                 context, 77, Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN_BACKUP).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 PendingIntent.FLAG_IMMUTABLE,
             )
             val n = NotificationCompat.Builder(context, "backup_v1")
                 .setSmallIcon(app.parley.ui.R.drawable.ic_stat_block)
-                .setContentTitle("Parley backup")
+                .setContentTitle(context.getString(app.parley.R.string.work_backup_title))
                 .setContentText(text)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(text))
                 .setContentIntent(open)

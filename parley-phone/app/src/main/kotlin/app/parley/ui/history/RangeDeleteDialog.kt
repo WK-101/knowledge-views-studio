@@ -31,6 +31,9 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 
 /**
  * K10: delete one number's calls from a point in time until now. Deleted calls are kept sealed for 30 days;
@@ -58,17 +61,17 @@ fun RangeDeleteDialog(vm: AppViewModel, number: String, onDeleted: (batchId: Lon
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Delete calls with this number") },
+        title = { Text(stringResource(R.string.hist_range_title)) },
         text = {
             Column {
                 DeleteRange.entries.forEach { r ->
                     val n = count(r)
                     val label = if (r == DeleteRange.SINCE_DATE && picked != null) {
-                        "Since " + picked!!.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
-                    } else r.label
+                        stringResource(R.string.hist_range_since, picked!!.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)))
+                    } else stringResource(HistoryText.deleteRange(r))
                     ListItem(
                         headlineContent = { Text(label) },
-                        supportingContent = n?.let { { Text("$it ${if (it == 1) "call" else "calls"}") } },
+                        supportingContent = n?.let { { Text(pluralStringResource(R.plurals.hist_n_calls, it, it)) } },
                         leadingContent = { RadioButton(range == r, null) },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         modifier = Modifier.clickable {
@@ -78,7 +81,7 @@ fun RangeDeleteDialog(vm: AppViewModel, number: String, onDeleted: (batchId: Lon
                     )
                 }
                 Text(
-                    "You can undo this for 30 days (Settings › Recents & history › Kept calls & recently deleted).",
+                    stringResource(R.string.hist_range_undo_hint),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -96,9 +99,9 @@ fun RangeDeleteDialog(vm: AppViewModel, number: String, onDeleted: (batchId: Lon
                     }
                 },
                 enabled = selected != null && selected > 0,
-            ) { Text(if (selected != null && selected > 0) "Delete $selected" else "Delete") }
+            ) { Text(if (selected != null && selected > 0) stringResource(R.string.hist_range_delete_n, selected) else stringResource(R.string.dc_delete)) }
         },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 
     if (picking) {
@@ -114,9 +117,9 @@ fun RangeDeleteDialog(vm: AppViewModel, number: String, onDeleted: (batchId: Lon
                 TextButton({
                     state.selectedDateMillis?.let { picked = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
                     picking = false
-                }) { Text("OK") }
+                }) { Text(stringResource(R.string.dc_ok)) }
             },
-            dismissButton = { TextButton({ picking = false }) { Text("Cancel") } },
+            dismissButton = { TextButton({ picking = false }) { Text(stringResource(R.string.dc_cancel)) } },
         ) { DatePicker(state) }
     }
 }

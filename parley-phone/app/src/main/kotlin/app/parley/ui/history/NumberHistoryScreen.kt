@@ -47,6 +47,9 @@ import app.parley.ui.common.Format
 import app.parley.ui.common.Intents
 import app.parley.ui.home.callTypeIcon
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import app.parley.R
+import app.parley.ui.DataL10n
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,7 +76,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     if (rangeDelete) {
         RangeDeleteDialog(vm, number, onDismiss = { rangeDelete = false }, onDeleted = { batch, n ->
             scope.launch {
-                val r = snackbar.showSnackbar("Deleted $n ${if (n == 1) "call" else "calls"}", actionLabel = "Undo", duration = androidx.compose.material3.SnackbarDuration.Long)
+                val r = snackbar.showSnackbar(context.resources.getQuantityString(R.plurals.hist_deleted_calls, n, n), actionLabel = context.getString(R.string.dc_undo), duration = androidx.compose.material3.SnackbarDuration.Long)
                 if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) vm.c.history.undoDelete(batch)
             }
         })
@@ -81,14 +84,14 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
 
     Scaffold(snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) }, topBar = {
         TopAppBar(
-            title = { Text("Call history") },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
+            title = { Text(stringResource(R.string.hist_settings_title)) },
+            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
             actions = {
                 androidx.compose.foundation.layout.Box {
-                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, "More options") }
+                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more_options)) }
                     androidx.compose.material3.DropdownMenu(menu, { menu = false }) {
-                        androidx.compose.material3.DropdownMenuItem({ Text("Export…") }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) }, onClick = { menu = false; exporting = true }, enabled = history.isNotEmpty())
-                        androidx.compose.material3.DropdownMenuItem({ Text("Delete calls…") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; rangeDelete = true }, enabled = history.isNotEmpty())
+                        androidx.compose.material3.DropdownMenuItem({ Text(stringResource(R.string.hist_export_menu)) }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) }, onClick = { menu = false; exporting = true }, enabled = history.isNotEmpty())
+                        androidx.compose.material3.DropdownMenuItem({ Text(stringResource(R.string.hist_delete_calls_menu)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; rangeDelete = true }, enabled = history.isNotEmpty())
                     }
                 }
             },
@@ -99,55 +102,55 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                 Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Avatar(title, contact?.photoUri, 96.dp)
                     Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp))
-                    if (contact != null) Text(Format.number(number, vm.countryIso), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (contact != null) Text(DataL10n.ltr(Format.number(number, vm.countryIso)), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     val where = remember(number) { app.parley.data.NumberInfo.location(number, vm.countryIso) }
                     val flag = remember(number) { app.parley.data.NumberInfo.flag(app.parley.data.NumberInfo.region(number, vm.countryIso)) }
                     if (where != null || flag != null) Text(listOfNotNull(flag, where).joinToString(" "), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     app.parley.messaging.LastMessagedNote(number)
                     Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AssistChip({ vm.requestCall(number, contact?.displayName) }, { Text("Call") }, leadingIcon = { Icon(Icons.Rounded.Call, null) })
-                        AssistChip({ Intents.sms(context, number) }, { Text("Message") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) })
-                        AssistChip({ Intents.copy(context, number) }, { Text("Copy") }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) })
+                        AssistChip({ vm.requestCall(number, contact?.displayName) }, { Text(stringResource(R.string.hist_action_call)) }, leadingIcon = { Icon(Icons.Rounded.Call, null) })
+                        AssistChip({ Intents.sms(context, number) }, { Text(stringResource(R.string.hist_action_message)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) })
+                        AssistChip({ Intents.copy(context, number) }, { Text(stringResource(R.string.hist_action_copy)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) })
                     }
                     Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AssistChip({ messageOn = true }, { Text("Message on…") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) })
+                        AssistChip({ messageOn = true }, { Text(stringResource(R.string.hist_action_message_on)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) })
                     }
                     Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (contact == null) {
-                            AssistChip({ open(Routes.edit(phone = number)) }, { Text("New contact") }, leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) })
-                            AssistChip({ open(Routes.pick(number)) }, { Text("Add to contact") }, leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) })
+                            AssistChip({ open(Routes.edit(phone = number)) }, { Text(stringResource(R.string.hist_action_new_contact)) }, leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) })
+                            AssistChip({ open(Routes.pick(number)) }, { Text(stringResource(R.string.hist_action_add_to_contact)) }, leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) })
                         } else {
-                            AssistChip({ open(Routes.contact(contact.id)) }, { Text("View contact") })
+                            AssistChip({ open(Routes.contact(contact.id)) }, { Text(stringResource(R.string.hist_action_view_contact)) })
                         }
                         AssistChip(
                             { if (blocked) vm.unblockNumber(number) else vm.blockNumber(number); blocked = !blocked },
-                            { Text(if (blocked) "Unblock" else "Block") },
+                            { Text(if (blocked) stringResource(R.string.hist_action_unblock) else stringResource(R.string.hist_action_block)) },
                             leadingIcon = { Icon(Icons.Rounded.Block, null) },
                         )
                     }
                 }
             }
-            item { CallInsightsSection(vm, listOf(number) + contact?.phones?.map { it.number }.orEmpty(), title = "Insights") }
+            item { CallInsightsSection(vm, listOf(number) + contact?.phones?.map { it.number }.orEmpty(), title = stringResource(R.string.hist_insights_title)) }
             item { app.parley.ui.blocking.ScreeningHistorySection(vm, number, contact?.displayName) }
             item { app.parley.ui.calls.RingFactsHistorySection(vm, number) }
             if (notes.isNotEmpty()) {
-                item { app.parley.ui.contact.Section("Call notes") }
+                item { app.parley.ui.contact.Section(stringResource(R.string.hist_call_notes)) }
                 items(notes, key = { "n" + it.id }) { n ->
                     ListItem(
                         headlineContent = { Text(n.text) },
                         supportingContent = { Text(Format.fullDate(context, n.callDate)) },
-                        trailingContent = { IconButton({ scope.launch { vm.c.meta.deleteCallNote(n.id) } }) { Icon(Icons.Rounded.Delete, "Delete note") } },
+                        trailingContent = { IconButton({ scope.launch { vm.c.meta.deleteCallNote(n.id) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.hist_delete_note)) } },
                     )
                 }
             }
-            if (history.isNotEmpty()) item { app.parley.ui.contact.Section("Calls") }
+            if (history.isNotEmpty()) item { app.parley.ui.contact.Section(stringResource(R.string.hist_calls_section)) }
             items(history, key = { it.id }) { e ->
                 val (icon, tint) = callTypeIcon(e.type)
                 ListItem(
                     leadingContent = { Icon(icon, null, tint = tint) },
                     headlineContent = { Text(Format.fullDate(context, e.date)) },
                     supportingContent = {
-                        Text(listOfNotNull(e.type.name.lowercase().replaceFirstChar { it.uppercase() }, Format.duration(e.durationSec).ifBlank { null }, e.accountId?.let { simLabels[it] }).joinToString(" · "))
+                        Text(listOfNotNull(stringResource(HistoryText.callType(e.type)), Format.duration(e.durationSec).ifBlank { null }, e.accountId?.let { simLabels[it] }).joinToString(" · "))
                     },
                 )
             }

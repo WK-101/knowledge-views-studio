@@ -47,6 +47,12 @@ import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.format.TextStyle
 import java.util.Locale
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import app.parley.R
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 /**
  * H6: per-person call insights for contact detail and number history: every number (E.164), last call,
@@ -54,7 +60,7 @@ import java.util.Locale
  * per-person "Keep forever" switch of the archive (H1). [numbers] are all of the person's numbers.
  */
 @Composable
-fun CallInsightsSection(vm: AppViewModel, numbers: List<String>, title: String = "Calls") {
+fun CallInsightsSection(vm: AppViewModel, numbers: List<String>, title: String = stringResource(R.string.hist_calls_section)) {
     val index by vm.c.history.index.collectAsStateWithLifecycle()
     val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -74,12 +80,15 @@ fun CallInsightsSection(vm: AppViewModel, numbers: List<String>, title: String =
             val (icon, tint) = callTypeIcon(last.type)
             ListItem(
                 leadingContent = { Icon(icon, null, tint = tint) },
-                headlineContent = { Text("Last call " + android.text.format.DateUtils.getRelativeTimeSpanString(last.date, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS)) },
+                headlineContent = { Text(stringResource(R.string.hist_last_call, android.text.format.DateUtils.getRelativeTimeSpanString(last.date, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS))) },
                 supportingContent = {
                     Text(
                         listOfNotNull(Format.fullDate(context, last.date), Format.duration(last.durationSec).ifBlank { null }).joinToString(" · ") +
-                            "\n${ins.totals.total} calls · talk ${HistoryFormat.talk(ins.totals.talkSec)} (${HistoryFormat.talk(ins.totals.talkOutSec)} out, ${HistoryFormat.talk(ins.totals.talkInSec)} in) · " +
-                            "about ${"%.1f".format(ins.averagePerMonth)} a month",
+                            "\n" + pluralStringResource(
+                                R.plurals.hist_insight_totals, ins.totals.total, ins.totals.total,
+                                HistoryFormat.talk(ins.totals.talkSec), HistoryFormat.talk(ins.totals.talkOutSec), HistoryFormat.talk(ins.totals.talkInSec),
+                                "%.1f".format(ins.averagePerMonth),
+                            ),
                     )
                 },
             )
@@ -99,30 +108,30 @@ fun CallInsightsSection(vm: AppViewModel, numbers: List<String>, title: String =
             headlineContent = {
                 Text(
                     when (t.direction) {
-                        TrendDirection.UP -> "More calls lately"
-                        TrendDirection.DOWN -> "Fewer calls lately"
-                        TrendDirection.STEADY -> "About as often as before"
+                        TrendDirection.UP -> stringResource(R.string.hist_trend_up)
+                        TrendDirection.DOWN -> stringResource(R.string.hist_trend_down)
+                        TrendDirection.STEADY -> stringResource(R.string.hist_trend_steady)
                     },
                 )
             },
-            supportingContent = { Text("${t.recent} calls in the last 90 days, ${t.previous} in the 90 days before") },
+            supportingContent = { Text(pluralStringResource(R.plurals.hist_trend_detail, t.recent, t.recent, t.previous)) },
         )
         ins.rhythm?.let { r ->
             ListItem(
                 leadingContent = { Icon(Icons.Rounded.Update, null) },
-                headlineContent = { Text("You usually talk every ${r.usualGapDays} ${if (r.usualGapDays == 1) "day" else "days"}") },
-                supportingContent = { Text(if (r.daysSinceLast == 0) "Last talked today" else "Last talked ${r.daysSinceLast} ${if (r.daysSinceLast == 1) "day" else "days"} ago") },
+                headlineContent = { Text(pluralStringResource(R.plurals.hist_rhythm, r.usualGapDays, r.usualGapDays)) },
+                supportingContent = { Text(if (r.daysSinceLast == 0) stringResource(R.string.hist_last_talked_today) else pluralStringResource(R.plurals.hist_last_talked_days, r.daysSinceLast, r.daysSinceLast)) },
             )
         }
         ins.answerWindow?.let { w ->
             ListItem(
                 leadingContent = { Icon(Icons.Rounded.Schedule, null) },
-                headlineContent = { Text(w.label.replaceFirstChar { it.uppercase() }) },
-                supportingContent = { Text("From how often your calls get answered") },
+                headlineContent = { Text(stringResource(HistoryText.answerWindow(w))) },
+                supportingContent = { Text(stringResource(R.string.hist_answer_window_hint)) },
             )
         }
         if (ins.heatmap.total >= 3) {
-            Text("When you talk", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
+            Text(stringResource(R.string.hist_when_you_talk), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
             HeatmapGrid(ins.heatmap, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
         }
         if (prefs.archiveEnabled) KeepForeverRow(vm, numbers)
@@ -142,8 +151,8 @@ private fun KeepForeverRow(vm: AppViewModel, numbers: List<String>) {
     ListItem(
         modifier = Modifier.clickable { toggle(!on) },
         leadingContent = { Icon(Icons.Rounded.AllInclusive, null) },
-        headlineContent = { Text("Keep this call history forever") },
-        supportingContent = { Text("Parley's archive keeps these calls even when history older than your retention setting is deleted") },
+        headlineContent = { Text(stringResource(R.string.hist_keep_forever)) },
+        supportingContent = { Text(stringResource(R.string.hist_keep_forever_summary)) },
         trailingContent = { Switch(on, ::toggle) },
     )
 }
@@ -156,6 +165,8 @@ fun HeatmapGrid(h: Heatmap, modifier: Modifier = Modifier) {
     val max = h.max.coerceAtLeast(1)
     val peak = h.peak()
     val locale = Locale.getDefault()
+    val noCalls = stringResource(R.string.hist_no_calls)
+    val peakText = peak?.let { (d, hr) -> stringResource(R.string.hist_heatmap_peak, d.getDisplayName(TextStyle.FULL, locale), LocalTime.of(hr, 0).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale))) }
     Column(modifier) {
         Row {
             Column(Modifier.width(28.dp)) {
@@ -165,7 +176,7 @@ fun HeatmapGrid(h: Heatmap, modifier: Modifier = Modifier) {
             }
             Canvas(
                 Modifier.weight(1f).height(98.dp).semantics {
-                    contentDescription = peak?.let { (d, hr) -> "Most calls on ${d.getDisplayName(TextStyle.FULL, locale)} around $hr:00" } ?: "No calls"
+                    contentDescription = peakText ?: noCalls
                 },
             ) {
                 val cw = size.width / 24f
@@ -202,7 +213,7 @@ fun RhythmSuggestion(vm: AppViewModel, numbers: List<String>, onPick: (Int) -> U
     ListItem(
         modifier = Modifier.clickable { onPick(r.suggestedReminderDays) },
         leadingContent = { Icon(Icons.Rounded.Update, null, tint = MaterialTheme.colorScheme.primary) },
-        headlineContent = { Text("If you haven't talked in ${r.suggestedReminderDays} days") },
-        supportingContent = { Text("Suggested: you usually talk every ${r.usualGapDays} ${if (r.usualGapDays == 1) "day" else "days"}") },
+        headlineContent = { Text(pluralStringResource(R.plurals.hist_rhythm_if_not_talked, r.suggestedReminderDays, r.suggestedReminderDays)) },
+        supportingContent = { Text(pluralStringResource(R.plurals.hist_rhythm_suggested, r.usualGapDays, r.usualGapDays)) },
     )
 }

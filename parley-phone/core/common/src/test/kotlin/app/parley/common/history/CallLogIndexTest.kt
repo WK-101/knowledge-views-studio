@@ -181,7 +181,6 @@ class CallLogIndexTest {
         val idx = CallLogIndex.build(calls, emptyList(), "FR", UTC)
         val ins = idx.insights("n:+33612345678", base + 30 * CallLogIndex.DAY)!!
         assertEquals(AnswerWindow.EVENING, ins.answerWindow)
-        assertEquals("usually answers after 6 pm", ins.answerWindow!!.label)
         assertNotNull(ins.lastCall)
         assertTrue(ins.averagePerMonth > 0)
     }

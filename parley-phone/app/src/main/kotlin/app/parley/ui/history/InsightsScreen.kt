@@ -63,9 +63,14 @@ import app.parley.ui.contact.Section
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import androidx.annotation.StringRes
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import app.parley.R
+import java.util.Locale
 
-private enum class InsightPeriod(val label: String) {
-    WEEK("7 days"), MONTH("30 days"), QUARTER("90 days"), YEAR("This year"), ALL("All time");
+private enum class InsightPeriod(@StringRes val label: Int) {
+    WEEK(R.string.hist_insight_week), MONTH(R.string.hist_insight_month), QUARTER(R.string.hist_insight_quarter), YEAR(R.string.hist_insight_year), ALL(R.string.hist_insight_all);
 
     fun period(now: Long, zone: ZoneId): Period = when (this) {
         WEEK -> Period.lastDays(7, now)
@@ -85,7 +90,7 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     var choice by rememberSaveable { mutableStateOf(InsightPeriod.MONTH) }
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Insights") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } })
+        TopAppBar(title = { Text(stringResource(R.string.hist_insights_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })
     }) { p ->
         val idx = index
         if (idx == null) {
@@ -107,7 +112,7 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         LazyColumn(Modifier.padding(p)) {
             item {
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    InsightPeriod.entries.forEach { c -> FilterChip(choice == c, { choice = c }, { Text(c.label) }) }
+                    InsightPeriod.entries.forEach { c -> FilterChip(choice == c, { choice = c }, { Text(stringResource(c.label)) }) }
                 }
             }
             item {
@@ -115,40 +120,40 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     StatGrid(totals)
                     Spacer(Modifier.height(16.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        TalkFigure("Talk time", totals.talkSec)
-                        TalkFigure("Calls you made", totals.talkOutSec)
-                        TalkFigure("Calls you received", totals.talkInSec)
+                        TalkFigure(stringResource(R.string.hist_talk_time_label), totals.talkSec)
+                        TalkFigure(stringResource(R.string.hist_calls_you_made), totals.talkOutSec)
+                        TalkFigure(stringResource(R.string.hist_calls_you_received), totals.talkInSec)
                     }
                     if (totals.outgoing > 0) {
                         Text(
-                            "${totals.answeredOut} of ${totals.outgoing} calls you made were answered · ${totals.answeredIn} of ${totals.incoming + totals.missed + totals.rejected} incoming calls answered",
+                            stringResource(R.string.hist_answered_rates, totals.answeredOut, totals.outgoing, totals.answeredIn, totals.incoming + totals.missed + totals.rejected),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
                         )
                     }
                 }
             }
             if (weeks.size > 1) {
-                item { Section("Talk time per week") }
+                item { Section(stringResource(R.string.hist_talk_per_week)) }
                 item { WeeklyBars(weeks, Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
             }
             if (byTime.isNotEmpty()) {
-                item { Section("Most talk time") }
-                byTime.forEach { pt -> item { PersonRow(vm, pt.person, HistoryFormat.talk(pt.totals.talkSec) + " · ${pt.totals.total} calls", open) } }
+                item { Section(stringResource(R.string.hist_most_talk)) }
+                byTime.forEach { pt -> item { PersonRow(vm, pt.person, pluralStringResource(R.plurals.hist_talk_and_calls, pt.totals.total, pt.totals.total, HistoryFormat.talk(pt.totals.talkSec)), open) } }
             }
             if (byCount.isNotEmpty()) {
-                item { Section("Most calls") }
-                byCount.forEach { pt -> item { PersonRow(vm, pt.person, "${pt.totals.total - pt.totals.blocked} calls · " + HistoryFormat.talk(pt.totals.talkSec), open) } }
+                item { Section(stringResource(R.string.hist_most_calls)) }
+                byCount.forEach { pt -> item { PersonRow(vm, pt.person, (pt.totals.total - pt.totals.blocked).let { n -> pluralStringResource(R.plurals.hist_calls_and_talk, n, n, HistoryFormat.talk(pt.totals.talkSec)) }, open) } }
             }
             if (perSim.size > 1) {
-                item { Section("By SIM") }
+                item { Section(stringResource(R.string.hist_by_sim)) }
                 val max = perSim.values.maxOf { it.total }.coerceAtLeast(1)
                 perSim.entries.sortedByDescending { it.value.total }.forEach { (id, t) ->
                     item {
                         ListItem(
-                            headlineContent = { Text(sims.firstOrNull { it.id == id }?.label ?: if (id == null) "No SIM recorded" else "Other SIM") },
+                            headlineContent = { Text(sims.firstOrNull { it.id == id }?.label ?: if (id == null) stringResource(R.string.hist_no_sim) else stringResource(R.string.hist_other_sim)) },
                             supportingContent = {
                                 Column {
-                                    Text("${t.total} calls · ${t.outgoing} made · ${t.incoming} received · ${t.missed} missed · talk ${HistoryFormat.talk(t.talkSec)}")
+                                    Text(pluralStringResource(R.plurals.hist_sim_totals, t.total, t.total, t.outgoing, t.incoming, t.missed, HistoryFormat.talk(t.talkSec)))
                                     LinearProgressIndicator(progress = { t.total.toFloat() / max }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
                                 }
                             },
@@ -156,24 +161,24 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     }
                 }
             }
-            item { Section("Calls you didn't return") }
+            item { Section(stringResource(R.string.hist_unreturned)) }
             if (unreturned.isEmpty()) {
-                item { Text("None. Nice.", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { Text(stringResource(R.string.hist_unreturned_none), Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             unreturned.take(20).forEach { u ->
                 item {
                     val context = LocalContext.current
                     PersonRow(
                         vm, u.person,
-                        (if (u.count > 1) "${u.count} missed calls · last " else "Missed ") + Format.shortWhen(context, u.last.date),
+                        pluralStringResource(R.plurals.hist_missed_last, u.count, u.count, Format.shortWhen(context, u.last.date)),
                         open,
-                        trailing = { IconButton({ vm.requestCall(u.person.number, u.person.name) }) { Icon(Icons.Rounded.Call, "Call back", tint = MaterialTheme.colorScheme.primary) } },
+                        trailing = { IconButton({ vm.requestCall(u.person.number, u.person.name) }) { Icon(Icons.Rounded.Call, stringResource(R.string.hist_call_back), tint = MaterialTheme.colorScheme.primary) } },
                     )
                 }
             }
             item {
                 Text(
-                    "Worked out on this phone from your call history" + if (!idx.contactsKnown) ". Contacts couldn't be read, so people are shown by number." else ".",
+                    if (!idx.contactsKnown) stringResource(R.string.hist_insights_footer_no_contacts) else stringResource(R.string.hist_insights_footer),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp),
                 )
             }
@@ -211,12 +216,14 @@ private fun WeeklyBars(weeks: List<WeekBucket>, modifier: Modifier = Modifier) {
     val inColor = MaterialTheme.colorScheme.tertiary
     val grid = MaterialTheme.colorScheme.outlineVariant
     val max = weeks.maxOf { it.talkSec }.coerceAtLeast(60)
-    val fmt = DateTimeFormatter.ofPattern("d MMM")
+    val locale = Locale.getDefault()
+    val fmt = DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(locale, "dMMM"), locale)
     val busiest = weeks.maxBy { it.talkSec }
+    val desc = stringResource(R.string.hist_weekly_desc, fmt.format(busiest.weekStart), HistoryFormat.talk(busiest.talkSec))
     Column(modifier) {
         Canvas(
             Modifier.fillMaxWidth().height(140.dp).semantics {
-                contentDescription = "Weekly talk time, busiest week ${fmt.format(busiest.weekStart)} with ${HistoryFormat.talk(busiest.talkSec)}"
+                contentDescription = desc
             },
         ) {
             val gap = 3.dp.toPx()
@@ -235,14 +242,14 @@ private fun WeeklyBars(weeks: List<WeekBucket>, modifier: Modifier = Modifier) {
         Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
             Text(fmt.format(weeks.first().weekStart), style = MaterialTheme.typography.labelSmall)
             Spacer(Modifier.weight(1f))
-            Text("Top line = ${HistoryFormat.talk(max)} · half = ${HistoryFormat.talk(max / 2)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.hist_weekly_scale, HistoryFormat.talk(max), HistoryFormat.talk(max / 2)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.weight(1f))
             Text(fmt.format(weeks.last().weekStart), style = MaterialTheme.typography.labelSmall)
         }
         Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Legend(outColor, "Calls you made")
+            Legend(outColor, stringResource(R.string.hist_calls_you_made))
             Spacer(Modifier.width(16.dp))
-            Legend(inColor, "Calls you received")
+            Legend(inColor, stringResource(R.string.hist_calls_you_received))
         }
     }
 }

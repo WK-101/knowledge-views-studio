@@ -10,14 +10,14 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /** Time window of a [HistoryFilter], relative to "now". */
-enum class FilterPeriod(val label: String) {
-    ANY("Any time"),
-    TODAY("Today"),
-    LAST_7_DAYS("Last 7 days"),
-    LAST_30_DAYS("Last 30 days"),
-    THIS_MONTH("This month"),
-    LAST_90_DAYS("Last 90 days"),
-    THIS_YEAR("This year"),
+enum class FilterPeriod {
+    ANY,
+    TODAY,
+    LAST_7_DAYS,
+    LAST_30_DAYS,
+    THIS_MONTH,
+    LAST_90_DAYS,
+    THIS_YEAR,
     ;
 
     /** Start of the window in epoch millis (inclusive); [Long.MIN_VALUE] for [ANY]. */
@@ -36,14 +36,14 @@ enum class FilterPeriod(val label: String) {
     }
 }
 
-/** Groups of call types a filter can pick. */
-enum class TypeGroup(val label: String, val types: Set<CallType>) {
-    INCOMING("Incoming", setOf(CallType.INCOMING, CallType.ANSWERED_EXTERNALLY)),
-    OUTGOING("Outgoing", setOf(CallType.OUTGOING)),
-    MISSED("Missed", setOf(CallType.MISSED)),
-    REJECTED("Rejected", setOf(CallType.REJECTED)),
-    BLOCKED("Blocked", setOf(CallType.BLOCKED)),
-    VOICEMAIL("Voicemail", setOf(CallType.VOICEMAIL)),
+/** Groups of call types a filter can pick (labels are app resources). */
+enum class TypeGroup(val types: Set<CallType>) {
+    INCOMING(setOf(CallType.INCOMING, CallType.ANSWERED_EXTERNALLY)),
+    OUTGOING(setOf(CallType.OUTGOING)),
+    MISSED(setOf(CallType.MISSED)),
+    REJECTED(setOf(CallType.REJECTED)),
+    BLOCKED(setOf(CallType.BLOCKED)),
+    VOICEMAIL(setOf(CallType.VOICEMAIL)),
 }
 
 /**
@@ -86,19 +86,6 @@ data class HistoryFilter(
 
     fun matches(e: CallEntry, now: Long, zone: ZoneId): Boolean = matcher(now, zone)(e)
 
-    /** Short description for a chip without a name, e.g. "Missed · SIM 2 · Last 7 days". */
-    fun describe(simLabel: (String) -> String = { it }): String = buildList {
-        if (types.isNotEmpty()) add(types.sortedBy { it.ordinal }.joinToString(", ") { it.label })
-        simId?.let { add(simLabel(it)) }
-        if (period != FilterPeriod.ANY) add(period.label)
-        when {
-            minDurationSec != null && maxDurationSec != null -> add("${fmt(minDurationSec)}–${fmt(maxDurationSec)}")
-            minDurationSec != null -> add("≥ ${fmt(minDurationSec)}")
-            maxDurationSec != null -> add("≤ ${fmt(maxDurationSec)}")
-        }
-    }.joinToString(" · ").ifEmpty { "All calls" }
-
-    private fun fmt(s: Long) = if (s % 60 == 0L && s > 0) "${s / 60} min" else "$s s"
 
     companion object {
         private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
