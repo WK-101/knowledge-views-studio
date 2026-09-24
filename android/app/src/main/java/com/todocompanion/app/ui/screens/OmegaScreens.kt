@@ -225,13 +225,6 @@ fun CommandPaletteDialog(vm: AppViewModel, onDismiss: () -> Unit, onRun: (OmegaC
     LaunchedEffect(Unit) { focus.requestFocus() }
 }
 
-/** A tiny wrapping row so the starter chips flow onto multiple lines without pulling in extra APIs. */
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-@Composable
-private fun FlowRowCompat(content: @Composable () -> Unit) {
-    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), content = { content() })
-}
-
 /**
  * Ω5 — the any-period recap. Pick a window and read the one cross-module story: what you finished,
  * tracked and kept, versus the window before it. Reachable from the palette ("recap last week") and

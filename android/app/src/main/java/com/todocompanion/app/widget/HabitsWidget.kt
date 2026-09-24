@@ -59,7 +59,7 @@ class HabitsWidget : BaseWidgetProvider() {
 
         // Size-responsive: on a short (≈1-row-tall) placement, drop the header so the habit rows get
         // every pixel and the widget reads as a clean check-off strip.
-        val minH = runCatching { manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) }.getOrDefault(0)
+        val minH = Widgets.minHeightDp(manager, id)
         views.setViewVisibility(R.id.hb_header, if (minH in 1..99) android.view.View.GONE else android.view.View.VISIBLE)
 
         manager.updateAppWidget(id, views)
@@ -101,16 +101,7 @@ class HabitsWidget : BaseWidgetProvider() {
     }
 
     companion object {
-        fun refresh(context: Context) {
-            val m = AppWidgetManager.getInstance(context) ?: return
-            val ids = m.getAppWidgetIds(ComponentName(context, HabitsWidget::class.java))
-            if (ids.isEmpty()) return
-            m.notifyAppWidgetViewDataChanged(ids, R.id.hb_list)
-            context.sendBroadcast(Intent(context, HabitsWidget::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-            })
-        }
+        fun refresh(context: Context) = Widgets.broadcastUpdate(context, HabitsWidget::class.java, R.id.hb_list)
 
         fun updateOne(context: Context, id: Int) {
             val m = AppWidgetManager.getInstance(context) ?: return

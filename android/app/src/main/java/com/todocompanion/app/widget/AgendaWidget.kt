@@ -65,7 +65,7 @@ class AgendaWidget : BaseWidgetProvider() {
         views.setTextColor(R.id.widget_daterow, s.textSecondary)
         // Size-responsive: on a short (≈1-row-tall) placement, drop the header so the list itself — the
         // actual content — gets every pixel and the widget reads as a clean task strip.
-        val minH = runCatching { manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) }.getOrDefault(0)
+        val minH = Widgets.minHeightDp(manager, id)
         views.setViewVisibility(R.id.widget_header, if (minH in 1..99) View.GONE else View.VISIBLE)
         manager.updateAppWidget(id, views)
         manager.notifyAppWidgetViewDataChanged(id, R.id.widget_list)
@@ -86,16 +86,7 @@ class AgendaWidget : BaseWidgetProvider() {
     }
 
     companion object {
-        fun refresh(context: Context) {
-            val manager = AppWidgetManager.getInstance(context) ?: return
-            val ids = manager.getAppWidgetIds(ComponentName(context, AgendaWidget::class.java))
-            if (ids.isEmpty()) return
-            manager.notifyAppWidgetViewDataChanged(ids, R.id.widget_list)
-            context.sendBroadcast(Intent(context, AgendaWidget::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-            })
-        }
+        fun refresh(context: Context) = Widgets.broadcastUpdate(context, AgendaWidget::class.java, R.id.widget_list)
 
         /** Re-render a single widget after its configuration changed. */
         fun updateOne(context: Context, id: Int) {

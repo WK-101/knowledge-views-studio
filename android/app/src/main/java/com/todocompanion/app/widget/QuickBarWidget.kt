@@ -123,14 +123,6 @@ class QuickBarWidget : BaseWidgetProvider() {
             QuickBarWidget().render(context, m, id)
         }
 
-        fun refresh(context: Context) {
-            val m = AppWidgetManager.getInstance(context) ?: return
-            val ids = m.getAppWidgetIds(ComponentName(context, QuickBarWidget::class.java))
-            if (ids.isEmpty()) return
-            context.sendBroadcast(Intent(context, QuickBarWidget::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-            })
-        }
+        fun refresh(context: Context) = Widgets.broadcastUpdate(context, QuickBarWidget::class.java)
     }
 }

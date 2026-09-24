@@ -4039,9 +4039,6 @@ class AppViewModel internal constructor(
     /** R54 — on-disk database size (bytes) for the storage-insight panel. */
     fun databaseSizeBytes(): Long = repo.databaseSizeBytes()
 
-    /** R56 (Wave B / R1) — row counts computed by the database itself (COUNT aggregates), not by scanning
-     * in-memory lists. Powers the maintenance "database health" readout. */
-    suspend fun databaseRowCounts(): Map<String, Long> = repo.databaseRowCounts()
 
     /** R53 — build a METHOD:REPLY .ics carrying the event's RSVP and hand it to the OS share sheet, so a
      *  fully-offline app can still let the user reply to the organizer by whatever channel they choose. */

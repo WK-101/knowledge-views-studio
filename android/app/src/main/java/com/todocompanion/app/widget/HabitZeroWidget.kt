@@ -315,16 +315,7 @@ class HabitZeroWidget : BaseWidgetProvider() {
     }
 
     companion object {
-        fun refresh(context: Context) {
-            val m = AppWidgetManager.getInstance(context) ?: return
-            val ids = m.getAppWidgetIds(ComponentName(context, HabitZeroWidget::class.java))
-            if (ids.isEmpty()) return
-            context.sendBroadcast(Intent(context, HabitZeroWidget::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-            })
-            m.notifyAppWidgetViewDataChanged(ids, R.id.hz_list)
-        }
+        fun refresh(context: Context) = Widgets.broadcastUpdate(context, HabitZeroWidget::class.java, R.id.hz_list)
         fun updateOne(context: Context, id: Int) {
             val m = AppWidgetManager.getInstance(context) ?: return
             HabitZeroWidget().render(context, m, intArrayOf(id))

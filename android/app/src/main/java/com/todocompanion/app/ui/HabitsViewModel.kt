@@ -106,17 +106,10 @@ class HabitsViewModel(
     val habitArchiveOpen = MutableStateFlow(false)                // Archived habits + Trash management overlay
 
     // ── Habit CRUD / lifecycle (Stage 5-C) ────────────────────────────────────────────────────────────────
-    /** Refresh the three habit-touching home-screen widgets (habits list, stats, and momentum, which folds in
-     *  habit strength). Public so the parent's still-there check-in/Focus bridges reach it through a shim. */
-    fun refreshHabitWidgets() {
-        com.todocompanion.app.widget.HabitsWidget.refresh(app.appCtx)
-        com.todocompanion.app.widget.HabitZeroWidget.refresh(app.appCtx)
-        com.todocompanion.app.widget.WeekRowWidget.refresh(app.appCtx)
-        // R106 — Habit Insight (keystone / streaks / strength / correlation) folds in the former standalone widgets.
-        com.todocompanion.app.widget.HabitInsightWidget.refresh(app.appCtx)
-        // R104 — the momentum score folds in habit strength, so keep it live on habit changes too.
-        com.todocompanion.app.widget.MomentumWidget.refresh(app.appCtx)
-    }
+    /** Refresh every habit-touching home-screen widget. Delegates to the single central fan-out in
+     *  [com.todocompanion.app.widget.Widgets] so the list can't drift from the one in WidgetRefresh.
+     *  Public so the parent's still-there check-in/Focus bridges reach it through a shim. */
+    fun refreshHabitWidgets() = com.todocompanion.app.widget.Widgets.refreshHabitWidgets(app.appCtx)
     fun createHabit(name: String, emoji: String?, colorArgb: Long?, target: Int, unit: String? = null, scheduleDays: String = "", reminderTimes: String = "") = scope.launch {
         repo.createHabit(name.trim(), emoji, colorArgb, target, activeWorkspace(), unit, scheduleDays, reminderTimes)
         com.todocompanion.app.reminders.AlarmScheduler.scheduleHabitReminders(app.appCtx, repo)

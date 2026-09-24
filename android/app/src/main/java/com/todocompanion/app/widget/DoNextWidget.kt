@@ -52,7 +52,7 @@ class DoNextWidget : BaseWidgetProvider() {
         WidgetStyle.applyListCard(views, R.id.dn_card, context, id)
         // R105 — size-responsive: at ~1 cell tall there's no room for the filter chips + a list,
         // so drop the chips and give the ranked list all the space.
-        val minH = runCatching { manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) }.getOrDefault(0)
+        val minH = Widgets.minHeightDp(manager, id)
         views.setViewVisibility(R.id.dn_filters, if (minH in 1..109) android.view.View.GONE else android.view.View.VISIBLE)
 
         manager.updateAppWidget(id, views)
@@ -83,16 +83,7 @@ class DoNextWidget : BaseWidgetProvider() {
         fun energyLabel(v: Int) = when (v) { 1 -> "⚡ Low"; 2 -> "⚡ Medium"; 3 -> "⚡ High"; else -> "⚡ Any energy" }
         fun timeLabel(v: Int) = when (v) { 15 -> "⏱ ≤15m"; 30 -> "⏱ ≤30m"; 60 -> "⏱ ≤1h"; else -> "⏱ Any time" }
 
-        fun refresh(context: Context) {
-            val m = AppWidgetManager.getInstance(context) ?: return
-            val ids = m.getAppWidgetIds(ComponentName(context, DoNextWidget::class.java))
-            if (ids.isEmpty()) return
-            m.notifyAppWidgetViewDataChanged(ids, R.id.dn_list)
-            context.sendBroadcast(Intent(context, DoNextWidget::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-            })
-        }
+        fun refresh(context: Context) = Widgets.broadcastUpdate(context, DoNextWidget::class.java, R.id.dn_list)
 
         fun updateOne(context: Context, id: Int) {
             val m = AppWidgetManager.getInstance(context) ?: return

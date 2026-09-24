@@ -251,26 +251,6 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     suspend fun searchTaskIds(query: String): List<String> = taskFts.search(query)
     suspend fun searchNoteIds(query: String): List<String> = noteFts.search(query)
 
-    /**
-     * R56 (Wave B / robustness R1) — DB-side COUNT(*) aggregates. A `SELECT count(*)` is orders of
-     * magnitude cheaper than materialising rows into memory just to count them, and it stays fast as the
-     * store grows. Read-only, fully guarded, off the hot path; powers the maintenance "database health"
-     * readout and demonstrates the aggregate-in-SQL pattern the heavier counters will move onto.
-     */
-    suspend fun databaseRowCounts(): Map<String, Long> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        val sdb = db.openHelper.writableDatabase
-        fun cnt(sql: String): Long = runCatching { sdb.query(sql).use { if (it.moveToFirst()) it.getLong(0) else 0L } }.getOrDefault(0L)
-        linkedMapOf(
-            "Active tasks" to cnt("SELECT count(*) FROM tasks WHERE trashed = 0"),
-            "Completed" to cnt("SELECT count(*) FROM tasks WHERE completed = 1 AND trashed = 0"),
-            "In Trash" to cnt("SELECT count(*) FROM tasks WHERE trashed = 1"),
-            "Events" to cnt("SELECT count(*) FROM events"),
-            "Habit check-ins" to cnt("SELECT count(*) FROM habit_checkins"),
-            "Time entries" to cnt("SELECT count(*) FROM time_entries"),
-            "Attachments" to cnt("SELECT count(*) FROM attachments"),
-            "Occasions" to cnt("SELECT count(*) FROM countdowns"),
-        )
-    }
 
     private val tasks = db.taskDao()
     private val folders = db.folderDao()
@@ -376,7 +356,6 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     // score, computed on the fly from completion events) simply recomputes from what remains.
     suspend fun deleteActivity(id: String) = activity.deleteById(id)
     suspend fun clearTaskActivity(taskId: String) = activity.clearForTask(taskId)
-    suspend fun getFocusSessionsOnce(): List<com.todocompanion.app.data.entity.FocusSessionEntity> = focus.getAll()
     private suspend fun logActivity(taskId: String, type: String, detail: String? = null) {
         activity.insert(com.todocompanion.app.data.entity.ActivityEntity(uid(), taskId, type, now(), detail))
     }
@@ -404,7 +383,6 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     val allFlags: Flow<List<FlagEntity>> = flags.observeAll()
     val allTemplates: Flow<List<TemplateEntity>> = templates.observeAll()
     val allCountdowns: Flow<List<com.todocompanion.app.data.entity.CountdownEntity>> = countdowns.observeAll()
-    suspend fun allCountdownsOnce(): List<com.todocompanion.app.data.entity.CountdownEntity> = countdowns.getAll()
     suspend fun upsertCountdown(c: com.todocompanion.app.data.entity.CountdownEntity) = countdowns.upsert(c)
     suspend fun deleteCountdown(id: String) = countdowns.deleteById(id)
     val allSealedNotes: Flow<List<com.todocompanion.app.data.entity.SealedNoteEntity>> = sealedNotes.observeAll()
@@ -746,9 +724,6 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
             }
         }
     }
-    /** Read the current settings snapshot (for automation/behaviour toggles outside the VM). */
-    suspend fun automationRulesOnce(): List<com.todocompanion.app.domain.AutomationRule> =
-        com.todocompanion.app.domain.AutomationRules.parse(settingsSnapshot().automationRulesJson)
     suspend fun addManualTimeEntry(activityId: String, startMillis: Long, endMillis: Long, note: String = "", taskId: String? = null, habitId: String? = null) =
         timeTrack.upsertEntry(com.todocompanion.app.data.entity.TimeEntryEntity(uid(), activityId, startMillis, endMillis, note, taskId, habitId, now(), workspaceId = activeWs()))
     suspend fun upsertTimeEntry(e: com.todocompanion.app.data.entity.TimeEntryEntity) = timeTrack.upsertEntry(e)
@@ -932,9 +907,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     }
 
     suspend fun dueNoteCards(nowMs: Long = now()): List<com.todocompanion.app.data.entity.NoteCardEntity> = noteCards.due(nowMs)
-    suspend fun dueNoteCardCount(nowMs: Long = now()): Int = noteCards.dueCount(nowMs)
     suspend fun noteCardsForNote(noteId: String): List<com.todocompanion.app.data.entity.NoteCardEntity> = noteCards.forNote(noteId)
-    suspend fun allNoteCards(): List<com.todocompanion.app.data.entity.NoteCardEntity> = noteCards.getAll()
 
     /** Apply a grade to a card (SM-2), persist the new schedule, and return the updated row. */
     suspend fun gradeNoteCard(id: String, grade: com.todocompanion.app.domain.NoteCards.Grade): com.todocompanion.app.data.entity.NoteCardEntity? {
@@ -1226,7 +1199,6 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
 
     // ---- Wave D: Smart Views ----
     fun observeSmartViews(): kotlinx.coroutines.flow.Flow<List<com.todocompanion.app.data.entity.SmartViewEntity>> = smartViews.observeAll()
-    suspend fun getSmartViewsOnce(): List<com.todocompanion.app.data.entity.SmartViewEntity> = smartViews.getAll()
     suspend fun upsertSmartView(v: com.todocompanion.app.data.entity.SmartViewEntity): String {
         val id = v.id.ifBlank { uid() }
         smartViews.upsert(v.copy(

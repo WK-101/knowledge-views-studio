@@ -63,16 +63,7 @@ class RecordWidget : BaseWidgetProvider() {
     }
 
     companion object {
-        fun refresh(context: Context) {
-            val manager = AppWidgetManager.getInstance(context) ?: return
-            val ids = manager.getAppWidgetIds(ComponentName(context, RecordWidget::class.java))
-            if (ids.isEmpty()) return
-            manager.notifyAppWidgetViewDataChanged(ids, R.id.widget_list)
-            context.sendBroadcast(Intent(context, RecordWidget::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-            })
-        }
+        fun refresh(context: Context) = Widgets.broadcastUpdate(context, RecordWidget::class.java, R.id.widget_list)
     }
 }
 

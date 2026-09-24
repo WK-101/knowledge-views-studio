@@ -114,15 +114,7 @@ class WeekRowWidget : BaseWidgetProvider() {
     }
 
     companion object {
-        fun refresh(context: Context) {
-            val m = AppWidgetManager.getInstance(context) ?: return
-            val ids = m.getAppWidgetIds(ComponentName(context, WeekRowWidget::class.java))
-            if (ids.isEmpty()) return
-            context.sendBroadcast(Intent(context, WeekRowWidget::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-            })
-        }
+        fun refresh(context: Context) = Widgets.broadcastUpdate(context, WeekRowWidget::class.java)
 
         fun updateOne(context: Context, id: Int) {
             val m = AppWidgetManager.getInstance(context) ?: return

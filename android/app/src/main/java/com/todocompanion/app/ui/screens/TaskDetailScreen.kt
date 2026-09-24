@@ -1656,16 +1656,6 @@ private fun DetailSection(title: String, badge: String?, initiallyOpen: Boolean,
     }
 }
 
-@Composable
-private fun ScheduleRow(name: String, value: Long?, onSet: () -> Unit, onClear: () -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(name, Modifier.weight(1f))
-        if (value != null) {
-            AssistChip(onClick = onSet, label = { Text(formatDue(value)) })
-            IconButton(onClick = onClear) { Icon(Icons.Filled.Close, "Clear") }
-        } else TextButton(onClick = onSet) { Text("Set") }
-    }
-}
 
 @Composable
 private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {

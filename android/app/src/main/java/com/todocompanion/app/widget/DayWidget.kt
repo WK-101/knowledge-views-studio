@@ -176,16 +176,7 @@ class DayWidget : BaseWidgetProvider() {
     }
 
     companion object {
-        fun refresh(context: Context) {
-            val m = AppWidgetManager.getInstance(context) ?: return
-            val ids = m.getAppWidgetIds(ComponentName(context, DayWidget::class.java))
-            if (ids.isEmpty()) return
-            m.notifyAppWidgetViewDataChanged(ids, R.id.day_list)
-            context.sendBroadcast(Intent(context, DayWidget::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-            })
-        }
+        fun refresh(context: Context) = Widgets.broadcastUpdate(context, DayWidget::class.java, R.id.day_list)
 
         fun updateOne(context: Context, id: Int) {
             val m = AppWidgetManager.getInstance(context) ?: return
