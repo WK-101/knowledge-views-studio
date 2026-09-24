@@ -49,6 +49,8 @@ data class AppSettings(
     val callLogRetentionDays: Int = 0,
     /** Show message and call buttons on contact rows. */
     val contactRowActions: Boolean = false,
+    /** Order and visibility of the home tabs (bottom bar and navigation rail). */
+    val navTabs: NavTabs = NavTabs(),
 ) {
     companion object {
         val DEFAULT_QUICK_REPLIES = listOf(

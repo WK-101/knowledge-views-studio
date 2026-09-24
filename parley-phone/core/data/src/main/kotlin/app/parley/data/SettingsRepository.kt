@@ -109,6 +109,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             reachOutNudges = this[K.nudges] ?: d.reachOutNudges,
             callLogRetentionDays = this[K.retention] ?: d.callLogRetentionDays,
             contactRowActions = this[K.rowActions] ?: d.contactRowActions,
+            navTabs = app.parley.common.NavTabs.decode(this[K.navTabs]),
         )
     }
 
@@ -146,6 +147,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         this[K.nudges] = s.reachOutNudges
         this[K.retention] = s.callLogRetentionDays
         this[K.rowActions] = s.contactRowActions
+        this[K.navTabs] = s.navTabs.encode()
     }
 
     private inline fun <reified E : Enum<E>> enumOr(value: String?, default: E): E =
@@ -185,6 +187,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val nudges = booleanPreferencesKey("reach_out_nudges")
         val retention = intPreferencesKey("call_log_retention_days")
         val rowActions = booleanPreferencesKey("contact_row_actions")
+        val navTabs = stringPreferencesKey("nav_tabs")
     }
 
     private companion object {
