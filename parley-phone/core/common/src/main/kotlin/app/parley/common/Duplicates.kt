@@ -30,6 +30,10 @@ object Duplicates {
             .sortedBy { it.first().displayName.lowercase() }
     }
 
+    fun phoneKey(number: String): String? = PhoneNumbers.matchKey(number).takeIf { it.length >= 7 }
+
+    fun emailKey(email: String): String? = email.trim().lowercase().takeIf { it.isNotEmpty() }
+
     /** Word-order-insensitive, accent-insensitive name key. Single-word names are too ambiguous. */
     fun nameKey(name: String): String? {
         val words = TextSearch.normalize(name).split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotEmpty() }

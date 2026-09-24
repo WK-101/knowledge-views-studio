@@ -1,4 +1,4 @@
-# ez-vcard is only used from :core:data; keep its property classes used reflectively.
+# ez-vcard (used from :core:common's VCardMapper): keep its property classes and scribes, used reflectively.
 -keep class ezvcard.property.** { *; }
 -keep class ezvcard.io.scribe.** { *; }
 -dontwarn ezvcard.**

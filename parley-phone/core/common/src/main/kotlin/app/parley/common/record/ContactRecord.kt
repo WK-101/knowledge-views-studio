@@ -79,4 +79,34 @@ object Col {
     const val D6 = "data6"; const val D7 = "data7"; const val D8 = "data8"; const val D9 = "data9"; const val D10 = "data10"
     const val D11 = "data11"; const val D12 = "data12"; const val D13 = "data13"; const val D14 = "data14"
     val ALL = listOf(D1, D2, D3, D4, D5, D6, D7, D8, D9, D10, D11, D12, D13, D14)
+
+    /**
+     * Pseudo-column on [Mime.GROUP] rows: the group's title. DATA1 (the group row id) only means something
+     * on the device it came from, so the title is what travels in vCards and backups; the store resolves
+     * it back to a row id in the target account on insert.
+     */
+    const val GROUP_TITLE = "parley_group_title"
 }
+
+/** Messenger apps whose raw contacts and data rows are owned by their sync adapters (read-only for us). */
+object Messengers {
+    val PACKAGES = listOf(
+        "com.whatsapp", "com.whatsapp.w4b", "org.telegram.messenger", "org.thoughtcrime.securesms",
+        "com.viber.voip", "ch.threema.app", "jp.naver.line.android", "com.skype.raider", "com.wire",
+        "im.vector.app", "com.facebook.orca", "kik.android", "com.discord",
+    )
+
+    fun isMessengerAccount(accountType: String?): Boolean = accountType != null && accountType in PACKAGES
+
+    /** Messenger rows use mimetypes like `vnd.android.cursor.item/vnd.com.whatsapp.profile`. */
+    fun isMessengerMime(mimeType: String): Boolean = PACKAGES.any { mimeType.contains(it) }
+}
+
+/**
+ * This contact without messenger raw contacts and messenger data rows. Those belong to the messenger's sync
+ * adapter, which recreates them itself; copying them elsewhere only makes stale, duplicate entries.
+ */
+fun ContactRecord.withoutMessengers(): ContactRecord = copy(
+    raws = raws.filter { !Messengers.isMessengerAccount(it.accountType) }
+        .map { raw -> raw.copy(rows = raw.rows.filter { !Messengers.isMessengerMime(it.mimeType) }) },
+)

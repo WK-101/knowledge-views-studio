@@ -1,151 +1,180 @@
 package app.parley.data
 
-import android.content.ContentProviderOperation
 import android.content.Context
 import android.net.Uri
-import android.provider.ContactsContract
-import android.provider.ContactsContract.CommonDataKinds.Email
-import android.provider.ContactsContract.CommonDataKinds.Event
-import android.provider.ContactsContract.CommonDataKinds.Nickname
-import android.provider.ContactsContract.CommonDataKinds.Note
-import android.provider.ContactsContract.CommonDataKinds.Organization
-import android.provider.ContactsContract.CommonDataKinds.Phone
-import android.provider.ContactsContract.CommonDataKinds.Photo
-import android.provider.ContactsContract.CommonDataKinds.StructuredName
-import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
-import android.provider.ContactsContract.CommonDataKinds.Website
-import android.provider.ContactsContract.Data
-import android.provider.ContactsContract.RawContacts
+import android.util.Log
 import app.parley.common.ContactSummary
-import ezvcard.Ezvcard
-import ezvcard.VCard
-import ezvcard.parameter.AddressType
-import ezvcard.parameter.EmailType
-import ezvcard.parameter.TelephoneType
+import app.parley.common.DuplicateIndex
+import app.parley.common.record.ContactRecord
+import app.parley.common.record.withoutMessengers
+import app.parley.common.vcard.ContactCsv
+import app.parley.common.vcard.ImportReport
+import app.parley.common.vcard.ImportReportBuilder
+import app.parley.common.vcard.ParsedCard
+import app.parley.common.vcard.VCardStream
+import app.parley.data.records.ContactRecordStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
-import java.io.InputStreamReader
+import java.io.BufferedInputStream
+import java.io.BufferedWriter
+import java.io.OutputStreamWriter
+import kotlin.coroutines.coroutineContext
 
-/** vCard import (ez-vcard parser) and export (the platform's own vCard composer). */
-class VCardIO(private val context: Context, private val contacts: ContactsRepository) {
+/**
+ * vCard and CSV import/export built on [app.parley.common.vcard.VCardMapper] (lossless vCard 4.0) and
+ * [ContactRecordStore] (every Data row, full-resolution photos).
+ *
+ * Exports stream contact by contact to the chosen document. Imports stream card by card, insert in batches,
+ * and return an [ImportReport] listing what failed and what could not be mapped, so nothing is lost silently.
+ */
+class VCardIO(
+    private val context: Context,
+    private val contacts: ContactsRepository,
+    private val store: ContactRecordStore,
+) {
     private val cr = context.contentResolver
 
-    /** Writes every given contact as one .vcf file. Returns how many were exported. */
-    suspend fun export(target: Uri, list: List<ContactSummary>, progress: (Int, Int) -> Unit = { _, _ -> }): Int = withContext(Dispatchers.IO) {
+    /** Result of an export: how many contacts were written, and a line for each one that failed. */
+    data class ExportResult(val exported: Int, val failures: List<String> = emptyList())
+
+    /** Writes the given contacts to one .vcf file (vCard 4.0). */
+    suspend fun export(target: Uri, list: List<ContactSummary>, progress: (Int, Int) -> Unit = { _, _ -> }): ExportResult =
+        exportIds(target, list.map { it.id }, progress)
+
+    /** Writes the contacts with [ids] to one .vcf file (vCard 4.0), streaming. */
+    suspend fun exportIds(target: Uri, ids: List<Long>, progress: (Int, Int) -> Unit = { _, _ -> }): ExportResult = withContext(Dispatchers.IO) {
         var n = 0
-        cr.openOutputStream(target, "wt")?.use { out ->
-            list.forEachIndexed { i, c ->
-                if (c.lookupKey.isEmpty()) return@forEachIndexed
+        val failures = ArrayList<String>()
+        val titles = store.groupTitles()
+        val out = cr.openOutputStream(target, "wt") ?: return@withContext ExportResult(0, listOf("Could not open the file for writing"))
+        VCardStream.CardWriter(BufferedWriter(OutputStreamWriter(out, Charsets.UTF_8))).use { w ->
+            var done = 0
+            for (record in store.readAll(ids)) {
+                coroutineContext.ensureActive()
                 try {
-                    cr.openAssetFileDescriptor(contacts.vcardUri(c.lookupKey), "r")?.use { fd ->
-                        fd.createInputStream().use { it.copyTo(out) }
-                        n++
-                    }
-                } catch (_: Exception) {
+                    w.write(record.withoutMessengers(), titles)
+                    n++
+                } catch (e: Exception) {
+                    Log.w(TAG, "Export failed for one contact", e)
+                    failures += "${record.displayName.ifBlank { "(no name)" }}: ${e.message ?: e.javaClass.simpleName}"
                 }
-                if (i % 25 == 0) progress(i, list.size)
+                if (++done % PROGRESS_EVERY == 0) progress(done, ids.size)
             }
+            progress(ids.size, ids.size)
         }
-        n
+        ExportResult(n, failures)
     }
 
-    /** Imports all vCards from [source] into [account]. Returns how many were imported. */
-    suspend fun import(source: Uri, account: AccountRef, progress: (Int, Int) -> Unit = { _, _ -> }): Int = withContext(Dispatchers.IO) {
-        val cards: List<VCard> = cr.openInputStream(source)?.use { input ->
-            Ezvcard.parse(InputStreamReader(input, Charsets.UTF_8)).all()
-        }.orEmpty()
-        var imported = 0
-        cards.chunked(20).forEach { chunk ->
-            val ops = ArrayList<ContentProviderOperation>()
-            chunk.forEach { card -> addOps(ops, card, account) }
-            if (ops.isNotEmpty()) {
-                cr.applyBatch(ContactsContract.AUTHORITY, ops)
-                imported += chunk.size
-            }
-            progress(imported, cards.size)
+    /** Writes the given contacts as a structured CSV (see [ContactCsv]). */
+    suspend fun exportCsv(target: Uri, list: List<ContactSummary>, progress: (Int, Int) -> Unit = { _, _ -> }): ExportResult = withContext(Dispatchers.IO) {
+        // CSV has no photos, so records are read without them and fit in memory even for large books.
+        val records = ArrayList<ContactRecord>(list.size)
+        for (r in store.readAll(list.map { it.id }, fullPhoto = false)) {
+            coroutineContext.ensureActive()
+            records += r.withoutMessengers()
+            if (records.size % PROGRESS_EVERY == 0) progress(records.size, list.size)
         }
-        imported
+        val out = cr.openOutputStream(target, "wt") ?: return@withContext ExportResult(0, listOf("Could not open the file for writing"))
+        BufferedWriter(OutputStreamWriter(out, Charsets.UTF_8)).use { ContactCsv.write(records, it, store.groupTitles()) }
+        progress(list.size, list.size)
+        ExportResult(records.size)
     }
 
-    private fun addOps(ops: ArrayList<ContentProviderOperation>, card: VCard, account: AccountRef) {
-        val base = ops.size
-        ops += ContentProviderOperation.newInsert(RawContacts.CONTENT_URI)
-            .withValue(RawContacts.ACCOUNT_TYPE, account.type)
-            .withValue(RawContacts.ACCOUNT_NAME, account.name)
-            .build()
-        fun row(mime: String, vararg pairs: Pair<String, Any?>) {
-            val b = ContentProviderOperation.newInsert(Data.CONTENT_URI)
-                .withValueBackReference(Data.RAW_CONTACT_ID, base)
-                .withValue(Data.MIMETYPE, mime)
-            pairs.forEach { (k, v) -> b.withValue(k, v) }
-            ops += b.build()
+    /**
+     * Imports a .vcf (2.1, 3.0 or 4.0) or a CSV in [ContactCsv] format from [source] into [account]; the format is
+     * detected from the content. With [skipDuplicates], cards matching an existing contact (same number or e-mail,
+     * or same name when the card has neither) are not imported, and neither are repeats within the file.
+     */
+    suspend fun import(
+        source: Uri,
+        account: AccountRef,
+        progress: (Int, Int) -> Unit = { _, _ -> },
+        skipDuplicates: Boolean = false,
+    ): ImportReport = if (looksLikeCsv(source)) importCsv(source, account, progress, skipDuplicates) else importVCard(source, account, progress, skipDuplicates)
+
+    suspend fun importVCard(source: Uri, account: AccountRef, progress: (Int, Int) -> Unit = { _, _ -> }, skipDuplicates: Boolean = false): ImportReport =
+        withContext(Dispatchers.IO) {
+            val total = countCards(source)
+            runImport(account, total, progress, skipDuplicates) { report, sink ->
+                val input = cr.openInputStream(source) ?: throw java.io.FileNotFoundException("Could not open the file")
+                VCardStream.reader(input).use { VCardStream.read(it, report, sink) }
+            }
         }
 
-        val n = card.structuredName
-        val fn = card.formattedName?.value
-        if (n != null || fn != null) {
-            row(
-                StructuredName.CONTENT_ITEM_TYPE,
-                StructuredName.DISPLAY_NAME to fn,
-                StructuredName.GIVEN_NAME to n?.given,
-                StructuredName.FAMILY_NAME to n?.family,
-                StructuredName.MIDDLE_NAME to n?.additionalNames?.joinToString(" ")?.ifEmpty { null },
-                StructuredName.PREFIX to n?.prefixes?.joinToString(" ")?.ifEmpty { null },
-                StructuredName.SUFFIX to n?.suffixes?.joinToString(" ")?.ifEmpty { null },
-            )
-        }
-        card.nicknames.flatMap { it.values }.firstOrNull()?.let { row(Nickname.CONTENT_ITEM_TYPE, Nickname.NAME to it) }
-        card.telephoneNumbers.forEach { t ->
-            val number = t.text ?: t.uri?.number ?: return@forEach
-            val types = t.types
-            val type = when {
-                TelephoneType.CELL in types -> Phone.TYPE_MOBILE
-                TelephoneType.WORK in types && TelephoneType.FAX in types -> Phone.TYPE_FAX_WORK
-                TelephoneType.HOME in types && TelephoneType.FAX in types -> Phone.TYPE_FAX_HOME
-                TelephoneType.WORK in types -> Phone.TYPE_WORK
-                TelephoneType.HOME in types -> Phone.TYPE_HOME
-                TelephoneType.PAGER in types -> Phone.TYPE_PAGER
-                else -> Phone.TYPE_MOBILE
+    suspend fun importCsv(source: Uri, account: AccountRef, progress: (Int, Int) -> Unit = { _, _ -> }, skipDuplicates: Boolean = false): ImportReport =
+        withContext(Dispatchers.IO) {
+            runImport(account, 0, progress, skipDuplicates) { report, sink ->
+                val input = cr.openInputStream(source) ?: throw java.io.FileNotFoundException("Could not open the file")
+                VCardStream.reader(input).use { ContactCsv.read(it, report, sink) }
             }
-            row(Phone.CONTENT_ITEM_TYPE, Phone.NUMBER to number, Phone.TYPE to type, Phone.IS_PRIMARY to if (t.pref == 1) 1 else 0)
         }
-        card.emails.forEach { e ->
-            val type = when {
-                EmailType.WORK in e.types -> Email.TYPE_WORK
-                EmailType.HOME in e.types -> Email.TYPE_HOME
-                else -> Email.TYPE_OTHER
+
+    private suspend fun runImport(
+        account: AccountRef,
+        total: Int,
+        progress: (Int, Int) -> Unit,
+        skipDuplicates: Boolean,
+        parse: (ImportReportBuilder, (ParsedCard) -> Unit) -> Unit,
+    ): ImportReport {
+        val report = ImportReportBuilder()
+        val ctx = coroutineContext
+        val existing = if (skipDuplicates) DuplicateIndex().apply { contacts.contacts.value.orEmpty().forEach { add(it) } } else null
+        val groups = store.groupResolver()
+        val pending = ArrayList<ParsedCard>()
+        var seen = 0
+        fun flush() {
+            if (pending.isEmpty()) return
+            val results = store.insertAll(pending.map { it.record }, account, groups)
+            results.forEachIndexed { i, res ->
+                if (res.contactId != null) report.imported++
+                res.error?.let { report.fail(pending[i].index, it, pending[i].raw) }
             }
-            row(Email.CONTENT_ITEM_TYPE, Email.ADDRESS to e.value, Email.TYPE to type)
+            pending.clear()
         }
-        card.addresses.forEach { a ->
-            val type = when {
-                AddressType.WORK in a.types -> StructuredPostal.TYPE_WORK
-                AddressType.HOME in a.types -> StructuredPostal.TYPE_HOME
-                else -> StructuredPostal.TYPE_OTHER
+        parse(report) { card ->
+            ctx.ensureActive()
+            seen++
+            if (existing != null && existing.matches(card.record)) {
+                report.skippedDuplicates++
+            } else {
+                existing?.add(card.record)
+                pending += card
+                if (pending.size >= INSERT_BATCH) flush()
             }
-            row(
-                StructuredPostal.CONTENT_ITEM_TYPE,
-                StructuredPostal.STREET to a.streetAddress,
-                StructuredPostal.CITY to a.locality,
-                StructuredPostal.REGION to a.region,
-                StructuredPostal.POSTCODE to a.postalCode,
-                StructuredPostal.COUNTRY to a.country,
-                StructuredPostal.TYPE to type,
-            )
+            if (seen % PROGRESS_EVERY == 0) progress(seen, maxOf(total, seen))
         }
-        card.organization?.let { o ->
-            row(Organization.CONTENT_ITEM_TYPE, Organization.COMPANY to o.values.firstOrNull(), Organization.TITLE to card.titles.firstOrNull()?.value)
-        }
-        card.urls.forEach { u -> row(Website.CONTENT_ITEM_TYPE, Website.URL to u.value, Website.TYPE to Website.TYPE_OTHER) }
-        card.notes.firstOrNull()?.value?.let { row(Note.CONTENT_ITEM_TYPE, Note.NOTE to it) }
-        card.birthday?.let { b ->
-            val date = b.date?.let { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT).format(it) }
-                ?: b.partialDate?.let { p -> if (p.month != null && p.date != null) "--%02d-%02d".format(p.month, p.date) else null }
-                ?: b.text
-            if (date != null) row(Event.CONTENT_ITEM_TYPE, Event.START_DATE to date, Event.TYPE to Event.TYPE_BIRTHDAY)
-        }
-        card.photos.firstOrNull()?.data?.let { bytes ->
-            if (bytes.size < 800_000) row(Photo.CONTENT_ITEM_TYPE, Photo.PHOTO to bytes)
-        }
+        flush()
+        progress(seen, maxOf(total, seen))
+        contacts.refresh()
+        return report.build()
+    }
+
+    /** Counts BEGIN:VCARD lines so progress can show a total. Cheap: one streaming pass, no parsing. */
+    private fun countCards(source: Uri): Int = try {
+        cr.openInputStream(source)?.use { input ->
+            VCardStream.reader(input).buffered().useLines { lines -> lines.count { it.trimStart().startsWith("BEGIN:VCARD", ignoreCase = true) } }
+        } ?: 0
+    } catch (_: Exception) {
+        0
+    }
+
+    /** A file is treated as CSV when its first non-blank text is not a vCard and its first line has commas. */
+    private fun looksLikeCsv(source: Uri): Boolean = try {
+        cr.openInputStream(source)?.use { input ->
+            val head = ByteArray(4096)
+            val n = BufferedInputStream(input).read(head)
+            if (n <= 0) return@use false
+            val text = String(head, 0, n, Charsets.UTF_8).trimStart('\uFEFF', ' ', '\r', '\n', '\t')
+            !text.startsWith("BEGIN:VCARD", ignoreCase = true) && text.substringBefore('\n').contains(',')
+        } ?: false
+    } catch (_: Exception) {
+        false
+    }
+
+    companion object {
+        private const val TAG = "VCardIO"
+        private const val INSERT_BATCH = 50
+        private const val PROGRESS_EVERY = 25
     }
 }
