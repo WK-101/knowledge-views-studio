@@ -165,7 +165,6 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                     TextButton({
                         step = Step.Working("Restoring…")
                         scope.launch {
-                            if (s.plan.mode == RestoreMode.REPLACE) repo.backupNow(scheduled = false)
                             val report = repo.restore(s.opened, s.plan, s.options.copy(applyConflicts = applyConflicts))
                             step = Step.Done(report.summary())
                         }

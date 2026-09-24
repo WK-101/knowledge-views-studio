@@ -37,11 +37,13 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
             val settings = c.settings.current()
             // 1. Temporary contacts
             for (t in c.meta.expiredContacts(now)) {
+                // Resolve by lookup key: the stored id may now belong to another contact.
+                val id = c.contacts.resolve(t.lookupKey, t.contactId)
+                if (id == null) { c.meta.clearTemporary(t.lookupKey); continue }
                 if (t.purgeHistory) {
-                    c.contacts.details(t.contactId)?.phones?.forEach { p -> runCatching { c.callLog.deleteForNumber(p.value) } }
+                    c.contacts.details(id)?.phones?.forEach { p -> runCatching { c.callLog.deleteForNumber(p.value) } }
                 }
-                runCatching { c.contacts.delete(listOf(t.contactId)) }
-                c.meta.clearTemporary(t.lookupKey)
+                if (runCatching { c.contacts.delete(listOf(id)) }.isSuccess) c.meta.clearTemporary(t.lookupKey)
             }
             // 2. Expired vault entries
             c.vault.expired(now).forEach { c.vault.delete(it) }

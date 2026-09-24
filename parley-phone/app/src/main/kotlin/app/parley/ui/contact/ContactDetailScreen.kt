@@ -89,6 +89,7 @@ import app.parley.ui.Routes
 import app.parley.ui.common.Format
 import app.parley.ui.common.Intents
 import app.parley.ui.home.callTypeIcon
+import app.parley.security.launchVault
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -183,9 +184,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             }
                             DropdownMenuItem({ Text("Move to private vault") }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = {
                                 menu = false
-                                scope.launch {
-                                    val id = vm.c.vault.save(null, d)
-                                    vm.c.contacts.delete(listOf(contactId))
+                                scope.launchVault(context as? androidx.fragment.app.FragmentActivity, { e -> vm.toast("Couldn't move: ${e.message}") }) {
+                                    val id = vm.moveToVault(contactId, d)
                                     vm.toast("Moved to your private contacts")
                                     back()
                                     open(Routes.vault(id))

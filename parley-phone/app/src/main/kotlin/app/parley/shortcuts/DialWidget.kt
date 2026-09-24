@@ -23,11 +23,23 @@ import app.parley.container
 import app.parley.picker.PickKind
 import app.parley.picker.PickerScreen
 import app.parley.ui.ParleyTheme
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** 1×1 direct-dial widget: tap to call one person. */
 class DialWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        ids.forEach { update(context, manager, it) }
+        // Photo decoding reads storage: keep it off the main thread.
+        val pending = goAsync()
+        Thread {
+            try {
+                ids.forEach { update(context, manager, it) }
+            } finally {
+                pending.finish()
+            }
+        }.start()
     }
 
     override fun onDeleted(context: Context, ids: IntArray) {
@@ -84,9 +96,21 @@ class DialWidgetConfigActivity : FragmentActivity() {
             finish()
             return
         }
+        // Exported for the launcher: only configure widgets that really are ours.
+        if (AppWidgetManager.getInstance(this).getAppWidgetInfo(id)?.provider?.packageName != packageName) {
+            finish()
+            return
+        }
         setContent {
             val s by container.settings.settings.collectAsStateWithLifecycle()
+            val loaded by container.settings.loaded.collectAsStateWithLifecycle()
+            val locked by app.parley.security.AppLock.locked.collectAsStateWithLifecycle()
             ParleyTheme(s.themeMode, s.amoledBlack, s.dynamicColor, s.density) {
+                if (!loaded) return@ParleyTheme
+                if (locked && s.appLock) {
+                    app.parley.security.LockScreen { app.parley.security.AppLock.authenticate(this@DialWidgetConfigActivity) }
+                    return@ParleyTheme
+                }
                 PickerScreen(
                     kind = PickKind.PHONE, multiple = false, title = "Direct-dial widget", excludeContactId = null,
                     onCancel = { finish() },
@@ -94,12 +118,24 @@ class DialWidgetConfigActivity : FragmentActivity() {
                         val pick = picks.firstOrNull() ?: return@PickerScreen finish()
                         val number = pick.subtitle?.substringAfter(" · ") ?: return@PickerScreen finish()
                         DialWidget.save(this, id, pick.title, number, pick.photoUri, pick.contactId)
-                        DialWidget.update(this, AppWidgetManager.getInstance(this), id)
-                        setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id))
-                        finish()
+                        lifecycleScope.launch {
+                            withContext(Dispatchers.IO) { DialWidget.update(this@DialWidgetConfigActivity, AppWidgetManager.getInstance(this@DialWidgetConfigActivity), id) }
+                            setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id))
+                            finish()
+                        }
                     },
                 )
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        lifecycleScope.launch { app.parley.security.AppLock.onStart(container.settings.current()) }
+    }
+
+    override fun onStop() {
+        app.parley.security.AppLock.onStop()
+        super.onStop()
     }
 }

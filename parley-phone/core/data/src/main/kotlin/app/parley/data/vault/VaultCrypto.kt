@@ -2,8 +2,10 @@ package app.parley.data.vault
 
 import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
 import android.security.keystore.UserNotAuthenticatedException
+import java.security.InvalidKeyException
 import java.security.KeyStore
 import java.security.SecureRandom
 import javax.crypto.Cipher
@@ -28,6 +30,9 @@ object VaultCrypto {
 
     class LockedException : Exception("Unlock needed")
 
+    /** The key was invalidated (screen lock removed or reset); data sealed with it can't be read any more. */
+    class KeyLostException : Exception("Vault key invalidated")
+
     private val ks: KeyStore by lazy { KeyStore.getInstance(STORE).apply { load(null) } }
 
     private fun aesKey(alias: String, requireAuth: Boolean): SecretKey {
@@ -40,6 +45,8 @@ object VaultCrypto {
             .apply {
                 if (auth) {
                     setUserAuthenticationRequired(true)
+                    // Enrolling a new fingerprint must not destroy private contacts.
+                    setInvalidatedByBiometricEnrollment(false)
                     if (Build.VERSION.SDK_INT >= 30) {
                         setUserAuthenticationParameters(AUTH_SECONDS, KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL)
                     } else {
@@ -61,32 +68,43 @@ object VaultCrypto {
 
     private val random = SecureRandom()
 
-    private fun encrypt(key: SecretKey, plain: ByteArray): ByteArray {
+    private fun encrypt(alias: String, auth: Boolean, plain: ByteArray): ByteArray {
         val c = Cipher.getInstance("AES/GCM/NoPadding")
         try {
-            c.init(Cipher.ENCRYPT_MODE, key)
+            c.init(Cipher.ENCRYPT_MODE, aesKey(alias, auth))
         } catch (e: UserNotAuthenticatedException) {
             throw LockedException()
+        } catch (e: KeyPermanentlyInvalidatedException) {
+            // New data can simply go under a fresh key.
+            ks.deleteEntry(alias)
+            c.init(Cipher.ENCRYPT_MODE, aesKey(alias, auth))
         }
         val iv = c.iv
         return byteArrayOf(iv.size.toByte()) + iv + c.doFinal(plain)
     }
 
-    private fun decrypt(key: SecretKey, blob: ByteArray): ByteArray {
+    private fun decrypt(alias: String, auth: Boolean, blob: ByteArray): ByteArray {
         val ivLen = blob[0].toInt()
         val c = Cipher.getInstance("AES/GCM/NoPadding")
         try {
-            c.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, blob, 1, ivLen))
+            c.init(Cipher.DECRYPT_MODE, aesKey(alias, auth), GCMParameterSpec(128, blob, 1, ivLen))
         } catch (e: UserNotAuthenticatedException) {
             throw LockedException()
+        } catch (e: KeyPermanentlyInvalidatedException) {
+            throw KeyLostException()
+        } catch (e: InvalidKeyException) {
+            // A key created before this blob (e.g. regenerated after invalidation) can't open it.
+            throw KeyLostException()
         }
         return c.doFinal(blob, 1 + ivLen, blob.size - 1 - ivLen)
     }
 
-    fun sealCallerId(plain: ByteArray) = encrypt(aesKey(CALLER_KEY, false), plain)
-    fun openCallerId(blob: ByteArray) = decrypt(aesKey(CALLER_KEY, false), blob)
-    fun sealDetail(plain: ByteArray) = encrypt(aesKey(DETAIL_KEY, true), plain)
-    fun openDetail(blob: ByteArray) = decrypt(aesKey(DETAIL_KEY, true), blob)
+    fun sealCallerId(plain: ByteArray) = encrypt(CALLER_KEY, false, plain)
+    fun openCallerId(blob: ByteArray) = decrypt(CALLER_KEY, false, blob)
+    fun sealDetail(plain: ByteArray) = encrypt(DETAIL_KEY, true, plain)
+
+    /** Throws [LockedException] when a fresh unlock is needed, [KeyLostException] when the key is gone for good. */
+    fun openDetail(blob: ByteArray) = decrypt(DETAIL_KEY, true, blob)
 
     /** Whether the detail key currently needs a fresh unlock. */
     fun detailNeedsUnlock(): Boolean = try {
@@ -94,6 +112,9 @@ object VaultCrypto {
         false
     } catch (_: UserNotAuthenticatedException) {
         true
+    } catch (_: KeyPermanentlyInvalidatedException) {
+        ks.deleteEntry(DETAIL_KEY)
+        false
     } catch (_: Exception) {
         false
     }

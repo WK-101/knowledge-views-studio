@@ -3,6 +3,7 @@ package app.parley.data
 import android.util.Base64
 import app.parley.common.backup.RecordJson
 import app.parley.data.db.JournalEntity
+import app.parley.data.db.JournalRow
 import app.parley.data.db.MetaDao
 import app.parley.data.records.ContactRecordStore
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +20,7 @@ import java.util.zip.GZIPOutputStream
  */
 class JournalRepository(private val dao: MetaDao, private val records: ContactRecordStore) {
 
-    fun recent(days: Int = 30): Flow<List<JournalEntity>> = dao.journal(System.currentTimeMillis() - days * 86_400_000L)
+    fun recent(days: Int = 30): Flow<List<JournalRow>> = dao.journal(System.currentTimeMillis() - days * 86_400_000L)
 
     /** Snapshots contacts; returns the journal ids (for "Undo"). */
     suspend fun snapshot(contactIds: Collection<Long>, action: String): List<Long> = withContext(Dispatchers.IO) {
@@ -32,6 +33,9 @@ class JournalRepository(private val dao: MetaDao, private val records: ContactRe
             dao.addJournal(JournalEntity(contactKey = record.key, displayName = record.displayName, action = action, time = System.currentTimeMillis(), payload = zipped))
         }
     }
+
+    /** Forgets every journaled copy of a contact (it moved into the private vault). */
+    suspend fun forget(key: String) = dao.deleteJournalFor(key)
 
     /** Re-creates the contact exactly as it was (in its original accounts). Returns the new contact id. */
     suspend fun restore(entryId: Long): Long? = withContext(Dispatchers.IO) {

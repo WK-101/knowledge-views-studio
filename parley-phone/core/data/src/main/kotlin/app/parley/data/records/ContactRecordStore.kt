@@ -32,7 +32,7 @@ fun interface GroupResolver {
 }
 
 /** Outcome of inserting one record: the new aggregate contact id, or why nothing was written. */
-data class InsertResult(val contactId: Long?, val error: String? = null)
+data class InsertResult(val contactId: Long?, val error: String? = null, val rawIds: List<Long> = emptyList())
 
 /**
  * Reads and writes [ContactRecord]s: the lossless image of a contact (Contact -> RawContacts -> every Data
@@ -380,7 +380,7 @@ class ContactRecordStore(private val context: Context) {
             raw.photo?.let { if (!writePhoto(id, it)) error = "The photo could not be saved" }
         }
         if (rawIds.size > 1) keepTogether(rawIds)
-        val contactId = contactIdForRaw(rawIds.first()) ?: return InsertResult(null, "The contact could not be found after writing")
+        val contactId = contactIdForRaw(rawIds.first()) ?: return InsertResult(null, "The contact could not be found after writing", rawIds)
         val r = plan.record
         if (r.starred || r.sendToVoicemail || r.customRingtone != null) {
             val v = ContentValues()
@@ -393,7 +393,78 @@ class ContactRecordStore(private val context: Context) {
                 Log.w(TAG, "Could not set contact flags", e)
             }
         }
-        return InsertResult(contactId, error)
+        return InsertResult(contactId, error, rawIds)
+    }
+
+    /**
+     * Makes the writable part of an existing contact match [record] in place: rows are diffed by content,
+     * unchanged rows keep their ids, removed rows are deleted from every writable raw contact and new rows go
+     * to [targetRaw]. Read-only raws (messengers) and the contact's id, links and history stay untouched.
+     * Returns false if nothing could be written.
+     */
+    fun replaceContent(contactId: Long, record: ContactRecord, targetRaw: Long, writableRaws: List<Long>, groups: GroupResolver = groupResolver()): Boolean {
+        val raws = (writableRaws + targetRaw).distinct()
+        val account = query(ContentUris.withAppendedId(RawContacts.CONTENT_URI, targetRaw), arrayOf(RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME))
+            ?.use { c -> if (c.moveToFirst()) AccountRef(c.getString(0), c.getString(1)) else null } ?: return false
+        // Current rows: canonical key -> data ids (multiset).
+        val current = HashMap<String, ArrayDeque<Long>>()
+        query(
+            Data.CONTENT_URI, arrayOf(Data._ID, Data.MIMETYPE, *DATA_COLUMNS),
+            "${Data.RAW_CONTACT_ID} IN (${raws.joinToString(",")})",
+        )?.use { c ->
+            while (c.moveToNext()) {
+                val mime = c.getString(1) ?: continue
+                if (Messengers.isMessengerMime(mime)) continue
+                if (mime == Mime.PHOTO) continue
+                val key = if (mime == Mime.GROUP) "g|" + c.getString(2) else DataRow(mime, Col.ALL.mapIndexed { i, col -> col to c.getString(2 + i) }.toMap()).canonicalKey
+                current.getOrPut(key) { ArrayDeque() }.add(c.getLong(0))
+            }
+        }
+        record.raws.firstNotNullOfOrNull { r -> r.rows.firstOrNull { it.mimeType == Mime.PHOTO }?.blob }?.let { remotePhoto ->
+            val currentPhoto = read(contactId, fullPhoto = true)?.raws?.firstNotNullOfOrNull { r -> r.rows.firstOrNull { it.mimeType == Mime.PHOTO }?.blob }
+            if (currentPhoto?.contentEquals(remotePhoto) != true) writePhoto(targetRaw, remotePhoto)
+        }
+        val ops = ArrayList<ContentProviderOperation>()
+        var name = false
+        val seen = HashSet<String>()
+        for (raw in record.raws) {
+            if (Messengers.isMessengerAccount(raw.accountType)) continue
+            for (row in raw.rows) {
+                if (Messengers.isMessengerMime(row.mimeType) || row.mimeType == Mime.PHOTO) continue
+                if (row.mimeType == Mime.NAME) { if (name) continue; name = true }
+                val v = ContentValues()
+                val key = if (row.mimeType == Mime.GROUP) {
+                    val id = groups.resolve(row, account) ?: continue
+                    v.put(Data.DATA1, id)
+                    "g|$id"
+                } else {
+                    Col.ALL.forEach { col -> row[col]?.let { v.put(col, it) } }
+                    row.blob?.let { v.put(Data.DATA15, it) }
+                    row.canonicalKey
+                }
+                if (!seen.add(key)) continue
+                val existing = current[key]
+                if (existing != null && existing.isNotEmpty()) { existing.removeFirst(); continue }
+                v.put(Data.MIMETYPE, row.mimeType)
+                v.put(Data.RAW_CONTACT_ID, targetRaw)
+                if (row.isPrimary) v.put(Data.IS_PRIMARY, 1)
+                if (row.isSuperPrimary) v.put(Data.IS_SUPER_PRIMARY, 1)
+                ops += ContentProviderOperation.newInsert(Data.CONTENT_URI).withValues(v).build()
+            }
+        }
+        current.values.flatten().forEach { id -> ops += ContentProviderOperation.newDelete(ContentUris.withAppendedId(Data.CONTENT_URI, id)).build() }
+        ops += ContentProviderOperation.newUpdate(ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId))
+            .withValue(Contacts.STARRED, if (record.starred) 1 else 0)
+            .withValue(Contacts.SEND_TO_VOICEMAIL, if (record.sendToVoicemail) 1 else 0)
+            .withValue(Contacts.CUSTOM_RINGTONE, record.customRingtone)
+            .build()
+        return try {
+            ops.chunked(MAX_BATCH_OPS).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "In-place update failed", e)
+            false
+        }
     }
 
     /** Writes a full-resolution photo; the provider derives the display size and thumbnail. */

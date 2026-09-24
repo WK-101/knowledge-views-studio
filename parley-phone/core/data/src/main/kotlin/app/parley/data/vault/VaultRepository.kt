@@ -6,6 +6,7 @@ import app.parley.common.PhoneNumbers
 import app.parley.data.CallerInfo
 import app.parley.data.ContactDetails
 import app.parley.data.ContactDetailsJson
+import app.parley.data.DataItem
 import app.parley.data.db.AppDatabase
 import app.parley.data.db.PrivateCallEntity
 import app.parley.data.db.VaultContactEntity
@@ -64,7 +65,21 @@ class VaultRepository(private val context: Context, db: AppDatabase, scope: Coro
     /** Full details; throws [VaultCrypto.LockedException] if the user must unlock first. */
     suspend fun details(id: Long): ContactDetails? = withContext(Dispatchers.IO) {
         val e = dao.get(id) ?: return@withContext null
-        ContactDetailsJson.decode(String(VaultCrypto.openDetail(e.detailBlob)))
+        try {
+            ContactDetailsJson.decode(String(VaultCrypto.openDetail(e.detailBlob)))
+        } catch (_: VaultCrypto.KeyLostException) {
+            // The screen lock was removed or reset, which destroys the unlock-bound key. Name, numbers and labels
+            // survive in the caller-ID copy: rebuild from them and re-seal under a new key.
+            val o = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
+            val nums = o.optJSONArray("numbers") ?: JSONArray()
+            val labels = o.optJSONArray("labels") ?: JSONArray()
+            val d = ContactDetails(
+                id = -id, lookupKey = "", displayName = o.optString("name"), given = o.optString("name"),
+                phones = (0 until nums.length()).map { i -> DataItem(0, nums.getString(i), labels.optInt(i, 2), null) },
+            )
+            runCatching { save(id, d) }
+            d
+        }
     }
 
     suspend fun save(id: Long?, d: ContactDetails, expiresAt: Long? = null): Long = withContext(Dispatchers.IO) {

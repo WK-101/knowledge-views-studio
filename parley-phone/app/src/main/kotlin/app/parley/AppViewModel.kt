@@ -353,10 +353,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Moves a phone contact into the vault, leaving no readable copy in Parley: no journal entry, and its
+     * time-machine versions are purged. Throws [app.parley.data.vault.VaultCrypto.LockedException] if locked.
+     */
+    suspend fun moveToVault(contactId: Long, d: app.parley.data.ContactDetails): Long {
+        val id = c.vault.save(null, d)
+        c.contacts.deleteUnjournaled(listOf(contactId))
+        if (d.lookupKey.isNotEmpty()) {
+            c.journal.forget(d.lookupKey)
+            c.timeMachine.purge(d.lookupKey)
+        }
+        return id
+    }
+
     /** Deletes contacts (the journal keeps a copy for 30 days) and offers undo. */
     fun deleteContacts(ids: List<Long>) {
         viewModelScope.launch {
-            c.contacts.delete(ids)
+            try {
+                c.contacts.delete(ids)
+            } catch (e: Exception) {
+                toast(e.message ?: "Couldn't delete")
+                return@launch
+            }
             val journal = c.contacts.lastJournalIds
             val text = if (ids.size == 1) "Contact deleted" else "${ids.size} contacts deleted"
             if (journal.isNotEmpty()) events.trySend(UiEvent.Undo(text, journal)) else toast(text)

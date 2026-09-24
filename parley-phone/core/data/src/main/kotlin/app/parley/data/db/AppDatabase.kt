@@ -62,6 +62,8 @@ data class JournalEntity(
     val restored: Boolean = false,
 )
 
+data class JournalRow(val id: Long, val contactKey: String, val displayName: String, val action: String, val time: Long, val restored: Boolean)
+
 /** Contacts that delete themselves after a date (plumber, delivery driver…). */
 @Entity(tableName = "temporary_contacts")
 data class TemporaryContactEntity(
@@ -124,8 +126,12 @@ data class CallNoteEntity(
 
 @Dao
 interface MetaDao {
-    @Query("SELECT * FROM journal WHERE time > :since ORDER BY time DESC")
-    fun journal(since: Long): Flow<List<JournalEntity>>
+    /** List columns only: payloads can be large and are read one at a time on restore. */
+    @Query("SELECT id, contactKey, displayName, action, time, restored FROM journal WHERE time > :since ORDER BY time DESC")
+    fun journal(since: Long): Flow<List<JournalRow>>
+
+    @Query("DELETE FROM journal WHERE contactKey = :key")
+    suspend fun deleteJournalFor(key: String)
 
     @Insert
     suspend fun addJournal(e: JournalEntity): Long

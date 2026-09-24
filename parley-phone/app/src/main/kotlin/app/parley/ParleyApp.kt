@@ -14,11 +14,10 @@ class ParleyApp : Application() {
         container = DataContainer(this)
         TelecomGraph.install(AppTelecomDependencies(this, container))
         app.parley.work.HousekeepingWorker.schedule(this)
-        container.scope.launch { runCatching { container.timeMachine.snapshotIfDue() } }
-        container.scope.launch {
-            val st = container.folderSync.status.value
-            if (st.folderUri != null && st.auto) runCatching { container.folderSync.syncNow() }
-        }
+        // The process often starts for an incoming call: sync later, off the call path (the daily housekeeping
+        // run takes the time-machine snapshot).
+        val st = container.folderSync.status.value
+        if (st.folderUri != null && st.auto) app.parley.work.FolderSyncWorker.runSoon(this)
         container.scope.launch { app.parley.work.RemindersWorker.schedule(this@ParleyApp, container.settings.current().birthdayReminderHour) }
     }
 }

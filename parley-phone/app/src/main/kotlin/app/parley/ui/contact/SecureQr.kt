@@ -38,6 +38,7 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import kotlinx.coroutines.Dispatchers
+import app.parley.security.launchVault
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -112,6 +113,7 @@ fun SecureQrDialog(details: ContactDetails, onDismiss: () -> Unit) {
 @Composable
 fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEditor: (ContactDetails) -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
     var code by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<ContactDetails?>(null) }
@@ -151,7 +153,7 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
             title = { Text(r.displayName.ifBlank { "Contact" }) },
             text = { Text(listOfNotNull(r.phones.firstOrNull()?.value, r.emails.firstOrNull()?.value).joinToString(" · ")) },
             confirmButton = {
-                TextButton({ scope.launch { val id = vm.c.vault.save(null, r); vm.toast("Saved to private contacts"); onDone(); vm.navigate(app.parley.NavEvent.Vault(id)) } }) { Text("Save privately") }
+                TextButton({ scope.launchVault(context as? androidx.fragment.app.FragmentActivity, { e -> vm.toast("Couldn't save: ${e.message}") }) { val id = vm.c.vault.save(null, r); vm.toast("Saved to private contacts"); onDone(); vm.navigate(app.parley.NavEvent.Vault(id)) } }) { Text("Save privately") }
             },
             dismissButton = { TextButton({ onDone(); openEditor(r) }) { Text("Save to phone") } },
         )

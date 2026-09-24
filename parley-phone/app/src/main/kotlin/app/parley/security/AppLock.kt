@@ -1,8 +1,13 @@
 package app.parley.security
 
+import android.app.Activity
+import android.app.KeyguardManager
+import android.content.Intent
 import android.os.Build
 import android.os.SystemClock
 import android.view.WindowManager
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +33,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import app.parley.common.AppSettings
+import app.parley.data.vault.VaultCrypto
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
@@ -98,9 +107,63 @@ object AppLock {
         )
     }
 
+    /**
+     * Unlocks the vault's time-bound Keystore key. On Android 10 BiometricPrompt can only offer weak biometrics
+     * with the device credential, and weak biometrics don't unlock Keystore keys, so it confirms the screen lock
+     * through the keyguard instead.
+     */
+    fun authenticateForVault(activity: FragmentActivity, onResult: (Boolean) -> Unit) {
+        if (Build.VERSION.SDK_INT >= 30) return authenticate(activity, "Unlock private contacts", onResult)
+        val km = activity.getSystemService(KeyguardManager::class.java)
+        @Suppress("DEPRECATION")
+        val intent = km?.takeIf { it.isDeviceSecure }?.createConfirmDeviceCredentialIntent("Unlock private contacts", null)
+        if (intent == null) {
+            onResult(true)
+            return
+        }
+        var launcher: ActivityResultLauncher<Intent>? = null
+        launcher = activity.activityResultRegistry.register("vault-unlock-${SystemClock.elapsedRealtime()}", ActivityResultContracts.StartActivityForResult()) { r ->
+            launcher?.unregister()
+            val ok = r.resultCode == Activity.RESULT_OK
+            if (ok) VaultSession.markAuthenticated()
+            onResult(ok)
+        }
+        launcher.launch(intent)
+    }
+
     fun applySecureFlag(activity: FragmentActivity, secure: Boolean) {
         if (secure) activity.window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         else activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
+}
+
+/**
+ * Runs a vault operation; if the vault key needs a fresh unlock, asks for it once and retries.
+ * Other failures go to [onError].
+ */
+fun CoroutineScope.launchVault(activity: FragmentActivity?, onError: (Exception) -> Unit, block: suspend () -> Unit) {
+    launch {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: VaultCrypto.LockedException) {
+            if (activity == null) return@launch onError(e)
+            AppLock.authenticateForVault(activity) { ok ->
+                if (!ok) return@authenticateForVault onError(e)
+                launch {
+                    try {
+                        block()
+                    } catch (e2: CancellationException) {
+                        throw e2
+                    } catch (e2: Exception) {
+                        onError(e2)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            onError(e)
+        }
     }
 }
 

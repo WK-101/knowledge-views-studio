@@ -18,7 +18,9 @@ import app.parley.MainActivity
 import app.parley.common.EventDate
 import app.parley.container
 import app.parley.shortcuts.Shortcuts
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -53,8 +55,9 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
     private suspend fun nudges(c: app.parley.data.DataContainer) {
         val metas = c.meta.allMeta().first()
-        val contacts = c.contacts.contacts.value.orEmpty().associateBy { it.lookupKey }
-        val calls = c.callLog.calls.value.orEmpty()
+        // In a cold worker process the flows start empty (null): wait for the first real load.
+        val contacts = withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }?.associateBy { it.lookupKey } ?: return
+        val calls = withTimeoutOrNull(30_000) { c.callLog.calls.filterNotNull().first() } ?: return
         val now = System.currentTimeMillis()
         for (m in metas) {
             val every = m.reachOutDays ?: continue

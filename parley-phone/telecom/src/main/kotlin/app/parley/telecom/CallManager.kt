@@ -114,6 +114,9 @@ object CallManager {
                             silenceRinger()
                         }
                     }
+                } else if (id in unknownCallers) {
+                    // The caller lookup finished first and held the custom tone back until screening allowed the call.
+                    maybePlayUnknownRingtone(call, id)
                 }
                 publish()
             }
@@ -152,6 +155,7 @@ object CallManager {
      */
     private fun maybePlayUnknownRingtone(call: Call, id: String) {
         val uri = runCatching { TelecomGraph.dependencies.unknownRingtone() }.getOrNull() ?: return
+        if (id in screening || customRingerFor == id) return // played once screening allows the call
         if (!::appContext.isInitialized || id in silenced || !calls.contains(call) || call.stateCompat() != Call.STATE_RINGING) return
         val am = appContext.getSystemService(android.media.AudioManager::class.java)
         val nm = appContext.getSystemService(android.app.NotificationManager::class.java)

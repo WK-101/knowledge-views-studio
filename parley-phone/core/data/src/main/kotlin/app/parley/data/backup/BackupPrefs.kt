@@ -24,7 +24,10 @@ data class BackupState(
     val lastContentHash: String? = null,
     val lastResult: String? = null,
     val rotationPaused: Boolean = false,
+    /** Raw contacts the last restore created (raw, not aggregate ids: a restored entry may have joined an existing contact). */
     val lastRestoreIds: List<Long> = emptyList(),
+    /** Newest backup that contains private contacts; rotation keeps it while newer ones lack them. */
+    val lastVaultBackupName: String? = null,
 ) {
     val policy: RetentionPolicy get() = if (keepLast > 0) RetentionPolicy.Simple(keepLast) else RetentionPolicy.Periodic(daily = 7, weekly = 5, monthly = 12, yearly = 3)
 }
@@ -49,7 +52,8 @@ class BackupPrefs(context: Context) {
         lastContentHash = prefs.getString("lastHash", null),
         lastResult = prefs.getString("lastResult", null),
         rotationPaused = prefs.getBoolean("paused", false),
-        lastRestoreIds = prefs.getString("restoreIds", "").orEmpty().split(',').mapNotNull { it.toLongOrNull() },
+        lastRestoreIds = prefs.getString("restoreRawIds", "").orEmpty().split(',').mapNotNull { it.toLongOrNull() },
+        lastVaultBackupName = prefs.getString("vaultName", null),
     )
 
     fun update(f: (android.content.SharedPreferences.Editor) -> Unit) {

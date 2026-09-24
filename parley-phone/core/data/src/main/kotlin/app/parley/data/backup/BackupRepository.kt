@@ -42,6 +42,7 @@ import app.parley.data.records.ContactRecordStore
 import app.parley.data.vault.VaultCrypto
 import app.parley.data.vault.VaultRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -90,8 +91,12 @@ data class RestoreReport(
     val rules: Int = 0,
     val vault: Int = 0,
     val failed: Int = 0,
+    /** Set when the restore didn't run at all. */
+    val error: String? = null,
+    /** Parts that couldn't be restored (e.g. private contacts while the vault is locked). */
+    val skipped: List<String> = emptyList(),
 ) {
-    fun summary() = buildList {
+    fun summary() = error ?: buildList {
         add("$added contacts added")
         if (enriched > 0) add("$enriched updated with $rowsAdded details")
         if (deleted > 0) add("$deleted replaced")
@@ -99,6 +104,7 @@ data class RestoreReport(
         if (rules > 0) add("$rules blocking rules")
         if (vault > 0) add("$vault private contacts")
         if (failed > 0) add("$failed failed")
+        skipped.forEach { add("not restored: $it") }
     }.joinToString(" · ")
 }
 
@@ -150,13 +156,16 @@ class BackupRepository(
     /**
      * Writes a backup. [scheduled] runs skip the new file when nothing changed since the last one.
      * With [target], writes that document instead of the backup folder (e.g. "move to a new phone").
+     * A [safety] backup (taken before a Replace restore) never triggers rotation, so it can't delete the file
+     * being restored from.
      */
-    suspend fun backupNow(scheduled: Boolean, target: Uri? = null): BackupOutcome = withContext(Dispatchers.IO) {
+    suspend fun backupNow(scheduled: Boolean, target: Uri? = null, safety: Boolean = false): BackupOutcome = withContext(Dispatchers.IO + NonCancellable) {
         val bundle = prefs.keyBundle() ?: return@withContext BackupOutcome(false, message = "Set a backup passphrase first")
         val state = prefs.state.value
         val folder = state.folderUri?.let(Uri::parse)
         if (target == null && folder == null) return@withContext BackupOutcome(false, message = "Choose a backup folder first")
 
+        if (target == null) cleanupPartials(folder!!)
         val now = Instant.now()
         val finalName = RetentionDecider.fileName(now, zone)
         val doc: Uri = target ?: try {
@@ -218,16 +227,24 @@ class BackupRepository(
         }
         val renamed = runCatching { DocumentsContract.renameDocument(cr, doc, finalName) }.getOrNull() ?: doc
 
-        // Rotation, paused if many contacts disappeared (protects the last good backups).
-        val paused = state.lastContactCount >= 0 && RetentionDecider.mustPauseRotation(state.lastContactCount, contactCount)
-        if (!paused) rotate(folder!!)
+        // Rotation, paused if many contacts disappeared (protects the last good backups). The reference count is
+        // a high-water mark: it only moves while rotation runs, so the pause lasts until the user resumes it.
+        val paused = !safety && state.lastContactCount >= 0 && RetentionDecider.mustPauseRotation(state.lastContactCount, contactCount)
+        val vaultMissing = !vaultIncluded && vault.contacts.value.isNotEmpty()
+        if (!paused && !safety) rotate(protect = if (vaultIncluded) finalName else state.lastVaultBackupName)
+        val result = "Backed up $contactCount contacts and $callCount calls" + if (vaultMissing) ". Private contacts were not included: open Parley and unlock them, then back up again." else ""
         prefs.update {
             it.putLong("lastAt", System.currentTimeMillis()).putString("lastName", finalName).putLong("verifiedAt", System.currentTimeMillis())
-                .putInt("lastCount", contactCount).putString("lastHash", hash).putBoolean("paused", paused)
-                .putString("lastResult", "Backed up $contactCount contacts and $callCount calls")
+                .putString("lastHash", hash).putBoolean("paused", paused)
+                .putString("lastResult", result)
+            if (!paused && !safety) it.putInt("lastCount", contactCount)
+            if (vaultIncluded) it.putString("vaultName", finalName)
         }
         BackupOutcome(true, finalName, contactCount, callCount, verified = true, rotationPaused = paused, vaultIncluded = vaultIncluded, message = "Backed up $contactCount contacts" + if (paused) " — rotation paused because many contacts disappeared" else "")
     }
+
+    /** Accepts the current contact count after a rotation pause, so old backups rotate again. */
+    fun resumeRotation() = prefs.update { it.putInt("lastCount", -1).putBoolean("paused", false) }
 
     private fun fail(msg: String): BackupOutcome {
         prefs.update { it.putString("lastResult", msg) }
@@ -292,8 +309,22 @@ class BackupRepository(
         return out.sortedByDescending { it.time }
     }
 
-    private fun rotate(folder: Uri) {
-        val files = listBackups()
+    /** Removes `.partial` files left by an interrupted backup (older than an hour, so a running one is safe). */
+    private fun cleanupPartials(folder: Uri) = runCatching {
+        val children = DocumentsContract.buildChildDocumentsUriUsingTree(folder, DocumentsContract.getTreeDocumentId(folder))
+        val cutoff = System.currentTimeMillis() - 3_600_000L
+        cr.query(children, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_LAST_MODIFIED), null, null, null)?.use { c ->
+            while (c.moveToNext()) {
+                val name = c.getString(1) ?: continue
+                if (name.endsWith(".partial") && c.getLong(2) in 1 until cutoff) {
+                    runCatching { DocumentsContract.deleteDocument(cr, DocumentsContract.buildDocumentUriUsingTree(folder, c.getString(0))) }
+                }
+            }
+        }
+    }
+
+    private fun rotate(protect: String?) {
+        val files = listBackups().filter { it.name != protect }
         val decision = RetentionDecider.decide(files.map { app.parley.common.backup.BackupFile(it.name, it.time) }, prefs.state.value.policy, Instant.now(), zone)
         val toDelete = decision.delete.map { it.name }.toSet()
         files.filter { it.name in toDelete }.forEach { runCatching { DocumentsContract.deleteDocument(cr, it.uri) } }
@@ -314,18 +345,37 @@ class BackupRepository(
         MergePlanner.plan(existing, backup, mode)
     }
 
-    suspend fun restore(opened: OpenedBackup, plan: MergePlan, o: RestoreOptions): RestoreReport = withContext(Dispatchers.IO) {
+    /**
+     * Restores the chosen parts. Runs to completion even if the screen goes away; each part is isolated so one
+     * failure (e.g. a locked vault) doesn't abandon the rest. A Replace restore first takes a safety backup and
+     * doesn't start if that fails.
+     */
+    suspend fun restore(opened: OpenedBackup, plan: MergePlan, o: RestoreOptions): RestoreReport = withContext(Dispatchers.IO + NonCancellable) {
         var r = RestoreReport()
-        val inserted = ArrayList<Long>()
-        if (o.contacts) {
+        val skipped = ArrayList<String>()
+        if (o.contacts && plan.mode == RestoreMode.REPLACE && plan.toDelete.isNotEmpty()) {
+            val safety = backupNow(scheduled = false, safety = true)
+            if (!safety.ok) return@withContext RestoreReport(error = "Nothing was changed: the safety backup of your current contacts failed (${safety.message})")
+        }
+        val insertedRaws = ArrayList<Long>()
+        fun remember() = prefs.update { it.putString("restoreRawIds", insertedRaws.joinToString(",")) }
+        remember()
+        if (o.contacts) try {
             if (plan.mode == RestoreMode.REPLACE && plan.toDelete.isNotEmpty()) {
                 val ids = plan.toDelete.mapNotNull { idForKey(it.key) }
                 contacts.delete(ids) // journaled first
                 r = r.copy(deleted = ids.size)
             }
             val news = plan.actions.filterIsInstance<MergeAction.New>().map { it.backup }
-            records.insertAll(news, target = null).forEach { res -> res.contactId?.let { inserted += it } ?: run { r = r.copy(failed = r.failed + 1) } }
-            r = r.copy(added = inserted.size)
+            var added = 0
+            news.chunked(200).forEach { chunk ->
+                records.insertAll(chunk, target = null).forEach { res ->
+                    insertedRaws += res.rawIds
+                    if (res.contactId != null) added++ else r = r.copy(failed = r.failed + 1)
+                }
+                remember()
+            }
+            r = r.copy(added = added)
             for (a in plan.actions) {
                 val (existing, rows) = when (a) {
                     is MergeAction.Enrich -> a.existing to a.missingRows
@@ -335,25 +385,41 @@ class BackupRepository(
                 val n = addRows(existing, rows)
                 if (n > 0) r = r.copy(enriched = r.enriched + 1, rowsAdded = r.rowsAdded + n)
             }
+        } catch (e: Exception) {
+            skipped += "some contacts (${e.message ?: e.javaClass.simpleName})"
         }
-        if (o.callLog) r = r.copy(calls = restoreCallLog(opened))
-        if (o.blocking) r = r.copy(rules = restoreBlocking(opened))
-        if (o.speedDial) {
+        suspend fun part(name: String, block: suspend () -> Unit) = try {
+            block()
+        } catch (e: Exception) {
+            skipped += name
+        }
+        if (o.callLog) part("call history") { r = r.copy(calls = restoreCallLog(opened)) }
+        if (o.blocking) part("blocking rules") { r = r.copy(rules = restoreBlocking(opened)) }
+        if (o.speedDial) part("speed dial") {
             opened.reader.speedDial()?.forEach { prefsRepo.setSpeedDial(it.slot, it.number, it.label) }
             opened.reader.numberSims()?.forEach { db.prefsDao().setSim(app.parley.data.db.NumberSimEntity(it.matchKey, it.phoneAccountId)) }
         }
-        if (o.settings) opened.reader.settings()?.let { settings.importMap(it) }
-        if (o.vault) r = r.copy(vault = restoreVault(opened))
-        prefs.update { it.putString("restoreIds", inserted.joinToString(",")) }
+        if (o.settings) part("settings") { opened.reader.settings()?.let { settings.importMap(it) } }
+        if (o.vault) try {
+            r = r.copy(vault = restoreVault(opened))
+        } catch (e: VaultCrypto.LockedException) {
+            skipped += "private contacts (unlock them and restore again)"
+        } catch (e: Exception) {
+            skipped += "private contacts"
+        }
         contacts.refresh()
-        r
+        r.copy(skipped = skipped)
     }
 
-    /** Removes the contacts the last restore added. */
-    suspend fun undoLastRestore(): Int = withContext(Dispatchers.IO) {
+    /** Removes the raw contacts the last restore added (existing contacts they joined keep their own entries). */
+    suspend fun undoLastRestore(): Int = withContext(Dispatchers.IO + NonCancellable) {
         val ids = prefs.state.value.lastRestoreIds
-        if (ids.isNotEmpty()) contacts.delete(ids)
-        prefs.update { it.putString("restoreIds", "") }
+        ids.chunked(200).forEach { chunk ->
+            val ops = chunk.map { ContentProviderOperation.newDelete(android.content.ContentUris.withAppendedId(ContactsContract.RawContacts.CONTENT_URI, it)).build() }
+            runCatching { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(ops)) }
+        }
+        prefs.update { it.putString("restoreRawIds", "") }
+        contacts.refresh()
         ids.size
     }
 

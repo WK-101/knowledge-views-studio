@@ -3,6 +3,8 @@ package app.parley.work
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -18,6 +20,14 @@ class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
     }
 
     companion object {
+        /** One sync shortly after start-up. */
+        fun runSoon(context: Context) {
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                "parley-folder-sync-once", ExistingWorkPolicy.KEEP,
+                OneTimeWorkRequestBuilder<FolderSyncWorker>().setInitialDelay(30, TimeUnit.SECONDS).build(),
+            )
+        }
+
         fun schedule(context: Context, on: Boolean) {
             val wm = WorkManager.getInstance(context)
             if (!on) wm.cancelUniqueWork("parley-folder-sync")

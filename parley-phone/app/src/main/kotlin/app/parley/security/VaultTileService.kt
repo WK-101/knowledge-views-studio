@@ -14,6 +14,15 @@ class VaultTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
+        // Hiding is always allowed; showing again from the lock screen needs the phone unlocked first.
+        if (isLocked && container.settings.settings.value.hideVault) {
+            unlockAndRun { toggle() }
+            return
+        }
+        toggle()
+    }
+
+    private fun toggle() {
         container.scope.launch {
             val next = !container.settings.current().hideVault
             container.settings.update { it.copy(hideVault = next) }

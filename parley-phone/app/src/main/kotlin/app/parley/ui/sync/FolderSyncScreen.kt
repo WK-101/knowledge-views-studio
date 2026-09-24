@@ -19,6 +19,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -53,10 +54,10 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
             FolderSyncWorker.schedule(context, st.auto)
         }
     }
-    fun run() {
+    fun run(allowMassDelete: Boolean = false) {
         running = true
         scope.launch {
-            val r = runCatching { sync.syncNow() }
+            val r = runCatching { sync.syncNow(allowMassDelete) }
             running = false
             vm.toast(r.getOrNull()?.summary() ?: "Sync failed: ${r.exceptionOrNull()?.message}")
         }
@@ -94,7 +95,10 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
                     supportingContent = st.lastResult?.let { r -> { Text(r) } },
                     leadingContent = { Icon(Icons.Rounded.Sync, null) },
                 )
-                Button(::run, enabled = st.folderUri != null && !running, modifier = Modifier.padding(horizontal = 16.dp)) { Text("Sync now") }
+                if (st.pendingDeletions > 0 && !running) {
+                    OutlinedButton({ run(allowMassDelete = true) }, Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { Text("Apply ${st.pendingDeletions} deletions") }
+                }
+                Button({ run() }, enabled = st.folderUri != null && !running, modifier = Modifier.padding(horizontal = 16.dp)) { Text("Sync now") }
                 if (running) LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp))
                 if (st.folderUri != null) TextButton({ sync.setFolder(null, null); FolderSyncWorker.schedule(context, false) }, Modifier.padding(horizontal = 8.dp)) { Text("Stop syncing") }
             }

@@ -34,7 +34,11 @@ class CallScreener(
         val facts = IncomingCallFacts(
             number = number,
             hidden = hidden,
-            isContact = !number.isNullOrBlank() && (contacts.lookup(number) != null || vault.lookup(number) != null),
+            // Without contacts access nobody can be recognised: fail open rather than block every caller.
+            isContact = !number.isNullOrBlank() && (
+                !Permissions.has(context, android.Manifest.permission.READ_CONTACTS) ||
+                    contacts.lookup(number) != null || vault.lookup(number) != null
+                ),
             verification = verification,
             countryIso = PhoneEnv.countryIso(context),
             ownNumbers = if (s.blockNeighbourSpoofing) sims.ownNumbers() else emptyList(),

@@ -51,6 +51,7 @@ import app.parley.AppViewModel
 import app.parley.data.ContactDetails
 import app.parley.data.vault.VaultCrypto
 import app.parley.security.AppLock
+import app.parley.security.launchVault
 import app.parley.ui.Avatar
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
@@ -84,7 +85,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
             locked = true
         }
     }
-    fun unlock() = (context as? FragmentActivity)?.let { AppLock.authenticate(it, "Unlock private contact") { ok -> if (ok) attempt++ } }
+    fun unlock() = (context as? FragmentActivity)?.let { AppLock.authenticateForVault(it) { ok -> if (ok) attempt++ } }
 
     Scaffold(topBar = {
         TopAppBar(
@@ -97,8 +98,8 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                     DropdownMenu(menu, { menu = false }) {
                         DropdownMenuItem({ Text("Move to phone contacts") }, leadingIcon = { Icon(Icons.Rounded.LockOpen, null) }, onClick = {
                             menu = false
-                            scope.launch {
-                                val d = details ?: return@launch
+                            scope.launchVault(context as? FragmentActivity, { e -> vm.toast("Couldn't move: ${e.message}") }) {
+                                val d = details ?: return@launchVault
                                 val s = vm.settings.value
                                 val account = app.parley.data.AccountRef(s.defaultAccountType, s.defaultAccountName)
                                 val newId = vm.c.contacts.save(null, d, account, null, false)

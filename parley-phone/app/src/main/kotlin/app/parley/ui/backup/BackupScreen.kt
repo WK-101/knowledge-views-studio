@@ -135,6 +135,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                         if (state.lastVerifiedAt > 0) Text("Verified ${Format.fullDate(context, state.lastVerifiedAt)} · encrypted" + (state.keyId?.let { " · key $it" } ?: ""), style = MaterialTheme.typography.bodySmall)
                         state.lastResult?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                         if (state.rotationPaused) Row { Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.error); Text("  Many contacts disappeared since the last backup, so old backups are being kept.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                        if (state.rotationPaused) TextButton({ repo.resumeRotation() }) { Text("That's expected, resume rotation") }
                         Text(
                             "Contacts with full photos, call history, blocking rules, speed dial, settings and private contacts, in one encrypted file in a folder you choose (sync it with Syncthing, Nextcloud or a USB drive).",
                             style = MaterialTheme.typography.bodySmall,

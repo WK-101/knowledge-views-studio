@@ -10,6 +10,8 @@ import app.parley.common.backup.Snapshots
 import app.parley.common.record.ContactRecord
 import app.parley.data.records.ContactRecordStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.zip.GZIPInputStream
@@ -45,13 +47,15 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
     private val store = FileBlobStore(File(root, "blobs"))
     private val indexDir = File(root, "index").apply { mkdirs() }
 
+    private val mutex = Mutex()
+
     fun snapshots(): List<SnapshotIndex> = indexDir.listFiles().orEmpty()
         .filter { it.name.endsWith(".idx") }
         .mapNotNull { runCatching { SnapshotIndex.fromBytes(it.readBytes()) }.getOrNull() }
         .sortedBy { it.timestamp }
 
     /** Takes a snapshot if the last one is older than [minIntervalMs]. Returns true if written. */
-    suspend fun snapshotIfDue(minIntervalMs: Long = 20 * 3_600_000L): Boolean = withContext(Dispatchers.IO) {
+    suspend fun snapshotIfDue(minIntervalMs: Long = 20 * 3_600_000L): Boolean = mutex.withLock { withContext(Dispatchers.IO) {
         val last = snapshots().lastOrNull()
         val now = System.currentTimeMillis()
         if (last != null && now - last.timestamp < minIntervalMs) return@withContext false
@@ -60,15 +64,37 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
             // Nothing changed: move the last index forward instead of adding a duplicate.
             File(indexDir, "${last.timestamp}.idx").delete()
         }
-        File(indexDir, "$now.idx").writeBytes(result.index.toBytes())
+        writeIndex(result.index)
         prune(now)
         true
+    } }
+
+    private fun writeIndex(index: SnapshotIndex) {
+        val f = File(indexDir, "${index.timestamp}.idx")
+        val tmp = File(f.path + ".tmp")
+        tmp.writeBytes(index.toBytes())
+        if (!tmp.renameTo(f)) { f.delete(); tmp.renameTo(f) }
     }
 
+    /** Removes every stored version of a contact (after it moved into the private vault). */
+    suspend fun purge(key: String) = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            snapshots().filter { key in it.contacts }.forEach { writeIndex(it.copy(contacts = it.contacts - key)) }
+            collectGarbage(snapshots())
+        }
+    }
+
+    /** Drops expired snapshots; unreferenced blobs are only swept when something was dropped (it reads every record). */
     private fun prune(now: Long) {
         val all = snapshots()
         val keep = all.filter { now - it.timestamp <= KEEP_DAYS * 86_400_000L }.ifEmpty { all.takeLast(1) }
-        all.filter { it !in keep }.forEach { File(indexDir, "${it.timestamp}.idx").delete() }
+        val drop = all.filter { it !in keep }
+        if (drop.isEmpty()) return
+        drop.forEach { File(indexDir, "${it.timestamp}.idx").delete() }
+        collectGarbage(keep)
+    }
+
+    private fun collectGarbage(keep: List<SnapshotIndex>) {
         val live = keep.flatMap { it.contacts.values }.toHashSet()
         // Photos are separate blobs referenced from records; keep any blob still referenced by a kept record.
         val referenced = HashSet<String>(live)

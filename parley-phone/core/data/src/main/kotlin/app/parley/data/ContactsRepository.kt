@@ -76,8 +76,17 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     var lastJournalIds: List<Long> = emptyList()
         private set
 
+    /** A deletion never goes ahead without its undo copy; other changes do, with a log entry. */
     private suspend fun journal(ids: List<Long>, action: String) {
-        lastJournalIds = runCatching { beforeChange?.invoke(ids, action) }.getOrNull().orEmpty()
+        lastJournalIds = try {
+            beforeChange?.invoke(ids, action).orEmpty()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            android.util.Log.w("ContactsRepository", "Journal failed for $action", e)
+            if (action == "DELETE") throw IllegalStateException("Couldn't keep an undo copy, so nothing was deleted", e)
+            emptyList()
+        }
     }
 
     /** Bumped after permission changes so observers reload. */
@@ -521,6 +530,24 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
 
     private suspend fun updateContact(contactId: Long, values: ContentValues) = withContext(Dispatchers.IO) {
         cr.update(ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId), values, null, null)
+    }
+
+    /** Current id of a contact remembered by lookup key (ids change when contacts are re-aggregated); null if gone. */
+    suspend fun resolve(lookupKey: String, contactId: Long): Long? = withContext(Dispatchers.IO) {
+        runCatching { Contacts.lookupContact(cr, Contacts.getLookupUri(contactId, lookupKey))?.let(ContentUris::parseId) }.getOrNull()
+    }
+
+    /** Journals contacts before a change made outside this repository (folder sync, restore). */
+    suspend fun recordChange(ids: List<Long>, action: String) = journal(ids, action)
+
+    /** The raw contact edits go to, and every writable raw contact of [contactId]. */
+    suspend fun writableRaws(contactId: Long): Pair<Long?, List<Long>> =
+        details(contactId)?.let { it.editRawId to it.writableRawIds } ?: (null to emptyList())
+
+    /** Deletes without a journal entry: moving a contact into the vault must leave no plaintext copy behind. */
+    suspend fun deleteUnjournaled(contactIds: Collection<Long>) = withContext(Dispatchers.IO) {
+        val ops = contactIds.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(Contacts.CONTENT_URI, it)).build() }
+        if (ops.isNotEmpty()) cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(ops))
     }
 
     suspend fun delete(contactIds: Collection<Long>) = withContext(Dispatchers.IO) {

@@ -59,7 +59,9 @@ class PickerActivity : androidx.fragment.app.FragmentActivity() {
             val s by c.settings.settings.collectAsStateWithLifecycle()
             val locked by app.parley.security.AppLock.locked.collectAsStateWithLifecycle()
             androidx.compose.runtime.LaunchedEffect(s.secureScreen) { app.parley.security.AppLock.applySecureFlag(this@PickerActivity, s.secureScreen) }
+            val loaded by c.settings.loaded.collectAsStateWithLifecycle()
             ParleyTheme(s.themeMode, s.amoledBlack, s.dynamicColor, s.density) {
+                if (!loaded) return@ParleyTheme
                 if (locked && s.appLock) {
                     app.parley.security.LockScreen { app.parley.security.AppLock.authenticate(this@PickerActivity) }
                     return@ParleyTheme
