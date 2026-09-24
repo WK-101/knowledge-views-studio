@@ -1098,4 +1098,150 @@
     <string name="me_scan">Scan with any camera app. Include:</string>
     <string name="me_part_work">Company and job</string>
     <string name="me_share_file">Share as file</string>
+
+    <!-- People: settings rows -->
+    <string name="second_number">Phone number</string>
+    <string name="second_company">Company · title</string>
+    <string name="second_nickname">Nickname</string>
+    <string name="second_account">Account</string>
+    <string name="second_none">Nothing</string>
+    <string name="second_line_summary">People with the same name always show their company or number</string>
+    <string name="prefer_nickname_summary">Show “Bob” instead of “Robert Jones” in lists when a nickname is saved</string>
+    <plurals name="labels_row_summary">
+        <item quantity="one">%1$d label · rename, merge, ringtones</item>
+        <item quantity="other">%1$d labels · rename, merge, ringtones</item>
+    </plurals>
+    <plurals name="export_account_done">
+        <item quantity="one">Exported %1$d contact from %2$s</item>
+        <item quantity="other">Exported %1$d contacts from %2$s</item>
+    </plurals>
+    <plurals name="export_account_failed">
+        <item quantity="one">%1$s · %2$d failed</item>
+        <item quantity="other">%1$s · %2$d failed</item>
+    </plurals>
+    <string name="export_account_title">Export contacts from</string>
+    <string name="privacy_section">Your contacts and other apps</string>
+    <string name="privacy_who_can_see">Who can see your contacts</string>
+    <string name="privacy_who_can_see_summary">Which apps can read your contacts, and what Parley can do about it</string>
+    <string name="privacy_private_names">Let apps show private names</string>
+
+    <!-- People: who can see your contacts -->
+    <string name="who_header">Android doesn\'t let any contacts app decide what other apps see. Any app you\'ve allowed “Contacts” can read every contact on this phone, from every account. Here is what Parley can do.</string>
+    <string name="who_apps">These apps can read all your contacts. Parley can\'t limit them. Tap to change their permission in Android Settings.</string>
+    <string name="who_private">Private contacts are never stored where other apps can read them. Only Parley shows their names.</string>
+    <string name="who_pick">When an app asks you to pick a contact, only that contact is shared.</string>
+    <string name="who_settings_failed">Couldn\'t open Android Settings</string>
+    <string name="who_graphene">You\'re using GrapheneOS</string>
+    <string name="who_graphene_text">GrapheneOS Contact Scopes are the real per-app control: an app can be given only the contacts you choose, and sees nothing else. Open an app below, then Permissions › Contacts › Contact Scopes.</string>
+    <string name="who_no_browser">No browser available</string>
+    <string name="who_scopes_link">How Contact Scopes work</string>
+    <string name="who_apps_section">Apps with access to your contacts</string>
+    <string name="who_no_apps">No other app on your home screen has Contacts access</string>
+    <string name="who_can_read_all">Can read all contacts</string>
+    <string name="who_system">Part of the system</string>
+    <string name="who_scopes_tip">Tip: use Contact Scopes for this app</string>
+    <string name="who_change">Change in Settings</string>
+    <string name="who_unused">Apps you haven\'t used for a while</string>
+    <string name="who_unused_text">Android can remove permissions from apps you haven\'t used for a few months. Check that “Pause app activity if unused” is on in each app\'s settings. Apps without a home-screen icon aren\'t listed here: Parley doesn\'t ask to see every installed app.</string>
+    <string name="who_messengers">WhatsApp and other messengers</string>
+    <string name="who_private_default">Private by default</string>
+    <string name="who_save_private">Save new contacts as private</string>
+    <string name="who_save_private_summary">New contacts go to your private contacts instead of an account</string>
+    <string name="who_what_stops">What stops showing their names:\n• your car and smartwatch (over Bluetooth they read the phone\'s contacts)\n• other apps: messengers, keyboards, another phone app\n• Android\'s call log, which other apps can read (they see only the number)\nPrivate contacts don\'t sync to Google or CardDAV; they\'re in Parley\'s encrypted backups.</string>
+    <string name="who_move_private">Move contacts to private</string>
+    <string name="who_move_private_summary">Select contacts in the Contacts tab, then More › Move to private</string>
+    <string name="who_move_private_hint">Long-press contacts to select them, then choose More › Move to private</string>
+    <string name="who_share_one">Share just one contact</string>
+    <string name="who_picker_text">Parley is your contact picker: an app that asks you to choose a contact gets that one contact, not your address book, and doesn\'t need the Contacts permission for it.</string>
+    <string name="who_picker_text_37">Parley is your contact picker: an app that asks you to choose a contact gets that one contact, not your address book, and doesn\'t need the Contacts permission for it. On this Android version, apps can also use Android\'s own contact picker, which shares only what you choose in the same way.</string>
+    <string name="who_one_number">Offer to share only a number</string>
+    <string name="who_one_number_summary">When an app asks for a whole contact, choose to share just one phone number with it. Some apps may not accept this.</string>
+    <string name="who_private_names_section">Private names in other apps</string>
+    <plurals name="who_private_names_on">
+        <item quantity="one">On · %1$d app allowed</item>
+        <item quantity="other">On · %1$d apps allowed</item>
+    </plurals>
+
+    <!-- People: private names for other apps -->
+    <string name="pn_title">Private names in other apps</string>
+    <string name="pn_off_default">Off by default</string>
+    <string name="pn_intro">Apps you approve can ask Parley for the name of one phone number at a time, for example to show who is calling. They get only that name, never a list, and only after you allow each app. Parley asks you with a notification the first time an app tries, and every request is listed below.</string>
+    <string name="pn_directory_section">Phone apps (contacts directory)</string>
+    <string name="pn_directory_summary">Off by default. Uses the same approvals and log as above</string>
+    <string name="pn_directory_text">When this is on, Android lists Parley as a contacts directory. A phone app that looks callers up in directories (for example Google Phone, also when it runs in your car) can then ask for the name of one number, and only after you allow that app. It never gets a list, a photo or a contact to open, and nothing is answered in discreet mode. Not every phone app asks directories: Google Phone does, others may only look in your contacts.</string>
+    <string name="pn_apps">Apps</string>
+    <string name="pn_no_app">No app has asked yet</string>
+    <string name="pn_allowed">Allowed</string>
+    <string name="pn_not_allowed">Not allowed</string>
+    <string name="pn_waiting">Waiting for your answer</string>
+    <string name="pn_forget">Forget (ask again)</string>
+    <string name="pn_log">Access log</string>
+    <string name="pn_no_requests">No requests yet</string>
+    <string name="pn_directory_suffix">%1$s (directory)</string>
+    <string name="pn_clear_log">Clear log</string>
+    <string name="pn_developers">For app developers: query content://%1$s/lookup/&lt;number&gt; while holding the permission %2$s. The result has one row (display_name, photo_uri) or none.</string>
+    <string name="pn_out_answered">Showed a private name</string>
+    <string name="pn_out_not_found">Asked; no private contact has that number</string>
+    <string name="pn_out_denied">Blocked: you said no</string>
+    <string name="pn_out_asked">Waiting for your answer</string>
+    <string name="pn_out_off">Blocked: sharing private names is off</string>
+    <string name="pn_out_rejected">Rejected: not a single phone number</string>
+    <string name="pn_out_rate">Blocked: too many lookups</string>
+    <plurals name="move_private_title">
+        <item quantity="one">Move %1$d to private?</item>
+        <item quantity="other">Move %1$d to private?</item>
+    </plurals>
+    <string name="move_private_text">Private contacts are never stored where other apps can read them. Only Parley shows their names. They are removed from your accounts (Google, CardDAV…) and other phones stop seeing them; your car, watch and other apps show only their numbers.</string>
+    <plurals name="move_private_done">
+        <item quantity="one">Moved %1$d to your private contacts</item>
+        <item quantity="other">Moved %1$d to your private contacts</item>
+    </plurals>
+    <string name="move_private_move">Move</string>
+
+    <!-- People: contacts search hints -->
+    <string name="search_matched">Matched: %1$s</string>
+    <string name="search_field_email">e-mail</string>
+    <string name="search_field_nickname">nickname</string>
+    <string name="search_field_company">company</string>
+    <string name="search_field_address">address</string>
+    <string name="search_field_note">note</string>
+    <string name="search_field_website">website</string>
+    <string name="search_field_handle">messenger handle</string>
+
+    <!-- People: SIM -->
+    <string name="sim_warning">A SIM card stores only a name (about 14 letters) and one number per entry.</string>
+    <string name="sim_copy_title">Copy to SIM</string>
+    <string name="sim_none_see">No SIM card found, or Android didn\'t let Parley see it.</string>
+    <plurals name="sim_free">
+        <item quantity="one">%1$d free entry</item>
+        <item quantity="other">%1$d free entries</item>
+    </plurals>
+    <string name="sim_full">This SIM is full.</string>
+    <string name="sim_copied">Copied to %1$s</string>
+    <string name="sim_copy">Copy</string>
+    <string name="sim_issue_no_number">There\'s no phone number to copy.</string>
+    <string name="sim_issue_invalid">The number can\'t be stored on a SIM.</string>
+    <plurals name="sim_issue_too_long">
+        <item quantity="one">The number is longer than the SIM allows (%1$d digit).</item>
+        <item quantity="other">The number is longer than the SIM allows (%1$d digits).</item>
+    </plurals>
+    <plurals name="sim_issue_left_out">
+        <item quantity="one">Only one number fits on a SIM: %1$d other number is left out.</item>
+        <item quantity="other">Only one number fits on a SIM: %1$d other numbers are left out.</item>
+    </plurals>
+    <string name="sim_issue_shortened">The name is shortened to “%1$s”.</string>
+    <string name="sim_issue_details">E-mails, addresses, photos and other details stay on the phone only.</string>
+    <string name="sim_import_title">Import from SIM</string>
+    <string name="sim_import_n">Import %1$d</string>
+    <string name="sim_import_intro">A SIM card stores only a name (about 14 letters) and one number per entry. Entries you already have are unticked.</string>
+    <string name="sim_none_read">No SIM card found, or Android didn\'t let Parley read it.</string>
+    <string name="sim_section">SIM</string>
+    <plurals name="sim_entries">
+        <item quantity="one">%1$d entry on the SIM</item>
+        <item quantity="other">%1$d entries on the SIM</item>
+    </plurals>
+    <string name="sim_empty">The SIM phonebook is empty.</string>
+    <string name="sim_already">%1$s · already in your contacts</string>
+    <string name="sim_import_into">Import into</string>
+    <string name="sim_imported">Imported %1$d of %2$d into %3$s</string>
 </resources>

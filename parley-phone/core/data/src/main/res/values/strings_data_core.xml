@@ -131,4 +131,15 @@
 
     <!-- Labels (core/data) -->
     <string name="data_label_offhours_off">Off hours let only “%1$s” ring, so it\'s switched off. Turn it back on in Blocking › Off hours.</string>
+
+    <!-- Who can see your contacts (core/data) -->
+    <string name="data_audit_messaging">Messaging apps use contacts to show who\'s who</string>
+    <string name="data_audit_email">E-mail apps use contacts to suggest addresses</string>
+    <string name="data_audit_phone">Phone apps use contacts to show who\'s calling</string>
+
+    <!-- SIM phonebook (core/data) -->
+    <string name="data_sim_full">The SIM didn\'t accept it (it may be full)</string>
+    <string name="data_sim_not_allowed">Android didn\'t allow writing to this SIM</string>
+    <string name="data_sim_rejected">The SIM didn\'t accept it</string>
+    <string name="data_sim_slot">SIM %1$d</string>
 </resources>

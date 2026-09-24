@@ -6,14 +6,21 @@ import app.parley.common.PhoneNumbers
 enum class LookupApproval { ALLOWED, DENIED, PENDING }
 
 /** What the provider did with one query (shown in the access log; the number itself is never stored). */
-enum class LookupOutcome(val text: String) {
-    ANSWERED("Showed a private name"),
-    NOT_FOUND("Asked; no private contact has that number"),
-    DENIED("Blocked: you said no"),
-    ASKED("Waiting for your answer"),
-    OFF("Blocked: sharing private names is off"),
-    REJECTED("Rejected: not a single phone number"),
-    RATE_LIMITED("Blocked: too many lookups"),
+enum class LookupOutcome {
+    /** Showed a private name. */
+    ANSWERED,
+    /** Asked; no private contact has that number. */
+    NOT_FOUND,
+    /** Blocked: the user said no. */
+    DENIED,
+    /** Waiting for the user's answer. */
+    ASKED,
+    /** Blocked: sharing private names is off. */
+    OFF,
+    /** Rejected: not a single phone number. */
+    REJECTED,
+    /** Blocked: too many lookups. */
+    RATE_LIMITED,
 }
 
 /**

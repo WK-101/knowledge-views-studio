@@ -4,12 +4,12 @@ import app.parley.common.ContactSummary
 import app.parley.common.TextSearch
 
 /** What the contacts list shows under each name (Settings › Appearance › "Second line"). */
-enum class SecondLineMode(val title: String) {
-    NUMBER("Phone number"),
-    COMPANY_TITLE("Company · title"),
-    NICKNAME("Nickname"),
-    ACCOUNT("Account"),
-    NONE("Nothing"),
+enum class SecondLineMode {
+    NUMBER,
+    COMPANY_TITLE,
+    NICKNAME,
+    ACCOUNT,
+    NONE,
 }
 
 /** Contact fields the list rows need beyond [ContactSummary], loaded in one pass over the provider. */

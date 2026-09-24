@@ -58,14 +58,17 @@ import app.parley.ui.common.Format
 import app.parley.ui.contact.Section
 import app.parley.ui.settings.LinkRow
 import app.parley.ui.settings.SwitchRow
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import app.parley.R
+import app.parley.common.people.LookupOutcome
 
 /** Honest wording from the design notes (COMPETITIVE_ANALYSIS_2 §5.4). Parley never claims to control other apps. */
 private object Wording {
-    const val HEADER = "Android doesn't let any contacts app decide what other apps see. Any app you've allowed “Contacts” can read every " +
-        "contact on this phone, from every account. Here is what Parley can do."
-    const val APPS = "These apps can read all your contacts. Parley can't limit them. Tap to change their permission in Android Settings."
-    const val PRIVATE = "Private contacts are never stored where other apps can read them. Only Parley shows their names."
-    const val PICK = "When an app asks you to pick a contact, only that contact is shared."
+    val HEADER = R.string.who_header
+    val APPS = R.string.who_apps
+    val PRIVATE = R.string.who_private
+    val PICK = R.string.who_pick
 }
 
 /** Settings › Privacy › "Who can see your contacts". */
@@ -78,44 +81,43 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
     val graphene = remember { vm.c.people.audit.isGrapheneOs() }
     fun appSettings(pkg: String) = runCatching {
         context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg")))
-    }.onFailure { vm.toast("Couldn't open Android Settings") }
+    }.onFailure { vm.toast(context.getString(R.string.who_settings_failed)) }
 
     // U7: scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        TopAppBar(title = { Text("Who can see your contacts") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } }, scrollBehavior = barTint)
+        TopAppBar(title = { Text(stringResource(R.string.privacy_who_can_see)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
                 Card(Modifier.padding(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
                         Icon(Icons.Rounded.Info, null, Modifier.padding(end = 16.dp))
-                        Text(Wording.HEADER, style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(Wording.HEADER), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
             if (graphene) item {
                 Card(Modifier.padding(horizontal = 16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
                     Column(Modifier.padding(16.dp)) {
-                        Text("You're using GrapheneOS", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.who_graphene), style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "GrapheneOS Contact Scopes are the real per-app control: an app can be given only the contacts you choose, and sees nothing else. " +
-                                "Open an app below, then Permissions › Contacts › Contact Scopes.",
+                            stringResource(R.string.who_graphene_text),
                             style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp),
                         )
                         TextButton({
                             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://grapheneos.org/usage#contact-scopes"))) }
-                                .onFailure { vm.toast("No browser available") }
-                        }) { Text("How Contact Scopes work") }
+                                .onFailure { vm.toast(context.getString(R.string.who_no_browser)) }
+                        }) { Text(stringResource(R.string.who_scopes_link)) }
                     }
                 }
             }
 
-            item { Section("Apps with access to your contacts") }
-            item { Text(Wording.APPS, Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium) }
+            item { Section(stringResource(R.string.who_apps_section)) }
+            item { Text(stringResource(Wording.APPS), Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium) }
             val list = apps
             if (list == null) item { CircularProgressIndicator(Modifier.padding(24.dp)) }
-            else if (list.isEmpty()) item { ListItem(headlineContent = { Text("No other app on your home screen has Contacts access") }) }
+            else if (list.isEmpty()) item { ListItem(headlineContent = { Text(stringResource(R.string.who_no_apps)) }) }
             else items(list, key = { it.packageName }) { a ->
                 ListItem(
                     modifier = Modifier.clickable { appSettings(a.packageName) },
@@ -124,26 +126,21 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
                     supportingContent = {
                         Text(
                             listOfNotNull(
-                                "Can read all contacts",
+                                stringResource(R.string.who_can_read_all),
                                 a.note,
-                                if (a.system) "Part of the system" else null,
-                                if (graphene) "Tip: use Contact Scopes for this app" else null,
+                                if (a.system) stringResource(R.string.who_system) else null,
+                                if (graphene) stringResource(R.string.who_scopes_tip) else null,
                             ).joinToString(" · "),
                         )
                     },
-                    trailingContent = { TextButton({ appSettings(a.packageName) }) { Text("Change in Settings") } },
+                    trailingContent = { TextButton({ appSettings(a.packageName) }) { Text(stringResource(R.string.who_change)) } },
                 )
             }
             item {
                 ListItem(
                     leadingContent = { Icon(Icons.Rounded.Android, null) },
-                    headlineContent = { Text("Apps you haven't used for a while") },
-                    supportingContent = {
-                        Text(
-                            "Android can remove permissions from apps you haven't used for a few months. Check that “Pause app activity if unused” " +
-                                "is on in each app's settings. Apps without a home-screen icon aren't listed here: Parley doesn't ask to see every installed app.",
-                        )
-                    },
+                    headlineContent = { Text(stringResource(R.string.who_unused)) },
+                    supportingContent = { Text(stringResource(R.string.who_unused_text)) },
                 )
             }
 
@@ -151,54 +148,47 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
                 // F30: messaging unsaved numbers keeps working without WhatsApp's Contacts permission, as far as Parley can tell.
                 ListItem(
                     leadingContent = { Icon(Icons.Rounded.Info, null) },
-                    headlineContent = { Text("WhatsApp and other messengers") },
+                    headlineContent = { Text(stringResource(R.string.who_messengers)) },
                     supportingContent = { Text(app.parley.messaging.WhatsAppNotice.REVOKE_TEXT) },
                 )
             }
 
-            item { Section("Private by default") }
+            item { Section(stringResource(R.string.who_private_default)) }
             item {
-                SwitchRow("Save new contacts as private", "New contacts go to your private contacts instead of an account", s.privateByDefault) { v ->
+                SwitchRow(stringResource(R.string.who_save_private), stringResource(R.string.who_save_private_summary), s.privateByDefault) { v ->
                     vm.people.update { it.copy(privateByDefault = v) }
                 }
-                Text(Wording.PRIVATE, Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(Wording.PRIVATE), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    "What stops showing their names:\n" +
-                        "• your car and smartwatch (over Bluetooth they read the phone's contacts)\n" +
-                        "• other apps: messengers, keyboards, another phone app\n" +
-                        "• Android's call log, which other apps can read (they see only the number)\n" +
-                        "Private contacts don't sync to Google or CardDAV; they're in Parley's encrypted backups.",
+                    stringResource(R.string.who_what_stops),
                     Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall,
                 )
-                LinkRow("Move contacts to private", "Select contacts in the Contacts tab, then More › Move to private") {
+                LinkRow(stringResource(R.string.who_move_private), stringResource(R.string.who_move_private_summary)) {
                     vm.navigate(NavEvent.Tab(StartTab.CONTACTS))
-                    vm.toast("Long-press contacts to select them, then choose More › Move to private")
+                    vm.toast(context.getString(R.string.who_move_private_hint))
                 }
             }
 
-            item { Section("Share just one contact") }
+            item { Section(stringResource(R.string.who_share_one)) }
             item {
                 ListItem(
                     leadingContent = { Icon(Icons.Rounded.Shield, null) },
-                    headlineContent = { Text(Wording.PICK) },
+                    headlineContent = { Text(stringResource(Wording.PICK)) },
                     supportingContent = {
-                        Text(
-                            "Parley is your contact picker: an app that asks you to choose a contact gets that one contact, not your address book, " +
-                                "and doesn't need the Contacts permission for it." +
-                                if (Build.VERSION.SDK_INT >= 37) " On this Android version, apps can also use Android's own contact picker, which shares only what you choose in the same way." else "",
-                        )
+                        Text(stringResource(if (Build.VERSION.SDK_INT >= 37) R.string.who_picker_text_37 else R.string.who_picker_text))
                     },
                 )
                 SwitchRow(
-                    "Offer to share only a number", "When an app asks for a whole contact, choose to share just one phone number with it. Some apps may not accept this.",
+                    stringResource(R.string.who_one_number), stringResource(R.string.who_one_number_summary),
                     s.pickerOneField,
                 ) { v -> vm.people.update { it.copy(pickerOneField = v) } }
             }
 
-            item { Section("Private names in other apps") }
+            item { Section(stringResource(R.string.who_private_names_section)) }
             item {
                 val pn by vm.c.people.privateNames.state.collectAsStateWithLifecycle()
-                LinkRow("Let apps show private names", if (pn.enabled) "On · ${pn.approvals.count { it.value == LookupApproval.ALLOWED }} apps allowed" else "Off") {
+                val allowed = pn.approvals.count { it.value == LookupApproval.ALLOWED }
+                LinkRow(stringResource(R.string.privacy_private_names), if (pn.enabled) pluralStringResource(R.plurals.who_private_names_on, allowed, allowed) else stringResource(R.string.dc_off)) {
                     open(PeopleRoutes.PRIVATE_NAMES)
                 }
             }
@@ -226,36 +216,31 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
     // U7: scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        TopAppBar(title = { Text("Private names in other apps") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } }, scrollBehavior = barTint)
+        TopAppBar(title = { Text(stringResource(R.string.pn_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
-                SwitchRow("Let apps show private names", "Off by default", st.enabled) { access.setEnabled(it) }
+                SwitchRow(stringResource(R.string.privacy_private_names), stringResource(R.string.pn_off_default), st.enabled) { access.setEnabled(it) }
                 Text(
-                    "Apps you approve can ask Parley for the name of one phone number at a time, for example to show who is calling. " +
-                        "They get only that name, never a list, and only after you allow each app. Parley asks you with a notification the first " +
-                        "time an app tries, and every request is listed below.",
+                    stringResource(R.string.pn_intro),
                     Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
                 )
             }
             item {
                 // I7: the opt-in contacts Directory (same approvals, limit and log as the lookup above).
-                Section("Phone apps (contacts directory)")
+                Section(stringResource(R.string.pn_directory_section))
                 SwitchRow(
                     app.parley.common.SettingsCatalog["private_directory"].title,
-                    "Off by default. Uses the same approvals and log as above",
+                    stringResource(R.string.pn_directory_summary),
                     st.directory,
                 ) { on -> app.parley.privatenames.PrivateDirectoryProvider.setEnabled(context, vm.c, on) }
                 Text(
-                    "When this is on, Android lists Parley as a contacts directory. A phone app that looks callers up in directories " +
-                        "(for example Google Phone, also when it runs in your car) can then ask for the name of one number, and only after you allow " +
-                        "that app. It never gets a list, a photo or a contact to open, and nothing is answered in discreet mode. " +
-                        "Not every phone app asks directories: Google Phone does, others may only look in your contacts.",
+                    stringResource(R.string.pn_directory_text),
                     Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
                 )
             }
-            item { Section("Apps") }
-            if (st.approvals.isEmpty()) item { ListItem(headlineContent = { Text("No app has asked yet") }) }
+            item { Section(stringResource(R.string.pn_apps)) }
+            if (st.approvals.isEmpty()) item { ListItem(headlineContent = { Text(stringResource(R.string.pn_no_app)) }) }
             items(st.approvals.entries.sortedBy { label(it.key).lowercase() }, key = { it.key }) { (pkg, a) ->
                 var menu by remember { mutableStateOf(false) }
                 ListItem(
@@ -265,40 +250,52 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
                     supportingContent = {
                         Text(
                             when (a) {
-                                LookupApproval.ALLOWED -> "Allowed"
-                                LookupApproval.DENIED -> "Not allowed"
-                                LookupApproval.PENDING -> "Waiting for your answer"
+                                LookupApproval.ALLOWED -> stringResource(R.string.pn_allowed)
+                                LookupApproval.DENIED -> stringResource(R.string.pn_not_allowed)
+                                LookupApproval.PENDING -> stringResource(R.string.pn_waiting)
                             },
                         )
                     },
                     trailingContent = {
                         DropdownMenu(menu, { menu = false }) {
-                            DropdownMenuItem({ Text("Allow") }, onClick = { menu = false; access.setApproval(pkg, LookupApproval.ALLOWED) })
-                            DropdownMenuItem({ Text("Don't allow") }, onClick = { menu = false; access.setApproval(pkg, LookupApproval.DENIED) })
-                            DropdownMenuItem({ Text("Forget (ask again)") }, onClick = { menu = false; access.setApproval(pkg, null) })
+                            DropdownMenuItem({ Text(stringResource(R.string.privnames_allow)) }, onClick = { menu = false; access.setApproval(pkg, LookupApproval.ALLOWED) })
+                            DropdownMenuItem({ Text(stringResource(R.string.privnames_deny)) }, onClick = { menu = false; access.setApproval(pkg, LookupApproval.DENIED) })
+                            DropdownMenuItem({ Text(stringResource(R.string.pn_forget)) }, onClick = { menu = false; access.setApproval(pkg, null) })
                         }
                     },
                 )
             }
-            item { Section("Access log") }
-            if (st.log.isEmpty()) item { ListItem(headlineContent = { Text("No requests yet") }) }
+            item { Section(stringResource(R.string.pn_log)) }
+            if (st.log.isEmpty()) item { ListItem(headlineContent = { Text(stringResource(R.string.pn_no_requests)) }) }
             items(st.log.asReversed().take(100)) { e ->
                 ListItem(
                     leadingContent = { Icon(Icons.Rounded.Lock, null) },
                     headlineContent = { Text(label(e.packageName)) },
-                    supportingContent = { Text("${e.outcome.text}${if (e.viaDirectory) " (directory)" else ""} · ${Format.shortWhen(context, e.time)}") },
+                    supportingContent = {
+                        val outcome = stringResource(outcomeText(e.outcome))
+                        Text((if (e.viaDirectory) stringResource(R.string.pn_directory_suffix, outcome) else outcome) + " · " + Format.shortWhen(context, e.time))
+                    },
                 )
             }
-            if (st.log.isNotEmpty()) item { TextButton({ access.clearLog() }, Modifier.padding(horizontal = 8.dp)) { Text("Clear log") } }
+            if (st.log.isNotEmpty()) item { TextButton({ access.clearLog() }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.pn_clear_log)) } }
             item {
                 Text(
-                    "For app developers: query content://${app.parley.privatenames.PrivateNameProvider.authority(context)}/lookup/<number> while holding " +
-                        "the permission ${app.parley.privatenames.PrivateNameProvider.permission(context)}. The result has one row (display_name, photo_uri) or none.",
+                    stringResource(R.string.pn_developers, app.parley.privatenames.PrivateNameProvider.authority(context), app.parley.privatenames.PrivateNameProvider.permission(context)),
                     Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
     }
+}
+
+private fun outcomeText(o: LookupOutcome): Int = when (o) {
+    LookupOutcome.ANSWERED -> R.string.pn_out_answered
+    LookupOutcome.NOT_FOUND -> R.string.pn_out_not_found
+    LookupOutcome.DENIED -> R.string.pn_out_denied
+    LookupOutcome.ASKED -> R.string.pn_out_asked
+    LookupOutcome.OFF -> R.string.pn_out_off
+    LookupOutcome.REJECTED -> R.string.pn_out_rejected
+    LookupOutcome.RATE_LIMITED -> R.string.pn_out_rate
 }
 
 /** Confirms moving selected contacts into the private vault (bulk "Move to private"). */
@@ -308,28 +305,23 @@ fun MoveToPrivateDialog(vm: AppViewModel, ids: List<Long>, onDismiss: () -> Unit
     val scope = rememberCoroutineScope()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Move ${ids.size} to private?") },
-        text = {
-            Text(
-                Wording.PRIVATE + " They are removed from your accounts (Google, CardDAV…) and other phones stop seeing them; " +
-                    "your car, watch and other apps show only their numbers.",
-            )
-        },
+        title = { Text(pluralStringResource(R.plurals.move_private_title, ids.size, ids.size)) },
+        text = { Text(stringResource(R.string.move_private_text)) },
         confirmButton = {
             TextButton({
                 onDismiss()
-                scope.launchVault(context as? androidx.fragment.app.FragmentActivity, { e -> vm.toast("Couldn't move: ${e.message}") }) {
+                scope.launchVault(context as? androidx.fragment.app.FragmentActivity, { e -> vm.toast(context.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
                     var moved = 0
                     for (id in ids) {
                         val d = vm.c.contacts.details(id) ?: continue
                         vm.moveToVault(id, d)
                         moved++
                     }
-                    vm.toast("Moved $moved to your private contacts")
+                    vm.toast(context.resources.getQuantityString(R.plurals.move_private_done, moved, moved))
                     onDone()
                 }
-            }) { Text("Move") }
+            }) { Text(stringResource(R.string.move_private_move)) }
         },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }

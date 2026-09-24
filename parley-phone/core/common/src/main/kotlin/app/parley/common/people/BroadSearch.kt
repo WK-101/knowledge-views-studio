@@ -8,16 +8,16 @@ import app.parley.common.TextSearch
  * [match] says which field matched, so the row can say "Matched: address".
  */
 object BroadSearch {
-    enum class Field(val label: String?) {
-        NAME(null),
-        NUMBER(null),
-        EMAIL("e-mail"),
-        NICKNAME("nickname"),
-        COMPANY("company"),
-        ADDRESS("address"),
-        NOTE("note"),
-        WEBSITE("website"),
-        HANDLE("messenger handle"),
+    enum class Field {
+        NAME,
+        NUMBER,
+        EMAIL,
+        NICKNAME,
+        COMPANY,
+        ADDRESS,
+        NOTE,
+        WEBSITE,
+        HANDLE,
     }
 
     /** The extra searchable text of one contact (everything beyond the summary's name, numbers and e-mails). */
@@ -51,6 +51,6 @@ object BroadSearch {
         }
     }
 
-    /** "Matched: address" under the name, or null when the name or number matched (nothing to explain). */
-    fun hint(field: Field?): String? = field?.label?.let { "Matched: $it" }
+    /** True when the row should say which field matched ("Matched: address"); false for the name or number. */
+    fun explains(field: Field?): Boolean = field != null && field != Field.NAME && field != Field.NUMBER
 }

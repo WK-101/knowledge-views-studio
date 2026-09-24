@@ -61,9 +61,9 @@ class ContactsAudit(private val context: Context) {
     }
 
     private fun noteFor(pkg: String): String? = when {
-        pkg in Messengers.PACKAGES || pkg in MESSAGING -> "Messaging apps use contacts to show who's who"
-        pkg in EMAIL -> "E-mail apps use contacts to suggest addresses"
-        pkg in DIALERS -> "Phone apps use contacts to show who's calling"
+        pkg in Messengers.PACKAGES || pkg in MESSAGING -> context.getString(app.parley.data.R.string.data_audit_messaging)
+        pkg in EMAIL -> context.getString(app.parley.data.R.string.data_audit_email)
+        pkg in DIALERS -> context.getString(app.parley.data.R.string.data_audit_phone)
         else -> null
     }
 

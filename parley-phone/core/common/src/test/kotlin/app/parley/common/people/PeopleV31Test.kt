@@ -191,8 +191,9 @@ class PeopleV31Test {
         assertEquals(BroadSearch.Field.WEBSITE, m("anna.dev"))
         assertEquals(BroadSearch.Field.HANDLE, m("matrix"))
         assertNull(m("zzz"))
-        assertEquals("Matched: address", BroadSearch.hint(BroadSearch.Field.ADDRESS))
-        assertNull(BroadSearch.hint(BroadSearch.Field.NAME))
+        assertTrue(BroadSearch.explains(BroadSearch.Field.ADDRESS))
+        assertFalse(BroadSearch.explains(BroadSearch.Field.NAME))
+        assertFalse(BroadSearch.explains(null))
     }
 
     // ---------------------------------------------------------------- I2 Me card

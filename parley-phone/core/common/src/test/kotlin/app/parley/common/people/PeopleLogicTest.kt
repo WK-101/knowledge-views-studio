@@ -159,8 +159,9 @@ class PeopleLogicTest {
         val r = SimFit.fit("Alexandra Montgomery-Smith", listOf(PhoneEntry("+44 7700 900123", 1, null), PhoneEntry("07700 900999", 2, null)), otherFields = 2)
         assertEquals(SimEntry("Alexandra Mont", "07700900999"), r.entry)
         assertEquals(3, r.warnings.size)
-        assertTrue(r.warnings[0].contains("1 other number is left out"))
-        assertTrue(r.warnings[1].contains("shortened"))
+        assertEquals(SimWarning(SimIssue.OTHER_NUMBERS_LEFT_OUT, 1), r.warnings[0])
+        assertEquals(SimWarning(SimIssue.NAME_SHORTENED, text = "Alexandra Mont"), r.warnings[1])
+        assertEquals(SimIssue.DETAILS_STAY, r.warnings[2].issue)
     }
 
     @Test fun sim_fit_primary_wins_and_unicode_names_take_more_space() {

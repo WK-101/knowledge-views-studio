@@ -50,13 +50,29 @@ import app.parley.ui.contact.Section
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import app.parley.R
+import app.parley.common.people.SimIssue
+import app.parley.common.people.SimWarning
+import app.parley.ui.DataL10n
 
-private const val SIM_WARNING = "A SIM card stores only a name (about 14 letters) and one number per entry."
+@Composable
+private fun simWarningText(w: SimWarning): String = when (w.issue) {
+    SimIssue.NO_NUMBER -> stringResource(R.string.sim_issue_no_number)
+    SimIssue.NUMBER_INVALID -> stringResource(R.string.sim_issue_invalid)
+    SimIssue.NUMBER_TOO_LONG -> pluralStringResource(R.plurals.sim_issue_too_long, w.count, w.count)
+    SimIssue.OTHER_NUMBERS_LEFT_OUT -> pluralStringResource(R.plurals.sim_issue_left_out, w.count, w.count)
+    SimIssue.NAME_SHORTENED -> stringResource(R.string.sim_issue_shortened, w.text)
+    SimIssue.DETAILS_STAY -> stringResource(R.string.sim_issue_details)
+}
 
 /** Contact overflow › "Copy to SIM": shows exactly what fits before writing. */
 @Composable
 fun CopyToSimDialog(vm: AppViewModel, d: ContactDetails, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var cards by remember { mutableStateOf<List<SimCard>?>(null) }
     var card by remember { mutableStateOf<SimCard?>(null) }
     LaunchedEffect(Unit) {
@@ -74,27 +90,27 @@ fun CopyToSimDialog(vm: AppViewModel, d: ContactDetails, onDismiss: () -> Unit) 
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Rounded.SimCard, null) },
-        title = { Text("Copy to SIM") },
+        title = { Text(stringResource(R.string.sim_copy_title)) },
         text = {
             Column {
                 when {
                     cards == null -> CircularProgressIndicator()
-                    cards!!.isEmpty() -> Text("No SIM card found, or Android didn't let Parley see it.")
+                    cards!!.isEmpty() -> Text(stringResource(R.string.sim_none_see))
                     else -> {
-                        Text(SIM_WARNING, style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.sim_warning), style = MaterialTheme.typography.bodyMedium)
                         if (cards!!.size > 1) cards!!.forEach { c ->
                             ListItem(
                                 modifier = Modifier.clickable { card = c },
                                 leadingContent = { RadioButton(card == c, { card = c }) },
                                 headlineContent = { Text(c.label) },
-                                supportingContent = { if (c.free >= 0) Text("${c.free} free entries") },
+                                supportingContent = { if (c.free >= 0) Text(pluralStringResource(R.plurals.sim_free, c.free, c.free)) },
                             )
                         }
                         fit.entry?.let { e ->
-                            ListItem(headlineContent = { Text(e.name) }, supportingContent = { Text(Format.number(e.number, vm.countryIso)) }, leadingContent = { Icon(Icons.Rounded.SimCard, null) })
+                            ListItem(headlineContent = { Text(e.name) }, supportingContent = { Text(DataL10n.ltr(Format.number(e.number, vm.countryIso))) }, leadingContent = { Icon(Icons.Rounded.SimCard, null) })
                         }
-                        fit.warnings.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
-                        if (chosen?.free == 0) Text("This SIM is full.", color = MaterialTheme.colorScheme.error)
+                        fit.warnings.forEach { Text("• " + simWarningText(it), style = MaterialTheme.typography.bodySmall) }
+                        if (chosen?.free == 0) Text(stringResource(R.string.sim_full), color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
@@ -107,11 +123,11 @@ fun CopyToSimDialog(vm: AppViewModel, d: ContactDetails, onDismiss: () -> Unit) 
                 scope.launch {
                     val err = vm.c.people.sim.write(c, e)
                     if (err != null) runCatching { vm.c.people.diagnostics.record("Copy to SIM", IllegalStateException(err)) }
-                    vm.toast(err ?: "Copied to ${c.label}")
+                    vm.toast(err ?: context.getString(R.string.sim_copied, c.label))
                 }
-            }, enabled = fit.entry != null && chosen != null && chosen.free != 0) { Text("Copy") }
+            }, enabled = fit.entry != null && chosen != null && chosen.free != 0) { Text(stringResource(R.string.sim_copy)) }
         },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 
@@ -120,6 +136,7 @@ fun CopyToSimDialog(vm: AppViewModel, d: ContactDetails, onDismiss: () -> Unit) 
 @Composable
 fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     var cards by remember { mutableStateOf<List<SimCard>?>(null) }
     var card by remember { mutableStateOf<SimCard?>(null) }
@@ -148,18 +165,18 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text("Import from SIM") },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
-            actions = { Button({ chooseAccount = true }, enabled = picked.isNotEmpty() && !busy, modifier = Modifier.padding(end = 8.dp)) { Text("Import ${picked.size}") } },
+            title = { Text(stringResource(R.string.sim_import_title)) },
+            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
+            actions = { Button({ chooseAccount = true }, enabled = picked.isNotEmpty() && !busy, modifier = Modifier.padding(end = 8.dp)) { Text(stringResource(R.string.sim_import_n, picked.size)) } },
         )
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
-            item { Text("$SIM_WARNING Entries you already have are unticked.", Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium) }
+            item { Text(stringResource(R.string.sim_import_intro), Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium) }
             val cs = cards
             if (cs == null) item { CircularProgressIndicator(Modifier.padding(24.dp)) }
-            else if (cs.isEmpty()) item { Text("No SIM card found, or Android didn't let Parley read it.", Modifier.padding(16.dp)) }
+            else if (cs.isEmpty()) item { Text(stringResource(R.string.sim_none_read), Modifier.padding(16.dp)) }
             else if (cs.size > 1) {
-                item { Section("SIM") }
+                item { Section(stringResource(R.string.sim_section)) }
                 cs.forEach { c ->
                     item { ListItem(modifier = Modifier.clickable { card = c }, leadingContent = { RadioButton(card == c, { card = c }) }, headlineContent = { Text(c.label) }) }
                 }
@@ -167,15 +184,18 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
             val list = entries
             if (cs?.isNotEmpty() == true && list == null) item { CircularProgressIndicator(Modifier.padding(24.dp)) }
             if (list != null) {
-                item { Section("${list.size} entries on the SIM") }
-                if (list.isEmpty()) item { Text("The SIM phonebook is empty.", Modifier.padding(16.dp)) }
+                item { Section(pluralStringResource(R.plurals.sim_entries, list.size, list.size)) }
+                if (list.isEmpty()) item { Text(stringResource(R.string.sim_empty), Modifier.padding(16.dp)) }
                 itemsIndexed(list) { i, e ->
                     val have = existing.matches(recordOf(e))
                     ListItem(
                         modifier = Modifier.clickable { picked = if (i in picked) picked - i else picked + i },
                         leadingContent = { Checkbox(i in picked, { picked = if (it) picked + i else picked - i }) },
                         headlineContent = { Text(e.name) },
-                        supportingContent = { Text(Format.number(e.number, vm.countryIso) + if (have) " · already in your contacts" else "") },
+                        supportingContent = {
+                            val n = DataL10n.ltr(Format.number(e.number, vm.countryIso))
+                            Text(if (have) stringResource(R.string.sim_already, n) else n)
+                        },
                     )
                 }
             }
@@ -184,7 +204,7 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
     if (chooseAccount) {
         AlertDialog(
             onDismissRequest = { chooseAccount = false },
-            title = { Text("Import into") },
+            title = { Text(stringResource(R.string.sim_import_into)) },
             text = {
                 Column {
                     accounts.forEach { a ->
@@ -197,7 +217,7 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
                                 val ok = results.count { it.contactId != null }
                                 vm.c.contacts.refresh()
                                 busy = false
-                                vm.toast("Imported $ok of ${chosen.size} into ${a.displayLabel}")
+                                vm.toast(context.getString(R.string.sim_imported, ok, chosen.size, a.displayLabel))
                                 if (ok > 0) back()
                             }
                         })
@@ -205,7 +225,7 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton({ chooseAccount = false }) { Text("Cancel") } },
+            dismissButton = { TextButton({ chooseAccount = false }) { Text(stringResource(R.string.dc_cancel)) } },
         )
     }
 }

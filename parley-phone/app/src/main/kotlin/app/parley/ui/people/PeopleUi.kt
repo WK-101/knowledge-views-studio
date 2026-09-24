@@ -64,7 +64,7 @@ class PeopleUi(
             // I8: addresses, notes, company, websites and handles too (Contacts search only, never the keypad).
             val extra = idx.search[ct.id] ?: e?.let { BroadSearch.Extra(nickname = it.nickname, company = it.company, title = it.title) }
             val field = BroadSearch.match(q, ct.displayName, ct.phones.map { it.number }, ct.emails, extra) ?: return@filter false
-            BroadSearch.hint(field)?.let { hints[ct.id] = it }
+            if (BroadSearch.explains(field)) hints[ct.id] = matchHint(c.appContext.resources, field)
             true
         }
         if (s.preferNickname) {
