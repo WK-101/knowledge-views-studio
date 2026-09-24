@@ -36,14 +36,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.common.MessagedRecord
 import app.parley.common.NumberText
 import app.parley.container
 import app.parley.data.PhoneEnv
 import app.parley.data.messaging.LastMessaged
+import app.parley.ui.Bidi
 import app.parley.ui.EmptyState
 import kotlinx.coroutines.launch
 
@@ -59,22 +64,22 @@ fun MessagedRecordSection(openList: () -> Unit) {
     val expiry by store.expiryDays.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     ListItem(
-        headlineContent = { Text("Keep a record of numbers you message") },
+        headlineContent = { Text(stringResource(R.string.rec_keep_record)) },
         supportingContent = {
             Text(
                 if (enabled) {
-                    "${record.size} numbers. Shows “Last messaged via WhatsApp · 2 days ago” on a number's page. Encrypted, on this phone only; " +
-                        "never private contacts; " + (if (expiry > 0) "forgotten after $expiry days." else "follows your call-history retention.")
+                    pluralStringResource(R.plurals.rec_on_summary, record.size, record.size) + " " +
+                        (if (expiry > 0) pluralStringResource(R.plurals.rec_forgotten_after, expiry, expiry) else stringResource(R.string.rec_follows_retention))
                 } else {
-                    "Off: Parley doesn't note which numbers you open chats with."
+                    stringResource(R.string.rec_off_summary)
                 },
             )
         },
         trailingContent = { Switch(enabled, onCheckedChange = { v -> scope.launch { store.setRecordEnabled(v) } }) },
     )
     ListItem(
-        headlineContent = { Text("Messaged numbers") },
-        supportingContent = { Text("See, delete or forget them automatically") },
+        headlineContent = { Text(stringResource(R.string.home_messaged_numbers)) },
+        supportingContent = { Text(stringResource(R.string.rec_see_delete)) },
         modifier = Modifier.clickable(onClick = openList),
     )
 }
@@ -97,25 +102,23 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
     var confirmClear by remember { mutableStateOf(false) }
     var expiryMenu by remember { mutableStateOf(false) }
     val entries = remember(record) { record.values.sortedByDescending { it.at } }
+    val res = LocalResources.current
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text("Messaged numbers") },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
+            title = { Text(stringResource(R.string.home_messaged_numbers)) },
+            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } },
             actions = {
-                if (entries.isNotEmpty()) IconButton({ confirmClear = true }) { Icon(Icons.Rounded.DeleteSweep, "Clear all") }
+                if (entries.isNotEmpty()) IconButton({ confirmClear = true }) { Icon(Icons.Rounded.DeleteSweep, stringResource(R.string.rec_clear_all)) }
             },
         )
     }) { p ->
         LazyColumn(Modifier.fillMaxSize().padding(p)) {
             item {
                 ListItem(
-                    headlineContent = { Text("Keep a record of numbers you message") },
+                    headlineContent = { Text(stringResource(R.string.rec_keep_record)) },
                     supportingContent = {
-                        Text(
-                            if (enabled) "Encrypted, on this phone only. Never private contacts. Used for “Last messaged via…” on a number's page."
-                            else "Off: nothing is noted. Turning it off also cleared the list.",
-                        )
+                        Text(stringResource(if (enabled) R.string.rec_on_detail else R.string.rec_off_detail))
                     },
                     trailingContent = { Switch(enabled, onCheckedChange = { v -> scope.launch { store.setRecordEnabled(v) } }) },
                     modifier = Modifier.clickable { scope.launch { store.setRecordEnabled(!enabled) } },
@@ -123,11 +126,11 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
             }
             item {
                 ListItem(
-                    headlineContent = { Text("Forget messaged numbers after") },
+                    headlineContent = { Text(stringResource(R.string.rec_forget_after)) },
                     supportingContent = {
                         Text(
-                            MessagedRecord.expiryLabel(expiry) + if (settings.callLogRetentionDays > 0) {
-                                " · call-history retention (${settings.callLogRetentionDays} days) applies too; the shorter wins"
+                            MessagingText.expiryLabel(res, expiry) + if (settings.callLogRetentionDays > 0) {
+                                res.getQuantityString(R.plurals.rec_retention_applies, settings.callLogRetentionDays, settings.callLogRetentionDays)
                             } else {
                                 ""
                             },
@@ -137,7 +140,7 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
                     trailingContent = {
                         DropdownMenu(expiryMenu, { expiryMenu = false }) {
                             MessagedRecord.EXPIRY_CHOICES.forEach { d ->
-                                DropdownMenuItem({ Text(MessagedRecord.expiryLabel(d)) }, onClick = {
+                                DropdownMenuItem({ Text(MessagingText.expiryLabel(res, d)) }, onClick = {
                                     expiryMenu = false
                                     scope.launch { store.setExpiryDays(d) }
                                 })
@@ -151,8 +154,8 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
             if (entries.isEmpty()) {
                 item {
                     EmptyState(
-                        Icons.AutoMirrored.Rounded.Chat, "No messaged numbers",
-                        if (enabled) "Numbers you open a chat with from Parley (WhatsApp, Signal, Telegram, Viber, SMS) show up here." else null,
+                        Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.rec_empty),
+                        if (enabled) stringResource(R.string.rec_empty_body) else null,
                     )
                 }
             }
@@ -166,10 +169,10 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
-            title = { Text("Clear all ${entries.size} numbers?") },
-            text = { Text("Only Parley's record goes; your chats in the messengers stay.") },
-            confirmButton = { TextButton({ confirmClear = false; scope.launch { store.clearAll() } }) { Text("Clear all") } },
-            dismissButton = { TextButton({ confirmClear = false }) { Text("Cancel") } },
+            title = { Text(pluralStringResource(R.plurals.rec_clear_title, entries.size, entries.size)) },
+            text = { Text(stringResource(R.string.rec_clear_body)) },
+            confirmButton = { TextButton({ confirmClear = false; scope.launch { store.clearAll() } }) { Text(stringResource(R.string.rec_clear_all)) } },
+            dismissButton = { TextButton({ confirmClear = false }) { Text(stringResource(R.string.main_cancel)) } },
         )
     }
 }
@@ -180,9 +183,9 @@ private fun RecordRow(e: LastMessaged, region: String, onOpen: (() -> Unit)?, on
         ?: "…" + e.key.takeLast(4)
     val ago = DateUtils.getRelativeTimeSpanString(e.at, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
     ListItem(
-        headlineContent = { Text(shown, style = MaterialTheme.typography.bodyLarge) },
-        supportingContent = { Text("${e.label} · $ago") },
-        trailingContent = { IconButton(onDelete) { Icon(Icons.Rounded.Close, "Delete $shown") } },
+        headlineContent = { Text(Bidi.ltr(shown), style = MaterialTheme.typography.bodyLarge) },
+        supportingContent = { Text(e.label + stringResource(R.string.main_separator) + ago) },
+        trailingContent = { IconButton(onDelete) { Icon(Icons.Rounded.Close, stringResource(R.string.rec_delete_number, shown)) } },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier,
     )

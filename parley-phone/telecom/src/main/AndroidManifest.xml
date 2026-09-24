@@ -44,7 +44,7 @@
             android:name="app.parley.telecom.HangUpTileService"
             android:exported="true"
             android:icon="@drawable/ic_tile_hangup"
-            android:label="End call"
+            android:label="@string/tile_end_call"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />

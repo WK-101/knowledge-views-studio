@@ -63,6 +63,10 @@ android {
 
     buildFeatures { compose = true }
 
+    // L1: per-app language. The locale list (android:localeConfig) is generated from the values-* folders, with
+    // res/resources.properties naming the language of the default strings.
+    androidResources { generateLocaleConfig = true }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -80,7 +84,8 @@ android {
     lint {
         abortOnError = true
         checkReleaseBuilds = true
-        disable += setOf("MissingTranslation")
+        // Missing translations are warnings (they fall back to English); see lint.xml.
+        lintConfig = rootProject.file("lint.xml")
     }
 }
 

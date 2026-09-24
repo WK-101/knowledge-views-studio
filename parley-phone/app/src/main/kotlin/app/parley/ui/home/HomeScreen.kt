@@ -60,9 +60,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
+import app.parley.R
 import app.parley.RecentFilter
 import app.parley.common.SettingsCategory
 import app.parley.common.StartTab
@@ -141,10 +144,10 @@ fun HomeScreen(
                     searching = searching,
                     query = query,
                     searchHint = when (tab) {
-                        StartTab.FAVORITES -> "Search favorites"
-                        StartTab.RECENTS -> "Search call history"
-                        StartTab.CONTACTS -> "Search contacts"
-                        StartTab.KEYPAD -> "Search contacts by name or number"
+                        StartTab.FAVORITES -> stringResource(R.string.home_search_favorites)
+                        StartTab.RECENTS -> stringResource(R.string.home_search_recents)
+                        StartTab.CONTACTS -> stringResource(R.string.home_search_contacts)
+                        StartTab.KEYPAD -> stringResource(R.string.home_search_keypad)
                     },
                     onQuery = { q ->
                         when (tab) {
@@ -179,7 +182,7 @@ fun HomeScreen(
         },
         floatingActionButton = {
             AnimatedVisibility(tab == StartTab.CONTACTS && selection.isEmpty() && !searching, enter = scaleIn(), exit = scaleOut()) {
-                FloatingActionButton(onClick = { open(if (vm.showVault.value) Routes.edit(vault = 0) else Routes.edit()) }) { Icon(Icons.Rounded.PersonAdd, "Create contact") }
+                FloatingActionButton(onClick = { open(if (vm.showVault.value) Routes.edit(vault = 0) else Routes.edit()) }) { Icon(Icons.Rounded.PersonAdd, stringResource(R.string.home_create_contact)) }
             }
         },
     ) { padding ->
@@ -216,7 +219,7 @@ fun HomeScreen(
 @Composable
 private fun TabIcon(t: StartTab, missed: Int) {
     if (t == StartTab.RECENTS && missed > 0) {
-        BadgedBox(badge = { Badge { Text(missed.toString()) } }) { Icon(t.icon, if (missed == 1) "1 missed call" else "$missed missed calls") }
+        BadgedBox(badge = { Badge { Text(missed.toString()) } }) { Icon(t.icon, pluralStringResource(R.plurals.missed_title_many, missed, missed)) }
     } else {
         Icon(t.icon, null)
     }
@@ -228,11 +231,11 @@ private fun TabActions(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: 
     when (tab) {
         StartTab.RECENTS -> app.parley.ui.history.RecentsInsightsAction(open)
         StartTab.CONTACTS -> {
-            IconButton({ open(app.parley.ui.people.PeopleRoutes.LABELS) }) { Icon(Icons.AutoMirrored.Rounded.Label, "Labels") }
+            IconButton({ open(app.parley.ui.people.PeopleRoutes.LABELS) }) { Icon(Icons.AutoMirrored.Rounded.Label, stringResource(R.string.home_labels)) }
             // U8: lock Parley now, without waiting for the timeout.
-            if (appLock) IconButton({ app.parley.security.AppLock.lockNowByUser() }) { Icon(Icons.Rounded.Lock, "Lock now") }
+            if (appLock) IconButton({ app.parley.security.AppLock.lockNowByUser() }) { Icon(Icons.Rounded.Lock, stringResource(R.string.home_lock_now)) }
         }
-        StartTab.KEYPAD -> IconButton({ open(Routes.SPEED_DIAL) }) { Icon(Icons.Rounded.Speed, "Speed dial") }
+        StartTab.KEYPAD -> IconButton({ open(Routes.SPEED_DIAL) }) { Icon(Icons.Rounded.Speed, stringResource(R.string.home_speed_dial)) }
         StartTab.FAVORITES -> Unit
     }
 }
@@ -249,32 +252,32 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
     when (tab) {
         StartTab.RECENTS -> {
             app.parley.ui.history.RecentsExportMenuItem(close)
-            MenuItem("Messaged numbers", Icons.AutoMirrored.Rounded.Chat) { go(app.parley.messaging.MessagingRoutes.MESSAGED) }
-            MenuItem("Call history settings", Icons.Rounded.ManageHistory) { go(Routes.settingsPage(SettingsCategory.HISTORY)) }
+            MenuItem(stringResource(R.string.home_messaged_numbers), Icons.AutoMirrored.Rounded.Chat) { go(app.parley.messaging.MessagingRoutes.MESSAGED) }
+            MenuItem(stringResource(R.string.home_history_settings), Icons.Rounded.ManageHistory) { go(Routes.settingsPage(SettingsCategory.HISTORY)) }
         }
         StartTab.CONTACTS -> {
-            MenuItem("Select all", Icons.Rounded.SelectAll) {
+            MenuItem(stringResource(R.string.home_select_all), Icons.Rounded.SelectAll) {
                 close()
                 vm.selection.value = vm.people.filtered.value.orEmpty().map { it.id }.toSet()
             }
-            MenuItem("Add several numbers…", Icons.Rounded.GroupAdd) { go(app.parley.messaging.MessagingRoutes.BULK_ADD) }
-            MenuItem("Find & merge duplicates", Icons.AutoMirrored.Rounded.CallMerge) { go(Routes.DUPLICATES) }
-            MenuItem("Contacts settings", Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS)) }
+            MenuItem(stringResource(R.string.home_add_several), Icons.Rounded.GroupAdd) { go(app.parley.messaging.MessagingRoutes.BULK_ADD) }
+            MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.CallMerge) { go(Routes.DUPLICATES) }
+            MenuItem(stringResource(R.string.home_contacts_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS)) }
         }
         StartTab.KEYPAD -> {
-            MenuItem("Speed dial", Icons.Rounded.Speed) { go(Routes.SPEED_DIAL) }
-            MenuItem("SIMs & plan minutes", Icons.Rounded.SimCard) { go(app.parley.ui.history.HistoryRoutes.SIMS) }
-            MenuItem("Keypad settings", Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.KEYPAD)) }
+            MenuItem(stringResource(R.string.home_speed_dial), Icons.Rounded.Speed) { go(Routes.SPEED_DIAL) }
+            MenuItem(stringResource(R.string.home_sims), Icons.Rounded.SimCard) { go(app.parley.ui.history.HistoryRoutes.SIMS) }
+            MenuItem(stringResource(R.string.home_keypad_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.KEYPAD)) }
         }
         StartTab.FAVORITES -> Unit
     }
     if (tab != StartTab.FAVORITES) HorizontalDivider()
-    MenuItem("Birthdays & dates", Icons.Rounded.Cake) { go(Routes.BIRTHDAYS) }
-    MenuItem("Temporary contacts", Icons.Rounded.AutoDelete) { go(Routes.TEMPORARY) }
-    MenuItem("Recently deleted", Icons.Rounded.History) { go(Routes.JOURNAL) }
-    MenuItem("Tidy up contacts", Icons.Rounded.HealthAndSafety) { go(Routes.HEALTH) }
-    MenuItem("Blocked numbers", Icons.Rounded.Block) { go(Routes.BLOCKING) }
+    MenuItem(stringResource(R.string.home_birthdays), Icons.Rounded.Cake) { go(Routes.BIRTHDAYS) }
+    MenuItem(stringResource(R.string.home_temporary), Icons.Rounded.AutoDelete) { go(Routes.TEMPORARY) }
+    MenuItem(stringResource(R.string.home_recently_deleted), Icons.Rounded.History) { go(Routes.JOURNAL) }
+    MenuItem(stringResource(R.string.home_tidy_up), Icons.Rounded.HealthAndSafety) { go(Routes.HEALTH) }
+    MenuItem(stringResource(R.string.home_blocked_numbers), Icons.Rounded.Block) { go(Routes.BLOCKING) }
     app.parley.ui.blocking.ExpectingCallMenuItem(close)
-    if (appLock) MenuItem("Lock now", Icons.Rounded.Lock) { close(); app.parley.security.AppLock.lockNowByUser() }
-    MenuItem("Settings", Icons.Rounded.Settings) { go(Routes.SETTINGS) }
+    if (appLock) MenuItem(stringResource(R.string.home_lock_now), Icons.Rounded.Lock) { close(); app.parley.security.AppLock.lockNowByUser() }
+    MenuItem(stringResource(R.string.home_settings), Icons.Rounded.Settings) { go(Routes.SETTINGS) }
 }

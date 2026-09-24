@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Telecom module (in-call screen, call notifications, audio routes). "Parley" is the product name: never translate it. -->
+<resources>
+    <!-- Generic -->
+    <string name="tc_save">Save</string>
+    <string name="tc_cancel">Cancel</string>
+    <string name="tc_done">Done</string>
+    <string name="tc_on">on</string>
+    <string name="tc_off">off</string>
+    <!-- Joins parts of one line, e.g. "Work · +1 555 0100". -->
+    <string name="tc_separator" translatable="false">" · "</string>
+
+    <!-- Caller identity -->
+    <string name="call_private_number">Private number</string>
+    <string name="call_unknown">Unknown</string>
+
+    <!-- Why a call ended / rang silently -->
+    <string name="call_disconnect_busy">Busy</string>
+    <string name="call_disconnect_missed">Missed call</string>
+    <string name="call_disconnect_declined">Declined</string>
+    <string name="call_disconnect_failed">Call failed</string>
+    <string name="call_limit_reached">Call time limit reached</string>
+    <string name="call_silenced_quota">Silenced: your call time with this person is used up</string>
+    <string name="call_silenced_rules">Silenced by your blocking rules</string>
+    <string name="call_silenced_ignored">Ignored: you stopped the ringing</string>
+    <string name="call_silenced">Silenced</string>
+
+    <!-- Audio routes -->
+    <string name="audio_route_phone">Phone</string>
+    <string name="audio_route_earpiece">Earpiece</string>
+    <string name="audio_route_speaker">Speaker</string>
+    <string name="audio_route_wired">Wired headset</string>
+    <string name="audio_route_bluetooth">Bluetooth</string>
+    <string name="audio_route_other">Other device</string>
+    <string name="audio_route_streaming">Streaming</string>
+    <string name="audio_button">Audio</string>
+    <string name="audio_output">Audio output</string>
+    <string name="audio_output_choose">choose</string>
+    <!-- TalkBack for the audio button: "Audio output, Car kit". -->
+    <string name="audio_output_spoken">Audio output, %1$s</string>
+
+    <!-- Notification channels and notifications -->
+    <string name="channel_incoming_calls">Incoming calls</string>
+    <string name="channel_ongoing_calls">Ongoing calls</string>
+    <string name="channel_silenced_calls">Silenced calls</string>
+    <string name="notif_incoming_call">Incoming call</string>
+    <string name="notif_ongoing_call">Ongoing call</string>
+    <string name="notif_decline">Decline</string>
+    <string name="notif_answer">Answer</string>
+    <string name="notif_hang_up">Hang up</string>
+    <string name="notif_ignore">Ignore</string>
+    <string name="notif_silenced_call_title">Silenced call · %1$s</string>
+    <string name="notif_checking">Checking…</string>
+    <string name="notif_ringing_silently">Ringing silently</string>
+    <string name="notif_mute">Mute</string>
+    <string name="notif_unmute">Unmute</string>
+    <string name="notif_speaker">Speaker</string>
+    <string name="notif_speaker_off">Speaker off</string>
+    <string name="notif_plus_5_min">+5 min</string>
+    <string name="notif_dont_end">Don\'t end</string>
+    <!-- "ends at 14:30"; the time is formatted for the device. -->
+    <string name="notif_ends_at">ends at %1$s</string>
+
+    <!-- Quick Settings tile -->
+    <string name="tile_end_call">End call</string>
+    <string name="tile_no_call">No call</string>
+    <string name="tile_end_call_with">End call with %1$s</string>
+    <string name="tile_end_call_none">End call, no call in progress</string>
+
+    <!-- Incoming call controls -->
+    <string name="incall_reply_with_message">Reply with message</string>
+    <string name="incall_ignore_stop_ringing">Ignore — stop ringing</string>
+    <string name="incall_end_and_answer">End current call and answer</string>
+    <string name="incall_hold_and_answer">Hold current call and answer</string>
+    <string name="incall_answer">Answer</string>
+    <!-- "Answer on Work": which SIM the call came in on. -->
+    <string name="incall_answer_on">Answer on %1$s</string>
+    <string name="incall_decline">Decline</string>
+    <string name="incall_slide_to_answer">Slide to answer</string>
+    <string name="incall_on_sim">on %1$s</string>
+    <string name="incall_slider_description">Incoming call. Slide right to answer, left to decline.</string>
+    <string name="incall_slider_description_sim">Incoming call on %1$s. Slide right to answer, left to decline.</string>
+    <string name="incall_stop_ringing">Stop ringing</string>
+    <string name="incall_reply_a11y">Reply with a message</string>
+
+    <!-- Call waiting -->
+    <string name="incall_waiting_call">Waiting call</string>
+    <string name="incall_waiting_call_silenced">Waiting call · silenced</string>
+    <string name="incall_answering_holds">Answering puts this call on hold</string>
+    <string name="incall_cannot_hold">This call can\'t be put on hold</string>
+    <!-- Short two-line button labels. -->
+    <string name="incall_hold_answer_short">Hold &amp;\nanswer</string>
+    <string name="incall_end_answer_short">End &amp;\nanswer</string>
+    <string name="incall_reply">Reply</string>
+    <string name="incall_ignore_waiting_tone">Ignore — stop the waiting tone</string>
+
+    <!-- In-call screen -->
+    <string name="incall_call_ended">Call ended</string>
+    <string name="incall_add_note">Add a note</string>
+    <string name="incall_more_options">More call options</string>
+    <string name="incall_more">More</string>
+    <string name="incall_note_title">Note about this call</string>
+    <string name="incall_note_placeholder">Only stored on this phone</string>
+    <string name="incall_send_tones_title">Send tones?</string>
+    <string name="incall_send">Send</string>
+    <string name="incall_reply_sheet_title">Reply with a message</string>
+    <!-- Default quick replies (same order as AppSettings.DEFAULT_QUICK_REPLIES), sent as SMS to the caller. -->
+    <string-array name="incall_default_quick_replies">
+        <item>Can\'t talk now. Call me later?</item>
+        <item>I\'ll call you right back.</item>
+        <item>I\'m in a meeting.</item>
+        <item>Can you text me instead?</item>
+    </string-array>
+    <string name="incall_conference_call">Conference call</string>
+    <string name="incall_private">Private</string>
+    <string name="incall_end">End</string>
+    <string name="incall_open_contact">Open contact</string>
+    <string name="incall_not_in_contacts">Not in your contacts</string>
+    <string name="incall_verified_number">Verified number</string>
+    <string name="incall_possibly_spoofed">Possibly spoofed</string>
+    <string name="incall_emergency_call">Emergency call</string>
+    <string name="incall_status_calling">Calling…</string>
+    <string name="incall_status_calling_via">Calling via %1$s…</string>
+    <string name="incall_status_on_hold">On hold</string>
+    <string name="incall_status_choose_sim">Choose a SIM</string>
+    <string name="incall_status_ending">Ending…</string>
+    <string name="incall_duration_description">Call duration %1$s</string>
+    <string name="incall_other_active">Active</string>
+    <string name="incall_other_incoming">Incoming</string>
+    <string name="incall_other_connecting">Connecting…</string>
+    <string name="incall_mute">Mute</string>
+    <string name="incall_muted">Muted</string>
+    <string name="incall_keypad">Keypad</string>
+    <string name="incall_hold">Hold</string>
+    <string name="incall_resume">Resume</string>
+    <string name="incall_merge">Merge</string>
+    <string name="incall_merge_calls">Merge calls</string>
+    <string name="incall_swap">Swap</string>
+    <string name="incall_swap_calls">Swap calls</string>
+    <string name="incall_add_call">Add call</string>
+    <string name="incall_manage">Manage</string>
+    <string name="incall_manage_conference">Manage conference</string>
+    <string name="incall_contacts">Contacts</string>
+    <string name="incall_end_call">End call</string>
+    <string name="incall_call_with">Call with</string>
+    <string name="incall_hide_keypad">Hide keypad</string>
+    <string name="incall_save_failed">Couldn\'t save the number</string>
+
+    <!-- On-hold strip -->
+    <string name="incall_switch_to_call">Switch to this call</string>
+    <!-- TalkBack: "Ana on hold, 2 minutes 10 seconds". -->
+    <string name="incall_held_description">%1$s on hold, %2$s</string>
+    <string name="incall_end_held_call">End held call</string>
+    <string name="incall_on_hold_for">On hold · %1$s</string>
+
+    <!-- Durations, spoken by TalkBack ("1 hour 2 minutes 5 seconds") -->
+    <plurals name="duration_hours">
+        <item quantity="one">%d hour</item>
+        <item quantity="other">%d hours</item>
+    </plurals>
+    <plurals name="duration_minutes">
+        <item quantity="one">%d minute</item>
+        <item quantity="other">%d minutes</item>
+    </plurals>
+    <plurals name="duration_seconds">
+        <item quantity="one">%d second</item>
+        <item quantity="other">%d seconds</item>
+    </plurals>
+
+    <!-- Call time limits -->
+    <string name="calltime_left">%1$s left</string>
+    <string name="calltime_allowance_used">Your call time allowance is used up</string>
+    <string name="calltime_limit_off">Limit off for this call</string>
+    <string name="calltime_title">Call time</string>
+    <string name="calltime_ends_in">Ends in %1$s</string>
+    <string name="calltime_wont_end">This call won\'t be ended</string>
+    <string name="calltime_no_limit">No time limit for this call</string>
+    <string name="calltime_plus_2">+2 min</string>
+    <string name="calltime_plus_5">+5 min</string>
+    <string name="calltime_end_in_1">End in 1 min</string>
+    <string name="calltime_dont_end">Don\'t end</string>
+    <string name="calltime_supervised">Limits are supervised: they can be changed in Parley after unlocking.</string>
+    <string name="calltime_note_saved">Saved with this call, only on this phone</string>
+
+    <!-- Post-call card for unknown numbers -->
+    <string name="postcall_what_to_do">What do you want to do with this number?</string>
+    <string name="postcall_block">Block</string>
+    <string name="postcall_save_privately">Save privately</string>
+    <string name="postcall_message_on">Message on…</string>
+    <string name="postcall_report">Report</string>
+    <string name="postcall_save_title">Save privately for 7 days</string>
+    <string name="postcall_name">Name</string>
+    <string name="postcall_save_explainer">Kept in Parley\'s private contacts, where other apps can\'t see it, and deleted automatically after 7 days with its call history. You can keep it from Temporary contacts.</string>
+</resources>

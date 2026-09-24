@@ -7,6 +7,7 @@ import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.Build
+import app.parley.R
 import app.parley.data.calls.Voicemail
 import app.parley.telecom.CallManager
 import kotlinx.coroutines.CoroutineScope
@@ -79,7 +80,7 @@ class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Un
     private fun start(v: Voicemail, from: Long) {
         releasePlayer()
         if (CallManager.state.value.any { it.isLive }) {
-            _state.value = PlayerState(id = v.id, speaker = _state.value.speaker, error = "Can't play during a call")
+            _state.value = PlayerState(id = v.id, speaker = _state.value.speaker, error = app.getString(R.string.vm_error_in_call))
             return
         }
         current = v
@@ -89,7 +90,7 @@ class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Un
         mp.setOnPreparedListener {
             if (from > 0) runCatching { it.seekTo(from.toInt()) }
             if (!requestFocus()) {
-                _state.value = _state.value.copy(error = "Another app is using the audio")
+                _state.value = _state.value.copy(error = app.getString(R.string.vm_error_audio_busy))
                 return@setOnPreparedListener
             }
             routeForEarpiece(!speaker)
@@ -98,7 +99,7 @@ class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Un
             startTicker()
             onStarted(v)
         }
-        runCatching { mp.prepareAsync() }.onFailure { fail("Couldn't play this voicemail") }
+        runCatching { mp.prepareAsync() }.onFailure { fail(app.getString(R.string.vm_error_play)) }
     }
 
     private fun prepareOnly(v: Voicemail, at: Long) {
@@ -127,12 +128,12 @@ class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Un
                 restoreAudio()
             }
             setOnErrorListener { _, _, _ ->
-                fail("Couldn't play this voicemail")
+                fail(app.getString(R.string.vm_error_play))
                 true
             }
         }.also { player = it }
     } catch (_: Exception) {
-        fail(if (!v.hasAudio) "The audio hasn't been downloaded yet" else "Couldn't open this voicemail")
+        fail(app.getString(if (!v.hasAudio) R.string.vm_error_not_downloaded else R.string.vm_error_open))
         null
     }
 
@@ -146,7 +147,7 @@ class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Un
     private fun resume() {
         val p = player ?: return
         if (CallManager.state.value.any { it.isLive }) {
-            _state.value = _state.value.copy(error = "Can't play during a call")
+            _state.value = _state.value.copy(error = app.getString(R.string.vm_error_in_call))
             return
         }
         if (!requestFocus()) return

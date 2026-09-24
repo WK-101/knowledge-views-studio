@@ -133,6 +133,9 @@ internal fun AppearancePage(vm: AppViewModel) {
         switchRow("amoled", s.amoledBlack, Icons.Rounded.Contrast) { v -> set { it.copy(amoledBlack = v) } }
         if (Build.VERSION.SDK_INT >= 31) switchRow("dynamic_color", s.dynamicColor, Icons.Rounded.Wallpaper) { v -> set { it.copy(dynamicColor = v) } }
     }
+    // L1: per-app language (the system screen on Android 13+, an in-app picker before).
+    SegmentedGroup(androidx.compose.ui.res.stringResource(app.parley.R.string.lang_title)) { item("language") { LanguageRow() } }
+    val tabLabels = s.navTabs.visible.map { it.label }
     SegmentedGroup("Navigation bar") {
         item("nav_tabs") {
             Column {
@@ -145,7 +148,7 @@ internal fun AppearancePage(vm: AppViewModel) {
             }
         }
         val visible = s.navTabs.visible
-        menuRow("start_tab", visible.map { it.label }, visible.indexOf(s.navTabs.startTab(s.startTab)).coerceAtLeast(0), Icons.Rounded.PhoneAndroid) { i ->
+        menuRow("start_tab", tabLabels, visible.indexOf(s.navTabs.startTab(s.startTab)).coerceAtLeast(0), Icons.Rounded.PhoneAndroid) { i ->
             set { it.copy(startTab = visible[i]) }
         }
     }

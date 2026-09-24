@@ -33,7 +33,7 @@ import androidx.compose.material.icons.rounded.AddToHomeScreen
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Cake
 import androidx.compose.material.icons.rounded.Call
-import androidx.compose.material.icons.rounded.CallSplit
+import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.Edit
@@ -87,11 +87,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.common.PhoneNumbers
 import app.parley.common.people.HandleLink
 import app.parley.common.people.MessageRoute
@@ -101,6 +105,7 @@ import app.parley.common.people.RelationTypes
 import app.parley.data.ContactDetails
 import app.parley.data.DataItem
 import app.parley.ui.Avatar
+import app.parley.ui.Bidi
 import app.parley.ui.OnGroupSurface
 import app.parley.ui.Routes
 import app.parley.ui.SegmentedGroup
@@ -200,7 +205,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
     }
     val talked = history.firstOrNull { it.durationSec > 0 }
-    val lastTalked = if (talked != null) "Last talked ${android.text.format.DateUtils.getRelativeTimeSpanString(talked.date, System.currentTimeMillis(), android.text.format.DateUtils.DAY_IN_MILLIS)}" else "No calls yet"
+    val lastTalked = if (talked != null) stringResource(R.string.detail_last_talked, android.text.format.DateUtils.getRelativeTimeSpanString(talked.date, System.currentTimeMillis(), android.text.format.DateUtils.DAY_IN_MILLIS)) else stringResource(R.string.recents_empty)
     val listState = rememberLazyListState()
     val density = LocalDensity.current
     // U1: the header has scrolled away once the name is under the top bar.
@@ -244,24 +249,24 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = barColor, scrolledContainerColor = barColor),
-                navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } },
                 actions = {
                     if (d != null) {
                         IconButton({ scope.launch { vm.c.contacts.setStarred(contactId, !d.starred) } }) {
-                            Icon(if (d.starred) Icons.Rounded.Star else Icons.Rounded.StarOutline, if (d.starred) "Remove from favorites" else "Add to favorites")
+                            Icon(if (d.starred) Icons.Rounded.Star else Icons.Rounded.StarOutline, stringResource(if (d.starred) R.string.sel_unstar else R.string.sel_star))
                         }
-                        IconButton({ open(Routes.edit(id = contactId)) }) { Icon(Icons.Rounded.Edit, "Edit") }
-                        IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, "More") }
+                        IconButton({ open(Routes.edit(id = contactId)) }) { Icon(Icons.Rounded.Edit, stringResource(R.string.main_edit)) }
+                        IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more)) }
                         DropdownMenu(menu, { menu = false }) {
-                            DropdownMenuItem({ Text("Share as file") }, leadingIcon = { Icon(Icons.Rounded.Share, null) }, onClick = {
+                            DropdownMenuItem({ Text(stringResource(R.string.detail_share_file)) }, leadingIcon = { Icon(Icons.Rounded.Share, null) }, onClick = {
                                 menu = false; Intents.shareVcard(context, vm.c.contacts.vcardUri(d.lookupKey), d.displayName)
                             })
-                            DropdownMenuItem({ Text("Show QR code") }, leadingIcon = { Icon(Icons.Rounded.QrCode2, null) }, onClick = { menu = false; showQr = true })
-                            DropdownMenuItem({ Text("Share privately (encrypted QR)") }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = { menu = false; secureQr = true })
-                            DropdownMenuItem({ Text("Version history") }, leadingIcon = { Icon(Icons.Rounded.History, null) }, onClick = { menu = false; open(Routes.versions(contactId)) })
-                            DropdownMenuItem({ Text("Add to home screen") }, leadingIcon = { Icon(Icons.Rounded.AddToHomeScreen, null) }, onClick = { menu = false; pinDialog = true })
-                            if (d.phones.isNotEmpty()) DropdownMenuItem({ Text("Copy to SIM") }, leadingIcon = { Icon(Icons.Rounded.SimCard, null) }, onClick = { menu = false; copyToSim = true })
-                            DropdownMenuItem({ Text("Set ringtone") }, leadingIcon = { Icon(Icons.Rounded.MusicNote, null) }, onClick = {
+                            DropdownMenuItem({ Text(stringResource(R.string.detail_show_qr)) }, leadingIcon = { Icon(Icons.Rounded.QrCode2, null) }, onClick = { menu = false; showQr = true })
+                            DropdownMenuItem({ Text(stringResource(R.string.detail_share_private)) }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = { menu = false; secureQr = true })
+                            DropdownMenuItem({ Text(stringResource(R.string.detail_versions)) }, leadingIcon = { Icon(Icons.Rounded.History, null) }, onClick = { menu = false; open(Routes.versions(contactId)) })
+                            DropdownMenuItem({ Text(stringResource(R.string.detail_add_home)) }, leadingIcon = { Icon(Icons.Rounded.AddToHomeScreen, null) }, onClick = { menu = false; pinDialog = true })
+                            if (d.phones.isNotEmpty()) DropdownMenuItem({ Text(stringResource(R.string.detail_copy_sim)) }, leadingIcon = { Icon(Icons.Rounded.SimCard, null) }, onClick = { menu = false; copyToSim = true })
+                            DropdownMenuItem({ Text(stringResource(R.string.detail_set_ringtone)) }, leadingIcon = { Icon(Icons.Rounded.MusicNote, null) }, onClick = {
                                 menu = false
                                 ringtonePicker.launch(
                                     Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
@@ -271,30 +276,30 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                 )
                             })
                             if (d.phones.isNotEmpty()) {
-                                DropdownMenuItem({ Text("Block numbers") }, leadingIcon = { Icon(Icons.Rounded.Block, null) }, onClick = {
+                                DropdownMenuItem({ Text(stringResource(R.string.detail_block_numbers)) }, leadingIcon = { Icon(Icons.Rounded.Block, null) }, onClick = {
                                     menu = false; d.phones.forEach { vm.blockNumber(it.value) }
                                 })
                             }
                             app.parley.ui.blocking.ContactPrefixAllowMenuItem(d.composedName.ifBlank { null }, d.phones.map { it.value }) { menu = false }
                             if (d.rawContacts.size > 1) {
-                                DropdownMenuItem({ Text("Separate linked contacts") }, leadingIcon = { Icon(Icons.Rounded.CallSplit, null) }, onClick = {
+                                DropdownMenuItem({ Text(stringResource(R.string.detail_separate)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.CallSplit, null) }, onClick = {
                                     menu = false; scope.launch { vm.c.contacts.separate(contactId); back() }
                                 })
                             }
-                            DropdownMenuItem({ Text("Move to private vault") }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = {
+                            DropdownMenuItem({ Text(stringResource(R.string.detail_move_vault)) }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = {
                                 menu = false
-                                scope.launchVault(context as? androidx.fragment.app.FragmentActivity, { e -> vm.toast("Couldn't move: ${e.message}") }) {
+                                scope.launchVault(context as? androidx.fragment.app.FragmentActivity, { e -> vm.toast(resources.getString(R.string.detail_move_failed, e.message.orEmpty())) }) {
                                     // I6: the note for calls and the messaging choice go with them (encrypted).
                                     val id = vm.moveToVault(contactId, d.copy(pinnedNote = meta?.pinnedNote.orEmpty(), messengerPrefs = prefs.encode().orEmpty()))
                                     // Now kept encrypted with them: no plaintext copy stays in Parley's metadata.
                                     if (meta != null) vm.c.meta.deleteMeta(d.lookupKey)
-                                    vm.toast("Moved to your private contacts")
+                                    vm.toast(resources.getString(R.string.detail_moved_private))
                                     back()
                                     open(Routes.vault(id))
                                 }
                             })
-                            DropdownMenuItem({ Text(if (temp != null) "Change auto-delete" else "Delete after…") }, leadingIcon = { Icon(Icons.Rounded.Timer, null) }, onClick = { menu = false; askExpiry = true })
-                            DropdownMenuItem({ Text("Delete") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
+                            DropdownMenuItem({ Text(stringResource(if (temp != null) R.string.detail_change_expiry else R.string.detail_delete_after)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) }, onClick = { menu = false; askExpiry = true })
+                            DropdownMenuItem({ Text(stringResource(R.string.main_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
                         }
                     }
                 },
@@ -302,7 +307,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         },
     ) { padding ->
         if (d == null) {
-            if (loaded) Text("This contact no longer exists.", Modifier.padding(padding).padding(24.dp))
+            if (loaded) Text(stringResource(R.string.detail_gone), Modifier.padding(padding).padding(24.dp))
             return@Scaffold
         }
         val primary = d.phones.firstOrNull { it.isPrimary } ?: d.phones.firstOrNull()
@@ -325,15 +330,15 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     ) {
                         Avatar(
                             d.displayName, d.photoUri, 120.dp,
-                            Modifier.shared("avatar-$contactId").clickable(enabled = d.photoUri != null, onClickLabel = "View photo") { showPhoto = true },
+                            Modifier.shared("avatar-$contactId").clickable(enabled = d.photoUri != null, onClickLabel = stringResource(R.string.detail_view_photo)) { showPhoto = true },
                             isCompany = d.composedName.isBlank() && d.company.isNotBlank(),
                         )
                         Text(d.displayName, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp).shared("name-$contactId", bounds = true))
                     }
                     val sub = listOf(d.nickname, listOf(d.title, d.company).filter { it.isNotBlank() }.joinToString(", ")).filter { it.isNotBlank() }
-                    if (sub.isNotEmpty()) Text(sub.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                    if (sub.isNotEmpty()) Text(sub.joinToString(stringResource(R.string.main_separator)), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                     Text(lastTalked, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-                    temp?.let { Text("Deletes itself on ${Format.fullDate(context, it.expiresAt)}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                    temp?.let { Text(stringResource(R.string.detail_deletes_on, Format.fullDate(context, it.expiresAt)), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                     app.parley.ui.people.AccountChips(vm, d, open) { newId ->
                         if (newId != null && newId != contactId) { back(); open(Routes.contact(newId)) }
                         else reloads++
@@ -342,27 +347,27 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     // U3: labelled tiles.
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val preferredCall = messengers.firstOrNull { it.accountType == prefs.call && it.isCall && !it.isVideo }
-                        ActionTile(Icons.Rounded.Call, if (preferredCall != null) preferredCall.appName else "Call", primary != null || preferredCall != null) {
+                        ActionTile(Icons.Rounded.Call, if (preferredCall != null) preferredCall.appName else stringResource(R.string.main_call), primary != null || preferredCall != null) {
                             if (preferredCall != null) ContactMessaging.start(context, preferredCall.intent(), preferredCall.appName)?.let { vm.toast(it) }
                             else primary?.let { vm.requestCall(it.value, d.displayName) }
                         }
-                        val messageApp = prefs.message?.let { p -> if (p == MessengerPrefs.SMS) "SMS" else messengers.firstOrNull { it.accountType == p }?.appName ?: app.parley.common.MessengerApp.forPackage(p)?.label }
+                        val messageApp = prefs.message?.let { p -> if (p == MessengerPrefs.SMS) stringResource(R.string.detail_sms) else messengers.firstOrNull { it.accountType == p }?.appName ?: app.parley.common.MessengerApp.forPackage(p)?.label }
                         ActionTile(
-                            Icons.AutoMirrored.Rounded.Message, messageApp ?: "Message", primary != null || r.linked.isNotEmpty(),
-                            onLongClick = { messageSheet = primary?.value.orEmpty() }, longClickLabel = "Choose how to message",
+                            Icons.AutoMirrored.Rounded.Message, messageApp ?: stringResource(R.string.main_message), primary != null || r.linked.isNotEmpty(),
+                            onLongClick = { messageSheet = primary?.value.orEmpty() }, longClickLabel = stringResource(R.string.detail_choose_message),
                         ) { message(d) }
                         if (r.videoRows.isNotEmpty()) {
                             val preferredVideo = r.videoRows.firstOrNull { it.accountType == prefs.video }
                             ActionTile(
-                                Icons.Rounded.Videocam, preferredVideo?.appName ?: "Video", true,
-                                onLongClick = { videoChooser = true }, longClickLabel = "Choose the video app",
+                                Icons.Rounded.Videocam, preferredVideo?.appName ?: stringResource(R.string.detail_video), true,
+                                onLongClick = { videoChooser = true }, longClickLabel = stringResource(R.string.detail_choose_video),
                             ) {
                                 val only = r.videoRows.distinctBy { it.accountType }.singleOrNull()
                                 val target = preferredVideo ?: only
                                 if (target != null) ContactMessaging.start(context, target.intent(), target.appName)?.let { vm.toast(it) } else videoChooser = true
                             }
                         }
-                        ActionTile(Icons.Rounded.Email, "Email", d.emails.isNotEmpty()) {
+                        ActionTile(Icons.Rounded.Email, stringResource(R.string.detail_email), d.emails.isNotEmpty()) {
                             (d.emails.firstOrNull { it.isPrimary } ?: d.emails.firstOrNull())?.let { Intents.email(context, it.value) }
                         }
                     }
@@ -376,20 +381,20 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             modifier = Modifier.clickable { editNote = true },
                             colors = groupRowColors(),
                             leadingContent = { Icon(Icons.Rounded.PushPin, null, tint = if (note != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
-                            headlineContent = { Text(note ?: "Add a note for calls") },
-                            supportingContent = { Text(if (note != null) "Shown when they call" else "Private reminder shown on the call screen") },
+                            headlineContent = { Text(note ?: stringResource(R.string.detail_add_note)) },
+                            supportingContent = { Text(stringResource(if (note != null) R.string.detail_note_shown else R.string.detail_note_hint)) },
                         )
                     }
                 }
             }
             if (d.phones.isNotEmpty()) item(key = "phones") {
-                SegmentedGroup("Phone") {
+                SegmentedGroup(stringResource(R.string.detail_phone)) {
                     d.phones.forEachIndexed { i, p ->
                         item {
                             val pinned = simPrefs.firstOrNull { it.matchKey == PhoneNumbers.matchKey(p.value) }?.phoneAccountId
                             PhoneRow(
                                 vm, p, first = i == 0,
-                                label = listOfNotNull(Format.phoneType(resources, p.type, p.label), pinned?.let { id -> sims.firstOrNull { it.id == id }?.label?.let { "Always $it" } }).joinToString(" · "),
+                                label = listOfNotNull(Format.phoneType(resources, p.type, p.label), pinned?.let { id -> sims.firstOrNull { it.id == id }?.label?.let { resources.getString(R.string.detail_always_sim, it) } }).joinToString(resources.getString(R.string.main_separator)),
                                 canDefault = d.phones.size > 1 && p.id != null,
                                 multiSim = sims.size > 1,
                                 onCall = { vm.requestCall(p.value, d.displayName) },
@@ -403,12 +408,12 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 }
             }
             if (d.emails.isNotEmpty()) item(key = "emails") {
-                SegmentedGroup("Email") {
+                SegmentedGroup(stringResource(R.string.detail_email)) {
                     d.emails.forEachIndexed { i, e ->
                         item {
                             GroupDataRow(
                                 Icons.Rounded.Email, i == 0, e.value, Format.emailType(resources, e.type, e.label), onClick = { Intents.email(context, e.value) },
-                                trailing = if (e.isPrimary && d.emails.size > 1) ({ Icon(Icons.Rounded.Star, "Default e-mail", tint = MaterialTheme.colorScheme.primary) }) else null,
+                                trailing = if (e.isPrimary && d.emails.size > 1) ({ Icon(Icons.Rounded.Star, stringResource(R.string.detail_default_email), tint = MaterialTheme.colorScheme.primary) }) else null,
                                 menu = if (d.emails.size > 1 && e.id != null) ({ close ->
                                     DefaultMenuItem(e.isPrimary) { on -> close(); scope.launch { setDefault(vm, contactId, e, Email.CONTENT_ITEM_TYPE, on); reloads++ } }
                                 }) else null,
@@ -418,7 +423,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 }
             }
             if (d.addresses.isNotEmpty()) item(key = "addresses") {
-                SegmentedGroup("Address") {
+                SegmentedGroup(stringResource(R.string.detail_address)) {
                     d.addresses.forEachIndexed { i, a ->
                         item { GroupDataRow(Icons.Rounded.LocationOn, i == 0, a.formatted, StructuredPostal.getTypeLabel(resources, a.type, a.label).toString(), onClick = { Intents.map(context, a.formatted) }) }
                     }
@@ -426,7 +431,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             }
             val chatRows = messengers
             if (d.handles.isNotEmpty() || chatRows.isNotEmpty()) item(key = "messengers") {
-                SegmentedGroup("Messengers") {
+                SegmentedGroup(stringResource(R.string.detail_messengers)) {
                     // I1: handles typed into the contact (Matrix, Threema, Signal username…).
                     handleRows(d.handles, Icons.Rounded.Forum, onWeb = { webLink = it })
                     // What messenger apps added themselves (WhatsApp, Signal, Telegram…).
@@ -436,12 +441,12 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                 (!m.isCall && !m.isVideo && prefs.message == m.accountType)
                             GroupDataRow(
                                 if (m.isVideo) Icons.Rounded.Videocam else if (m.isCall) Icons.Rounded.Call else Icons.AutoMirrored.Rounded.Chat,
-                                showIcon = true, text = m.label, label = m.appName + if (preferred) " · your usual choice" else "",
+                                showIcon = true, text = m.label, label = if (preferred) resources.getString(R.string.detail_usual_choice, m.appName) else m.appName,
                                 onClick = { ContactMessaging.start(context, m.intent(), m.appName)?.let { vm.toast(it) } },
-                                trailing = if (preferred) ({ Icon(Icons.Rounded.Star, "Usual", tint = MaterialTheme.colorScheme.primary) }) else null,
+                                trailing = if (preferred) ({ Icon(Icons.Rounded.Star, stringResource(R.string.detail_usual), tint = MaterialTheme.colorScheme.primary) }) else null,
                                 menu = { close ->
                                     DropdownMenuItem(
-                                        { Text(if (preferred) "Don't use by default" else "Use by default") },
+                                        { Text(stringResource(if (preferred) R.string.detail_dont_use_default else R.string.detail_use_default)) },
                                         leadingIcon = { Icon(if (preferred) Icons.Rounded.StarOutline else Icons.Rounded.Star, null) },
                                         onClick = {
                                             close()
@@ -461,11 +466,11 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 }
             }
             if (d.events.isNotEmpty() || d.websites.isNotEmpty() || d.note.isNotBlank() || d.relations.isNotEmpty()) item(key = "about") {
-                SegmentedGroup("About ${d.given.ifBlank { d.displayName }}") {
+                SegmentedGroup(stringResource(R.string.detail_about, d.given.ifBlank { d.displayName })) {
                     d.events.forEachIndexed { i, ev ->
                         item { GroupDataRow(Icons.Rounded.Cake, i == 0, app.parley.ui.people.describeLifeEvent(resources, d, ev), app.parley.ui.people.eventLabel(resources, ev), onClick = {}) }
                     }
-                    d.websites.forEachIndexed { i, w -> item { GroupDataRow(Icons.Rounded.Language, i == 0, w.value, "Website", onClick = { Intents.web(context, w.value) }) } }
+                    d.websites.forEachIndexed { i, w -> item { GroupDataRow(Icons.Rounded.Language, i == 0, w.value, resources.getString(R.string.detail_website), onClick = { Intents.web(context, w.value) }) } }
                     d.relations.forEachIndexed { i, rel ->
                         item {
                             val label = RelationTypes.fromAndroid(rel.type, rel.label)?.label
@@ -483,30 +488,30 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                     when (target) {
                                         is app.parley.common.people.RelationLinks.Target.Contact -> open(Routes.contact(target.id))
                                         is app.parley.common.people.RelationLinks.Target.Choose -> relationChoice = target.ids
-                                        app.parley.common.people.RelationLinks.Target.None -> vm.toast("No contact named ${rel.value}")
+                                        app.parley.common.people.RelationLinks.Target.None -> vm.toast(resources.getString(R.string.detail_no_contact_named, rel.value))
                                     }
                                 }
                             })
                         }
                     }
                     if (d.note.isNotBlank()) item {
-                        GroupDataRow(Icons.AutoMirrored.Rounded.Notes, true, d.note, "Note", onClick = {}, headline = { LinkifiedText(d.note) })
+                        GroupDataRow(Icons.AutoMirrored.Rounded.Notes, true, d.note, resources.getString(R.string.detail_note), onClick = {}, headline = { LinkifiedText(d.note) })
                     }
                 }
             }
             if (otherFields.isNotEmpty()) item(key = "other") {
-                SegmentedGroup("Other fields") {
+                SegmentedGroup(stringResource(R.string.detail_other_fields)) {
                     otherFields.forEachIndexed { i, f -> item { GroupDataRow(Icons.Rounded.Info, i == 0, f.value, f.label, onClick = {}) } }
                 }
-                GroupNote("Saved by another app or account. Parley shows them as they are and never changes them.")
+                GroupNote(stringResource(R.string.detail_other_fields_note))
             }
             item(key = "settings") {
-                SegmentedGroup("Settings") {
+                SegmentedGroup(stringResource(R.string.home_settings)) {
                     item {
                         ListItem(
                             colors = groupRowColors(),
                             leadingContent = { Icon(Icons.Rounded.Voicemail, null) },
-                            headlineContent = { Text("Send calls to voicemail") },
+                            headlineContent = { Text(stringResource(R.string.detail_send_to_voicemail)) },
                             trailingContent = { Switch(d.sendToVoicemail, { v -> scope.launch { vm.c.contacts.setSendToVoicemail(contactId, v); reloads++ } }) },
                         )
                     }
@@ -516,19 +521,19 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             modifier = Modifier.clickable { reachOut = true },
                             colors = groupRowColors(),
                             leadingContent = { Icon(Icons.Rounded.NotificationsActive, null) },
-                            headlineContent = { Text("Remind me to keep in touch") },
-                            supportingContent = { Text(every?.let { "If you haven't talked in $it days" } ?: "Off") },
+                            headlineContent = { Text(stringResource(R.string.detail_keep_in_touch)) },
+                            supportingContent = { Text(every?.let { pluralStringResource(R.plurals.detail_not_talked_days, it, it) } ?: stringResource(R.string.detail_off)) },
                         )
                     }
                     blended { app.parley.ui.calltime.ContactCallTimeRows(vm, d.lookupKey, d.displayName, d.starred) }
                     item {
                         val tone = d.customRingtone?.let { runCatching { RingtoneManager.getRingtone(context, Uri.parse(it))?.getTitle(context) }.getOrNull() }
-                        GroupDataRow(Icons.Rounded.MusicNote, true, tone ?: "Default ringtone", "Ringtone", onClick = {
+                        GroupDataRow(Icons.Rounded.MusicNote, true, tone ?: resources.getString(R.string.detail_default_ringtone), resources.getString(R.string.detail_ringtone), onClick = {
                             ringtonePicker.launch(Intent(RingtoneManager.ACTION_RINGTONE_PICKER).putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE))
                         })
                     }
                     item {
-                        GroupDataRow(Icons.Rounded.Sync, true, d.rawContacts.joinToString("\n") { it.account.displayLabel }, if (d.rawContacts.size > 1) "Linked from ${d.rawContacts.size} sources" else "Saved in", onClick = {})
+                        GroupDataRow(Icons.Rounded.Sync, true, d.rawContacts.joinToString("\n") { it.account.displayLabel }, if (d.rawContacts.size > 1) resources.getQuantityString(R.plurals.detail_linked_from, d.rawContacts.size, d.rawContacts.size) else resources.getString(R.string.detail_saved_in), onClick = {})
                     }
                     blended { app.parley.ui.people.ProvenanceRow(vm, contactId, d, open) }
                     blended { app.parley.ui.people.CallBackgroundInfoRow(vm, d) { open(Routes.edit(id = contactId)) } }
@@ -537,7 +542,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             val keys = d.phones.map { PhoneNumbers.matchKey(it.value) }.toSet()
             val notes = allNotes.filter { it.numberKey in keys }
             if (notes.isNotEmpty()) item(key = "callnotes") {
-                SegmentedGroup("Call notes") {
+                SegmentedGroup(stringResource(R.string.detail_call_notes)) {
                     notes.take(10).forEachIndexed { i, n ->
                         item { GroupDataRow(Icons.AutoMirrored.Rounded.Notes, i == 0, n.text, Format.fullDate(context, n.callDate), onClick = {}, headline = { LinkifiedText(n.text) }) }
                     }
@@ -545,7 +550,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             }
             item(key = "insights") { OnGroupSurface { app.parley.ui.history.CallInsightsSection(vm, d.phones.map { it.value }) } }
             if (history.isNotEmpty()) item(key = "recent") {
-                SegmentedGroup("Recent calls") {
+                SegmentedGroup(stringResource(R.string.detail_recent_calls)) {
                     history.take(5).forEachIndexed { _, e ->
                         item {
                             val (icon, tint) = callTypeIcon(e.type)
@@ -553,13 +558,13 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                 colors = groupRowColors(),
                                 leadingContent = { Icon(icon, null, tint = tint) },
                                 headlineContent = { Text(Format.fullDate(context, e.date)) },
-                                supportingContent = { Text(listOf(Format.number(e.number, vm.countryIso), Format.duration(e.durationSec)).filter { it.isNotBlank() }.joinToString(" · ")) },
+                                supportingContent = { Text(listOf(Bidi.ltr(Format.number(e.number, vm.countryIso)), Format.duration(e.durationSec)).filter { it.isNotBlank() }.joinToString(stringResource(R.string.main_separator))) },
                             )
                         }
                     }
                 }
                 if (history.size > 5 && primary != null) {
-                    TextButton({ open(Routes.history(primary.value)) }, Modifier.padding(start = 16.dp)) { Text("See all ${history.size} calls") }
+                    TextButton({ open(Routes.history(primary.value)) }, Modifier.padding(start = 16.dp)) { Text(pluralStringResource(R.plurals.detail_see_all_calls, history.size, history.size)) }
                 }
             }
         }
@@ -580,58 +585,61 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             var text by remember { mutableStateOf(meta?.pinnedNote.orEmpty()) }
             AlertDialog(
                 onDismissRequest = { editNote = false },
-                title = { Text("Note for calls") },
-                text = { androidx.compose.material3.OutlinedTextField(text, { text = it }, placeholder = { Text("e.g. Ask about the invoice") }, minLines = 2) },
-                confirmButton = { TextButton({ editNote = false; saveMeta { it.copy(pinnedNote = text.trim().ifEmpty { null }) } }) { Text("Save") } },
-                dismissButton = { TextButton({ editNote = false }) { Text("Cancel") } },
+                title = { Text(stringResource(R.string.detail_note_title)) },
+                text = { androidx.compose.material3.OutlinedTextField(text, { text = it }, placeholder = { Text(stringResource(R.string.detail_note_placeholder)) }, minLines = 2) },
+                confirmButton = { TextButton({ editNote = false; saveMeta { it.copy(pinnedNote = text.trim().ifEmpty { null }) } }) { Text(stringResource(R.string.main_save)) } },
+                dismissButton = { TextButton({ editNote = false }) { Text(stringResource(R.string.main_cancel)) } },
             )
         }
         if (reachOut) {
             AlertDialog(
                 onDismissRequest = { reachOut = false },
-                title = { Text("Keep in touch") },
+                title = { Text(stringResource(R.string.detail_keep_in_touch_title)) },
                 text = {
                     Column {
                         app.parley.ui.history.RhythmSuggestion(vm, d.phones.map { it.value }) { days -> reachOut = false; saveMeta { it.copy(reachOutDays = days, lastNudgedAt = null) } }
-                        listOf(null to "Off", 7 to "Every week", 14 to "Every 2 weeks", 30 to "Every month", 90 to "Every 3 months", 180 to "Every 6 months").forEach { (days, label) ->
+                        listOf(
+                            null to stringResource(R.string.detail_off), 7 to stringResource(R.string.detail_every_week), 14 to stringResource(R.string.detail_every_2_weeks),
+                            30 to stringResource(R.string.detail_every_month), 90 to stringResource(R.string.detail_every_3_months), 180 to stringResource(R.string.detail_every_6_months),
+                        ).forEach { (days, label) ->
                             ListItem(headlineContent = { Text(label) }, modifier = Modifier.clickable { reachOut = false; saveMeta { it.copy(reachOutDays = days, lastNudgedAt = null) } })
                         }
                     }
                 },
                 confirmButton = {},
-                dismissButton = { TextButton({ reachOut = false }) { Text("Cancel") } },
+                dismissButton = { TextButton({ reachOut = false }) { Text(stringResource(R.string.main_cancel)) } },
             )
         }
         if (pinDialog) {
             AlertDialog(
                 onDismissRequest = { pinDialog = false },
-                title = { Text("Add to home screen") },
+                title = { Text(stringResource(R.string.detail_add_home)) },
                 text = {
                     Column {
                         d.phones.forEach { p ->
-                            ListItem(headlineContent = { Text("Call ${Format.number(p.value, vm.countryIso)}") }, leadingContent = { Icon(Icons.Rounded.Call, null) }, modifier = Modifier.clickable {
+                            ListItem(headlineContent = { Text(stringResource(R.string.main_call_who, Bidi.ltr(Format.number(p.value, vm.countryIso)))) }, leadingContent = { Icon(Icons.Rounded.Call, null) }, modifier = Modifier.clickable {
                                 pinDialog = false
                                 app.parley.shortcuts.Shortcuts.pin(context, app.parley.shortcuts.Shortcuts.Kind.CALL, d.displayName, p.value, contactId, d.photoUri)
                             })
-                            ListItem(headlineContent = { Text("Message ${Format.number(p.value, vm.countryIso)}") }, leadingContent = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, modifier = Modifier.clickable {
+                            ListItem(headlineContent = { Text(stringResource(R.string.main_message_who, Bidi.ltr(Format.number(p.value, vm.countryIso)))) }, leadingContent = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, modifier = Modifier.clickable {
                                 pinDialog = false
                                 app.parley.shortcuts.Shortcuts.pin(context, app.parley.shortcuts.Shortcuts.Kind.MESSAGE, d.displayName, p.value, contactId, d.photoUri)
                             })
                         }
-                        ListItem(headlineContent = { Text("Open contact") }, leadingContent = { Icon(Icons.Rounded.Person, null) }, modifier = Modifier.clickable {
+                        ListItem(headlineContent = { Text(stringResource(R.string.main_open_contact)) }, leadingContent = { Icon(Icons.Rounded.Person, null) }, modifier = Modifier.clickable {
                             pinDialog = false
                             app.parley.shortcuts.Shortcuts.pin(context, app.parley.shortcuts.Shortcuts.Kind.OPEN, d.displayName, null, contactId, d.photoUri, d.lookupKey)
                         })
                     }
                 },
                 confirmButton = {},
-                dismissButton = { TextButton({ pinDialog = false }) { Text("Cancel") } },
+                dismissButton = { TextButton({ pinDialog = false }) { Text(stringResource(R.string.main_cancel)) } },
             )
         }
         relationChoice?.let { ids ->
             AlertDialog(
                 onDismissRequest = { relationChoice = null },
-                title = { Text("Which contact?") },
+                title = { Text(stringResource(R.string.detail_which_contact)) },
                 text = {
                     Column {
                         ids.forEach { id ->
@@ -642,48 +650,48 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                     open(Routes.contact(id))
                                 },
                                 headlineContent = { Text(ct.displayName) },
-                                supportingContent = { ct.phones.firstOrNull()?.let { Text(Format.number(it.number, vm.countryIso)) } },
+                                supportingContent = { ct.phones.firstOrNull()?.let { Text(Bidi.ltr(Format.number(it.number, vm.countryIso))) } },
                             )
                         }
                     }
                 },
                 confirmButton = {},
-                dismissButton = { TextButton({ relationChoice = null }) { Text("Cancel") } },
+                dismissButton = { TextButton({ relationChoice = null }) { Text(stringResource(R.string.main_cancel)) } },
             )
         }
         if (askExpiry) app.parley.ui.vault.ExpiryDialog(onDismiss = { askExpiry = false }) { days ->
             askExpiry = false
             scope.launch {
                 if (days == null) vm.c.temporaries.clear(d.lookupKey) else vm.c.temporaries.mark(contactId, days, purgeHistory = true)
-                vm.toast(if (days == null) "Contact will be kept" else "Contact deletes itself in $days days")
+                vm.toast(if (days == null) resources.getString(R.string.detail_kept) else resources.getQuantityString(R.plurals.detail_deletes_in_days, days, days))
             }
         }
         d.photoUri?.takeIf { showPhoto }?.let { PhotoViewer(it) { showPhoto = false } }
         if (confirmDelete) {
             AlertDialog(
                 onDismissRequest = { confirmDelete = false },
-                title = { Text("Delete ${d.displayName}?") },
-                text = { Text("This removes the contact from every account it is saved in. You can restore it from Recently deleted for 30 days.") },
-                confirmButton = { TextButton({ confirmDelete = false; vm.deleteContacts(listOf(contactId)); back() }) { Text("Delete") } },
-                dismissButton = { TextButton({ confirmDelete = false }) { Text("Cancel") } },
+                title = { Text(stringResource(R.string.detail_delete_title, d.displayName)) },
+                text = { Text(stringResource(R.string.detail_delete_body)) },
+                confirmButton = { TextButton({ confirmDelete = false; vm.deleteContacts(listOf(contactId)); back() }) { Text(stringResource(R.string.main_delete)) } },
+                dismissButton = { TextButton({ confirmDelete = false }) { Text(stringResource(R.string.main_cancel)) } },
             )
         }
         simFor?.let { number ->
             AlertDialog(
                 onDismissRequest = { simFor = null },
-                title = { Text("SIM for ${Format.number(number, vm.countryIso)}") },
+                title = { Text(stringResource(R.string.detail_sim_for, Bidi.ltr(Format.number(number, vm.countryIso)))) },
                 text = {
                     Column {
-                        ListItem(headlineContent = { Text("Ask / use default") }, modifier = Modifier.clickable { scope.launch { vm.c.prefs.setSimFor(number, null) }; simFor = null })
+                        ListItem(headlineContent = { Text(stringResource(R.string.detail_sim_ask)) }, modifier = Modifier.clickable { scope.launch { vm.c.prefs.setSimFor(number, null) }; simFor = null })
                         sims.forEach { s ->
-                            ListItem(headlineContent = { Text("Always ${s.label}") }, leadingContent = { Icon(Icons.Rounded.SimCard, null) }, modifier = Modifier.clickable {
+                            ListItem(headlineContent = { Text(stringResource(R.string.detail_always_sim, s.label)) }, leadingContent = { Icon(Icons.Rounded.SimCard, null) }, modifier = Modifier.clickable {
                                 scope.launch { vm.c.prefs.setSimFor(number, s.id) }; simFor = null
                             })
                         }
                     }
                 },
                 confirmButton = {},
-                dismissButton = { TextButton({ simFor = null }) { Text("Cancel") } },
+                dismissButton = { TextButton({ simFor = null }) { Text(stringResource(R.string.main_cancel)) } },
             )
         }
     }
@@ -693,11 +701,12 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
 private suspend fun setDefault(vm: AppViewModel, contactId: Long, item: DataItem, mime: String, on: Boolean) {
     val id = item.id ?: return
     val ok = if (on) vm.c.contacts.setDefault(id) else vm.c.contacts.clearDefault(contactId, mime)
+    val app = vm.getApplication<android.app.Application>()
     vm.toast(
         when {
-            !ok -> "Couldn't change the default"
-            on -> "Set as default"
-            else -> "Default removed"
+            !ok -> app.getString(R.string.detail_default_failed)
+            on -> app.getString(R.string.detail_default_set)
+            else -> app.getString(R.string.detail_default_removed)
         },
     )
 }
@@ -705,7 +714,7 @@ private suspend fun setDefault(vm: AppViewModel, contactId: Long, item: DataItem
 @Composable
 private fun DefaultMenuItem(isDefault: Boolean, onSet: (Boolean) -> Unit) {
     DropdownMenuItem(
-        { Text(if (isDefault) "Remove default" else "Set as default") },
+        { Text(stringResource(if (isDefault) R.string.detail_remove_default else R.string.detail_set_default)) },
         leadingIcon = { Icon(if (isDefault) Icons.Rounded.StarOutline else Icons.Rounded.Star, null) },
         onClick = { onSet(!isDefault) },
     )
@@ -728,21 +737,21 @@ private fun PhoneRow(
 ) {
     GroupDataRow(
         Icons.Rounded.Call, first, p.value, label, onClick = onCall,
-        headline = { Text(Format.number(p.value, vm.countryIso)) },
+        headline = { Text(Bidi.ltr(Format.number(p.value, vm.countryIso))) },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (p.isPrimary && canDefault) Icon(Icons.Rounded.Star, "Default number", tint = MaterialTheme.colorScheme.primary)
-                if (multiSim) IconButton(onSim) { Icon(Icons.Rounded.SimCard, "Choose SIM for this number") }
-                IconButton(onMessage) { Icon(Icons.AutoMirrored.Rounded.Chat, "Message this number") }
+                if (p.isPrimary && canDefault) Icon(Icons.Rounded.Star, stringResource(R.string.detail_default_number), tint = MaterialTheme.colorScheme.primary)
+                if (multiSim) IconButton(onSim) { Icon(Icons.Rounded.SimCard, stringResource(R.string.detail_choose_sim_number)) }
+                IconButton(onMessage) { Icon(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.detail_message_number)) }
             }
         },
         menu = { close ->
             if (canDefault) DefaultMenuItem(p.isPrimary) { on -> close(); onDefault(on) }
-            DropdownMenuItem({ Text("Message on…") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = { close(); onMessageOn() })
-            DropdownMenuItem({ Text("Edit before calling") }, leadingIcon = { Icon(Icons.Rounded.Dialpad, null) }, onClick = {
+            DropdownMenuItem({ Text(stringResource(R.string.missed_message_on)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = { close(); onMessageOn() })
+            DropdownMenuItem({ Text(stringResource(R.string.detail_edit_before_call)) }, leadingIcon = { Icon(Icons.Rounded.Dialpad, null) }, onClick = {
                 close(); vm.navigate(app.parley.NavEvent.Tab(app.parley.common.StartTab.KEYPAD, dial = p.value))
             })
-            if (multiSim) DropdownMenuItem({ Text("Choose SIM") }, leadingIcon = { Icon(Icons.Rounded.SimCard, null) }, onClick = { close(); onSim() })
+            if (multiSim) DropdownMenuItem({ Text(stringResource(R.string.detail_choose_sim)) }, leadingIcon = { Icon(Icons.Rounded.SimCard, null) }, onClick = { close(); onSim() })
         },
     )
 }

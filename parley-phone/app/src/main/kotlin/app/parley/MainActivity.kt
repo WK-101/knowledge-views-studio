@@ -21,6 +21,12 @@ import app.parley.ui.ParleyRoot
 import app.parley.ui.ParleyTheme
 
 class MainActivity : androidx.fragment.app.FragmentActivity() {
+    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(newBase)
+        app.parley.ui.AppLocale.override(this, newBase)
+    }
+
     private val vm: AppViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,7 +36,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         setContent {
             val settings by vm.settings.collectAsStateWithLifecycle()
             val callPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-                if (!granted) vm.toast("Phone permission is needed to place calls")
+                if (!granted) vm.toast(getString(R.string.main_call_permission_needed))
             }
             LaunchedEffect(Unit) {
                 vm.uiEvents.collect { e ->

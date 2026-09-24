@@ -17,6 +17,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.res.stringResource
+import app.parley.R
+import app.parley.ui.Bidi
+import app.parley.ui.ForceLtr
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
@@ -169,6 +173,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     var imeiSheet by remember { mutableStateOf(false) }
     var saveTemporary by remember { mutableStateOf<String?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val res = LocalResources.current
     /** Result row focused with the D-pad; Call/Enter calls it. */
     var focusedResult by remember { mutableStateOf<DialResult?>(null) }
 
@@ -289,7 +294,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
             if (input.isEmpty()) {
                 Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        if (qwerty) "Type a number, or letters of a name" else "Type a number or letters of a name (T9)",
+                        stringResource(if (qwerty) R.string.keypad_hint_qwerty else R.string.keypad_hint_t9),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
@@ -309,18 +314,18 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                     if (results.none { it.contact != null } && input.length >= 3 && !isTextSearch()) {
                         item {
                             ListItem(
-                                headlineContent = { Text("Create new contact") },
+                                headlineContent = { Text(stringResource(R.string.keypad_create_contact)) },
                                 leadingContent = { Icon(Icons.Rounded.PersonAdd, null) },
                                 modifier = Modifier.clickable { open(Routes.edit(phone = input)) },
                             )
                             ListItem(
-                                headlineContent = { Text("Add to a contact") },
+                                headlineContent = { Text(stringResource(R.string.recents_add_to_contact)) },
                                 leadingContent = { Icon(Icons.Rounded.PersonAdd, null) },
                                 modifier = Modifier.clickable { open(Routes.pick(input)) },
                             )
                             ListItem(
-                                headlineContent = { Text("Message on…") },
-                                supportingContent = { Text("SMS, WhatsApp, Signal, Telegram, Viber") },
+                                headlineContent = { Text(stringResource(R.string.missed_message_on)) },
+                                supportingContent = { Text(stringResource(R.string.keypad_message_apps)) },
                                 leadingContent = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
                                 modifier = Modifier.clickable { messageOn = input },
                             )
@@ -336,23 +341,25 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                 Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (hasHardwareKeys) {
                         IconButton({ showKeypad = !showKeypad }) {
-                            Icon(Icons.Rounded.Dialpad, if (showKeypad) "Hide on-screen keypad" else "Show on-screen keypad")
+                            Icon(Icons.Rounded.Dialpad, stringResource(if (showKeypad) R.string.keypad_hide else R.string.keypad_show))
                         }
                     } else {
                         Spacer(Modifier.width(48.dp))
                     }
-                    NumberField(field, vm.countryIso, Modifier.weight(1f))
+                    // L3: the number reads left to right in every language.
+                    ForceLtr { NumberField(field, vm.countryIso, Modifier.weight(1f)) }
+                    val deleteLabel = stringResource(R.string.main_delete)
                     Box(
                         Modifier.size(48.dp).clip(CircleShape).combinedClickable(
                             enabled = input.isNotEmpty(),
                             onClick = { field.deleteBeforeCursor() },
                             onLongClick = { field.clearText() },
-                        ).semantics { contentDescription = "Delete" },
+                        ).semantics { contentDescription = deleteLabel },
                         contentAlignment = Alignment.Center,
                     ) { if (input.isNotEmpty()) Icon(Icons.AutoMirrored.Rounded.Backspace, null) }
                 }
-                if (showKeypad) {
-                    keys.chunked(3).forEach { row ->
+                // L3: 1 2 3 stays left to right in right-to-left languages, like every phone keypad.
+                if (showKeypad) ForceLtr { Column { keys.chunked(3).forEach { row ->
                         Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                             row.forEach { (digit, letters) ->
                                 val d = digit[0]
@@ -374,7 +381,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                             }
                         }
                     }
-                }
+                } }
                 Spacer(Modifier.height(8.dp))
                 // Actions for the typed number: message it (M2), or save it (as a contact, into one, or for a while).
                 val typedNumber = input.trim()
@@ -403,10 +410,10 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     unassigned?.let { key ->
         AlertDialog(
             onDismissRequest = { unassigned = null },
-            title = { Text("Speed dial $key is empty") },
-            text = { Text("Assign a number to key $key to call it with a long-press.") },
-            confirmButton = { TextButton({ unassigned = null; open(Routes.SPEED_DIAL) }) { Text("Set up") } },
-            dismissButton = { TextButton({ unassigned = null }) { Text("Cancel") } },
+            title = { Text(stringResource(R.string.keypad_speed_empty_title, key)) },
+            text = { Text(stringResource(R.string.keypad_speed_empty_body, key)) },
+            confirmButton = { TextButton({ unassigned = null; open(Routes.SPEED_DIAL) }) { Text(stringResource(R.string.keypad_set_up)) } },
+            dismissButton = { TextButton({ unassigned = null }) { Text(stringResource(R.string.main_cancel)) } },
         )
     }
     messageOn?.let { n -> MessageOnSheet(n, onDismiss = { messageOn = null }) }
@@ -421,10 +428,9 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                 val saved = app.parley.ui.temporary.TemporaryContactActions.save(vm, n, name, days, deleteHistory, visible)
                 if (saved != null) {
                     field.clearText()
-                    val span = "$days ${if (days == 1) "day" else "days"}"
-                    vm.toast(if (saved.private) "Saved privately. Deletes itself in $span." else "Saved. Deletes itself in $span.")
+                    vm.toast(res.getQuantityString(if (saved.private) R.plurals.caller_saved_private_days else R.plurals.caller_saved_days, days, days))
                 } else {
-                    vm.toast("Couldn't save the contact")
+                    vm.toast(res.getString(R.string.keypad_save_failed))
                 }
             }
         }
@@ -509,12 +515,13 @@ private fun NumberField(state: TextFieldState, countryIso: String, modifier: Mod
         color = MaterialTheme.colorScheme.onSurface,
     )
     val output = remember(countryIso) { FormattedNumber(countryIso) }
+    val numberLabel = stringResource(R.string.keypad_number_description)
     // Tapping places the cursor and long-press offers Paste, but the on-screen keyboard never opens: the keypad
     // below (or a hardware keypad) is the keyboard.
     InterceptPlatformTextInput(interceptor = { _, _ -> awaitCancellation() }) {
         BasicTextField(
             state = state,
-            modifier = modifier.semantics { contentDescription = "Number: ${state.text}" },
+            modifier = modifier.semantics { contentDescription = numberLabel.format(state.text) },
             textStyle = style,
             lineLimits = TextFieldLineLimits.SingleLine,
             inputTransformation = DialInputFilter,
@@ -534,6 +541,7 @@ private enum class ClipHint { NONE, TEXT, NUMBER }
 @Composable
 private fun PasteChip(countryIso: String, onPaste: (String) -> Unit) {
     val context = LocalContext.current
+    val res = LocalResources.current
     val cm = remember { context.getSystemService(ClipboardManager::class.java) }
     var hint by remember { mutableStateOf(ClipHint.NONE) }
     val focused = LocalWindowInfo.current.isWindowFocused
@@ -549,10 +557,10 @@ private fun PasteChip(countryIso: String, onPaste: (String) -> Unit) {
         onClick = {
             val text = runCatching { cm?.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() }.getOrNull().orEmpty()
             val number = NumberText.find(text, countryIso).firstOrNull()?.raw?.let(DialText::sanitize)
-            if (number.isNullOrEmpty()) Toast.makeText(context, "No phone number on the clipboard", Toast.LENGTH_SHORT).show()
+            if (number.isNullOrEmpty()) Toast.makeText(context, res.getString(R.string.keypad_no_clip_number), Toast.LENGTH_SHORT).show()
             else onPaste(number)
         },
-        label = { Text(if (hint == ClipHint.NUMBER) "Paste number" else "Paste") },
+        label = { Text(stringResource(if (hint == ClipHint.NUMBER) R.string.keypad_paste_number else R.string.keypad_paste)) },
         leadingIcon = { Icon(Icons.Rounded.ContentPaste, null) },
     )
 }
@@ -575,16 +583,16 @@ private fun ImeiSheet(onDismiss: () -> Unit) {
     val context = LocalContext.current
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("IMEI and device identifiers", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.keypad_imei_title), style = MaterialTheme.typography.titleLarge)
             Text(
-                "Android shows the IMEI only to the system, not to apps like Parley. You can find it in About phone.",
+                stringResource(R.string.keypad_imei_body),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Button({
                 runCatching { context.startActivity(Intent(Settings.ACTION_DEVICE_INFO_SETTINGS)) }
                 onDismiss()
-            }) { Text("Open About phone") }
-            TextButton(onDismiss) { Text("Close") }
+            }) { Text(stringResource(R.string.keypad_open_about)) }
+            TextButton(onDismiss) { Text(stringResource(R.string.main_close)) }
         }
     }
 }
@@ -602,15 +610,16 @@ private fun DialKey(
 ) {
     val fontScale = LocalDensity.current.fontScale
     val digitSize = (30f * minOf(fontScale, 1.5f) / fontScale).sp
+    val res = LocalResources.current
     Column(
         modifier
             .padding(horizontal = 4.dp)
             .heightIn(min = 64.dp)
             .clip(RoundedCornerShape(32.dp))
             // V7: typed and sounded on touch; slide off to cancel the long-press; keys roll over.
-            .keypadKey(onPress = onPress, onToneStop = onRelease, onLongPress = onLong, longPressLabel = longPressLabel(digit))
+            .keypadKey(onPress = onPress, onToneStop = onRelease, onLongPress = onLong, longPressLabel = longPressLabel(res, digit))
             .padding(vertical = 4.dp)
-            .semantics { contentDescription = keyDescription(digit, letters) },
+            .semantics { contentDescription = keyDescription(res, digit, letters) },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -626,28 +635,29 @@ private fun DialKey(
     }
 }
 
-private fun longPressLabel(digit: String): String? = when (digit) {
-    "0" -> "Type plus"
-    "1" -> "Call voicemail"
-    "*" -> "Type pause"
-    "#" -> "Type wait"
-    else -> if (digit[0] in '2'..'9') "Speed dial" else null
+private fun longPressLabel(res: android.content.res.Resources, digit: String): String? = when (digit) {
+    "0" -> res.getString(R.string.keypad_long_plus)
+    "1" -> res.getString(R.string.keypad_long_voicemail)
+    "*" -> res.getString(R.string.keypad_long_pause)
+    "#" -> res.getString(R.string.keypad_long_wait)
+    else -> if (digit[0] in '2'..'9') res.getString(R.string.home_speed_dial) else null
 }
 
 /** What TalkBack reads for a key: "2, A B C", "1, voicemail", "star", "pound" (A12). */
-private fun keyDescription(digit: String, letters: String): String = when (digit) {
-    "*" -> "star"
-    "#" -> "pound"
-    "1" -> "1, voicemail"
-    else -> if (letters.isEmpty()) digit else "$digit, " + letters.toList().joinToString(" ")
+private fun keyDescription(res: android.content.res.Resources, digit: String, letters: String): String = when (digit) {
+    "*" -> res.getString(app.parley.ui.R.string.ui_key_star)
+    "#" -> res.getString(app.parley.ui.R.string.ui_key_pound)
+    "1" -> res.getString(R.string.keypad_key_voicemail)
+    else -> if (letters.isEmpty()) digit else res.getString(R.string.keypad_key_letters, digit, letters.toList().joinToString(" "))
 }
 
 @Composable
 private fun CallButton(label: String?, onClick: () -> Unit) {
+    val callLabel = if (label != null) stringResource(R.string.keypad_call_with, label) else stringResource(R.string.main_call)
     Row(
         Modifier.height(64.dp).clip(RoundedCornerShape(32.dp)).background(CallColors.Accept).clickable(onClick = onClick)
             .padding(horizontal = if (label != null) 20.dp else 40.dp)
-            .semantics { contentDescription = if (label != null) "Call with $label" else "Call" },
+            .semantics { contentDescription = callLabel },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(if (label != null) Icons.Rounded.SimCard else Icons.Rounded.Call, null, tint = Color.White)
@@ -672,9 +682,9 @@ private fun DialResultRow(r: DialResult, countryIso: String, modifier: Modifier 
         ListItem(
             modifier = modifier.clickable(onClick = onClick),
             leadingContent = { Spacer(Modifier.width(40.dp)) },
-            headlineContent = { Text(Format.number(r.number, countryIso), style = MaterialTheme.typography.bodyLarge) },
+            headlineContent = { Text(Bidi.ltr(Format.number(r.number, countryIso)), style = MaterialTheme.typography.bodyLarge) },
             supportingContent = type?.let { { Text(it) } },
-            trailingContent = { Icon(Icons.Rounded.Call, "Call ${c?.displayName.orEmpty()} ${type.orEmpty()}", tint = MaterialTheme.colorScheme.primary) },
+            trailingContent = { Icon(Icons.Rounded.Call, stringResource(R.string.main_call_who, listOfNotNull(c?.displayName, type).joinToString(" ")), tint = MaterialTheme.colorScheme.primary) },
         )
         return
     }
@@ -683,16 +693,16 @@ private fun DialResultRow(r: DialResult, countryIso: String, modifier: Modifier 
         leadingContent = { Avatar(c?.displayName ?: r.number, c?.photoUri, 40.dp) },
         headlineContent = {
             if (c != null) Text(highlight(c.displayName, r.match.nameRanges, MatchStyle), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            else Text(Format.number(r.number, countryIso))
+            else Text(Bidi.ltr(Format.number(r.number, countryIso)))
         },
         supportingContent = {
             if (c != null) {
-                Text(listOfNotNull(type, if (r.primary) "Primary" else null, Format.number(r.number, countryIso)).joinToString(" · "), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(listOfNotNull(type, if (r.primary) stringResource(R.string.keypad_primary) else null, Bidi.ltr(Format.number(r.number, countryIso))).joinToString(stringResource(R.string.main_separator)), maxLines = 1, overflow = TextOverflow.Ellipsis)
             } else {
-                Text("Recent")
+                Text(stringResource(R.string.keypad_recent))
             }
         },
-        trailingContent = { Icon(Icons.Rounded.Call, "Call", tint = MaterialTheme.colorScheme.primary) },
+        trailingContent = { Icon(Icons.Rounded.Call, stringResource(R.string.main_call), tint = MaterialTheme.colorScheme.primary) },
     )
 }
 
@@ -704,11 +714,11 @@ private fun NumberActionChips(canSave: Boolean, onMessage: () -> Unit, onAdd: ()
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AssistChip(onClick = onMessage, label = { Text("Message") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) })
+        AssistChip(onClick = onMessage, label = { Text(stringResource(R.string.main_message)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) })
         if (canSave) {
-            AssistChip(onClick = onAdd, label = { Text("Add to contacts") }, leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) })
-            AssistChip(onClick = onTemporary, label = { Text("Save temporary contact") }, leadingIcon = { Icon(Icons.Rounded.AutoDelete, null) })
-            AssistChip(onClick = onAddToExisting, label = { Text("Add to existing contact") }, leadingIcon = { Icon(Icons.Rounded.PersonAddAlt, null) })
+            AssistChip(onClick = onAdd, label = { Text(stringResource(R.string.keypad_add_to_contacts)) }, leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) })
+            AssistChip(onClick = onTemporary, label = { Text(stringResource(R.string.keypad_save_temporary)) }, leadingIcon = { Icon(Icons.Rounded.AutoDelete, null) })
+            AssistChip(onClick = onAddToExisting, label = { Text(stringResource(R.string.keypad_add_to_existing)) }, leadingIcon = { Icon(Icons.Rounded.PersonAddAlt, null) })
         }
     }
 }
@@ -721,7 +731,7 @@ private fun KeypadContactSearch(vm: AppViewModel, query: String, open: (String) 
     val settings by vm.settings.collectAsStateWithLifecycle()
     val q = query.trim()
     if (q.isEmpty()) {
-        app.parley.ui.EmptyState(Icons.Rounded.Search, "Search contacts", "Type a name, part of a name or a number.")
+        app.parley.ui.EmptyState(Icons.Rounded.Search, stringResource(R.string.home_search_contacts), stringResource(R.string.keypad_search_body))
         return
     }
     val found = remember(contacts, q) { contacts.orEmpty().filter { app.parley.common.TextSearch.matches(q, it.displayName, it.phones.map { p -> p.number }) } }
@@ -729,7 +739,7 @@ private fun KeypadContactSearch(vm: AppViewModel, query: String, open: (String) 
         if (settings.hideVault) emptyList() else vault.filter { app.parley.common.TextSearch.matches(q, it.name, it.numbers) }
     }
     if (found.isEmpty() && foundVault.isEmpty()) {
-        app.parley.ui.EmptyState(Icons.Rounded.Search, "No contacts match \u201c$q\u201d")
+        app.parley.ui.EmptyState(Icons.Rounded.Search, stringResource(R.string.keypad_no_match, q))
         return
     }
     LazyColumn(Modifier.fillMaxSize()) {
@@ -738,9 +748,9 @@ private fun KeypadContactSearch(vm: AppViewModel, query: String, open: (String) 
                 modifier = Modifier.clickable { open(Routes.vault(v.id)) },
                 leadingContent = { app.parley.ui.Avatar(v.name, null, app.parley.ui.avatarSize()) },
                 headlineContent = { Text("\uD83D\uDD12 " + v.name) },
-                supportingContent = v.numbers.firstOrNull()?.let { n -> { Text(Format.number(n, vm.countryIso)) } },
+                supportingContent = v.numbers.firstOrNull()?.let { n -> { Text(Bidi.ltr(Format.number(n, vm.countryIso))) } },
                 trailingContent = v.numbers.firstOrNull()?.let { n ->
-                    { IconButton({ vm.requestCall(n, v.name) }) { Icon(Icons.Rounded.Call, "Call ${v.name}", tint = MaterialTheme.colorScheme.primary) } }
+                    { IconButton({ vm.requestCall(n, v.name) }) { Icon(Icons.Rounded.Call, stringResource(R.string.main_call_who, v.name), tint = MaterialTheme.colorScheme.primary) } }
                 },
             )
         }

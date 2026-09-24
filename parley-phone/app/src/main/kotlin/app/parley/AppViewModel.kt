@@ -31,6 +31,7 @@ import app.parley.calls.MissedCallNotifier
 import app.parley.calls.ProximityProbe
 import app.parley.data.DialWarning
 import app.parley.telecom.CallManager
+import app.parley.ui.Bidi
 import app.parley.ui.people.PeopleUi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -62,9 +63,11 @@ data class RecentGroup(
     val hidden: Boolean,
     /** Set for calls with private (vault) contacts; they live only in Parley's encrypted history. */
     val vaultId: Long? = null,
+    /** Localised "Private number" / "Unknown", for a row with neither a name nor a number. */
+    val fallbackTitle: String = "",
 ) {
     val latest: CallEntry get() = calls.first()
-    val title: String get() = contact?.displayName ?: cachedName?.takeIf { it.isNotBlank() } ?: number.ifBlank { if (hidden) "Private number" else "Unknown" }
+    val title: String get() = contact?.displayName ?: cachedName?.takeIf { it.isNotBlank() } ?: number.ifBlank { fallbackTitle }
 }
 
 /** One keypad result row (see [app.parley.common.DialHit]). */
@@ -154,6 +157,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun toast(text: String) {
         events.trySend(UiEvent.Message(text))
     }
+
+    /** A text in the app's language, for toasts and messages built here. */
+    private fun str(id: Int, vararg args: Any): String = getApplication<Application>().getString(id, *args)
+
+    private fun plural(id: Int, count: Int, vararg args: Any): String = getApplication<Application>().resources.getQuantityString(id, count, *args)
 
     // ---------- Contacts ----------
 
@@ -271,7 +279,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 current = mutableListOf(e)
                 currentKey = key
                 currentDay = day
-                out += RecentGroup(key + ":" + e.id, e.number, if (key == "hidden") null else index[key], e.cachedName, current, key == "hidden")
+                out += RecentGroup(
+                    key + ":" + e.id, e.number, if (key == "hidden") null else index[key], e.cachedName, current, key == "hidden",
+                    fallbackTitle = str(if (key == "hidden") R.string.main_private_number else R.string.main_unknown),
+                )
             }
         }
         val grouped = out.map { it.copy(calls = it.calls.toList()) }
@@ -379,7 +390,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val pocket = PocketGuard.GUARDED.contains(source) && c.callExtras.config.value.pocketGuard &&
                 PocketGuard.shouldAsk(true, source, ProximityProbe.isCovered(ctx))
             val ask = if (pocket) {
-                val covered = DialWarning("Phone covered", PocketGuard.QUESTION + " Call only if you meant to.")
+                val covered = DialWarning(str(R.string.pocket_title), str(R.string.pocket_body))
                 (p ?: PendingCall(number, name, needConfirm = true, chooseSim = false, simId = simId)).let { it.copy(needConfirm = true, warnings = listOf(covered) + it.warnings) }
             } else {
                 p
@@ -429,7 +440,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             c.journal.forget(d.lookupKey)
             c.timeMachine.purge(d.lookupKey)
         }
-        if (moved.removedAfterSync) toast("Removed from other apps after the next sync")
+        if (moved.removedAfterSync) toast(str(R.string.vm_removed_after_sync))
         return moved.vaultId
     }
 
@@ -439,11 +450,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 c.contacts.delete(ids)
             } catch (e: Exception) {
-                toast(e.message ?: "Couldn't delete")
+                toast(e.message ?: str(R.string.vm_couldnt_delete))
                 return@launch
             }
             val journal = c.contacts.lastJournalIds
-            val text = if (ids.size == 1) "Contact deleted" else "${ids.size} contacts deleted"
+            val text = plural(R.plurals.vm_contacts_deleted, ids.size, ids.size)
             if (journal.isNotEmpty()) events.trySend(UiEvent.Undo(text, journal)) else toast(text)
         }
     }
@@ -452,7 +463,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteCallsWithUndo(entries: List<CallEntry>) {
         viewModelScope.launch {
             val batch = c.history.delete(entries.filter { it.id > 0 })
-            val text = if (entries.size == 1) "Call deleted" else "${entries.size} calls deleted"
+            val text = plural(R.plurals.vm_calls_deleted, entries.size, entries.size)
             if (batch != null) events.trySend(UiEvent.UndoCalls(text, batch)) else toast(text)
         }
     }
@@ -460,21 +471,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun undo(journalIds: List<Long>) {
         viewModelScope.launch {
             journalIds.forEach { c.journal.restore(it) }
-            toast("Restored")
+            toast(str(R.string.vm_restored))
         }
     }
 
     fun blockNumber(number: String) {
         viewModelScope.launch {
             val ok = c.blocks.blockNumber(number)
-            toast(if (ok) "Blocked $number" else "Couldn't block. Make Parley your default phone app first.")
+            toast(if (ok) str(R.string.vm_blocked, Bidi.ltr(number)) else str(R.string.vm_couldnt_block))
         }
     }
 
     fun unblockNumber(number: String) {
         viewModelScope.launch {
             c.blocks.unblockNumber(number)
-            toast("Unblocked $number")
+            toast(str(R.string.vm_unblocked, Bidi.ltr(number)))
         }
     }
 

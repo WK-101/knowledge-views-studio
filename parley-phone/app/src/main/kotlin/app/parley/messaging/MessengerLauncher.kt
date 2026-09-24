@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.core.net.toUri
 import android.provider.Telephony
+import app.parley.R
 import app.parley.common.MessengerApp
 import app.parley.common.MessengerLink
 import app.parley.common.MessengerLinks
@@ -42,7 +43,8 @@ object MessengerLauncher {
      * draft is copied, marked sensitive, for pasting. Returns null on success or the message to show.
      */
     fun openChat(context: Context, app: MessengerApp, e164: String, draft: String?): String? {
-        val link = MessengerLinks.build(app, e164, draft) ?: return MessengerLinks.unavailableReason(e164) ?: "Can't open this number"
+        val link = MessengerLinks.build(app, e164, draft)
+            ?: return MessagingText.unavailable(context.resources, e164) ?: context.getString(R.string.msg_cant_open_number)
         if (!draft.isNullOrBlank() && !app.takesText) copySensitive(context, draft)
         return open(context, link, app)
     }
@@ -58,16 +60,15 @@ object MessengerLauncher {
 
     fun open(context: Context, link: MessengerLink, app: MessengerApp?): String? {
         val i = intent(link)
-        if (i.resolveActivity(context.packageManager) == null) {
-            return app?.let { MessengerLinks.unavailableMessage(it) } ?: "No SMS app is set up"
-        }
+        val cantOpen = { app?.let { MessagingText.installOrEnable(context.resources, it) } ?: context.getString(R.string.msg_no_sms_app) }
+        if (i.resolveActivity(context.packageManager) == null) return cantOpen()
         return try {
             context.startActivity(i)
             null
         } catch (_: ActivityNotFoundException) {
-            app?.let { MessengerLinks.unavailableMessage(it) } ?: "No SMS app is set up"
+            cantOpen()
         } catch (_: SecurityException) {
-            app?.let { MessengerLinks.unavailableMessage(it) } ?: "No SMS app is set up"
+            cantOpen()
         }
     }
 }
@@ -83,10 +84,10 @@ object TemporaryContact {
         TemporaryContacts.save(c, name, number, days, private = private, purgeHistory = true)
 
     /** What to tell the user after saving. */
-    fun savedMessage(saved: TemporaryContacts.Saved?): String = when {
-        saved == null -> "Couldn't save the contact"
-        saved.private -> "Saved privately for $DEFAULT_DAYS days"
-        else -> "Saved for $DEFAULT_DAYS days, visible to other apps"
+    fun savedMessage(res: android.content.res.Resources, saved: TemporaryContacts.Saved?): String = when {
+        saved == null -> res.getString(R.string.keypad_save_failed)
+        saved.private -> res.getQuantityString(R.plurals.msg_saved_private_for, DEFAULT_DAYS, DEFAULT_DAYS)
+        else -> res.getQuantityString(R.plurals.msg_saved_visible_for, DEFAULT_DAYS, DEFAULT_DAYS)
     }
 
     /** Suggested name for a number met through a messenger ("WhatsApp · +92 300 1234567"). */

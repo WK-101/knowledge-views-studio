@@ -15,6 +15,11 @@ import kotlinx.coroutines.launch
  * and never rejects a ringing call. Unavailable when there is no call.
  */
 class HangUpTileService : TileService() {
+    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(app.parley.ui.AppLocale.wrap(newBase))
+    }
+
     private var scope: CoroutineScope? = null
     private var watch: Job? = null
 
@@ -44,9 +49,9 @@ class HangUpTileService : TileService() {
             ?: calls.firstOrNull { it.state == CallState.DIALING || it.state == CallState.CONNECTING || it.state == CallState.NEW }
             ?: calls.firstOrNull { it.state == CallState.HOLDING }
         tile.state = if (target != null) Tile.STATE_ACTIVE else Tile.STATE_UNAVAILABLE
-        tile.label = "End call"
-        tile.subtitle = target?.title ?: "No call"
-        tile.contentDescription = if (target != null) "End call with ${target.title}" else "End call, no call in progress"
+        tile.label = getString(R.string.tile_end_call)
+        tile.subtitle = target?.title ?: getString(R.string.tile_no_call)
+        tile.contentDescription = if (target != null) getString(R.string.tile_end_call_with, target.title) else getString(R.string.tile_end_call_none)
         tile.updateTile()
     }
 }

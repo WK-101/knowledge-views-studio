@@ -19,6 +19,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
+import app.parley.R
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -47,18 +50,19 @@ fun RingFactsHistorySection(vm: AppViewModel, number: String) {
     val facts = rememberRingFacts(vm, number)
     if (facts.isEmpty()) return
     val context = LocalContext.current
+    val res = LocalResources.current
     Column {
-        app.parley.ui.contact.Section("Why it rang, or didn't")
+        app.parley.ui.contact.Section(stringResource(R.string.ring_section_title))
         facts.take(MAX_SHOWN).forEach { f ->
             var open by remember(f.startedAt) { mutableStateOf(false) }
-            val why = RingExplainer.whyNoRing(f)
+            val why = RingText.whyNoRing(res, f)
             ListItem(
-                modifier = Modifier.clickable(onClickLabel = if (open) "Hide details" else "Show details") { open = !open },
+                modifier = Modifier.clickable(onClickLabel = stringResource(if (open) R.string.ring_hide_details else R.string.ring_show_details)) { open = !open },
                 leadingContent = { Icon(if (f.audible) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff, null) },
-                headlineContent = { Text(why ?: RingExplainer.outcomeText(f)) },
+                headlineContent = { Text(why ?: RingText.outcomeText(res, f)) },
                 supportingContent = {
                     Column {
-                        Text(Format.fullDate(context, f.startedAt) + if (why != null) " · " + RingExplainer.outcomeText(f) else "")
+                        Text(Format.fullDate(context, f.startedAt) + if (why != null) stringResource(R.string.main_separator) + RingText.outcomeText(res, f) else "")
                         if (open) RingFactLines(f, Modifier.padding(top = 6.dp))
                     }
                 },
@@ -73,7 +77,7 @@ fun RingFactsFor(vm: AppViewModel, number: String, time: Long, modifier: Modifie
     val facts = rememberRingFacts(vm, number)
     val f = remember(facts, time) { RingExplainer.matchFor(facts, time) } ?: return
     Column(modifier) {
-        Text("On the phone", style = MaterialTheme.typography.labelLarge)
+        Text(stringResource(R.string.ring_on_the_phone), style = MaterialTheme.typography.labelLarge)
         RingFactLines(f)
     }
 }
@@ -81,7 +85,7 @@ fun RingFactsFor(vm: AppViewModel, number: String, time: Long, modifier: Modifie
 @Composable
 private fun RingFactLines(f: RingFacts, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        RingExplainer.lines(f).forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        RingText.lines(LocalResources.current, f).forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 

@@ -25,15 +25,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.common.backup.BackupCrypto
 import app.parley.common.backup.Recipient
 import app.parley.common.backup.Unlock
 import app.parley.data.ContactDetails
 import app.parley.data.ContactDetailsJson
+import app.parley.ui.Bidi
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
@@ -93,19 +97,19 @@ fun SecureQrDialog(details: ContactDetails, onDismiss: () -> Unit) {
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Share privately") },
+        title = { Text(stringResource(R.string.sqr_title)) },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                bitmap?.let { Image(it.asImageBitmap(), "Encrypted QR code", Modifier.size(240.dp).background(Color.White).padding(8.dp)) }
-                Text("Passcode", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
-                Text(passcode, style = MaterialTheme.typography.headlineSmall, fontFamily = FontFamily.Monospace)
+                bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.sqr_code), Modifier.size(240.dp).background(Color.White).padding(8.dp)) }
+                Text(stringResource(R.string.sqr_passcode), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
+                Text(Bidi.ltr(passcode), style = MaterialTheme.typography.headlineSmall, fontFamily = FontFamily.Monospace)
                 Text(
-                    "Scan with the other phone's camera or QR app; it opens in Parley. Tell them the passcode in person — the QR alone reveals nothing.",
+                    stringResource(R.string.sqr_hint),
                     style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp),
                 )
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text("Done") } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_done)) } },
     )
 }
 
@@ -118,13 +122,14 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
     var error by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<ContactDetails?>(null) }
     val r = result
+    val res = androidx.compose.ui.platform.LocalResources.current
     if (r == null) {
         AlertDialog(
             onDismissRequest = onDone,
-            title = { Text("Encrypted contact") },
+            title = { Text(stringResource(R.string.sqr_encrypted_contact)) },
             text = {
                 Column {
-                    Text("Enter the passcode the sender gave you.")
+                    Text(stringResource(R.string.sqr_enter_passcode))
                     OutlinedTextField(
                         code, { code = it; error = null }, singleLine = true, isError = error != null,
                         supportingText = error?.let { e -> { Text(e) } },
@@ -139,23 +144,27 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
                         result = try {
                             withContext(Dispatchers.Default) { SecureQr.decode(uri, code) }
                         } catch (_: Exception) {
-                            error = "Wrong passcode or damaged code"
+                            error = res.getString(R.string.sqr_wrong_passcode)
                             null
                         }
                     }
-                }) { Text("Open") }
+                }) { Text(stringResource(R.string.msg_open)) }
             },
-            dismissButton = { TextButton(onDone) { Text("Cancel") } },
+            dismissButton = { TextButton(onDone) { Text(stringResource(R.string.main_cancel)) } },
         )
     } else {
         AlertDialog(
             onDismissRequest = onDone,
-            title = { Text(r.displayName.ifBlank { "Contact" }) },
-            text = { Text(listOfNotNull(r.phones.firstOrNull()?.value, r.emails.firstOrNull()?.value).joinToString(" · ")) },
+            title = { Text(r.displayName.ifBlank { stringResource(R.string.sqr_contact) }) },
+            text = { Text(listOfNotNull(r.phones.firstOrNull()?.value?.let(Bidi::ltr), r.emails.firstOrNull()?.value).joinToString(stringResource(R.string.main_separator))) },
             confirmButton = {
-                TextButton({ scope.launchVault(context as? androidx.fragment.app.FragmentActivity, { e -> vm.toast("Couldn't save: ${e.message}") }) { val id = vm.c.vault.save(null, r); vm.toast("Saved to private contacts"); onDone(); vm.navigate(app.parley.NavEvent.Vault(id)) } }) { Text("Save privately") }
+                TextButton({
+                    scope.launchVault(context as? androidx.fragment.app.FragmentActivity, { e -> vm.toast(res.getString(R.string.edit_save_failed, e.message.orEmpty())) }) {
+                        val id = vm.c.vault.save(null, r); vm.toast(res.getString(R.string.sqr_saved_private)); onDone(); vm.navigate(app.parley.NavEvent.Vault(id))
+                    }
+                }) { Text(stringResource(R.string.sqr_save_privately)) }
             },
-            dismissButton = { TextButton({ onDone(); openEditor(r) }) { Text("Save to phone") } },
+            dismissButton = { TextButton({ onDone(); openEditor(r) }) { Text(stringResource(R.string.sqr_save_phone)) } },
         )
     }
 }

@@ -71,10 +71,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.common.people.HandleService
 import app.parley.common.people.Handles
 import app.parley.common.people.LifeEvents
@@ -105,8 +108,9 @@ val LocalCountryIso = androidx.compose.runtime.staticCompositionLocalOf { "US" }
 private val eventTypes = listOf(Event.TYPE_BIRTHDAY, Event.TYPE_ANNIVERSARY, Event.TYPE_OTHER)
 
 /** Sections that are hidden until they have content or are added from "More fields" (U5). */
-private enum class Extra(val label: String) {
-    ADDRESS("Address"), DATE("Date"), WEBSITE("Website"), RELATION("Relation"), HANDLE("Messenger handle"), NOTE("Notes"), NAME("Name details"),
+private enum class Extra(val label: Int) {
+    ADDRESS(R.string.detail_address), DATE(R.string.edit_date), WEBSITE(R.string.detail_website), RELATION(R.string.edit_relation),
+    HANDLE(R.string.edit_handle), NOTE(R.string.edit_notes), NAME(R.string.edit_name_details),
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -161,7 +165,7 @@ fun ContactEditScreen(
                 try {
                     vm.c.vault.details(vaultId)
                 } catch (_: app.parley.data.vault.VaultCrypto.LockedException) {
-                    vm.toast("Unlock the private contact first")
+                    vm.toast(res.getString(R.string.edit_unlock_first))
                     done(null)
                     return@LaunchedEffect
                 } ?: ContactDetails()
@@ -216,7 +220,7 @@ fun ContactEditScreen(
         // Clearing one copy of a linked contact is allowed: that empty copy is removed and the others stay.
         val orig = original
         if (empty && photo == null && (orig == null || orig.rawContacts.size < 2 || orig.editRawId == null)) {
-            vm.toast(if (original == null) "Add a name or a number first" else "Nothing left to save. Delete the contact instead.")
+            vm.toast(res.getString(if (original == null) R.string.edit_add_name_first else R.string.edit_nothing_left))
             return
         }
         saving = true
@@ -230,7 +234,7 @@ fun ContactEditScreen(
                     val picked = photo
                     if (picked != null) {
                         val bytes = withContext(Dispatchers.IO) { runCatching { context.contentResolver.openInputStream(picked)?.use { it.readBytes() } }.getOrNull() }
-                        if (bytes == null || !vm.c.vault.setPhoto(id, bytes)) vm.toast("Couldn't use that photo")
+                        if (bytes == null || !vm.c.vault.setPhoto(id, bytes)) vm.toast(res.getString(R.string.edit_photo_failed))
                     } else if (removePhoto) {
                         vm.c.vault.removePhoto(id)
                     }
@@ -242,7 +246,7 @@ fun ContactEditScreen(
                     }
                 }
             } catch (ex: Exception) {
-                vm.toast("Couldn't save: ${ex.message}")
+                vm.toast(res.getString(R.string.edit_save_failed, ex.message.orEmpty()))
                 null
             }
             saving = false
@@ -256,9 +260,16 @@ fun ContactEditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isVault) (if ((vaultId ?: 0) > 0) "Edit private contact" else "New private contact") else if (contactId == null) "New contact" else if (rawId != null) "Edit this copy" else "Edit contact") },
-                navigationIcon = { IconButton({ if (dirty) confirmDiscard = true else done(null) }) { Icon(Icons.Rounded.Close, "Cancel") } },
-                actions = { Button(onClick = ::save, enabled = !saving && d != null, modifier = Modifier.padding(end = 8.dp)) { Text("Save") } },
+                title = {
+                    Text(
+                        stringResource(
+                            if (isVault) (if ((vaultId ?: 0) > 0) R.string.edit_title_private else R.string.edit_title_new_private)
+                            else if (contactId == null) R.string.edit_title_new else if (rawId != null) R.string.edit_title_copy else R.string.edit_title_edit,
+                        ),
+                    )
+                },
+                navigationIcon = { IconButton({ if (dirty) confirmDiscard = true else done(null) }) { Icon(Icons.Rounded.Close, stringResource(R.string.main_cancel)) } },
+                actions = { Button(onClick = ::save, enabled = !saving && d != null, modifier = Modifier.padding(end = 8.dp)) { Text(stringResource(R.string.main_save)) } },
             )
         },
     ) { padding ->
@@ -272,7 +283,7 @@ fun ContactEditScreen(
         ) {
             if (isVault) {
                 Text(
-                    "Private contact: stored encrypted inside Parley only. Other apps can't see it; calls from it still show its name.",
+                    stringResource(R.string.edit_private_note),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -286,17 +297,17 @@ fun ContactEditScreen(
             }
             Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
                 val shownPhoto = photo?.toString() ?: d.photoUri.takeUnless { removePhoto }
-                Avatar(d.composedName.ifBlank { "?" }, shownPhoto, 104.dp, Modifier.clickable(onClickLabel = "Choose a photo") {
+                Avatar(d.composedName.ifBlank { "?" }, shownPhoto, 104.dp, Modifier.clickable(onClickLabel = stringResource(R.string.edit_choose_photo)) {
                     photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 })
-                Icon(Icons.Rounded.AddAPhoto, "Change photo", Modifier.align(Alignment.BottomCenter).padding(start = 80.dp).size(24.dp), tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Rounded.AddAPhoto, stringResource(R.string.edit_change_photo), Modifier.align(Alignment.BottomCenter).padding(start = 80.dp).size(24.dp), tint = MaterialTheme.colorScheme.primary)
             }
             if (photo != null || (d.photoUri != null && !removePhoto)) {
-                TextButton({ photo = null; removePhoto = true }, Modifier.align(Alignment.CenterHorizontally)) { Text("Remove photo") }
+                TextButton({ photo = null; removePhoto = true }, Modifier.align(Alignment.CenterHorizontally)) { Text(stringResource(R.string.edit_remove_photo)) }
             }
             if (isVault && (photo != null || d.photoUri != null)) {
                 Text(
-                    "The photo is encrypted and only shown inside Parley, including on the call screen.",
+                    stringResource(R.string.edit_private_photo),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterHorizontally),
                 )
             }
@@ -304,42 +315,42 @@ fun ContactEditScreen(
             if (vaultId != null) {
                 // no account for vault contacts
             } else if (original == null) {
-                val privateLabel = "Private (only in Parley)"
+                val privateLabel = stringResource(R.string.edit_private_only)
                 Dropdown(
-                    "Save to", if (privateNew) privateLabel else account?.let { idx.labelWithCount(it) } ?: "Phone only",
+                    stringResource(R.string.edit_save_to), if (privateNew) privateLabel else account?.let { idx.labelWithCount(it) } ?: stringResource(R.string.edit_phone_only),
                     listOf(privateLabel) + accounts.map { idx.labelWithCount(it) },
                 ) { i -> if (i == 0) privateNew = true else { privateNew = false; account = accounts[i - 1] } }
             } else {
-                Text("Saved in ${account?.displayLabel ?: "Phone"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.edit_saved_in, account?.displayLabel ?: stringResource(R.string.detail_phone)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            EditorGroup("Name") {
-                Field("First name", d.given, KeyboardCapitalization.Words, rowId = d.nameId) { v -> update { it.copy(given = v) } }
-                Field("Last name", d.family, KeyboardCapitalization.Words, rowId = d.nameId) { v -> update { it.copy(family = v) } }
+            EditorGroup(stringResource(R.string.edit_name)) {
+                Field(stringResource(R.string.edit_first_name), d.given, KeyboardCapitalization.Words, rowId = d.nameId) { v -> update { it.copy(given = v) } }
+                Field(stringResource(R.string.edit_last_name), d.family, KeyboardCapitalization.Words, rowId = d.nameId) { v -> update { it.copy(family = v) } }
                 val nameDetails = moreName || Extra.NAME in revealed || listOf(d.prefix, d.middle, d.suffix, d.phoneticGiven, d.phoneticFamily, d.nickname).any { it.isNotBlank() }
                 if (nameDetails) {
-                    Field("Prefix", d.prefix, KeyboardCapitalization.Words) { v -> update { it.copy(prefix = v) } }
-                    Field("Middle name", d.middle, KeyboardCapitalization.Words) { v -> update { it.copy(middle = v) } }
-                    Field("Suffix", d.suffix, KeyboardCapitalization.Words) { v -> update { it.copy(suffix = v) } }
-                    Field("Phonetic first name", d.phoneticGiven, KeyboardCapitalization.Words) { v -> update { it.copy(phoneticGiven = v) } }
-                    Field("Phonetic last name", d.phoneticFamily, KeyboardCapitalization.Words) { v -> update { it.copy(phoneticFamily = v) } }
-                    Field("Nickname", d.nickname, KeyboardCapitalization.Words) { v -> update { it.copy(nickname = v) } }
+                    Field(stringResource(R.string.edit_prefix), d.prefix, KeyboardCapitalization.Words) { v -> update { it.copy(prefix = v) } }
+                    Field(stringResource(R.string.edit_middle_name), d.middle, KeyboardCapitalization.Words) { v -> update { it.copy(middle = v) } }
+                    Field(stringResource(R.string.edit_suffix), d.suffix, KeyboardCapitalization.Words) { v -> update { it.copy(suffix = v) } }
+                    Field(stringResource(R.string.edit_phonetic_first), d.phoneticGiven, KeyboardCapitalization.Words) { v -> update { it.copy(phoneticGiven = v) } }
+                    Field(stringResource(R.string.edit_phonetic_last), d.phoneticFamily, KeyboardCapitalization.Words) { v -> update { it.copy(phoneticFamily = v) } }
+                    Field(stringResource(R.string.edit_nickname), d.nickname, KeyboardCapitalization.Words) { v -> update { it.copy(nickname = v) } }
                 } else {
                     Row(Modifier.clickable { moreName = true }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(if (moreName) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
-                        Text("Prefix, middle name, nickname…", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.edit_more_name), style = MaterialTheme.typography.labelLarge)
                     }
                 }
-                Field("Company", d.company, KeyboardCapitalization.Words, rowId = d.orgId) { v -> update { it.copy(company = v) } }
-                Field("Title", d.title, KeyboardCapitalization.Words, rowId = d.orgId) { v -> update { it.copy(title = v) } }
+                Field(stringResource(R.string.edit_company), d.company, KeyboardCapitalization.Words, rowId = d.orgId) { v -> update { it.copy(company = v) } }
+                Field(stringResource(R.string.edit_job_title), d.title, KeyboardCapitalization.Words, rowId = d.orgId) { v -> update { it.copy(title = v) } }
             }
 
             MultiSection(
-                "Phone", d.phones, phoneTypes, { Phone.getTypeLabel(res, it, null).toString() }, KeyboardType.Phone,
+                stringResource(R.string.detail_phone), stringResource(R.string.edit_add_phone), d.phones, phoneTypes, { Phone.getTypeLabel(res, it, null).toString() }, KeyboardType.Phone,
                 onChange = { list -> update { it.copy(phones = list) } }, newItem = { DataItem(type = Phone.TYPE_MOBILE) },
             )
             MultiSection(
-                "Email", d.emails, emailTypes, { Email.getTypeLabel(res, it, null).toString() }, KeyboardType.Email,
+                stringResource(R.string.detail_email), stringResource(R.string.edit_add_email), d.emails, emailTypes, { Email.getTypeLabel(res, it, null).toString() }, KeyboardType.Email,
                 onChange = { list -> update { it.copy(emails = list) } }, newItem = { DataItem(type = Email.TYPE_HOME) },
             )
 
@@ -347,44 +358,44 @@ fun ContactEditScreen(
                 HandlesSection(d.handles) { list -> update { it.copy(handles = list) } }
             }
 
-            if (shown(Extra.ADDRESS, d.addresses.isNotEmpty())) EditorGroup("Address") {
+            if (shown(Extra.ADDRESS, d.addresses.isNotEmpty())) EditorGroup(stringResource(R.string.detail_address)) {
                 d.addresses.forEachIndexed { i, a ->
                     fun set(n: PostalItem) = update { it.copy(addresses = it.addresses.toMutableList().also { l -> l[i] = n }) }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.weight(1f)) {
-                            Dropdown("Type", StructuredPostal.getTypeLabel(res, a.type, a.label).toString(), postalTypes.map { StructuredPostal.getTypeLabel(res, it, null).toString() }) { t -> set(a.copy(type = postalTypes[t])) }
+                            Dropdown(stringResource(R.string.edit_type), StructuredPostal.getTypeLabel(res, a.type, a.label).toString(), postalTypes.map { StructuredPostal.getTypeLabel(res, it, null).toString() }) { t -> set(a.copy(type = postalTypes[t])) }
                         }
-                        RemoveButton("Remove address") { update { it.copy(addresses = it.addresses.filterIndexed { j, _ -> j != i }) } }
+                        RemoveButton(stringResource(R.string.edit_remove_address)) { update { it.copy(addresses = it.addresses.filterIndexed { j, _ -> j != i }) } }
                     }
-                    Field("Street", a.street, KeyboardCapitalization.Words, rowId = a.id) { set(a.copy(street = it)) }
+                    Field(stringResource(R.string.edit_street), a.street, KeyboardCapitalization.Words, rowId = a.id) { set(a.copy(street = it)) }
                     // Shown when the address has them, so editing never drops a PO box or neighbourhood (F25).
                     if (a.poBox.isNotEmpty() || a.neighborhood.isNotEmpty()) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Box(Modifier.weight(0.4f)) { Field("PO box", a.poBox, rowId = a.id) { set(a.copy(poBox = it)) } }
-                            Box(Modifier.weight(0.6f)) { Field("Neighbourhood", a.neighborhood, KeyboardCapitalization.Words, rowId = a.id) { set(a.copy(neighborhood = it)) } }
+                            Box(Modifier.weight(0.4f)) { Field(stringResource(R.string.edit_po_box), a.poBox, rowId = a.id) { set(a.copy(poBox = it)) } }
+                            Box(Modifier.weight(0.6f)) { Field(stringResource(R.string.edit_neighbourhood), a.neighborhood, KeyboardCapitalization.Words, rowId = a.id) { set(a.copy(neighborhood = it)) } }
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(Modifier.weight(0.4f)) { Field("Postcode", a.postcode) { set(a.copy(postcode = it)) } }
-                        Box(Modifier.weight(0.6f)) { Field("City", a.city, KeyboardCapitalization.Words) { set(a.copy(city = it)) } }
+                        Box(Modifier.weight(0.4f)) { Field(stringResource(R.string.edit_postcode), a.postcode) { set(a.copy(postcode = it)) } }
+                        Box(Modifier.weight(0.6f)) { Field(stringResource(R.string.edit_city), a.city, KeyboardCapitalization.Words) { set(a.copy(city = it)) } }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(Modifier.weight(1f)) { Field("Region", a.region, KeyboardCapitalization.Words) { set(a.copy(region = it)) } }
-                        Box(Modifier.weight(1f)) { Field("Country", a.country, KeyboardCapitalization.Words) { set(a.copy(country = it)) } }
+                        Box(Modifier.weight(1f)) { Field(stringResource(R.string.edit_region), a.region, KeyboardCapitalization.Words) { set(a.copy(region = it)) } }
+                        Box(Modifier.weight(1f)) { Field(stringResource(R.string.edit_country), a.country, KeyboardCapitalization.Words) { set(a.copy(country = it)) } }
                     }
                 }
-                AddButton("Add address") { update { it.copy(addresses = it.addresses + PostalItem(type = StructuredPostal.TYPE_HOME)) } }
+                AddButton(stringResource(R.string.edit_add_address)) { update { it.copy(addresses = it.addresses + PostalItem(type = StructuredPostal.TYPE_HOME)) } }
             }
 
-            if (shown(Extra.DATE, d.events.isNotEmpty())) EditorGroup("Important dates") {
+            if (shown(Extra.DATE, d.events.isNotEmpty())) EditorGroup(stringResource(R.string.edit_important_dates)) {
                 d.events.forEachIndexed { i, ev ->
                     fun set(n: EventItem) = update { it.copy(events = it.events.toMutableList().also { l -> l[i] = n }) }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Box(Modifier.weight(0.45f)) {
                             var customLabel by remember { mutableStateOf(false) }
                             Dropdown(
-                                "Type", app.parley.ui.people.eventLabel(res, ev),
-                                eventTypes.map { res.getString(Event.getTypeResource(it)) } + LifeEvents.DEATH_LABEL + "Custom…",
+                                stringResource(R.string.edit_type), app.parley.ui.people.eventLabel(res, ev),
+                                eventTypes.map { res.getString(Event.getTypeResource(it)) } + stringResource(R.string.edit_event_death) + stringResource(R.string.edit_custom_more),
                             ) { t ->
                                 when (t) {
                                     in eventTypes.indices -> set(ev.copy(type = eventTypes[t], label = null))
@@ -398,21 +409,21 @@ fun ContactEditScreen(
                             var picking by remember { mutableStateOf(false) }
                             OutlinedTextField(
                                 if (ev.date.isBlank()) "" else describeEvent(ev.date, false).substringBefore(" ·"), {}, readOnly = true,
-                                label = { Text("Date") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                                label = { Text(stringResource(R.string.edit_date)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                             )
                             Box(Modifier.matchParentSize().clickable { picking = true })
                             if (picking) EventDateDialog(ev.date, onDismiss = { picking = false }) { set(ev.copy(date = it)); picking = false }
                         }
-                        RemoveButton("Remove date") { update { it.copy(events = it.events.filterIndexed { j, _ -> j != i }) } }
+                        RemoveButton(stringResource(R.string.edit_remove_date)) { update { it.copy(events = it.events.filterIndexed { j, _ -> j != i }) } }
                     }
                 }
-                AddButton("Add date") { update { it.copy(events = it.events + EventItem(type = Event.TYPE_BIRTHDAY)) } }
+                AddButton(stringResource(R.string.edit_add_date)) { update { it.copy(events = it.events + EventItem(type = Event.TYPE_BIRTHDAY)) } }
             }
 
             if (shown(Extra.WEBSITE, d.websites.isNotEmpty())) {
                 MultiSection(
-                    "Website", d.websites, listOf(Website.TYPE_HOMEPAGE, Website.TYPE_WORK, Website.TYPE_OTHER),
-                    { t -> when (t) { Website.TYPE_HOMEPAGE -> "Homepage"; Website.TYPE_WORK -> "Work"; else -> "Other" } }, KeyboardType.Uri,
+                    stringResource(R.string.detail_website), stringResource(R.string.edit_add_website), d.websites, listOf(Website.TYPE_HOMEPAGE, Website.TYPE_WORK, Website.TYPE_OTHER),
+                    { t -> res.getString(when (t) { Website.TYPE_HOMEPAGE -> R.string.edit_web_homepage; Website.TYPE_WORK -> R.string.edit_web_work; else -> R.string.edit_web_other }) }, KeyboardType.Uri,
                     onChange = { list -> update { it.copy(websites = list) } }, newItem = { DataItem(type = Website.TYPE_HOMEPAGE) },
                 )
             }
@@ -424,7 +435,7 @@ fun ContactEditScreen(
             }
 
             val accountGroups = if (isVault) emptyList() else groups.filter { it.account.type == account?.type && it.account.name == account?.name }
-            if (accountGroups.isNotEmpty()) EditorGroup("Labels") {
+            if (accountGroups.isNotEmpty()) EditorGroup(stringResource(R.string.home_labels)) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     accountGroups.forEach { g ->
                         val on = g.id in d.groupIds
@@ -433,29 +444,29 @@ fun ContactEditScreen(
                 }
             }
 
-            if (shown(Extra.NOTE, d.note.isNotBlank() || original != null)) EditorGroup("Notes") {
+            if (shown(Extra.NOTE, d.note.isNotBlank() || original != null)) EditorGroup(stringResource(R.string.edit_notes)) {
                 OutlinedTextField(
-                    d.note, { v -> update { it.copy(note = v) } }, label = { Text("Notes") },
+                    d.note, { v -> update { it.copy(note = v) } }, label = { Text(stringResource(R.string.edit_notes)) },
                     modifier = Modifier.fillMaxWidth(), minLines = 2,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 )
             }
 
-            if (isVault) EditorGroup("When they call") {
+            if (isVault) EditorGroup(stringResource(R.string.edit_when_they_call)) {
                 // I6: shown on the call screen (and, outside discreet mode, a missed-call notification).
                 OutlinedTextField(
-                    d.context, { v -> update { it.copy(context = v.take(120)) } }, label = { Text("Who is this?") },
-                    placeholder = { Text("e.g. Plumber, fixed the boiler in May") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                    supportingText = { Text("One line under their name when they call") },
+                    d.context, { v -> update { it.copy(context = v.take(120)) } }, label = { Text(stringResource(R.string.edit_who_is_this)) },
+                    placeholder = { Text(stringResource(R.string.edit_who_placeholder)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    supportingText = { Text(stringResource(R.string.edit_who_support)) },
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 )
                 OutlinedTextField(
-                    d.pinnedNote, { v -> update { it.copy(pinnedNote = v) } }, label = { Text("Note for calls") },
-                    placeholder = { Text("e.g. Ask about the invoice") }, modifier = Modifier.fillMaxWidth(), minLines = 2,
+                    d.pinnedNote, { v -> update { it.copy(pinnedNote = v) } }, label = { Text(stringResource(R.string.detail_note_title)) },
+                    placeholder = { Text(stringResource(R.string.detail_note_placeholder)) }, modifier = Modifier.fillMaxWidth(), minLines = 2,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 )
                 Text(
-                    "Job and company from Name are shown too. These are encrypted, and readable on the call screen while the phone is locked, like the name.",
+                    stringResource(R.string.edit_private_call_note),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -469,7 +480,7 @@ fun ContactEditScreen(
                 if (!shown(Extra.RELATION, d.relations.isNotEmpty())) add(Extra.RELATION)
                 if (!shown(Extra.NOTE, d.note.isNotBlank() || original != null)) add(Extra.NOTE)
             }
-            if (hidden.isNotEmpty()) EditorGroup("More fields") {
+            if (hidden.isNotEmpty()) EditorGroup(stringResource(R.string.edit_more_fields)) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     hidden.forEach { x ->
                         AssistChip(
@@ -484,7 +495,7 @@ fun ContactEditScreen(
                                     else -> Unit
                                 }
                             },
-                            label = { Text(x.label) },
+                            label = { Text(stringResource(x.label)) },
                             leadingIcon = { Icon(Icons.Rounded.AddCircle, null, tint = CallColors.Accept, modifier = Modifier.size(18.dp)) },
                         )
                     }
@@ -502,18 +513,18 @@ fun ContactEditScreen(
     askKeep?.let { (key, id) ->
         AlertDialog(
             onDismissRequest = {},
-            title = { Text("Keep this contact?") },
-            text = { Text("It was saved as a temporary contact and deletes itself soon. Keep it now that you've added to it?") },
-            confirmButton = { TextButton({ askKeep = null; scope.launch { vm.c.temporaries.answerKeep(key, true); done(id) } }) { Text("Keep") } },
-            dismissButton = { TextButton({ askKeep = null; scope.launch { vm.c.temporaries.answerKeep(key, false); done(id) } }) { Text("Still delete it") } },
+            title = { Text(stringResource(R.string.edit_keep_title)) },
+            text = { Text(stringResource(R.string.edit_keep_body)) },
+            confirmButton = { TextButton({ askKeep = null; scope.launch { vm.c.temporaries.answerKeep(key, true); done(id) } }) { Text(stringResource(R.string.edit_keep)) } },
+            dismissButton = { TextButton({ askKeep = null; scope.launch { vm.c.temporaries.answerKeep(key, false); done(id) } }) { Text(stringResource(R.string.edit_still_delete)) } },
         )
     }
     if (confirmDiscard) {
         AlertDialog(
             onDismissRequest = { confirmDiscard = false },
-            title = { Text("Discard changes?") },
-            confirmButton = { TextButton({ confirmDiscard = false; done(null) }) { Text("Discard") } },
-            dismissButton = { TextButton({ confirmDiscard = false }) { Text("Keep editing") } },
+            title = { Text(stringResource(R.string.edit_discard_title)) },
+            confirmButton = { TextButton({ confirmDiscard = false; done(null) }) { Text(stringResource(R.string.edit_discard)) } },
+            dismissButton = { TextButton({ confirmDiscard = false }) { Text(stringResource(R.string.edit_keep_editing)) } },
         )
     }
 }
@@ -562,7 +573,7 @@ private fun RemoveButton(description: String, onClick: () -> Unit) {
 private val LocalLocked = androidx.compose.runtime.staticCompositionLocalOf<Set<Long>> { emptySet() }
 
 @Composable
-private fun LockIcon() = Icon(Icons.Rounded.Lock, "Can't be changed here: the account that owns this field keeps it read-only")
+private fun LockIcon() = Icon(Icons.Rounded.Lock, stringResource(R.string.edit_locked))
 
 @Composable
 private fun Field(
@@ -584,6 +595,7 @@ private fun Field(
 @Composable
 private fun MultiSection(
     title: String,
+    addLabel: String,
     items: List<DataItem>,
     types: List<Int>,
     typeLabel: (Int) -> String,
@@ -610,17 +622,17 @@ private fun MultiSection(
                 }
                 Box(Modifier.weight(0.4f)) {
                     var customLabel by remember { mutableStateOf(false) }
-                    Dropdown("Type", if (item.type == 0) item.label ?: "Custom" else typeLabel(item.type), types.map(typeLabel) + "Custom…") { t ->
+                    Dropdown(stringResource(R.string.edit_type), if (item.type == 0) item.label ?: stringResource(R.string.edit_custom) else typeLabel(item.type), types.map(typeLabel) + stringResource(R.string.edit_custom_more)) { t ->
                         if (t in types.indices) onChange(items.toMutableList().also { it[i] = item.copy(type = types[t], label = null) }) else customLabel = true
                     }
                     if (customLabel) CustomLabelDialog(item.label.takeIf { item.type == 0 }, { customLabel = false }) { l ->
                         onChange(items.toMutableList().also { it[i] = item.copy(type = 0, label = l) })
                     }
                 }
-                RemoveButton("Remove") { onChange(items.filterIndexed { j, _ -> j != i }) }
+                RemoveButton(stringResource(R.string.main_remove)) { onChange(items.filterIndexed { j, _ -> j != i }) }
             }
         }
-        AddButton("Add ${title.lowercase()}") { onChange(items + newItem()) }
+        AddButton(addLabel) { onChange(items + newItem()) }
     }
 }
 
@@ -628,7 +640,7 @@ private fun MultiSection(
 @Composable
 private fun HandlesSection(handles: List<HandleItem>, onChange: (List<HandleItem>) -> Unit) {
     val services = HandleService.common + HandleService.entries.filter { it !in HandleService.common }
-    EditorGroup("Messenger handles") {
+    EditorGroup(stringResource(R.string.edit_handles)) {
         handles.forEachIndexed { i, h ->
             val locked = h.id != null && h.id in LocalLocked.current
             fun set(n: HandleItem) = onChange(handles.toMutableList().also { it[i] = n })
@@ -637,15 +649,15 @@ private fun HandlesSection(handles: List<HandleItem>, onChange: (List<HandleItem
                     if (locked) {
                         Text(h.handle.serviceLabel, Modifier.padding(8.dp))
                     } else {
-                        Dropdown("Service", h.handle.serviceLabel, services.map { it.label }) { t -> set(h.copy(service = services[t], customProtocol = if (services[t] == HandleService.OTHER) h.customProtocol else null)) }
+                        Dropdown(stringResource(R.string.edit_service), h.handle.serviceLabel, services.map { it.label }) { t -> set(h.copy(service = services[t], customProtocol = if (services[t] == HandleService.OTHER) h.customProtocol else null)) }
                     }
                 }
-                if (!locked) RemoveButton("Remove handle") { onChange(handles.filterIndexed { j, _ -> j != i }) }
+                if (!locked) RemoveButton(stringResource(R.string.edit_remove_handle)) { onChange(handles.filterIndexed { j, _ -> j != i }) }
             }
             if (h.service == HandleService.OTHER && !locked) {
                 OutlinedTextField(
-                    h.customProtocol.orEmpty(), { set(h.copy(customProtocol = it)) }, label = { Text("Service name") },
-                    placeholder = { Text("e.g. Jami, Briar") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    h.customProtocol.orEmpty(), { set(h.copy(customProtocol = it)) }, label = { Text(stringResource(R.string.edit_service_name)) },
+                    placeholder = { Text(stringResource(R.string.edit_service_placeholder)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                 )
             }
             val problem = Handles.problem(h.service, h.value)
@@ -657,7 +669,7 @@ private fun HandlesSection(handles: List<HandleItem>, onChange: (List<HandleItem
                 keyboardOptions = KeyboardOptions(keyboardType = if (h.service == HandleService.XMPP || h.service == HandleService.SIP) KeyboardType.Email else KeyboardType.Text),
             )
         }
-        AddButton("Add handle") { onChange(handles + HandleItem()) }
+        AddButton(stringResource(R.string.edit_add_handle)) { onChange(handles + HandleItem()) }
     }
 }
 
@@ -668,24 +680,24 @@ private fun RelationsSection(vm: AppViewModel, items: List<DataItem>, onChange: 
     var typeFor by remember { mutableStateOf<Int?>(null) }
     var pickFor by remember { mutableStateOf<Int?>(null) }
     fun label(item: DataItem) = RelationTypes.fromAndroid(item.type, item.label)?.label
-        ?: if (item.type == 0) item.label ?: "Custom" else Relation.getTypeLabel(res, item.type, null).toString()
-    EditorGroup("Relations") {
+        ?: if (item.type == 0) item.label ?: res.getString(R.string.edit_custom) else Relation.getTypeLabel(res, item.type, null).toString()
+    EditorGroup(stringResource(R.string.edit_relations)) {
         items.forEachIndexed { i, item ->
             val locked = item.id != null && item.id in LocalLocked.current
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     item.value, { v -> onChange(items.toMutableList().also { it[i] = item.copy(value = v) }) },
                     label = { Text(label(item)) }, singleLine = true, modifier = Modifier.weight(1f), readOnly = locked,
-                    trailingIcon = if (locked) { { LockIcon() } } else { { IconButton({ pickFor = i }) { Icon(Icons.Rounded.PersonSearch, "Choose a contact") } } },
+                    trailingIcon = if (locked) { { LockIcon() } } else { { IconButton({ pickFor = i }) { Icon(Icons.Rounded.PersonSearch, stringResource(R.string.edit_choose_contact)) } } },
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 )
-                if (!locked) RemoveButton("Remove relation") { onChange(items.filterIndexed { j, _ -> j != i }) }
+                if (!locked) RemoveButton(stringResource(R.string.edit_remove_relation)) { onChange(items.filterIndexed { j, _ -> j != i }) }
             }
             if (!locked) {
-                TextButton({ typeFor = i }) { Text("Relation: ${label(item)}") }
+                TextButton({ typeFor = i }) { Text(stringResource(R.string.edit_relation_type, label(item))) }
             }
         }
-        AddButton("Add relation") { onChange(items + DataItem(type = Relation.TYPE_SPOUSE)) }
+        AddButton(stringResource(R.string.edit_add_relation)) { onChange(items + DataItem(type = Relation.TYPE_SPOUSE)) }
     }
     typeFor?.let { i ->
         RelationTypeDialog(onDismiss = { typeFor = null }) { t ->
@@ -712,10 +724,10 @@ private fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) ->
     val shown = remember(query) { RelationTypes.search(query) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Relation") },
+        title = { Text(stringResource(R.string.edit_relation)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(query, { query = it }, label = { Text("Search") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.main_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(shown, key = { it.key }) { t ->
                         ListItem(
@@ -727,7 +739,7 @@ private fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) ->
                     }
                     item {
                         ListItem(
-                            headlineContent = { Text("Custom…") },
+                            headlineContent = { Text(stringResource(R.string.edit_custom_more)) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             modifier = Modifier.clickable { custom = true },
                         )
@@ -736,7 +748,7 @@ private fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) ->
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
     )
     if (custom) CustomLabelDialog(query.ifBlank { null }, { custom = false }) { l -> custom = false; onPick(RelationType(key = "custom", label = l)) }
 }
@@ -749,10 +761,10 @@ fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: L
     val shown = remember(all, query) { all.orEmpty().filter { app.parley.common.TextSearch.matches(query, it.displayName, it.phones.map { p -> p.number }) }.take(200) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Choose a contact") },
+        title = { Text(stringResource(R.string.edit_choose_contact)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(query, { query = it }, label = { Text("Search") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.main_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(shown, key = { it.id }) { c ->
                         ListItem(
@@ -766,7 +778,7 @@ fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: L
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
     )
 }
 
@@ -776,10 +788,10 @@ private fun CustomLabelDialog(initial: String?, onDismiss: () -> Unit, onDone: (
     var text by remember { mutableStateOf(initial.orEmpty()) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Custom label") },
-        text = { OutlinedTextField(text, { text = it }, singleLine = true, placeholder = { Text("e.g. Boat, Name day") }) },
-        confirmButton = { TextButton({ onDismiss(); onDone(text.trim()) }, enabled = text.isNotBlank()) { Text("OK") } },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        title = { Text(stringResource(R.string.edit_custom_label)) },
+        text = { OutlinedTextField(text, { text = it }, singleLine = true, placeholder = { Text(stringResource(R.string.edit_custom_placeholder)) }) },
+        confirmButton = { TextButton({ onDismiss(); onDone(text.trim()) }, enabled = text.isNotBlank()) { Text(stringResource(R.string.main_ok)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
     )
 }
 

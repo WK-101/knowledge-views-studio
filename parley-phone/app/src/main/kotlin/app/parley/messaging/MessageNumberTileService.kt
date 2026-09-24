@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import app.parley.R
 
 /**
  * Quick Settings tile (M8): "Message a number". Opens the number sheet with an empty field, a Paste chip (the
@@ -14,12 +15,17 @@ import android.service.quicksettings.TileService
  * screen, so a locked phone asks to unlock first and nothing (no recent numbers, no history) shows before that.
  */
 class MessageNumberTileService : TileService() {
+    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(app.parley.ui.AppLocale.wrap(newBase))
+    }
+
     override fun onStartListening() {
         super.onStartListening()
         val tile = qsTile ?: return
         tile.state = Tile.STATE_INACTIVE
-        tile.label = "Message a number"
-        tile.contentDescription = "Message a number without saving it"
+        tile.label = getString(R.string.shortcut_message_number_short)
+        tile.contentDescription = getString(R.string.shortcut_message_number_long)
         tile.updateTile()
     }
 
