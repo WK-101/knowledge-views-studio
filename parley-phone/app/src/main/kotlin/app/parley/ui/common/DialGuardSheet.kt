@@ -34,7 +34,8 @@ import app.parley.data.DialWarning
 @Composable
 fun DialGuardSheet(who: String, warnings: List<DialWarning>, note: String? = null, onCall: () -> Unit, onCancel: () -> Unit) {
     // A used-up call-time allowance (T6) is one more reason to think, shown with the others (one question, not two).
-    val all = warnings + listOfNotNull(note?.let { DialWarning(stringResource(R.string.call_time_used_up), it) })
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val all = warnings.map { app.parley.blocking.DialText.warning(context, it) } + listOfNotNull(note?.let { DialWarning(stringResource(R.string.call_time_used_up), it) })
     val severe = all.any { it.severe }
     ModalBottomSheet(onDismissRequest = onCancel) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).navigationBarsPadding().padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

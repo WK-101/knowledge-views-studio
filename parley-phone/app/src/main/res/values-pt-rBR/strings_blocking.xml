@@ -396,7 +396,7 @@
     </plurals>
     <string name="blk_block_n">Bloquear %1$d</string>
     <plurals name="blk_block_numbers_q">
-        <item quantity="one">Bloquear este número?</item>
+        <item quantity="one">Bloquear %1$d número?</item>
         <item quantity="many">Bloquear %1$d números?</item>
         <item quantity="other">Bloquear %1$d números?</item>
     </plurals>
@@ -797,4 +797,19 @@
     <string name="blk_tpl_uk_premium_desc">Avisa sobre chamadas de números pessoais 070, números de serviço 0843/0844/0845 e 087, e números de tarifa especial 09. Retornar essas chamadas pode sair caro.</string>
     <string name="blk_tpl_us_toll_free_name">EUA: identificadores de números gratuitos</string>
     <string name="blk_tpl_us_toll_free_desc">Dá um aviso de baixa pontuação para chamadas que mostram um número gratuito (800, 833, 844, 855, 866, 877, 888). Robocalls costumam falsificá-los, e empresas reais raramente ligam desses números.</string>
+    <string name="blk_dial_premium_title">Número de tarifa premium</string>
+    <string name="blk_dial_premium_body">Ligações para este número podem custar caro por minuto, além do seu plano.</string>
+    <string name="blk_dial_shared_title">Número de custo compartilhado</string>
+    <string name="blk_dial_shared_body">Este número é cobrado com uma tarifa especial que pode não estar no seu plano.</string>
+    <string name="blk_dial_rule_title">Corresponde à sua regra de bloqueio</string>
+    <string name="blk_dial_rule_body">“%1$s” bloqueia ligações deste número.</string>
+    <string name="blk_dial_spam_title">Listado como spam</string>
+    <string name="blk_dial_spam_body">%1$s. Linhas de golpe costumam cobrar quando você retorna a ligação.</string>
+    <string name="blk_dial_wangiri_title">Não retornar a ligação?</string>
+    <string name="blk_dial_wangiri_body">Este número tocou uma vez e desligou. É um truque comum para fazer você ligar para uma linha cara.</string>
+    <string name="blk_dial_wangiri_abroad_body">Este número tocou uma vez do exterior e desligou. É um truque comum para fazer você ligar para uma linha cara.</string>
+    <string name="blk_place_empty">Número vazio</string>
+    <string name="blk_place_no_permission">Permissão de telefone ausente</string>
+    <string name="blk_place_failed">Não foi possível fazer a ligação</string>
+    <string name="blk_place_voicemail">Correio de voz indisponível</string>
 </resources>

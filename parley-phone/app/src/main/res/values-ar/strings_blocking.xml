@@ -896,4 +896,19 @@
     <string name="blk_tpl_uk_premium_desc">يحذّر من المكالمات من أرقام 070 الشخصية، وأرقام الخدمة 0843/0844/0845 و087، وأرقام 09 ذات الأسعار المميزة. قد تكون معاودة الاتصال بها مكلفة.</string>
     <string name="blk_tpl_us_toll_free_name">الولايات المتحدة: هويات متصل مجانية</string>
     <string name="blk_tpl_us_toll_free_desc">تحذير منخفض النتيجة للمكالمات التي تعرض رقمًا مجانيًا (800، 833، 844، 855، 866، 877، 888). كثيرًا ما يزيّفها المتصلون الآليون، ونادرًا ما تتصل الشركات الحقيقية منها.</string>
+    <string name="blk_dial_premium_title">رقم بسعر مميز</string>
+    <string name="blk_dial_premium_body">قد تكلّف المكالمات إلى هذا الرقم الكثير في الدقيقة، إضافة إلى باقتك.</string>
+    <string name="blk_dial_shared_title">رقم بتكلفة مشتركة</string>
+    <string name="blk_dial_shared_body">يُحاسب هذا الرقم بسعر خاص قد لا تشمله باقتك.</string>
+    <string name="blk_dial_rule_title">يطابق قاعدة الحظر لديك</string>
+    <string name="blk_dial_rule_body">“%1$s” تحظر المكالمات من هذا الرقم.</string>
+    <string name="blk_dial_spam_title">مدرج كإزعاج</string>
+    <string name="blk_dial_spam_body">%1$s. خطوط الاحتيال كثيرًا ما تحاسبك على معاودة الاتصال.</string>
+    <string name="blk_dial_wangiri_title">عدم معاودة الاتصال؟</string>
+    <string name="blk_dial_wangiri_body">رنّ هذا الرقم مرة واحدة ثم أغلق الخط. هذه حيلة شائعة لتجعلك تتصل بخط مكلف.</string>
+    <string name="blk_dial_wangiri_abroad_body">رنّ هذا الرقم مرة واحدة من الخارج ثم أغلق الخط. هذه حيلة شائعة لتجعلك تتصل بخط مكلف.</string>
+    <string name="blk_place_empty">رقم فارغ</string>
+    <string name="blk_place_no_permission">إذن الهاتف مفقود</string>
+    <string name="blk_place_failed">تعذّر إجراء المكالمة</string>
+    <string name="blk_place_voicemail">البريد الصوتي غير متاح</string>
 </resources>

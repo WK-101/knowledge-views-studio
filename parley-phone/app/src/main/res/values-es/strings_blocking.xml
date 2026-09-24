@@ -797,4 +797,19 @@
     <string name="blk_tpl_uk_premium_desc">Avisa de llamadas de números personales 070, números de servicio 0843/0844/0845 y 087, y números de tarificación adicional 09. Devolverles la llamada puede salir caro.</string>
     <string name="blk_tpl_us_toll_free_name">EE. UU.: identificadores gratuitos</string>
     <string name="blk_tpl_us_toll_free_desc">Da un aviso de baja puntuación para llamadas que muestran un número gratuito (800, 833, 844, 855, 866, 877, 888). Las robollamadas suelen falsificarlos, y las empresas reales rara vez llaman desde ellos.</string>
+    <string name="blk_dial_premium_title">Número de tarificación especial</string>
+    <string name="blk_dial_premium_body">Las llamadas a este número pueden costar mucho por minuto, además de tu plan.</string>
+    <string name="blk_dial_shared_title">Número de coste compartido</string>
+    <string name="blk_dial_shared_body">Este número se cobra a una tarifa especial que puede no estar en tu plan.</string>
+    <string name="blk_dial_rule_title">Coincide con tu regla de bloqueo</string>
+    <string name="blk_dial_rule_body">«%1$s» bloquea las llamadas de este número.</string>
+    <string name="blk_dial_spam_title">En una lista de spam</string>
+    <string name="blk_dial_spam_body">%1$s. Las líneas fraudulentas suelen cobrarte por devolver la llamada.</string>
+    <string name="blk_dial_wangiri_title">¿No devolver la llamada?</string>
+    <string name="blk_dial_wangiri_body">Este número sonó una vez y colgó. Es un truco habitual para que llames a una línea cara.</string>
+    <string name="blk_dial_wangiri_abroad_body">Este número sonó una vez desde el extranjero y colgó. Es un truco habitual para que llames a una línea cara.</string>
+    <string name="blk_place_empty">Número vacío</string>
+    <string name="blk_place_no_permission">Falta el permiso de teléfono</string>
+    <string name="blk_place_failed">No se pudo hacer la llamada</string>
+    <string name="blk_place_voicemail">Buzón de voz no disponible</string>
 </resources>

@@ -106,7 +106,7 @@ fun UssdDialog(vm: AppViewModel) {
                     TextButton({
                         vm.ussd.dismiss()
                         // Placed through Telecom directly, so it isn't caught as USSD again.
-                        scope.launch { (vm.c.placer.call(s.code, s.simId) as? PlaceResult.Failed)?.let { vm.toast(it.reason) } }
+                        scope.launch { (vm.c.placer.call(s.code, s.simId) as? PlaceResult.Failed)?.let { vm.toast(app.parley.blocking.DialText.placeFailure(context, it.reason)) } }
                     }) { Text(stringResource(R.string.ct_ussd_dial_as_call)) }
                 }
             },

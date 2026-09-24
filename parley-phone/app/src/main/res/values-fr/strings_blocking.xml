@@ -396,7 +396,7 @@
     </plurals>
     <string name="blk_block_n">Bloquer %1$d</string>
     <plurals name="blk_block_numbers_q">
-        <item quantity="one">Bloquer ce numéro ?</item>
+        <item quantity="one">Bloquer %1$d numéro ?</item>
         <item quantity="many">Bloquer %1$d numéros ?</item>
         <item quantity="other">Bloquer %1$d numéros ?</item>
     </plurals>
@@ -797,4 +797,19 @@
     <string name="blk_tpl_uk_premium_desc">Avertit des appels de numéros personnels 070, de numéros de service 0843/0844/0845 et 087, et de numéros surtaxés 09. Les rappeler peut coûter cher.</string>
     <string name="blk_tpl_us_toll_free_name">États-Unis : identifiants de numéros gratuits</string>
     <string name="blk_tpl_us_toll_free_desc">Donne un avertissement à faible score pour les appels qui affichent un numéro gratuit (800, 833, 844, 855, 866, 877, 888). Les robots d’appel les usurpent souvent, et les vraies entreprises appellent rarement depuis ces numéros.</string>
+    <string name="blk_dial_premium_title">Numéro surtaxé</string>
+    <string name="blk_dial_premium_body">Les appels vers ce numéro peuvent coûter cher à la minute, en plus de votre forfait.</string>
+    <string name="blk_dial_shared_title">Numéro à coût partagé</string>
+    <string name="blk_dial_shared_body">Ce numéro est facturé à un tarif spécial qui n’est peut-être pas inclus dans votre forfait.</string>
+    <string name="blk_dial_rule_title">Correspond à votre règle de blocage</string>
+    <string name="blk_dial_rule_body">« %1$s » bloque les appels de ce numéro.</string>
+    <string name="blk_dial_spam_title">Signalé comme spam</string>
+    <string name="blk_dial_spam_body">%1$s. Les lignes frauduleuses vous facturent souvent le rappel.</string>
+    <string name="blk_dial_wangiri_title">Ne pas rappeler ?</string>
+    <string name="blk_dial_wangiri_body">Ce numéro a sonné une fois puis raccroché. C’est une ruse courante pour vous faire appeler une ligne coûteuse.</string>
+    <string name="blk_dial_wangiri_abroad_body">Ce numéro a sonné une fois depuis l’étranger puis raccroché. C’est une ruse courante pour vous faire appeler une ligne coûteuse.</string>
+    <string name="blk_place_empty">Numéro vide</string>
+    <string name="blk_place_no_permission">Autorisation Téléphone manquante</string>
+    <string name="blk_place_failed">Impossible de passer l’appel</string>
+    <string name="blk_place_voicemail">Messagerie vocale indisponible</string>
 </resources>

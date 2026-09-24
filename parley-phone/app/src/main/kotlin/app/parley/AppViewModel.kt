@@ -410,14 +410,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             when (val r = gate.place(number, simId, contactFor(number)?.displayName, sims.value, remember, confirmed)) {
                 is CallGate.Placed.Ask -> pendingCall.value = r.pending
-                is CallGate.Placed.Done -> (r.result as? PlaceResult.Failed)?.let { toast(it.reason) }
+                is CallGate.Placed.Done -> (r.result as? PlaceResult.Failed)?.let { toast(app.parley.blocking.DialText.placeFailure(getApplication(), it.reason)) }
             }
         }
     }
 
     fun callVoicemail() {
         when (val r = c.placer.callVoicemail()) {
-            is PlaceResult.Failed -> toast(r.reason)
+            is PlaceResult.Failed -> toast(app.parley.blocking.DialText.placeFailure(getApplication(), r.reason))
             else -> Unit
         }
     }

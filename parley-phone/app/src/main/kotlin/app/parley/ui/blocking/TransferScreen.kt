@@ -271,7 +271,7 @@ private fun ImportPreviewDialog(vm: AppViewModel, d: ImportDraft, onDone: () -> 
                         (if (allows > 0) " " + pluralStringResource(R.plurals.blk_allowed_numbers_paren, allows, allows) else "") +
                         if (parsed.size > checked.size) " · " + (parsed.size - checked.size).let { n -> pluralStringResource(R.plurals.blk_skipped_n, n, n) } else "",
                 )
-                checked.take(5).forEach { Text("• ${bidiLtrIfNumber(it.pattern)} (${typeLabel(it.type)})", style = MaterialTheme.typography.bodySmall) }
+                checked.take(5).forEach { Text("• ${bidiLtrIfNumber(it.pattern)} (${typeLabel(it.type)})", style = MaterialTheme.typography.bodySmall) } // l10n-ok: no words
                 Text(stringResource(R.string.blk_not_duplicated), style = MaterialTheme.typography.bodySmall)
             }
         },

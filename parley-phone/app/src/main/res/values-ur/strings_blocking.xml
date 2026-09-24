@@ -764,4 +764,19 @@
     <string name="blk_tpl_uk_premium_desc">070 ذاتی نمبروں، 0843/0844/0845 اور 087 سروس نمبروں، اور 09 پریمیم ریٹ نمبروں کی کالز کے بارے میں خبردار کرتا ہے۔ انہیں واپس کال کرنا مہنگا پڑ سکتا ہے۔</string>
     <string name="blk_tpl_us_toll_free_name">امریکہ: ٹول فری کالر آئی ڈیز</string>
     <string name="blk_tpl_us_toll_free_desc">ٹول فری نمبر (800، 833، 844، 855، 866، 877، 888) دکھانے والی کالز کے لیے کم اسکور کا انتباہ دیتا ہے۔ روبوکالرز اکثر انہیں جعلی بناتے ہیں، اور اصل کاروبار شاذ و نادر ہی ان سے کال کرتے ہیں۔</string>
+    <string name="blk_dial_premium_title">پریمیم ریٹ نمبر</string>
+    <string name="blk_dial_premium_body">اس نمبر پر کال آپ کے پلان کے علاوہ فی منٹ کافی مہنگی پڑ سکتی ہے۔</string>
+    <string name="blk_dial_shared_title">مشترکہ لاگت والا نمبر</string>
+    <string name="blk_dial_shared_body">اس نمبر پر خاص ریٹ لگتا ہے جو شاید آپ کے پلان میں شامل نہ ہو۔</string>
+    <string name="blk_dial_rule_title">آپ کے بلاک اصول سے مماثل</string>
+    <string name="blk_dial_rule_body">“%1$s” اس نمبر کی کالز بلاک کرتا ہے۔</string>
+    <string name="blk_dial_spam_title">اسپیم کے طور پر درج</string>
+    <string name="blk_dial_spam_body">%1$s۔ دھوکے باز لائنیں اکثر واپس کال کرنے پر پیسے کاٹتی ہیں۔</string>
+    <string name="blk_dial_wangiri_title">واپس کال نہ کریں؟</string>
+    <string name="blk_dial_wangiri_body">اس نمبر نے ایک بار گھنٹی بجا کر کال کاٹ دی۔ یہ آپ سے مہنگی لائن پر کال کروانے کی عام چال ہے۔</string>
+    <string name="blk_dial_wangiri_abroad_body">اس نمبر نے بیرون ملک سے ایک بار گھنٹی بجا کر کال کاٹ دی۔ یہ آپ سے مہنگی لائن پر کال کروانے کی عام چال ہے۔</string>
+    <string name="blk_place_empty">خالی نمبر</string>
+    <string name="blk_place_no_permission">فون کی اجازت موجود نہیں</string>
+    <string name="blk_place_failed">کال نہیں ہو سکی</string>
+    <string name="blk_place_voicemail">وائس میل دستیاب نہیں</string>
 </resources>

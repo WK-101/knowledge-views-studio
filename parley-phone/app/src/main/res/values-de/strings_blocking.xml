@@ -764,4 +764,19 @@
     <string name="blk_tpl_uk_premium_desc">Warnt vor Anrufen von persönlichen 070-Nummern, Servicenummern 0843/0844/0845 und 087 sowie Premium-Nummern 09. Ein Rückruf kann teuer werden.</string>
     <string name="blk_tpl_us_toll_free_name">USA: gebührenfreie Anrufer-IDs</string>
     <string name="blk_tpl_us_toll_free_desc">Gibt eine Warnung mit niedriger Punktzahl für Anrufe, die eine gebührenfreie Nummer zeigen (800, 833, 844, 855, 866, 877, 888). Robocaller fälschen diese oft, und echte Unternehmen rufen selten von ihnen an.</string>
+    <string name="blk_dial_premium_title">Premium-Nummer</string>
+    <string name="blk_dial_premium_body">Anrufe bei dieser Nummer können zusätzlich zu deinem Tarif viel pro Minute kosten.</string>
+    <string name="blk_dial_shared_title">Shared-Cost-Nummer</string>
+    <string name="blk_dial_shared_body">Diese Nummer wird zu einem Sondertarif abgerechnet, der vielleicht nicht in deinem Tarif enthalten ist.</string>
+    <string name="blk_dial_rule_title">Passt zu deiner Sperrregel</string>
+    <string name="blk_dial_rule_body">„%1$s“ sperrt Anrufe von dieser Nummer.</string>
+    <string name="blk_dial_spam_title">Als Spam gelistet</string>
+    <string name="blk_dial_spam_body">%1$s. Betrugsnummern berechnen oft Gebühren, wenn du zurückrufst.</string>
+    <string name="blk_dial_wangiri_title">Nicht zurückrufen?</string>
+    <string name="blk_dial_wangiri_body">Diese Nummer hat einmal geklingelt und aufgelegt. Ein häufiger Trick, damit du eine teure Nummer anrufst.</string>
+    <string name="blk_dial_wangiri_abroad_body">Diese Nummer hat aus dem Ausland einmal geklingelt und aufgelegt. Ein häufiger Trick, damit du eine teure Nummer anrufst.</string>
+    <string name="blk_place_empty">Leere Nummer</string>
+    <string name="blk_place_no_permission">Telefonberechtigung fehlt</string>
+    <string name="blk_place_failed">Anruf konnte nicht gestartet werden</string>
+    <string name="blk_place_voicemail">Mailbox nicht verfügbar</string>
 </resources>

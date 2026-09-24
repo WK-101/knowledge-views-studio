@@ -46,7 +46,7 @@ fun SpeedDialScreen(vm: AppViewModel, back: () -> Unit) {
                 val e = entries.firstOrNull { it.key == key }
                 ListItem(
                     modifier = Modifier.clickable { editing = key },
-                    leadingContent = { Text("$key") },
+                    leadingContent = { Text("$key") }, // l10n-ok: digit
                     headlineContent = { Text(e?.label ?: e?.number?.let(::bidiLtr) ?: stringResource(R.string.set_speed_dial_not_set)) },
                     supportingContent = { e?.let { Text(bidiLtr(it.number)) } },
                     trailingContent = { if (e != null) IconButton({ scope.launch { vm.c.prefs.clearSpeedDial(key) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.set_clear)) } },

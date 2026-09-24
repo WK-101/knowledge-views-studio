@@ -451,7 +451,7 @@ class NumberActionActivity : ComponentActivity() {
             when (val r = gate.place(number, simId, name, callSims, remember, confirmed)) {
                 is app.parley.CallGate.Placed.Ask -> pendingCall = r.pending
                 is app.parley.CallGate.Placed.Done -> {
-                    (r.result as? PlaceResult.Failed)?.let { Toast.makeText(this@NumberActionActivity, it.reason, Toast.LENGTH_LONG).show() }
+                    (r.result as? PlaceResult.Failed)?.let { Toast.makeText(this@NumberActionActivity, app.parley.blocking.DialText.placeFailure(this@NumberActionActivity, it.reason), Toast.LENGTH_LONG).show() }
                     finish()
                 }
             }

@@ -187,7 +187,7 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
                     Text(stringResource(R.string.blk_tpl_check_fingerprint), style = MaterialTheme.typography.bodySmall)
                     if (t.description.isNotBlank()) Text(t.description, style = MaterialTheme.typography.bodySmall)
                     val lines = TemplateText.describe(context, t)
-                    lines.take(12).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
+                    lines.take(12).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) } // l10n-ok: no words
                     if (lines.size > 12) Text(pluralStringResource(R.plurals.set_and_more, lines.size - 12, lines.size - 12), style = MaterialTheme.typography.bodySmall)
                 }
             },
@@ -238,7 +238,7 @@ private fun TemplateCard(vm: AppViewModel, gallery: TemplateGallery, e: Template
         if (e.fingerprint != null) Text(stringResource(R.string.blk_tpl_from_key, e.fingerprint), style = MaterialTheme.typography.bodySmall)
         if (open) {
             Text(stringResource(R.string.blk_tpl_what_it_does), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp))
-            TemplateText.describe(context, t).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
+            TemplateText.describe(context, t).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) } // l10n-ok: no words
             if (t.notes.isNotBlank()) Text(t.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (t.sources.isNotEmpty()) {
                 Text(stringResource(R.string.blk_tpl_sources), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp))

@@ -764,4 +764,19 @@
     <string name="blk_tpl_uk_premium_desc">070 निजी नंबरों, 0843/0844/0845 और 087 सर्विस नंबरों, और 09 प्रीमियम-दर नंबरों की कॉल के बारे में चेतावनी देता है। इन्हें वापस कॉल करना महँगा पड़ सकता है।</string>
     <string name="blk_tpl_us_toll_free_name">अमेरिका: टोल-फ़्री कॉलर आईडी</string>
     <string name="blk_tpl_us_toll_free_desc">टोल-फ़्री नंबर (800, 833, 844, 855, 866, 877, 888) दिखाने वाली कॉल के लिए कम स्कोर की चेतावनी देता है। रोबोकॉलर अक्सर इन्हें नकली बनाते हैं, और असली कंपनियाँ इनसे शायद ही कभी कॉल करती हैं।</string>
+    <string name="blk_dial_premium_title">प्रीमियम-रेट नंबर</string>
+    <string name="blk_dial_premium_body">इस नंबर पर कॉल करने पर आपके प्लान के अलावा प्रति मिनट बहुत खर्च हो सकता है।</string>
+    <string name="blk_dial_shared_title">साझा-लागत नंबर</string>
+    <string name="blk_dial_shared_body">इस नंबर पर विशेष दर से शुल्क लगता है जो शायद आपके प्लान में न हो।</string>
+    <string name="blk_dial_rule_title">आपके ब्लॉक नियम से मेल खाता है</string>
+    <string name="blk_dial_rule_body">“%1$s” इस नंबर से आने वाली कॉल ब्लॉक करता है।</string>
+    <string name="blk_dial_spam_title">स्पैम के रूप में सूचीबद्ध</string>
+    <string name="blk_dial_spam_body">%1$s। धोखाधड़ी वाली लाइनें अक्सर वापस कॉल करने पर पैसे काटती हैं।</string>
+    <string name="blk_dial_wangiri_title">वापस कॉल न करें?</string>
+    <string name="blk_dial_wangiri_body">इस नंबर ने एक बार घंटी बजाई और काट दिया। यह आपसे महंगी लाइन पर कॉल करवाने की आम चाल है।</string>
+    <string name="blk_dial_wangiri_abroad_body">इस नंबर ने विदेश से एक बार घंटी बजाई और काट दिया। यह आपसे महंगी लाइन पर कॉल करवाने की आम चाल है।</string>
+    <string name="blk_place_empty">खाली नंबर</string>
+    <string name="blk_place_no_permission">फ़ोन की अनुमति नहीं है</string>
+    <string name="blk_place_failed">कॉल नहीं की जा सकी</string>
+    <string name="blk_place_voicemail">वॉइसमेल उपलब्ध नहीं</string>
 </resources>

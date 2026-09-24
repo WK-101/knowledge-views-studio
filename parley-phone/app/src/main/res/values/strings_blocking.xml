@@ -812,4 +812,20 @@
     <string name="blk_tpl_uk_premium_desc">Warns about calls from 070 personal numbers, 0843/0844/0845 and 087 service numbers, and 09 premium-rate numbers. Calling them back can be expensive.</string>
     <string name="blk_tpl_us_toll_free_name">US: toll-free caller IDs</string>
     <string name="blk_tpl_us_toll_free_desc">Gives a low-score warning for calls that show a toll-free number (800, 833, 844, 855, 866, 877, 888). Robocallers often spoof these, and real businesses rarely call from them.</string>
+    <!-- Dial guard warnings and call placement failures (core/data texts mapped in the app) -->
+    <string name="blk_dial_premium_title">Premium-rate number</string>
+    <string name="blk_dial_premium_body">Calls to this number can cost a lot per minute, on top of your plan.</string>
+    <string name="blk_dial_shared_title">Shared-cost number</string>
+    <string name="blk_dial_shared_body">This number is charged at a special rate that may not be in your plan.</string>
+    <string name="blk_dial_rule_title">Matches your block rule</string>
+    <string name="blk_dial_rule_body">“%1$s” blocks calls from this number.</string>
+    <string name="blk_dial_spam_title">Listed as spam</string>
+    <string name="blk_dial_spam_body">%1$s. Scam lines often charge you for calling back.</string>
+    <string name="blk_dial_wangiri_title">Don’t call back?</string>
+    <string name="blk_dial_wangiri_body">This number rang once and hung up. That’s a common trick to make you call an expensive line.</string>
+    <string name="blk_dial_wangiri_abroad_body">This number rang once and hung up from abroad. That’s a common trick to make you call an expensive line.</string>
+    <string name="blk_place_empty">Empty number</string>
+    <string name="blk_place_no_permission">Phone permission missing</string>
+    <string name="blk_place_failed">Could not place call</string>
+    <string name="blk_place_voicemail">Voicemail unavailable</string>
 </resources>

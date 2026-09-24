@@ -102,7 +102,7 @@ fun ScreeningStatusCard(vm: AppViewModel) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(if (ok) Icons.Rounded.GppGood else Icons.Rounded.GppMaybe, null)
-                Text("  $title", style = MaterialTheme.typography.titleSmall)
+                Text("  $title", style = MaterialTheme.typography.titleSmall) // l10n-ok: no words
             }
             Text(stringResource(R.string.blk_status_offline), style = MaterialTheme.typography.bodySmall)
             gaps.forEach { g ->
