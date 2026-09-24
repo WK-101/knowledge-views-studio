@@ -175,6 +175,15 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                 }
             }
 
+            item { Section("Backup") }
+            item {
+                val b by vm.c.backup.prefs.state.collectAsStateWithLifecycle()
+                LinkRow(
+                    "Backup & restore",
+                    if (b.lastBackupAt > 0) "Last backup ${app.parley.ui.common.Format.shortWhen(context, b.lastBackupAt)} · encrypted" else "Encrypted backups to a folder you choose",
+                ) { open(Routes.BACKUP) }
+                LinkRow("Recently deleted & changed", "Undo for 30 days") { open(Routes.JOURNAL) }
+            }
             item { Section("Contacts") }
             item {
                 val current = accounts.indexOfFirst { it.type == s.defaultAccountType && it.name == s.defaultAccountName }.coerceAtLeast(0)

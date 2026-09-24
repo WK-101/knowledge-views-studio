@@ -59,6 +59,8 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
         false
     }
 
+    fun loadSystemNow(): List<SystemBlockedNumber> = loadSystem()
+
     private fun loadSystem(): List<SystemBlockedNumber> =
         cr.safeQuery(BlockedNumbers.CONTENT_URI, arrayOf(BlockedNumbers.COLUMN_ID, BlockedNumbers.COLUMN_ORIGINAL_NUMBER))?.use { c ->
             buildList { while (c.moveToNext()) add(SystemBlockedNumber(c.getLong(0), c.getString(1).orEmpty())) }

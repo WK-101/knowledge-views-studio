@@ -39,6 +39,30 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
     /** Current settings, reading from disk if the flow hasn't emitted yet (e.g. process woken by a call). */
     suspend fun current(): AppSettings = if (_loaded.value) settings.value else store.data.first().toSettings()
 
+    /** All stored preferences as typed strings ("b:true", "i:5", "s:text") for backups. */
+    suspend fun exportMap(): Map<String, String> = store.data.first().asMap().mapKeys { it.key.name }.mapValues { (_, v) ->
+        when (v) {
+            is Boolean -> "b:$v"
+            is Int -> "i:$v"
+            is Long -> "l:$v"
+            else -> "s:$v"
+        }
+    }
+
+    suspend fun importMap(map: Map<String, String>) {
+        store.edit { prefs ->
+            map.forEach { (k, v) ->
+                val body = v.substringAfter(':')
+                when (v.substringBefore(':')) {
+                    "b" -> prefs[booleanPreferencesKey(k)] = body.toBoolean()
+                    "i" -> body.toIntOrNull()?.let { prefs[intPreferencesKey(k)] = it }
+                    "l" -> body.toLongOrNull()?.let { prefs[androidx.datastore.preferences.core.longPreferencesKey(k)] = it }
+                    "s" -> prefs[stringPreferencesKey(k)] = body
+                }
+            }
+        }
+    }
+
     suspend fun update(transform: (AppSettings) -> AppSettings) {
         store.edit { prefs ->
             val next = transform(prefs.toSettings())

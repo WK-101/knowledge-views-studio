@@ -99,6 +99,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 data != null -> vm.c.contacts.resolveContactId(data)?.let { vm.navigate(NavEvent.Contact(it)) }
             }
             Intent.ACTION_CALL_BUTTON -> vm.navigate(NavEvent.Tab(StartTab.RECENTS))
+            ACTION_OPEN_BACKUP -> vm.navigate(NavEvent.Route(app.parley.ui.Routes.BACKUP))
             ACTION_ADD_CALL -> vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
             ACTION_SHOW_MISSED -> {
                 vm.navigate(NavEvent.Tab(StartTab.RECENTS, missedOnly = true))
@@ -146,6 +147,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
     companion object {
         const val ACTION_ADD_CALL = "app.parley.ADD_CALL"
+        const val ACTION_OPEN_BACKUP = "app.parley.OPEN_BACKUP"
         const val QUICK_CONTACT = "android.provider.action.QUICK_CONTACT"
         const val QUICK_CONTACT_LEGACY = "com.android.contacts.action.QUICK_CONTACT"
         const val SHOW_OR_CREATE = "com.android.contacts.action.SHOW_OR_CREATE_CONTACT"

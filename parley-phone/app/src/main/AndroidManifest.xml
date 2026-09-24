@@ -205,6 +205,17 @@
                 android:resource="@xml/widget_dial_info" />
         </receiver>
 
+        <!-- Shares the encrypted "move to a new phone" backup file. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- Quick Settings tile: discreet mode for private contacts. -->
         <service
             android:name=".security.VaultTileService"

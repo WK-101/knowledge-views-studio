@@ -76,6 +76,7 @@ sealed interface NavEvent {
     data class ImportVcf(val uri: android.net.Uri) : NavEvent
     data class SecureQr(val uri: android.net.Uri) : NavEvent
     data class Vault(val id: Long) : NavEvent
+    data class Route(val route: String) : NavEvent
     data class Tab(val tab: app.parley.common.StartTab, val dial: String? = null, val missedOnly: Boolean = false) : NavEvent
 }
 

@@ -507,6 +507,9 @@ class EncryptingOutputStream internal constructor(
     private var finished = false
     private val cipher = Cipher.getInstance("AES/GCM/NoPadding")
     private val prefix = header.noncePrefix
+
+    /** The archive's data key, so the writer can verify the file it just wrote (never persisted). */
+    val dataKey: SecretKey get() = key
     private val aad = header.aad
 
     init {
