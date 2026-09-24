@@ -41,6 +41,10 @@ object CallManager {
     private val locations = HashMap<String, String>()
     private var customRinger: android.media.Ringtone? = null
     private var customRingerFor: String? = null
+    /** Screening outcome per call: verdict for the caller card and ringer plan (B2, B24). */
+    private val outcomes = HashMap<String, ScreenOutcome>()
+    private val ringStartedAt = HashMap<String, Long>()
+    private var boostedFor: String? = null
 
     private val _calls = MutableStateFlow<List<CallUi>>(emptyList())
     val state: StateFlow<List<CallUi>> = _calls.asStateFlow()
@@ -97,14 +101,22 @@ object CallManager {
         val hidden = call.details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED
         val deps = TelecomGraph.dependencies
         val incoming = call.stateCompat() == Call.STATE_RINGING
+        if (calls.size == 1) RingBoost.restore(appContext) // a boost left behind by a crash
+        if (incoming) ringStartedAt[id] = System.currentTimeMillis()
 
         // Screening runs before we show any UI, bounded by a hard timeout so ringing is never held up.
         // Never screen right after an emergency call (call-backs must get through).
-        val earlier = if (incoming) ScreeningGuard.recall(number) else null
-        if (incoming && !ScreeningGuard.inEmergencyWindow(context) && (earlier != null || hidden || deps.screeningActive())) {
+        val earlierOutcome = if (incoming) ScreeningGuard.recallOutcome(number) else null
+        val accountId = call.details.accountHandle?.id
+        // The screening service decided without knowing the SIM: re-check when per-SIM rules exist (B9).
+        val earlier = earlierOutcome?.takeIf { !(it.decision == Decision.Allow && accountId != null && runCatching { deps.simRulesActive() }.getOrDefault(false)) }
+        if (incoming && !ScreeningGuard.inEmergencyWindow(context) && (earlier != null || earlierOutcome != null || hidden || deps.screeningActive())) {
             screening += id
             scope.launch {
-                val decision = earlier ?: withTimeoutOrNull(SCREEN_TIMEOUT_MS) { deps.screen(number, hidden, verificationOf(call)) }
+                val callerName = call.details.callerDisplayName?.takeIf { it.isNotBlank() }
+                val outcome = earlier ?: withTimeoutOrNull(SCREEN_TIMEOUT_MS) { deps.screenCall(number, hidden, verificationOf(call), accountId, callerName) } ?: earlierOutcome
+                val decision = outcome?.decision
+                outcome?.let { outcomes[id] = it }
                 screening -= id
                 if (decision is Decision.Block && calls.contains(call)) {
                     when (decision.action) {
@@ -114,9 +126,13 @@ object CallManager {
                             silenceRinger()
                         }
                     }
-                } else if (id in unknownCallers) {
-                    // The caller lookup finished first and held the custom tone back until screening allowed the call.
-                    maybePlayUnknownRingtone(call, id)
+                } else {
+                    if (outcome?.ringLoud == true && calls.contains(call) && call.stateCompat() == Call.STATE_RINGING) {
+                        RingBoost.boost(appContext)
+                        boostedFor = id
+                    }
+                    // The caller lookup may have finished first and held the custom tone back until screening allowed the call.
+                    if (id in unknownCallers || outcome?.ringtone != null) maybePlayUnknownRingtone(call, id)
                 }
                 publish()
             }
@@ -154,7 +170,10 @@ object CallManager {
      * normal ringer mode with Do Not Disturb off (so we never ring when the system wouldn't).
      */
     private fun maybePlayUnknownRingtone(call: Call, id: String) {
-        val uri = runCatching { TelecomGraph.dependencies.unknownRingtone() }.getOrNull() ?: return
+        // A ringtone chosen by screening (rule, label, repeat caller, likely spam) wins over the unknown-caller tone.
+        val uri = outcomes[id]?.ringtone
+            ?: (if (id in unknownCallers) runCatching { TelecomGraph.dependencies.unknownRingtone() }.getOrNull() else null)
+            ?: return
         if (id in screening || customRingerFor == id) return // played once screening allows the call
         if (!::appContext.isInitialized || id in silenced || !calls.contains(call) || call.stateCompat() != Call.STATE_RINGING) return
         val am = appContext.getSystemService(android.media.AudioManager::class.java)
@@ -174,7 +193,15 @@ object CallManager {
         customRingerFor = id
     }
 
-    internal fun onSystemSilence() = stopCustomRinger()
+    internal fun onSystemSilence() {
+        stopCustomRinger()
+        restoreBoost()
+    }
+
+    private fun restoreBoost() {
+        boostedFor = null
+        if (::appContext.isInitialized) RingBoost.restore(appContext)
+    }
 
     private fun stopCustomRinger() {
         customRinger?.stop()
@@ -185,10 +212,19 @@ object CallManager {
     internal fun remove(call: Call) {
         val id = idOf(call)
         if (customRingerFor == id) stopCustomRinger()
+        if (boostedFor == id) restoreBoost()
         unknownCallers -= id
         val ended = toUi(call)
         _lastEnded.value = ended
-        if (ended.isEmergency && ::appContext.isInitialized) ScreeningGuard.noteEmergencyCall(appContext)
+        ringStartedAt.remove(id)?.let { started ->
+            val connected = ended.connectTimeMillis > 0
+            val rang = (if (connected) ended.connectTimeMillis else System.currentTimeMillis()) - started
+            runCatching { TelecomGraph.dependencies.onRingFinished(ended.number, started, rang.coerceAtLeast(0), connected) }
+        }
+        outcomes.remove(id)
+        val extraEmergency = !ended.incoming && !ended.number.isNullOrBlank() &&
+            runCatching { TelecomGraph.dependencies.startsEmergencyWindow(ended.number) }.getOrDefault(false)
+        if ((ended.isEmergency || extraEmergency) && ::appContext.isInitialized) ScreeningGuard.noteEmergencyCall(appContext)
         runCatching { TelecomGraph.dependencies.onCallEnded(ended.number, ended.incoming, ended.connectTimeMillis) }
         call.unregisterCallback(callback)
         calls -= call
@@ -212,6 +248,10 @@ object CallManager {
         customRingerFor?.let { rid ->
             val c = calls.firstOrNull { idOf(it) == rid }
             if (c == null || c.stateCompat() != Call.STATE_RINGING || rid in silenced) stopCustomRinger()
+        }
+        boostedFor?.let { rid ->
+            val c = calls.firstOrNull { idOf(it) == rid }
+            if (c == null || c.stateCompat() != Call.STATE_RINGING || rid in silenced) restoreBoost()
         }
         val top = calls.filter { it.parent == null }.map { toUi(it) }
         _calls.value = top
@@ -258,6 +298,8 @@ object CallManager {
             lastCall = found?.lastCall,
             unknown = id in unknownCallers,
             location = if (id in unknownCallers && number != null) locations.getOrPut(id) { runCatching { TelecomGraph.dependencies.describeNumber(number) }.getOrNull().orEmpty() }.ifEmpty { null } else null,
+            verdict = outcomes[id]?.verdict,
+            verdictWarn = outcomes[id]?.warn == true,
         )
     }
 
@@ -386,6 +428,7 @@ object CallManager {
         silenced += id
         silenceRinger()
         stopCustomRinger()
+        restoreBoost()
         publish()
     }
 

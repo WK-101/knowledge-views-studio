@@ -60,6 +60,8 @@ data class PendingCall(
     val name: String?,
     val needConfirm: Boolean,
     val chooseSim: Boolean,
+    /** Shown first in the shared dial-guard sheet (premium line, one-ring scam, listed number). */
+    val warnings: List<app.parley.data.DialWarning> = emptyList(),
 )
 
 sealed interface UiEvent {
@@ -190,6 +192,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- Recents ----------
 
     val recentFilter = MutableStateFlow(RecentFilter.ALL)
+
+    /** Recents rows selected for bulk actions (keys of [RecentGroup]). */
+    val recentSelection = MutableStateFlow<Set<String>>(emptySet())
     val recentQuery = MutableStateFlow("")
 
     /** System call log + private (vault) calls, newest first. */
@@ -320,8 +325,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val chooseSim = simCount >= 2 && remembered == null && withContext(Dispatchers.IO) { c.sims.defaultOutgoing() } == null &&
                 !PhoneNumbers.isServiceCode(number)
             val confirm = settings.value.confirmBeforeCall && !skipConfirm
-            if (confirm || chooseSim) {
-                pendingCall.value = PendingCall(number, name, confirm, chooseSim)
+            // Contacts never get the guard's warnings (they are checked inside); emergency numbers are skipped too.
+            val warnings = c.dialGuard.check(number)
+            if (confirm || chooseSim || warnings.isNotEmpty()) {
+                pendingCall.value = PendingCall(number, name, confirm, chooseSim, warnings)
             } else {
                 place(number, null)
             }

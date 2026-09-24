@@ -211,7 +211,8 @@ fun ParleyRoot(vm: AppViewModel) {
                 })
             }
             composable(Routes.SETTINGS) { SettingsScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
-            composable(Routes.BLOCKING) { BlockingScreen(vm, back = { nav.popBackStack() }) }
+            composable(Routes.BLOCKING) { BlockingScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
+            app.parley.ui.blocking.BlockingRoutes.register(this, vm) { nav.popBackStack() }
             composable(Routes.DUPLICATES) { DuplicatesScreen(vm, back = { nav.popBackStack() }) }
             composable(Routes.PRIVACY) { PrivacyScreen(vm, back = { nav.popBackStack() }) }
             composable(Routes.SYNC) { app.parley.ui.sync.FolderSyncScreen(vm, back = { nav.popBackStack() }) }
@@ -230,6 +231,7 @@ fun ParleyRoot(vm: AppViewModel) {
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 80.dp))
     }
     CallDialogs(vm)
+    app.parley.ui.blocking.BlockingDialogHost(vm)
 
     insertOrEdit?.let { p ->
         androidx.compose.material3.AlertDialog(

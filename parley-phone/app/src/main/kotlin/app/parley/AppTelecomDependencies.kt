@@ -13,6 +13,9 @@ import app.parley.data.PhoneEnv
 import app.parley.telecom.CallerDisplay
 import app.parley.telecom.InCallAppearance
 import app.parley.telecom.TelecomDependencies
+import app.parley.telecom.ScreenOutcome
+import app.parley.data.ScreenRequest
+import app.parley.common.VerdictKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -79,6 +82,30 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override suspend fun screen(number: String?, hidden: Boolean, verification: Verification): Decision =
         withContext(Dispatchers.IO) { c.screener.screen(number, hidden, verification) }
+
+    // ---- Blocking & screening (B2, B9, B10, B23, B24) ----
+
+    override suspend fun screenCall(number: String?, hidden: Boolean, verification: Verification, accountId: String?, callerName: String?): ScreenOutcome =
+        withContext(Dispatchers.IO) {
+            val r = c.screener.screenCall(ScreenRequest(number, hidden, verification, accountId, callerName))
+            ScreenOutcome(
+                decision = r.decision,
+                verdict = r.verdict?.text,
+                warn = r.verdict?.kind == VerdictKind.LIKELY_SPAM,
+                ringtone = r.ringtone,
+                ringLoud = r.ringLoud,
+            )
+        }
+
+    override fun simRulesActive(): Boolean = c.screener.hasSimRules()
+
+    override fun startsEmergencyWindow(number: String): Boolean =
+        c.settings.settings.value.screening.emergencyExtras.any { PhoneNumbers.same(it, number, PhoneEnv.countryIso(app)) }
+
+    override fun onRingFinished(number: String?, startedAt: Long, ringMillis: Long, answered: Boolean) {
+        if (number.isNullOrBlank()) return
+        c.scope.launch { runCatching { c.blocks.addRing(number, startedAt, ringMillis, answered) } }
+    }
 
     override suspend fun preferredAccountId(number: String): String? = withContext(Dispatchers.IO) { c.prefs.simFor(number) }
 

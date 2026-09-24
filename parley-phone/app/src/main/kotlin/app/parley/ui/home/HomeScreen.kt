@@ -255,6 +255,7 @@ private fun HomeTopBar(
                     DropdownMenuItem({ Text("Recently deleted") }, leadingIcon = { Icon(Icons.Rounded.History, null) }, onClick = { menu = false; open(Routes.JOURNAL) })
                     DropdownMenuItem({ Text("Tidy up contacts") }, leadingIcon = { Icon(Icons.Rounded.HealthAndSafety, null) }, onClick = { menu = false; open(Routes.HEALTH) })
                     DropdownMenuItem({ Text("Blocked numbers") }, leadingIcon = { Icon(Icons.Rounded.Block, null) }, onClick = { menu = false; open(Routes.BLOCKING) })
+                    app.parley.ui.blocking.ExpectingCallMenuItem { menu = false }
                     DropdownMenuItem({ Text("Settings") }, leadingIcon = { Icon(Icons.Rounded.Settings, null) }, onClick = { menu = false; open(Routes.SETTINGS) })
                 }
             }

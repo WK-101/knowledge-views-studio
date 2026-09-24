@@ -14,6 +14,7 @@ class ParleyApp : Application() {
         container = DataContainer(this)
         TelecomGraph.install(AppTelecomDependencies(this, container))
         app.parley.work.HousekeepingWorker.schedule(this)
+        app.parley.blocking.BlockingSetup.install(this, container)
         // The process often starts for an incoming call: sync later, off the call path (the daily housekeeping
         // run takes the time-machine snapshot).
         val st = container.folderSync.status.value

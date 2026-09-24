@@ -56,7 +56,9 @@ class MissedCallReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
             .setNumber(count)
             .setDeleteIntent(action(context, MissedCallActionReceiver.ACTION_CLEAR, null, 13))
-        if (count == 1 && !number.isNullOrBlank()) {
+        // One-ring scams and premium lines: no one-tap call back from the notification (B10); the app asks first.
+        val risky = count == 1 && !number.isNullOrBlank() && kotlinx.coroutines.runBlocking { context.container.dialGuard.check(number) }.any { it.severe }
+        if (count == 1 && !number.isNullOrBlank() && !risky) {
             b.addAction(0, "Call back", action(context, MissedCallActionReceiver.ACTION_CALL_BACK, number, 11))
             b.addAction(
                 0, "Message",

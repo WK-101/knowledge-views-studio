@@ -54,6 +54,22 @@ interface TelecomDependencies {
 
     /** Offline "where is this number from" for unknown callers. */
     fun describeNumber(number: String): String? = null
+
+    /**
+     * Screening with everything the call path knows (B2, B9, B20, B24): the SIM's phone-account id (null on the
+     * screening service, which never gets one) and the network caller name.
+     */
+    suspend fun screenCall(number: String?, hidden: Boolean, verification: Verification, accountId: String?, callerName: String?): ScreenOutcome =
+        ScreenOutcome(screen(number, hidden, verification))
+
+    /** Rules limited to one SIM exist, so an earlier decision made without the SIM must be re-checked (B9). */
+    fun simRulesActive(): Boolean = false
+
+    /** Calling this number starts the emergency window, like an emergency number (B23: a GP, a school). */
+    fun startsEmergencyWindow(number: String): Boolean = false
+
+    /** An incoming call stopped ringing: how long it rang and whether it was answered (B10 one-ring guard). */
+    fun onRingFinished(number: String?, startedAt: Long, ringMillis: Long, answered: Boolean) {}
 }
 
 object TelecomGraph {

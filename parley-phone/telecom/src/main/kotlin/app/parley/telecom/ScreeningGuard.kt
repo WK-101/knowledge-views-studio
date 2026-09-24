@@ -18,7 +18,7 @@ object ScreeningGuard {
     private const val EMERGENCY_WINDOW_MS = 60 * 60 * 1000L
     private const val DECISION_TTL_MS = 30_000L
 
-    private data class Recent(val key: String, val at: Long, val decision: Decision)
+    private data class Recent(val key: String, val at: Long, val outcome: ScreenOutcome)
     private val recent = ArrayDeque<Recent>()
 
     fun noteEmergencyCall(context: Context) {
@@ -30,17 +30,34 @@ object ScreeningGuard {
         return last > 0 && System.currentTimeMillis() - last in 0..EMERGENCY_WINDOW_MS
     }
 
-    @Synchronized
-    fun remember(number: String?, decision: Decision) {
-        val now = SystemClock.elapsedRealtime()
-        recent.removeAll { now - it.at > DECISION_TTL_MS }
-        recent.addLast(Recent(key(number), now, decision))
+    /** When the current emergency window ends (for the visible countdown, B23), or null when none is running. */
+    fun emergencyWindowEndsAt(context: Context): Long? {
+        val last = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_EMERGENCY, 0L)
+        return if (inEmergencyWindow(context)) last + EMERGENCY_WINDOW_MS else null
+    }
+
+    /** Ends the emergency window early ("Reset"). */
+    fun clearEmergencyWindow(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_EMERGENCY).apply()
     }
 
     @Synchronized
-    fun recall(number: String?): Decision? {
+    fun remember(number: String?, decision: Decision) = remember(number, ScreenOutcome(decision))
+
+    @Synchronized
+    fun remember(number: String?, outcome: ScreenOutcome) {
         val now = SystemClock.elapsedRealtime()
-        return recent.lastOrNull { it.key == key(number) && now - it.at <= DECISION_TTL_MS }?.decision
+        recent.removeAll { now - it.at > DECISION_TTL_MS }
+        recent.addLast(Recent(key(number), now, outcome))
+    }
+
+    @Synchronized
+    fun recall(number: String?): Decision? = recallOutcome(number)?.decision
+
+    @Synchronized
+    fun recallOutcome(number: String?): ScreenOutcome? {
+        val now = SystemClock.elapsedRealtime()
+        return recent.lastOrNull { it.key == key(number) && now - it.at <= DECISION_TTL_MS }?.outcome
     }
 
     private fun key(number: String?) = if (number.isNullOrBlank()) "hidden" else PhoneNumbers.matchKey(number)
