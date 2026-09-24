@@ -44,8 +44,8 @@ private val reasons = mapOf(
     "android.permission.GET_ACCOUNTS" to "Let you choose which account a contact is saved in.",
     "android.permission.POST_NOTIFICATIONS" to "Show incoming, ongoing and missed-call notifications.",
     "android.permission.USE_FULL_SCREEN_INTENT" to "Show incoming calls over the lock screen.",
-    "android.permission.WAKE_LOCK" to "Turn the screen off when the phone is at your ear.",
-    "android.permission.VIBRATE" to "Keypad vibration.",
+    "android.permission.WAKE_LOCK" to "Turn the screen off when the phone is at your ear, and keep a call time limit on time.",
+    "android.permission.VIBRATE" to "Keypad and call vibrations.",
     "android.permission.MODIFY_AUDIO_SETTINGS" to "Switch between earpiece, speaker and headsets.",
     "android.permission.READ_PHONE_NUMBERS" to "Optional: know your own number for neighbour-spoofing protection.",
     "android.permission.BLUETOOTH_CONNECT" to "Optional: show Bluetooth headset names during calls.",
@@ -87,6 +87,7 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
                     Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
                 )
             }
+            item { app.parley.ui.calltime.NotificationHealthCard(vm) }
             item { Section("What Parley keeps private") }
             item {
                 val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()

@@ -64,6 +64,7 @@ object Routes {
     const val BACKUP = "backup"
     const val CHANGES = "changes"
     const val SYNC = "sync"
+    const val CALL_TIME = "calltime"
     const val VERSIONS = "versions/{id}"
     fun versions(id: Long) = "versions/$id"
 
@@ -224,12 +225,14 @@ fun ParleyRoot(vm: AppViewModel) {
             composable(Routes.HEALTH) { app.parley.ui.health.HealthScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             composable(Routes.BIRTHDAYS) { app.parley.ui.birthdays.BirthdaysScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             composable(Routes.SPEED_DIAL) { SpeedDialScreen(vm, back = { nav.popBackStack() }) }
+            composable(Routes.CALL_TIME) { app.parley.ui.calltime.CallTimeScreen(vm, back = { nav.popBackStack() }) }
         }
        }
       }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 80.dp))
     }
     CallDialogs(vm)
+    app.parley.ui.calltime.UssdDialog(vm)
 
     insertOrEdit?.let { p ->
         androidx.compose.material3.AlertDialog(

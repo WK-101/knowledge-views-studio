@@ -151,6 +151,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                 SwitchRow("Show SIM in call history", "Only when two SIMs are active", s.showSimLabels) { v -> set { it.copy(showSimLabels = v) } }
                 LinkRow("Quick reply messages", s.quickReplies.joinToString(" · ")) { editReplies = true }
                 LinkRow("Speed dial", "Long-press 2–9 on the keypad") { open(Routes.SPEED_DIAL) }
+                CallsSettingsRows(vm, open)
                 LinkRow("Blocking & screening", null) { open(Routes.BLOCKING) }
                 SwitchRow("Let repeat callers through", "An unknown number blocked earlier rings if it calls again within 3 minutes", s.repeatCallerRingsThrough) { v -> set { it.copy(repeatCallerRingsThrough = v) } }
                 val toneName = s.unknownRingtone?.let { u -> runCatching { android.media.RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull() }

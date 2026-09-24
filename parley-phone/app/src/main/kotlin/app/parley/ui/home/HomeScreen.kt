@@ -1,7 +1,6 @@
 package app.parley.ui.home
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,7 +21,6 @@ import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.PersonAdd
-import androidx.compose.material.icons.rounded.PhoneInTalk
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Star
@@ -53,7 +51,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.animation.togetherWith
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -61,9 +58,6 @@ import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.RecentFilter
 import app.parley.common.StartTab
-import app.parley.telecom.CallManager
-import app.parley.telecom.ui.InCallActivity
-import app.parley.ui.CallColors
 import app.parley.ui.Routes
 
 private data class TabSpec(val tab: StartTab, val label: String, val icon: ImageVector)
@@ -89,8 +83,6 @@ fun HomeScreen(
     val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
     var searching by rememberSaveable { mutableStateOf(false) }
     val missed by vm.missedCount.collectAsStateWithLifecycle()
-    val calls by CallManager.state.collectAsStateWithLifecycle()
-    val context = LocalContext.current
 
     LaunchedEffect(tabRequest) {
         val r = tabRequest ?: return@LaunchedEffect
@@ -130,18 +122,8 @@ fun HomeScreen(
         },
         bottomBar = {
             Column {
-                if (calls.any { it.isLive }) {
-                    Surface(
-                        color = CallColors.Accept,
-                        modifier = Modifier.fillMaxWidth().clickable { context.startActivity(InCallActivity.intent(context, false)) },
-                    ) {
-                        Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.PhoneInTalk, null, tint = Color.White)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Call in progress · ${calls.first { it.isLive }.title} · tap to return", color = Color.White, style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-                }
+                app.parley.ui.calltime.NotificationHealthBanner(vm)
+                app.parley.ui.calltime.ReturnToCallChip()
                 if (!wide) NavigationBar {
                     tabs.forEach { t ->
                         NavigationBarItem(

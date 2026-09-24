@@ -225,7 +225,7 @@ private fun DialKey(digit: String, letters: String, onClick: () -> Unit, onLong:
             .size(width = 96.dp, height = 64.dp)
             .clip(RoundedCornerShape(32.dp))
             .combinedClickable(onClick = onClick, onLongClick = onLong)
-            .semantics { contentDescription = digit + if (letters.isNotEmpty()) " $letters" else "" },
+            .semantics { contentDescription = keyDescription(digit, letters) },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -236,6 +236,14 @@ private fun DialKey(digit: String, letters: String, onClick: () -> Unit, onLong:
             Text(letters, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+}
+
+/** What TalkBack reads for a key: "2, A B C", "1, voicemail", "star", "pound" (A12). */
+private fun keyDescription(digit: String, letters: String): String = when (digit) {
+    "*" -> "star"
+    "#" -> "pound"
+    "1" -> "1, voicemail"
+    else -> if (letters.isEmpty()) digit else "$digit, " + letters.toList().joinToString(" ")
 }
 
 @Composable

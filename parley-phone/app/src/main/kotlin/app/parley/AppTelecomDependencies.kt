@@ -7,6 +7,8 @@ import app.parley.common.CallType
 import app.parley.common.PhoneNumbers
 import app.parley.data.db.CallNoteEntity
 import app.parley.common.Verification
+import app.parley.common.calltime.CallTimePlan
+import app.parley.calltime.CallTimePlanner
 import app.parley.data.DataContainer
 import app.parley.data.NumberInfo
 import app.parley.data.PhoneEnv
@@ -74,6 +76,14 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             }
         }
     }
+
+    private val planner by lazy { CallTimePlanner(c) }
+
+    override suspend fun callTimePlan(number: String?, accountId: String?, incoming: Boolean): CallTimePlan = planner.plan(number, accountId, incoming)
+
+    override suspend fun silenceOverQuota(number: String, accountId: String?): Boolean = planner.silenceIncoming(number, accountId)
+
+    override fun callHaptics(): Boolean = c.calling.config.value.haptics
 
     override fun screeningActive(): Boolean = c.screener.isActive()
 
