@@ -67,12 +67,16 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
             val notices = runCatching { c.temporaries.expire(now) }.getOrDefault(emptyList())
             // 2. Expired vault entries
             //    (F5: private temporary contacts take their call history and "last messaged" entry with them)
+            //    Only numbers nobody else has: not a phone contact (or unknown, without permission) and no other
+            //    private contact; those keep their history.
             for (v in c.vault.expiredEntries(now)) {
+                c.vault.delete(v.id)
                 v.numbers.forEach { n ->
+                    val otherOwner = runCatching { c.contacts.isContact(n) != false || c.vault.lookup(n) != null }.getOrDefault(true)
+                    if (otherOwner) return@forEach
                     if (v.purgeHistory) runCatching { c.history.purgeNumber(n) }
                     runCatching { c.messaging.forget(n) }
                 }
-                c.vault.delete(v.id)
             }
             // 3. Private call history
             if (settings.privateVaultHistory) c.vault.sweepCallLog(now - TimeUnit.DAYS.toMillis(30))

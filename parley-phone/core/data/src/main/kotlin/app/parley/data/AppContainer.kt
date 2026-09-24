@@ -43,7 +43,7 @@ class DataContainer(context: Context) {
 
     /** v3.1 call switches (proximity, pocket guard, missed-call re-alert), ring facts (V9) and voicemail (V1). */
     val callExtras by lazy { app.parley.data.calls.CallExtrasRepository(appContext) }
-    val ringFacts by lazy { app.parley.data.calls.RingFactsStore(appContext) }
+    val ringFacts: app.parley.data.calls.RingFactsStore by lazy { app.parley.data.calls.RingFactsStore(appContext) { history } }
     val voicemail by lazy { app.parley.data.calls.VoicemailRepository(appContext, scope) }
     val vcards by lazy { VCardIO(appContext, contacts, records) { vault.allNumbers() } }
 
@@ -63,7 +63,11 @@ class DataContainer(context: Context) {
             .apply { callHistory = history }
             .also { it.extras = { listOf(people.backupExtras) } }
     }
-    val history by lazy { app.parley.data.history.CallHistory(appContext, callLog, contacts, vault, scope) }
+    val history: app.parley.data.history.CallHistory by lazy {
+        app.parley.data.history.CallHistory(appContext, callLog, contacts, vault, scope).also { h ->
+            h.onForget = { n, dates -> ringFacts.forget(n, dates) }
+        }
+    }
 
     /** Temporary contacts: the one API to create, mark, keep and expire them (F2). */
     val temporaries by lazy { app.parley.data.people.TemporaryContactStore(this) }

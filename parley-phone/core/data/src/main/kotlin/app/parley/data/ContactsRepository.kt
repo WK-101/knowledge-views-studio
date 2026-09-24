@@ -518,10 +518,16 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     }
 
     /**
-     * Saves [edited]. When [original] is null a new raw contact is created in [account].
-     * Returns the aggregate contact id.
+     * What [save] wrote: the aggregate [contactId] and the raw contact it created or edited ([rawId]; null when the
+     * edited copy became empty and was removed). Returned per call, so concurrent saves never see each other's ids.
      */
-    suspend fun save(original: ContactDetails?, edited: ContactDetails, account: AccountRef?, photo: Uri?, removePhoto: Boolean): Long? =
+    data class SaveResult(val contactId: Long, val rawId: Long?)
+
+    /**
+     * Saves [edited]. When [original] is null a new raw contact is created in [account].
+     * Returns the aggregate contact id and the raw contact written.
+     */
+    suspend fun save(original: ContactDetails?, edited: ContactDetails, account: AccountRef?, photo: Uri?, removePhoto: Boolean): SaveResult? =
         withContext(Dispatchers.IO) {
             if (original != null && original.id > 0) journal(listOf(original.id), "EDIT")
             val ops = ArrayList<ContentProviderOperation>()
@@ -697,13 +703,12 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
 
             val results = if (ops.isEmpty()) emptyArray<android.content.ContentProviderResult>() else cr.applyBatch(ContactsContract.AUTHORITY, ops)
             val finalRawId = rawId ?: results.firstOrNull()?.uri?.let { ContentUris.parseId(it) } ?: return@withContext null
-            lastSavedRawId = finalRawId
             // Every field of this copy was cleared: remove the empty raw contact instead of leaving a blank behind
             // (AOSP does the same, F24). The person stays if another copy has details.
             if (rawId != null && changed.isNotEmpty() && photo == null && isBlankRaw(rawId)) {
                 val others = original?.rawContacts.orEmpty().map { it.id }.filter { it != rawId }
                 cr.delete(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawId), null, null)
-                return@withContext others.firstNotNullOfOrNull { contactIdForRaw(it) }
+                return@withContext others.firstNotNullOfOrNull { contactIdForRaw(it) }?.let { SaveResult(it, null) }
             }
             if (linkTo.isNotEmpty()) setAggregation(linkTo + finalRawId, AggregationExceptions.TYPE_KEEP_TOGETHER)
             if (photo != null) writePhoto(finalRawId, photo)
@@ -713,13 +718,8 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
                 val key = contactId?.let { id -> cr.safeQuery(ContentUris.withAppendedId(Contacts.CONTENT_URI, id), arrayOf(Contacts.LOOKUP_KEY))?.use { c -> if (c.moveToFirst()) c.getString(0) else null } }
                 writeLog.version(cr, finalRawId)?.let { v -> writeLog.record(finalRawId, key ?: original?.lookupKey.orEmpty(), v, changed.toList()) }
             }
-            contactId
+            contactId?.let { SaveResult(it, finalRawId) }
         }
-
-    /** Raw contact written by the most recent [save] (the new one when a contact was created). */
-    @Volatile
-    var lastSavedRawId: Long? = null
-        private set
 
     /** Parley's own saves, per raw contact ("Why did this change?"). */
     val writeLog by lazy { app.parley.data.people.ParleyWriteLog(context) }

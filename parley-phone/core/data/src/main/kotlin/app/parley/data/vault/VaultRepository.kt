@@ -26,6 +26,8 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -101,13 +103,29 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             val o = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
             val nums = o.optJSONArray("numbers") ?: JSONArray()
             val labels = o.optJSONArray("labels") ?: JSONArray()
-            val d = ContactDetails(
-                id = -id, lookupKey = "", displayName = o.optString("name"), given = o.optString("name"),
-                phones = (0 until nums.length()).map { i -> DataItem(0, nums.getString(i), labels.optInt(i, 2), null) },
-            )
+            val d = rebuiltFromCallerId(id, o)
             runCatching { save(id, d) }
             d
         }
+    }
+
+    /**
+     * The details that survive a lost detail key, from the caller-ID copy [o]: name, numbers and labels, and the
+     * caller card's job title and company, "who is this" line and note for calls, so re-sealing loses none of them.
+     */
+    private fun rebuiltFromCallerId(id: Long, o: JSONObject): ContactDetails {
+        val nums = o.optJSONArray("numbers") ?: JSONArray()
+        val labels = o.optJSONArray("labels") ?: JSONArray()
+        val title = o.optString(C_TITLE)
+        val company = o.optString(C_COMPANY)
+        // Entries saved before title and company were kept apart only have the combined line: keep it as the title.
+        val fallbackTitle = if (title.isEmpty() && company.isEmpty()) o.optString("sub") else title
+        return ContactDetails(
+            id = -id, lookupKey = "", displayName = o.optString("name"), given = o.optString("name"),
+            phones = (0 until nums.length()).map { i -> DataItem(0, nums.getString(i), labels.optInt(i, 2), null) },
+            title = fallbackTitle, company = company,
+            context = o.optString("ctx"), pinnedNote = o.optString("note"),
+        )
     }
 
     /**
@@ -122,8 +140,10 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         expiresAt: Long? = null,
         purgeHistory: Boolean? = null,
         record: ContactRecord? = null,
+        recordOf: String? = null,
     ): Long = withContext(Dispatchers.IO) {
         val name = d.composedName.ifBlank { d.company.ifBlank { d.phones.firstOrNull()?.value ?: context.getString(app.parley.data.R.string.data_vault_fallback_name) } }
+        val region = region()
         val numbers = d.phones.map { it.value }.filter { it.isNotBlank() }
         val existing = id?.let { dao.get(it) }
         val purge = purgeHistory ?: existing?.let { summarize(it)?.purgeHistory } ?: false
@@ -132,19 +152,25 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             // I6: the caller card's extra lines, readable while the phone is locked like the name.
             .apply {
                 app.parley.common.people.CallerCard.subtitle(d.title, d.company)?.let { put("sub", it) }
+                // Kept apart too, so a lost detail key can restore them (see rebuiltFromCallerId).
+                d.title.trim().ifEmpty { null }?.let { put(C_TITLE, it) }
+                d.company.trim().ifEmpty { null }?.let { put(C_COMPANY, it) }
                 d.context.trim().ifEmpty { null }?.let { put("ctx", it) }
                 d.pinnedNote.trim().ifEmpty { null }?.let { put("note", it) }
             }
             // F15: when it was last saved, so the newest of two entries sharing a number wins.
             .put("u", System.currentTimeMillis())
             .apply { if (purge) put("purge", true) }
+            // The region national numbers were read with, so re-fingerprinting later uses the same one (F7).
+            .put(C_REGION, region)
         val detailsJson = ContactDetailsJson.encode(d.copy(photoUri = null))
         val detail = JSONObject(detailsJson)
         if (record != null) {
             val blobs = JSONObject()
             detail.put(REC, RecordJson.encode(record) { h, b -> blobs.put(h, Base64.encodeToString(b, Base64.NO_WRAP)) })
             detail.put(REC_BLOBS, blobs)
-            detail.put(REC_OF, RecordJson.sha256Hex(ContactDetailsJson.encode(ContactDetailsJson.decode(detailsJson)).toByteArray()))
+            // [recordOf] (a restored backup): the hash stored with the record, so "edited since" survives.
+            detail.put(REC_OF, recordOf ?: RecordJson.sha256Hex(ContactDetailsJson.encode(ContactDetailsJson.decode(detailsJson)).toByteArray()))
         } else if (existing != null) {
             // Keep the original record through edits (the details hash then no longer matches: it was edited).
             runCatching { JSONObject(String(VaultCrypto.openDetail(existing.detailBlob))) }.getOrNull()?.let { old ->
@@ -158,20 +184,27 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             expiresAt = expiresAt ?: existing?.expiresAt,
             createdAt = existing?.createdAt ?: System.currentTimeMillis(),
         )
-        val region = region()
-        db.withTransaction {
-            val newId = dao.upsert(entity).let { if (id != null) id else it }
-            dao.clearNumbers(newId)
-            dao.addNumbers(numberRows(newId, numbers, region))
-            newId
+        keysLock.withLock {
+            db.withTransaction {
+                val newId = dao.upsert(entity).let { if (id != null) id else it }
+                dao.clearNumbers(newId)
+                dao.addNumbers(numberRows(newId, numbers, region))
+                newId
+            }
         }
     }
 
     private fun region(): String = PhoneEnv.countryIso(context)
 
-    /** F7: E.164 fingerprints (the last-digits one only for numbers without an E.164 form). */
+    /** Serialises fingerprint writes: a save and the one-off re-keying must never interleave (F7). */
+    private val keysLock = Mutex()
+
+    /**
+     * F7: E.164 fingerprints, plus the last-digits one as an extra fallback (so a number read with a different
+     * region than at save time is still found by non-exact lookups; exact lookups never use it).
+     */
     private fun numberRows(id: Long, numbers: List<String>, region: String?): List<VaultNumberEntity> =
-        VaultNumberKeys.storedAll(numbers, region).map { VaultNumberEntity(id, VaultCrypto.hmac(it)) }
+        VaultNumberKeys.storedWithFallback(numbers, region).map { VaultNumberEntity(id, VaultCrypto.hmac(it)) }
 
     /**
      * F7 migration, once: entries saved before E.164 keys were fingerprinted by their last 9 digits only. The
@@ -182,16 +215,24 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     private suspend fun migrateNumberKeys() = withContext(Dispatchers.IO) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (prefs.getInt(K_KEYS_VERSION, 1) >= KEYS_VERSION) return@withContext
-        val region = region()
+        val fallbackRegion = region()
         var failed = false
-        for (e in dao.all()) {
-            val s = summarize(e)
-            if (s == null) { failed = true; continue }
-            val rows = runCatching { numberRows(e.id, s.numbers, region) }.getOrElse { failed = true; null } ?: continue
-            db.withTransaction {
-                dao.clearNumbers(e.id)
-                dao.addNumbers(rows)
+        for (id in dao.all().map { it.id }) {
+            // Under the same lock as save and re-read inside the transaction, so a save that ran meanwhile is
+            // never overwritten with the numbers it replaced.
+            val ok = keysLock.withLock {
+                db.withTransaction {
+                    val e = dao.get(id) ?: return@withTransaction true
+                    val o = runCatching { JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))) }.getOrNull() ?: return@withTransaction false
+                    val s = summarize(e) ?: return@withTransaction false
+                    val region = o.optString(C_REGION).ifEmpty { fallbackRegion }
+                    val rows = runCatching { numberRows(e.id, s.numbers, region) }.getOrNull() ?: return@withTransaction false
+                    dao.clearNumbers(e.id)
+                    dao.addNumbers(rows)
+                    true
+                }
             }
+            if (!ok) failed = true
         }
         // An unreadable entry (caller-ID key lost) can't get better by retrying; a Keystore hiccup might.
         if (!failed || prefs.getInt(K_KEYS_ATTEMPTS, 0) >= 2) {
@@ -332,7 +373,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     suspend fun expired(now: Long) = withContext(Dispatchers.IO) { dao.expired(now).map { it.id } }
 
     /** The lossless phone-contact image stored by "Move to private", and whether the details were edited since. */
-    data class StoredRecord(val record: ContactRecord, val editedSince: Boolean)
+    data class StoredRecord(val record: ContactRecord, val editedSince: Boolean, val recordOf: String = "")
 
     /**
      * The [StoredRecord] of entry [id], or null for entries made in the vault or before records were kept. Throws
@@ -346,7 +387,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         val record = runCatching { RecordJson.decode(line) { h -> blobs?.optString(h)?.takeIf { it.isNotEmpty() }?.let { Base64.decode(it, Base64.NO_WRAP) } } }.getOrNull()
             ?: return@withContext null
         val now = ContactDetailsJson.encode(ContactDetailsJson.decode(o.toString()))
-        StoredRecord(record, RecordJson.sha256Hex(now.toByteArray()) != o.optString(REC_OF))
+        StoredRecord(record, RecordJson.sha256Hex(now.toByteArray()) != o.optString(REC_OF), o.optString(REC_OF))
     }
 
     /** Every private contact's numbers, read straight from the database (import duplicate checks, F17). */
@@ -356,10 +397,16 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         const val PREFS = "vault"
         const val K_KEYS_VERSION = "number_keys_version"
         const val K_KEYS_ATTEMPTS = "number_keys_attempts"
-        /** 1: last 9 digits (before F7); 2: E.164 with the last digits only as a fallback. */
-        const val KEYS_VERSION = 2
+        /**
+         * 1: last 9 digits (before F7); 2: E.164 with the last digits only as a fallback; 3: E.164 plus the last
+         * digits as an extra fallback for every number, with the region stored at save time.
+         */
+        const val KEYS_VERSION = 3
         const val REC = "parleyRecord"
         const val REC_BLOBS = "parleyRecordBlobs"
         const val REC_OF = "parleyRecordOf"
+        const val C_TITLE = "t"
+        const val C_COMPANY = "co"
+        const val C_REGION = "rg"
     }
 }

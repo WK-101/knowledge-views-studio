@@ -240,7 +240,7 @@ fun ContactEditScreen(
                     }
                     -id // negative ids mark vault contacts for the caller
                 } else {
-                    vm.c.contacts.save(original, e, account, photo, removePhoto).also { saved ->
+                    vm.c.contacts.save(original, e, account, photo, removePhoto)?.contactId.also { saved ->
                         original?.lookupKey?.let { key -> vm.applyBackground(key, bgChange) }
                         if (saved != null) rememberRelations(vm, saved, e, pickedLinks)
                     }

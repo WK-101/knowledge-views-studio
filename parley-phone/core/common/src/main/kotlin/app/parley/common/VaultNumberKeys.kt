@@ -21,6 +21,14 @@ object VaultNumberKeys {
     fun storedAll(numbers: List<String>, countryIso: String?): List<String> = numbers.flatMap { stored(it, countryIso) }.distinct()
 
     /**
+     * [storedAll] plus the last-digits key of every number, as an extra fallback: when a national number was saved
+     * with one region and the call arrives under another (roaming, a second SIM), the E.164 keys differ but the
+     * non-exact lookup still finds the entry. Exact lookups never use these rows.
+     */
+    fun storedWithFallback(numbers: List<String>, countryIso: String?): List<String> =
+        (storedAll(numbers, countryIso) + numbers.mapNotNull { n -> PhoneNumbers.matchKey(n).takeIf { it.isNotEmpty() } }).distinct()
+
+    /**
      * HMAC inputs to try for a caller, best first. [countryIso] is the country of the SIM that took the call when
      * known. [exact] leaves out the last-digits fallback entirely.
      */
@@ -29,7 +37,7 @@ object VaultNumberKeys {
         val suffix = PhoneNumbers.matchKey(number).takeIf { it.isNotEmpty() }
         return when {
             e164 != null && exact -> listOf(E164_PREFIX + e164)
-            // The suffix rows left after migration belong only to numbers stored without an E.164 form.
+            // The E.164 row first; the suffix rows are the fallback (see storedWithFallback).
             e164 != null -> listOfNotNull(E164_PREFIX + e164, suffix)
             exact -> emptyList()
             else -> listOfNotNull(suffix)

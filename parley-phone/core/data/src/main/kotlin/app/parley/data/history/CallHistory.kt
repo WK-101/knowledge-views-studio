@@ -266,6 +266,21 @@ class CallHistory(
 
     private fun personMac(number: String, iso: String = countryIso) = crypto.mac(NumberKeys.of(number, iso))
 
+    /**
+     * Called when calls with a number are deleted or purged: (number, call dates; null for every call), so stores
+     * kept beside the archive (ring facts) forget them too. Set by the container.
+     */
+    @Volatile
+    var onForget: ((number: String, dates: List<Long>?) -> Unit)? = null
+
+    /** The archive's keyed fingerprint of [number]'s line, for small stores kept beside it (ring facts). */
+    internal fun lineMac(number: String): String = personMac(number)
+
+    /** Seals and opens with the archive key, for small stores kept beside it (ring facts). */
+    internal fun sealAux(plain: ByteArray): ByteArray = crypto.seal(plain)
+
+    internal fun openAux(blob: ByteArray): ByteArray = crypto.open(blob)
+
     /** Calls with private contacts never stay in the archive (they live in the vault's own history). */
     private suspend fun purgeVault(vk: PhoneNumbers.LineSet): Boolean {
         if (vk.isEmpty) return false
@@ -375,6 +390,9 @@ class CallHistory(
             keys.chunked(500).forEach { dao.deleteKeys(it) }
             knownKeys?.removeAll(keys.toSet())
             reload()
+            // Ring facts (V9) of deleted calls go with them.
+            list.filter { !it.presentationHidden && it.number.isNotBlank() }.groupBy { it.number }
+                .forEach { (n, calls) -> runCatching { onForget?.invoke(n, calls.map { it.date }) } }
             batch
         }
     }
@@ -402,8 +420,9 @@ class CallHistory(
         var n = 0
         val ids = ArrayList<Long>()
         runCatching {
-            cr.query(Uri.withAppendedPath(Calls.CONTENT_FILTER_URI, Uri.encode(number)), arrayOf(Calls._ID), null, null, null)
-                ?.use { c -> while (c.moveToNext()) ids += c.getLong(0) }
+            // The filter URI matches loosely (the last digits); only rows that are exactly this line are deleted.
+            cr.query(Uri.withAppendedPath(Calls.CONTENT_FILTER_URI, Uri.encode(number)), arrayOf(Calls._ID, Calls.NUMBER), null, null, null)
+                ?.use { c -> while (c.moveToNext()) if (PhoneNumbers.sameExact(c.getString(1), number, iso)) ids += c.getLong(0) }
         }
         ids.chunked(500).forEach { chunk ->
             n += runCatching { cr.delete(Calls.CONTENT_URI, "${Calls._ID} IN (${chunk.joinToString(",")})", null) }.getOrDefault(0)
@@ -413,7 +432,7 @@ class CallHistory(
                 if (_archive.value == null) reload()
                 val person = personMac(number, iso)
                 // Also rows filed under another form of the number.
-                val other = _archive.value.orEmpty().filter { !it.record.number.isNullOrBlank() && PhoneNumbers.same(it.record.number, number, iso) }.map { it.rowId }
+                val other = _archive.value.orEmpty().filter { !it.record.number.isNullOrBlank() && PhoneNumbers.sameExact(it.record.number, number, iso) }.map { it.rowId }
                 n += dao.deleteByPerson(person)
                 other.chunked(500).forEach { dao.deleteIds(it) }
                 dao.removeKeepForever(listOf(person))
@@ -421,6 +440,7 @@ class CallHistory(
                 reload()
             }
         }
+        runCatching { onForget?.invoke(number, null) }
         n
     }
 

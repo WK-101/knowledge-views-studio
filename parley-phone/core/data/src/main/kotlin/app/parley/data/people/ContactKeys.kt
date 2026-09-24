@@ -85,15 +85,9 @@ class ContactKeys(
         runCatching { backgrounds().move(from, to) }
         meta.temporary(from)?.let { t ->
             val existing = meta.temporary(to)
-            val ids = (TemporaryExpiry.decodeIds(t.rawIds).orEmpty() + TemporaryExpiry.decodeIds(existing?.rawIds).orEmpty()).takeIf { it.isNotEmpty() }
+            val (ids, expiresAt) = TemporaryExpiry.merge(t.rawIds to t.expiresAt, existing?.rawIds to (existing?.expiresAt ?: Long.MAX_VALUE))
             meta.clearTemporary(from)
-            meta.setTemporary(
-                t.copy(
-                    lookupKey = to, contactId = toId ?: t.contactId,
-                    expiresAt = minOf(t.expiresAt, existing?.expiresAt ?: Long.MAX_VALUE),
-                    rawIds = ids?.let(TemporaryExpiry::encodeIds) ?: t.rawIds,
-                ),
-            )
+            meta.setTemporary(t.copy(lookupKey = to, contactId = toId ?: t.contactId, expiresAt = expiresAt, rawIds = ids))
         }
         // Relation links in other contacts that pointed at the old key.
         for (r in meta.allMetaNow()) {
@@ -112,8 +106,12 @@ class ContactKeys(
             val owner = contacts.contactsOfRaws(raws).values.firstOrNull() ?: continue
             val key = contacts.lookupKeyOf(owner) ?: continue
             if (key == t.lookupKey && owner == t.contactId) continue
+            // Another entry may already live under the new key (two temporaries linked by Android): merge, like
+            // moveLocked, so neither entry's raw ids are forgotten.
+            val existing = if (key != t.lookupKey) meta.temporary(key) else null
+            val (ids, expiresAt) = existing?.let { TemporaryExpiry.merge(t.rawIds to t.expiresAt, it.rawIds to it.expiresAt) } ?: (t.rawIds to t.expiresAt)
             meta.clearTemporary(t.lookupKey)
-            meta.setTemporary(t.copy(lookupKey = key, contactId = owner))
+            meta.setTemporary(t.copy(lookupKey = key, contactId = owner, rawIds = ids, expiresAt = expiresAt))
             n++
         }
         return n

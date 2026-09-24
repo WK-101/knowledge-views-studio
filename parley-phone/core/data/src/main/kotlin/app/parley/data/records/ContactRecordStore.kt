@@ -519,6 +519,9 @@ class ContactRecordStore(private val context: Context) {
         return out
     }
 
+    /** Sets raw contact [rawId]'s photo to [bytes] (replacing any photo it has). */
+    fun setPhoto(rawId: Long, bytes: ByteArray): Boolean = writePhoto(rawId, bytes)
+
     /** Writes a full-resolution photo; the provider derives the display size and thumbnail. */
     private fun writePhoto(rawId: Long, bytes: ByteArray): Boolean {
         try {

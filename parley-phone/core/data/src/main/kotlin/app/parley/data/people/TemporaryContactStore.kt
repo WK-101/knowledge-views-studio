@@ -4,9 +4,11 @@ import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.Data
 import app.parley.common.people.TemporaryExpiry
 import app.parley.data.ContactDetails
+import app.parley.data.ContactsRepository
 import app.parley.data.DataContainer
 import app.parley.data.db.TemporaryContactEntity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -41,20 +43,30 @@ class TemporaryContactStore(private val c: DataContainer) {
 
     /**
      * Saves [details] as a phone-only contact (no account, never synced) that deletes itself at [expiresAt], recording
-     * the raw contact it created. Returns the contact id, or null when nothing could be saved. Use
-     * [app.parley.data.TemporaryContacts.save] rather than calling this directly.
+     * the raw contact it created (and only that one). Returns the contact and raw ids, or null when nothing could be
+     * saved. Use [app.parley.data.TemporaryContacts.save] rather than calling this directly.
      */
-    suspend fun createPhone(details: ContactDetails, expiresAt: Long, purgeHistory: Boolean = true): Long? = mutex.withLock {
-        val id = c.contacts.save(null, details, null, null, false) ?: return@withLock null
-        val raw = c.contacts.lastSavedRawId
-        val key = c.contacts.lookupKeyOf(id)?.takeIf { it.isNotEmpty() } ?: return@withLock id
-        c.meta.setTemporary(
-            TemporaryContactEntity(
-                key, id, expiresAt, purgeHistory,
-                rawIds = raw?.let { TemporaryExpiry.encodeIds(listOf(it)) }, name = details.composedName.ifBlank { null },
-            ),
-        )
-        id
+    suspend fun createPhone(details: ContactDetails, expiresAt: Long, purgeHistory: Boolean = true): ContactsRepository.SaveResult? = mutex.withLock {
+        val saved = c.contacts.save(null, details, null, null, false) ?: return@withLock null
+        val raw = saved.rawId
+        // The lookup key can briefly be unreadable right after the insert (aggregation runs asynchronously): retry,
+        // and if it still isn't there, record the entry by its raw contact so it is never left without an expiry.
+        var key: String? = null
+        for (attempt in 0 until KEY_TRIES) {
+            key = c.contacts.lookupKeyOf(saved.contactId)?.takeIf { it.isNotEmpty() }
+            if (key != null) break
+            delay(KEY_RETRY_MS)
+        }
+        val recordKey = key ?: raw?.let(TemporaryExpiry::pendingKey)
+        if (recordKey != null) {
+            c.meta.setTemporary(
+                TemporaryContactEntity(
+                    recordKey, saved.contactId, expiresAt, purgeHistory,
+                    rawIds = raw?.let { TemporaryExpiry.encodeIds(listOf(it)) }, name = details.composedName.ifBlank { null },
+                ),
+            )
+        }
+        saved
     }
 
     /**
@@ -165,5 +177,7 @@ class TemporaryContactStore(private val c: DataContainer) {
 
     companion object {
         private const val DAY = 86_400_000L
+        private const val KEY_TRIES = 5
+        private const val KEY_RETRY_MS = 200L
     }
 }

@@ -16,8 +16,12 @@ import android.provider.ContactsContract
 object TemporaryContacts {
     const val DEFAULT_DAYS = 7
 
-    /** Where a temporary contact went: [id] is a vault id when [private], else a contacts-provider contact id. */
-    data class Saved(val id: Long, val private: Boolean)
+    /**
+     * Where a temporary contact went: [id] is a vault id when [private], else a contacts-provider contact id; then
+     * [rawId] is the one raw contact Parley created (the only one an undo may delete: Android can aggregate it with
+     * someone else's contact of the same name).
+     */
+    data class Saved(val id: Long, val private: Boolean, val rawId: Long? = null)
 
     suspend fun save(
         c: DataContainer,
@@ -41,7 +45,7 @@ object TemporaryContacts {
         }
         // Kept on this phone only (never synced to an account): it's meant to disappear. The store records the raw
         // contact it created, and only that one is ever deleted (F2; see app.parley.data.people.TemporaryContactStore).
-        val id = c.temporaries.createPhone(details, expiresAt, purgeHistory) ?: return null
-        return Saved(id, private = false)
+        val saved = c.temporaries.createPhone(details, expiresAt, purgeHistory) ?: return null
+        return Saved(saved.contactId, private = false, rawId = saved.rawId)
     }
 }

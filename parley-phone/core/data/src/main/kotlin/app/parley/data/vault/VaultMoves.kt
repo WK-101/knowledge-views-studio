@@ -46,17 +46,27 @@ class VaultMoves(
      */
     suspend fun moveOut(vaultId: Long, d: ContactDetails, account: AccountRef): Long? = withContext(Dispatchers.IO) {
         val stored = vault.storedRecord(vaultId)
+        // The raw contact the (encrypted) vault photo goes to: the vault photo is the current one; the record's
+        // may be older (changed in the vault since) and an entry made in the vault has none at all.
+        var photoRaw: Long? = null
         val newId = if (stored == null) {
-            contacts.save(null, d, account, null, false)
+            contacts.save(null, d, account, null, false)?.also { photoRaw = it.rawId }?.contactId
         } else {
-            val id = records.insert(stored.record, target = null) ?: return@withContext null
+            val inserted = records.insertAll(listOf(stored.record), target = null).single()
+            val id = inserted.contactId ?: return@withContext null
+            photoRaw = inserted.rawIds.firstOrNull()
             if (stored.editedSince) {
-                contacts.editable(id)?.let { original -> contacts.save(original, overlay(original, d), null, null, false) } ?: id
+                contacts.editable(id)?.let { original -> contacts.save(original, overlay(original, d), null, null, false)?.contactId } ?: id
             } else {
                 id
             }
         }
-        if (newId != null) vault.delete(vaultId)
+        if (newId != null) {
+            val photo = vault.photoBytes(vaultId)
+            val raw = photoRaw ?: contacts.rawIds(newId).firstOrNull()
+            if (photo != null && raw != null) runCatching { records.setPhoto(raw, photo) }
+            vault.delete(vaultId)
+        }
         contacts.refresh()
         newId
     }

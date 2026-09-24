@@ -303,14 +303,19 @@ class BackupRepository(
         val arr = JSONArray()
         for (v in list) {
             val d = runCatching { vault.details(v.id) }.getOrNull() ?: continue
-            val o = JSONObject().put("details", ContactDetailsJson.encode(d)).put("expiresAt", v.expiresAt ?: 0L)
-            // The lossless phone-contact image of a moved contact (F4), while its details are unedited. Optional:
-            // older Parley versions ignore it.
-            runCatching { vault.storedRecord(v.id) }.getOrNull()?.takeIf { !it.editedSince }?.let { s ->
+            val o = JSONObject().put("details", ContactDetailsJson.encode(d.copy(photoUri = null))).put("expiresAt", v.expiresAt ?: 0L)
+            if (v.purgeHistory) o.put("purgeHistory", true)
+            // The lossless phone-contact image of a moved contact (F4), with the hash that tells whether the details
+            // were edited since ("recordOf"), so moving out after a restore behaves as before. Optional: older
+            // Parley versions ignore it (and only wrote it for unedited entries, which is what a missing hash means).
+            runCatching { vault.storedRecord(v.id) }.getOrNull()?.let { s ->
                 val blobs = JSONObject()
                 o.put("record", app.parley.common.backup.RecordJson.encode(s.record) { h, b -> blobs.put(h, android.util.Base64.encodeToString(b, android.util.Base64.NO_WRAP)) })
                 o.put("recordBlobs", blobs)
+                if (s.recordOf.isNotEmpty()) o.put("recordOf", s.recordOf)
             }
+            // The caller photo (kept encrypted apart from the details); inside the archive it is under the archive key.
+            vault.photoBytes(v.id)?.let { o.put("photo", android.util.Base64.encodeToString(it, android.util.Base64.NO_WRAP)) }
             arr.put(o)
         }
         return JSONObject().put("contacts", arr).toString().toByteArray()
@@ -573,7 +578,15 @@ class BackupRepository(
                     }
                 }.getOrNull()
             }
-            vault.save(null, d, o.optLong("expiresAt").takeIf { it > 0 }, record = record)
+            val expiresAt = o.optLong("expiresAt").takeIf { it > 0 }
+            val id = vault.save(
+                null, d.copy(photoUri = null), expiresAt,
+                purgeHistory = if (expiresAt != null) o.optBoolean("purgeHistory", false) else null,
+                record = record, recordOf = o.optString("recordOf").takeIf { record != null && it.isNotEmpty() },
+            )
+            o.optString("photo").takeIf { it.isNotEmpty() }?.let { p ->
+                runCatching { vault.setPhoto(id, android.util.Base64.decode(p, android.util.Base64.NO_WRAP)) }
+            }
             n++
         }
         return n

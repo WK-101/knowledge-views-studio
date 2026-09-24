@@ -166,6 +166,19 @@ object PhoneNumbers {
     }
 
     /**
+     * Whether two numbers are exactly the same line, for deletions that must never touch anyone else: the E.164
+     * forms when both have one, otherwise every digit (never just the last few, as [same] does).
+     */
+    fun sameExact(a: String?, b: String?, countryIso: String?): Boolean {
+        val ea = toE164(a, countryIso)
+        val eb = toE164(b, countryIso)
+        if (ea != null && eb != null) return ea == eb
+        val da = digits(a)
+        val db = digits(b)
+        return da.isNotEmpty() && da == db
+    }
+
+    /**
      * Neighbour spoofing: an unknown caller whose number differs from one of the user's own
      * numbers only in the last few digits.
      */

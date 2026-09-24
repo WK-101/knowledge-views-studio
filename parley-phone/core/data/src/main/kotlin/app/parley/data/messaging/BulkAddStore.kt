@@ -113,7 +113,9 @@ class BulkAddStore(private val c: DataContainer) {
                         saved == null -> failed += "${item.name}: not saved"
                         saved.private -> vaultIds += saved.id
                         else -> {
-                            rawIds += c.contacts.rawIds(saved.id)
+                            // Only the raw contact Parley created: Android may have linked it with someone else's
+                            // contact of the same name, whose raws an undo must never delete.
+                            saved.rawId?.let { rawIds += it }
                             c.contacts.lookupKeyOf(saved.id)?.let { keys += it }
                         }
                     }

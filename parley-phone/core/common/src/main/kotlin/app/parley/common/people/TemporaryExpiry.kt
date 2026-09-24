@@ -48,4 +48,24 @@ object TemporaryExpiry {
         if (temporaries.isEmpty() || temporaries.size < joinedContacts) return null
         return temporaries.flatMap { it.first }.toSet() to temporaries.minOf { it.second }
     }
+
+    /**
+     * Two entries for the same person (a key change made them collide): all raws of both, the earlier expiry. The
+     * result never loses a raw id either entry recorded, so nothing Parley created is forgotten (and nothing else
+     * is added).
+     */
+    fun merge(a: Pair<String?, Long>, b: Pair<String?, Long>): Pair<String?, Long> {
+        val ids = decodeIds(a.first).orEmpty() + decodeIds(b.first).orEmpty()
+        return (if (ids.isEmpty()) a.first ?: b.first else encodeIds(ids)) to minOf(a.second, b.second)
+    }
+
+    /**
+     * Key for a temporary contact whose lookup key wasn't readable yet right after it was saved: recorded by its raw
+     * contact; the daily re-keying (which follows raw ids) gives it its real key.
+     */
+    fun pendingKey(rawId: Long): String = "$PENDING$rawId"
+
+    fun isPendingKey(key: String): Boolean = key.startsWith(PENDING)
+
+    private const val PENDING = "parley-raw:"
 }

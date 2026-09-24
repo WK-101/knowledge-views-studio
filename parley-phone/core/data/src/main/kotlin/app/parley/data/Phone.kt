@@ -9,12 +9,19 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
 object PhoneEnv {
-    /** Country used to interpret national numbers: SIM first, then network, then locale. */
+    /**
+     * Country used to interpret national numbers: SIM first, then network, then the system locales (not Parley's
+     * per-app language, which may carry no country), then the default locale.
+     */
     fun countryIso(context: Context): String {
         val tm = context.getSystemService(TelephonyManager::class.java)
-        val sim = tm?.simCountryIso?.takeIf { it.length == 2 }
-        val net = tm?.networkCountryIso?.takeIf { it.length == 2 }
-        return (sim ?: net ?: Locale.getDefault().country).uppercase(Locale.ROOT)
+        val system = runCatching {
+            val list = android.content.res.Resources.getSystem().configuration.locales
+            (0 until list.size()).map { list[it].country } + android.os.LocaleList.getAdjustedDefault().let { l -> (0 until l.size()).map { l[it].country } }
+        }.getOrDefault(emptyList())
+        return app.parley.common.RegionPick.pick(
+            runCatching { tm?.simCountryIso }.getOrNull(), runCatching { tm?.networkCountryIso }.getOrNull(), system, Locale.getDefault().country,
+        )
     }
 
     /**
