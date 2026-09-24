@@ -2,6 +2,8 @@
 
 *24 Sep 2026. Round 2 of the competitive analysis (round 1: [COMPETITIVE_ANALYSIS.md](COMPETITIVE_ANALYSIS.md)).*
 
+> **Updated after round 3** ([COMPETITIVE_ANALYSIS_3.md](COMPETITIVE_ANALYSIS_3.md), six more apps). Changed items are marked **(r3)**. The release plan in §7 is replaced by round 3's §8.
+
 **What was read.** The full source of each app: every Kotlin and Java file, the manifests, layouts, menus, preference XML, English strings and build files. Also each issue tracker, sorted by reactions and comments, with the top threads read in full, plus forum discussion wherever it existed.
 
 | App | Source | Lines read | State |
@@ -235,6 +237,9 @@ None of the four is a threat on scope. Parley is the only one of the five apps t
 | Full-screen intent re-posted on every update (NovaDial #63) | Parley de-duplicates posts by signature (`CallNotifier`). **Add a test** that the full-screen intent is posted once per ring |
 | Call history in cloud backup (NovaDial) | Parley opts out of cloud backup for its own data. **Keep a test** that no call-log data lands in SharedPreferences |
 | Unused dangerous permissions (NovaDial, Koler) | Enforced by Parley's build-time permission check |
+| **(r3)** T9 covers every Cyrillic alphabet (Emerald) | **Bug**: Ukrainian, Belarusian, Bulgarian, Serbian and Macedonian letters missing → K1 |
+| **(r3)** Screening responds before logging (Call Blocker) | **Needs fixing**: the blocked-call log is written before `respondToCall` |
+| **(r3)** Call-log retention promise (Logger) | **Verify**: the provider may trim to about 500 rows per account → H1, or softer wording |
 
 ---
 
@@ -252,8 +257,8 @@ Effort: S ≈ a day, M ≈ a few days, L ≈ a week or more.
 | A4 | **Notification health card.** Checks notifications allowed, full-screen intent allowed (Android 14+), dialer role and battery optimisation, each with a one-tap fix. | S | Privacy dashboard, plus a first-run banner when something is off |
 | A5 | **Adaptive audio button.** A plain Speaker toggle without accessories. With Bluetooth or wired, a route button that opens a picker of supported routes, naming each Bluetooth device (`CallEndpoint` on Android 14+). | S | In-call grid, Speaker slot. Check Parley's current audio sheet against this |
 | A6 | **Connect and disconnect haptics** (respect silent mode) | S | Settings › Calls |
-| A7 | **Empty call button fills in the last number** (fills, doesn't dial) | S | Keypad tab |
-| A8 | **"Ring loud for…"**: boost to maximum only for favourites or repeat callers, crash-safe restore | S | Settings › Calls, plus a per-contact toggle next to Ringtone |
+| A7 | ~~Empty call button fills in the last number~~ **(r3) Already built** (`KeypadTab.callNow`); add a test only | — | Keypad tab |
+| A8 | **(r3) Merged into B24** (ringtone per reason). **"Ring loud for…"**: boost to maximum only for favourites or repeat callers, crash-safe restore | S | Settings › Calls, plus a per-contact toggle next to Ringtone |
 | A9 | **Landscape and foldable in-call layout**: caller card on the left, controls on the right | S–M | In-call screen |
 | A10 | **Pending-SIM hint** "Calling via Work SIM…" before the `Call` exists | S | Dialling state of the in-call screen |
 | A11 | **Hang-up tile**: a Quick Settings tile that ends the active call, as a safety net | S | Quick Settings |
@@ -272,11 +277,11 @@ Effort: S ≈ a day, M ≈ a few days, L ≈ a week or more.
 | B6 | **Per-verdict notification channels**: Likely spam / Reported / Blocked | S | System channels, linked from Settings › Notifications |
 | B7 | **Import a user block list** (CSV, NoPhoneSpam, YACB blacklist; *never* the SIA database) and **export or share your rules as a signed pack**, by file, QR or the sync folder (covers YACB #60 without a server) | S | Blocking › Import / Share |
 | B8 | **Multi-select Block in Recents**, plus a "Search number on the web" action that hands the number to the browser, with YACB's confirmation when it is a contact | S | Recents selection bar; number history |
-| B9 | **Per-SIM screening profiles** ("Work SIM: block non-contacts") | M | Blocking › per-SIM tabs when there are 2+ SIMs |
+| B9 | **(r3) Changed:** a per-rule SIM field (S), evaluated in `CallManager` (screening calls carry no SIM), on one per-SIM page with the plan meter (T8). Was: **Per-SIM screening profiles** ("Work SIM: block non-contacts") | M | Blocking › per-SIM tabs when there are 2+ SIMs |
 | B10 | **Wangiri guard**: a missed international or premium call that rang once or less gets a "Don't call back" badge, and calling back asks for confirmation (libphonenumber `getNumberType`) | S | Recents badge; dial confirmation |
 | B11 | **Outgoing warning** for premium-rate, shared-cost or listed numbers | S | Dial confirmation sheet |
-| B12 | **Personal reputation**: numbers you keep rejecting, or that hang up within 3 s, get a local "likely spam for you" score and an offer to make it a rule | M | Suggestions in the blocked log |
-| B13 | **Screening dry run**: "What this list or rule would have blocked last week", checked against the call log before enabling | S | Spam list and rule editor |
+| B12 | **(r3) Add** a 1-hour regret window (no suggestion if they call back, you dial back, or you save them) and the short-answered-call signal; built on H9 `CallLogIndex`. **Personal reputation**: numbers you keep rejecting, or that hang up within 3 s, get a local "likely spam for you" score and an offer to make it a rule | M | Suggestions in the blocked log |
+| B13 | **(r3) Must have no side effects** (SpamBlocker's test sends real SMS and reports); add "test this call" on Recents and coverage badges on past calls. **Screening dry run**: "What this list or rule would have blocked last week", checked against the call log before enabling | S | Spam list and rule editor |
 
 **B4, spam list packs, in detail.**
 - **Format:** a zip containing:
@@ -306,7 +311,7 @@ Effort: S ≈ a day, M ≈ a few days, L ≈ a week or more.
 |---|---|---|---|
 | C1 | **"Second line" setting**: Number / Company · Title / Nickname / Account / None under names, plus **automatic company display when two visible names collide** (Fossify #102) | S | Settings › Appearance; contact rows |
 | C2 | **Label filters**: an "Unlabelled" chip, AND/OR multi-select, "Merge labels" | S–M | Contacts tab filter chips; label management overflow |
-| C3 | **Label page actions**: **ringtone per label** (resolved as contact → label → default by Parley's own ringer), **Message all**, **Email all** | S | Label detail top bar |
+| C3 | **(r3) Label ringtone merged into B24.** **Label page actions**: **ringtone per label** (resolved as contact → label → default by Parley's own ringer), **Message all**, **Email all** | S | Label detail top bar |
 | C4 | **Favourites: drag to reorder** (stored by lookup key), sort Custom / A–Z / Most called, **pinch to change grid columns** | S–M | Favorites tab |
 | C5 | **Actionable account chips** on the detail page: Edit this copy · Move to… · Unlink | S | Contact detail, "Saved in" section |
 | C6 | **Live duplicate warning in the new-contact editor**: "Anna Smith already exists · Open / Add these details to her" | S | Contact editor |
@@ -315,14 +320,14 @@ Effort: S ≈ a day, M ≈ a few days, L ≈ a week or more.
 | C9 | **Date of death** event (stops birthday reminders; shows "would have turned N") and a **"Prefer nickname"** display option | S | Editor events; Settings › Appearance |
 | C10 | **Per-account counts** everywhere accounts are listed (filter, export, backup, default-account picker) | S | Those dialogs |
 | C11 | **"Why did this change?"**: a provenance line on the contact (which app or sync adapter changed it, from the journal and time-machine diff), plus "Only changed fields were written" on Parley's own saves | M | Contact detail, version history |
-| C12 | **Per-number statistics card**: counts by type, total talk time, "usually calls weekday evenings" | S | Number history; contact detail "Calls" section |
+| C12 | **(r3) Replaced by H6** (per-contact, all numbers, E.164, weekday × hour). **Per-number statistics card**: counts by type, total talk time, "usually calls weekday evenings" | S | Number history; contact detail "Calls" section |
 | C13 | **Pinned shortcut that opens the contact page** (in addition to call and message shortcuts) | S | Contact overflow |
 | C14 | **Call-screen background per contact**: copied into app storage, keyed by lookup key, included in backup (not NovaDial's broken URI-by-id) | M | Editor › "Call screen" |
 | C15 | **Protected private-name lookup for other apps**: a permission-protected provider that returns only name and photo *for a number query*, never a list, approved per app and logged (the safe version of Fossify's leaky provider) | M | Privacy › "Let apps show private names" |
 
 ### Tier D: robustness and trust
 
-- **D1.** Regression tests from this round:
+- **D1.** **(r3) Extended** with round 3's cases: Cyrillic T9; Mexican `+52 1` forms; literal `_ %` in rules; respond before logging; limits end only their own call; quotas don't reset on reboot; CSV/ICS escaping; import deduplication; billing rounding never changes stored data; free-text number parsing; E.164 with the SIM country; a failed lookup is never cached as "Unknown". Regression tests from this round:
   - `#` in `tel:` URIs;
   - the SIM extra key;
   - SIM pickers keyed by handle, not label;
@@ -439,6 +444,8 @@ Effort: S ≈ a day, M ≈ a few days, L ≈ a week or more.
   - "no internet, so no leaks".
 
 ## 7. Proposed sequence
+
+> **(r3) Superseded** by the consolidated roadmap in [COMPETITIVE_ANALYSIS_3.md §8](COMPETITIVE_ANALYSIS_3.md). Kept for history.
 
 1. **Next release (v2.1):**
    - calling: A1–A7, A12;
