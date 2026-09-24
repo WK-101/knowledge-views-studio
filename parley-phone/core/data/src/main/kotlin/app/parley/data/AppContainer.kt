@@ -21,6 +21,7 @@ class DataContainer(context: Context) {
     val screener by lazy { CallScreener(appContext, contacts, blocks, sims, settings, vault, scope) }
     val placer by lazy { CallPlacer(appContext, sims, prefs) }
     val records by lazy { ContactRecordStore(appContext) }
+    val calling by lazy { app.parley.data.calltime.CallingRepository(appContext) }
     val vcards by lazy { VCardIO(appContext, contacts, records) }
     val vault by lazy { app.parley.data.vault.VaultRepository(appContext, db, scope) }
     val meta by lazy { db.metaDao() }

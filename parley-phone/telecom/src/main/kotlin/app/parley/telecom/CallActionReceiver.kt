@@ -15,6 +15,8 @@ class CallActionReceiver : BroadcastReceiver() {
             ACTION_HANGUP -> CallManager.hangup(id)
             ACTION_MUTE -> CallManager.setMuted(!CallManager.audio.value.muted)
             ACTION_SPEAKER -> CallManager.toggleSpeaker()
+            ACTION_EXTEND -> CallClock.extend(id, 5)
+            ACTION_KEEP_GOING -> CallClock.keepGoing(id)
         }
     }
 
@@ -25,6 +27,8 @@ class CallActionReceiver : BroadcastReceiver() {
         const val ACTION_HANGUP = "app.parley.telecom.HANGUP"
         const val ACTION_MUTE = "app.parley.telecom.MUTE"
         const val ACTION_SPEAKER = "app.parley.telecom.SPEAKER"
+        const val ACTION_EXTEND = "app.parley.telecom.EXTEND"
+        const val ACTION_KEEP_GOING = "app.parley.telecom.KEEP_GOING"
         const val EXTRA_ID = "call_id"
     }
 }

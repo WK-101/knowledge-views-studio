@@ -64,7 +64,8 @@ fun CallDialogs(vm: AppViewModel) {
         AlertDialog(
             onDismissRequest = { vm.pendingCall.value = null },
             title = { Text("Call $who?") },
-            confirmButton = { TextButton({ vm.place(p.number, null) }) { Text("Call") } },
+            text = p.note?.let { { Text("$it Call anyway?") } },
+            confirmButton = { TextButton({ vm.place(p.number, p.simId, confirmed = true) }) { Text(if (p.note != null) "Call anyway" else "Call") } },
             dismissButton = { TextButton({ vm.pendingCall.value = null }) { Text("Cancel") } },
         )
     }

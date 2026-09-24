@@ -11,6 +11,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.graphics.drawable.IconCompat
+import app.parley.common.calltime.CallChronometer
 import app.parley.telecom.ui.InCallActivity
 import app.parley.ui.PhotoCache
 import kotlinx.coroutines.CoroutineScope
@@ -82,7 +83,10 @@ class CallNotifier(private val context: Context) {
             cancel(ONGOING_ID)
         } else {
             val a = CallManager.audio.value
-            post(ONGOING_ID, ongoing, "o${a.muted}${a.current?.type}") { buildOngoing(ongoing) }
+            val timing = CallClock.timings.value[ongoing.id]
+            // The chronometer counts by itself: the signature changes when the end time changes, not every second (T3).
+            val chrono = CallChronometer.display(ongoing.connectTimeMillis, timing?.countdown, android.os.SystemClock.elapsedRealtime(), System.currentTimeMillis())
+            post(ONGOING_ID, ongoing, "o${a.muted}${a.current?.type}${chrono.signature}${timing?.canExtend}") { buildOngoing(ongoing, timing, chrono) }
         }
     }
 
@@ -198,8 +202,9 @@ class CallNotifier(private val context: Context) {
             .addAction(0, "Answer", answerIntent(call))
             .build()
 
-    private fun buildOngoing(call: CallUi): android.app.Notification {
+    private fun buildOngoing(call: CallUi, timing: CallTiming?, chrono: CallChronometer.Display): android.app.Notification {
         val audio = CallManager.audio.value
+        val limited = timing?.countdown?.hasEnd == true
         val b = NotificationCompat.Builder(context, CH_ONGOING)
             .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
             .setContentTitle(call.title)
@@ -207,7 +212,7 @@ class CallNotifier(private val context: Context) {
                 when (call.state) {
                     CallState.DIALING, CallState.CONNECTING -> "Calling…"
                     CallState.HOLDING -> "On hold"
-                    else -> subtitle(call).ifEmpty { "Ongoing call" }
+                    else -> if (limited) endsText(timing, chrono) else subtitle(call).ifEmpty { "Ongoing call" }
                 },
             )
             .setCategory(NotificationCompat.CATEGORY_CALL)
@@ -221,11 +226,22 @@ class CallNotifier(private val context: Context) {
             .setFullScreenIntent(contentIntent(), false)
             .setStyle(NotificationCompat.CallStyle.forOngoingCall(person(call), action(CallActionReceiver.ACTION_HANGUP, call.id, 6)))
             .addAction(0, if (audio.muted) "Unmute" else "Mute", action(CallActionReceiver.ACTION_MUTE, call.id, 7))
-            .addAction(0, if (audio.current?.type == RouteType.SPEAKER) "Speaker off" else "Speaker", action(CallActionReceiver.ACTION_SPEAKER, call.id, 8))
-        if (call.state == CallState.ACTIVE && call.connectTimeMillis > 0) {
-            b.setUsesChronometer(true).setWhen(call.connectTimeMillis).setShowWhen(true)
+        if (limited && timing.canExtend) {
+            // Wrap-up actions replace Speaker while a limit runs (T3).
+            b.addAction(0, "+5 min", action(CallActionReceiver.ACTION_EXTEND, call.id, 11))
+            b.addAction(0, "Don't end", action(CallActionReceiver.ACTION_KEEP_GOING, call.id, 12))
+        } else {
+            b.addAction(0, if (audio.current?.type == RouteType.SPEAKER) "Speaker off" else "Speaker", action(CallActionReceiver.ACTION_SPEAKER, call.id, 8))
+        }
+        if ((call.state == CallState.ACTIVE || call.state == CallState.HOLDING) && call.connectTimeMillis > 0) {
+            b.setUsesChronometer(true).setChronometerCountDown(chrono.countDown).setWhen(chrono.whenMillis).setShowWhen(true)
         }
         return b.build()
+    }
+
+    private fun endsText(timing: CallTiming, chrono: CallChronometer.Display): String {
+        val at = android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(chrono.whenMillis))
+        return listOfNotNull(timing.source, "ends at $at").joinToString(" · ").replaceFirstChar { it.uppercase() }
     }
 
     companion object {

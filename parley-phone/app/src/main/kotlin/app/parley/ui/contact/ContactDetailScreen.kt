@@ -333,6 +333,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     supportingContent = { Text(every?.let { "If you haven't talked in $it days" } ?: "Off") },
                 )
             }
+            item { app.parley.ui.calltime.ContactCallTimeRows(vm, d.lookupKey, d.displayName, d.starred) }
             item {
                 val tone = d.customRingtone?.let { runCatching { RingtoneManager.getRingtone(context, Uri.parse(it))?.getTitle(context) }.getOrNull() }
                 Row0(Icons.Rounded.MusicNote, tone ?: "Default ringtone", "Ringtone") {

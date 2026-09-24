@@ -22,6 +22,10 @@ import app.parley.data.PhoneEnv
 import app.parley.data.PlaceResult
 import app.parley.data.messaging.Romanizer
 import app.parley.shortcuts.Shortcuts
+import app.parley.calltime.CallTimePlanner
+import app.parley.calltime.UssdSession
+import app.parley.common.calltime.Ussd
+import app.parley.telecom.CallManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
@@ -64,6 +68,9 @@ data class PendingCall(
     val name: String?,
     val needConfirm: Boolean,
     val chooseSim: Boolean,
+    /** Why the call needs confirming beyond the usual question, e.g. a used-up call-time allowance. */
+    val note: String? = null,
+    val simId: String? = null,
 )
 
 sealed interface UiEvent {
@@ -311,8 +318,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- Calling ----------
 
+    /** USSD codes typed on the keypad (A13). */
+    val ussd = UssdSession(c, viewModelScope)
+    private val callTime = CallTimePlanner(c)
+
     fun requestCall(number: String, name: String? = null, skipConfirm: Boolean = false) {
         if (number.isBlank()) return
+        if (Ussd.isUssd(number)) {
+            ussd.start(number.trim(), sims.value, null)
+            return
+        }
         val ctx = getApplication<Application>()
         if (!Permissions.has(ctx, Manifest.permission.CALL_PHONE)) {
             events.trySend(UiEvent.RequestCallPermission)
@@ -324,18 +339,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val chooseSim = simCount >= 2 && remembered == null && withContext(Dispatchers.IO) { c.sims.defaultOutgoing() } == null &&
                 !PhoneNumbers.isServiceCode(number)
             val confirm = settings.value.confirmBeforeCall && !skipConfirm
-            if (confirm || chooseSim) {
-                pendingCall.value = PendingCall(number, name, confirm, chooseSim)
+            if (confirm && !chooseSim) {
+                // One dialog for both questions: "Call Ana?" and a used-up allowance.
+                val note = callTime.outgoingWarning(number, remembered ?: withContext(Dispatchers.IO) { c.sims.defaultOutgoing() })
+                pendingCall.value = PendingCall(number, name, true, false, note)
+            } else if (chooseSim) {
+                pendingCall.value = PendingCall(number, name, confirm, true)
             } else {
                 place(number, null)
             }
         }
     }
 
-    fun place(number: String, simId: String?, remember: Boolean = false) {
+    /** [confirmed]: the user already said yes to a used-up call-time allowance (T6). */
+    fun place(number: String, simId: String?, remember: Boolean = false, confirmed: Boolean = false) {
         pendingCall.value = null
+        if (Ussd.isUssd(number)) {
+            ussd.start(number.trim(), sims.value, simId)
+            return
+        }
         viewModelScope.launch {
             if (remember && simId != null) c.prefs.setSimFor(number, simId)
+            val chosen = simId ?: withContext(Dispatchers.IO) { c.prefs.simFor(number) ?: c.sims.defaultOutgoing() }
+            if (!confirmed) {
+                callTime.outgoingWarning(number, chosen)?.let { note ->
+                    pendingCall.value = PendingCall(number, contactFor(number)?.displayName, true, false, note, simId)
+                    return@launch
+                }
+            }
+            // "Calling via Work SIM…" until the call exists (A10).
+            CallManager.expectOutgoing(number, sims.value.takeIf { it.size >= 2 }?.firstOrNull { it.id == chosen }?.label)
             when (val r = c.placer.call(number, simId)) {
                 is PlaceResult.Failed -> toast(r.reason)
                 else -> Unit

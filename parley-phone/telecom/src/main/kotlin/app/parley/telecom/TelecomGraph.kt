@@ -7,6 +7,7 @@ import app.parley.common.Decision
 import app.parley.common.ListDensity
 import app.parley.common.ThemeMode
 import app.parley.common.Verification
+import app.parley.common.calltime.CallTimePlan
 import kotlinx.coroutines.flow.StateFlow
 
 data class CallerDisplay(
@@ -54,6 +55,15 @@ interface TelecomDependencies {
 
     /** Offline "where is this number from" for unknown callers. */
     fun describeNumber(number: String): String? = null
+
+    /** Talk-time reminders, limit and allowance for a new call (T1, T5, T6). Never called for emergency calls. */
+    suspend fun callTimePlan(number: String?, accountId: String?, incoming: Boolean): CallTimePlan = CallTimePlan.NONE
+
+    /** True when this caller's allowance is used up and the user wants such calls to ring silently (T6). */
+    suspend fun silenceOverQuota(number: String, accountId: String?): Boolean = false
+
+    /** Vibrate on connect, disconnect, swap, merge and limit warnings (A6). */
+    fun callHaptics(): Boolean = true
 }
 
 object TelecomGraph {

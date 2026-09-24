@@ -12,6 +12,7 @@ import android.telecom.VideoProfile
 import app.parley.common.BlockAction
 import app.parley.common.Decision
 import app.parley.common.Verification
+import app.parley.common.calltime.CallHaptic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -51,6 +52,17 @@ object CallManager {
     /** Last call that ended, for the brief "Call ended" screen. */
     private val _lastEnded = MutableStateFlow<CallUi?>(null)
     val lastEnded: StateFlow<CallUi?> = _lastEnded.asStateFlow()
+
+    /** A call Parley just asked Telecom to place, until it shows up (A10). */
+    private val _pendingOutgoing = MutableStateFlow<PendingOutgoing?>(null)
+    val pendingOutgoing: StateFlow<PendingOutgoing?> = _pendingOutgoing.asStateFlow()
+
+    /** When each held call was put on hold (A2). */
+    private val heldSince = HashMap<String, Long>()
+    /** Last live state of each top-level call, to know whether the call that ended was the one in front (A2). */
+    private val lastLiveState = HashMap<String, CallState>()
+    private val quotaSilenced = HashSet<String>()
+    private val endedByLimit = HashSet<String>()
 
     internal var service: ParleyInCallService? = null
 
@@ -131,6 +143,20 @@ object CallManager {
             }
         }
 
+        // An incoming call whose allowance is used up rings silently when the user asked for that (T6).
+        if (incoming && number != null && !hidden && !isEmergency(number) && !ScreeningGuard.inEmergencyWindow(context)) {
+            scope.launch {
+                val silence = withTimeoutOrNull(SCREEN_TIMEOUT_MS) { deps.silenceOverQuota(number, call.details.accountHandle?.id) } == true
+                if (silence && calls.contains(call) && call.stateCompat() == Call.STATE_RINGING && id !in silenced) {
+                    silenced += id
+                    quotaSilenced += id
+                    silenceRinger()
+                    stopCustomRinger()
+                    publish()
+                }
+            }
+        }
+
         if (number != null && !hidden) {
             scope.launch {
                 val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { deps.callerInfo(number) }
@@ -196,13 +222,49 @@ object CallManager {
         silenced -= id
         screening -= id
         postDial.remove(id)
+        quotaSilenced -= id
+        endedByLimit -= id
+        heldSince.remove(id)
+        val wasInFront = lastLiveState.remove(id) in FRONT_STATES
         publish()
+        if (wasInFront) resumeHeldIfAlone()
+    }
+
+    /**
+     * When the call in front ends and exactly one held call is left, resume it (A2), unless another call is
+     * ringing, dialling or active. Checked after a moment, since some networks resume on their own.
+     */
+    private fun resumeHeldIfAlone() {
+        scope.launch {
+            delay(RESUME_DELAY_MS)
+            val top = calls.filter { it.parent == null }
+            val busy = top.any { mapState(it.stateCompat()) in BUSY_STATES }
+            val held = top.filter { mapState(it.stateCompat()) == CallState.HOLDING }
+            if (!busy && held.size == 1) held.first().unhold()
+        }
+    }
+
+    /** Re-sends the current state to the notification and proximity observers (e.g. a countdown changed). */
+    internal fun notifyObservers() {
+        onChanged?.invoke(_calls.value)
+    }
+
+    /** Called when Parley places a call, so the UI can say "Calling via Work SIM…" before the call exists. */
+    fun expectOutgoing(number: String, simLabel: String?) {
+        val p = PendingOutgoing(number, simLabel, android.os.SystemClock.elapsedRealtime())
+        _pendingOutgoing.value = p
+        scope.launch {
+            delay(PENDING_OUTGOING_MS)
+            if (_pendingOutgoing.value == p) _pendingOutgoing.value = null
+        }
     }
 
     internal fun clear() {
         calls.toList().forEach { it.unregisterCallback(callback) }
         calls.clear()
         accountLabels.clear()
+        heldSince.clear()
+        lastLiveState.clear()
         publish()
     }
 
@@ -213,8 +275,17 @@ object CallManager {
             val c = calls.firstOrNull { idOf(it) == rid }
             if (c == null || c.stateCompat() != Call.STATE_RINGING || rid in silenced) stopCustomRinger()
         }
+        val now = android.os.SystemClock.elapsedRealtime()
+        calls.filter { it.parent == null }.forEach { c ->
+            val id = idOf(c)
+            val st = mapState(c.stateCompat())
+            if (st == CallState.HOLDING) heldSince.getOrPut(id) { now } else heldSince.remove(id)
+            if (st != CallState.DISCONNECTING && st != CallState.DISCONNECTED) lastLiveState[id] = st
+        }
         val top = calls.filter { it.parent == null }.map { toUi(it) }
+        if (top.isNotEmpty()) _pendingOutgoing.value = null
         _calls.value = top
+        CallClock.onCallsChanged(top)
         onChanged?.invoke(top)
     }
 
@@ -228,6 +299,8 @@ object CallManager {
         fun can(c: Int) = (caps and c) != 0
         val conferenceable = call.conferenceableCalls.isNotEmpty()
         val state = mapState(call.stateCompat())
+        // Before Telecom picks the account, the one Parley asked for is in the intent extras (A10).
+        val account = d.accountHandle ?: requestedAccount(d)
         return CallUi(
             id = id,
             state = state,
@@ -248,17 +321,28 @@ object CallManager {
             canSeparate = can(Call.Details.CAPABILITY_SEPARATE_FROM_CONFERENCE),
             canDisconnectChild = can(Call.Details.CAPABILITY_DISCONNECT_FROM_CONFERENCE),
             canRespondViaText = can(Call.Details.CAPABILITY_RESPOND_VIA_TEXT),
-            accountLabel = accountLabel(d.accountHandle),
+            accountLabel = accountLabel(account),
             verification = verificationOf(call),
-            disconnectReason = d.disconnectCause?.let { disconnectText(it) },
+            disconnectReason = if (id in endedByLimit) "Call time limit reached" else d.disconnectCause?.let { disconnectText(it) },
             postDialWait = postDial[id],
             silenced = id in silenced,
+            silenceReason = if (id in quotaSilenced) "Silenced: your call time with this person is used up" else null,
+            accountId = account?.id,
+            heldSinceElapsed = heldSince[id] ?: 0L,
             isEmergency = isEmergency(number),
             note = found?.note,
             lastCall = found?.lastCall,
             unknown = id in unknownCallers,
             location = if (id in unknownCallers && number != null) locations.getOrPut(id) { runCatching { TelecomGraph.dependencies.describeNumber(number) }.getOrNull().orEmpty() }.ifEmpty { null } else null,
         )
+    }
+
+    @Suppress("DEPRECATION")
+    private fun requestedAccount(d: Call.Details): PhoneAccountHandle? = try {
+        if (Build.VERSION.SDK_INT >= 33) d.intentExtras?.getParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, PhoneAccountHandle::class.java)
+        else d.intentExtras?.getParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE)
+    } catch (_: Exception) {
+        null
     }
 
     private fun Call.Details.contactDisplayNameCompat(): String? =
@@ -328,6 +412,41 @@ object CallManager {
 
     fun answer(id: String) {
         find(id)?.answer(VideoProfile.STATE_AUDIO_ONLY)
+    }
+
+    /**
+     * Puts the active call on hold and answers the waiting one (A1). Telecom would end an active call that
+     * can't be held, so the UI only offers this when holding is possible.
+     */
+    fun holdAndAnswer(id: String) {
+        val waiting = find(id) ?: return
+        calls.filter { it != waiting && it.parent == null && mapState(it.stateCompat()) == CallState.ACTIVE }
+            .forEach { if ((it.details.callCapabilities and Call.Details.CAPABILITY_HOLD) != 0) it.hold() }
+        waiting.answer(VideoProfile.STATE_AUDIO_ONLY)
+    }
+
+    /**
+     * Ends the call whose time limit ran out (T5). Only that call: a waiting or held call is never touched, and
+     * `TelecomManager.endCall()` (which picks a call on its own) is never used.
+     */
+    internal fun endForLimit(id: String) {
+        val call = find(id) ?: return
+        val st = mapState(call.stateCompat())
+        if (st == CallState.RINGING || st == CallState.DISCONNECTED || st == CallState.DISCONNECTING) return
+        if (isEmergency(call.details.handle?.schemeSpecificPart)) return
+        endedByLimit += id
+        call.disconnect()
+    }
+
+    /** Ends the call a "hang up" shortcut should end (A11): the active one, else one being dialled, else a held one. */
+    fun hangupForeground(): Boolean {
+        val top = calls.filter { it.parent == null }
+        val pick = top.firstOrNull { mapState(it.stateCompat()) == CallState.ACTIVE }
+            ?: top.firstOrNull { mapState(it.stateCompat()) in DIALLING_STATES }
+            ?: top.firstOrNull { mapState(it.stateCompat()) == CallState.HOLDING }
+            ?: return false
+        pick.disconnect()
+        return true
     }
 
     /** Ends the current active call, then answers the waiting one. */
@@ -410,7 +529,9 @@ object CallManager {
         when {
             (caps and Call.Details.CAPABILITY_MERGE_CONFERENCE) != 0 -> call.mergeConference()
             call.conferenceableCalls.isNotEmpty() -> call.conference(call.conferenceableCalls.first())
+            else -> return
         }
+        CallClock.haptic(CallHaptic.MERGE)
     }
 
     /** Swaps between an active and a held call (or within a conference). */
@@ -418,9 +539,12 @@ object CallManager {
         val call = find(id) ?: return
         if ((call.details.callCapabilities and Call.Details.CAPABILITY_SWAP_CONFERENCE) != 0) {
             call.swapConference()
+            CallClock.haptic(CallHaptic.SWAP)
             return
         }
-        calls.firstOrNull { it.parent == null && mapState(it.stateCompat()) == CallState.HOLDING }?.unhold()
+        val held = calls.firstOrNull { it.parent == null && mapState(it.stateCompat()) == CallState.HOLDING } ?: return
+        held.unhold()
+        CallClock.haptic(CallHaptic.SWAP)
     }
 
     fun separate(childId: String) {
@@ -471,6 +595,11 @@ object CallManager {
         onChanged?.invoke(_calls.value)
     }
 
+    private val DIALLING_STATES = setOf(CallState.NEW, CallState.DIALING, CallState.CONNECTING)
+    private val FRONT_STATES = DIALLING_STATES + CallState.ACTIVE
+    private val BUSY_STATES = FRONT_STATES + setOf(CallState.RINGING, CallState.SELECT_ACCOUNT)
+    private const val RESUME_DELAY_MS = 600L
+    private const val PENDING_OUTGOING_MS = 8000L
     private const val SCREEN_TIMEOUT_MS = 1500L
     private const val LOOKUP_TIMEOUT_MS = 2000L
 }
