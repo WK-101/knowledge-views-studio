@@ -125,6 +125,11 @@ class BackupRepository(
     val prefs: BackupPrefs,
 ) {
     private val cr = context.contentResolver
+
+    /** Feature data stored alongside the settings (see [BackupExtras]); set by the container. */
+    var extras: () -> List<BackupExtras> = { emptyList() }
+
+    private suspend fun extrasMap(): Map<String, String> = extras().fold(emptyMap()) { acc, x -> acc + runCatching { x.export() }.getOrDefault(emptyMap()) }
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
     // ------------------------------------------------------------------ keys
@@ -189,7 +194,7 @@ class BackupRepository(
                 writer.writeBlocking(blocking())
                 writer.writeSpeedDial(prefsRepo.speedDials.first().map { SpeedDialRecord(it.key, it.number, it.label) })
                 writer.writeNumberSims(prefsRepo.numberSims.first().map { NumberSimRecord(it.matchKey, it.phoneAccountId) })
-                writer.writeSettings(settings.exportMap())
+                writer.writeSettings(settings.exportMap() + extrasMap())
                 val v = vaultBlob()
                 if (v != null) {
                     writer.writeVault(mapOf("vault.json" to v))
@@ -399,7 +404,13 @@ class BackupRepository(
             opened.reader.speedDial()?.forEach { prefsRepo.setSpeedDial(it.slot, it.number, it.label) }
             opened.reader.numberSims()?.forEach { db.prefsDao().setSim(app.parley.data.db.NumberSimEntity(it.matchKey, it.phoneAccountId)) }
         }
-        if (o.settings) part("settings") { opened.reader.settings()?.let { settings.importMap(it) } }
+        if (o.settings) part("settings") {
+            opened.reader.settings()?.let { all ->
+                settings.importMap(all.filterKeys { !it.startsWith(BackupExtras.PREFIX) })
+                val x = all.filterKeys { it.startsWith(BackupExtras.PREFIX) }
+                if (x.isNotEmpty()) extras().forEach { it.import(x) }
+            }
+        }
         if (o.vault) try {
             r = r.copy(vault = restoreVault(opened))
         } catch (e: VaultCrypto.LockedException) {

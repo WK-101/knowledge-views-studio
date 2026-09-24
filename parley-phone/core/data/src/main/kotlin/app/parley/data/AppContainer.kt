@@ -27,8 +27,10 @@ class DataContainer(context: Context) {
     val journal by lazy { JournalRepository(meta, records) }
     val folderSync by lazy { app.parley.data.sync.FolderSync(appContext, contacts, records) }
     val timeMachine by lazy { app.parley.data.backup.TimeMachine(appContext, records) }
+    val people by lazy { app.parley.data.people.PeopleContainer(this) }
     val backup by lazy {
         app.parley.data.backup.BackupRepository(appContext, contacts, records, blocks, prefs, db, settings, vault, app.parley.data.backup.BackupPrefs(appContext))
+            .also { it.extras = { listOf(people.backupExtras) } }
     }
 
     init {
