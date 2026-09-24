@@ -14,6 +14,33 @@
 | **Alternate** `com.lulu786.Alternate` (IzzyOnDroid) | [BioHazard786/Alternate](https://github.com/BioHazard786/Alternate) v2.4.7 | ~11k | A private phonebook for caller ID, kept outside the system contacts |
 | **WA Contact Adder** `com.aj.wa.contact.adder` | [amr-jawwad/whatsapp_contact_adder](https://github.com/amr-jawwad/whatsapp_contact_adder) v1.0.1 | ~0.9k | A contacts list that opens WhatsApp chats, so WhatsApp can run without contacts permission |
 
+## Implementation status (v3.1)
+
+Everything in §2 and §4 is built:
+- the data-safety fixes F1–F30;
+- calls and voicemail V1–V11;
+- messaging M6–M13;
+- contact data I1–I9;
+- polish U1–U11;
+- localisation L1–L3.
+
+The v3.1 changes were then reviewed as a whole, and all 25 confirmed findings were fixed.
+
+Also in v3.1, from the user's corrections:
+- status-bar insets on every screen;
+- one header for all home tabs, with search behind an icon;
+- redesigned Settings with search;
+- a customisable navigation bar (show, hide, reorder);
+- temporary contacts from the keypad, and a Temporary contacts screen.
+
+Notes:
+- **Voicemail** works while Parley is the default phone app; the provider grants read access to that role.
+- **"My card"** is stored inside Parley. The platform profile is readable by every app with contacts access, so Parley doesn't write to it.
+- **Private names in other phone apps** is off by default and approved per app, with its own approvals, separate from the lookup provider's.
+- **Translations** (de, es, fr, pt-BR, hi, ur, ar) are machine-assisted and marked for native review.
+
+The on-device checklists are TESTING.md §10–§13.
+
 ---
 
 ## 1. Verdict
