@@ -34,10 +34,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.parley.R
 import app.parley.common.people.HandleLink
 import app.parley.common.people.Handles
 import app.parley.data.HandleItem
@@ -93,7 +95,7 @@ fun GroupDataRow(
             modifier = Modifier.combinedClickable(
                 onClick = onClick,
                 onLongClick = { if (menu != null) open = true else Intents.copy(context, text) },
-                onLongClickLabel = if (menu != null) "More actions" else "Copy",
+                onLongClickLabel = stringResource(if (menu != null) R.string.main_more_actions else R.string.main_copy),
             ),
             colors = groupRowColors(),
             leadingContent = { if (showIcon) Icon(icon, null) else Spacer(Modifier.size(24.dp)) },
@@ -103,7 +105,7 @@ fun GroupDataRow(
         )
         if (menu != null) {
             DropdownMenu(open, { open = false }) {
-                DropdownMenuItem({ Text("Copy") }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) }, onClick = { open = false; Intents.copy(context, text) })
+                DropdownMenuItem({ Text(stringResource(R.string.main_copy)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) }, onClick = { open = false; Intents.copy(context, text) })
                 menu { open = false }
             }
         }
@@ -125,7 +127,7 @@ fun SegmentedGroupScope.handleRows(handles: List<HandleItem>, icon: ImageVector,
                     if (link == null) Intents.copy(context, h.value)
                     else if (!ContactMessaging.openHandle(context, link)) onWeb(link)
                 },
-                trailing = if (link != null) ({ Icon(Icons.AutoMirrored.Rounded.OpenInNew, "Open in app", tint = MaterialTheme.colorScheme.onSurfaceVariant) }) else null,
+                trailing = if (link != null) ({ Icon(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.detail_open_in_app), tint = MaterialTheme.colorScheme.onSurfaceVariant) }) else null,
             )
         }
     }

@@ -99,23 +99,49 @@ object RingFactsCodec {
     }
 }
 
+/** Why a call didn't ring (V9), as data: the app words it in the user's language (L1). */
+sealed interface NoRing {
+    /** Parley kept it quiet; [reason] is the stored reason or the screening verdict. */
+    data class Silenced(val reason: String) : NoRing
+    data object DndTotalSilence : NoRing
+    data object DndAlarms : NoRing
+    data object Dnd : NoRing
+    data object PhoneSilent : NoRing
+    data object PhoneVibrate : NoRing
+    data object VolumeZero : NoRing
+    data class ShortRing(val seconds: Long) : NoRing
+}
+
 /** Plain-language lines for "Why did my phone ring, or not?" (V9). */
 object RingExplainer {
-    /** One line for a missed-call notification, or null when nothing explains the silence ("Silenced: off hours"). */
-    fun whyNoRing(f: RingFacts?, screeningVerdict: String? = null): String? {
+    /** Why [f] didn't ring, or null when nothing explains the silence. */
+    fun noRing(f: RingFacts?, screeningVerdict: String? = null): NoRing? {
         val silenced = f?.silencedBy ?: screeningVerdict?.takeIf { it.isNotBlank() }
-        if (silenced != null) return if (silenced.startsWith("Silenced", ignoreCase = true) || silenced.startsWith("Blocked", ignoreCase = true)) silenced else "Silenced: ${lower(silenced)}"
+        if (silenced != null) return NoRing.Silenced(silenced)
         f ?: return null
         return when {
-            f.dnd == DndState.TOTAL_SILENCE -> "Didn't ring: Do Not Disturb (total silence)"
-            f.dnd == DndState.ALARMS -> "Didn't ring: Do Not Disturb (alarms only)"
-            f.dnd == DndState.PRIORITY && f.dndAllowsCalls != true -> "Didn't ring: Do Not Disturb"
-            f.ringer == RingerMode.SILENT -> "Didn't ring: phone on silent"
-            f.ringer == RingerMode.VIBRATE -> "Vibrate only: phone on vibrate"
-            f.ringer == RingerMode.NORMAL && f.ringVolume == 0 -> "Didn't ring: ring volume at 0"
-            f.ringMillis in 1 until SHORT_RING_MS -> "Rang for ${(f.ringMillis + 999) / 1000} s only"
+            f.dnd == DndState.TOTAL_SILENCE -> NoRing.DndTotalSilence
+            f.dnd == DndState.ALARMS -> NoRing.DndAlarms
+            f.dnd == DndState.PRIORITY && f.dndAllowsCalls != true -> NoRing.Dnd
+            f.ringer == RingerMode.SILENT -> NoRing.PhoneSilent
+            f.ringer == RingerMode.VIBRATE -> NoRing.PhoneVibrate
+            f.ringer == RingerMode.NORMAL && f.ringVolume == 0 -> NoRing.VolumeZero
+            f.ringMillis in 1 until SHORT_RING_MS -> NoRing.ShortRing((f.ringMillis + 999) / 1000)
             else -> null
         }
+    }
+
+    /** One line for a missed-call notification, or null when nothing explains the silence ("Silenced: off hours"). English. */
+    fun whyNoRing(f: RingFacts?, screeningVerdict: String? = null): String? = when (val r = noRing(f, screeningVerdict)) {
+        null -> null
+        is NoRing.Silenced -> r.reason.let { s -> if (s.startsWith("Silenced", ignoreCase = true) || s.startsWith("Blocked", ignoreCase = true)) s else "Silenced: ${lower(s)}" }
+        NoRing.DndTotalSilence -> "Didn't ring: Do Not Disturb (total silence)"
+        NoRing.DndAlarms -> "Didn't ring: Do Not Disturb (alarms only)"
+        NoRing.Dnd -> "Didn't ring: Do Not Disturb"
+        NoRing.PhoneSilent -> "Didn't ring: phone on silent"
+        NoRing.PhoneVibrate -> "Vibrate only: phone on vibrate"
+        NoRing.VolumeZero -> "Didn't ring: ring volume at 0"
+        is NoRing.ShortRing -> "Rang for ${r.seconds} s only"
     }
 
     /** Every fact, one line each, for the number history and the blocked-log detail. */

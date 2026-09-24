@@ -34,6 +34,9 @@
     <string name="set_dynamic_color_title">وال پیپر کے رنگ</string>
     <string name="set_dynamic_color_summary">Material You کے متحرک رنگ</string>
     <string name="set_dynamic_color_kw">رنگ، material you، متحرک، پیلیٹ</string>
+    <string name="set_language_title">زبان</string>
+    <string name="set_language_summary">وہ زبان جو Parley استعمال کرتی ہے</string>
+    <string name="set_language_kw">زبان، لوکیل، ترجمہ، ایپ کی زبان، اردو، انگریزی، rtl</string>
     <string name="set_density_title">فہرست کی کثافت</string>
     <string name="set_density_summary">آرام دہ یا گھنی قطاریں</string>
     <string name="set_density_kw">گھنی، فاصلہ، قطار کی اونچائی، سائز</string>

@@ -34,6 +34,9 @@
     <string name="set_dynamic_color_title">Couleurs du fond d’écran</string>
     <string name="set_dynamic_color_summary">Couleurs dynamiques Material You</string>
     <string name="set_dynamic_color_kw">couleur, material you, dynamique, palette, accent</string>
+    <string name="set_language_title">Langue</string>
+    <string name="set_language_summary">La langue utilisée par Parley</string>
+    <string name="set_language_kw">langue, paramètres régionaux, traduction, langue de l’app, français, anglais, rtl</string>
     <string name="set_density_title">Densité des listes</string>
     <string name="set_density_summary">Lignes confortables ou compactes</string>
     <string name="set_density_kw">compact, espacement, hauteur de ligne, taille</string>

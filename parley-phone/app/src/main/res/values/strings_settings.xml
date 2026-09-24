@@ -36,6 +36,9 @@
     <string name="set_dynamic_color_title">Wallpaper colours</string>
     <string name="set_dynamic_color_summary">Material You dynamic colour</string>
     <string name="set_dynamic_color_kw">color, material you, dynamic, palette, accent</string>
+    <string name="set_language_title">Language</string>
+    <string name="set_language_summary">The language Parley uses</string>
+    <string name="set_language_kw">language, locale, translation, app language, english, rtl</string>
     <string name="set_density_title">List density</string>
     <string name="set_density_summary">Comfortable or compact rows</string>
     <string name="set_density_kw">compact, spacing, row height, size</string>

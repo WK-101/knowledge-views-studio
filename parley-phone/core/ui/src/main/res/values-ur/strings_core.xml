@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review. "Parley" is the product name and stays untranslated. -->
+<resources>
+    <string name="ui_key_star">اسٹار</string>
+    <string name="ui_key_pound">ہیش</string>
+</resources>

@@ -34,6 +34,9 @@
     <string name="set_dynamic_color_title">वॉलपेपर के रंग</string>
     <string name="set_dynamic_color_summary">Material You डायनैमिक रंग</string>
     <string name="set_dynamic_color_kw">रंग, material you, डायनैमिक, पैलेट, एक्सेंट</string>
+    <string name="set_language_title">भाषा</string>
+    <string name="set_language_summary">वह भाषा जो Parley इस्तेमाल करता है</string>
+    <string name="set_language_kw">भाषा, लोकेल, अनुवाद, ऐप की भाषा, हिंदी, अंग्रेज़ी, rtl</string>
     <string name="set_density_title">सूची का घनत्व</string>
     <string name="set_density_summary">आरामदायक या सघन पंक्तियाँ</string>
     <string name="set_density_kw">सघन, दूरी, पंक्ति की ऊँचाई, आकार</string>

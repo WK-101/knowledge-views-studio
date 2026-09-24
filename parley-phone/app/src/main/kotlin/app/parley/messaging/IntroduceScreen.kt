@@ -38,15 +38,19 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
+import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.MessageDrafts
 import app.parley.common.NumberText
 import app.parley.common.messaging.IntroQueue
+import app.parley.ui.Bidi
 import app.parley.ui.EmptyState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -96,7 +100,8 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
     var awaitingReturn by rememberSaveable { mutableStateOf(false) }
     var editDetails by remember { mutableStateOf(false) }
     val details by store.myDetails.collectAsStateWithLifecycle()
-    val draft = MessageDrafts.myDetails(details.name, details.number)
+    val res = LocalResources.current
+    val draft = MessagingText.myDetails(res, details.name, details.number)
     val installed = remember { MessengerLauncher.installed(context) }
     val app = installed.firstOrNull { it.packageName == appPackage }
 
@@ -117,7 +122,7 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
             Toast.makeText(context, error, Toast.LENGTH_LONG).show()
             return
         }
-        if (!a.takesText && draft != null) Toast.makeText(context, "Your details were copied. Paste them in the chat.", Toast.LENGTH_LONG).show()
+        if (!a.takesText && draft != null) Toast.makeText(context, res.getString(R.string.intro_copied), Toast.LENGTH_LONG).show()
         store.lastApp = a.packageName
         store.recordOpened(t.number, a, a.label, isContact = true)
         queue = queue.markOpened()
@@ -126,63 +131,63 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text("Introduce myself") },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
+            title = { Text(stringResource(R.string.intro_title)) },
+            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } },
         )
     }) { p ->
         if (queue.targets.isEmpty()) {
-            EmptyState(Icons.Rounded.Groups, "Nobody to introduce yourself to", "Select contacts and choose “Introduce myself…”, or add several numbers first.", Modifier.padding(p))
+            EmptyState(Icons.Rounded.Groups, stringResource(R.string.intro_empty), stringResource(R.string.intro_empty_body), Modifier.padding(p))
             return@Scaffold
         }
         Column(Modifier.fillMaxSize().padding(p).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
-                "Parley opens one chat at a time with your details filled in. You press Send in the messenger; when you come back, the next person is ready. Nothing is sent for you.",
+                stringResource(R.string.intro_explainer),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Card(Modifier.fillMaxWidth()) {
                 ListItem(
-                    headlineContent = { Text(draft ?: "Your details aren't set up yet") },
-                    supportingContent = { Text("The message") },
+                    headlineContent = { Text(draft ?: stringResource(R.string.intro_no_details)) },
+                    supportingContent = { Text(stringResource(R.string.intro_the_message)) },
                     leadingContent = { Icon(Icons.Rounded.Badge, null) },
-                    trailingContent = { TextButton({ editDetails = true }) { Text(if (draft == null) "Set up" else "Edit") } },
+                    trailingContent = { TextButton({ editDetails = true }) { Text(stringResource(if (draft == null) R.string.keypad_set_up else R.string.main_edit)) } },
                 )
             }
             when {
                 app == null -> {
-                    Text("Open the chats in", style = MaterialTheme.typography.titleMedium)
-                    if (installed.isEmpty()) Text("No chat apps found. Install or enable WhatsApp, Signal, Telegram or Viber.")
+                    Text(stringResource(R.string.intro_open_in), style = MaterialTheme.typography.titleMedium)
+                    if (installed.isEmpty()) Text(stringResource(R.string.intro_no_apps))
                     installed.forEach { a ->
                         ListItem(
                             headlineContent = { Text(a.label) },
-                            supportingContent = { Text(if (a.takesText) "Your details are filled in" else "Your details are copied for pasting") },
+                            supportingContent = { Text(stringResource(if (a.takesText) R.string.intro_filled_in else R.string.intro_copied_for_pasting)) },
                             leadingContent = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
                             modifier = Modifier.clickable(enabled = draft != null) { appPackage = a.packageName },
                         )
                     }
-                    if (draft == null) Text("Set up your details first.", color = MaterialTheme.colorScheme.error)
+                    if (draft == null) Text(stringResource(R.string.intro_set_up_first), color = MaterialTheme.colorScheme.error)
                 }
                 queue.finished -> {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
-                        Text(queue.summary(), style = MaterialTheme.typography.titleMedium)
+                        Text(MessagingText.introSummary(res, queue), style = MaterialTheme.typography.titleMedium)
                     }
-                    Button(back) { Text("Done") }
+                    Button(back) { Text(stringResource(R.string.main_done)) }
                 }
                 else -> {
                     val t = queue.current!!
-                    Text(queue.progress, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Text(MessagingText.introProgress(res, queue), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     LinearProgressIndicator(progress = { queue.index.toFloat() / queue.targets.size }, modifier = Modifier.fillMaxWidth())
-                    Text(t.name.ifBlank { NumberText.formatInternational(t.number) }, style = MaterialTheme.typography.headlineSmall)
-                    if (t.name.isNotBlank()) Text(NumberText.formatInternational(t.number), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(t.name.ifBlank { Bidi.ltr(NumberText.formatInternational(t.number)) }, style = MaterialTheme.typography.headlineSmall)
+                    if (t.name.isNotBlank()) Text(Bidi.ltr(NumberText.formatInternational(t.number)), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     val opened = queue.index in queue.opened
                     Button(::openCurrent, Modifier.fillMaxWidth()) {
-                        Text(if (opened) "Open ${app.label} again" else "Open in ${app.label}")
+                        Text(stringResource(if (opened) R.string.intro_open_again else R.string.intro_open_in_app, app.label))
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton({ queue = if (opened) queue.next() else queue.skip() }) { Text(if (opened) "Next" else "Skip") }
-                        TextButton({ queue = queue.stop() }) { Text("Stop") }
-                        TextButton({ appPackage = null }) { Text("Change app") }
+                        OutlinedButton({ queue = if (opened) queue.next() else queue.skip() }) { Text(stringResource(if (opened) R.string.intro_next else R.string.intro_skip)) }
+                        TextButton({ queue = queue.stop() }) { Text(stringResource(R.string.intro_stop)) }
+                        TextButton({ appPackage = null }) { Text(stringResource(R.string.intro_change_app)) }
                     }
                 }
             }

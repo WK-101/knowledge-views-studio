@@ -35,12 +35,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.Duplicates
 import app.parley.ui.Avatar
+import app.parley.ui.Bidi
 import app.parley.ui.EmptyState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -58,16 +62,17 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
     // U7: scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        TopAppBar(title = { Text("Merge duplicates") }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } }, scrollBehavior = barTint)
+        TopAppBar(title = { Text(stringResource(R.string.dup_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } }, scrollBehavior = barTint)
     }) { p ->
+        val res = LocalResources.current
         val list = groups?.filter { g -> g.first().id !in dismissed }
         when {
             list == null -> Box(Modifier.fillMaxSize().padding(p), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            list.isEmpty() -> EmptyState(Icons.Rounded.DoneAll, "No duplicates found", "Contacts with the same number, e-mail or full name show up here.", Modifier.padding(p))
+            list.isEmpty() -> EmptyState(Icons.Rounded.DoneAll, stringResource(R.string.dup_none), stringResource(R.string.dup_none_body), Modifier.padding(p))
             else -> LazyColumn(Modifier.padding(p), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     Text(
-                        "Merging links the entries into one contact. Nothing is deleted, and you can separate them again from the contact's menu.",
+                        stringResource(R.string.dup_explainer),
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -78,19 +83,19 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
                                 ListItem(
                                     leadingContent = { Avatar(c.displayName, c.photoUri, 40.dp) },
                                     headlineContent = { Text(c.displayName) },
-                                    supportingContent = { Text((c.phones.map { it.number } + c.emails).take(2).joinToString(" · ")) },
+                                    supportingContent = { Text((c.phones.map { Bidi.ltr(it.number) } + c.emails).take(2).joinToString(stringResource(R.string.main_separator))) },
                                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                                 )
                             }
                             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.End) {
-                                TextButton({ dismissed += g.first().id }) { Text("Not duplicates") }
+                                TextButton({ dismissed += g.first().id }) { Text(stringResource(R.string.dup_not)) }
                                 Button({
                                     scope.launch {
                                         vm.c.contacts.join(g.map { it.id })
                                         dismissed += g.first().id
-                                        vm.toast("Merged ${g.size} contacts")
+                                        vm.toast(res.getQuantityString(R.plurals.sel_merged, g.size, g.size))
                                     }
-                                }) { Text("Merge") }
+                                }) { Text(stringResource(R.string.dup_merge)) }
                             }
                         }
                     }

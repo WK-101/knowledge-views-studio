@@ -20,7 +20,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.parley.R
 import app.parley.data.DialWarning
 
 /**
@@ -32,11 +34,11 @@ import app.parley.data.DialWarning
 @Composable
 fun DialGuardSheet(who: String, warnings: List<DialWarning>, note: String? = null, onCall: () -> Unit, onCancel: () -> Unit) {
     // A used-up call-time allowance (T6) is one more reason to think, shown with the others (one question, not two).
-    val all = warnings + listOfNotNull(note?.let { DialWarning("Call time used up", it) })
+    val all = warnings + listOfNotNull(note?.let { DialWarning(stringResource(R.string.call_time_used_up), it) })
     val severe = all.any { it.severe }
     ModalBottomSheet(onDismissRequest = onCancel) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).navigationBarsPadding().padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Call $who?", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.call_who_question, who), style = MaterialTheme.typography.titleLarge)
             all.forEach { w ->
                 Row(verticalAlignment = Alignment.Top) {
                     Icon(
@@ -53,11 +55,11 @@ fun DialGuardSheet(who: String, warnings: List<DialWarning>, note: String? = nul
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 // The safe choice is the prominent one when the risk is real.
                 if (severe) {
-                    Button(onCancel, Modifier.weight(1f)) { Text("Don't call") }
-                    OutlinedButton(onCall, Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Call anyway") }
+                    Button(onCancel, Modifier.weight(1f)) { Text(stringResource(R.string.call_dont_call)) }
+                    OutlinedButton(onCall, Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.call_anyway)) }
                 } else {
-                    OutlinedButton(onCancel, Modifier.weight(1f)) { Text("Cancel") }
-                    Button(onCall, Modifier.weight(1f)) { Text("Call") }
+                    OutlinedButton(onCancel, Modifier.weight(1f)) { Text(stringResource(R.string.main_cancel)) }
+                    Button(onCall, Modifier.weight(1f)) { Text(stringResource(R.string.main_call)) }
                 }
             }
         }

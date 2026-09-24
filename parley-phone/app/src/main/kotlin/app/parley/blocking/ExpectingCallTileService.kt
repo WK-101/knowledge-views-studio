@@ -13,6 +13,11 @@ import kotlinx.coroutines.launch
  * unknown callers ring through your screening rules until it runs out on its own.
  */
 class ExpectingCallTileService : TileService() {
+    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(app.parley.ui.AppLocale.wrap(newBase))
+    }
+
     override fun onStartListening() {
         super.onStartListening()
         render()

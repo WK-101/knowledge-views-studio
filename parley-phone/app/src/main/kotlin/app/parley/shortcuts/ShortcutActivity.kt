@@ -15,6 +15,12 @@ import kotlinx.coroutines.launch
 
 /** Invisible trampoline for home-screen shortcuts and the direct-dial widget. Not exported. */
 class ShortcutActivity : Activity() {
+    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(newBase)
+        app.parley.ui.AppLocale.override(this, newBase)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val kind = runCatching { Shortcuts.Kind.valueOf(intent.getStringExtra(EXTRA_KIND).orEmpty()) }.getOrNull()

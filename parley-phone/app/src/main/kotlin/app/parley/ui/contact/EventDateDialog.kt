@@ -28,8 +28,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import app.parley.R
 import app.parley.common.EventDate
 import java.time.LocalDate
 import java.time.Month
@@ -58,15 +60,15 @@ fun EventDateDialog(initial: String, onDismiss: () -> Unit, onPick: (String) -> 
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Choose date") },
+        title = { Text(stringResource(R.string.date_choose)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val dayField: @Composable (Modifier) -> Unit = { m ->
-                        Picker("Day", day.toString(), (1..maxDay).map { it.toString() }, m) { day = it + 1 }
+                        Picker(stringResource(R.string.date_day), day.toString(), (1..maxDay).map { it.toString() }, m) { day = it + 1 }
                     }
                     val monthField: @Composable (Modifier) -> Unit = { m ->
-                        Picker("Month", Month.of(month).getDisplayName(TextStyle.FULL, Locale.getDefault()), Month.entries.map { it.getDisplayName(TextStyle.FULL, Locale.getDefault()) }, m) { month = it + 1 }
+                        Picker(stringResource(R.string.date_month), Month.of(month).getDisplayName(TextStyle.FULL, Locale.getDefault()), Month.entries.map { it.getDisplayName(TextStyle.FULL, Locale.getDefault()) }, m) { month = it + 1 }
                     }
                     if (dayFirst) {
                         dayField(Modifier.weight(0.35f)); monthField(Modifier.weight(0.65f))
@@ -75,20 +77,20 @@ fun EventDateDialog(initial: String, onDismiss: () -> Unit, onPick: (String) -> 
                     }
                 }
                 ListItem(
-                    headlineContent = { Text("Include year") },
+                    headlineContent = { Text(stringResource(R.string.date_include_year)) },
                     trailingContent = { Switch(withYear, { withYear = it }) },
                     modifier = Modifier.clickable { withYear = !withYear },
                 )
                 if (withYear) {
                     OutlinedTextField(
-                        year, { year = it.filter(Char::isDigit).take(4) }, label = { Text("Year") }, singleLine = true,
+                        year, { year = it.filter(Char::isDigit).take(4) }, label = { Text(stringResource(R.string.date_year)) }, singleLine = true,
                         isError = yearValue == null, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
         },
-        confirmButton = { TextButton({ onPick(EventDate(if (withYear) yearValue else null, month, day).format()) }, enabled = valid) { Text("OK") } },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton({ onPick(EventDate(if (withYear) yearValue else null, month, day).format()) }, enabled = valid) { Text(stringResource(R.string.main_ok)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
     )
 }
 

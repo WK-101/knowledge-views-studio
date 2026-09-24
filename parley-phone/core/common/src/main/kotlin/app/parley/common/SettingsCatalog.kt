@@ -73,6 +73,7 @@ object SettingsCatalog {
         e("theme", "Theme", "System, light or dark", A, "dark mode", "night mode", "light mode", "appearance"),
         e("amoled", "Pure black dark theme", "Saves power on OLED screens", A, "amoled", "oled", "black", "battery", "dark"),
         e("dynamic_color", "Wallpaper colours", "Material You dynamic colour", A, "color", "material you", "dynamic", "palette", "accent"),
+        e("language", "Language", "The language Parley uses", A, "language", "locale", "translation", "app language", "english", "rtl"),
         e("density", "List density", "Comfortable or compact rows", A, "compact", "spacing", "row height", "size"),
         e("nav_tabs", "Navigation bar", "Show, hide and reorder Favorites, Recents, Contacts and Keypad", A,
             "tabs", "bottom bar", "bottom navigation", "navigation rail", "reorder", "hide tab", "customise", "customize", "menu"),

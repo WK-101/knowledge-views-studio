@@ -43,7 +43,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.parley.R
 import app.parley.common.MessengerApp
 import app.parley.common.MessengerLinks
 import app.parley.common.NumberText
@@ -55,6 +58,7 @@ import app.parley.container
 import app.parley.data.MessengerAction
 import app.parley.data.PhoneEnv
 import app.parley.messaging.MessengerLauncher
+import app.parley.ui.Bidi
 
 /**
  * M6/M7: how to reach one person by message: their numbers, the messenger rows apps added for them (none for
@@ -88,13 +92,13 @@ object ContactMessaging {
             .also { if (it == null) record(context, route.number, null, "SMS") }
         is MessageRoute.MessengerRow -> {
             val row = r.messengers.firstOrNull { it.accountType == route.accountType && !it.isCall && !it.isVideo }
-            if (row == null) "That app no longer lists this contact" else start(context, row.intent(), row.appName)
+            if (row == null) context.getString(R.string.msg_app_lost_contact) else start(context, row.intent(), row.appName)
         }
         is MessageRoute.MessengerLink -> {
             val e164 = NumberText.toE164(route.number, PhoneEnv.countryIso(context))
             val link = e164?.let { MessengerLinks.build(route.app, it) }
             if (link == null) {
-                MessengerLinks.unavailableReason(e164)
+                app.parley.messaging.MessagingText.unavailable(context.resources, e164)
             } else {
                 MessengerLauncher.open(context, link, route.app).also { if (it == null) record(context, route.number, route.app, route.app.label) }
             }
@@ -115,9 +119,9 @@ object ContactMessaging {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         null
     } catch (_: ActivityNotFoundException) {
-        "$appName isn't available"
+        context.getString(R.string.msg_app_unavailable, appName)
     } catch (_: SecurityException) {
-        "$appName isn't available"
+        context.getString(R.string.msg_app_unavailable, appName)
     }
 
     /**
@@ -137,7 +141,7 @@ object ContactMessaging {
         try {
             context.startActivity(chooser)
         } catch (_: ActivityNotFoundException) {
-            Toast.makeText(context, "No app can open this", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.msg_no_app_opens), Toast.LENGTH_SHORT).show()
         }
         return true
     }
@@ -154,12 +158,13 @@ private data class SheetRow(val key: String, val label: String, val sub: String?
 @Composable
 fun ContactMessageSheet(r: Reach, onDismiss: () -> Unit, onRemember: (MessengerPrefs) -> Unit) {
     val context = LocalContext.current
+    val res = LocalResources.current
     val installed = remember { MessengerLauncher.installed(context) }
     var number by rememberSaveable { mutableStateOf(r.prefs.number?.takeIf { n -> r.numbers.any { it.first == n } } ?: r.defaultNumber ?: r.numbers.firstOrNull()?.first) }
     var remember by rememberSaveable { mutableStateOf(true) }
     val region = remember { PhoneEnv.countryIso(context) }
     val e164 = remember(number) { number?.let { NumberText.toE164(it, region) } }
-    val unavailable = remember(e164) { MessengerLinks.unavailableReason(e164) }
+    val unavailable = remember(e164) { app.parley.messaging.MessagingText.unavailable(res, e164) }
     val linked = r.linked
 
     val rows = buildList {
@@ -167,9 +172,9 @@ fun ContactMessageSheet(r: Reach, onDismiss: () -> Unit, onRemember: (MessengerP
         installed.filter { it != MessengerApp.TELEGRAM_WEB || MessengerApp.TELEGRAM !in installed }.forEach { app ->
             val isLinked = app.packageName in linked
             val hint = when {
-                isLinked -> "${app.label} has this contact"
+                isLinked -> res.getString(R.string.msg_app_has_contact, app.label)
                 MessageRoutes.showUnlinkedHint(app.packageName, linked, installed.map { it.packageName }.toSet()) ->
-                    "${app.label} can't see your contacts; you can still message them"
+                    res.getString(R.string.msg_app_cant_see, app.label)
                 else -> null
             }
             add(
@@ -191,19 +196,19 @@ fun ContactMessageSheet(r: Reach, onDismiss: () -> Unit, onRemember: (MessengerP
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
-            Text("Message ${r.name} on…", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
+            Text(stringResource(R.string.msg_message_on_title, r.name), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
             if (r.numbers.size > 1) {
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     r.numbers.forEach { (n, label) ->
-                        FilterChip(number == n, { number = n }, label = { Text(listOf(label, n).filter { it.isNotBlank() }.joinToString(" · ")) })
+                        FilterChip(number == n, { number = n }, label = { Text(listOf(label, Bidi.ltr(n)).filter { it.isNotBlank() }.joinToString(stringResource(R.string.main_separator))) })
                     }
                 }
             } else if (number != null) {
-                Text(e164?.let(NumberText::formatInternational) ?: number.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
+                Text(Bidi.ltr(e164?.let(NumberText::formatInternational) ?: number.orEmpty()), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
             }
             if (installed.isEmpty() && rows.isEmpty()) {
                 Text(
-                    "No chat apps found. Install or enable WhatsApp, Signal, Telegram or Viber to message from here.",
+                    stringResource(R.string.msg_no_chat_apps),
                     style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                 )
             }
@@ -221,16 +226,16 @@ fun ContactMessageSheet(r: Reach, onDismiss: () -> Unit, onRemember: (MessengerP
                     headlineContent = { Text(row.label) },
                     supportingContent = row.sub?.let { s -> { Text(s) } },
                     leadingContent = { Icon(if (row.key in linked) Icons.Rounded.Link else Icons.AutoMirrored.Rounded.Chat, null) },
-                    trailingContent = if (chosen) ({ Text("Usual", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }) else null,
+                    trailingContent = if (chosen) ({ Text(stringResource(R.string.detail_usual), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }) else null,
                     colors = if (row.enabled) ListItemDefaults.colors(containerColor = Color.Transparent)
                     else ListItemDefaults.colors(containerColor = Color.Transparent, headlineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)),
                     modifier = Modifier.clickable(enabled = row.enabled) { done(row.launch(), row.remember(r.prefs)) },
                 )
             }
             ListItem(
-                headlineContent = { Text("Text message (SMS)") },
+                headlineContent = { Text(stringResource(R.string.msg_sms)) },
                 leadingContent = { Icon(Icons.AutoMirrored.Rounded.Message, null) },
-                trailingContent = if (r.prefs.message == MessengerPrefs.SMS) ({ Text("Usual", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }) else null,
+                trailingContent = if (r.prefs.message == MessengerPrefs.SMS) ({ Text(stringResource(R.string.detail_usual), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }) else null,
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 modifier = Modifier.clickable(enabled = number != null) {
                     done(number?.let { ContactMessaging.open(context, MessageRoute.Sms(it), r) }, r.prefs.copy(message = MessengerPrefs.SMS))
@@ -238,13 +243,12 @@ fun ContactMessageSheet(r: Reach, onDismiss: () -> Unit, onRemember: (MessengerP
             )
             Row(Modifier.fillMaxWidth().clickable { remember = !remember }.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(remember, { remember = it })
-                Text("Always use this for ${r.name}", style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.msg_always_use, r.name), style = MaterialTheme.typography.bodyMedium)
             }
             Row(Modifier.padding(horizontal = 24.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(if (r.isPrivate) Icons.Rounded.Lock else Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
-                    if (r.isPrivate) "Chats open by number, straight in the app. The messenger can't see your private contacts."
-                    else "Chats open straight in the app, never through a browser. Long-press Message to choose again.",
+                    stringResource(if (r.isPrivate) R.string.msg_note_private else R.string.msg_note_contact),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -258,7 +262,7 @@ fun VideoChooser(r: Reach, onDismiss: () -> Unit, onRemember: (MessengerPrefs) -
     val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Video call with…") },
+        title = { Text(stringResource(R.string.msg_video_with)) },
         text = {
             Column {
                 r.videoRows.forEach { m ->
@@ -274,11 +278,11 @@ fun VideoChooser(r: Reach, onDismiss: () -> Unit, onRemember: (MessengerPrefs) -
                         },
                     )
                 }
-                Text("Parley remembers your choice. Long-press Video to choose again.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(R.string.msg_video_note), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
     )
 }
 
@@ -288,9 +292,9 @@ fun ConfirmWebLink(link: HandleLink, onDismiss: () -> Unit) {
     val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Open in a browser?") },
-        text = { Text("No app on this phone opens ${Uri.parse(link.uri).host ?: "this link"} directly. Opening it in a browser tells that website which profile you're looking at.") },
-        confirmButton = { TextButton({ onDismiss(); ContactMessaging.openHandle(context, link, confirmedWeb = true) }) { Text("Open") } },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        title = { Text(stringResource(R.string.msg_open_browser_title)) },
+        text = { Text(stringResource(R.string.msg_open_browser_body, Uri.parse(link.uri).host ?: stringResource(R.string.msg_this_link))) },
+        confirmButton = { TextButton({ onDismiss(); ContactMessaging.openHandle(context, link, confirmedWeb = true) }) { Text(stringResource(R.string.msg_open)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
     )
 }

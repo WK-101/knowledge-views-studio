@@ -59,11 +59,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.common.NumberText
 import app.parley.common.PhoneNumbers
 import app.parley.common.messaging.BulkAdd
@@ -75,6 +79,7 @@ import app.parley.data.messaging.BulkAddStore
 import app.parley.data.messaging.BulkBatch
 import app.parley.data.messaging.BulkDestination
 import app.parley.data.messaging.BulkItem
+import app.parley.ui.Bidi
 import app.parley.ui.people.accountLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -96,6 +101,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val region = remember { PhoneEnv.countryIso(context) }
+    val rs = LocalResources.current
     var text by rememberSaveable { mutableStateOf(MessagingInbox.bulkText.orEmpty().also { MessagingInbox.bulkText = null }) }
     var candidates by remember { mutableStateOf<List<BulkAdd.Candidate>?>(null) }
     var checked by remember { mutableStateOf<List<Boolean>>(emptyList()) }
@@ -105,7 +111,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
 
     // Naming
     var pattern by rememberSaveable { mutableStateOf(BulkAdd.Pattern.NUMBERED) }
-    var prefix by rememberSaveable { mutableStateOf("Contact") }
+    var prefix by rememberSaveable { mutableStateOf(rs.getString(R.string.bulk_default_prefix)) }
     var custom by rememberSaveable { mutableStateOf("{prefix} {n}") }
     // Destination
     var where by rememberSaveable { mutableStateOf(Where.CONTACTS) }
@@ -146,7 +152,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             candidates = list
             checked = list.map { it.checked }
             busy = null
-            if (list.isEmpty()) snackbar.showSnackbar("No phone numbers found in this text")
+            if (list.isEmpty()) snackbar.showSnackbar(rs.getString(R.string.bulk_none_found))
         }
     }
 
@@ -168,28 +174,28 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         val (dest, desc) = when (where) {
             Where.CONTACTS -> {
                 if (acc == null) return
-                BulkDestination.Label(acc, label.trim().ifEmpty { null }) to (vm.accountLabel(acc) + (label.trim().takeIf { it.isNotEmpty() }?.let { " · label $it" } ?: ""))
+                BulkDestination.Label(acc, label.trim().ifEmpty { null }) to (label.trim().takeIf { it.isNotEmpty() }?.let { rs.getString(R.string.bulk_where_label, vm.accountLabel(acc), it) } ?: vm.accountLabel(acc))
             }
-            Where.PRIVATE -> BulkDestination.Private to "Private contacts"
-            Where.TEMPORARY -> BulkDestination.Temporary(days, tempPrivate) to "Temporary for $days days" + if (tempPrivate) ", private" else ""
+            Where.PRIVATE -> BulkDestination.Private to rs.getString(R.string.bulk_private_contacts)
+            Where.TEMPORARY -> BulkDestination.Temporary(days, tempPrivate) to rs.getQuantityString(if (tempPrivate) R.plurals.bulk_where_temp_private else R.plurals.bulk_where_temp, days, days)
         }
         progress = 0f
         scope.launch {
             val r = runCatching { c.bulkAdd.save(items, dest, desc, progress = { done, total -> progress = done.toFloat() / total }) }
             progress = null
-            r.onFailure { snackbar.showSnackbar("Couldn't save: ${it.message ?: "error"}") }
+            r.onFailure { snackbar.showSnackbar(rs.getString(R.string.edit_save_failed, it.message.orEmpty())) }
             r.onSuccess { res ->
                 result = res to items
                 candidates = null
                 val shown = snackbar.showSnackbar(
-                    "Saved ${res.saved} " + if (res.saved == 1) "contact" else "contacts",
-                    actionLabel = "Undo this batch",
+                    rs.getQuantityString(R.plurals.bulk_saved, res.saved, res.saved),
+                    actionLabel = rs.getString(R.string.bulk_undo_batch),
                     duration = SnackbarDuration.Long,
                 )
                 if (shown == SnackbarResult.ActionPerformed && result?.first?.batch?.tag == res.batch.tag) {
                     c.bulkAdd.remove(res.batch, journal = false)
                     result = null
-                    snackbar.showSnackbar("Batch undone")
+                    snackbar.showSnackbar(rs.getString(R.string.bulk_batch_undone))
                 }
             }
         }
@@ -198,8 +204,8 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Add several numbers") },
-                navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
+                title = { Text(stringResource(R.string.bulk_title)) },
+                navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } },
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
@@ -210,12 +216,12 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             when {
                 progress != null -> item {
                     Column(Modifier.padding(16.dp)) {
-                        Text("Saving…", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.bulk_saving), style = MaterialTheme.typography.titleMedium)
                         LinearProgressIndicator(progress = { progress ?: 0f }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                     }
                 }
                 res != null -> resultItems(res.first, res.second, onUndo = {
-                    scope.launch { c.bulkAdd.remove(res.first.batch, journal = false); result = null; snackbar.showSnackbar("Batch undone") }
+                    scope.launch { c.bulkAdd.remove(res.first.batch, journal = false); result = null; snackbar.showSnackbar(rs.getString(R.string.bulk_batch_undone)) }
                 }, onDelete = { deleteBatch = res.first.batch }, onIntroduce = {
                     val targets = res.second.mapNotNull { i -> NumberText.toE164(i.number, region)?.let { IntroQueue.Target(i.name, it) } }
                     IntroduceStart.fromList(targets, open)
@@ -223,14 +229,14 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                 list == null -> {
                     item {
                         Text(
-                            "Paste text with phone numbers: a list, a message, a spreadsheet column. You'll see each number before anything is saved.",
+                            stringResource(R.string.bulk_intro),
                             Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium,
                         )
                     }
                     item {
                         OutlinedTextField(
                             text, { text = it.take(MAX_TEXT) },
-                            label = { Text("Numbers or text") },
+                            label = { Text(stringResource(R.string.bulk_numbers_or_text)) },
                             minLines = 4, maxLines = 10,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                         )
@@ -245,22 +251,22 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                                     }.getOrNull()
                                     if (!clip.isNullOrBlank()) text = (if (text.isBlank()) clip else text + "\n" + clip).take(MAX_TEXT)
                                 },
-                                label = { Text("Paste") },
+                                label = { Text(stringResource(R.string.keypad_paste)) },
                                 leadingIcon = { Icon(Icons.Rounded.ContentPaste, null) },
                             )
                             Box(Modifier.weight(1f))
-                            Button(::review, enabled = text.isNotBlank() && busy == null) { Text("Find numbers") }
+                            Button(::review, enabled = text.isNotBlank() && busy == null) { Text(stringResource(R.string.bulk_find_numbers)) }
                         }
                         busy?.let { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) }
                     }
                     if (batches.isNotEmpty()) {
-                        item { SectionTitle("Recent batches") }
+                        item { SectionTitle(stringResource(R.string.bulk_recent_batches)) }
                         batches.forEach { b ->
                             item(key = b.tag) {
                                 ListItem(
-                                    headlineContent = { Text("${b.count} · ${b.where}", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                    headlineContent = { Text("${b.count}" + stringResource(R.string.main_separator) + b.where, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                     supportingContent = { Text(DateUtils.getRelativeTimeSpanString(b.at, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()) },
-                                    trailingContent = { IconButton({ deleteBatch = b }) { Icon(Icons.Rounded.DeleteOutline, "Delete this batch") } },
+                                    trailingContent = { IconButton({ deleteBatch = b }) { Icon(Icons.Rounded.DeleteOutline, stringResource(R.string.bulk_delete_batch)) } },
                                 )
                             }
                         }
@@ -268,13 +274,13 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                 }
                 else -> {
                     item {
-                        Text(BulkAdd.summary(list), Modifier.padding(16.dp), style = MaterialTheme.typography.titleSmall)
+                        Text(bulkSummary(rs, list), Modifier.padding(16.dp), style = MaterialTheme.typography.titleSmall)
                     }
                     itemsIndexed(list) { i, cand ->
                         CandidateRow(cand, checked.getOrElse(i) { false }, region) { v -> checked = checked.toMutableList().also { it[i] = v } }
                     }
                     item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
-                    item { SectionTitle("Names") }
+                    item { SectionTitle(stringResource(R.string.bulk_names)) }
                     item {
                         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             BulkAdd.Pattern.entries.forEach { pt ->
@@ -283,23 +289,23 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     RadioButton(pattern == pt, onClick = null)
-                                    Text(pt.label + if (pt.template.isNotEmpty()) "  (${pt.template})" else "", Modifier.padding(start = 8.dp))
+                                    Text(stringResource(pt.labelRes) + if (pt.template.isNotEmpty()) "  (${pt.template})" else "", Modifier.padding(start = 8.dp))
                                 }
                             }
-                            OutlinedTextField(prefix, { prefix = it.take(40) }, label = { Text("Prefix") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                            OutlinedTextField(prefix, { prefix = it.take(40) }, label = { Text(stringResource(R.string.edit_prefix)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                             if (pattern == BulkAdd.Pattern.CUSTOM) {
                                 OutlinedTextField(
                                     custom, { custom = it.take(80) },
-                                    label = { Text("Name pattern") },
-                                    supportingText = { Text("Use {prefix}, {n} and {number}") },
+                                    label = { Text(stringResource(R.string.bulk_name_pattern)) },
+                                    supportingText = { Text(stringResource(R.string.bulk_pattern_hint)) },
                                     singleLine = true, modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                             val first = itemsToSave().firstOrNull()
-                            if (first != null) Text("First: ${first.name}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (first != null) Text(stringResource(R.string.bulk_first, first.name), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    item { SectionTitle("Save to") }
+                    item { SectionTitle(stringResource(R.string.edit_save_to)) }
                     item {
                         DestinationPicker(
                             vm, where, { where = it }, accounts, account, { account = it; label = "" },
@@ -310,8 +316,8 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     item {
                         val n = itemsToSave().size
                         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-                            TextButton({ candidates = null }) { Text("Back to text") }
-                            Button(::save, enabled = n > 0 && (where != Where.CONTACTS || account != null)) { Text(if (n == 1) "Save 1 number" else "Save $n numbers") }
+                            TextButton({ candidates = null }) { Text(stringResource(R.string.bulk_back_to_text)) }
+                            Button(::save, enabled = n > 0 && (where != Where.CONTACTS || account != null)) { Text(pluralStringResource(R.plurals.bulk_save_n, n, n)) }
                         }
                     }
                 }
@@ -321,29 +327,46 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     deleteBatch?.let { b ->
         AlertDialog(
             onDismissRequest = { deleteBatch = null },
-            title = { Text("Delete this batch?") },
-            text = {
-                Text(
-                    "Deletes the ${b.count} contacts this batch created (${b.where}), even if you edited them since. " +
-                        "Contacts in your address book can be restored from Recently deleted for 30 days; private ones can't.",
-                )
-            },
+            title = { Text(stringResource(R.string.bulk_delete_title)) },
+            text = { Text(pluralStringResource(R.plurals.bulk_delete_body, b.count, b.count, b.where)) },
             confirmButton = {
                 TextButton({
                     deleteBatch = null
                     scope.launch {
                         c.bulkAdd.remove(b, journal = true)
                         if (result?.first?.batch?.tag == b.tag) result = null
-                        snackbar.showSnackbar("Batch deleted")
+                        snackbar.showSnackbar(rs.getString(R.string.bulk_batch_deleted))
                     }
-                }) { Text("Delete") }
+                }) { Text(stringResource(R.string.main_delete)) }
             },
-            dismissButton = { TextButton({ deleteBatch = null }) { Text("Cancel") } },
+            dismissButton = { TextButton({ deleteBatch = null }) { Text(stringResource(R.string.main_cancel)) } },
         )
     }
 }
 
 private const val MAX_TEXT = 100_000
+
+/** Status of a reviewed number ([BulkAdd.Status.label] is the English original). */
+private val BulkAdd.Status.labelRes: Int
+    get() = when (this) {
+        BulkAdd.Status.NEW -> R.string.bulk_status_new
+        BulkAdd.Status.CONTACT -> R.string.bulk_status_contact
+        BulkAdd.Status.PRIVATE -> R.string.bulk_status_private
+        BulkAdd.Status.DUPLICATE -> R.string.bulk_status_duplicate
+        BulkAdd.Status.INVALID -> R.string.bulk_status_invalid
+    }
+
+private val BulkAdd.Pattern.labelRes: Int
+    get() = when (this) {
+        BulkAdd.Pattern.NUMBERED -> R.string.bulk_pattern_numbered
+        BulkAdd.Pattern.WITH_NUMBER -> R.string.bulk_pattern_with_number
+        BulkAdd.Pattern.CUSTOM -> R.string.edit_custom
+    }
+
+/** "3 new · 1 already a contact · 1 repeated" ([BulkAdd.summary]). */
+private fun bulkSummary(res: android.content.res.Resources, list: List<BulkAdd.Candidate>): String =
+    BulkAdd.Status.entries.mapNotNull { s -> list.count { it.status == s }.takeIf { it > 0 }?.let { n -> res.getString(R.string.bulk_summary_item, n, res.getString(s.labelRes).lowercase()) } }
+        .joinToString(res.getString(R.string.main_separator))
 
 @Composable
 private fun SectionTitle(text: String) {
@@ -354,15 +377,15 @@ private fun SectionTitle(text: String) {
 private fun CandidateRow(c: BulkAdd.Candidate, checked: Boolean, region: String, onChange: (Boolean) -> Unit) {
     val shown = c.e164?.let(NumberText::formatInternational) ?: c.raw
     val status = when (c.status) {
-        BulkAdd.Status.CONTACT -> "Already a contact: ${c.existingName}"
-        BulkAdd.Status.PRIVATE -> "Already a private contact: ${c.existingName}"
-        else -> c.status.label
+        BulkAdd.Status.CONTACT -> stringResource(R.string.bulk_already_contact, c.existingName.orEmpty())
+        BulkAdd.Status.PRIVATE -> stringResource(R.string.bulk_already_private, c.existingName.orEmpty())
+        else -> stringResource(c.status.labelRes)
     }
     ListItem(
-        headlineContent = { Text(shown) },
+        headlineContent = { Text(Bidi.ltr(shown)) },
         supportingContent = {
             val where = c.e164?.let { app.parley.data.NumberInfo.location(it, region) }
-            Text(listOfNotNull(status, where, c.raw.takeIf { it != shown }?.let { "“$it”" }).joinToString(" · "), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(listOfNotNull(status, where, c.raw.takeIf { it != shown }?.let { "“$it”" }).joinToString(stringResource(R.string.main_separator)), maxLines = 2, overflow = TextOverflow.Ellipsis)
         },
         leadingContent = { Checkbox(checked, onCheckedChange = null, enabled = c.selectable) },
         modifier = Modifier.toggleable(checked, enabled = c.selectable, role = Role.Checkbox, onValueChange = onChange),
@@ -389,15 +412,15 @@ private fun DestinationPicker(
                 }
             }
         }
-        option(Where.CONTACTS, "Contacts", "In an account, optionally in a label")
+        option(Where.CONTACTS, stringResource(R.string.tab_contacts), stringResource(R.string.bulk_contacts_sub))
         if (where == Where.CONTACTS) {
             var accMenu by remember { mutableStateOf(false) }
             var labelMenu by remember { mutableStateOf(false) }
             Box {
                 ListItem(
-                    headlineContent = { Text(account?.let { vm.accountLabel(it) } ?: "No account to save to") },
-                    supportingContent = { Text("Account") },
-                    trailingContent = { Icon(Icons.Rounded.ArrowDropDown, "Choose the account") },
+                    headlineContent = { Text(account?.let { vm.accountLabel(it) } ?: stringResource(R.string.bulk_no_account)) },
+                    supportingContent = { Text(stringResource(R.string.bulk_account)) },
+                    trailingContent = { Icon(Icons.Rounded.ArrowDropDown, stringResource(R.string.bulk_choose_account)) },
                     modifier = Modifier.clickable(enabled = accounts.size > 1) { accMenu = true },
                 )
                 DropdownMenu(accMenu, { accMenu = false }) {
@@ -407,14 +430,14 @@ private fun DestinationPicker(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
                     label, { onLabel(it.take(60)) },
-                    label = { Text("Label (optional)") },
-                    supportingText = { Text("An existing label, or a new one") },
+                    label = { Text(stringResource(R.string.bulk_label_optional)) },
+                    supportingText = { Text(stringResource(R.string.bulk_label_hint)) },
                     singleLine = true,
                     modifier = Modifier.weight(1f),
                 )
                 if (labels.isNotEmpty()) {
                     Box {
-                        IconButton({ labelMenu = true }) { Icon(Icons.Rounded.ArrowDropDown, "Choose a label") }
+                        IconButton({ labelMenu = true }) { Icon(Icons.Rounded.ArrowDropDown, stringResource(R.string.bulk_choose_label)) }
                         DropdownMenu(labelMenu, { labelMenu = false }, Modifier.heightIn(max = 320.dp)) {
                             labels.forEach { g -> DropdownMenuItem({ Text(g.title) }, onClick = { labelMenu = false; onLabel(g.title) }) }
                         }
@@ -422,20 +445,20 @@ private fun DestinationPicker(
                 }
             }
         }
-        option(Where.PRIVATE, "Private contacts", "Encrypted in Parley, invisible to other apps (WhatsApp included)")
-        option(Where.TEMPORARY, "Temporary contacts", "They delete themselves, with their call history")
+        option(Where.PRIVATE, stringResource(R.string.bulk_private_contacts), stringResource(R.string.bulk_private_sub))
+        option(Where.TEMPORARY, stringResource(R.string.home_temporary), stringResource(R.string.bulk_temporary_sub))
         if (where == Where.TEMPORARY) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(1, 7, 30).forEach { d -> FilterChip(days == d, { onDays(d) }, label = { Text(if (d == 1) "1 day" else "$d days") }) }
+                listOf(1, 7, 30).forEach { d -> FilterChip(days == d, { onDays(d) }, label = { Text(pluralStringResource(R.plurals.bulk_days, d, d)) }) }
             }
             Row(
                 Modifier.fillMaxWidth().toggleable(tempPrivate, role = Role.Switch, onValueChange = onTempPrivate),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Private")
+                    Text(stringResource(R.string.bulk_private))
                     Text(
-                        if (tempPrivate) "Other apps can't see them" else "Saved on this phone, visible to apps that read contacts",
+                        stringResource(if (tempPrivate) R.string.bulk_private_on else R.string.bulk_private_off),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -458,34 +481,34 @@ private fun androidx.compose.foundation.lazy.LazyListScope.resultItems(
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
-                Text("Saved ${r.saved} of ${items.size} · ${r.batch.where}", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.bulk_saved_of, r.saved, items.size, r.batch.where), style = MaterialTheme.typography.titleMedium)
             }
             r.failed.take(20).forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-            if (r.failed.size > 20) Text("…and ${r.failed.size - 20} more", style = MaterialTheme.typography.bodySmall)
+            if (r.failed.size > 20) Text(stringResource(R.string.bulk_and_more, r.failed.size - 20), style = MaterialTheme.typography.bodySmall)
             Text(
-                "This batch is remembered for 30 days: you can delete it from “Recent batches” on this screen.",
+                stringResource(R.string.bulk_remembered),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
     item {
         ListItem(
-            headlineContent = { Text("Introduce myself…") },
-            supportingContent = { Text("Open each chat with your details filled in; you press Send") },
+            headlineContent = { Text(stringResource(R.string.sel_introduce)) },
+            supportingContent = { Text(stringResource(R.string.bulk_introduce_sub)) },
             leadingContent = { Icon(Icons.AutoMirrored.Rounded.Message, null) },
             modifier = Modifier.clickable(onClick = onIntroduce),
         )
     }
     item {
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-            TextButton(onUndo) { Text("Undo this batch") }
-            OutlinedButton(onDelete) { Text("Delete this batch") }
+            TextButton(onUndo) { Text(stringResource(R.string.bulk_undo_batch)) }
+            OutlinedButton(onDelete) { Text(stringResource(R.string.bulk_delete_batch)) }
         }
     }
     item {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-            TextButton(onMore) { Text("Add more") }
-            Button(onDone) { Text("Done") }
+            TextButton(onMore) { Text(stringResource(R.string.bulk_add_more)) }
+            Button(onDone) { Text(stringResource(R.string.main_done)) }
         }
     }
 }

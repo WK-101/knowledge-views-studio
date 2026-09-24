@@ -34,6 +34,9 @@
     <string name="set_dynamic_color_title">ألوان الخلفية</string>
     <string name="set_dynamic_color_summary">ألوان Material You الديناميكية</string>
     <string name="set_dynamic_color_kw">لون، material you، ديناميكي، لوحة ألوان</string>
+    <string name="set_language_title">اللغة</string>
+    <string name="set_language_summary">اللغة التي يستخدمها Parley</string>
+    <string name="set_language_kw">لغة، الإعدادات المحلية، ترجمة، لغة التطبيق، العربية، الإنجليزية، rtl</string>
     <string name="set_density_title">كثافة القائمة</string>
     <string name="set_density_summary">صفوف مريحة أو مضغوطة</string>
     <string name="set_density_kw">مضغوط، تباعد، ارتفاع الصف، الحجم</string>

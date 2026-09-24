@@ -101,9 +101,18 @@ object MessengerLinks {
      * F19: why a chat link can't be built for this number, shown on the disabled row; null when it can. [e164] is the
      * international form, or null when none could be worked out.
      */
-    fun unavailableReason(e164: String?): String? = when {
-        e164 == null -> "Needs the number with its country code"
-        internationalDigits(e164) == null -> "Not a complete international number (7 to 15 digits)"
+    fun unavailableReason(e164: String?): String? = when (unavailable(e164)) {
+        Unavailable.NO_COUNTRY_CODE -> "Needs the number with its country code"
+        Unavailable.INCOMPLETE -> "Not a complete international number (7 to 15 digits)"
+        null -> null
+    }
+
+    /** Why a chat link can't be built (see [unavailableReason]), as data for the app to word (L1). */
+    enum class Unavailable { NO_COUNTRY_CODE, INCOMPLETE }
+
+    fun unavailable(e164: String?): Unavailable? = when {
+        e164 == null -> Unavailable.NO_COUNTRY_CODE
+        internationalDigits(e164) == null -> Unavailable.INCOMPLETE
         else -> null
     }
 

@@ -19,6 +19,7 @@ object SettingsText {
         "theme" to Triple(R.string.set_theme_title, R.string.set_theme_summary, R.string.set_theme_kw),
         "amoled" to Triple(R.string.set_amoled_title, R.string.set_amoled_summary, R.string.set_amoled_kw),
         "dynamic_color" to Triple(R.string.set_dynamic_color_title, R.string.set_dynamic_color_summary, R.string.set_dynamic_color_kw),
+        "language" to Triple(R.string.set_language_title, R.string.set_language_summary, R.string.set_language_kw),
         "density" to Triple(R.string.set_density_title, R.string.set_density_summary, R.string.set_density_kw),
         "nav_tabs" to Triple(R.string.set_nav_tabs_title, R.string.set_nav_tabs_summary, R.string.set_nav_tabs_kw),
         "start_tab" to Triple(R.string.set_start_tab_title, R.string.set_start_tab_summary, R.string.set_start_tab_kw),

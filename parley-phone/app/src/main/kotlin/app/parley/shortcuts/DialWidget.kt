@@ -87,6 +87,12 @@ class DialWidget : AppWidgetProvider() {
 
 /** Chooses the phone number for a new direct-dial widget. */
 class DialWidgetConfigActivity : FragmentActivity() {
+    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(newBase)
+        app.parley.ui.AppLocale.override(this, newBase)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)

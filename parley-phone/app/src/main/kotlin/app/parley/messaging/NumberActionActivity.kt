@@ -31,6 +31,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Checkbox
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.AlertDialog
@@ -55,11 +57,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import app.parley.MainActivity
+import app.parley.R
 import app.parley.common.NumberText
 import app.parley.container
 import app.parley.data.NumberInfo
 import app.parley.data.PhoneEnv
 import app.parley.data.PlaceResult
+import app.parley.ui.Bidi
 import app.parley.ui.ParleyTheme
 import app.parley.ui.common.Format
 import kotlinx.coroutines.Dispatchers
@@ -75,6 +79,12 @@ import kotlinx.coroutines.withContext
  * to find numbers and is never stored. This activity doesn't handle `tel:` links (the keypad does).
  */
 class NumberActionActivity : ComponentActivity() {
+    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(newBase)
+        app.parley.ui.AppLocale.override(this, newBase)
+    }
+
     private sealed interface Stage {
         data object NoNumber : Stage
         /** M8: "Message a number" (tile, launcher shortcut): an empty field with Paste and the country. */
@@ -181,9 +191,9 @@ class NumberActionActivity : ComponentActivity() {
             else -> ModalBottomSheet(onDismissRequest = { finish() }, sheetState = sheetState) {
                 when (s) {
                     Stage.NoNumber -> Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("No phone number found", style = MaterialTheme.typography.titleLarge)
-                        Text("Parley couldn't find a phone number in this text.", style = MaterialTheme.typography.bodyMedium)
-                        TextButton({ finish() }) { Text("Close") }
+                        Text(stringResource(R.string.num_none_title), style = MaterialTheme.typography.titleLarge)
+                        Text(stringResource(R.string.num_none_body), style = MaterialTheme.typography.bodyMedium)
+                        TextButton({ finish() }) { Text(stringResource(R.string.main_close)) }
                     }
                     Stage.Enter -> EnterNumber()
                     is Stage.Pick -> PickNumber(s.found)
@@ -208,20 +218,20 @@ class NumberActionActivity : ComponentActivity() {
     @Composable
     private fun PickNumber(found: List<NumberText.Found>) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
-            Text("Choose a number", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            Text(stringResource(R.string.num_choose), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             if (sourceText != null) {
                 // M11: several numbers in the text can be saved together, after a review.
                 ListItem(
-                    headlineContent = { Text("Save all ${found.size} numbers…") },
-                    supportingContent = { Text("Review them, name them and save them at once") },
+                    headlineContent = { Text(pluralStringResource(R.plurals.num_save_all, found.size, found.size)) },
+                    supportingContent = { Text(stringResource(R.string.num_save_all_body)) },
                     leadingContent = { Icon(Icons.Rounded.GroupAdd, null) },
                     modifier = Modifier.clickable { saveAll() },
                 )
             }
             found.forEach { f ->
                 ListItem(
-                    headlineContent = { Text(f.e164?.let(NumberText::formatInternational) ?: f.raw) },
-                    supportingContent = { Text("“${f.raw}” in the text") },
+                    headlineContent = { Text(Bidi.ltr(f.e164?.let(NumberText::formatInternational) ?: f.raw)) },
+                    supportingContent = { Text(stringResource(R.string.num_in_text, f.raw)) },
                     modifier = Modifier.clickable { stage = Stage.Actions(f.e164 ?: f.raw, f.raw) },
                 )
             }
@@ -249,7 +259,7 @@ class NumberActionActivity : ComponentActivity() {
         var pickCountry by remember { mutableStateOf(false) }
         val region = regionOverride ?: defaultRegion
         val e164 = remember(typed, region) { NumberText.toE164(typed, region) }
-        val ready = e164 != null && app.parley.common.MessengerLinks.unavailableReason(e164) == null
+        val ready = e164 != null && app.parley.common.MessengerLinks.unavailable(e164) == null
         val focus = remember { androidx.compose.ui.focus.FocusRequester() }
         LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 
@@ -258,12 +268,12 @@ class NumberActionActivity : ComponentActivity() {
                 getSystemService(android.content.ClipboardManager::class.java).primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()
             }.getOrNull()?.take(MAX_TEXT)
             if (clip.isNullOrBlank()) {
-                Toast.makeText(this, "Nothing to paste", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.num_nothing_to_paste), Toast.LENGTH_SHORT).show()
                 return
             }
             val found = NumberText.find(clip, region)
             when {
-                found.isEmpty() -> Toast.makeText(this, "No phone number in what you copied", Toast.LENGTH_SHORT).show()
+                found.isEmpty() -> Toast.makeText(this, getString(R.string.num_no_number_copied), Toast.LENGTH_SHORT).show()
                 found.size == 1 -> typed = found[0].raw
                 else -> {
                     sourceText = clip
@@ -273,10 +283,10 @@ class NumberActionActivity : ComponentActivity() {
         }
 
         Column(Modifier.fillMaxWidth()) {
-            Text("Message a number", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
+            Text(stringResource(R.string.num_message_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
             OutlinedTextField(
                 typed, { typed = it.take(40) },
-                label = { Text("Phone number") },
+                label = { Text(stringResource(R.string.num_phone_number)) },
                 singleLine = true,
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp).focusRequester(focus),
@@ -284,7 +294,7 @@ class NumberActionActivity : ComponentActivity() {
             Row(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 androidx.compose.material3.AssistChip(
                     onClick = { paste() },
-                    label = { Text("Paste") },
+                    label = { Text(stringResource(R.string.keypad_paste)) },
                     leadingIcon = { Icon(Icons.Rounded.ContentPaste, null) },
                 )
                 androidx.compose.material3.AssistChip(
@@ -299,8 +309,7 @@ class NumberActionActivity : ComponentActivity() {
                 }
             } else {
                 Text(
-                    if (typed.isBlank()) "Type or paste a number. Parley reads the clipboard only when you tap Paste."
-                    else "Keep typing, or pick the number's country.",
+                    stringResource(if (typed.isBlank()) R.string.num_type_or_paste else R.string.num_keep_typing),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.navigationBarsPadding().padding(horizontal = 24.dp, vertical = 16.dp),
@@ -335,31 +344,31 @@ class NumberActionActivity : ComponentActivity() {
         }
         val where = remember(number) { NumberInfo.location(number, region) }
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
-            Text(contactName ?: e164?.let(NumberText::formatInternational) ?: Format.number(number, region), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
-            val sub = listOfNotNull(if (contactName != null) e164?.let(NumberText::formatInternational) ?: number else null, where).joinToString(" · ")
+            Text(contactName ?: Bidi.ltr(e164?.let(NumberText::formatInternational) ?: Format.number(number, region)), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
+            val sub = listOfNotNull(if (contactName != null) Bidi.ltr(e164?.let(NumberText::formatInternational) ?: number) else null, where).joinToString(stringResource(R.string.main_separator))
             if (sub.isNotEmpty()) Text(sub, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
             if (national) {
                 androidx.compose.material3.AssistChip(
                     onClick = { pickCountry = true },
-                    label = { Text("Country: " + countryLabel(region)) },
+                    label = { Text(stringResource(R.string.num_country, countryLabel(region))) },
                     leadingIcon = { Icon(Icons.Rounded.Public, null) },
                     modifier = Modifier.padding(horizontal = 24.dp),
                 )
             }
             ListItem(
-                headlineContent = { Text("Call") },
+                headlineContent = { Text(stringResource(R.string.main_call)) },
                 leadingContent = { Icon(Icons.Rounded.Call, null) },
                 modifier = Modifier.clickable { call(number, contactName) },
             )
             ListItem(
-                headlineContent = { Text("Message on…") },
-                supportingContent = { Text("WhatsApp, Signal, Telegram, Viber or SMS") },
+                headlineContent = { Text(stringResource(R.string.missed_message_on)) },
+                supportingContent = { Text(stringResource(R.string.num_message_apps)) },
                 leadingContent = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
                 modifier = Modifier.clickable { stage = Stage.Message(number) },
             )
             if (contactName == null) {
                 ListItem(
-                    headlineContent = { Text("Add to contacts") },
+                    headlineContent = { Text(stringResource(R.string.keypad_add_to_contacts)) },
                     leadingContent = { Icon(Icons.Rounded.PersonAdd, null) },
                     modifier = Modifier.clickable {
                         startActivity(
@@ -372,8 +381,8 @@ class NumberActionActivity : ComponentActivity() {
                     },
                 )
                 ListItem(
-                    headlineContent = { Text("Save as a temporary contact") },
-                    supportingContent = { Text("Private, deletes itself in ${TemporaryContact.DEFAULT_DAYS} days") },
+                    headlineContent = { Text(stringResource(R.string.num_save_temporary)) },
+                    supportingContent = { Text(pluralStringResource(R.plurals.num_private_deletes, TemporaryContact.DEFAULT_DAYS, TemporaryContact.DEFAULT_DAYS)) },
                     leadingContent = { Icon(Icons.Rounded.Timer, null) },
                     modifier = Modifier.clickable { askTemporary = true },
                 )
@@ -401,14 +410,14 @@ class NumberActionActivity : ComponentActivity() {
         val notice = remember {
             if (s.via.startsWith("WhatsApp") && !container.messaging.whatsappSyncNoticeShown) {
                 container.messaging.whatsappSyncNoticeShown = true
-                WhatsAppNotice.TEXT
+                getString(WhatsAppNotice.TEXT_RES)
             } else {
                 null
             }
         }
         TemporaryNameDialog(
             TemporaryContact.suggestedName(s.number, s.via, region),
-            title = "Save as a temporary contact?",
+            title = stringResource(R.string.num_save_temporary_question),
             notice = notice,
             onDismiss = { finish() },
         ) { name, visible -> scope.launch { saveTemporary(s.number, name, visible) } }
@@ -416,7 +425,7 @@ class NumberActionActivity : ComponentActivity() {
 
     private suspend fun saveTemporary(number: String, name: String, visible: Boolean) {
         val saved = withContext(Dispatchers.IO) { runCatching { TemporaryContact.save(container, number, name, private = !visible) }.getOrNull() }
-        Toast.makeText(this, TemporaryContact.savedMessage(saved), Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, TemporaryContact.savedMessage(resources, saved), Toast.LENGTH_SHORT).show()
         finish()
     }
 
@@ -467,7 +476,7 @@ class NumberActionActivity : ComponentActivity() {
 @Composable
 fun TemporaryNameDialog(
     suggested: String,
-    title: String = "Save as a temporary contact",
+    title: String? = null,
     notice: String? = null,
     onDismiss: () -> Unit,
     onSave: (name: String, visible: Boolean) -> Unit,
@@ -477,30 +486,22 @@ fun TemporaryNameDialog(
     val days = TemporaryContact.DEFAULT_DAYS
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = { Text(title ?: stringResource(R.string.num_save_temporary)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 notice?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary) }
-                Text(
-                    if (visible) {
-                        "Saved in your contacts on this phone only, where apps that can read contacts (WhatsApp included) see it. " +
-                            "It deletes itself, with its call history, in $days days."
-                    } else {
-                        "Saved privately in Parley for $days days: other apps, WhatsApp included, can't see it. " +
-                            "It then deletes itself with its call history. Keep it any time from its page."
-                    },
-                )
-                OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
+                Text(pluralStringResource(if (visible) R.plurals.num_temp_visible_body else R.plurals.num_temp_private_body, days, days))
+                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.edit_name)) }, singleLine = true)
                 Row(
                     Modifier.fillMaxWidth().toggleable(visible, role = Role.Checkbox, onValueChange = { visible = it }),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Checkbox(visible, onCheckedChange = null)
-                    Text("Save visible to other apps", Modifier.padding(start = 8.dp))
+                    Text(stringResource(R.string.num_save_visible), Modifier.padding(start = 8.dp))
                 }
             }
         },
-        confirmButton = { TextButton({ onSave(name, visible) }) { Text(if (visible) "Save" else "Save privately") } },
-        dismissButton = { TextButton(onDismiss) { Text("Not now") } },
+        confirmButton = { TextButton({ onSave(name, visible) }) { Text(stringResource(if (visible) R.string.main_save else R.string.sqr_save_privately)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.num_not_now)) } },
     )
 }

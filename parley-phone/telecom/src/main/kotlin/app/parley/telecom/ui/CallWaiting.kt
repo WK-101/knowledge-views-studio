@@ -34,6 +34,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
+import app.parley.telecom.R
+import app.parley.ui.Bidi
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -69,16 +73,16 @@ internal fun CurrentCallCard(call: CallUi, canHold: Boolean, modifier: Modifier 
             Avatar(call.title, call.photoUri, 44.dp)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(call.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(call.displayTitle, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val state = when (call.state) {
-                    CallState.HOLDING -> "On hold"
+                    CallState.HOLDING -> stringResource(R.string.incall_status_on_hold)
                     CallState.ACTIVE -> clockText(seconds)
-                    else -> "Connecting…"
+                    else -> stringResource(R.string.incall_other_connecting)
                 }
                 Text(state, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (call.state == CallState.ACTIVE) {
                     Text(
-                        if (canHold) "Answering puts this call on hold" else "This call can't be put on hold",
+                        stringResource(if (canHold) R.string.incall_answering_holds else R.string.incall_cannot_hold),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -98,6 +102,7 @@ internal fun CallWaitingSheet(ringing: CallUi, current: CallUi?, heldCount: Int,
     val canHoldAnswer = active != null && active.canHold && heldCount == 0
     val canReply = !ringing.hidden && !ringing.number.isNullOrBlank()
     val visible = remember { MutableTransitionState(false).apply { targetState = true } }
+    val res = LocalResources.current
     AnimatedVisibility(visible, enter = slideInVertically { it } + fadeIn()) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -119,39 +124,39 @@ internal fun CallWaitingSheet(ringing: CallUi, current: CallUi?, heldCount: Int,
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
                         customActions = buildList {
-                            if (canHoldAnswer) add(CustomAccessibilityAction("Hold current call and answer") { CallManager.holdAndAnswer(ringing.id); true })
-                            if (active != null) add(CustomAccessibilityAction("End current call and answer") { CallManager.endAndAnswer(ringing.id); true })
-                            if (active == null) add(CustomAccessibilityAction("Answer") { CallManager.answer(ringing.id); true })
-                            add(CustomAccessibilityAction("Decline") { CallManager.reject(ringing.id); true })
-                            if (canReply) add(CustomAccessibilityAction("Reply with a message") { onReply(); true })
+                            if (canHoldAnswer) add(CustomAccessibilityAction(res.getString(R.string.incall_hold_and_answer)) { CallManager.holdAndAnswer(ringing.id); true })
+                            if (active != null) add(CustomAccessibilityAction(res.getString(R.string.incall_end_and_answer)) { CallManager.endAndAnswer(ringing.id); true })
+                            if (active == null) add(CustomAccessibilityAction(res.getString(R.string.incall_answer)) { CallManager.answer(ringing.id); true })
+                            add(CustomAccessibilityAction(res.getString(R.string.incall_decline)) { CallManager.reject(ringing.id); true })
+                            if (canReply) add(CustomAccessibilityAction(res.getString(R.string.incall_reply_a11y)) { onReply(); true })
                         }
                     },
                 ) {
                     Avatar(ringing.title, ringing.photoUri, 56.dp)
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(if (ringing.silenced) "Waiting call · silenced" else "Waiting call", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        Text(ringing.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        val sub = listOfNotNull(ringing.label, ringing.number?.takeIf { ringing.name != null }, ringing.accountLabel, ringing.location).joinToString(" · ")
+                        Text(stringResource(if (ringing.silenced) R.string.incall_waiting_call_silenced else R.string.incall_waiting_call), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Text(ringing.displayTitle, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        val sub = listOfNotNull(ringing.label, ringing.number?.takeIf { ringing.name != null }?.let(Bidi::ltr), ringing.accountLabel, ringing.location).joinToString(stringResource(R.string.tc_separator))
                         if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 Spacer(Modifier.size(20.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     when {
-                        canHoldAnswer -> WaitingAction(Icons.Rounded.PauseCircle, "Hold &\nanswer", "Hold current call and answer", CallColors.Accept) { CallManager.holdAndAnswer(ringing.id) }
-                        active == null -> WaitingAction(Icons.Rounded.Call, "Answer", "Answer", CallColors.Accept) { CallManager.answer(ringing.id) }
+                        canHoldAnswer -> WaitingAction(Icons.Rounded.PauseCircle, stringResource(R.string.incall_hold_answer_short), stringResource(R.string.incall_hold_and_answer), CallColors.Accept) { CallManager.holdAndAnswer(ringing.id) }
+                        active == null -> WaitingAction(Icons.Rounded.Call, stringResource(R.string.incall_answer), stringResource(R.string.incall_answer), CallColors.Accept) { CallManager.answer(ringing.id) }
                     }
                     if (active != null) {
-                        WaitingAction(Icons.Rounded.PhoneInTalk, "End &\nanswer", "End current call and answer", MaterialTheme.colorScheme.tertiary) { CallManager.endAndAnswer(ringing.id) }
+                        WaitingAction(Icons.Rounded.PhoneInTalk, stringResource(R.string.incall_end_answer_short), stringResource(R.string.incall_end_and_answer), MaterialTheme.colorScheme.tertiary) { CallManager.endAndAnswer(ringing.id) }
                     }
-                    WaitingAction(Icons.Rounded.CallEnd, "Decline", "Decline", CallColors.Decline) { CallManager.reject(ringing.id) }
+                    WaitingAction(Icons.Rounded.CallEnd, stringResource(R.string.incall_decline), stringResource(R.string.incall_decline), CallColors.Decline) { CallManager.reject(ringing.id) }
                     if (canReply) {
-                        WaitingAction(Icons.AutoMirrored.Rounded.Message, "Reply", "Reply with a message", MaterialTheme.colorScheme.secondary, onReply)
+                        WaitingAction(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.incall_reply), stringResource(R.string.incall_reply_a11y), MaterialTheme.colorScheme.secondary, onReply)
                     }
                 }
                 if (!ringing.silenced) {
-                    TextButton(onClick = { CallManager.ignore(ringing.id) }, modifier = Modifier.padding(top = 8.dp)) { Text("Ignore — stop the waiting tone") }
+                    TextButton(onClick = { CallManager.ignore(ringing.id) }, modifier = Modifier.padding(top = 8.dp)) { Text(stringResource(R.string.incall_ignore_waiting_tone)) }
                 }
             }
         }

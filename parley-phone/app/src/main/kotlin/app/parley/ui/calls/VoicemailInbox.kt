@@ -59,6 +59,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.R
 import app.parley.calls.PlayerState
 import app.parley.calls.VoicemailPlayer
 import app.parley.common.TextSearch
@@ -75,6 +79,7 @@ import app.parley.data.calls.Voicemail
 import app.parley.data.calls.VoicemailRepository
 import app.parley.data.calls.VoicemailState
 import app.parley.ui.Avatar
+import app.parley.ui.Bidi
 import app.parley.ui.EmptyState
 import app.parley.ui.avatarSize
 import app.parley.ui.common.Format
@@ -102,10 +107,11 @@ fun VoicemailInbox(vm: AppViewModel, query: String) {
         else state.items.filter { v -> TextSearch.matches(query, vm.contactFor(v.number)?.displayName ?: v.number, listOf(v.number)) }
     }
 
+    val res = LocalResources.current
     Column(Modifier.fillMaxWidth()) {
         VoicemailNote(vm, state)
         if (state.loaded && state.available && items.isEmpty()) {
-            EmptyState(Icons.Rounded.Voicemail, if (query.isBlank()) "No voicemail" else "Nothing here", modifier = Modifier.padding(top = 32.dp))
+            EmptyState(Icons.Rounded.Voicemail, stringResource(if (query.isBlank()) R.string.vmi_empty else R.string.recents_nothing_here), modifier = Modifier.padding(top = 32.dp))
         }
         items.forEach { v ->
             VoicemailRow(
@@ -120,18 +126,18 @@ fun VoicemailInbox(vm: AppViewModel, query: String) {
                     scope.launch {
                         val file = vm.c.voicemail.copyForSharing(v)
                         if (file == null) {
-                            vm.toast(if (v.hasAudio) "Couldn't share this voicemail" else "The audio hasn't been downloaded yet")
+                            vm.toast(res.getString(if (v.hasAudio) R.string.vmi_share_failed else R.string.vm_error_not_downloaded))
                             return@launch
                         }
                         val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
                         val send = Intent(Intent.ACTION_SEND).setType(v.mimeType ?: "audio/*").putExtra(Intent.EXTRA_STREAM, uri)
                             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        runCatching { context.startActivity(Intent.createChooser(send, "Share voicemail")) }
+                        runCatching { context.startActivity(Intent.createChooser(send, res.getString(R.string.vmi_share_title))) }
                     }
                 },
                 onDelete = { confirmDelete = v },
                 onDownload = {
-                    vm.toast(if (vm.c.voicemail.requestDownload(v)) "Asked your voicemail app to download it" else "No voicemail app to ask")
+                    vm.toast(res.getString(if (vm.c.voicemail.requestDownload(v)) R.string.vmi_download_asked else R.string.vmi_download_no_app))
                 },
             )
         }
@@ -140,16 +146,16 @@ fun VoicemailInbox(vm: AppViewModel, query: String) {
     confirmDelete?.let { v ->
         AlertDialog(
             onDismissRequest = { confirmDelete = null },
-            title = { Text("Delete this voicemail?") },
-            text = { Text("It's also deleted from your carrier's voicemail box the next time your voicemail app syncs, when it supports that.") },
+            title = { Text(stringResource(R.string.vmi_delete_title)) },
+            text = { Text(stringResource(R.string.vmi_delete_body)) },
             confirmButton = {
                 TextButton({
                     confirmDelete = null
                     if (playing.id == v.id) player.stop()
-                    scope.launch { vm.toast(if (vm.c.voicemail.delete(v)) "Voicemail deleted" else "Couldn't delete it") }
-                }) { Text("Delete") }
+                    scope.launch { vm.toast(res.getString(if (vm.c.voicemail.delete(v)) R.string.vmi_deleted else R.string.vmi_delete_failed)) }
+                }) { Text(stringResource(R.string.main_delete)) }
             },
-            dismissButton = { TextButton({ confirmDelete = null }) { Text("Cancel") } },
+            dismissButton = { TextButton({ confirmDelete = null }) { Text(stringResource(R.string.main_cancel)) } },
         )
     }
 }
@@ -158,6 +164,7 @@ fun VoicemailInbox(vm: AppViewModel, query: String) {
 @Composable
 private fun VoicemailNote(vm: AppViewModel, state: VoicemailState) {
     val context = LocalContext.current
+    val res = LocalResources.current
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
         shape = RoundedCornerShape(20.dp),
@@ -168,9 +175,9 @@ private fun VoicemailNote(vm: AppViewModel, state: VoicemailState) {
                 Icon(Icons.Rounded.Info, null, Modifier.padding(end = 12.dp, top = 2.dp), tint = MaterialTheme.colorScheme.primary)
                 Text(
                     if (state.loaded && !state.available) {
-                        "Parley can show your voicemail only while it's your default phone app."
+                        stringResource(R.string.vmi_note_not_default)
                     } else {
-                        "Parley shows voicemails your carrier's voicemail app or Android has already downloaded; it can't sync without internet."
+                        stringResource(R.string.vmi_note_offline)
                     },
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -179,20 +186,20 @@ private fun VoicemailNote(vm: AppViewModel, state: VoicemailState) {
                 Text(p, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
             state.sources.firstOrNull { it.quotaTotal != null && it.quotaUsed != null }?.let { s ->
-                Text("Mailbox: ${s.quotaUsed} of ${s.quotaTotal} messages", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(pluralStringResource(R.plurals.vmi_quota, s.quotaTotal ?: 0, s.quotaUsed ?: 0, s.quotaTotal ?: 0), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AssistChip({ vm.callVoicemail() }, { Text("Call voicemail") }, leadingIcon = { Icon(Icons.Rounded.Call, null, Modifier.size(18.dp)) })
+                AssistChip({ vm.callVoicemail() }, { Text(stringResource(R.string.keypad_long_voicemail)) }, leadingIcon = { Icon(Icons.Rounded.Call, null, Modifier.size(18.dp)) })
                 AssistChip(
-                    { runCatching { context.startActivity(Intent(VoicemailRepository.CONFIGURE_ACTION)) }.onFailure { vm.toast("No voicemail settings on this phone") } },
-                    { Text("Voicemail settings") },
+                    { runCatching { context.startActivity(Intent(VoicemailRepository.CONFIGURE_ACTION)) }.onFailure { vm.toast(res.getString(R.string.vmi_no_settings)) } },
+                    { Text(stringResource(R.string.vmi_settings)) },
                     leadingIcon = { Icon(Icons.Rounded.Settings, null, Modifier.size(18.dp)) },
                 )
                 // The carrier's visual voicemail app's own settings, when it publishes them.
                 state.sources.firstNotNullOfOrNull { it.settingsUri }?.let { uri ->
                     AssistChip(
-                        { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }.onFailure { vm.toast("Couldn't open it") } },
-                        { Text("Carrier voicemail app") },
+                        { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }.onFailure { vm.toast(res.getString(R.string.vmi_open_failed)) } },
+                        { Text(stringResource(R.string.vmi_carrier_app)) },
                         leadingIcon = { Icon(Icons.Rounded.Voicemail, null, Modifier.size(18.dp)) },
                     )
                 }
@@ -220,18 +227,19 @@ private fun VoicemailRow(
 ) {
     val context = LocalContext.current
     val contact = remember(v.number) { vm.contactFor(v.number) }
-    val title = contact?.displayName ?: v.number.takeIf { it.isNotBlank() }?.let { Format.number(it, vm.countryIso) } ?: "Private number"
+    val title = contact?.displayName ?: v.number.takeIf { it.isNotBlank() }?.let { Bidi.ltr(Format.number(it, vm.countryIso)) } ?: stringResource(R.string.main_private_number)
     Column {
         ListItem(
-            modifier = Modifier.clickable(onClickLabel = if (expanded) "Collapse" else "Show player", onClick = onToggle),
+            modifier = Modifier.clickable(onClickLabel = stringResource(if (expanded) R.string.vmi_collapse else R.string.vmi_show_player), onClick = onToggle),
             colors = if (expanded) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) else ListItemDefaults.colors(),
             leadingContent = {
                 Box {
                     Avatar(title, contact?.photoUri, avatarSize())
                     if (!v.heard) {
+                        val newLabel = stringResource(R.string.vmi_new)
                         Box(
                             Modifier.size(12.dp).align(Alignment.TopEnd).clip(CircleShape).background(MaterialTheme.colorScheme.primary)
-                                .semantics { contentDescription = "New" },
+                                .semantics { contentDescription = newLabel },
                         )
                     }
                 }
@@ -240,8 +248,8 @@ private fun VoicemailRow(
             supportingContent = {
                 Column {
                     Text(
-                        listOfNotNull(Format.shortWhen(context, v.date), VoicemailFiles.clock(v.durationSec * 1000), sim, if (!v.hasAudio) "not downloaded" else null)
-                            .joinToString(" · "),
+                        listOfNotNull(Format.shortWhen(context, v.date), VoicemailFiles.clock(v.durationSec * 1000), sim, if (!v.hasAudio) stringResource(R.string.vmi_not_downloaded) else null)
+                            .joinToString(stringResource(R.string.main_separator)),
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                     if (!expanded) v.transcription?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall) }
@@ -249,7 +257,7 @@ private fun VoicemailRow(
             },
             trailingContent = {
                 IconButton(onPlay, enabled = v.hasAudio) {
-                    Icon(if (playing?.playing == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (playing?.playing == true) "Pause" else "Play voicemail from $title")
+                    Icon(if (playing?.playing == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (playing?.playing == true) stringResource(R.string.vmi_pause) else stringResource(R.string.vmi_play_from, title))
                 }
             },
         )
@@ -258,44 +266,45 @@ private fun VoicemailRow(
                 if (v.hasAudio) {
                     val duration = (playing?.durationMs?.takeIf { it > 0 } ?: (v.durationSec * 1000)).coerceAtLeast(1)
                     val position = playing?.positionMs ?: 0
+                    val positionLabel = stringResource(R.string.vmi_position)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         FilledIconButton(onPlay) {
-                            Icon(if (playing?.playing == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (playing?.playing == true) "Pause" else "Play")
+                            Icon(if (playing?.playing == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (playing?.playing == true) stringResource(R.string.vmi_pause) else stringResource(R.string.vmi_play))
                         }
                         Spacer(Modifier.width(8.dp))
                         Slider(
                             value = position.coerceIn(0, duration).toFloat(), onValueChange = { onSeek(it.toLong()) }, valueRange = 0f..duration.toFloat(),
-                            enabled = playing != null, modifier = Modifier.weight(1f).semantics { contentDescription = "Position" },
+                            enabled = playing != null, modifier = Modifier.weight(1f).semantics { contentDescription = positionLabel },
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(VoicemailFiles.clock(position) + " / " + VoicemailFiles.clock(duration), style = MaterialTheme.typography.labelMedium)
                     }
                     SingleChoiceSegmentedButtonRow(Modifier.padding(vertical = 4.dp)) {
-                        SegmentedButton(speaker, { onSpeaker(true) }, SegmentedButtonDefaults.itemShape(0, 2), icon = { Icon(Icons.AutoMirrored.Rounded.VolumeUp, null, Modifier.size(18.dp)) }) { Text("Speaker") }
-                        SegmentedButton(!speaker, { onSpeaker(false) }, SegmentedButtonDefaults.itemShape(1, 2), icon = { Icon(Icons.Rounded.PhoneInTalk, null, Modifier.size(18.dp)) }) { Text("Earpiece") }
+                        SegmentedButton(speaker, { onSpeaker(true) }, SegmentedButtonDefaults.itemShape(0, 2), icon = { Icon(Icons.AutoMirrored.Rounded.VolumeUp, null, Modifier.size(18.dp)) }) { Text(stringResource(app.parley.telecom.R.string.audio_route_speaker)) }
+                        SegmentedButton(!speaker, { onSpeaker(false) }, SegmentedButtonDefaults.itemShape(1, 2), icon = { Icon(Icons.Rounded.PhoneInTalk, null, Modifier.size(18.dp)) }) { Text(stringResource(app.parley.telecom.R.string.audio_route_earpiece)) }
                     }
                     playing?.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                 } else {
                     Text(
-                        "The audio of this voicemail isn't on the phone yet. Your voicemail app downloads it over mobile data or Wi-Fi; Parley can't.",
+                        stringResource(R.string.vmi_not_on_phone),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 v.transcription?.let {
-                    Text("Transcription", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+                    Text(stringResource(R.string.vmi_transcription), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
                     Text(it, style = MaterialTheme.typography.bodyMedium)
                 }
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (v.number.isNotBlank()) {
-                        AssistChip({ vm.requestCall(v.number, contact?.displayName) }, { Text("Call back") }, leadingIcon = { Icon(Icons.Rounded.Call, null, Modifier.size(18.dp)) })
+                        AssistChip({ vm.requestCall(v.number, contact?.displayName) }, { Text(stringResource(R.string.missed_call_back)) }, leadingIcon = { Icon(Icons.Rounded.Call, null, Modifier.size(18.dp)) })
                     }
                     AssistChip(
-                        onHeard, { Text(if (v.heard) "Mark as new" else "Mark heard") },
+                        onHeard, { Text(stringResource(if (v.heard) R.string.vmi_mark_new else R.string.vmi_mark_heard)) },
                         leadingIcon = { Icon(if (v.heard) Icons.Rounded.MarkEmailUnread else Icons.Rounded.MarkEmailRead, null, Modifier.size(18.dp)) },
                     )
-                    if (v.hasAudio) AssistChip(onShare, { Text("Share") }, leadingIcon = { Icon(Icons.Rounded.Share, null, Modifier.size(18.dp)) })
-                    else AssistChip(onDownload, { Text("Download") }, leadingIcon = { Icon(Icons.Rounded.CloudDownload, null, Modifier.size(18.dp)) })
-                    AssistChip(onDelete, { Text("Delete") }, leadingIcon = { Icon(Icons.Rounded.Delete, null, Modifier.size(18.dp)) })
+                    if (v.hasAudio) AssistChip(onShare, { Text(stringResource(R.string.main_share)) }, leadingIcon = { Icon(Icons.Rounded.Share, null, Modifier.size(18.dp)) })
+                    else AssistChip(onDownload, { Text(stringResource(R.string.vmi_download)) }, leadingIcon = { Icon(Icons.Rounded.CloudDownload, null, Modifier.size(18.dp)) })
+                    AssistChip(onDelete, { Text(stringResource(R.string.main_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, Modifier.size(18.dp)) })
                 }
             }
         }

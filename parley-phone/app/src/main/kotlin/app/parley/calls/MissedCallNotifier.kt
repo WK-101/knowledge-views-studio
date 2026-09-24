@@ -20,6 +20,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import app.parley.MainActivity
 import app.parley.MissedCallActionReceiver
+import app.parley.R
 import app.parley.common.NotificationPrivacy
 import app.parley.common.PhoneNumbers
 import app.parley.common.calls.DndState
@@ -27,10 +28,10 @@ import app.parley.common.calls.MissedCall
 import app.parley.common.calls.MissedCaller
 import app.parley.common.calls.MissedCalls
 import app.parley.common.calls.MissedReAlert
-import app.parley.common.calls.RingExplainer
 import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
+import app.parley.ui.Bidi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -60,7 +61,7 @@ object MissedCallNotifier {
             stopReAlert(context)
             return@withContext
         }
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Missed calls", NotificationManager.IMPORTANCE_DEFAULT))
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, context.getString(R.string.missed_channel), NotificationManager.IMPORTANCE_DEFAULT))
         val c = context.container
         val unseen = unseenMissed(context)
         // The call log can lag behind Telecom's broadcast: then show what Telecom told us.
@@ -104,9 +105,9 @@ object MissedCallNotifier {
             if (!caller.hidden && caller.number.isNotBlank()) {
                 // One-ring scams and premium lines: no one-tap call back from the notification (B10); the app asks first.
                 val risky = runCatching { c.dialGuard.check(caller.number).any { it.severe } }.getOrDefault(false)
-                if (!risky) b.addAction(0, "Call back", broadcast(context, MissedCallActionReceiver.ACTION_CALL_BACK, caller.number, 30 + i, id))
+                if (!risky) b.addAction(0, context.getString(R.string.missed_call_back), broadcast(context, MissedCallActionReceiver.ACTION_CALL_BACK, caller.number, 30 + i, id))
                 b.addAction(
-                    0, "Message on…",
+                    0, context.getString(R.string.missed_message_on),
                     PendingIntent.getActivity(
                         context, 40 + i, app.parley.messaging.MessageOn.intent(context, caller.number, caller.accountId),
                         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -124,8 +125,8 @@ object MissedCallNotifier {
         if (grouped) {
             val inbox = NotificationCompat.InboxStyle()
             details.forEach { inbox.addLine(it.inboxLine) }
-            if (callers.size > shown.size) inbox.setSummaryText("+${callers.size - shown.size} more")
-            val title = MissedCalls.summaryTitle(total, callers.size)
+            if (callers.size > shown.size) inbox.setSummaryText(context.getString(R.string.missed_more, callers.size - shown.size))
+            val title = summaryTitle(context, total, callers.size)
             val summary = NotificationCompat.Builder(context, CHANNEL)
                 .setSmallIcon(app.parley.ui.R.drawable.ic_stat_missed)
                 .setContentTitle(title)
@@ -159,10 +160,13 @@ object MissedCallNotifier {
         val contact = number?.let { runCatching { c.contacts.lookup(it) }.getOrNull() }
         val vaultName = if (contact == null && number != null) runCatching { c.vault.lookup(number)?.second?.name }.getOrNull() else null
         // F14: a private contact's name never shows in discreet mode.
-        val name = NotificationPrivacy.missedCallName(contact?.name, vaultName, hideVault, number) ?: "Private number"
+        val name = NotificationPrivacy.missedCallName(contact?.name, vaultName, hideVault, number)
+            ?.let { if (it == number) Bidi.ltr(it) else it } ?: context.getString(R.string.main_private_number)
         val time = DateUtils.formatDateTime(context, caller.latest, DateUtils.FORMAT_SHOW_TIME)
         val sim = caller.accountId?.let { simLabels[it] }
-        val line = listOfNotNull(if (caller.count > 1) "${caller.count} missed calls · last $time" else "Missed call · $time", sim).joinToString(" · ")
+        val sep = context.getString(R.string.main_separator)
+        val first = if (caller.count > 1) context.resources.getQuantityString(R.plurals.missed_count_last, caller.count, caller.count, time) else context.getString(R.string.missed_one_at, time)
+        val line = listOfNotNull(first, sim).joinToString(sep)
         // "Why didn't it ring?": Parley's own reason first (a silence rule), then the ringer's state.
         val verdict = number?.let { n ->
             val iso = PhoneEnv.countryIso(context, caller.accountId)
@@ -172,9 +176,9 @@ object MissedCallNotifier {
             }?.verdict
         }
         val facts = runCatching { c.ringFacts.near(number, caller.latest) }.getOrNull()
-        val why = RingExplainer.whyNoRing(facts, verdict)
+        val why = app.parley.ui.calls.RingText.whyNoRing(context.resources, facts, verdict)
         val photo = contact?.photoUri?.let { loadCircle(context, it) }
-        val inboxLine = name + (if (caller.count > 1) " (${caller.count})" else "") + " · " + time + (sim?.let { " · $it" } ?: "")
+        val inboxLine = (if (caller.count > 1) context.getString(R.string.missed_name_count, name, caller.count) else name) + sep + time + (sim?.let { sep + it } ?: "")
         return Shown(name, line, why, inboxLine, photo, isContact = contact != null || vaultName != null)
     }
 
@@ -202,7 +206,7 @@ object MissedCallNotifier {
 
     private fun publicVersion(context: Context, count: Int) = NotificationCompat.Builder(context, CHANNEL)
         .setSmallIcon(app.parley.ui.R.drawable.ic_stat_missed)
-        .setContentTitle(MissedCalls.title(count))
+        .setContentTitle(title(context, count))
         .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
         .setNumber(count)
         .build()
@@ -225,7 +229,7 @@ object MissedCallNotifier {
      */
     private fun blockAction(context: Context, number: String, req: Int, notificationId: Int): NotificationCompat.Action {
         if (android.os.Build.VERSION.SDK_INT >= 31) {
-            return NotificationCompat.Action.Builder(0, "Block", broadcast(context, MissedCallActionReceiver.ACTION_BLOCK, number, req, notificationId))
+            return NotificationCompat.Action.Builder(0, context.getString(R.string.main_block), broadcast(context, MissedCallActionReceiver.ACTION_BLOCK, number, req, notificationId))
                 .setAuthenticationRequired(true).build()
         }
         val pi = PendingIntent.getActivity(
@@ -235,8 +239,16 @@ object MissedCallNotifier {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        return NotificationCompat.Action.Builder(0, "Block", pi).build()
+        return NotificationCompat.Action.Builder(0, context.getString(R.string.main_block), pi).build()
     }
+
+    /** "Missed call" or "3 missed calls" (the words of [MissedCalls.title], localised). */
+    private fun title(context: Context, count: Int): String =
+        if (count <= 1) context.getString(R.string.missed_title_one) else context.resources.getQuantityString(R.plurals.missed_title_many, count, count)
+
+    /** "5 missed calls from 3 callers". */
+    private fun summaryTitle(context: Context, total: Int, callers: Int): String =
+        if (callers <= 1) title(context, total) else context.resources.getQuantityString(R.plurals.missed_summary, total, total, callers)
 
     fun cancelAll(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)

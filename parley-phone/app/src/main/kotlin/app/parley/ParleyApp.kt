@@ -10,6 +10,11 @@ class ParleyApp : Application() {
     lateinit var container: DataContainer
         private set
 
+    // L1: on Android 10-12 the in-app language also applies to notifications and toasts.
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(app.parley.ui.AppLocale.wrap(base))
+    }
+
     override fun onCreate() {
         super.onCreate()
         // U10: stores the last crash on this phone when "Keep crash reports" is on (it reads that flag at crash time).
