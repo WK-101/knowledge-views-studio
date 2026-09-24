@@ -80,6 +80,7 @@ import java.io.File
 @Composable
 fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     val gallery = remember { TemplateGallery.get(context) }
     val gs by gallery.state.collectAsStateWithLifecycle()
@@ -110,16 +111,16 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
                             val n = s.read(buf)
                             if (n < 0) break
                             out.write(buf, 0, n)
-                            if (out.size() > MAX_FILE) throw TemplateException(context.getString(R.string.blk_tpl_err_file_large))
+                            if (out.size() > MAX_FILE) throw TemplateException(res.getString(R.string.blk_tpl_err_file_large))
                         }
                         out.toByteArray().decodeToString()
-                    } ?: throw TemplateException(context.getString(R.string.blk_tpl_err_open_file))
+                    } ?: throw TemplateException(res.getString(R.string.blk_tpl_err_open_file))
                 }
                 incoming = withContext(Dispatchers.Default) { RuleTemplates.open(text) }
             } catch (e: TemplateException) {
                 error = TemplateText.error(context, e.message)
             } catch (e: Exception) {
-                error = context.getString(R.string.blk_fail_read_file)
+                error = res.getString(R.string.blk_fail_read_file)
             }
         }
     }
@@ -133,7 +134,7 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
         }
         val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
         val send = Intent(Intent.ACTION_SEND).setType("application/octet-stream").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        context.startActivity(Intent.createChooser(send, context.getString(R.string.blk_tpl_share_chooser, TemplateText.name(context, t))))
+        context.startActivity(Intent.createChooser(send, res.getString(R.string.blk_tpl_share_chooser, TemplateText.name(context, t))))
     }
 
     Scaffold(topBar = {
@@ -217,6 +218,7 @@ private const val MAX_FILE = 1024 * 1024
 private fun TemplateCard(vm: AppViewModel, gallery: TemplateGallery, e: TemplateGallery.Entry, installed: Boolean, onShare: () -> Unit, onQr: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val t = e.template
     val name = TemplateText.name(context, t)
     val description = TemplateText.description(context, t)
@@ -269,14 +271,14 @@ private fun TemplateCard(vm: AppViewModel, gallery: TemplateGallery, e: Template
                                 )
                             }.getOrNull()
                             dryBusy = false
-                            if (dry == null) vm.toast(context.getString(R.string.blk_tpl_dry_failed))
+                            if (dry == null) vm.toast(res.getString(R.string.blk_tpl_dry_failed))
                         }
                     }, enabled = !dryBusy) { Text(stringResource(if (dryBusy) R.string.blk_tpl_dry_busy else R.string.blk_tpl_dry_button)) }
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (installed) {
-                    OutlinedButton({ scope.launch { busy = true; gallery.uninstall(vm.c, t.id); busy = false; vm.toast(context.getString(R.string.blk_tpl_removed, name)) } }, enabled = !busy) { Text(stringResource(R.string.blk_tpl_uninstall)) }
+                    OutlinedButton({ scope.launch { busy = true; gallery.uninstall(vm.c, t.id); busy = false; vm.toast(res.getString(R.string.blk_tpl_removed, name)) } }, enabled = !busy) { Text(stringResource(R.string.blk_tpl_uninstall)) }
                 } else {
                     OutlinedButton({ scope.launch { busy = true; vm.toast(gallery.install(vm.c, t)); busy = false } }, enabled = !busy) { Text(stringResource(R.string.blk_tpl_install)) }
                 }

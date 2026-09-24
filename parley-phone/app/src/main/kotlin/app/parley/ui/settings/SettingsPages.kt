@@ -280,6 +280,7 @@ internal fun BlockingPage(vm: AppViewModel, open: (String) -> Unit) {
 @Composable
 internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     val s by vm.settings.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
@@ -383,7 +384,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
                                 val report = try {
                                     vm.c.vcards.import(uri, a, skipDuplicates = skipDuplicates)
                                 } catch (e: Exception) {
-                                    vm.toast(context.getString(R.string.set_import_failed_toast, e.message.orEmpty()))
+                                    vm.toast(res.getString(R.string.set_import_failed_toast, e.message.orEmpty()))
                                     null
                                 }
                                 progress = null
@@ -468,6 +469,7 @@ internal fun MessagingPage(vm: AppViewModel, open: (String) -> Unit) {
 @Composable
 internal fun PrivacyPage(vm: AppViewModel, open: (String) -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val s by vm.settings.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
     val pn by vm.c.people.privateNames.state.collectAsStateWithLifecycle()
@@ -484,7 +486,7 @@ internal fun PrivacyPage(vm: AppViewModel, open: (String) -> Unit) {
     SegmentedGroup(stringResource(R.string.set_group_app_lock)) {
         switchRow("app_lock", s.appLock, Icons.Rounded.Lock) { v ->
             val act = context as? androidx.fragment.app.FragmentActivity
-            if (act != null) app.parley.security.AppLock.authenticate(act, context.getString(if (v) R.string.set_app_lock_turn_on else R.string.set_app_lock_turn_off)) { ok -> if (ok) set { it.copy(appLock = v) } }
+            if (act != null) app.parley.security.AppLock.authenticate(act, res.getString(if (v) R.string.set_app_lock_turn_on else R.string.set_app_lock_turn_off)) { ok -> if (ok) set { it.copy(appLock = v) } }
         }
         if (s.appLock) {
             menuRow("lock_after", lockLabels, lockTimes.indexOf(s.lockAfterMinutes).coerceAtLeast(0), Icons.Rounded.LockClock) { i ->

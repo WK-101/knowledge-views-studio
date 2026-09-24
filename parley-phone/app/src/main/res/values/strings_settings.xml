@@ -121,7 +121,7 @@
     <string name="set_call_time_summary">Talk-time reminders, call-length limits and allowances</string>
     <string name="set_call_time_kw">timer, beep, duration, limit, allowance, supervised, parental, talk time</string>
     <string name="set_plan_minutes_title">Plan minutes per SIM</string>
-    <string name="set_plan_minutes_summary">Billing increments and an 80 % warning</string>
+    <string name="set_plan_minutes_summary" formatted="false">Billing increments and an 80 % warning</string>
     <string name="set_plan_minutes_kw">billing, minutes, plan, bundle, tariff</string>
     <string name="set_blocking_title">Blocking &amp; screening</string>
     <string name="set_blocking_summary">Allow and block rules, off hours and extra checks</string>
@@ -637,7 +637,10 @@
     <string name="ct_health_all_ok">Calls will reach you</string>
     <string name="ct_health_check">Check how calls reach you</string>
     <string name="ct_health_banner_title">Calls may not reach you</string>
-    <string name="ct_health_more">(+%1$d more)</string>
+    <plurals name="ct_health_more">
+        <item quantity="one">(+%1$d more)</item>
+        <item quantity="other">(+%1$d more)</item>
+    </plurals>
     <string name="ct_not_now">Not now</string>
     <string name="ct_chip_calling_via">Calling via %1$s…</string>
     <string name="ct_chip_calling">Calling…</string>

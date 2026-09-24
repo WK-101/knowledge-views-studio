@@ -148,7 +148,7 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                 RuleType.EXACT, RuleType.PREFIX, RuleType.WILDCARD, RuleType.CALLER_NAME, RuleType.REGION -> OutlinedTextField(
                     r.pattern, { r = r.copy(pattern = it) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                     // Numbers and patterns stay left-to-right in Arabic and Urdu; a caller name follows its own script.
-                    textStyle = if (r.type.isNumberRule) LtrText() else androidx.compose.material3.LocalTextStyle.current,
+                    textStyle = if (r.type.isNumberRule) ltrTextStyle() else androidx.compose.material3.LocalTextStyle.current,
                     label = {
                         Text(
                             stringResource(

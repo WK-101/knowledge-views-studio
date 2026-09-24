@@ -171,7 +171,7 @@ fun NotificationHealthBanner(vm: AppViewModel, modifier: Modifier = Modifier) {
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.ct_health_banner_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onErrorContainer)
                 Text(
-                    first.whyOff + (checks.count { it.critical && !it.ok }.takeIf { it > 1 }?.let { " " + stringResource(R.string.ct_health_more, it - 1) } ?: ""),
+                    first.whyOff + (checks.count { it.critical && !it.ok }.takeIf { it > 1 }?.let { " " + pluralStringResource(R.plurals.ct_health_more, it - 1, it - 1) } ?: ""),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onErrorContainer,
                 )

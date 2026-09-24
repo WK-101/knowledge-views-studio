@@ -73,6 +73,7 @@ import kotlinx.coroutines.launch
 fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val state by vm.c.lists.state.collectAsStateWithLifecycle()
     var pending by remember { mutableStateOf<ParsedPack?>(null) }
     var pendingDry by remember { mutableStateOf<DryRun?>(null) }
@@ -88,7 +89,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                 pending = parsed
                 pendingDry = runCatching { vm.c.screener.dryRun(vm.c.callLog.calls.value.orEmpty(), 7, candidatePack = parsed) }.getOrNull()
             } catch (e: Exception) {
-                error = e.message?.let { BlockingText.installFailure(context, it) } ?: context.getString(R.string.blk_not_valid_list)
+                error = e.message?.let { BlockingText.installFailure(context, it) } ?: res.getString(R.string.blk_not_valid_list)
             }
             busy = false
         }
@@ -98,7 +99,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
             busy = true
             vm.c.lists.subscribe(uri)
             busy = false
-            vm.toast(context.getString(R.string.blk_folder_subscribed))
+            vm.toast(res.getString(R.string.blk_folder_subscribed))
         }
     }
 
@@ -153,7 +154,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                                         busy = true
                                         val n = vm.c.lists.refreshFolder()
                                         busy = false
-                                        vm.toast(if (n == 0) context.getString(R.string.blk_no_new_lists) else context.getString(R.string.blk_updated_n, n))
+                                        vm.toast(if (n == 0) res.getString(R.string.blk_no_new_lists) else res.getString(R.string.blk_updated_n, n))
                                     }
                                 }) { Icon(Icons.Rounded.Refresh, stringResource(R.string.blk_check_now)) }
                                 TextButton({ scope.launch { vm.c.lists.unsubscribe() } }) { Text(stringResource(R.string.ct_remove)) }
@@ -173,7 +174,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                             Text(if (b.country.equals(vm.countryIso, true)) stringResource(R.string.blk_for_your_sim, n) else n)
                         },
                         supportingContent = { Text(BlockingText.packDescription(context, b.id, b.description)) },
-                        trailingContent = { TextButton({ scope.launch { vm.c.lists.installBuiltIn(b); vm.toast(context.getString(R.string.blk_added_toast)) } }) { Text(stringResource(R.string.blk_add)) } },
+                        trailingContent = { TextButton({ scope.launch { vm.c.lists.installBuiltIn(b); vm.toast(res.getString(R.string.blk_added_toast)) } }) { Text(stringResource(R.string.blk_add)) } },
                     )
                 }
             }
@@ -222,8 +223,8 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                 TextButton({
                     scope.launch {
                         when (val r = vm.c.lists.install(pk, PackOrigin.FILE)) {
-                            is SpamListStore.InstallResult.Installed -> vm.toast(context.getString(if (r.replaced) R.string.blk_updated_toast else R.string.blk_added_toast))
-                            is SpamListStore.InstallResult.Older -> vm.toast(context.getString(R.string.blk_list_newer_version, r.installed.toString()))
+                            is SpamListStore.InstallResult.Installed -> vm.toast(res.getString(if (r.replaced) R.string.blk_updated_toast else R.string.blk_added_toast))
+                            is SpamListStore.InstallResult.Older -> vm.toast(res.getString(R.string.blk_list_newer_version, r.installed.toString()))
                             is SpamListStore.InstallResult.Failed -> error = BlockingText.installFailure(context, r.reason)
                         }
                     }
@@ -295,7 +296,7 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
                 NotifyChoice(pk.notify, allowDefault = true) { n -> scope.launch { vm.c.lists.setPack(pk.id) { it.copy(notify = n) } } }
                 if (pk.suppressed.isNotEmpty()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.blk_marked_not_spam_count, pk.suppressed.size), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                        Text(pluralStringResource(R.plurals.blk_marked_not_spam_count, pk.suppressed.size, pk.suppressed.size), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                         TextButton({ scope.launch { vm.c.lists.setPack(pk.id) { it.copy(suppressed = emptyList()) } } }) { Text(stringResource(R.string.set_clear)) }
                     }
                 }

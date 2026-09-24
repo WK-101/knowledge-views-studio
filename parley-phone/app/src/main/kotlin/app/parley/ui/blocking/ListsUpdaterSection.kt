@@ -50,6 +50,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ListsUpdaterSection(vm: AppViewModel) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     val state by vm.c.lists.state.collectAsStateWithLifecycle()
     var refreshKey by remember { mutableIntStateOf(0) }
@@ -75,8 +76,8 @@ fun ListsUpdaterSection(vm: AppViewModel) {
 
     fun report(id: String, r: SpamListStore.InstallResult) {
         when (r) {
-            is SpamListStore.InstallResult.Installed -> vm.toast(context.getString(if (r.replaced) R.string.blk_list_updated else R.string.blk_list_added, r.pack.name))
-            is SpamListStore.InstallResult.Older -> vm.toast(context.getString(R.string.blk_list_newer))
+            is SpamListStore.InstallResult.Installed -> vm.toast(res.getString(if (r.replaced) R.string.blk_list_updated else R.string.blk_list_added, r.pack.name))
+            is SpamListStore.InstallResult.Older -> vm.toast(res.getString(R.string.blk_list_newer))
             is SpamListStore.InstallResult.Failed -> if ("different key" in r.reason) keyConflict = id to BlockingText.installFailure(context, r.reason) else vm.toast(BlockingText.installFailure(context, r.reason))
         }
     }

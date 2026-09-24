@@ -191,7 +191,7 @@ fun leftText(context: Context, ms: Long): String {
 
 /** Text style for number fields: digits stay left-to-right in Arabic and Urdu. */
 @Composable
-fun LtrText(): androidx.compose.ui.text.TextStyle =
+fun ltrTextStyle(): androidx.compose.ui.text.TextStyle =
     androidx.compose.material3.LocalTextStyle.current.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr)
 
 /** A count for a plural resource. */

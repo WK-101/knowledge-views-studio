@@ -247,6 +247,7 @@ private fun PrefixAllowDialog(vm: AppViewModel, d: BlockingDialog.PrefixAllow, o
     val e164 = remember(chosen) { PhoneNumbers.toE164(chosen, vm.countryIso) ?: PhoneNumbers.clean(chosen) }
     val prefix = e164.dropLast(drop)
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.blk_prefix_title)) },
@@ -270,7 +271,7 @@ private fun PrefixAllowDialog(vm: AppViewModel, d: BlockingDialog.PrefixAllow, o
             TextButton({
                 scope.launch {
                     BlockingActions.allowPrefix(vm.c, chosen, drop, d.name)
-                    vm.toast(if (d.name != null) context.getString(R.string.blk_prefix_done_named, d.name) else context.getString(R.string.blk_prefix_done))
+                    vm.toast(if (d.name != null) res.getString(R.string.blk_prefix_done_named, d.name) else res.getString(R.string.blk_prefix_done))
                 }
                 onDismiss()
             }, enabled = chosen.isNotBlank() && prefix.count { it.isDigit() } >= 4) { Text(stringResource(R.string.blk_allow)) }
@@ -284,6 +285,7 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
     val scope = rememberCoroutineScope()
     var choice by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val options = listOf(
         stringResource(R.string.blk_label_block_all, d.title) to stringResource(R.string.blk_label_block_all_help),
         stringResource(R.string.blk_label_only_off_hours, d.title) to stringResource(R.string.blk_label_only_off_hours_help),
@@ -322,7 +324,7 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
                         // Only the ringtone: no allow rule (which would also let the label ring through off hours).
                         2 -> pickedTone?.let { t -> vm.people.update { s -> s.copy(labelRingtones = s.labelRingtones + (d.title to t)) } }
                     }
-                    vm.toast(context.getString(R.string.blk_saved))
+                    vm.toast(res.getString(R.string.blk_saved))
                 }
                 onDismiss()
             }, enabled = choice != 2 || tone != null) { Text(stringResource(R.string.set_save)) }
@@ -335,6 +337,7 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
 private fun SnoozeDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.blk_expecting_question)) },
@@ -346,7 +349,7 @@ private fun SnoozeDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                         scope.launch {
                             BlockingActions.snooze(vm.c, m)
                             ExpectingCallTileService.refresh(context)
-                            vm.toast(context.getString(R.string.blk_snooze_toast, label))
+                            vm.toast(res.getString(R.string.blk_snooze_toast, label))
                         }
                         onDismiss()
                     }) { Text(label) }

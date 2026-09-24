@@ -211,7 +211,10 @@
     <string name="blk_allow_number_or_range">Allow a number or range</string>
     <string name="blk_your_rules">Your block rules</string>
     <string name="blk_sum_on">%1$d on</string>
-    <string name="blk_sum_scheduled">%1$d scheduled</string>
+    <plurals name="blk_sum_scheduled">
+        <item quantity="one">%1$d scheduled</item>
+        <item quantity="other">%1$d scheduled</item>
+    </plurals>
     <plurals name="blk_sum_calls_stopped">
         <item quantity="one">%1$d call stopped</item>
         <item quantity="other">%1$d calls stopped</item>
@@ -229,7 +232,10 @@
         <item quantity="other">%1$s numbers</item>
     </plurals>
     <string name="blk_updated_ago">updated %1$s</string>
-    <string name="blk_out_of_date_count">%1$d out of date</string>
+    <plurals name="blk_out_of_date_count">
+        <item quantity="one">%1$d out of date</item>
+        <item quantity="other">%1$d out of date</item>
+    </plurals>
     <string name="blk_suggested_for_sim">Suggested for your SIM: %1$s</string>
     <string name="blk_added">Added: %1$s</string>
     <string name="blk_add">Add</string>
@@ -384,7 +390,10 @@
     <string name="blk_search_web">Search web</string>
     <string name="blk_dont_call_back">Don\'t call back</string>
     <string name="blk_clear_selection">Clear selection</string>
-    <string name="blk_selected">%1$d selected</string>
+    <plurals name="blk_selected">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
     <string name="blk_block_n">Block %1$d</string>
     <plurals name="blk_block_numbers_q">
         <item quantity="one">Block this number?</item>
@@ -529,7 +538,10 @@
     <string name="blk_match_ranges">Match ranges</string>
     <string name="blk_match_ranges_help">Also match whole number blocks, not only listed numbers</string>
     <string name="blk_notify">Notify</string>
-    <string name="blk_marked_not_spam_count">%1$d marked \"Not spam\"</string>
+    <plurals name="blk_marked_not_spam_count">
+        <item quantity="one">%1$d marked \"Not spam\"</item>
+        <item quantity="other">%1$d marked \"Not spam\"</item>
+    </plurals>
     <string name="blk_source">Source: %1$s</string>
     <string name="blk_remove_list">Remove list</string>
     <string name="blk_remove_list_q">Remove %1$s?</string>
@@ -591,7 +603,7 @@
     <!-- Messages from the rule check -->
     <string name="blk_chk_empty">Enter something to match</string>
     <string name="blk_chk_pick_label">Pick a label</string>
-    <string name="blk_chk_sql_wildcards">_ and % aren\'t wildcards here. Use * for any digits and ? for one digit (Pattern type).</string>
+    <string name="blk_chk_sql_wildcards" formatted="false">_ and % aren\'t wildcards here. Use * for any digits and ? for one digit (Pattern type).</string>
     <string name="blk_chk_use_pattern">Use the Pattern type for * and ?</string>
     <string name="blk_chk_digits">Enter some digits</string>
     <string name="blk_chk_bad_pattern">Not a valid pattern</string>
@@ -648,7 +660,10 @@
         <item quantity="one">(%1$d allowed number)</item>
         <item quantity="other">(%1$d allowed numbers)</item>
     </plurals>
-    <string name="blk_skipped_n">%1$d skipped</string>
+    <plurals name="blk_skipped_n">
+        <item quantity="one">%1$d skipped</item>
+        <item quantity="other">%1$d skipped</item>
+    </plurals>
     <string name="blk_not_duplicated">Rules you already have are not duplicated.</string>
     <plurals name="blk_imported_rules">
         <item quantity="one">Imported %1$d rule</item>

@@ -61,6 +61,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val config by vm.c.calling.config.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
     val contacts by vm.contacts.collectAsStateWithLifecycle()
@@ -77,7 +78,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
     fun set(f: (CallingConfig) -> CallingConfig) = vm.c.calling.update(f)
     fun limits(f: (CallingConfig) -> CallingConfig) = gate(unlockReason) { set(f) }
     fun edit(title: String, rule: LimitRule) = gate(unlockReason) { editing = title to rule }
-    fun labelTitle(name: String) = context.getString(R.string.ct_label_title, name)
+    fun labelTitle(name: String) = res.getString(R.string.ct_label_title, name)
 
     Scaffold(topBar = {
         TopAppBar(title = { Text(stringResource(R.string.ct_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } })
@@ -152,7 +153,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
                                 noLock = true
                                 return@Switch
                             }
-                            AppLock.authenticate(act, context.getString(if (v) R.string.ct_supervised_turn_on else R.string.ct_supervised_turn_off)) { ok -> if (ok) set { it.copy(supervised = v) } }
+                            AppLock.authenticate(act, res.getString(if (v) R.string.ct_supervised_turn_on else R.string.ct_supervised_turn_off)) { ok -> if (ok) set { it.copy(supervised = v) } }
                         })
                     },
                 )

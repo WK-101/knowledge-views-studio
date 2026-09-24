@@ -66,6 +66,7 @@ fun RecentBlockingActions(vm: AppViewModel, number: String, contactName: String?
     if (number.isBlank()) return
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     @Composable
     fun row(label: String, icon: ImageVector, onClick: () -> Unit) =
         ListItem(headlineContent = { Text(label) }, leadingContent = { Icon(icon, null) }, modifier = Modifier.clickable { dismiss(); onClick() })
@@ -73,10 +74,10 @@ fun RecentBlockingActions(vm: AppViewModel, number: String, contactName: String?
     row(stringResource(R.string.blk_why_test), Icons.Rounded.Science) { BlockingDialogs.show(BlockingDialog.Test(number)) }
     if (contactName == null) {
         row(stringResource(R.string.blk_always_allow), Icons.Rounded.VerifiedUser) {
-            scope.launch { BlockingActions.allowNumber(vm.c, number); vm.toast(context.getString(R.string.blk_always_allow_toast)) }
+            scope.launch { BlockingActions.allowNumber(vm.c, number); vm.toast(res.getString(R.string.blk_always_allow_toast)) }
         }
         row(stringResource(R.string.blk_allow_24h), Icons.Rounded.HourglassTop) {
-            scope.launch { BlockingActions.allowNumber(vm.c, number, hours = 24); vm.toast(context.getString(R.string.blk_allow_24h_toast)) }
+            scope.launch { BlockingActions.allowNumber(vm.c, number, hours = 24); vm.toast(res.getString(R.string.blk_allow_24h_toast)) }
         }
         row(stringResource(R.string.blk_report), Icons.Rounded.Flag) { BlockingDialogs.show(BlockingDialog.Report(number)) }
     }
@@ -96,6 +97,7 @@ fun rememberRecentBadges(vm: AppViewModel): (RecentGroup) -> RecentBadge? {
     val rings by vm.c.blocks.rings.collectAsStateWithLifecycle()
     val groups by vm.recentGroups.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val badges by androidx.compose.runtime.produceState(emptyMap<String, RecentBadge>(), groups, verdicts, rings) {
         value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
             val iso = vm.countryIso
@@ -104,7 +106,7 @@ fun rememberRecentBadges(vm: AppViewModel): (RecentGroup) -> RecentBadge? {
                 if (g.hidden || g.number.isBlank() || g.contact != null) continue
                 val e = g.latest
                 val badge = if (vm.c.dialGuard.isWangiri(e.type, g.number, e.date, rings, iso)) {
-                    RecentBadge(context.getString(R.string.blk_dont_call_back), warn = true)
+                    RecentBadge(res.getString(R.string.blk_dont_call_back), warn = true)
                 } else {
                     verdicts[vm.c.blocks.verdictKey(g.number, e.accountId)]?.takeIf { kotlin.math.abs(it.time - e.date) < 10 * 60_000L || it.time > e.date }
                         ?.let { v -> RecentBadge(BlockingText.verdict(context, v.text) ?: v.text, warn = v.blocked || v.kind == "LIKELY_SPAM" || v.kind == "REPORTED") }
@@ -135,7 +137,7 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
     Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton({ vm.recentSelection.value = emptySet() }) { Icon(Icons.Rounded.Close, stringResource(R.string.blk_clear_selection)) }
-            Text(stringResource(R.string.blk_selected, selected.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Text(pluralStringResource(R.plurals.blk_selected, selected.size, selected.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             TextButton({ confirming = true }, enabled = numbers.isNotEmpty()) {
                 Icon(Icons.Rounded.Block, null)
                 Text(" " + stringResource(R.string.blk_block_n, numbers.size))
@@ -143,7 +145,7 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
         }
     }
     if (confirming) {
-        val context = LocalContext.current
+        val res = androidx.compose.ui.platform.LocalResources.current
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { confirming = false },
             title = { Text(pluralStringResource(R.plurals.blk_block_numbers_q, numbers.size, numbers.size)) },
@@ -166,7 +168,7 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
                     scope.launch {
                         // Without the phone-app role the system list is unavailable: rules do the job instead.
                         numbers.forEach { n -> if (!vm.c.blocks.blockNumber(n)) BlockingActions.blockNumberRule(vm.c, n) }
-                        vm.toast(context.resources.getQuantityString(R.plurals.blk_blocked_numbers, numbers.size, numbers.size))
+                        vm.toast(res.getQuantityString(R.plurals.blk_blocked_numbers, numbers.size, numbers.size))
                         vm.recentSelection.value = emptySet()
                     }
                 }) { Text(stringResource(R.string.blk_block)) }

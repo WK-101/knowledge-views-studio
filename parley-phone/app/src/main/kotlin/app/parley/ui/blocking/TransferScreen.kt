@@ -99,6 +99,7 @@ private class ImportDraft(val source: String, val rows: List<List<String>>?, val
 @Composable
 fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     val rules by vm.c.blocks.rules.collectAsStateWithLifecycle()
     var preset by remember { mutableStateOf(ImportPreset.GENERIC) }
@@ -117,11 +118,11 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
                 val n = s.read(buf)
                 if (n < 0) break
                 total += n
-                require(total < 20 * 1024 * 1024) { context.getString(R.string.blk_tpl_err_file_large) }
+                require(total < 20 * 1024 * 1024) { res.getString(R.string.blk_tpl_err_file_large) }
                 out.write(buf, 0, n)
             }
             out.toByteArray()
-        } ?: throw IllegalArgumentException(context.getString(R.string.blk_tpl_err_open_file))
+        } ?: throw IllegalArgumentException(res.getString(R.string.blk_tpl_err_open_file))
     }
 
     val pickList = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -133,7 +134,7 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
                     ImportPreset.NO_PHONE_SPAM -> ImportDraft("NoPhoneSpam", null, preset, null, ListImport.plainLines(text))
                     else -> {
                         val rows = Csv.parse(text)
-                        ImportDraft(context.getString(presetTitleRes(preset)), rows, preset, ListImport.guessMapping(rows, preset), null)
+                        ImportDraft(res.getString(presetTitleRes(preset)), rows, preset, ListImport.guessMapping(rows, preset), null)
                     }
                 }
             } catch (e: Exception) {
@@ -178,9 +179,9 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
             OutlinedTextField(shareName, { shareName = it }, label = { Text(stringResource(R.string.blk_list_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedButton({
                 scope.launch {
-                    val ex = vm.c.lists.exportRules(rules, shareName.ifBlank { context.getString(R.string.blk_shared_list) }, vm.countryIso)
+                    val ex = vm.c.lists.exportRules(rules, shareName.ifBlank { res.getString(R.string.blk_shared_list) }, vm.countryIso)
                     if (ex.numbers + ex.ranges == 0) {
-                        vm.toast(context.getString(R.string.blk_nothing_to_share))
+                        vm.toast(res.getString(R.string.blk_nothing_to_share))
                         return@launch
                     }
                     val file = withContext(Dispatchers.IO) {
@@ -190,13 +191,13 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
                     }
                     val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
                     val send = Intent(Intent.ACTION_SEND).setType("application/octet-stream").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    val what = context.getString(
+                    val what = res.getString(
                         R.string.blk_joined,
-                        context.resources.getQuantityString(R.plurals.blk_numbers_count, ex.numbers, ex.numbers.toString()),
-                        context.resources.getQuantityString(R.plurals.blk_ranges_count, ex.ranges, ex.ranges),
+                        res.getQuantityString(R.plurals.blk_numbers_count, ex.numbers, ex.numbers.toString()),
+                        res.getQuantityString(R.plurals.blk_ranges_count, ex.ranges, ex.ranges),
                     )
-                    context.startActivity(Intent.createChooser(send, context.getString(R.string.blk_share_chooser, what)))
-                    if (ex.skipped > 0) vm.toast(context.resources.getQuantityString(R.plurals.blk_share_skipped, ex.skipped, ex.skipped))
+                    context.startActivity(Intent.createChooser(send, res.getString(R.string.blk_share_chooser, what)))
+                    if (ex.skipped > 0) vm.toast(res.getQuantityString(R.plurals.blk_share_skipped, ex.skipped, ex.skipped))
                 }
             }) { Text(stringResource(R.string.blk_share_as_list)) }
         }
@@ -239,13 +240,14 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
 private fun ImportPreviewDialog(vm: AppViewModel, d: ImportDraft, onDone: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     var mapping by remember { mutableStateOf(d.mapping) }
     val header = d.rows?.firstOrNull().orEmpty()
     val parsed = remember(mapping) { d.fixed ?: d.rows?.let { rows -> mapping?.let { ListImport.rows(rows, it) } }.orEmpty() }
     val checked = remember(parsed) {
         parsed.mapNotNull { r ->
             val c = RuleTools.check(r.pattern, r.type, vm.countryIso)
-            if (c.error != null) null else BlockRule(pattern = c.pattern, type = r.type, kind = r.kind, note = r.note ?: context.getString(R.string.blk_imported_from, d.source))
+            if (c.error != null) null else BlockRule(pattern = c.pattern, type = r.type, kind = r.kind, note = r.note ?: res.getString(R.string.blk_imported_from, d.source))
         }
     }
     AlertDialog(
@@ -267,7 +269,7 @@ private fun ImportPreviewDialog(vm: AppViewModel, d: ImportDraft, onDone: () -> 
                 Text(
                     pluralStringResource(R.plurals.blk_rules_found, checked.size, checked.size) +
                         (if (allows > 0) " " + pluralStringResource(R.plurals.blk_allowed_numbers_paren, allows, allows) else "") +
-                        if (parsed.size > checked.size) " · " + stringResource(R.string.blk_skipped_n, parsed.size - checked.size) else "",
+                        if (parsed.size > checked.size) " · " + (parsed.size - checked.size).let { n -> pluralStringResource(R.plurals.blk_skipped_n, n, n) } else "",
                 )
                 checked.take(5).forEach { Text("• ${bidiLtrIfNumber(it.pattern)} (${typeLabel(it.type)})", style = MaterialTheme.typography.bodySmall) }
                 Text(stringResource(R.string.blk_not_duplicated), style = MaterialTheme.typography.bodySmall)
@@ -277,7 +279,7 @@ private fun ImportPreviewDialog(vm: AppViewModel, d: ImportDraft, onDone: () -> 
             TextButton({
                 scope.launch {
                     val n = vm.c.blocks.addRules(checked)
-                    vm.toast(context.resources.getQuantityString(R.plurals.blk_imported_rules, n, n))
+                    vm.toast(res.getQuantityString(R.plurals.blk_imported_rules, n, n))
                 }
                 onDone()
             }, enabled = checked.isNotEmpty()) { Text(stringResource(R.string.blk_import)) }

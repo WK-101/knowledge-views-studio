@@ -124,6 +124,7 @@ private val PRESETS = listOf(
 @Composable
 fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = {}) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val rules by vm.c.blocks.rules.collectAsStateWithLifecycle()
@@ -151,7 +152,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
     fun setScreening(f: (ScreeningSettings) -> ScreeningSettings) = scope.launch { vm.c.settings.update { it.copy(screening = f(it.screening)) } }
 
     val numbersPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
-        if (ok) setScreening { it.copy(blockNeighbourSpoofing = true) } else vm.toast(context.getString(R.string.blk_need_own_number))
+        if (ok) setScreening { it.copy(blockNeighbourSpoofing = true) } else vm.toast(res.getString(R.string.blk_need_own_number))
     }
     val allowRules = rules.filter { it.kind == RuleKind.ALLOW }
     val blockRules = rules.filter { it.kind == RuleKind.BLOCK }
@@ -253,7 +254,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
                     stringResource(R.string.blk_your_rules), stringResource(Help.BLOCK),
                     listOfNotNull(
                         stringResource(R.string.blk_sum_on, blockRules.count { it.enabled }).takeIf { blockRules.isNotEmpty() },
-                        stringResource(R.string.blk_sum_scheduled, blockRules.count { it.schedule != null }).takeIf { blockRules.any { it.schedule != null } },
+                        blockRules.count { it.schedule != null }.let { n -> pluralStringResource(R.plurals.blk_sum_scheduled, n, n) }.takeIf { blockRules.any { it.schedule != null } },
                         blockRules.sumOf { it.hitCount }.let { n -> pluralStringResource(R.plurals.blk_sum_calls_stopped, n, n) }.takeIf { blockRules.any { it.hitCount > 0 } },
                     ),
                     "block" in expanded, { toggle("block") }, Icons.Rounded.Rule,
@@ -285,12 +286,12 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
                                 ).joinToString(" · "),
                             style = MaterialTheme.typography.bodyLarge,
                         )
-                        if (sum.stale > 0) Text(stringResource(R.string.blk_out_of_date_count, sum.stale), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        if (sum.stale > 0) Text(pluralStringResource(R.plurals.blk_out_of_date_count, sum.stale, sum.stale), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         Text(stringResource(Help.LISTS), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (suggestion != null) {
                             Text(stringResource(R.string.blk_suggested_for_sim, suggestion.name), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                             Row {
-                                TextButton({ scope.launch { vm.c.lists.installBuiltIn(suggestion); vm.toast(context.getString(R.string.blk_added, suggestion.name)) } }) { Text(stringResource(R.string.blk_add)) }
+                                TextButton({ scope.launch { vm.c.lists.installBuiltIn(suggestion); vm.toast(res.getString(R.string.blk_added, suggestion.name)) } }) { Text(stringResource(R.string.blk_add)) }
                                 TextButton({ scope.launch { vm.c.lists.dismissSuggestion(suggestion.id) } }) { Text(stringResource(R.string.blk_no_thanks)) }
                             }
                         }
@@ -384,7 +385,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
             item(key = "tools") {
                 CollapsibleSection(stringResource(R.string.blk_tools), stringResource(Help.TOOLS), emptyList(), "tools" in expanded, { toggle("tools") }, Icons.Rounded.Build) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(testNumber, { testNumber = it }, label = { Text(stringResource(R.string.blk_test_a_number)) }, singleLine = true, textStyle = LtrText(), modifier = Modifier.weight(1f))
+                        OutlinedTextField(testNumber, { testNumber = it }, label = { Text(stringResource(R.string.blk_test_a_number)) }, singleLine = true, textStyle = ltrTextStyle(), modifier = Modifier.weight(1f))
                         TextButton({ BlockingDialogs.show(BlockingDialog.Test(testNumber.trim())) }, enabled = testNumber.isNotBlank()) { Text(stringResource(R.string.blk_test)) }
                     }
                     ListItem(
@@ -441,8 +442,8 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
                                     TextButton({ dismissed.value = dismissed.value + sg.number }) { Text(stringResource(R.string.blk_dismiss)) }
                                     TextButton({
                                         scope.launch {
-                                            BlockingActions.blockNumberRule(vm.c, sg.number, context.getString(R.string.blk_likely_spam_for_you))
-                                            vm.toast(context.getString(R.string.blk_blocked_toast))
+                                            BlockingActions.blockNumberRule(vm.c, sg.number, res.getString(R.string.blk_likely_spam_for_you))
+                                            vm.toast(res.getString(R.string.blk_blocked_toast))
                                         }
                                     }) { Text(stringResource(R.string.blk_block)) }
                                 }
@@ -475,7 +476,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
         AlertDialog(
             onDismissRequest = { addNumber = false },
             title = { Text(stringResource(R.string.blk_block_a_number)) },
-            text = { OutlinedTextField(n, { n = it }, label = { Text(stringResource(R.string.blk_phone_number)) }, singleLine = true, textStyle = LtrText()) },
+            text = { OutlinedTextField(n, { n = it }, label = { Text(stringResource(R.string.blk_phone_number)) }, singleLine = true, textStyle = ltrTextStyle()) },
             confirmButton = { TextButton({ if (n.isNotBlank()) vm.blockNumber(n.trim()); addNumber = false }) { Text(stringResource(R.string.blk_block)) } },
             dismissButton = { TextButton({ addNumber = false }) { Text(stringResource(R.string.set_cancel)) } },
         )
@@ -582,7 +583,7 @@ private fun EmergencySection(vm: AppViewModel, s: ScreeningSettings, set: ((Scre
         )
     }
     Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(n, { n = it }, label = { Text(stringResource(R.string.blk_add_a_number)) }, singleLine = true, textStyle = LtrText(), modifier = Modifier.weight(1f))
+        OutlinedTextField(n, { n = it }, label = { Text(stringResource(R.string.blk_add_a_number)) }, singleLine = true, textStyle = ltrTextStyle(), modifier = Modifier.weight(1f))
         TextButton({
             val clean = RuleTools.check(n, RuleType.EXACT, vm.countryIso)
             if (clean.error == null) set { it.copy(emergencyExtras = (it.emergencyExtras + clean.pattern).distinct()) }
@@ -626,6 +627,7 @@ private fun RuleRow(vm: AppViewModel, r: BlockRule, now: Long, onClick: () -> Un
 @Composable
 private fun BlockedLogRow(vm: AppViewModel, e: BlockedCallEntity) {
     val context = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     var open by rememberSaveable { mutableStateOf(false) }
     Column {
@@ -652,8 +654,8 @@ private fun BlockedLogRow(vm: AppViewModel, e: BlockedCallEntity) {
                 val n = e.number
                 if (n != null) {
                     Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AssistChip({ scope.launch { BlockingActions.notSpam(vm.c, n, e.packId); vm.toast(context.getString(R.string.blk_marked_not_spam)) } }, { Text(stringResource(R.string.blk_not_spam)) })
-                        AssistChip({ scope.launch { BlockingActions.allowNumber(vm.c, n, hours = 24); vm.toast(context.getString(R.string.blk_allowed_24h)) } }, { Text(stringResource(R.string.blk_allow_24h)) })
+                        AssistChip({ scope.launch { BlockingActions.notSpam(vm.c, n, e.packId); vm.toast(res.getString(R.string.blk_marked_not_spam)) } }, { Text(stringResource(R.string.blk_not_spam)) })
+                        AssistChip({ scope.launch { BlockingActions.allowNumber(vm.c, n, hours = 24); vm.toast(res.getString(R.string.blk_allowed_24h)) } }, { Text(stringResource(R.string.blk_allow_24h)) })
                         AssistChip({ BlockingDialogs.show(BlockingDialog.Test(n)) }, { Text(stringResource(R.string.blk_test_again)) })
                         AssistChip({ BlockingDialogs.show(BlockingDialog.Report(n)) }, { Text(stringResource(R.string.blk_report)) })
                         AssistChip({ scope.launch { vm.c.blocks.deleteScreened(e.id) } }, { Text(stringResource(R.string.blk_delete)) })
