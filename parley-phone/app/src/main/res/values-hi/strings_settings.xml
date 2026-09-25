@@ -635,4 +635,25 @@
     <string name="ct_chip_on_hold">%1$s होल्ड पर</string>
     <string name="ct_chip_on_call">%1$s के साथ कॉल पर</string>
     <string name="ct_chip_left">%1$s बाकी</string>
+    <!-- v3.2 phone (P4, P5, P7, P8) -->
+    <string name="set_default_dialer_help_title">Parley को डिफ़ॉल्ट फ़ोन ऐप नहीं बना पा रहे?</string>
+    <string name="set_default_dialer_help_summary">आपके Android संस्करण के लिए चरण-दर-चरण गाइड, ऐप जानकारी के साथ</string>
+    <string name="set_default_dialer_help_kw">डिफ़ॉल्ट डायलर, भूमिका, प्रतिबंधित सेटिंग, ऐप जानकारी</string>
+    <string name="set_connect_haptic_title">कॉल जुड़ने पर वाइब्रेट करें</string>
+    <string name="set_connect_haptic_summary">दूसरे व्यक्ति के जवाब देने पर एक छोटा कंपन</string>
+    <string name="set_connect_haptic_kw">कंपन, हैप्टिक, जवाब दिया, जुड़ा</string>
+    <string name="set_recents_layout_title">कॉल सूची का लेआउट</string>
+    <string name="set_recents_layout_summary">समूहित, हर कॉल अलग पंक्ति में, या दिन के अनुसार समूहित</string>
+    <string name="set_recents_layout_kw">कालक्रम, समूहित, दिन के अनुसार, सूची, कॉल लॉग, लेआउट</string>
+    <string name="set_clear_history_title">कॉल इतिहास साफ़ करें</string>
+    <string name="set_clear_history_summary">सभी कॉल, अनजान नंबरों की कॉल या छूटी कॉल, पहले निर्यात के साथ</string>
+    <string name="set_clear_history_kw">हटाएं, साफ़ करें, मिटाएं, अनजान नंबर, कॉल लॉग</string>
+    <string name="role_rescue_title">Parley को खुद फ़ोन ऐप बनाएं</string>
+    <string name="role_rescue_intro">Android ने सवाल दिखाए बिना जवाब दे दिया। ऐसा तब होता है जब सवाल पहले मना किया गया हो, और कुछ फ़ोन पर ऐप स्टोर के बाहर से इंस्टॉल ऐप के लिए।</string>
+    <string name="role_rescue_steps_q">1. सेटिंग › ऐप्लिकेशन और सूचनाएं › डिफ़ॉल्ट ऐप्लिकेशन खोलें।\n2. फ़ोन ऐप्लिकेशन पर टैप करें।\n3. Parley चुनें।</string>
+    <string name="role_rescue_steps_s">1. सेटिंग › ऐप्लिकेशन › डिफ़ॉल्ट ऐप्लिकेशन खोलें।\n2. फ़ोन ऐप्लिकेशन पर टैप करें।\n3. Parley चुनें।</string>
+    <string name="role_rescue_restricted">अगर Android कहे कि सेटिंग प्रतिबंधित है: ऐप जानकारी खोलें, ⋮ › प्रतिबंधित सेटिंग की अनुमति दें पर टैप करें, फिर दोबारा कोशिश करें।</string>
+    <string name="role_rescue_app_info">ऐप जानकारी</string>
+    <string name="role_rescue_default_apps">डिफ़ॉल्ट ऐप</string>
+    <string name="role_rescue_close">बंद करें</string>
 </resources>

@@ -661,4 +661,25 @@
     <string name="ct_chip_on_hold">%1$s en attente</string>
     <string name="ct_chip_on_call">En communication avec %1$s</string>
     <string name="ct_chip_left">encore %1$s</string>
+    <!-- v3.2 phone (P4, P5, P7, P8) -->
+    <string name="set_default_dialer_help_title">Impossible de choisir Parley comme application Téléphone par défaut ?</string>
+    <string name="set_default_dialer_help_summary">Un guide pas à pas pour votre version d\'Android, avec Infos sur l\'appli</string>
+    <string name="set_default_dialer_help_kw">numéroteur par défaut, rôle, paramètres restreints, infos appli</string>
+    <string name="set_connect_haptic_title">Vibrer quand un appel est établi</string>
+    <string name="set_connect_haptic_summary">Une courte vibration quand l\'autre personne répond</string>
+    <string name="set_connect_haptic_kw">vibration, haptique, décroché, établi</string>
+    <string name="set_recents_layout_title">Présentation de la liste d\'appels</string>
+    <string name="set_recents_layout_summary">Groupés, chaque appel sur sa propre ligne, ou groupés par jour</string>
+    <string name="set_recents_layout_kw">chronologique, groupé, par jour, liste, journal d\'appels, présentation</string>
+    <string name="set_clear_history_title">Effacer l\'historique des appels</string>
+    <string name="set_clear_history_summary">Tous les appels, ceux des numéros inconnus ou les appels manqués, avec un export avant</string>
+    <string name="set_clear_history_kw">supprimer, effacer, vider, numéros inconnus, journal d\'appels</string>
+    <string name="role_rescue_title">Choisir Parley comme application Téléphone à la main</string>
+    <string name="role_rescue_intro">Android a répondu sans afficher sa question. Cela arrive quand la question a déjà été refusée, et sur certains téléphones pour les applis installées hors d\'une boutique.</string>
+    <string name="role_rescue_steps_q">1. Ouvrez Paramètres › Applications et notifications › Applications par défaut.\n2. Appuyez sur Application Téléphone.\n3. Choisissez Parley.</string>
+    <string name="role_rescue_steps_s">1. Ouvrez Paramètres › Applications › Applications par défaut.\n2. Appuyez sur Application Téléphone.\n3. Choisissez Parley.</string>
+    <string name="role_rescue_restricted">Si Android indique que le paramètre est restreint : ouvrez Infos sur l\'appli, appuyez sur ⋮ › Autoriser les paramètres restreints, puis réessayez.</string>
+    <string name="role_rescue_app_info">Infos appli</string>
+    <string name="role_rescue_default_apps">Applis par défaut</string>
+    <string name="role_rescue_close">Fermer</string>
 </resources>

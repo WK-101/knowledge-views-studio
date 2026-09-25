@@ -829,4 +829,39 @@
     </plurals>
     <string name="save_contact_details">Guardar datos del contacto</string>
     <string name="vm_messenger_copies_remain">Movido a contactos privados. Las copias en WhatsApp, Signal y otras apps de mensajería se quedan hasta que esa app vuelva a sincronizar sus contactos</string>
+    <!-- v3.2 phone (P5, P8) -->
+    <string name="recents_layout_grouped">Agrupadas</string>
+    <string name="recents_layout_chronological">Cada llamada</string>
+    <string name="recents_layout_by_day">Por día</string>
+    <string name="recents_layout_grouped_hint">Las llamadas seguidas del mismo número comparten fila</string>
+    <string name="recents_layout_chronological_hint">Cada llamada en su propia fila, las más recientes primero</string>
+    <string name="recents_layout_by_day_hint">Una fila por número y día</string>
+    <string name="recents_layout_menu">Diseño: %1$s</string>
+    <string name="clear_history_menu">Borrar historial de llamadas…</string>
+    <string name="clear_history_title">Borrar historial de llamadas</string>
+    <string name="clear_history_scope_all">Todas las llamadas</string>
+    <string name="clear_history_scope_unknown">Llamadas de números que no están en tus contactos</string>
+    <string name="clear_history_scope_missed">Llamadas perdidas y rechazadas</string>
+    <string name="clear_history_scope_shown">Lo que muestra Recientes ahora</string>
+    <plurals name="clear_history_calls">
+        <item quantity="one">%d llamada</item>
+        <item quantity="many">%d llamadas</item>
+        <item quantity="other">%d llamadas</item>
+    </plurals>
+    <string name="clear_history_next">Siguiente</string>
+    <string name="clear_history_export_title">¿Exportar primero?</string>
+    <string name="clear_history_export_body">Guarda una copia antes de borrar, u omite este paso.</string>
+    <string name="clear_history_export_csv_sub">Un archivo de hoja de cálculo; tú eliges adónde va</string>
+    <string name="clear_history_export_backup">Copia de seguridad cifrada</string>
+    <string name="clear_history_export_backup_sub">Abre Copia de seguridad y restauración; vuelve aquí después</string>
+    <string name="clear_history_skip_export">Omitir</string>
+    <plurals name="clear_history_confirm_title">
+        <item quantity="one">¿Eliminar esta llamada?</item>
+        <item quantity="many">¿Eliminar %d llamadas?</item>
+        <item quantity="other">¿Eliminar %d llamadas?</item>
+    </plurals>
+    <string name="clear_history_confirm_body">Se quitan del historial de llamadas del teléfono. Eliminado recientemente las guarda 30 días, así que aún puedes deshacerlo.</string>
+    <string name="clear_history_delete">Eliminar</string>
+    <string name="clear_history_cancel">Cancelar</string>
+    <string name="clear_history_close">Cerrar</string>
 </resources>

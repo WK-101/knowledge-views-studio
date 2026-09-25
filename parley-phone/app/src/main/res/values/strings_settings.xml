@@ -654,4 +654,25 @@
     <string name="ct_chip_on_hold">%1$s on hold</string>
     <string name="ct_chip_on_call">On call with %1$s</string>
     <string name="ct_chip_left">%1$s left</string>
+    <!-- v3.2 phone (P4, P5, P7, P8) -->
+    <string name="set_default_dialer_help_title">Can\'t make Parley the default phone app?</string>
+    <string name="set_default_dialer_help_summary">A step-by-step guide for your Android version, with App info</string>
+    <string name="set_default_dialer_help_kw">default dialer, role, restricted settings, sideload, app info, not asked</string>
+    <string name="set_connect_haptic_title">Vibrate when a call connects</string>
+    <string name="set_connect_haptic_summary">A short buzz when the other person answers</string>
+    <string name="set_connect_haptic_kw">vibration, haptic, answered, picked up</string>
+    <string name="set_recents_layout_title">Call list layout</string>
+    <string name="set_recents_layout_summary">Grouped, every call on its own row, or grouped by day</string>
+    <string name="set_recents_layout_kw">chronological, grouped, by day, ungroup, list, call log, layout</string>
+    <string name="set_clear_history_title">Clear call history</string>
+    <string name="set_clear_history_summary">All calls, calls from unknown numbers or missed calls, with an export first</string>
+    <string name="set_clear_history_kw">delete, clear, wipe, erase, unknown numbers, call log</string>
+    <string name="role_rescue_title">Set Parley as your phone app by hand</string>
+    <string name="role_rescue_intro">Android answered without showing its question. This happens when the question was declined before, and on some phones for apps installed outside an app store.</string>
+    <string name="role_rescue_steps_q">1. Open Settings › Apps &amp; notifications › Default apps.\n2. Tap Phone app.\n3. Choose Parley.</string>
+    <string name="role_rescue_steps_s">1. Open Settings › Apps › Default apps.\n2. Tap Phone app.\n3. Choose Parley.</string>
+    <string name="role_rescue_restricted">If Android says the setting is restricted: open App info, tap ⋮ › Allow restricted settings, then try again.</string>
+    <string name="role_rescue_app_info">App info</string>
+    <string name="role_rescue_default_apps">Default apps</string>
+    <string name="role_rescue_close">Close</string>
 </resources>

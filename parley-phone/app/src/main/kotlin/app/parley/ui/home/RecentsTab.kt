@@ -84,6 +84,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
     var daySummary by remember { mutableStateOf<Pair<Long, String>?>(null) }
     daySummary?.let { (day, title) -> app.parley.ui.history.DaySummarySheet(vm, day, title) { daySummary = null } }
     app.parley.ui.history.RecentsExportHost(vm)
+    app.parley.ui.history.RecentsV32Host(vm, open)
     // Blocking: verdict / "Don't call back" badges and multi-select block (B2, B8, B10).
     val badgeFor = app.parley.ui.blocking.rememberRecentBadges(vm)
     val selected by vm.recentSelection.collectAsStateWithLifecycle()

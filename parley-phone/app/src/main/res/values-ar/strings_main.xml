@@ -970,4 +970,45 @@
     </plurals>
     <string name="save_contact_details">حفظ بيانات جهة الاتصال</string>
     <string name="vm_messenger_copies_remain">نُقلت إلى جهات الاتصال الخاصة. تبقى النسخ في WhatsApp وSignal وتطبيقات المراسلة الأخرى حتى يعيد ذلك التطبيق مزامنة جهات اتصاله</string>
+    <!-- v3.2 phone (P5, P8) -->
+    <string name="recents_layout_grouped">مجمّعة</string>
+    <string name="recents_layout_chronological">كل مكالمة</string>
+    <string name="recents_layout_by_day">حسب اليوم</string>
+    <string name="recents_layout_grouped_hint">المكالمات المتتالية من الرقم نفسه في صف واحد</string>
+    <string name="recents_layout_chronological_hint">كل مكالمة في صف خاص، الأحدث أولًا</string>
+    <string name="recents_layout_by_day_hint">صف واحد لكل رقم في كل يوم</string>
+    <string name="recents_layout_menu">التخطيط: %1$s</string>
+    <string name="clear_history_menu">مسح سجل المكالمات…</string>
+    <string name="clear_history_title">مسح سجل المكالمات</string>
+    <string name="clear_history_scope_all">كل المكالمات</string>
+    <string name="clear_history_scope_unknown">مكالمات من أرقام ليست في جهات اتصالك</string>
+    <string name="clear_history_scope_missed">المكالمات الفائتة والمرفوضة</string>
+    <string name="clear_history_scope_shown">ما تعرضه «الأخيرة» الآن</string>
+    <plurals name="clear_history_calls">
+        <item quantity="zero">لا مكالمات</item>
+        <item quantity="one">مكالمة واحدة</item>
+        <item quantity="two">مكالمتان</item>
+        <item quantity="few">%d مكالمات</item>
+        <item quantity="many">%d مكالمة</item>
+        <item quantity="other">%d مكالمة</item>
+    </plurals>
+    <string name="clear_history_next">التالي</string>
+    <string name="clear_history_export_title">التصدير أولًا؟</string>
+    <string name="clear_history_export_body">احتفظ بنسخة قبل المسح، أو تخطَّ هذه الخطوة.</string>
+    <string name="clear_history_export_csv_sub">ملف جدول بيانات؛ أنت تختار أين يذهب</string>
+    <string name="clear_history_export_backup">نسخة احتياطية مشفّرة</string>
+    <string name="clear_history_export_backup_sub">يفتح النسخ الاحتياطي والاستعادة؛ عُد إلى هنا بعد ذلك</string>
+    <string name="clear_history_skip_export">تخطٍّ</string>
+    <plurals name="clear_history_confirm_title">
+        <item quantity="zero">لا مكالمات للحذف</item>
+        <item quantity="one">حذف هذه المكالمة؟</item>
+        <item quantity="two">حذف المكالمتين؟</item>
+        <item quantity="few">حذف %d مكالمات؟</item>
+        <item quantity="many">حذف %d مكالمة؟</item>
+        <item quantity="other">حذف %d مكالمة؟</item>
+    </plurals>
+    <string name="clear_history_confirm_body">تُزال من سجل مكالمات هاتفك. يحتفظ بها «المحذوف مؤخرًا» 30 يومًا، لذا يمكنك التراجع.</string>
+    <string name="clear_history_delete">حذف</string>
+    <string name="clear_history_cancel">إلغاء</string>
+    <string name="clear_history_close">إغلاق</string>
 </resources>

@@ -251,11 +251,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (calls == null || f.isEmpty) calls else calls.filter(f.matcher(System.currentTimeMillis(), java.time.ZoneId.systemDefault()))
     }
 
-    val recentGroups: StateFlow<List<RecentGroup>?> = combine(filteredCalls, numberIndex, recentFilter, recentQuery.debounce(80), vaultByKey) { calls, index, filter, q, vaults ->
-        calls?.let { group(it, index, filter, q).map { g -> if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneNumbers.lineKey(g.number, countryIso)]) else g } }
+    // P8: the call-list layout travels with the calls, so Recents regroups when it changes.
+    private val callsAndLayout = combine(filteredCalls, settings.map { it.recentsLayout }.distinctUntilChanged()) { calls, layout -> calls to layout }
+
+    val recentGroups: StateFlow<List<RecentGroup>?> = combine(callsAndLayout, numberIndex, recentFilter, recentQuery.debounce(80), vaultByKey) { (calls, layout), index, filter, q, vaults ->
+        calls?.let { group(it, index, filter, q, layout).map { g -> if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneNumbers.lineKey(g.number, countryIso)]) else g } }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    private fun group(calls: List<CallEntry>, index: Map<String, ContactSummary>, filter: RecentFilter, q: String): List<RecentGroup> {
+    private fun group(
+        calls: List<CallEntry>, index: Map<String, ContactSummary>, filter: RecentFilter, q: String,
+        layout: app.parley.common.calls.RecentsLayout = app.parley.common.calls.RecentsLayout.GROUPED,
+    ): List<RecentGroup> {
         val filtered = calls.filter {
             when (filter) {
                 RecentFilter.ALL -> true
@@ -266,26 +272,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 RecentFilter.VOICEMAIL -> it.type == CallType.VOICEMAIL
             }
         }
-        val out = ArrayList<RecentGroup>()
-        var current: MutableList<CallEntry>? = null
-        var currentKey = ""
-        var currentDay = -1L
-        for (e in filtered) {
-            val key = if (e.presentationHidden || e.number.isBlank()) "hidden" else PhoneNumbers.matchKey(e.number)
-            val day = TimeUnit.MILLISECONDS.toDays(e.date + java.util.TimeZone.getDefault().getOffset(e.date))
-            if (current != null && key == currentKey && day == currentDay) {
-                current += e
-            } else {
-                current = mutableListOf(e)
-                currentKey = key
-                currentDay = day
-                out += RecentGroup(
-                    key + ":" + e.id, e.number, if (key == "hidden") null else index[key], e.cachedName, current, key == "hidden",
-                    fallbackTitle = str(if (key == "hidden") R.string.main_private_number else R.string.main_unknown),
-                )
-            }
+        fun keyOf(e: CallEntry) = if (e.presentationHidden || e.number.isBlank()) "hidden" else PhoneNumbers.matchKey(e.number)
+        val tz = java.util.TimeZone.getDefault()
+        // P8: grouped (consecutive calls on one day), chronological (one row per call) or one row per number per day.
+        val rows = app.parley.common.calls.RecentsGrouping.group(filtered, layout, ::keyOf) { e -> TimeUnit.MILLISECONDS.toDays(e.date + tz.getOffset(e.date)) }
+        val grouped = rows.map { list ->
+            val e = list.first()
+            val key = keyOf(e)
+            RecentGroup(
+                key + ":" + e.id, e.number, if (key == "hidden") null else index[key], e.cachedName, list, key == "hidden",
+                fallbackTitle = str(if (key == "hidden") R.string.main_private_number else R.string.main_unknown),
+            )
         }
-        val grouped = out.map { it.copy(calls = it.calls.toList()) }
         if (q.isBlank()) return grouped
         return grouped.filter { TextSearch.matches(q, it.title, listOf(it.number)) }
     }

@@ -739,4 +739,25 @@
     <string name="ct_chip_on_hold">%1$s في الانتظار</string>
     <string name="ct_chip_on_call">في مكالمة مع %1$s</string>
     <string name="ct_chip_left">متبقٍ %1$s</string>
+    <!-- v3.2 phone (P4, P5, P7, P8) -->
+    <string name="set_default_dialer_help_title">لا يمكنك جعل Parley تطبيق الهاتف الافتراضي؟</string>
+    <string name="set_default_dialer_help_summary">دليل خطوة بخطوة لإصدار Android لديك، مع معلومات التطبيق</string>
+    <string name="set_default_dialer_help_kw">المتصل الافتراضي، دور، إعدادات مقيدة، معلومات التطبيق</string>
+    <string name="set_connect_haptic_title">الاهتزاز عند اتصال المكالمة</string>
+    <string name="set_connect_haptic_summary">اهتزاز قصير عندما يرد الطرف الآخر</string>
+    <string name="set_connect_haptic_kw">اهتزاز، لمسي، رد، اتصال</string>
+    <string name="set_recents_layout_title">تخطيط قائمة المكالمات</string>
+    <string name="set_recents_layout_summary">مجمّعة، أو كل مكالمة في صف خاص، أو مجمّعة حسب اليوم</string>
+    <string name="set_recents_layout_kw">زمني، مجمّع، حسب اليوم، قائمة، سجل المكالمات، تخطيط</string>
+    <string name="set_clear_history_title">مسح سجل المكالمات</string>
+    <string name="set_clear_history_summary">كل المكالمات أو مكالمات الأرقام غير المعروفة أو الفائتة، مع تصدير أولًا</string>
+    <string name="set_clear_history_kw">حذف، مسح، إزالة، أرقام غير معروفة، سجل المكالمات</string>
+    <string name="role_rescue_title">اجعل Parley تطبيق الهاتف يدويًا</string>
+    <string name="role_rescue_intro">ردّ Android دون أن يعرض سؤاله. يحدث هذا عندما رُفض السؤال من قبل، وعلى بعض الهواتف للتطبيقات المثبتة من خارج متجر التطبيقات.</string>
+    <string name="role_rescue_steps_q">1. افتح الإعدادات › التطبيقات والإشعارات › التطبيقات التلقائية.\n2. انقر على تطبيق الهاتف.\n3. اختر Parley.</string>
+    <string name="role_rescue_steps_s">1. افتح الإعدادات › التطبيقات › التطبيقات التلقائية.\n2. انقر على تطبيق الهاتف.\n3. اختر Parley.</string>
+    <string name="role_rescue_restricted">إذا قال Android إن الإعداد مقيّد: افتح معلومات التطبيق، وانقر على ⋮ › السماح بالإعدادات المقيّدة، ثم حاول مجددًا.</string>
+    <string name="role_rescue_app_info">معلومات التطبيق</string>
+    <string name="role_rescue_default_apps">التطبيقات التلقائية</string>
+    <string name="role_rescue_close">إغلاق</string>
 </resources>

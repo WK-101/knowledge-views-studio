@@ -661,4 +661,25 @@
     <string name="ct_chip_on_hold">%1$s em espera</string>
     <string name="ct_chip_on_call">Em chamada com %1$s</string>
     <string name="ct_chip_left">faltam %1$s</string>
+    <!-- v3.2 phone (P4, P5, P7, P8) -->
+    <string name="set_default_dialer_help_title">Não consegue tornar o Parley o app de telefone padrão?</string>
+    <string name="set_default_dialer_help_summary">Um guia passo a passo para a sua versão do Android, com Informações do app</string>
+    <string name="set_default_dialer_help_kw">discador padrão, função, configurações restritas, informações do app</string>
+    <string name="set_connect_haptic_title">Vibrar quando a chamada conectar</string>
+    <string name="set_connect_haptic_summary">Uma vibração curta quando a outra pessoa atende</string>
+    <string name="set_connect_haptic_kw">vibração, háptico, atendeu, conectada</string>
+    <string name="set_recents_layout_title">Layout da lista de chamadas</string>
+    <string name="set_recents_layout_summary">Agrupadas, cada chamada em sua própria linha ou agrupadas por dia</string>
+    <string name="set_recents_layout_kw">cronológico, agrupado, por dia, lista, registro de chamadas, layout</string>
+    <string name="set_clear_history_title">Limpar histórico de chamadas</string>
+    <string name="set_clear_history_summary">Todas as chamadas, as de números desconhecidos ou as perdidas, com uma exportação antes</string>
+    <string name="set_clear_history_kw">excluir, apagar, limpar, números desconhecidos, registro de chamadas</string>
+    <string name="role_rescue_title">Defina o Parley como app de telefone manualmente</string>
+    <string name="role_rescue_intro">O Android respondeu sem mostrar a pergunta. Isso acontece quando a pergunta já foi recusada antes e, em alguns celulares, com apps instalados fora de uma loja.</string>
+    <string name="role_rescue_steps_q">1. Abra Configurações › Apps e notificações › Apps padrão.\n2. Toque em App de telefone.\n3. Escolha Parley.</string>
+    <string name="role_rescue_steps_s">1. Abra Configurações › Apps › Apps padrão.\n2. Toque em App de telefone.\n3. Escolha Parley.</string>
+    <string name="role_rescue_restricted">Se o Android disser que a configuração é restrita: abra Informações do app, toque em ⋮ › Permitir configurações restritas e tente de novo.</string>
+    <string name="role_rescue_app_info">Info. do app</string>
+    <string name="role_rescue_default_apps">Apps padrão</string>
+    <string name="role_rescue_close">Fechar</string>
 </resources>

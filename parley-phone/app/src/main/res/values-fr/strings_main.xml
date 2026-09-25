@@ -829,4 +829,39 @@
     </plurals>
     <string name="save_contact_details">Enregistrer les coordonnées</string>
     <string name="vm_messenger_copies_remain">Déplacé vers les contacts privés. Les copies dans WhatsApp, Signal et les autres messageries restent jusqu’à ce que l’app resynchronise ses contacts</string>
+    <!-- v3.2 phone (P5, P8) -->
+    <string name="recents_layout_grouped">Groupés</string>
+    <string name="recents_layout_chronological">Chaque appel</string>
+    <string name="recents_layout_by_day">Par jour</string>
+    <string name="recents_layout_grouped_hint">Les appels successifs du même numéro partagent une ligne</string>
+    <string name="recents_layout_chronological_hint">Chaque appel sur sa propre ligne, les plus récents d\'abord</string>
+    <string name="recents_layout_by_day_hint">Une ligne par numéro et par jour</string>
+    <string name="recents_layout_menu">Présentation : %1$s</string>
+    <string name="clear_history_menu">Effacer l\'historique des appels…</string>
+    <string name="clear_history_title">Effacer l\'historique des appels</string>
+    <string name="clear_history_scope_all">Tous les appels</string>
+    <string name="clear_history_scope_unknown">Appels de numéros absents de vos contacts</string>
+    <string name="clear_history_scope_missed">Appels manqués et refusés</string>
+    <string name="clear_history_scope_shown">Ce que Récents affiche maintenant</string>
+    <plurals name="clear_history_calls">
+        <item quantity="one">%d appel</item>
+        <item quantity="many">%d appels</item>
+        <item quantity="other">%d appels</item>
+    </plurals>
+    <string name="clear_history_next">Suivant</string>
+    <string name="clear_history_export_title">Exporter d\'abord ?</string>
+    <string name="clear_history_export_body">Gardez une copie avant d\'effacer, ou passez cette étape.</string>
+    <string name="clear_history_export_csv_sub">Un fichier tableur ; vous choisissez où l\'envoyer</string>
+    <string name="clear_history_export_backup">Sauvegarde chiffrée</string>
+    <string name="clear_history_export_backup_sub">Ouvre Sauvegarder et restaurer ; revenez ici ensuite</string>
+    <string name="clear_history_skip_export">Passer</string>
+    <plurals name="clear_history_confirm_title">
+        <item quantity="one">Supprimer %d appel ?</item>
+        <item quantity="many">Supprimer %d appels ?</item>
+        <item quantity="other">Supprimer %d appels ?</item>
+    </plurals>
+    <string name="clear_history_confirm_body">Ils sont retirés de l\'historique d\'appels du téléphone. Supprimé récemment les garde 30 jours : vous pourrez encore annuler.</string>
+    <string name="clear_history_delete">Supprimer</string>
+    <string name="clear_history_cancel">Annuler</string>
+    <string name="clear_history_close">Fermer</string>
 </resources>
