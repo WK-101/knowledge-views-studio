@@ -829,4 +829,8 @@
     </plurals>
     <string name="save_contact_details">Guardar datos del contacto</string>
     <string name="vm_messenger_copies_remain">Movido a contactos privados. Las copias en WhatsApp, Signal y otras apps de mensajería se quedan hasta que esa app vuelva a sincronizar sus contactos</string>
+    <!-- v3.2 C4: birthday slots -->
+    <string name="ux_add_birthday">¿Añadir cumpleaños?</string>
+    <string name="ux_add_anniversary">¿Añadir aniversario?</string>
+    <string name="ux_date_not_saved">No se pudo guardar la fecha. Puedes añadirla desde Editar.</string>
 </resources>

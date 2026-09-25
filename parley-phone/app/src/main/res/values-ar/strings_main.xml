@@ -970,4 +970,8 @@
     </plurals>
     <string name="save_contact_details">حفظ بيانات جهة الاتصال</string>
     <string name="vm_messenger_copies_remain">نُقلت إلى جهات الاتصال الخاصة. تبقى النسخ في WhatsApp وSignal وتطبيقات المراسلة الأخرى حتى يعيد ذلك التطبيق مزامنة جهات اتصاله</string>
+    <!-- v3.2 C4: birthday slots -->
+    <string name="ux_add_birthday">إضافة عيد الميلاد؟</string>
+    <string name="ux_add_anniversary">إضافة ذكرى سنوية؟</string>
+    <string name="ux_date_not_saved">تعذّر حفظ التاريخ. يمكنك إضافته من تعديل.</string>
 </resources>

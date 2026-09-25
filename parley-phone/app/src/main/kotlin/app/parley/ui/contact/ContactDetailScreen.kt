@@ -464,6 +464,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                 }
             }
+            // C4: empty birthday / anniversary slots, saved straight to the system contact.
+            if (hasMissingDates(d)) item(key = "missing_dates") { MissingDateChips(vm, d, onSaved = { reloads++ }) }
             if (d.events.isNotEmpty() || d.websites.isNotEmpty() || d.note.isNotBlank() || d.relations.isNotEmpty()) item(key = "about") {
                 SegmentedGroup(stringResource(R.string.detail_about, d.given.ifBlank { d.displayName })) {
                     d.events.forEachIndexed { i, ev ->

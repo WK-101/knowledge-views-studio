@@ -782,4 +782,8 @@
     </plurals>
     <string name="save_contact_details">Kontaktdaten speichern</string>
     <string name="vm_messenger_copies_remain">In private Kontakte verschoben. Kopien in WhatsApp, Signal und anderen Messengern bleiben, bis die App ihre Kontakte erneut synchronisiert</string>
+    <!-- v3.2 C4: birthday slots -->
+    <string name="ux_add_birthday">Geburtstag hinzufügen?</string>
+    <string name="ux_add_anniversary">Jahrestag hinzufügen?</string>
+    <string name="ux_date_not_saved">Das Datum ließ sich nicht speichern. Du kannst es über Bearbeiten hinzufügen.</string>
 </resources>

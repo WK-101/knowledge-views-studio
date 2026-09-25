@@ -867,4 +867,8 @@
     </plurals>
     <string name="save_contact_details">Save contact details</string>
     <string name="vm_messenger_copies_remain">Moved to private contacts. Copies in WhatsApp, Signal and other messengers stay until that app syncs its contacts again</string>
+    <!-- v3.2 C4: birthday slots -->
+    <string name="ux_add_birthday">Add birthday?</string>
+    <string name="ux_add_anniversary">Add anniversary?</string>
+    <string name="ux_date_not_saved">Couldn\'t save the date. You can add it with Edit.</string>
 </resources>

@@ -829,4 +829,8 @@
     </plurals>
     <string name="save_contact_details">Enregistrer les coordonnées</string>
     <string name="vm_messenger_copies_remain">Déplacé vers les contacts privés. Les copies dans WhatsApp, Signal et les autres messageries restent jusqu’à ce que l’app resynchronise ses contacts</string>
+    <!-- v3.2 C4: birthday slots -->
+    <string name="ux_add_birthday">Ajouter l\'anniversaire ?</string>
+    <string name="ux_add_anniversary">Ajouter une date anniversaire ?</string>
+    <string name="ux_date_not_saved">Impossible d\'enregistrer la date. Vous pouvez l\'ajouter via Modifier.</string>
 </resources>
