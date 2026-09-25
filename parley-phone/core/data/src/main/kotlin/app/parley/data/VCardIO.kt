@@ -194,6 +194,21 @@ class VCardIO(
         return report.build()
     }
 
+    /**
+     * C2: about how many contacts a file holds (vCards, or non-blank CSV lines less a header), without parsing it,
+     * so a large import can offer "Back up first?". 0 when the file can't be read.
+     */
+    suspend fun estimateCount(source: Uri): Int = withContext(Dispatchers.IO) {
+        if (!looksLikeCsv(source)) return@withContext countCards(source)
+        try {
+            cr.openInputStream(source)?.use { input ->
+                VCardStream.reader(input).buffered().useLines { lines -> (lines.count { it.isNotBlank() } - 1).coerceAtLeast(0) }
+            } ?: 0
+        } catch (_: Exception) {
+            0
+        }
+    }
+
     /** Counts BEGIN:VCARD lines so progress can show a total. Cheap: one streaming pass, no parsing. */
     private fun countCards(source: Uri): Int = try {
         cr.openInputStream(source)?.use { input ->

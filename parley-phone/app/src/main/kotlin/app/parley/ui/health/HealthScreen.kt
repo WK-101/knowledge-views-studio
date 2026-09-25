@@ -94,6 +94,8 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         )
     }
 
+    // C2: "Back up first?" before deleting many contacts at once.
+    val backupFirst = app.parley.ui.backup.rememberBackupFirst(vm)
     // U7: scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
@@ -136,7 +138,10 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                                 }
                             }
                         }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_auto_delete)) }
-                        HealthKind.EMPTY -> TextButton({ vm.deleteContacts(group.map { it.contactId }); round++ }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_delete_all, group.size)) }
+                        HealthKind.EMPTY -> TextButton({
+                            val ids = group.map { it.contactId }
+                            backupFirst.ask(ids.size, app.parley.common.ux.BackupNudge.LARGE_DELETE) { vm.deleteContacts(ids); round++ }
+                        }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_delete_all, group.size)) }
                         HealthKind.NUMBER_AS_NAME -> Unit
                     }
                 }

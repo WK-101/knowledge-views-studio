@@ -1432,4 +1432,26 @@
     <string name="privnames_dir_request_text">%1$s buscó a quien llama en el directorio de contactos de Parley. Si lo permites, %1$s podrá mostrar el nombre de un contacto privado cuando llame, un número cada vez; nunca recibe una lista. Esto es independiente de «Permitir que las apps muestren nombres privados».</string>
     <string name="pn_directory_apps">Apps de teléfono que usan el directorio</string>
     <string name="import_csv_column">Columna CSV «%1$s»</string>
+    <!-- v3.2 C2/C3: back up first, backup reminder -->
+    <string name="ux_backup_first_title">¿Hacer una copia antes?</string>
+    <string name="ux_backup_first_last">Esto cambia muchos contactos a la vez. Última copia: %1$s.</string>
+    <string name="ux_backup_first_never">Esto cambia muchos contactos a la vez y aún no hay ninguna copia.</string>
+    <string name="ux_backup_first_quick">Una copia cifrada rápida tarda un momento y así siempre podrás volver atrás.</string>
+    <string name="ux_backup_first_setup">Puedes configurar primero las copias cifradas o seguir: «Eliminados recientemente» guarda los cambios 30 días de todos modos.</string>
+    <string name="ux_backup_first_now">Hacer copia ahora</string>
+    <string name="ux_backup_set_up">Configurar copia</string>
+    <string name="ux_backup_first_skip">Continuar sin copia</string>
+    <string name="ux_backup_due_title">Última copia: %1$s</string>
+    <string name="ux_backup_due_never">Aún no hay copia</string>
+    <string name="ux_backup_due_body">Una copia cifrada reciente protege tus contactos si algo sale mal.</string>
+    <string name="ux_backup_due_body_setup">Las copias cifradas van a una carpeta que eliges. Nada sale del teléfono salvo que tú lo muevas.</string>
+    <string name="ux_not_now">Ahora no</string>
+    <string name="ux_backup_notify_title">¿Hacemos una copia?</string>
+    <string name="ux_backup_notify_text">Hace tiempo de tu última copia. Con un toque haces una nueva copia cifrada.</string>
+    <string name="ux_backup_notify_text_never">Tus contactos aún no tienen copia. Las copias cifradas se configuran en un minuto.</string>
+    <plurals name="ux_backup_after_days">
+        <item quantity="one">Tras %d día</item>
+        <item quantity="many">Tras %d días</item>
+        <item quantity="other">Tras %d días</item>
+    </plurals>
 </resources>

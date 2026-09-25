@@ -176,6 +176,8 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     }
                 }
             }
+            // C3: a quiet reminder once a backup is overdue (Not now snoozes it for a week).
+            app.parley.ui.backup.BackupReminderBanner(vm, Modifier.padding(vertical = 0.dp))
             categoryGroups.forEach { group ->
                 SegmentedGroup {
                     group.forEach { c ->

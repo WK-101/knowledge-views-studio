@@ -69,6 +69,8 @@ fun SelectionBar(vm: AppViewModel) {
     var confirmPrivate by remember { mutableStateOf(false) }
     var labelPicker by remember { mutableStateOf<List<GroupInfo>?>(null) }
     val res = LocalResources.current
+    // C2: "Back up first?" before merging or deleting many contacts.
+    val backupFirst = app.parley.ui.backup.rememberBackupFirst(vm)
 
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-vcard")) { uri ->
         if (uri != null) scope.launch {
@@ -118,10 +120,12 @@ fun SelectionBar(vm: AppViewModel) {
                     if (chosen.size >= 2) {
                         DropdownMenuItem({ Text(stringResource(R.string.sel_merge)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.CallMerge, null) }, onClick = {
                             menu = false
-                            scope.launch {
-                                vm.c.contacts.join(chosen.map { it.id })
-                                vm.selection.value = emptySet()
-                                vm.toast(res.getQuantityString(R.plurals.sel_merged, chosen.size, chosen.size))
+                            backupFirst.ask(chosen.size, 1) {
+                                scope.launch {
+                                    vm.c.contacts.join(chosen.map { it.id })
+                                    vm.selection.value = emptySet()
+                                    vm.toast(res.getQuantityString(R.plurals.sel_merged, chosen.size, chosen.size))
+                                }
                             }
                         })
                     }
@@ -148,8 +152,11 @@ fun SelectionBar(vm: AppViewModel) {
             confirmButton = {
                 TextButton({
                     confirmDelete = false
-                    vm.deleteContacts(chosen.map { it.id })
-                    vm.selection.value = emptySet()
+                    val ids = chosen.map { it.id }
+                    backupFirst.ask(ids.size, app.parley.common.ux.BackupNudge.LARGE_DELETE) {
+                        vm.deleteContacts(ids)
+                        vm.selection.value = emptySet()
+                    }
                 }) { Text(stringResource(R.string.main_delete)) }
             },
             dismissButton = { TextButton({ confirmDelete = false }) { Text(stringResource(R.string.main_cancel)) } },

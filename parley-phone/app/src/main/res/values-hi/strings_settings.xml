@@ -635,4 +635,13 @@
     <string name="ct_chip_on_hold">%1$s होल्ड पर</string>
     <string name="ct_chip_on_call">%1$s के साथ कॉल पर</string>
     <string name="ct_chip_left">%1$s बाकी</string>
+    <!-- v3.2 C3/U2 settings -->
+    <string name="set_backup_reminder_title">बैकअप की याद दिलाएँ</string>
+    <string name="set_backup_reminder_summary">कुछ समय से बैकअप न होने पर एक हल्की याद (महीने में ज़्यादा से ज़्यादा एक सूचना)</string>
+    <string name="set_backup_reminder_kw">याद, रिमाइंडर, बैकअप, सूचना</string>
+    <string name="set_reset_tips_title">सुझाव फिर से दिखाएँ</string>
+    <string name="set_reset_tips_summary">एक बार दिखने वाले सुझाव फिर दिखाएँ (कीपैड, हाल के, खोज)</string>
+    <string name="set_reset_tips_kw">सुझाव, संकेत, मदद, ट्यूटोरियल</string>
+    <string name="set_group_tips">सुझाव</string>
+    <string name="ux_tips_reset_done">सुझाव फिर से दिखेंगे</string>
 </resources>

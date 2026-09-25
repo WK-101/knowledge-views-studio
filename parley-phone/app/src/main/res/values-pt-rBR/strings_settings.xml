@@ -661,4 +661,13 @@
     <string name="ct_chip_on_hold">%1$s em espera</string>
     <string name="ct_chip_on_call">Em chamada com %1$s</string>
     <string name="ct_chip_left">faltam %1$s</string>
+    <!-- v3.2 C3/U2 settings -->
+    <string name="set_backup_reminder_title">Lembrar de fazer backup</string>
+    <string name="set_backup_reminder_summary">Um lembrete discreto quando faz tempo sem backup (no máximo uma notificação por mês)</string>
+    <string name="set_backup_reminder_kw">lembrete, atrasado, backup, cópia, notificação</string>
+    <string name="set_reset_tips_title">Redefinir dicas</string>
+    <string name="set_reset_tips_summary">Mostrar de novo as dicas únicas (teclado, Recentes, busca)</string>
+    <string name="set_reset_tips_kw">dicas, sugestões, ajuda, tutorial</string>
+    <string name="set_group_tips">Dicas</string>
+    <string name="ux_tips_reset_done">As dicas vão aparecer de novo</string>
 </resources>

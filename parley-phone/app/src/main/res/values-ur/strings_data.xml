@@ -1365,4 +1365,25 @@
     <string name="privnames_dir_request_text">%1$s نے Parley کی رابطہ ڈائریکٹری میں کال کرنے والے کو تلاش کیا۔ اجازت دینے پر %1$s کال آنے پر کسی نجی رابطے کا نام دکھا سکتا ہے، ایک وقت میں ایک نمبر؛ اسے کبھی فہرست نہیں ملتی۔ یہ “ایپس کو نجی نام دکھانے دیں” سے الگ ہے۔</string>
     <string name="pn_directory_apps">ڈائریکٹری استعمال کرنے والی فون ایپس</string>
     <string name="import_csv_column">CSV کالم “%1$s”</string>
+    <!-- v3.2 C2/C3: back up first, backup reminder -->
+    <string name="ux_backup_first_title">پہلے بیک اپ لیں؟</string>
+    <string name="ux_backup_first_last">اس سے ایک ساتھ کئی رابطے بدلیں گے۔ پچھلا بیک اپ: %1$s۔</string>
+    <string name="ux_backup_first_never">اس سے ایک ساتھ کئی رابطے بدلیں گے، اور ابھی کوئی بیک اپ نہیں ہے۔</string>
+    <string name="ux_backup_first_quick">ایک تیز خفیہ بیک اپ میں بس ایک لمحہ لگتا ہے، تاکہ آپ کبھی بھی واپس جا سکیں۔</string>
+    <string name="ux_backup_first_setup">آپ پہلے خفیہ بیک اپ ترتیب دے سکتے ہیں، یا آگے بڑھ سکتے ہیں: “حال ہی میں حذف شدہ” تبدیلیوں کو ویسے بھی 30 دن رکھتا ہے۔</string>
+    <string name="ux_backup_first_now">ابھی بیک اپ لیں</string>
+    <string name="ux_backup_set_up">بیک اپ ترتیب دیں</string>
+    <string name="ux_backup_first_skip">اس کے بغیر جاری رکھیں</string>
+    <string name="ux_backup_due_title">پچھلا بیک اپ: %1$s</string>
+    <string name="ux_backup_due_never">ابھی کوئی بیک اپ نہیں</string>
+    <string name="ux_backup_due_body">ایک تازہ خفیہ بیک اپ کچھ غلط ہونے پر آپ کے رابطوں کو محفوظ رکھتا ہے۔</string>
+    <string name="ux_backup_due_body_setup">خفیہ بیک اپ آپ کے منتخب فولڈر میں جاتے ہیں۔ آپ کے منتقل کیے بغیر کچھ بھی فون سے باہر نہیں جاتا۔</string>
+    <string name="ux_not_now">ابھی نہیں</string>
+    <string name="ux_backup_notify_title">بیک اپ کا وقت؟</string>
+    <string name="ux_backup_notify_text">پچھلے بیک اپ کو کچھ وقت ہو گیا ہے۔ ایک ٹیپ سے نئی خفیہ کاپی بن جاتی ہے۔</string>
+    <string name="ux_backup_notify_text_never">آپ کے رابطوں کا ابھی بیک اپ نہیں ہے۔ خفیہ بیک اپ ایک منٹ میں ترتیب ہو جاتا ہے۔</string>
+    <plurals name="ux_backup_after_days">
+        <item quantity="one">%d دن بعد</item>
+        <item quantity="other">%d دن بعد</item>
+    </plurals>
 </resources>

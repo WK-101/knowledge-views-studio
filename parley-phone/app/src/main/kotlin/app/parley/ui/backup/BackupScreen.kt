@@ -128,6 +128,8 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
         TopAppBar(title = { Text(stringResource(R.string.bkp_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
+            // C3: overdue reminder (also in Settings); "Not now" snoozes it.
+            item { app.parley.ui.backup.BackupReminderBanner(vm) }
             item {
                 val ready = state.hasKeys && state.folderUri != null
                 Card(
@@ -202,6 +204,16 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                     trailingContent = null,
                 )
                 if (state.keepLast == 0) Text(stringResource(R.string.bkp_keep_smart_summary), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp))
+                // C3: when to remind about an overdue backup (14 or 30 days; at most one notification a month).
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.set_backup_reminder_title)) },
+                    supportingContent = {
+                        Column {
+                            Text(stringResource(R.string.set_backup_reminder_summary))
+                            app.parley.ui.backup.BackupReminderChoice(vm, Modifier.padding(top = 8.dp))
+                        }
+                    },
+                )
             }
             item { Section(stringResource(R.string.bkp_restore)) }
             item {

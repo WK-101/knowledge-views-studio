@@ -20,6 +20,8 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
     override suspend fun doWork(): Result {
         val notices = runHousekeeping(applicationContext.container)
         notices.forEachIndexed { i, n -> notify(applicationContext, i, n) }
+        // C3: at most one backup reminder a month while a backup is overdue.
+        runCatching { BackupReminder.maybeNotify(applicationContext, applicationContext.container) }
         return Result.success()
     }
 

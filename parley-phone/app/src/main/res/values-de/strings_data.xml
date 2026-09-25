@@ -1365,4 +1365,25 @@
     <string name="privnames_dir_request_text">%1$s hat einen Anrufer in Parleys Kontaktverzeichnis gesucht. Wenn du es erlaubst, kann %1$s den Namen eines privaten Kontakts anzeigen, wenn er anruft, jeweils für eine Nummer; eine Liste bekommt die App nie. Das ist unabhängig von „Apps private Namen anzeigen lassen“.</string>
     <string name="pn_directory_apps">Telefon-Apps, die das Verzeichnis nutzen</string>
     <string name="import_csv_column">CSV-Spalte „%1$s“</string>
+    <!-- v3.2 C2/C3: back up first, backup reminder -->
+    <string name="ux_backup_first_title">Zuerst sichern?</string>
+    <string name="ux_backup_first_last">Dadurch ändern sich viele Kontakte auf einmal. Letzte Sicherung: %1$s.</string>
+    <string name="ux_backup_first_never">Dadurch ändern sich viele Kontakte auf einmal, und es gibt noch keine Sicherung.</string>
+    <string name="ux_backup_first_quick">Eine schnelle verschlüsselte Sicherung dauert nur einen Moment, dann kannst du jederzeit zurück.</string>
+    <string name="ux_backup_first_setup">Du kannst zuerst verschlüsselte Sicherungen einrichten oder einfach weitermachen: „Zuletzt gelöscht“ hebt Änderungen so oder so 30 Tage auf.</string>
+    <string name="ux_backup_first_now">Jetzt sichern</string>
+    <string name="ux_backup_set_up">Sicherung einrichten</string>
+    <string name="ux_backup_first_skip">Ohne fortfahren</string>
+    <string name="ux_backup_due_title">Letzte Sicherung: %1$s</string>
+    <string name="ux_backup_due_never">Noch keine Sicherung</string>
+    <string name="ux_backup_due_body">Eine frische verschlüsselte Sicherung schützt deine Kontakte, falls etwas schiefgeht.</string>
+    <string name="ux_backup_due_body_setup">Verschlüsselte Sicherungen landen in einem Ordner deiner Wahl. Nichts verlässt dein Telefon, außer du verschiebst es.</string>
+    <string name="ux_not_now">Nicht jetzt</string>
+    <string name="ux_backup_notify_title">Zeit für eine Sicherung?</string>
+    <string name="ux_backup_notify_text">Die letzte Sicherung ist eine Weile her. Ein Tipp erstellt eine frische verschlüsselte Kopie.</string>
+    <string name="ux_backup_notify_text_never">Deine Kontakte sind noch nicht gesichert. Verschlüsselte Sicherungen sind in einer Minute eingerichtet.</string>
+    <plurals name="ux_backup_after_days">
+        <item quantity="one">Nach %d Tag</item>
+        <item quantity="other">Nach %d Tagen</item>
+    </plurals>
 </resources>

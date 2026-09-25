@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockClock
+import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.ManageHistory
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Notifications
@@ -170,6 +171,14 @@ internal fun AppearancePage(vm: AppViewModel) {
         menuRow("sort_names", sortOptions, if (s.sortByFirstName) 0 else 1, Icons.Rounded.SortByAlpha) { i -> set { it.copy(sortByFirstName = i == 0) } }
         item("second_line") { app.parley.ui.people.SecondLineRow(vm, Icons.AutoMirrored.Rounded.ShortText) }
         item("prefer_nickname") { app.parley.ui.people.PreferNicknameRow(vm, Icons.Rounded.Badge) }
+    }
+    // U2: every one-time tip shows again.
+    val tipsReset = stringResource(R.string.ux_tips_reset_done)
+    SegmentedGroup(stringResource(R.string.set_group_tips)) {
+        linkRow("reset_tips", Icons.Rounded.Lightbulb) {
+            vm.c.ux.resetTips()
+            vm.toast(tipsReset)
+        }
     }
 }
 
@@ -320,8 +329,15 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
             vm.toast(exportMessage(context, r))
         }
     }
+    // C2: a large import offers "Back up first?" before anything is written.
+    val backupFirst = app.parley.ui.backup.rememberBackupFirst(vm)
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) scope.launch { importAccounts = uri to withContext(Dispatchers.IO) { vm.c.contacts.accounts() } }
+        if (uri != null) scope.launch {
+            val count = vm.c.vcards.estimateCount(uri)
+            backupFirst.ask(count, app.parley.common.ux.BackupNudge.LARGE_IMPORT) {
+                scope.launch { importAccounts = uri to withContext(Dispatchers.IO) { vm.c.contacts.accounts() } }
+            }
+        }
     }
 
     progress?.let { msg ->
@@ -527,11 +543,19 @@ internal fun BackupPage(vm: AppViewModel, open: (String) -> Unit) {
     val context = LocalContext.current
     val b by vm.c.backup.prefs.state.collectAsStateWithLifecycle()
     val lastBackup = if (b.lastBackupAt > 0) stringResource(R.string.set_last_backup, app.parley.ui.common.Format.shortWhen(context, b.lastBackupAt)) else null
+    // C3: the overdue reminder and its threshold.
+    app.parley.ui.backup.BackupReminderBanner(vm)
+    val ux by vm.c.ux.state.collectAsStateWithLifecycle()
+    val reminderOptions = app.parley.common.ux.BackupNudge.REMINDER_DAYS.map { pluralStringResource(R.plurals.ux_backup_after_days, it, it) }
     SegmentedGroup(stringResource(R.string.set_group_backups)) {
         linkRow(
             "backup", Icons.Rounded.Backup,
             sub = lastBackup,
         ) { open(Routes.BACKUP) }
+        menuRow(
+            "backup_reminder", reminderOptions, app.parley.common.ux.BackupNudge.REMINDER_DAYS.indexOf(ux.backupReminderDays).coerceAtLeast(0),
+            Icons.Rounded.NotificationsActive,
+        ) { i -> vm.c.ux.setBackupReminderDays(app.parley.common.ux.BackupNudge.REMINDER_DAYS[i]) }
         linkRow("sync", Icons.Rounded.Sync) { open(Routes.SYNC) }
     }
     SegmentedGroup(stringResource(R.string.set_group_undo)) {

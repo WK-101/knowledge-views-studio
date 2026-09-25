@@ -1365,4 +1365,25 @@
     <string name="privnames_dir_request_text">%1$s ने Parley की संपर्क डायरेक्टरी में कॉल करने वाले को खोजा। अनुमति देने पर %1$s कॉल आने पर किसी निजी संपर्क का नाम दिखा सकता है, एक बार में एक नंबर; उसे कभी सूची नहीं मिलती। यह “ऐप्स को निजी नाम दिखाने दें” से अलग है।</string>
     <string name="pn_directory_apps">डायरेक्टरी इस्तेमाल करने वाले फ़ोन ऐप्स</string>
     <string name="import_csv_column">CSV कॉलम “%1$s”</string>
+    <!-- v3.2 C2/C3: back up first, backup reminder -->
+    <string name="ux_backup_first_title">पहले बैकअप लें?</string>
+    <string name="ux_backup_first_last">इससे एक साथ कई संपर्क बदलेंगे। पिछला बैकअप: %1$s।</string>
+    <string name="ux_backup_first_never">इससे एक साथ कई संपर्क बदलेंगे, और अभी कोई बैकअप नहीं है।</string>
+    <string name="ux_backup_first_quick">एक तेज़ एन्क्रिप्टेड बैकअप में बस एक पल लगता है, ताकि आप कभी भी वापस जा सकें।</string>
+    <string name="ux_backup_first_setup">आप पहले एन्क्रिप्टेड बैकअप सेट कर सकते हैं, या आगे बढ़ सकते हैं: “हाल में हटाए गए” बदलावों को वैसे भी 30 दिन रखता है।</string>
+    <string name="ux_backup_first_now">अभी बैकअप लें</string>
+    <string name="ux_backup_set_up">बैकअप सेट करें</string>
+    <string name="ux_backup_first_skip">इसके बिना जारी रखें</string>
+    <string name="ux_backup_due_title">पिछला बैकअप: %1$s</string>
+    <string name="ux_backup_due_never">अभी कोई बैकअप नहीं</string>
+    <string name="ux_backup_due_body">एक ताज़ा एन्क्रिप्टेड बैकअप कुछ गड़बड़ होने पर आपके संपर्कों को सुरक्षित रखता है।</string>
+    <string name="ux_backup_due_body_setup">एन्क्रिप्टेड बैकअप आपके चुने फ़ोल्डर में जाते हैं। आपके हटाए बिना कुछ भी फ़ोन से बाहर नहीं जाता।</string>
+    <string name="ux_not_now">अभी नहीं</string>
+    <string name="ux_backup_notify_title">बैकअप का समय?</string>
+    <string name="ux_backup_notify_text">पिछले बैकअप को कुछ समय हो गया है। एक टैप से नई एन्क्रिप्टेड कॉपी बनती है।</string>
+    <string name="ux_backup_notify_text_never">आपके संपर्कों का अभी बैकअप नहीं है। एन्क्रिप्टेड बैकअप एक मिनट में सेट हो जाता है।</string>
+    <plurals name="ux_backup_after_days">
+        <item quantity="one">%d दिन बाद</item>
+        <item quantity="other">%d दिन बाद</item>
+    </plurals>
 </resources>

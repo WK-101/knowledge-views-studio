@@ -635,4 +635,13 @@
     <string name="ct_chip_on_hold">%1$s ہولڈ پر</string>
     <string name="ct_chip_on_call">%1$s کے ساتھ کال پر</string>
     <string name="ct_chip_left">%1$s باقی</string>
+    <!-- v3.2 C3/U2 settings -->
+    <string name="set_backup_reminder_title">بیک اپ کی یاد دلائیں</string>
+    <string name="set_backup_reminder_summary">کچھ عرصے سے بیک اپ نہ ہونے پر ایک ہلکی یاد دہانی (مہینے میں زیادہ سے زیادہ ایک اطلاع)</string>
+    <string name="set_backup_reminder_kw">یاد دہانی, ریمائنڈر, بیک اپ, اطلاع</string>
+    <string name="set_reset_tips_title">تجاویز دوبارہ دکھائیں</string>
+    <string name="set_reset_tips_summary">ایک بار دکھنے والی تجاویز دوبارہ دکھائیں (کی پیڈ، حالیہ، تلاش)</string>
+    <string name="set_reset_tips_kw">تجاویز, اشارے, مدد, ٹیوٹوریل</string>
+    <string name="set_group_tips">تجاویز</string>
+    <string name="ux_tips_reset_done">تجاویز دوبارہ دکھائی دیں گی</string>
 </resources>

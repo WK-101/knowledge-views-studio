@@ -61,6 +61,8 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
     }
     // U7: scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
+    // C2: "Back up first?" before the first merge (asked once per visit).
+    val backupFirst = app.parley.ui.backup.rememberBackupFirst(vm)
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(title = { Text(stringResource(R.string.dup_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } }, scrollBehavior = barTint)
     }) { p ->
@@ -90,10 +92,12 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
                             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.End) {
                                 TextButton({ dismissed += g.first().id }) { Text(stringResource(R.string.dup_not)) }
                                 Button({
-                                    scope.launch {
-                                        vm.c.contacts.join(g.map { it.id })
-                                        dismissed += g.first().id
-                                        vm.toast(res.getQuantityString(R.plurals.sel_merged, g.size, g.size))
+                                    backupFirst.ask(g.size, 1) {
+                                        scope.launch {
+                                            vm.c.contacts.join(g.map { it.id })
+                                            dismissed += g.first().id
+                                            vm.toast(res.getQuantityString(R.plurals.sel_merged, g.size, g.size))
+                                        }
                                     }
                                 }) { Text(stringResource(R.string.dup_merge)) }
                             }

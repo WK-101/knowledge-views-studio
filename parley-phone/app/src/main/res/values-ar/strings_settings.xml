@@ -739,4 +739,13 @@
     <string name="ct_chip_on_hold">%1$s في الانتظار</string>
     <string name="ct_chip_on_call">في مكالمة مع %1$s</string>
     <string name="ct_chip_left">متبقٍ %1$s</string>
+    <!-- v3.2 C3/U2 settings -->
+    <string name="set_backup_reminder_title">ذكّرني بالنسخ الاحتياطي</string>
+    <string name="set_backup_reminder_summary">تذكير هادئ عندما يمرّ وقت دون نسخ احتياطي (إشعار واحد في الشهر على الأكثر)</string>
+    <string name="set_backup_reminder_kw">تذكير، متأخر، نسخ احتياطي، إشعار</string>
+    <string name="set_reset_tips_title">إعادة ضبط التلميحات</string>
+    <string name="set_reset_tips_summary">إظهار التلميحات التي تظهر مرة واحدة من جديد (لوحة الأرقام، الأخيرة، البحث)</string>
+    <string name="set_reset_tips_kw">تلميحات، نصائح، مساعدة، شرح</string>
+    <string name="set_group_tips">تلميحات</string>
+    <string name="ux_tips_reset_done">ستظهر التلميحات مجددًا</string>
 </resources>

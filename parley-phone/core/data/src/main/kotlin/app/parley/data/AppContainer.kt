@@ -57,6 +57,8 @@ class DataContainer(context: Context) {
     /** M11: "Add several numbers…" batches (one undo per batch). */
     val bulkAdd by lazy { app.parley.data.messaging.BulkAddStore(this) }
     val timeMachine by lazy { app.parley.data.backup.TimeMachine(appContext, records) }
+    /** v3.2: tips seen, "What's new" and the backup reminder (U2, U6, C3). */
+    val ux by lazy { UxPrefs(appContext) }
     val people by lazy { app.parley.data.people.PeopleContainer(this) }
     val backup by lazy {
         app.parley.data.backup.BackupRepository(appContext, contacts, records, blocks, prefs, db, settings, vault, app.parley.data.backup.BackupPrefs(appContext))

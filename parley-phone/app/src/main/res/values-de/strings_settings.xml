@@ -635,4 +635,13 @@
     <string name="ct_chip_on_hold">%1$s gehalten</string>
     <string name="ct_chip_on_call">Im Gespräch mit %1$s</string>
     <string name="ct_chip_left">noch %1$s</string>
+    <!-- v3.2 C3/U2 settings -->
+    <string name="set_backup_reminder_title">An Sicherung erinnern</string>
+    <string name="set_backup_reminder_summary">Eine dezente Erinnerung, wenn länger nicht gesichert wurde (höchstens eine Benachrichtigung im Monat)</string>
+    <string name="set_backup_reminder_kw">Erinnerung, überfällig, Sicherung, Backup, Benachrichtigung</string>
+    <string name="set_reset_tips_title">Tipps zurücksetzen</string>
+    <string name="set_reset_tips_summary">Die einmaligen Tipps wieder anzeigen (Tastenfeld, Anrufliste, Suche)</string>
+    <string name="set_reset_tips_kw">Tipps, Hinweise, Hilfe, Anleitung</string>
+    <string name="set_group_tips">Tipps</string>
+    <string name="ux_tips_reset_done">Tipps werden wieder angezeigt</string>
 </resources>

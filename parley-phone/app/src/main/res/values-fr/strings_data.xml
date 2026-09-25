@@ -1432,4 +1432,26 @@
     <string name="privnames_dir_request_text">%1$s a cherché un appelant dans l’annuaire de contacts de Parley. Si vous l’autorisez, %1$s pourra afficher le nom d’un contact privé quand il appelle, un numéro à la fois ; l’app ne reçoit jamais de liste. C’est indépendant de « Laisser les apps afficher les noms privés ».</string>
     <string name="pn_directory_apps">Apps de téléphone utilisant l’annuaire</string>
     <string name="import_csv_column">Colonne CSV « %1$s »</string>
+    <!-- v3.2 C2/C3: back up first, backup reminder -->
+    <string name="ux_backup_first_title">Sauvegarder d\'abord ?</string>
+    <string name="ux_backup_first_last">Cela modifie beaucoup de contacts d\'un coup. Dernière sauvegarde : %1$s.</string>
+    <string name="ux_backup_first_never">Cela modifie beaucoup de contacts d\'un coup, et il n\'y a pas encore de sauvegarde.</string>
+    <string name="ux_backup_first_quick">Une sauvegarde chiffrée rapide ne prend qu\'un instant : vous pourrez toujours revenir en arrière.</string>
+    <string name="ux_backup_first_setup">Vous pouvez d\'abord configurer les sauvegardes chiffrées, ou continuer : « Récemment supprimés » garde les modifications 30 jours de toute façon.</string>
+    <string name="ux_backup_first_now">Sauvegarder maintenant</string>
+    <string name="ux_backup_set_up">Configurer la sauvegarde</string>
+    <string name="ux_backup_first_skip">Continuer sans</string>
+    <string name="ux_backup_due_title">Dernière sauvegarde : %1$s</string>
+    <string name="ux_backup_due_never">Pas encore de sauvegarde</string>
+    <string name="ux_backup_due_body">Une sauvegarde chiffrée récente protège vos contacts si quelque chose tourne mal.</string>
+    <string name="ux_backup_due_body_setup">Les sauvegardes chiffrées vont dans un dossier de votre choix. Rien ne quitte le téléphone sauf si vous le déplacez.</string>
+    <string name="ux_not_now">Pas maintenant</string>
+    <string name="ux_backup_notify_title">Une petite sauvegarde ?</string>
+    <string name="ux_backup_notify_text">Votre dernière sauvegarde date un peu. Un appui crée une nouvelle copie chiffrée.</string>
+    <string name="ux_backup_notify_text_never">Vos contacts ne sont pas encore sauvegardés. Les sauvegardes chiffrées se configurent en une minute.</string>
+    <plurals name="ux_backup_after_days">
+        <item quantity="one">Après %d jour</item>
+        <item quantity="many">Après %d jours</item>
+        <item quantity="other">Après %d jours</item>
+    </plurals>
 </resources>
