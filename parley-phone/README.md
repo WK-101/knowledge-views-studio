@@ -172,3 +172,5 @@ Updates run through WorkManager (by default daily, on unmetered networks, while 
 - [docs/PLAN.md](docs/PLAN.md): product and technical plan
 - [docs/TESTING.md](docs/TESTING.md): device test checklist
 - [docs/COMPETITIVE_ANALYSIS.md](docs/COMPETITIVE_ANALYSIS.md): full-code analysis of four open-source apps, and the roadmap
+- [docs/COMPETITIVE_ANALYSIS_2.md](docs/COMPETITIVE_ANALYSIS_2.md) to [_4](docs/COMPETITIVE_ANALYSIS_4.md): rounds 2–4 (dialers, blockers, contacts libraries, private phonebooks)
+- [docs/COMPETITIVE_ANALYSIS_5.md](docs/COMPETITIVE_ANALYSIS_5.md): round 5, Bondwidth and keep-in-touch apps; the v3.2 "Circle" roadmap
