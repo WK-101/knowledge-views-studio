@@ -882,4 +882,21 @@
     <string name="ux_whats_new_title">What\'s new in Parley %1$s</string>
     <string name="ux_whats_new_body">Your tabs, start tab and call list stay just as you set them. New things arrive switched off, so you can try them when you like.</string>
     <string name="ux_whats_new_try">Try it</string>
+    <!-- v3.2 U5: empty states -->
+    <string name="ux_empty_clear_search">Clear search</string>
+    <string name="ux_empty_clear_filter">Clear filter</string>
+    <string name="ux_empty_add_contact">Create contact</string>
+    <string name="ux_empty_add_private">Add a private contact</string>
+    <string name="ux_empty_choose_favorites">Choose favorites</string>
+    <string name="ux_empty_calls_no_match">No calls match “%1$s”</string>
+    <string name="ux_empty_calls_filter">No calls of this kind in your history.</string>
+    <string name="ux_empty_show_all_calls">Show all calls</string>
+    <string name="ux_empty_calls_none">Calls you make and receive will show up here.</string>
+    <string name="ux_empty_open_keypad">Open keypad</string>
+    <string name="ux_empty_call_voicemail">Call voicemail</string>
+    <string name="ux_empty_voicemail_no_match">No voicemail matches “%1$s”</string>
+    <string name="ux_empty_what_changed">See what changed</string>
+    <string name="ux_empty_open_contacts">Open contacts</string>
+    <string name="ux_empty_back">Go back</string>
+    <string name="ux_empty_no_match">No matches for “%1$s”</string>
 </resources>

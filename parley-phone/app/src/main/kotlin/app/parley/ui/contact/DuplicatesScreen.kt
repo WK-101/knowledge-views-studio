@@ -70,7 +70,10 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
         val list = groups?.filter { g -> g.first().id !in dismissed }
         when {
             list == null -> Box(Modifier.fillMaxSize().padding(p), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            list.isEmpty() -> EmptyState(Icons.Rounded.DoneAll, stringResource(R.string.dup_none), stringResource(R.string.dup_none_body), Modifier.padding(p))
+            list.isEmpty() -> EmptyState(
+                Icons.Rounded.DoneAll, stringResource(R.string.dup_none), stringResource(R.string.dup_none_body), Modifier.padding(p),
+                action = stringResource(R.string.main_done), onAction = back,
+            )
             else -> LazyColumn(Modifier.padding(p), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     Text(

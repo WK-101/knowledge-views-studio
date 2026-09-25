@@ -844,4 +844,21 @@
     <string name="ux_whats_new_title">Nouveautés de Parley %1$s</string>
     <string name="ux_whats_new_body">Vos onglets, l\'onglet de départ et la liste d\'appels restent comme vous les avez réglés. Les nouveautés arrivent désactivées : essayez-les quand vous voulez.</string>
     <string name="ux_whats_new_try">Essayer</string>
+    <!-- v3.2 U5: empty states -->
+    <string name="ux_empty_clear_search">Effacer la recherche</string>
+    <string name="ux_empty_clear_filter">Retirer le filtre</string>
+    <string name="ux_empty_add_contact">Créer un contact</string>
+    <string name="ux_empty_add_private">Ajouter un contact privé</string>
+    <string name="ux_empty_choose_favorites">Choisir des favoris</string>
+    <string name="ux_empty_calls_no_match">Aucun appel ne correspond à « %1$s »</string>
+    <string name="ux_empty_calls_filter">Aucun appel de ce type dans votre historique.</string>
+    <string name="ux_empty_show_all_calls">Afficher tous les appels</string>
+    <string name="ux_empty_calls_none">Les appels passés et reçus s\'afficheront ici.</string>
+    <string name="ux_empty_open_keypad">Ouvrir le clavier</string>
+    <string name="ux_empty_call_voicemail">Appeler la messagerie</string>
+    <string name="ux_empty_voicemail_no_match">Aucun message vocal ne correspond à « %1$s »</string>
+    <string name="ux_empty_what_changed">Voir ce qui a changé</string>
+    <string name="ux_empty_open_contacts">Ouvrir les contacts</string>
+    <string name="ux_empty_back">Retour</string>
+    <string name="ux_empty_no_match">Aucun résultat pour « %1$s »</string>
 </resources>

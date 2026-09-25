@@ -208,7 +208,7 @@ fun HomeScreen(
                 Box(Modifier.weight(1f).fillMaxSize()) {
                     AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
                         when (t) {
-                            StartTab.FAVORITES -> FavoritesTab(vm, open, favoriteQuery)
+                            StartTab.FAVORITES -> FavoritesTab(vm, open, favoriteQuery, onClearQuery = { favoriteQuery = "" })
                             StartTab.RECENTS -> RecentsTab(vm, open)
                             StartTab.CONTACTS -> ContactsTab(vm, open)
                             StartTab.KEYPAD -> KeypadTab(vm, open, keypadQuery.takeIf { searching })

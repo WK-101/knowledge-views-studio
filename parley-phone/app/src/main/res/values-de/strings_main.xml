@@ -797,4 +797,21 @@
     <string name="ux_whats_new_title">Neu in Parley %1$s</string>
     <string name="ux_whats_new_body">Deine Tabs, der Start-Tab und die Anrufliste bleiben genau so, wie du sie eingestellt hast. Neues kommt ausgeschaltet an, du probierst es, wann du willst.</string>
     <string name="ux_whats_new_try">Ausprobieren</string>
+    <!-- v3.2 U5: empty states -->
+    <string name="ux_empty_clear_search">Suche löschen</string>
+    <string name="ux_empty_clear_filter">Filter entfernen</string>
+    <string name="ux_empty_add_contact">Kontakt erstellen</string>
+    <string name="ux_empty_add_private">Privaten Kontakt hinzufügen</string>
+    <string name="ux_empty_choose_favorites">Favoriten auswählen</string>
+    <string name="ux_empty_calls_no_match">Keine Anrufe passen zu „%1$s“</string>
+    <string name="ux_empty_calls_filter">Keine Anrufe dieser Art in deinem Verlauf.</string>
+    <string name="ux_empty_show_all_calls">Alle Anrufe zeigen</string>
+    <string name="ux_empty_calls_none">Hier erscheinen die Anrufe, die du tätigst und erhältst.</string>
+    <string name="ux_empty_open_keypad">Tastenfeld öffnen</string>
+    <string name="ux_empty_call_voicemail">Mailbox anrufen</string>
+    <string name="ux_empty_voicemail_no_match">Keine Sprachnachricht passt zu „%1$s“</string>
+    <string name="ux_empty_what_changed">Änderungen ansehen</string>
+    <string name="ux_empty_open_contacts">Kontakte öffnen</string>
+    <string name="ux_empty_back">Zurück</string>
+    <string name="ux_empty_no_match">Keine Treffer für „%1$s“</string>
 </resources>

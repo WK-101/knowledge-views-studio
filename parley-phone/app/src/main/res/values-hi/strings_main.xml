@@ -797,4 +797,21 @@
     <string name="ux_whats_new_title">Parley %1$s में नया क्या है</string>
     <string name="ux_whats_new_body">आपके टैब, शुरुआती टैब और कॉल सूची वैसे ही रहते हैं जैसे आपने रखे थे। नई चीज़ें बंद होकर आती हैं, जब चाहें आज़माएँ।</string>
     <string name="ux_whats_new_try">आज़माएँ</string>
+    <!-- v3.2 U5: empty states -->
+    <string name="ux_empty_clear_search">खोज साफ़ करें</string>
+    <string name="ux_empty_clear_filter">फ़िल्टर हटाएँ</string>
+    <string name="ux_empty_add_contact">संपर्क बनाएँ</string>
+    <string name="ux_empty_add_private">निजी संपर्क जोड़ें</string>
+    <string name="ux_empty_choose_favorites">पसंदीदा चुनें</string>
+    <string name="ux_empty_calls_no_match">“%1$s” से कोई कॉल मेल नहीं खाती</string>
+    <string name="ux_empty_calls_filter">आपके इतिहास में इस तरह की कोई कॉल नहीं है।</string>
+    <string name="ux_empty_show_all_calls">सभी कॉल दिखाएँ</string>
+    <string name="ux_empty_calls_none">आपकी की और आई कॉल यहाँ दिखेंगी।</string>
+    <string name="ux_empty_open_keypad">कीपैड खोलें</string>
+    <string name="ux_empty_call_voicemail">वॉइसमेल पर कॉल करें</string>
+    <string name="ux_empty_voicemail_no_match">“%1$s” से कोई वॉइसमेल मेल नहीं खाता</string>
+    <string name="ux_empty_what_changed">देखें क्या बदला</string>
+    <string name="ux_empty_open_contacts">संपर्क खोलें</string>
+    <string name="ux_empty_back">वापस जाएँ</string>
+    <string name="ux_empty_no_match">“%1$s” के लिए कोई मेल नहीं</string>
 </resources>

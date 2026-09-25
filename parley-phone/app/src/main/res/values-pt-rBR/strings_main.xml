@@ -844,4 +844,21 @@
     <string name="ux_whats_new_title">Novidades do Parley %1$s</string>
     <string name="ux_whats_new_body">Suas abas, a aba inicial e a lista de chamadas continuam como você deixou. As novidades chegam desativadas, para você testar quando quiser.</string>
     <string name="ux_whats_new_try">Experimentar</string>
+    <!-- v3.2 U5: empty states -->
+    <string name="ux_empty_clear_search">Limpar busca</string>
+    <string name="ux_empty_clear_filter">Limpar filtro</string>
+    <string name="ux_empty_add_contact">Criar contato</string>
+    <string name="ux_empty_add_private">Adicionar contato privado</string>
+    <string name="ux_empty_choose_favorites">Escolher favoritos</string>
+    <string name="ux_empty_calls_no_match">Nenhuma chamada corresponde a “%1$s”</string>
+    <string name="ux_empty_calls_filter">Nenhuma chamada deste tipo no seu histórico.</string>
+    <string name="ux_empty_show_all_calls">Mostrar todas as chamadas</string>
+    <string name="ux_empty_calls_none">As chamadas que você fizer e receber aparecerão aqui.</string>
+    <string name="ux_empty_open_keypad">Abrir teclado</string>
+    <string name="ux_empty_call_voicemail">Ligar para o correio de voz</string>
+    <string name="ux_empty_voicemail_no_match">Nenhuma mensagem de voz corresponde a “%1$s”</string>
+    <string name="ux_empty_what_changed">Ver o que mudou</string>
+    <string name="ux_empty_open_contacts">Abrir contatos</string>
+    <string name="ux_empty_back">Voltar</string>
+    <string name="ux_empty_no_match">Nenhum resultado para “%1$s”</string>
 </resources>

@@ -985,4 +985,21 @@
     <string name="ux_whats_new_title">الجديد في Parley %1$s</string>
     <string name="ux_whats_new_body">تبقى علاماتك وعلامة البدء وقائمة المكالمات كما ضبطتها. تصل الميزات الجديدة معطّلة، فجرّبها متى شئت.</string>
     <string name="ux_whats_new_try">جرّبها</string>
+    <!-- v3.2 U5: empty states -->
+    <string name="ux_empty_clear_search">مسح البحث</string>
+    <string name="ux_empty_clear_filter">إزالة عامل التصفية</string>
+    <string name="ux_empty_add_contact">إنشاء جهة اتصال</string>
+    <string name="ux_empty_add_private">إضافة جهة اتصال خاصة</string>
+    <string name="ux_empty_choose_favorites">اختيار المفضلة</string>
+    <string name="ux_empty_calls_no_match">لا مكالمات تطابق «%1$s»</string>
+    <string name="ux_empty_calls_filter">لا توجد مكالمات من هذا النوع في سجلك.</string>
+    <string name="ux_empty_show_all_calls">عرض كل المكالمات</string>
+    <string name="ux_empty_calls_none">ستظهر هنا المكالمات التي تجريها وتتلقاها.</string>
+    <string name="ux_empty_open_keypad">فتح لوحة الأرقام</string>
+    <string name="ux_empty_call_voicemail">الاتصال بالبريد الصوتي</string>
+    <string name="ux_empty_voicemail_no_match">لا رسائل صوتية تطابق «%1$s»</string>
+    <string name="ux_empty_what_changed">عرض ما تغيّر</string>
+    <string name="ux_empty_open_contacts">فتح جهات الاتصال</string>
+    <string name="ux_empty_back">رجوع</string>
+    <string name="ux_empty_no_match">لا نتائج لـ «%1$s»</string>
 </resources>

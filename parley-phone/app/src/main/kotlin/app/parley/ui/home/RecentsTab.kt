@@ -149,7 +149,23 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
         }
         if (list != null && list.isEmpty()) {
             item(key = "empty") {
-                EmptyState(Icons.Rounded.AccessTime, stringResource(if (filter == RecentFilter.ALL) R.string.recents_empty else R.string.recents_nothing_here), modifier = Modifier.padding(top = 48.dp))
+                // U5: "no matches" (clear the search), a filter that shows nothing (show all), or no calls yet (keypad).
+                val activeSaved by vm.c.history.activeFilter.collectAsStateWithLifecycle()
+                when {
+                    query.isNotBlank() -> EmptyState(
+                        Icons.Rounded.AccessTime, stringResource(R.string.ux_empty_calls_no_match, query), modifier = Modifier.padding(top = 48.dp),
+                        action = stringResource(R.string.ux_empty_clear_search), onAction = { vm.recentQuery.value = "" },
+                    )
+                    filter != RecentFilter.ALL || !activeSaved.isEmpty -> EmptyState(
+                        Icons.Rounded.AccessTime, stringResource(R.string.recents_nothing_here), stringResource(R.string.ux_empty_calls_filter), Modifier.padding(top = 48.dp),
+                        action = stringResource(R.string.ux_empty_show_all_calls),
+                        onAction = { vm.recentFilter.value = RecentFilter.ALL; vm.c.history.activeFilter.value = app.parley.common.history.HistoryFilter() },
+                    )
+                    else -> EmptyState(
+                        Icons.Rounded.AccessTime, stringResource(R.string.recents_empty), stringResource(R.string.ux_empty_calls_none), Modifier.padding(top = 48.dp),
+                        action = stringResource(R.string.ux_empty_open_keypad), onAction = { vm.navigate(app.parley.NavEvent.Tab(app.parley.common.StartTab.KEYPAD)) },
+                    )
+                }
             }
         }
         var lastHeader: String? = null

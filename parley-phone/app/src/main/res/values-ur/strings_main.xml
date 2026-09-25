@@ -797,4 +797,21 @@
     <string name="ux_whats_new_title">Parley %1$s میں نیا کیا ہے</string>
     <string name="ux_whats_new_body">آپ کے ٹیبز، شروع کا ٹیب اور کال کی فہرست ویسے ہی رہتے ہیں جیسے آپ نے رکھے تھے۔ نئی چیزیں بند حالت میں آتی ہیں، جب چاہیں آزمائیں۔</string>
     <string name="ux_whats_new_try">آزمائیں</string>
+    <!-- v3.2 U5: empty states -->
+    <string name="ux_empty_clear_search">تلاش صاف کریں</string>
+    <string name="ux_empty_clear_filter">فلٹر ہٹائیں</string>
+    <string name="ux_empty_add_contact">رابطہ بنائیں</string>
+    <string name="ux_empty_add_private">نجی رابطہ شامل کریں</string>
+    <string name="ux_empty_choose_favorites">پسندیدہ چنیں</string>
+    <string name="ux_empty_calls_no_match">“%1$s” سے کوئی کال میل نہیں کھاتی</string>
+    <string name="ux_empty_calls_filter">آپ کی تاریخ میں اس قسم کی کوئی کال نہیں ہے۔</string>
+    <string name="ux_empty_show_all_calls">تمام کالز دکھائیں</string>
+    <string name="ux_empty_calls_none">آپ کی کی گئی اور آنے والی کالز یہاں نظر آئیں گی۔</string>
+    <string name="ux_empty_open_keypad">کی پیڈ کھولیں</string>
+    <string name="ux_empty_call_voicemail">وائس میل پر کال کریں</string>
+    <string name="ux_empty_voicemail_no_match">“%1$s” سے کوئی وائس میل میل نہیں کھاتی</string>
+    <string name="ux_empty_what_changed">دیکھیں کیا بدلا</string>
+    <string name="ux_empty_open_contacts">رابطے کھولیں</string>
+    <string name="ux_empty_back">واپس جائیں</string>
+    <string name="ux_empty_no_match">“%1$s” کے لیے کوئی نتیجہ نہیں</string>
 </resources>

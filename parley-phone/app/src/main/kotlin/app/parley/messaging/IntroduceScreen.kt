@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
+import app.parley.common.StartTab
 import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.MessageDrafts
@@ -136,7 +137,10 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
         )
     }) { p ->
         if (queue.targets.isEmpty()) {
-            EmptyState(Icons.Rounded.Groups, stringResource(R.string.intro_empty), stringResource(R.string.intro_empty_body), Modifier.padding(p))
+            EmptyState(
+                Icons.Rounded.Groups, stringResource(R.string.intro_empty), stringResource(R.string.intro_empty_body), Modifier.padding(p),
+                action = stringResource(R.string.ux_empty_open_contacts), onAction = { vm.navigate(NavEvent.Tab(StartTab.CONTACTS)) },
+            )
             return@Scaffold
         }
         Column(Modifier.fillMaxSize().padding(p).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -749,7 +749,12 @@ private fun KeypadContactSearch(vm: AppViewModel, query: String, open: (String) 
         if (settings.hideVault) emptyList() else vault.filter { app.parley.common.TextSearch.matches(q, it.name, it.numbers) }
     }
     if (found.isEmpty() && foundVault.isEmpty()) {
-        app.parley.ui.EmptyState(Icons.Rounded.Search, stringResource(R.string.keypad_no_match, q))
+        // U5: no match: offer to save what was typed as a new contact.
+        app.parley.ui.EmptyState(
+            Icons.Rounded.Search, stringResource(R.string.keypad_no_match, q),
+            action = stringResource(R.string.keypad_create_contact),
+            onAction = { open(if (q.any { it.isLetter() }) Routes.edit(name = q) else Routes.edit(phone = q)) },
+        )
         return
     }
     LazyColumn(Modifier.fillMaxSize()) {

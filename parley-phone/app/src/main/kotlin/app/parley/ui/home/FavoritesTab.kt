@@ -63,13 +63,17 @@ import app.parley.ui.Routes
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "") {
+fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "", onClearQuery: (() -> Unit)? = null) {
     val favorites by vm.people.favorites.collectAsStateWithLifecycle()
     val frequents by vm.frequents.collectAsStateWithLifecycle()
     val ps by vm.people.settings.collectAsStateWithLifecycle()
     var reordering by remember { mutableStateOf(false) }
     if (favorites.isEmpty() && frequents.isEmpty()) {
-        EmptyState(Icons.Rounded.StarOutline, stringResource(R.string.fav_empty_title), stringResource(R.string.fav_empty_body))
+        // U5: nothing starred yet: the way on is the contact list.
+        EmptyState(
+            Icons.Rounded.StarOutline, stringResource(R.string.fav_empty_title), stringResource(R.string.fav_empty_body),
+            action = stringResource(R.string.ux_empty_choose_favorites), onAction = { vm.navigate(app.parley.NavEvent.Tab(app.parley.common.StartTab.CONTACTS)) },
+        )
         return
     }
     // Local copy while dragging; written back (by lookup key) when the drag ends.
@@ -110,7 +114,10 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "") {
         },
     ) {
         if (q.isNotEmpty() && shownFavorites.isEmpty() && shownFrequents.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
-            EmptyState(Icons.Rounded.StarOutline, stringResource(R.string.fav_no_match, q), modifier = Modifier.padding(top = 32.dp))
+            EmptyState(
+                Icons.Rounded.StarOutline, stringResource(R.string.fav_no_match, q), modifier = Modifier.padding(top = 32.dp),
+                action = onClearQuery?.let { stringResource(R.string.ux_empty_clear_search) }, onAction = onClearQuery,
+            )
         }
         if (q.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

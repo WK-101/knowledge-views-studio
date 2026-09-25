@@ -140,7 +140,10 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
                 )
             }
             if (list.isEmpty()) item {
-                EmptyState(Icons.AutoMirrored.Rounded.Label, stringResource(R.string.lbl_empty_title), stringResource(R.string.lbl_empty_text), Modifier.padding(top = 32.dp))
+                EmptyState(
+                    Icons.AutoMirrored.Rounded.Label, stringResource(R.string.lbl_empty_title), stringResource(R.string.lbl_empty_text), Modifier.padding(top = 32.dp),
+                    action = stringResource(R.string.lbl_new), onAction = { creating = true },
+                )
             }
             items(list, key = { it.title }) { l ->
                 var rowMenu by remember { mutableStateOf(false) }

@@ -200,6 +200,8 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -
                 Icons.Rounded.AutoDelete, stringResource(R.string.temp_empty_title),
                 stringResource(R.string.temp_empty_text),
                 Modifier.padding(p),
+                // U5: temporary contacts start on the keypad.
+                action = stringResource(R.string.ux_empty_open_keypad), onAction = { vm.navigate(app.parley.NavEvent.Tab(app.parley.common.StartTab.KEYPAD)) },
             )
             return@Scaffold
         }

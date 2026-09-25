@@ -844,4 +844,21 @@
     <string name="ux_whats_new_title">Novedades de Parley %1$s</string>
     <string name="ux_whats_new_body">Tus pestañas, la pestaña de inicio y la lista de llamadas siguen como las dejaste. Lo nuevo llega desactivado, para que lo pruebes cuando quieras.</string>
     <string name="ux_whats_new_try">Probar</string>
+    <!-- v3.2 U5: empty states -->
+    <string name="ux_empty_clear_search">Borrar búsqueda</string>
+    <string name="ux_empty_clear_filter">Quitar filtro</string>
+    <string name="ux_empty_add_contact">Crear contacto</string>
+    <string name="ux_empty_add_private">Añadir contacto privado</string>
+    <string name="ux_empty_choose_favorites">Elegir favoritos</string>
+    <string name="ux_empty_calls_no_match">Ninguna llamada coincide con «%1$s»</string>
+    <string name="ux_empty_calls_filter">No hay llamadas de este tipo en tu historial.</string>
+    <string name="ux_empty_show_all_calls">Mostrar todas las llamadas</string>
+    <string name="ux_empty_calls_none">Aquí aparecerán las llamadas que hagas y recibas.</string>
+    <string name="ux_empty_open_keypad">Abrir teclado</string>
+    <string name="ux_empty_call_voicemail">Llamar al buzón de voz</string>
+    <string name="ux_empty_voicemail_no_match">Ningún mensaje de voz coincide con «%1$s»</string>
+    <string name="ux_empty_what_changed">Ver qué cambió</string>
+    <string name="ux_empty_open_contacts">Abrir contactos</string>
+    <string name="ux_empty_back">Volver</string>
+    <string name="ux_empty_no_match">Sin resultados para «%1$s»</string>
 </resources>

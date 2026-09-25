@@ -103,7 +103,10 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
     }) { pad ->
         val p = preview
         if (request == null || error != null) {
-            EmptyState(Icons.Rounded.TableChart, stringResource(R.string.csv_nothing_title), error ?: stringResource(R.string.csv_nothing_text), Modifier.padding(pad))
+            EmptyState(
+                Icons.Rounded.TableChart, stringResource(R.string.csv_nothing_title), error ?: stringResource(R.string.csv_nothing_text), Modifier.padding(pad),
+                action = stringResource(R.string.ux_empty_back), onAction = back,
+            )
             return@Scaffold
         }
         if (p == null) {

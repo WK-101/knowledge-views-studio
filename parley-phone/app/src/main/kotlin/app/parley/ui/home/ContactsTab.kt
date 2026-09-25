@@ -94,11 +94,20 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
             val shown = vaultList.filter { app.parley.common.TextSearch.matches(query, it.name, it.numbers) }
             if (shown.isEmpty()) {
                 item {
-                    EmptyState(
-                        androidx.compose.material.icons.Icons.Rounded.Lock, stringResource(R.string.contacts_no_private),
-                        stringResource(R.string.contacts_no_private_body),
-                        Modifier.padding(top = 32.dp),
-                    )
+                    // U5: no match (clear the search) or none yet (create one).
+                    if (query.isNotBlank()) {
+                        EmptyState(
+                            androidx.compose.material.icons.Icons.Rounded.Lock, stringResource(R.string.contacts_no_matches, query), modifier = Modifier.padding(top = 32.dp),
+                            action = stringResource(R.string.ux_empty_clear_search), onAction = { vm.contactQuery.value = "" },
+                        )
+                    } else {
+                        EmptyState(
+                            androidx.compose.material.icons.Icons.Rounded.Lock, stringResource(R.string.contacts_no_private),
+                            stringResource(R.string.contacts_no_private_body),
+                            Modifier.padding(top = 32.dp),
+                            action = stringResource(R.string.ux_empty_add_private), onAction = { open(Routes.edit(vault = 0)) },
+                        )
+                    }
                 }
             }
             shown.forEach { v ->
@@ -153,6 +162,21 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
                             else -> stringResource(R.string.contacts_none)
                         },
                         modifier = Modifier.padding(top = 48.dp),
+                        // U5: one way on for each case.
+                        action = stringResource(
+                            when {
+                                query.isNotBlank() -> R.string.ux_empty_clear_search
+                                !filter.isEmpty -> R.string.ux_empty_clear_filter
+                                else -> R.string.ux_empty_add_contact
+                            },
+                        ),
+                        onAction = {
+                            when {
+                                query.isNotBlank() -> vm.contactQuery.value = ""
+                                !filter.isEmpty -> vm.people.clearFilter()
+                                else -> open(Routes.edit())
+                            }
+                        },
                     )
                 }
             }

@@ -151,7 +151,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         },
     ) { p ->
         if (searching) {
-            SearchResults(query, Modifier.padding(p)) { e -> open(Routes.settingsPage(e.category, e.key)) }
+            SearchResults(query, Modifier.padding(p), onClear = { query = "" }) { e -> open(Routes.settingsPage(e.category, e.key)) }
             return@Scaffold
         }
         Column(
@@ -227,7 +227,7 @@ private fun SettingsSearchBar(query: String, onQuery: (String) -> Unit, onClose:
 }
 
 @Composable
-private fun SearchResults(query: String, modifier: Modifier, onPick: (SettingEntry) -> Unit) {
+private fun SearchResults(query: String, modifier: Modifier, onClear: () -> Unit, onPick: (SettingEntry) -> Unit) {
     val context = LocalContext.current
     val locales = LocalConfiguration.current.locales
     // Localised titles, summaries and keywords; English words keep matching (SettingEntry.localized).
@@ -238,7 +238,11 @@ private fun SearchResults(query: String, modifier: Modifier, onPick: (SettingEnt
         return
     }
     if (results.isEmpty()) {
-        EmptyState(Icons.AutoMirrored.Rounded.ManageSearch, stringResource(R.string.set_search_no_match, query), modifier = modifier)
+        // U5: no match: clear the search and start again.
+        EmptyState(
+            Icons.AutoMirrored.Rounded.ManageSearch, stringResource(R.string.set_search_no_match, query), modifier = modifier,
+            action = stringResource(R.string.ux_empty_clear_search), onAction = onClear,
+        )
         return
     }
     LazyColumn(modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)) {
