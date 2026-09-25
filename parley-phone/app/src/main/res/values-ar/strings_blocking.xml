@@ -911,4 +911,6 @@
     <string name="blk_place_no_permission">إذن الهاتف مفقود</string>
     <string name="blk_place_failed">تعذّر إجراء المكالمة</string>
     <string name="blk_place_voicemail">البريد الصوتي غير متاح</string>
+    <!-- v3.2 phone (P2) -->
+    <string name="blk_note_block_decline">حُظر أثناء مكالمة</string>
 </resources>

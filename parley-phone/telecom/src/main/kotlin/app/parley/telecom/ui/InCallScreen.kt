@@ -93,6 +93,9 @@ import app.parley.telecom.CallManager
 import app.parley.telecom.CallState
 import app.parley.telecom.CallTiming
 import app.parley.telecom.CallUi
+import app.parley.telecom.DeclineBlock
+import app.parley.telecom.live
+import app.parley.common.calls.CallWaiting
 import app.parley.telecom.RouteType
 import app.parley.ui.Avatar
 import app.parley.ui.CallColors
@@ -112,14 +115,22 @@ fun InCallScreen(
     onOpenContact: (CallUi) -> Unit,
     /** V4: what the user did on the post-call card (touching it at all keeps the screen up). */
     onPostCall: (PostCallChoice) -> Unit = {},
+    /** P6: an outgoing call that didn't go through, with its reason, until dismissed. */
+    failed: CallUi? = null,
+    onRetry: (CallUi) -> Unit = {},
+    onDismissFailure: (CallUi) -> Unit = {},
+    /** P2: the call just declined with "Block & decline" (Undo). */
+    declineBlock: DeclineBlock? = null,
+    onUndoBlock: () -> Unit = {},
 ) {
     val live = calls.filter { it.isLive }
-    val primary = live.firstOrNull { it.state == CallState.RINGING }
-        ?: live.firstOrNull { it.state == CallState.ACTIVE }
-        ?: live.firstOrNull { it.state == CallState.DIALING || it.state == CallState.CONNECTING || it.state == CallState.SELECT_ACCOUNT }
-        ?: live.firstOrNull()
+    // A1/P9: which call is in front and whether a second one is waiting (pure logic in core:common).
+    val slots = CallWaiting.slots(live) { it.state.live() }
+    val primary = slots.primary
     val others = live.filter { it.id != primary?.id }
-    val shown = primary ?: ended ?: calls.firstOrNull()
+    // P6: a call that just ended (still in Telecom, or already gone) keeps its name; never an older call's.
+    val endedNow = calls.firstOrNull { !it.isLive }
+    val shown = primary ?: endedNow?.let { c -> ended?.takeIf { it.id == c.id } ?: c } ?: ended ?: calls.firstOrNull()
     val timings by CallClock.timings.collectAsStateWithLifecycle()
 
     var routeSheet by remember { mutableStateOf(false) }
@@ -129,9 +140,9 @@ fun InCallScreen(
     var noteFor by remember { mutableStateOf<String?>(null) }
 
     // Call waiting (A1): a ringing call while another call is active or held.
-    val held = others.filter { it.state == CallState.HOLDING }
-    val current = others.firstOrNull { it.state == CallState.ACTIVE } ?: held.firstOrNull()
-    val waiting = primary?.state == CallState.RINGING && current != null
+    val held = slots.held
+    val current = slots.current
+    val waiting = slots.waiting && current != null && primary != null
 
     val scheme = MaterialTheme.colorScheme
     BoxWithConstraints(
@@ -146,7 +157,7 @@ fun InCallScreen(
         val short = maxHeight < 480.dp
         val insets = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().displayCutoutPadding()
 
-        if (waiting) {
+        if (waiting && current != null && primary != null) {
             val top: @Composable ColumnScope.() -> Unit = {
                 CurrentCallCard(current, canHold = current.canHold && held.isEmpty())
                 held.filter { it.id != current.id }.forEach { OnHoldStrip(it, current) }
@@ -165,6 +176,8 @@ fun InCallScreen(
             }
         } else {
             val header: @Composable ColumnScope.(Dp) -> Unit = { avatar ->
+                // P6: a second call that didn't go through ("Add call"), shown above the call that goes on.
+                if (primary != null && failed != null) FailureBanner(failed, { onRetry(failed) }, { onDismissFailure(failed) }, Modifier.padding(top = 12.dp))
                 others.forEach { other ->
                     if (other.state == CallState.HOLDING) OnHoldStrip(other, primary)
                     else OtherCallBanner(other, onSwap = { primary?.let { CallManager.swap(it.id) } })
@@ -185,19 +198,31 @@ fun InCallScreen(
             val controls: @Composable ColumnScope.(Boolean) -> Unit = { scrollKeypad ->
                 when {
                     primary == null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            ended?.disconnectReason ?: stringResource(R.string.incall_call_ended),
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(bottom = if (ended?.postCallCard == true) 16.dp else 64.dp),
-                        )
-                        // V4: block, save, message or report an unknown number right after the call.
-                        if (ended != null && ended.postCallCard) PostCallCard(ended, onChoice = onPostCall)
+                        val endedCall = shown ?: ended
+                        val card = declineBlock != null || (failed == null && ended?.postCallCard == true)
+                        if (failed != null) {
+                            // P6: the reason and Retry, until dismissed.
+                            FailureBanner(failed, { onRetry(failed) }, { onDismissFailure(failed) }, Modifier.padding(bottom = if (card) 16.dp else 48.dp))
+                        } else {
+                            Text(
+                                endedCall?.disconnectReason ?: stringResource(R.string.incall_call_ended),
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(bottom = if (card) 16.dp else 64.dp),
+                            )
+                        }
+                        when {
+                            // P2: "Blocked and declined", with Undo.
+                            declineBlock != null -> DeclineBlockCard(declineBlock, onUndo = onUndoBlock, onDone = { onPostCall(PostCallChoice.Done) })
+                            // V4: block, save, message or report an unknown number right after the call.
+                            failed == null && ended != null && ended.postCallCard -> PostCallCard(ended, onChoice = onPostCall)
+                        }
                     }
                     primary.state == CallState.RINGING -> IncomingControls(
                         call = primary,
                         gesture = answerGesture,
                         hasActiveCall = others.any { it.state == CallState.ACTIVE },
                         onMessage = { replyFor = primary.id },
+                        onBlockAndDecline = if (primary.canBlockAndDecline) ({ CallManager.blockAndDecline(primary.id) }) else null,
                     )
                     primary.state == CallState.SELECT_ACCOUNT -> SimPicker(primary)
                     else -> {
@@ -349,6 +374,7 @@ private fun CallerHeader(
             add(CustomAccessibilityAction(res.getString(R.string.incall_decline)) { CallManager.reject(call.id); true })
             if (!call.hidden && !call.number.isNullOrBlank()) add(CustomAccessibilityAction(res.getString(R.string.incall_reply_a11y)) { onReply(); true })
             if (!call.silenced) add(CustomAccessibilityAction(res.getString(R.string.incall_stop_ringing)) { CallManager.ignore(call.id); true })
+            if (call.canBlockAndDecline) add(CustomAccessibilityAction(res.getString(R.string.incall_block_decline)) { CallManager.blockAndDecline(call.id); true })
         }
     }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = a11y) {

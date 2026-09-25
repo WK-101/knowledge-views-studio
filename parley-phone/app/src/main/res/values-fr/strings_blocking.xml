@@ -812,4 +812,6 @@
     <string name="blk_place_no_permission">Autorisation Téléphone manquante</string>
     <string name="blk_place_failed">Impossible de passer l’appel</string>
     <string name="blk_place_voicemail">Messagerie vocale indisponible</string>
+    <!-- v3.2 phone (P2) -->
+    <string name="blk_note_block_decline">Bloqué pendant un appel</string>
 </resources>

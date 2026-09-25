@@ -51,9 +51,9 @@ class CallPlacer(private val context: Context, private val sims: SimRepository, 
 
     /** *#*#1234#*#* style codes are broadcast to the owning app (allowed for the default dialer). */
     private fun handleSecretCode(number: String): Boolean {
-        val m = Regex("^\\*#\\*#([0-9]+)#\\*#\\*$").find(number) ?: return false
+        val code = app.parley.common.calls.DialCodes.secretCode(number) ?: return false
         return try {
-            context.getSystemService(TelephonyManager::class.java).sendDialerSpecialCode(m.groupValues[1])
+            context.getSystemService(TelephonyManager::class.java).sendDialerSpecialCode(code)
             true
         } catch (_: Exception) {
             false

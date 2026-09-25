@@ -181,7 +181,7 @@ class DialSearch {
 /** Text handling for the keypad's number field. */
 object DialText {
     /**
-     * Keeps what can be dialled from pasted text: digits (any script, as 0–9), a leading "+", `*`, `#`, and the
+     * Keeps what can be dialled from pasted text: digits (any script, as 0–9), a leading "+" (or one after `*`), `*`, `#`, and the
      * pause/wait characters `,` and `;`. "Tel: +1 (555) 123-4567" becomes "+15551234567".
      */
     fun sanitize(text: String): String = buildString {
@@ -189,7 +189,8 @@ object DialText {
             val d = T9.asciiDigit(c)
             when {
                 d != null -> append(d)
-                c == '+' -> if (isEmpty()) append(c)
+                // P9: also right after a '*', for the number in a forwarding code ("**21*+4915112345678#").
+                c == '+' -> if (isEmpty() || last() == '*') append(c)
                 c == '*' || c == '#' || c == ',' || c == ';' -> append(c)
             }
         }

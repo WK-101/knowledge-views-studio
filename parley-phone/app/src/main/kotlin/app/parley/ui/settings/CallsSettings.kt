@@ -30,6 +30,16 @@ fun CallHapticsRow(vm: AppViewModel, icon: ImageVector? = null) {
     ) { v -> vm.c.calling.update { it.copy(haptics = v) } }
 }
 
+/** P7: Settings › Calls: the buzz when a call connects (answer and decline always have their own). */
+@Composable
+fun ConnectHapticRow(vm: AppViewModel, icon: ImageVector? = null) {
+    val config by vm.c.calling.config.collectAsStateWithLifecycle()
+    SwitchRow(
+        settingTitle("connect_haptic"), settingSummary("connect_haptic"),
+        config.haptics && config.connectHaptic, icon, enabled = config.haptics,
+    ) { v -> vm.c.calling.update { it.copy(connectHaptic = v) } }
+}
+
 /** Settings › Call time: reminders and limits, with a one-line summary of what's on. */
 @Composable
 fun CallTimeRow(vm: AppViewModel, open: (String) -> Unit, icon: ImageVector? = null) {

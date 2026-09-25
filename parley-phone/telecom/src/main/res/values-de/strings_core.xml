@@ -159,4 +159,21 @@
     <string name="postcall_name">Name</string>
     <string name="postcall_save_explainer">Wird in den privaten Kontakten von Parley aufbewahrt, wo andere Apps ihn nicht sehen, und nach 7 Tagen samt Anrufliste automatisch gelöscht. Unter „Temporäre Kontakte“ können Sie ihn behalten.</string>
     <string name="tc_private_label">Privat</string>
+    <!-- v3.2 phone (P1, P2, P6) -->
+    <string name="incall_unmute">Stummschaltung aus</string>
+    <string name="incall_block_decline">Blockieren &amp; ablehnen</string>
+    <string name="incall_incoming_more">Weitere Optionen für diesen Anruf</string>
+    <string name="call_failed_title">Anruf kam nicht zustande</string>
+    <string name="call_failed_airplane">Flugmodus ist an</string>
+    <string name="call_failed_no_sim">Es wurde keine SIM gewählt</string>
+    <string name="call_failed_generic">Das Netz konnte den Anruf nicht verbinden</string>
+    <string name="call_failed_retry">Erneut versuchen</string>
+    <string name="call_failed_dismiss">Schließen</string>
+    <string name="decline_title">Abgelehnt</string>
+    <string name="decline_blocked_title">Blockiert und abgelehnt</string>
+    <string name="decline_blocked_body">Anrufe von %1$s werden ab jetzt abgelehnt.</string>
+    <string name="decline_block_already">Diese Nummer war schon blockiert.</string>
+    <string name="decline_block_failed">Die Nummer konnte nicht blockiert werden. Sie können sie unter „Verlauf“ blockieren.</string>
+    <string name="decline_block_undone">Blockierung aufgehoben. %1$s kann Sie wieder anrufen.</string>
+    <string name="tc_undo">Rückgängig</string>
 </resources>

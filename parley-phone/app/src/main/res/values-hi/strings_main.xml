@@ -782,4 +782,37 @@
     </plurals>
     <string name="save_contact_details">संपर्क विवरण सहेजें</string>
     <string name="vm_messenger_copies_remain">निजी संपर्कों में ले जाया गया। WhatsApp, Signal और दूसरे मैसेंजर में कॉपी तब तक रहती हैं जब तक वह ऐप अपने संपर्क फिर से सिंक नहीं करता</string>
+    <!-- v3.2 phone (P5, P8) -->
+    <string name="recents_layout_grouped">समूहित</string>
+    <string name="recents_layout_chronological">हर कॉल</string>
+    <string name="recents_layout_by_day">दिन के अनुसार</string>
+    <string name="recents_layout_grouped_hint">एक ही नंबर की लगातार कॉल एक पंक्ति में</string>
+    <string name="recents_layout_chronological_hint">हर कॉल अलग पंक्ति में, सबसे नई पहले</string>
+    <string name="recents_layout_by_day_hint">हर दिन हर नंबर की एक पंक्ति</string>
+    <string name="recents_layout_menu">लेआउट: %1$s</string>
+    <string name="clear_history_menu">कॉल इतिहास साफ़ करें…</string>
+    <string name="clear_history_title">कॉल इतिहास साफ़ करें</string>
+    <string name="clear_history_scope_all">सभी कॉल</string>
+    <string name="clear_history_scope_unknown">उन नंबरों की कॉल जो आपके संपर्कों में नहीं हैं</string>
+    <string name="clear_history_scope_missed">छूटी और अस्वीकार की गई कॉल</string>
+    <string name="clear_history_scope_shown">जो \"हाल की\" अभी दिखा रहा है</string>
+    <plurals name="clear_history_calls">
+        <item quantity="one">%d कॉल</item>
+        <item quantity="other">%d कॉल</item>
+    </plurals>
+    <string name="clear_history_next">आगे</string>
+    <string name="clear_history_export_title">पहले निर्यात करें?</string>
+    <string name="clear_history_export_body">साफ़ करने से पहले एक प्रति रखें, या इसे छोड़ दें।</string>
+    <string name="clear_history_export_csv_sub">एक स्प्रेडशीट फ़ाइल; आप चुनें कि वह कहां जाए</string>
+    <string name="clear_history_export_backup">एन्क्रिप्टेड बैकअप</string>
+    <string name="clear_history_export_backup_sub">बैकअप और बहाली खोलता है; बाद में यहां लौटें</string>
+    <string name="clear_history_skip_export">छोड़ें</string>
+    <plurals name="clear_history_confirm_title">
+        <item quantity="one">%d कॉल हटाएं?</item>
+        <item quantity="other">%d कॉल हटाएं?</item>
+    </plurals>
+    <string name="clear_history_confirm_body">ये आपके फ़ोन के कॉल इतिहास से हट जाएंगी। हाल में हटाए गए इन्हें 30 दिन रखता है, इसलिए आप इसे फिर भी वापस कर सकते हैं।</string>
+    <string name="clear_history_delete">हटाएं</string>
+    <string name="clear_history_cancel">रद्द करें</string>
+    <string name="clear_history_close">बंद करें</string>
 </resources>

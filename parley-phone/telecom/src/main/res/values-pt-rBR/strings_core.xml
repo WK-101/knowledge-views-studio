@@ -162,4 +162,21 @@
     <string name="postcall_name">Nome</string>
     <string name="postcall_save_explainer">Fica nos contatos privados do Parley, onde outros apps não o veem, e é apagado automaticamente com o histórico de chamadas após 7 dias. Você pode mantê-lo em Contatos temporários.</string>
     <string name="tc_private_label">Privado</string>
+    <!-- v3.2 phone (P1, P2, P6) -->
+    <string name="incall_unmute">Ativar microfone</string>
+    <string name="incall_block_decline">Bloquear e recusar</string>
+    <string name="incall_incoming_more">Mais opções para esta chamada</string>
+    <string name="call_failed_title">A chamada não foi completada</string>
+    <string name="call_failed_airplane">O modo avião está ativado</string>
+    <string name="call_failed_no_sim">Nenhum SIM foi escolhido</string>
+    <string name="call_failed_generic">A rede não conseguiu completar a chamada</string>
+    <string name="call_failed_retry">Tentar de novo</string>
+    <string name="call_failed_dismiss">Fechar</string>
+    <string name="decline_title">Recusada</string>
+    <string name="decline_blocked_title">Bloqueado e recusada</string>
+    <string name="decline_blocked_body">As chamadas de %1$s serão recusadas a partir de agora.</string>
+    <string name="decline_block_already">Este número já estava bloqueado.</string>
+    <string name="decline_block_failed">Não foi possível bloquear o número. Você pode bloqueá-lo em Recentes.</string>
+    <string name="decline_block_undone">Desbloqueado. %1$s pode ligar para você de novo.</string>
+    <string name="tc_undo">Desfazer</string>
 </resources>

@@ -635,4 +635,25 @@
     <string name="ct_chip_on_hold">%1$s ہولڈ پر</string>
     <string name="ct_chip_on_call">%1$s کے ساتھ کال پر</string>
     <string name="ct_chip_left">%1$s باقی</string>
+    <!-- v3.2 phone (P4, P5, P7, P8) -->
+    <string name="set_default_dialer_help_title">Parley کو ڈیفالٹ فون ایپ نہیں بنا پا رہے؟</string>
+    <string name="set_default_dialer_help_summary">آپ کے Android ورژن کے لیے مرحلہ وار رہنمائی، ایپ کی معلومات کے ساتھ</string>
+    <string name="set_default_dialer_help_kw">ڈیفالٹ ڈائلر، کردار، محدود ترتیبات، ایپ کی معلومات</string>
+    <string name="set_connect_haptic_title">کال ملنے پر وائبریٹ کریں</string>
+    <string name="set_connect_haptic_summary">دوسرا شخص جواب دے تو ایک مختصر وائبریشن</string>
+    <string name="set_connect_haptic_kw">وائبریشن، ہیپٹک، جواب دیا، مل گئی</string>
+    <string name="set_recents_layout_title">کال فہرست کی ترتیب</string>
+    <string name="set_recents_layout_summary">گروپ شدہ، ہر کال الگ قطار میں، یا دن کے لحاظ سے گروپ</string>
+    <string name="set_recents_layout_kw">تاریخ وار، گروپ، دن کے لحاظ سے، فہرست، کال لاگ، ترتیب</string>
+    <string name="set_clear_history_title">کال کی تاریخ صاف کریں</string>
+    <string name="set_clear_history_summary">تمام کالز، نامعلوم نمبروں کی کالز یا چھوٹی ہوئی کالز، پہلے برآمد کے ساتھ</string>
+    <string name="set_clear_history_kw">حذف، صاف، مٹائیں، نامعلوم نمبر، کال لاگ</string>
+    <string name="role_rescue_title">Parley کو خود فون ایپ بنائیں</string>
+    <string name="role_rescue_intro">Android نے سوال دکھائے بغیر جواب دے دیا۔ یہ تب ہوتا ہے جب سوال پہلے رد کیا گیا ہو، اور کچھ فونز پر ایپ اسٹور کے باہر سے انسٹال ایپس کے لیے۔</string>
+    <string name="role_rescue_steps_q">1. ترتیبات › ایپس اور اطلاعات › ڈیفالٹ ایپس کھولیں۔\n2. فون ایپ پر ٹیپ کریں۔\n3. Parley منتخب کریں۔</string>
+    <string name="role_rescue_steps_s">1. ترتیبات › ایپس › ڈیفالٹ ایپس کھولیں۔\n2. فون ایپ پر ٹیپ کریں۔\n3. Parley منتخب کریں۔</string>
+    <string name="role_rescue_restricted">اگر Android کہے کہ یہ ترتیب محدود ہے: ایپ کی معلومات کھولیں، ⋮ › محدود ترتیبات کی اجازت دیں پر ٹیپ کریں، پھر دوبارہ کوشش کریں۔</string>
+    <string name="role_rescue_app_info">ایپ کی معلومات</string>
+    <string name="role_rescue_default_apps">ڈیفالٹ ایپس</string>
+    <string name="role_rescue_close">بند کریں</string>
 </resources>

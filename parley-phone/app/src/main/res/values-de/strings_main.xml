@@ -782,4 +782,37 @@
     </plurals>
     <string name="save_contact_details">Kontaktdaten speichern</string>
     <string name="vm_messenger_copies_remain">In private Kontakte verschoben. Kopien in WhatsApp, Signal und anderen Messengern bleiben, bis die App ihre Kontakte erneut synchronisiert</string>
+    <!-- v3.2 phone (P5, P8) -->
+    <string name="recents_layout_grouped">Gruppiert</string>
+    <string name="recents_layout_chronological">Jeder Anruf</string>
+    <string name="recents_layout_by_day">Nach Tag</string>
+    <string name="recents_layout_grouped_hint">Aufeinanderfolgende Anrufe derselben Nummer teilen sich eine Zeile</string>
+    <string name="recents_layout_chronological_hint">Jeder Anruf in einer eigenen Zeile, neueste zuerst</string>
+    <string name="recents_layout_by_day_hint">Eine Zeile pro Nummer und Tag</string>
+    <string name="recents_layout_menu">Layout: %1$s</string>
+    <string name="clear_history_menu">Anrufverlauf löschen…</string>
+    <string name="clear_history_title">Anrufverlauf löschen</string>
+    <string name="clear_history_scope_all">Alle Anrufe</string>
+    <string name="clear_history_scope_unknown">Anrufe von Nummern, die nicht in Ihren Kontakten sind</string>
+    <string name="clear_history_scope_missed">Verpasste und abgelehnte Anrufe</string>
+    <string name="clear_history_scope_shown">Was der Verlauf gerade zeigt</string>
+    <plurals name="clear_history_calls">
+        <item quantity="one">%d Anruf</item>
+        <item quantity="other">%d Anrufe</item>
+    </plurals>
+    <string name="clear_history_next">Weiter</string>
+    <string name="clear_history_export_title">Zuerst exportieren?</string>
+    <string name="clear_history_export_body">Behalten Sie vor dem Löschen eine Kopie, oder überspringen Sie das.</string>
+    <string name="clear_history_export_csv_sub">Eine Tabellendatei; Sie wählen, wohin sie geht</string>
+    <string name="clear_history_export_backup">Verschlüsselte Sicherung</string>
+    <string name="clear_history_export_backup_sub">Öffnet Sichern &amp; Wiederherstellen; kommen Sie danach hierher zurück</string>
+    <string name="clear_history_skip_export">Überspringen</string>
+    <plurals name="clear_history_confirm_title">
+        <item quantity="one">Diesen Anruf löschen?</item>
+        <item quantity="other">%d Anrufe löschen?</item>
+    </plurals>
+    <string name="clear_history_confirm_body">Sie werden aus dem Anrufverlauf des Telefons entfernt. „Kürzlich gelöscht“ bewahrt sie 30 Tage auf, Sie können das also noch rückgängig machen.</string>
+    <string name="clear_history_delete">Löschen</string>
+    <string name="clear_history_cancel">Abbrechen</string>
+    <string name="clear_history_close">Schließen</string>
 </resources>

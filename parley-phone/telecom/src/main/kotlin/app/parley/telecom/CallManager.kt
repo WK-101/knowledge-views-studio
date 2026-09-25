@@ -14,6 +14,10 @@ import app.parley.common.Decision
 import app.parley.common.Verification
 import app.parley.common.calltime.CallHaptic
 import app.parley.common.calls.AnswerRoute
+import app.parley.common.calls.CallFailure
+import app.parley.common.calls.EndCode
+import app.parley.common.calls.EndFacts
+import app.parley.common.calls.FailureKind
 import app.parley.common.calls.KeyPressTracker
 import app.parley.common.calls.RingFacts
 import app.parley.common.calls.RingOutcome
@@ -80,6 +84,14 @@ object CallManager {
     private val lastLiveState = HashMap<String, CallState>()
     private val quotaSilenced = HashSet<String>()
     private val endedByLimit = HashSet<String>()
+    /** P6: calls the user ended or cancelled themselves (never a "failure"). */
+    private val userEnded = HashSet<String>()
+    /** P7: calls answered from Parley (the answer buzz already confirmed them, so no connect buzz). */
+    private val answeredByUser = HashSet<String>()
+
+    /** P2: the last call declined with "Block & decline", for Undo on the call-ended screen. */
+    private val _declineBlock = MutableStateFlow<DeclineBlock?>(null)
+    val declineBlock: StateFlow<DeclineBlock?> = _declineBlock.asStateFlow()
 
     internal var service: ParleyInCallService? = null
 
@@ -329,8 +341,13 @@ object CallManager {
         if (customRingerFor == id) stopCustomRinger()
         if (boostedFor == id) restoreBoost()
         unknownCallers -= id
-        val ended = toUi(call)
+        val base = toUi(call)
+        // P6: an outgoing call that never went through: the reason and Retry stay on the call-ended screen.
+        val failure = CallFailure.classify(endFacts(call, base, id))
+        val ended = if (failure == null) base else base.copy(failure = failure, failureText = failureText(failure, call))
         _lastEnded.value = ended
+        // P6: a call that failed before the caller lookup finished still shows the name on "Call ended".
+        if (ended.name == null && !ended.hidden && !ended.number.isNullOrBlank()) lookUpEndedName(ended)
         ringStartedAt.remove(id)?.let { started ->
             val connected = ended.connectTimeMillis > 0
             val rang = (if (connected) ended.connectTimeMillis else System.currentTimeMillis()) - started
@@ -360,6 +377,8 @@ object CallManager {
         loudFor -= id
         tonePlayed.remove(id)
         answeredRoute.remove(id)
+        userEnded -= id
+        answeredByUser -= id
         val wasInFront = lastLiveState.remove(id) in FRONT_STATES
         publish()
         if (wasInFront) resumeHeldIfAlone()
@@ -414,6 +433,8 @@ object CallManager {
         loudFor.clear()
         tonePlayed.clear()
         answeredRoute.clear()
+        userEnded.clear()
+        answeredByUser.clear()
         silenced.clear()
         screening.clear()
         unknownCallers.clear()
@@ -646,8 +667,18 @@ object CallManager {
     // ---- Actions ----
 
     fun answer(id: String) {
-        find(id)?.answer(VideoProfile.STATE_AUDIO_ONLY)
+        val call = find(id) ?: return
+        call.answer(VideoProfile.STATE_AUDIO_ONLY)
+        answered(id)
     }
+
+    /** P7: the answer buzz, and no connect buzz right after it. */
+    private fun answered(id: String) {
+        answeredByUser += id
+        CallClock.haptic(CallHaptic.ANSWER)
+    }
+
+    internal fun wasAnsweredByUser(id: String) = id in answeredByUser
 
     /**
      * Puts the active call on hold and answers the waiting one (A1). Telecom would end an active call that
@@ -658,6 +689,7 @@ object CallManager {
         calls.filter { it != waiting && it.parent == null && mapState(it.stateCompat()) == CallState.ACTIVE }
             .forEach { if ((it.details.callCapabilities and Call.Details.CAPABILITY_HOLD) != 0) it.hold() }
         waiting.answer(VideoProfile.STATE_AUDIO_ONLY)
+        answered(id)
     }
 
     /**
@@ -682,6 +714,7 @@ object CallManager {
             ?: top.firstOrNull { mapState(it.stateCompat()) in DIALLING_STATES }
             ?: top.firstOrNull { mapState(it.stateCompat()) == CallState.HOLDING }
             ?: return false
+        userEnded += idOf(pick)
         pick.disconnect()
         return true
     }
@@ -689,7 +722,8 @@ object CallManager {
     /** Ends the current active call, then answers the waiting one. */
     fun endAndAnswer(id: String) {
         val waiting = find(id) ?: return
-        calls.filter { it != waiting && it.parent == null && mapState(it.stateCompat()) == CallState.ACTIVE }.forEach { it.disconnect() }
+        calls.filter { it != waiting && it.parent == null && mapState(it.stateCompat()) == CallState.ACTIVE }.forEach { userEnded += idOf(it); it.disconnect() }
+        answered(id)
         scope.launch {
             // Answer once the ended call is really gone (or after 3 s at most).
             var waited = 0
@@ -707,6 +741,9 @@ object CallManager {
      */
     fun reject(id: String, message: String? = null) {
         val call = find(id) ?: return
+        userEnded += id
+        // P7: declining has its own buzz, different from answering.
+        CallClock.haptic(CallHaptic.DECLINE)
         val canText = (call.details.callCapabilities and Call.Details.CAPABILITY_RESPOND_VIA_TEXT) != 0
         if (message != null && canText) {
             call.reject(true, message)
@@ -728,6 +765,89 @@ object CallManager {
 
     private fun rejectUnwanted(call: Call) {
         if (Build.VERSION.SDK_INT >= 30) call.reject(Call.REJECT_REASON_UNWANTED) else call.reject(false, null)
+    }
+
+    /**
+     * P2: "Block & decline". The ringing stops at once; the block rule is written first (bounded, so the call
+     * can't ring on while the database is slow), then the call is declined as unwanted.
+     */
+    fun blockAndDecline(id: String) {
+        val call = find(id) ?: return
+        val number = call.details.handle?.schemeSpecificPart?.takeIf { it.isNotBlank() } ?: return
+        if (call.details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED || isEmergency(number)) return
+        userEnded += id
+        silenced += id
+        silenceRinger()
+        stopCustomRinger()
+        restoreBoost()
+        CallClock.haptic(CallHaptic.DECLINE)
+        publish()
+        scope.launch {
+            val ruleId = withTimeoutOrNull(BLOCK_TIMEOUT_MS) { runCatching { TelecomGraph.dependencies.blockForDecline(number) }.getOrNull() }
+            _declineBlock.value = DeclineBlock(id, number, ruleId)
+            if (calls.contains(call) && call.stateCompat() == Call.STATE_RINGING) rejectUnwanted(call)
+        }
+    }
+
+    /** P2: Undo on the call-ended screen. */
+    fun undoDeclineBlock() {
+        val b = _declineBlock.value ?: return
+        val rule = b.ruleId?.takeIf { it > 0 } ?: return
+        if (b.undone) return
+        _declineBlock.value = b.copy(undone = true)
+        scope.launch { runCatching { TelecomGraph.dependencies.undoBlockForDecline(rule) } }
+    }
+
+    /** P6: Retry on the failure banner. The reason it still failed, or null. */
+    suspend fun redial(number: String, accountId: String?): String? =
+        runCatching { TelecomGraph.dependencies.redial(number, accountId) }.getOrElse { it.message ?: str(R.string.call_disconnect_failed) }
+
+    /** P6: what's known about a call that just left Telecom. */
+    private fun endFacts(call: Call, ended: CallUi, id: String): EndFacts = EndFacts(
+        outgoing = !ended.incoming,
+        connected = ended.connectTimeMillis > 0,
+        code = endCode(call.details.disconnectCause),
+        endedInSimPicker = lastLiveState[id] == CallState.SELECT_ACCOUNT,
+        userEnded = id in userEnded,
+        airplaneMode = ::appContext.isInitialized &&
+            runCatching { android.provider.Settings.Global.getInt(appContext.contentResolver, android.provider.Settings.Global.AIRPLANE_MODE_ON, 0) != 0 }.getOrDefault(false),
+        emergency = ended.isEmergency,
+        hasNumber = !ended.hidden && !ended.number.isNullOrBlank(),
+    )
+
+    private fun endCode(c: DisconnectCause?): EndCode? = when (c?.code) {
+        null -> null
+        DisconnectCause.LOCAL -> EndCode.LOCAL
+        DisconnectCause.REMOTE -> EndCode.REMOTE
+        DisconnectCause.BUSY -> EndCode.BUSY
+        DisconnectCause.ERROR, DisconnectCause.CONNECTION_MANAGER_NOT_SUPPORTED -> EndCode.ERROR
+        DisconnectCause.RESTRICTED -> EndCode.RESTRICTED
+        DisconnectCause.CANCELED -> EndCode.CANCELED
+        DisconnectCause.MISSED -> EndCode.MISSED
+        DisconnectCause.REJECTED -> EndCode.REJECTED
+        DisconnectCause.OTHER -> EndCode.OTHER
+        DisconnectCause.UNKNOWN -> EndCode.UNKNOWN
+        else -> null // answered elsewhere, pulled: not a failure
+    }
+
+    private fun failureText(f: FailureKind, call: Call): String? = when (f) {
+        FailureKind.AIRPLANE_MODE -> str(R.string.call_failed_airplane)
+        FailureKind.NO_SIM_SELECTED -> str(R.string.call_failed_no_sim)
+        FailureKind.BUSY -> str(R.string.call_disconnect_busy)
+        FailureKind.OTHER -> call.details.disconnectCause?.let { c -> (c.description ?: c.label)?.toString()?.takeIf { it.isNotBlank() } }
+            ?: str(R.string.call_failed_generic)
+    }
+
+    /** P6: the caller lookup hadn't finished when the call ended: fill the name in on the call-ended screen. */
+    private fun lookUpEndedName(ended: CallUi) {
+        val number = ended.number ?: return
+        scope.launch {
+            val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { TelecomGraph.dependencies.callerInfo(number, ended.accountId) }.getOrNull() } ?: return@launch
+            val now = _lastEnded.value
+            if (now?.id == ended.id) {
+                _lastEnded.value = now.copy(name = found.name, label = found.label, photoUri = found.photoUri, contactId = found.contactId, noContact = false)
+            }
+        }
     }
 
     fun silenceRinger() {
@@ -754,6 +874,7 @@ object CallManager {
 
     fun hangup(id: String) {
         val call = find(id) ?: return
+        userEnded += id
         if (mapState(call.stateCompat()) == CallState.RINGING) call.reject(false, null) else call.disconnect()
     }
 
@@ -867,6 +988,8 @@ object CallManager {
     private const val PENDING_OUTGOING_MS = 8000L
     private const val SCREEN_TIMEOUT_MS = 1500L
     private const val LOOKUP_TIMEOUT_MS = 2000L
+    /** P2: how long "Block & decline" waits for the rule before declining anyway. */
+    private const val BLOCK_TIMEOUT_MS = 1500L
     /** F20: after silencing Telecom, wait at least this long, and at most the max for its ringtone to stop. */
     private const val RINGER_STOP_MIN_MS = 120L
     private const val RINGER_STOP_MAX_MS = 700L

@@ -779,4 +779,6 @@
     <string name="blk_place_no_permission">फ़ोन की अनुमति नहीं है</string>
     <string name="blk_place_failed">कॉल नहीं की जा सकी</string>
     <string name="blk_place_voicemail">वॉइसमेल उपलब्ध नहीं</string>
+    <!-- v3.2 phone (P2) -->
+    <string name="blk_note_block_decline">कॉल के दौरान ब्लॉक किया गया</string>
 </resources>

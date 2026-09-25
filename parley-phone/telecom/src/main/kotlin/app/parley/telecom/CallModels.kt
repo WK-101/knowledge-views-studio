@@ -55,6 +55,9 @@ data class CallUi(
     val accountNumber: String? = null,
     /** Localised "Private number" / "Unknown", shown when there is neither a name nor a number. */
     val fallbackTitle: String = "",
+    /** P6: why an outgoing call didn't go through (set on the ended call only), and the reason to show. */
+    val failure: app.parley.common.calls.FailureKind? = null,
+    val failureText: String? = null,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING
@@ -63,9 +66,22 @@ data class CallUi(
     val simHint: String?
         get() = accountLabel?.let { l -> listOfNotNull(l, accountNumber?.filter { it.isDigit() }?.takeLast(4)?.takeIf { it.length == 4 }?.let { "…$it" }).joinToString(" · ") }
 
+    /** P2: "Block & decline" is offered for a ringing call with a number (never an emergency call-back). */
+    val canBlockAndDecline: Boolean
+        get() = state == CallState.RINGING && !hidden && !isEmergency && !number.isNullOrBlank()
+
     /** Show the post-call card: an ended call with a number that isn't in contacts (V4). */
     val postCallCard: Boolean
         get() = noContact && !hidden && !isEmergency && !number.isNullOrBlank() && number.count { it.isDigit() } >= 3
+}
+
+/** P1/P9: the state as the pure call-waiting logic in core:common sees it. */
+fun CallState.live(): app.parley.common.calls.LiveCallState = when (this) {
+    CallState.RINGING -> app.parley.common.calls.LiveCallState.RINGING
+    CallState.ACTIVE -> app.parley.common.calls.LiveCallState.ACTIVE
+    CallState.HOLDING -> app.parley.common.calls.LiveCallState.HOLDING
+    CallState.DIALING, CallState.CONNECTING, CallState.SELECT_ACCOUNT -> app.parley.common.calls.LiveCallState.DIALING
+    else -> app.parley.common.calls.LiveCallState.OTHER
 }
 
 enum class RouteType { EARPIECE, SPEAKER, BLUETOOTH, WIRED, STREAMING }
@@ -83,3 +99,12 @@ data class AudioUi(
 
 /** An outgoing call Parley asked Telecom to place, shown until the call exists (A10). */
 data class PendingOutgoing(val number: String, val simLabel: String?, val atElapsed: Long)
+
+/** P2: the call the user declined with "Block & decline", for Undo on the call-ended screen. */
+data class DeclineBlock(
+    val callId: String,
+    val number: String,
+    /** The rule written (Undo removes it), 0 when the number was already blocked, null when it couldn't be blocked. */
+    val ruleId: Long?,
+    val undone: Boolean = false,
+)

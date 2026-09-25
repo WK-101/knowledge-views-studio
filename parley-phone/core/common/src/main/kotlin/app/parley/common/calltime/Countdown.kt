@@ -193,4 +193,7 @@ enum class CallHaptic(val timings: LongArray) {
     MERGE(longArrayOf(0, 20, 50, 20, 50, 20)),
     REMINDER(longArrayOf(0, 120)),
     WARN(longArrayOf(0, 250, 150, 250)),
+    /** P7: answering rises (short, then longer); declining is one firm buzz. Both differ from connect. */
+    ANSWER(longArrayOf(0, 25, 60, 70)),
+    DECLINE(longArrayOf(0, 110)),
 }

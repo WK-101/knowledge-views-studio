@@ -1,9 +1,6 @@
 package app.parley.ui.settings
 
-import android.app.role.RoleManager
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -129,7 +126,8 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
     var searching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
-    val role = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { vm.refreshEnvironment() }
+    // P4: the role request, with the by-hand guide when Android refuses without asking.
+    val requestRole = app.parley.ui.calls.rememberDialerRoleRequest { vm.refreshEnvironment() }
     BackHandler(searching) { searching = false; query = "" }
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -171,7 +169,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                             Text(stringResource(R.string.set_not_default_body), style = MaterialTheme.typography.bodySmall)
                         }
                         FilledTonalButton({
-                            context.getSystemService(RoleManager::class.java)?.let { role.launch(it.createRequestRoleIntent(RoleManager.ROLE_DIALER)) }
+                            requestRole()
                         }) { Text(stringResource(R.string.set_set_default)) }
                     }
                 }

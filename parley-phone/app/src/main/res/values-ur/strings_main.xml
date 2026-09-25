@@ -782,4 +782,37 @@
     </plurals>
     <string name="save_contact_details">رابطے کی تفصیلات محفوظ کریں</string>
     <string name="vm_messenger_copies_remain">نجی رابطوں میں منتقل کر دیا گیا۔ WhatsApp، Signal اور دوسرے میسنجرز میں کاپیاں تب تک رہیں گی جب تک وہ ایپ اپنے رابطے دوبارہ سنک نہ کرے</string>
+    <!-- v3.2 phone (P5, P8) -->
+    <string name="recents_layout_grouped">گروپ شدہ</string>
+    <string name="recents_layout_chronological">ہر کال</string>
+    <string name="recents_layout_by_day">دن کے لحاظ سے</string>
+    <string name="recents_layout_grouped_hint">ایک ہی نمبر کی مسلسل کالز ایک قطار میں</string>
+    <string name="recents_layout_chronological_hint">ہر کال الگ قطار میں، تازہ ترین پہلے</string>
+    <string name="recents_layout_by_day_hint">ہر دن ہر نمبر کی ایک قطار</string>
+    <string name="recents_layout_menu">ترتیب: %1$s</string>
+    <string name="clear_history_menu">کال کی تاریخ صاف کریں…</string>
+    <string name="clear_history_title">کال کی تاریخ صاف کریں</string>
+    <string name="clear_history_scope_all">تمام کالز</string>
+    <string name="clear_history_scope_unknown">ان نمبروں کی کالز جو آپ کے رابطوں میں نہیں</string>
+    <string name="clear_history_scope_missed">چھوٹی ہوئی اور مسترد کالز</string>
+    <string name="clear_history_scope_shown">جو حالیہ ابھی دکھا رہا ہے</string>
+    <plurals name="clear_history_calls">
+        <item quantity="one">%d کال</item>
+        <item quantity="other">%d کالز</item>
+    </plurals>
+    <string name="clear_history_next">اگلا</string>
+    <string name="clear_history_export_title">پہلے برآمد کریں؟</string>
+    <string name="clear_history_export_body">صاف کرنے سے پہلے ایک کاپی رکھیں، یا اسے چھوڑ دیں۔</string>
+    <string name="clear_history_export_csv_sub">ایک اسپریڈشیٹ فائل؛ آپ چنیں کہ کہاں جائے</string>
+    <string name="clear_history_export_backup">خفیہ کردہ بیک اپ</string>
+    <string name="clear_history_export_backup_sub">بیک اپ اور بحالی کھولتا ہے؛ بعد میں یہاں واپس آئیں</string>
+    <string name="clear_history_skip_export">چھوڑیں</string>
+    <plurals name="clear_history_confirm_title">
+        <item quantity="one">یہ کال حذف کریں؟</item>
+        <item quantity="other">%d کالز حذف کریں؟</item>
+    </plurals>
+    <string name="clear_history_confirm_body">یہ آپ کے فون کی کال تاریخ سے ہٹا دی جائیں گی۔ حال میں حذف شدہ انہیں 30 دن رکھتا ہے، اس لیے آپ اسے اب بھی واپس کر سکتے ہیں۔</string>
+    <string name="clear_history_delete">حذف کریں</string>
+    <string name="clear_history_cancel">منسوخ کریں</string>
+    <string name="clear_history_close">بند کریں</string>
 </resources>

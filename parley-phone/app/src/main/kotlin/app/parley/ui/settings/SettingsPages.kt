@@ -1,7 +1,6 @@
 package app.parley.ui.settings
 
 import android.app.NotificationManager
-import android.app.role.RoleManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -82,6 +81,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
+import androidx.compose.material.icons.automirrored.rounded.ViewList
+import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -181,7 +183,8 @@ internal fun CallsPage(vm: AppViewModel, open: (String) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
-    val role = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { vm.refreshEnvironment() }
+    // P4: the role request, with the by-hand guide when Android refuses without asking.
+    val requestRole = app.parley.ui.calls.rememberDialerRoleRequest { vm.refreshEnvironment() }
     val unknownTonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         if (res.resultCode == android.app.Activity.RESULT_OK) {
             @Suppress("DEPRECATION")
@@ -206,15 +209,22 @@ internal fun CallsPage(vm: AppViewModel, open: (String) -> Unit) {
                 if (isDefault) null else settingSummary("default_dialer"),
                 if (isDefault) Icons.Rounded.CheckCircle else Icons.Rounded.Warning,
                 trailing = if (isDefault) null else ({
-                    TextButton({ context.getSystemService(RoleManager::class.java)?.let { role.launch(it.createRequestRoleIntent(RoleManager.ROLE_DIALER)) } }) { Text(stringResource(R.string.set_set_default)) }
+                    TextButton({ requestRole() }) { Text(stringResource(R.string.set_set_default)) }
                 }),
             )
+        }
+        // P4: the by-hand guide, for phones that refuse the request without asking.
+        if (!isDefault) item("default_dialer_help") {
+            var guide by remember { mutableStateOf(false) }
+            LinkRow(settingTitle("default_dialer_help"), settingSummary("default_dialer_help"), Icons.AutoMirrored.Rounded.HelpOutline) { guide = true }
+            if (guide) app.parley.ui.calls.DialerRoleGuide { guide = false }
         }
     }
     SegmentedGroup(stringResource(R.string.set_group_answering)) {
         choiceRow("answer_gesture", gestures, s.answerGesture.ordinal, Icons.Rounded.TouchApp) { i -> set { it.copy(answerGesture = AnswerGesture.entries[i]) } }
         switchRow("confirm_call", s.confirmBeforeCall, Icons.Rounded.CheckCircle) { v -> set { it.copy(confirmBeforeCall = v) } }
         item("call_haptics") { CallHapticsRow(vm, Icons.Rounded.Vibration) }
+        item("connect_haptic") { ConnectHapticRow(vm, Icons.Rounded.Vibration) }
         linkRow("unknown_ringtone", Icons.Rounded.MusicNote, sub = toneName ?: sameAsUsual) {
             unknownTonePicker.launch(
                 Intent(android.media.RingtoneManager.ACTION_RINGTONE_PICKER)
@@ -431,9 +441,16 @@ internal fun HistoryPage(vm: AppViewModel, open: (String) -> Unit) {
         menuRow("retention", retentionLabels, retention.indexOf(s.callLogRetentionDays).coerceAtLeast(0), Icons.Rounded.AutoDelete) { i ->
             set { it.copy(callLogRetentionDays = retention[i]) }
         }
+        // P5: clear everything, unknown numbers or missed calls, with an export first.
+        item("clear_history") { app.parley.ui.history.ClearHistoryRow(vm, open, Icons.Rounded.DeleteSweep) }
     }
+    val layoutLabels = app.parley.ui.history.recentsLayoutLabels()
     SegmentedGroup(stringResource(R.string.set_group_recents)) {
         switchRow("sim_labels", s.showSimLabels, Icons.Rounded.SimCard) { v -> set { it.copy(showSimLabels = v) } }
+        // P8: grouped, chronological or by day (also in Recents ⋮).
+        menuRow("recents_layout", layoutLabels, s.recentsLayout.ordinal, Icons.AutoMirrored.Rounded.ViewList) { i ->
+            set { it.copy(recentsLayout = app.parley.common.calls.RecentsLayout.entries[i]) }
+        }
         linkRow("insights", Icons.Rounded.Insights) { open(HistoryRoutes.INSIGHTS) }
         linkRow("import_calls", Icons.Rounded.FileUpload) { open(HistoryRoutes.IMPORT) }
     }

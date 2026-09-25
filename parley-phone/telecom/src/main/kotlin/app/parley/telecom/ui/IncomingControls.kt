@@ -27,6 +27,13 @@ import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CallEnd
 import androidx.compose.material.icons.rounded.SimCard
+import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -64,7 +71,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
-fun IncomingControls(call: CallUi, gesture: AnswerGesture, hasActiveCall: Boolean, onMessage: () -> Unit) {
+fun IncomingControls(call: CallUi, gesture: AnswerGesture, hasActiveCall: Boolean, onMessage: () -> Unit, onBlockAndDecline: (() -> Unit)? = null) {
     Column(Modifier.fillMaxWidth().padding(bottom = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         if (!call.hidden && !call.number.isNullOrBlank()) {
             FilledTonalButton(onClick = onMessage) {
@@ -80,13 +87,36 @@ fun IncomingControls(call: CallUi, gesture: AnswerGesture, hasActiveCall: Boolea
             AnswerGesture.SWIPE -> AnswerSlider(sim, onAnswer = { CallManager.answer(call.id) }, onDecline = { CallManager.reject(call.id) })
             AnswerGesture.TAP -> AnswerButtons(sim, onAnswer = { CallManager.answer(call.id) }, onDecline = { CallManager.reject(call.id) })
         }
-        if (!call.silenced) {
+        if (!call.silenced || onBlockAndDecline != null) {
             Spacer(Modifier.height(8.dp))
-            TextButton(onClick = { CallManager.ignore(call.id) }) { Text(stringResource(R.string.incall_ignore_stop_ringing)) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (!call.silenced) TextButton(onClick = { CallManager.ignore(call.id) }) { Text(stringResource(R.string.incall_ignore_stop_ringing)) }
+                // P2: "Block & decline" sits behind ⋮, two deliberate taps, so it can't happen by accident.
+                if (onBlockAndDecline != null) BlockAndDeclineMenu(onBlockAndDecline)
+            }
         }
         if (hasActiveCall) {
             Spacer(Modifier.height(12.dp))
             TextButton(onClick = { CallManager.endAndAnswer(call.id) }) { Text(stringResource(R.string.incall_end_and_answer)) }
+        }
+    }
+}
+
+/** P2: ⋮ on the incoming screen with "Block & decline". */
+@Composable
+private fun BlockAndDeclineMenu(onBlockAndDecline: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.incall_incoming_more)) }
+        DropdownMenu(open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.incall_block_decline)) },
+                leadingIcon = { Icon(Icons.Rounded.Block, null, tint = CallColors.Decline) },
+                onClick = {
+                    open = false
+                    onBlockAndDecline()
+                },
+            )
         }
     }
 }

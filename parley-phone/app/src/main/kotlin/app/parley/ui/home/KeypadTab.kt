@@ -251,11 +251,13 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
             results.firstOrNull()?.let(::callResult)
             return
         }
-        vm.requestCall(n, results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, n, vm.countryIso) }?.contact?.displayName)
+        // P9: the typed number exactly as typed ('#' codes included), never the top match.
+        val target = app.parley.common.calls.DialTarget.pick(n, results.firstOrNull()?.number) ?: return
+        vm.requestCall(target, results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, target, vm.countryIso) }?.contact?.displayName)
     }
 
     fun callWithSim(simId: String) {
-        val target = if (isTextSearch()) results.firstOrNull()?.number else input.trim()
+        val target = app.parley.common.calls.DialTarget.pick(input, results.firstOrNull()?.number)
         // Same checks as any call (dial guard, allowance, confirm), just without the SIM question.
         if (!target.isNullOrEmpty()) vm.requestCall(target, results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, target, vm.countryIso) }?.contact?.displayName, simId = simId)
     }

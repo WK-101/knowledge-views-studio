@@ -867,4 +867,37 @@
     </plurals>
     <string name="save_contact_details">Save contact details</string>
     <string name="vm_messenger_copies_remain">Moved to private contacts. Copies in WhatsApp, Signal and other messengers stay until that app syncs its contacts again</string>
+    <!-- v3.2 phone (P5, P8) -->
+    <string name="recents_layout_grouped">Grouped</string>
+    <string name="recents_layout_chronological">Every call</string>
+    <string name="recents_layout_by_day">By day</string>
+    <string name="recents_layout_grouped_hint">Calls in a row from the same number share a row</string>
+    <string name="recents_layout_chronological_hint">Every call on its own row, newest first</string>
+    <string name="recents_layout_by_day_hint">One row per number for each day</string>
+    <string name="recents_layout_menu">Layout: %1$s</string>
+    <string name="clear_history_menu">Clear call history…</string>
+    <string name="clear_history_title">Clear call history</string>
+    <string name="clear_history_scope_all">All calls</string>
+    <string name="clear_history_scope_unknown">Calls from numbers not in your contacts</string>
+    <string name="clear_history_scope_missed">Missed and declined calls</string>
+    <string name="clear_history_scope_shown">What Recents shows now</string>
+    <plurals name="clear_history_calls">
+        <item quantity="one">%d call</item>
+        <item quantity="other">%d calls</item>
+    </plurals>
+    <string name="clear_history_next">Next</string>
+    <string name="clear_history_export_title">Export first?</string>
+    <string name="clear_history_export_body">Keep a copy before clearing, or skip this.</string>
+    <string name="clear_history_export_csv_sub">A spreadsheet file; you choose where it goes</string>
+    <string name="clear_history_export_backup">Encrypted backup</string>
+    <string name="clear_history_export_backup_sub">Opens Backup &amp; restore; come back here afterwards</string>
+    <string name="clear_history_skip_export">Skip</string>
+    <plurals name="clear_history_confirm_title">
+        <item quantity="one">Delete this call?</item>
+        <item quantity="other">Delete %d calls?</item>
+    </plurals>
+    <string name="clear_history_confirm_body">They\'re removed from your phone\'s call history. Recently deleted keeps them for 30 days, so you can still undo this.</string>
+    <string name="clear_history_delete">Delete</string>
+    <string name="clear_history_cancel">Cancel</string>
+    <string name="clear_history_close">Close</string>
 </resources>
