@@ -40,6 +40,8 @@ object MetaRekey {
         val reachOutDays: Int? = null,
         val lastNudgedAt: Long? = null,
         val relationLinks: String? = null,
+        /** R4: the Circle rhythm ([app.parley.common.circle.KeepRhythm]). */
+        val rhythm: String? = null,
     )
 
     /**
@@ -60,6 +62,7 @@ object MetaRekey {
             reachOutDays = listOfNotNull(into.reachOutDays, from.reachOutDays).minOrNull(),
             lastNudgedAt = listOfNotNull(into.lastNudgedAt, from.lastNudgedAt).maxOrNull(),
             relationLinks = links,
+            rhythm = app.parley.common.circle.KeepRhythm.merge(into.rhythm, from.rhythm),
         )
     }
 }

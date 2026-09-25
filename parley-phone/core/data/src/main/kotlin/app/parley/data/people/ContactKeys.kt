@@ -25,6 +25,8 @@ class ContactKeys(
     private val contacts: ContactsRepository,
     private val meta: MetaDao,
     private val backgrounds: () -> CallBackgrounds,
+    /** R2: interactions are keyed like contact_meta and follow the same moves. */
+    private val interactions: () -> app.parley.data.circle.InteractionStore? = { null },
 ) {
     private val mutex = Mutex()
 
@@ -55,6 +57,8 @@ class ContactKeys(
             meta.deleteMeta(key)
             meta.clearTemporary(key)
             runCatching { backgrounds().clear(key) }
+            // R2: a private contact's interactions don't stay outside the vault (they'd put them back in the Circle).
+            runCatching { interactions()?.forget(key) }
             for (r in meta.allMetaNow()) {
                 val links = RelationLinks.decode(r.relationLinks)
                 if (links.values.none { it.lookupKey == key }) continue
@@ -72,6 +76,7 @@ class ContactKeys(
             val keys = LinkedHashMap<String, Long?>()
             rows.forEach { keys[it.lookupKey] = it.contactId }
             bg?.indexedKeys()?.forEach { keys.putIfAbsent(it, null) }
+            runCatching { interactions()?.keys() }.getOrNull()?.forEach { keys.putIfAbsent(it, null) }
             // Only moves that are plausibly the same person (no namesake takes over a deleted contact's note).
             val resolved = keys.mapValues { (key, id) ->
                 contacts.currentOf(key, id)?.takeIf { (newId, newKey) -> newKey == key || MetaRekey.plausible(key, newKey, id, newId) }
@@ -102,6 +107,7 @@ class ContactKeys(
             meta.deleteMeta(from)
         }
         runCatching { backgrounds().move(from, to) }
+        runCatching { interactions()?.rekey(from, to, toId) }
         meta.temporary(from)?.let { t ->
             val existing = meta.temporary(to)
             val (ids, expiresAt) = TemporaryExpiry.merge(t.rawIds to t.expiresAt, existing?.rawIds to (existing?.expiresAt ?: Long.MAX_VALUE))
@@ -151,7 +157,7 @@ class ContactKeys(
     }
 }
 
-internal fun ContactMetaEntity.values() = MetaRekey.Values(pinnedNote, preferredMessenger, reachOutDays, lastNudgedAt, relationLinks)
+internal fun ContactMetaEntity.values() = MetaRekey.Values(pinnedNote, preferredMessenger, reachOutDays, lastNudgedAt, relationLinks, rhythm)
 
 internal fun MetaRekey.Values.toEntity(key: String, contactId: Long?) =
-    ContactMetaEntity(key, pinnedNote, preferredMessenger, reachOutDays, lastNudgedAt, contactId, relationLinks)
+    ContactMetaEntity(key, pinnedNote, preferredMessenger, reachOutDays, lastNudgedAt, contactId, relationLinks, rhythm)
