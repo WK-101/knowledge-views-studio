@@ -138,6 +138,15 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
         }
         item(key = "archive-notes") { app.parley.ui.history.ArchiveNotices(vm, open) }
         val list = groups
+        // U2: swipe and long-press actions on calls, told once (only when there are calls to try them on).
+        if (!list.isNullOrEmpty()) item(key = "tip") {
+            app.parley.ui.common.CoachMark(
+                app.parley.common.ux.Tips.RECENTS_SWIPE,
+                stringResource(if (swipe.enabled) R.string.ux_tip_recents_swipe else R.string.ux_tip_recents_long_press),
+                action = if (swipe.enabled) null else stringResource(R.string.ux_tip_turn_on),
+                onAction = { open(Routes.settingsPage(app.parley.common.SettingsCategory.APPEARANCE, "swipe_actions")) },
+            )
+        }
         if (list != null && list.isEmpty()) {
             item(key = "empty") {
                 EmptyState(Icons.Rounded.AccessTime, stringResource(if (filter == RecentFilter.ALL) R.string.recents_empty else R.string.recents_nothing_here), modifier = Modifier.padding(top = 48.dp))

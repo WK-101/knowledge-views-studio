@@ -833,4 +833,15 @@
     <string name="ux_add_birthday">Ajouter l\'anniversaire ?</string>
     <string name="ux_add_anniversary">Ajouter une date anniversaire ?</string>
     <string name="ux_date_not_saved">Impossible d\'enregistrer la date. Vous pouvez l\'ajouter via Modifier.</string>
+    <!-- v3.2 U2/U6: tips and What's new -->
+    <string name="ux_tip_got_it">Compris</string>
+    <string name="ux_tip_search">Recherchez ici noms, numéros, notes et entreprises.</string>
+    <string name="ux_tip_speed_dial">Astuce : appuyez longuement de 2 à 9 pour appeler quelqu\'un d\'un geste.</string>
+    <string name="ux_tip_set_up">Configurer</string>
+    <string name="ux_tip_recents_swipe">Balayez un appel sur le côté pour les actions rapides, ou appuyez longuement pour plus.</string>
+    <string name="ux_tip_recents_long_press">Appuyez longuement sur un appel pour plus d\'actions. Les actions par balayage peuvent aussi être activées.</string>
+    <string name="ux_tip_turn_on">Activer</string>
+    <string name="ux_whats_new_title">Nouveautés de Parley %1$s</string>
+    <string name="ux_whats_new_body">Vos onglets, l\'onglet de départ et la liste d\'appels restent comme vous les avez réglés. Les nouveautés arrivent désactivées : essayez-les quand vous voulez.</string>
+    <string name="ux_whats_new_try">Essayer</string>
 </resources>

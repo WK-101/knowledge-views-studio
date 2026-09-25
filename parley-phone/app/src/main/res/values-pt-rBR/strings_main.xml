@@ -833,4 +833,15 @@
     <string name="ux_add_birthday">Adicionar aniversário?</string>
     <string name="ux_add_anniversary">Adicionar data comemorativa?</string>
     <string name="ux_date_not_saved">Não foi possível salvar a data. Você pode adicioná-la em Editar.</string>
+    <!-- v3.2 U2/U6: tips and What's new -->
+    <string name="ux_tip_got_it">Entendi</string>
+    <string name="ux_tip_search">Pesquise aqui nomes, números, notas e empresas.</string>
+    <string name="ux_tip_speed_dial">Dica: toque e segure de 2 a 9 para ligar para alguém com um toque.</string>
+    <string name="ux_tip_set_up">Configurar</string>
+    <string name="ux_tip_recents_swipe">Deslize uma chamada para o lado para ações rápidas, ou toque e segure para mais.</string>
+    <string name="ux_tip_recents_long_press">Toque e segure uma chamada para mais ações. Também dá para ativar ações de deslizar.</string>
+    <string name="ux_tip_turn_on">Ativar</string>
+    <string name="ux_whats_new_title">Novidades do Parley %1$s</string>
+    <string name="ux_whats_new_body">Suas abas, a aba inicial e a lista de chamadas continuam como você deixou. As novidades chegam desativadas, para você testar quando quiser.</string>
+    <string name="ux_whats_new_try">Experimentar</string>
 </resources>

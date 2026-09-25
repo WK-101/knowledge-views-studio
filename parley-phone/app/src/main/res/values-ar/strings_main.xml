@@ -974,4 +974,15 @@
     <string name="ux_add_birthday">إضافة عيد الميلاد؟</string>
     <string name="ux_add_anniversary">إضافة ذكرى سنوية؟</string>
     <string name="ux_date_not_saved">تعذّر حفظ التاريخ. يمكنك إضافته من تعديل.</string>
+    <!-- v3.2 U2/U6: tips and What's new -->
+    <string name="ux_tip_got_it">حسنًا</string>
+    <string name="ux_tip_search">ابحث هنا عن الأسماء والأرقام والملاحظات والشركات.</string>
+    <string name="ux_tip_speed_dial">تلميح: اضغط مطولًا على 2 إلى 9 للاتصال بشخص بلمسة واحدة.</string>
+    <string name="ux_tip_set_up">إعداد</string>
+    <string name="ux_tip_recents_swipe">اسحب مكالمة جانبًا لإجراءات سريعة، أو اضغط عليها مطولًا للمزيد.</string>
+    <string name="ux_tip_recents_long_press">اضغط مطولًا على مكالمة لمزيد من الإجراءات. ويمكن أيضًا تفعيل إجراءات السحب.</string>
+    <string name="ux_tip_turn_on">تفعيل</string>
+    <string name="ux_whats_new_title">الجديد في Parley %1$s</string>
+    <string name="ux_whats_new_body">تبقى علاماتك وعلامة البدء وقائمة المكالمات كما ضبطتها. تصل الميزات الجديدة معطّلة، فجرّبها متى شئت.</string>
+    <string name="ux_whats_new_try">جرّبها</string>
 </resources>

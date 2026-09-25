@@ -305,6 +305,11 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                         textAlign = TextAlign.Center,
                     )
                     PasteChip(vm.countryIso) { text -> field.setTextAndPlaceCursorAtEnd(text) }
+                    // U2: long-press 2-9 for speed dial, told once.
+                    app.parley.ui.common.CoachMark(
+                        app.parley.common.ux.Tips.KEYPAD_SPEED_DIAL, stringResource(R.string.ux_tip_speed_dial),
+                        enabled = showKeypad, action = stringResource(R.string.ux_tip_set_up), onAction = { open(Routes.SPEED_DIAL) },
+                    )
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize()) {

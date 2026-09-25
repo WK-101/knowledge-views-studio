@@ -786,4 +786,15 @@
     <string name="ux_add_birthday">Geburtstag hinzufügen?</string>
     <string name="ux_add_anniversary">Jahrestag hinzufügen?</string>
     <string name="ux_date_not_saved">Das Datum ließ sich nicht speichern. Du kannst es über Bearbeiten hinzufügen.</string>
+    <!-- v3.2 U2/U6: tips and What's new -->
+    <string name="ux_tip_got_it">Verstanden</string>
+    <string name="ux_tip_search">Hier suchst du nach Namen, Nummern, Notizen und Firmen.</string>
+    <string name="ux_tip_speed_dial">Tipp: Halte 2 bis 9 gedrückt, um jemanden mit einem Tipp anzurufen.</string>
+    <string name="ux_tip_set_up">Einrichten</string>
+    <string name="ux_tip_recents_swipe">Wische einen Anruf zur Seite für schnelle Aktionen, oder halte ihn gedrückt für mehr.</string>
+    <string name="ux_tip_recents_long_press">Halte einen Anruf gedrückt für weitere Aktionen. Wischaktionen lassen sich auch einschalten.</string>
+    <string name="ux_tip_turn_on">Einschalten</string>
+    <string name="ux_whats_new_title">Neu in Parley %1$s</string>
+    <string name="ux_whats_new_body">Deine Tabs, der Start-Tab und die Anrufliste bleiben genau so, wie du sie eingestellt hast. Neues kommt ausgeschaltet an, du probierst es, wann du willst.</string>
+    <string name="ux_whats_new_try">Ausprobieren</string>
 </resources>
