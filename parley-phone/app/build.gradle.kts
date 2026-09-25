@@ -12,6 +12,12 @@ val keystoreProps = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 
+// G1/D1: sign the release only when a keystore is configured (keystore.properties or PARLEY_KEYSTORE). F-Droid
+// deletes the `signingConfigs { }` block and every line starting with `signingConfig =` before it builds, so no line
+// that survives that strip may refer to the signing config. Without a keystore, assembleRelease is unsigned.
+// Checked by tools/fdroid-strip-check.sh.
+val releaseStorePath: String? = keystoreProps.getProperty("storeFile") ?: System.getenv("PARLEY_KEYSTORE")
+
 android {
     namespace = "app.parley"
     compileSdk = 36
@@ -20,6 +26,8 @@ android {
         applicationId = "app.parley.phone"
         minSdk = 29
         targetSdk = 36
+        // D4: keep these two plain literals. F-Droid's update check reads them line by line with a regex and can't
+        // follow a variable or an expression. Bump both for a release, then tag v<versionName> (docs/RELEASING.md).
         versionCode = 4
         versionName = "3.1.0"
         // Custom permission guarding the private-name lookup provider (differs in debug so both builds can be installed).
@@ -31,9 +39,8 @@ android {
 
     signingConfigs {
         create("release") {
-            val storePath = keystoreProps.getProperty("storeFile") ?: System.getenv("PARLEY_KEYSTORE")
-            if (storePath != null) {
-                storeFile = file(storePath)
+            if (releaseStorePath != null) {
+                storeFile = file(releaseStorePath)
                 storePassword = keystoreProps.getProperty("storePassword") ?: System.getenv("PARLEY_KEYSTORE_PASSWORD")
                 keyAlias = keystoreProps.getProperty("keyAlias") ?: System.getenv("PARLEY_KEY_ALIAS")
                 keyPassword = keystoreProps.getProperty("keyPassword") ?: System.getenv("PARLEY_KEY_PASSWORD")
@@ -46,8 +53,10 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            val release = signingConfigs.getByName("release")
-            if (release.storeFile != null) signingConfig = release
+            // G1: after F-Droid's strip this is an empty `if`; the line inside is the only reference to the config.
+            if (releaseStorePath != null) {
+                signingConfig = signingConfigs.findByName("release")
+            }
         }
         debug {
             applicationIdSuffix = ".debug"
