@@ -7,8 +7,6 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.ContentObserver
 import android.database.Cursor
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -54,7 +52,6 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 
 /**
  * Observes a content URI; emits Unit on start and on each change.
@@ -755,13 +752,8 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         }
 
     private fun writePhoto(rawId: Long, source: Uri) {
-        val bytes = cr.openInputStream(source)?.use { input ->
-            val bmp = BitmapFactory.decodeStream(input) ?: return
-            val max = 720
-            val scale = minOf(1f, max.toFloat() / maxOf(bmp.width, bmp.height))
-            val scaled = if (scale < 1f) Bitmap.createScaledBitmap(bmp, (bmp.width * scale).toInt(), (bmp.height * scale).toInt(), true) else bmp
-            ByteArrayOutputStream().also { scaled.compress(Bitmap.CompressFormat.JPEG, 88, it) }.toByteArray()
-        } ?: return
+        // C1: bounded decode, EXIF rotation, HEIC, centre square, 720 px (the old full decode could run out of memory).
+        val bytes = ContactPhotoProcessor.process(cr, source) ?: return
         val uri = Uri.withAppendedPath(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawId), RawContacts.DisplayPhoto.CONTENT_DIRECTORY)
         cr.openAssetFileDescriptor(uri, "rw")?.use { fd -> fd.createOutputStream().use { it.write(bytes) } }
     }

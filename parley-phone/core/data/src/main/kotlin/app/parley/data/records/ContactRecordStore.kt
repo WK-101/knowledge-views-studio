@@ -27,6 +27,7 @@ import app.parley.common.record.Mime
 import app.parley.common.record.PrimaryFlags
 import app.parley.common.record.RawRecord
 import app.parley.data.AccountRef
+import app.parley.data.ContactPhotoProcessor
 import app.parley.data.DeviceAccounts
 import app.parley.data.R
 
@@ -234,13 +235,15 @@ class ContactRecordStore(private val context: Context) {
         target: AccountRef?,
         groups: GroupResolver = groupResolver(),
         includeReadOnly: Boolean = false,
+        /** C1: photos from outside (vCard import) go through [ContactPhotoProcessor]; restores keep theirs as stored. */
+        processPhotos: Boolean = false,
     ): List<InsertResult> {
         val results = arrayOfNulls<InsertResult>(records.size)
         // Never write into a SIM, messenger or read-only account, whatever the caller picked (F3).
         val safeTarget = target?.let { if (isWritableAccount(it)) it else localAccount() }
         val available = if (safeTarget == null) availableAccounts() else emptySet()
         val plans = records.mapIndexed { i, r ->
-            val plan = plan(r, safeTarget, available, groups, includeReadOnly)
+            val plan = plan(r, safeTarget, available, groups, includeReadOnly, processPhotos)
             if (plan.raws.isEmpty()) results[i] = InsertResult(null, context.getString(R.string.data_write_only_messenger))
             plan
         }
@@ -265,12 +268,12 @@ class ContactRecordStore(private val context: Context) {
 
     private class PlannedRaw(val account: AccountRef, val dataSet: String?, val rows: List<ContentValues>, val photo: ByteArray?)
 
-    private class Plan(val record: ContactRecord, val raws: List<PlannedRaw>) {
+    private class Plan(val record: ContactRecord, val raws: List<PlannedRaw>, val processPhotos: Boolean = false) {
         val ops = raws.sumOf { 1 + it.rows.size }
         val bytes = raws.sumOf { r -> OP_OVERHEAD + r.rows.sumOf { estimate(it) } }
     }
 
-    private fun plan(r: ContactRecord, target: AccountRef?, available: Set<AccountRef>, groups: GroupResolver, includeReadOnly: Boolean): Plan {
+    private fun plan(r: ContactRecord, target: AccountRef?, available: Set<AccountRef>, groups: GroupResolver, includeReadOnly: Boolean, processPhotos: Boolean = false): Plan {
         val sources = r.raws.filter { includeReadOnly || !Messengers.isMessengerAccount(it.accountType) }
         val grouped: List<Pair<AccountRef, List<RawRecord>>> = if (target != null) {
             if (sources.isEmpty()) emptyList() else listOf(target to sources)
@@ -320,7 +323,7 @@ class ContactRecordStore(private val context: Context) {
             }
             if (rows.isEmpty() && photo == null) null else PlannedRaw(account, if (keepDataSet) raws[0].dataSet else null, rows, photo)
         }
-        return Plan(r, planned)
+        return Plan(r, planned, processPhotos)
     }
 
     private fun rawInsert(p: PlannedRaw): ContentProviderOperation.Builder =
@@ -395,7 +398,11 @@ class ContactRecordStore(private val context: Context) {
         if (rawIds.isEmpty()) return InsertResult(null, context.getString(R.string.data_write_failed))
         var error: String? = null
         plan.raws.zip(rawIds).forEach { (raw, id) ->
-            raw.photo?.let { if (!writePhoto(id, it)) error = context.getString(R.string.data_write_photo_failed) }
+            raw.photo?.let { photo ->
+                // C1: an unreadable picture (or one that can't be processed) is written as it came, as before.
+                val bytes = if (plan.processPhotos) ContactPhotoProcessor.process(photo) ?: photo else photo
+                if (!writePhoto(id, bytes)) error = context.getString(R.string.data_write_photo_failed)
+            }
         }
         if (rawIds.size > 1) keepTogether(rawIds)
         val contactId = contactIdForRaw(rawIds.first()) ?: return InsertResult(null, context.getString(R.string.data_write_not_found), rawIds)

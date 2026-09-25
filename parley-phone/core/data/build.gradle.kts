@@ -34,4 +34,5 @@ dependencies {
     api(libs.kotlinx.coroutines.android)
     implementation(libs.libphonenumber)
     implementation(libs.phone.geocoder)
+    implementation(libs.androidx.exifinterface)
 }

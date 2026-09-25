@@ -168,7 +168,8 @@ class VCardIO(
         var seen = 0
         fun flush() {
             if (pending.isEmpty()) return
-            val results = store.insertAll(pending.map { it.record }, account, groups)
+            // C1: imported photos are resized, turned upright and cropped like the editor's.
+            val results = store.insertAll(pending.map { it.record }, account, groups, processPhotos = true)
             results.forEachIndexed { i, res ->
                 if (res.contactId != null) report.imported++
                 res.error?.let { report.fail(pending[i].index, it, pending[i].raw) }

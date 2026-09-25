@@ -320,11 +320,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     /** Stores [image] (any format Android decodes) as entry [id]'s photo, scaled down and encrypted. */
     suspend fun setPhoto(id: Long, image: ByteArray): Boolean = withContext(Dispatchers.IO) {
-        val bmp = android.graphics.BitmapFactory.decodeByteArray(image, 0, image.size) ?: return@withContext false
-        val max = 512
-        val scale = minOf(1f, max.toFloat() / maxOf(bmp.width, bmp.height))
-        val scaled = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(bmp, (bmp.width * scale).toInt().coerceAtLeast(1), (bmp.height * scale).toInt().coerceAtLeast(1), true) else bmp
-        val jpeg = java.io.ByteArrayOutputStream().also { scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray()
+        // C1: bounded decode, upright, centre square (512 px is plenty for a caller photo).
+        val jpeg = app.parley.data.ContactPhotoProcessor.process(image, PHOTO_PX) ?: return@withContext false
         val tmp = java.io.File(photoDir(), "$id.tmp")
         tmp.writeBytes(VaultCrypto.sealCallerId(jpeg))
         tmp.renameTo(photoFile(id))
@@ -395,6 +392,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     private companion object {
         const val PREFS = "vault"
+        const val PHOTO_PX = 512
         const val K_KEYS_VERSION = "number_keys_version"
         const val K_KEYS_ATTEMPTS = "number_keys_attempts"
         /**

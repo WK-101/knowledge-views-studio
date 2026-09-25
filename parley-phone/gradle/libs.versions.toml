@@ -21,6 +21,8 @@ material3 = "1.5.0-alpha14"
 libphonenumber = "9.0.40"
 phoneGeocoder = "3.40"
 kotlinxSerialization = "1.9.0"
+# C1: EXIF orientation for contact photos (no permissions).
+exifinterface = "1.4.1"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -48,6 +50,7 @@ androidx-work = { module = "androidx.work:work-runtime-ktx", version.ref = "work
 androidx-fragment = { module = "androidx.fragment:fragment-ktx", version.ref = "fragment" }
 libphonenumber = { module = "com.googlecode.libphonenumber:libphonenumber", version.ref = "libphonenumber" }
 phone-geocoder = { module = "com.googlecode.libphonenumber:geocoder", version.ref = "phoneGeocoder" }
+androidx-exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "exifinterface" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 
 [plugins]
