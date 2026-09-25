@@ -88,9 +88,13 @@ object SettingsCatalog {
 
         // Calls
         e("default_dialer", "Default phone app", "Needed to show calls, manage blocking and the call log", C, "default dialer", "role", "phone app"),
+        // P4: when Android refuses the role request without asking.
+        e("default_dialer_help", "Can't make Parley the default phone app?", "A step-by-step guide for your Android version, with App info", C,
+            "default dialer", "role", "restricted settings", "sideload", "app info", "not asked"),
         e("answer_gesture", "Answer incoming calls by", "Swipe or tap", C, "slide", "swipe", "tap", "pocket", "answer"),
         e("confirm_call", "Confirm before calling", "Avoids accidental calls from lists and search", C, "accidental", "ask before", "pocket dial"),
         e("call_haptics", "Vibrate on call events", "When a call connects, ends, is swapped or merged", C, "vibration", "haptic", "buzz"),
+        e("connect_haptic", "Vibrate when a call connects", "A short buzz when the other person answers", C, "vibration", "haptic", "answered", "picked up"),
         e("unknown_ringtone", "Ringtone for unknown callers", "A different ringtone for numbers not in your contacts", C, "sound", "ring", "tone", "unknown numbers"),
         e("pocket_guard", "Ask before pocket calls", "A favourite, the widget or a shortcut asks first while the phone is covered", C,
             "pocket dial", "butt dial", "accidental", "proximity", "widget", "shortcut", "favourite", "favorite"),
@@ -153,6 +157,10 @@ object SettingsCatalog {
         e("history_details", "Kept calls & recently deleted", "Numbers kept forever, 30-day undo for deleted calls, export", H, "undo", "restore", "keep forever", "export"),
         e("retention", "Keep call history", "Delete calls from the system call log after a while", H, "retention", "delete old calls", "auto delete", "call log"),
         e("sim_labels", "Show SIM in call history", "Only when two SIMs are active", H, "dual sim", "sim label"),
+        e("recents_layout", "Call list layout", "Grouped, every call on its own row, or grouped by day", H,
+            "chronological", "grouped", "by day", "ungroup", "list", "call log", "layout"),
+        e("clear_history", "Clear call history", "All calls, calls from unknown numbers or missed calls, with an export first", H,
+            "delete", "clear", "wipe", "erase", "unknown numbers", "call log"),
         e("insights", "Call insights", "Talk time, top people, calls you didn't return", H, "statistics", "stats", "charts", "talk time"),
         e("import_calls", "Import call history from CSV", "From Parley, Logger or a spreadsheet, with a dry run first", H, "csv", "import", "call log"),
 

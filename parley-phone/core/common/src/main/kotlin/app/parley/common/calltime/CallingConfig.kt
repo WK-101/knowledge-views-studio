@@ -55,6 +55,8 @@ data class ReminderSettings(
 data class CallingConfig(
     /** Vibrate on connect, disconnect, swap, merge and limit warnings (A6). */
     val haptics: Boolean = true,
+    /** P7: the buzz when a call connects (with [haptics] on). Answer and decline keep their own, distinct buzz. */
+    val connectHaptic: Boolean = true,
     val reminders: ReminderSettings = ReminderSettings(),
     val rules: List<LimitRule> = emptyList(),
     /** Warning before a hard limit ends the call. */

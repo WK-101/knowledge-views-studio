@@ -51,6 +51,8 @@ data class AppSettings(
     val contactRowActions: Boolean = false,
     /** Order and visibility of the home tabs (bottom bar and navigation rail). */
     val navTabs: NavTabs = NavTabs(),
+    /** P8: grouped (as before), every call on its own row, or one row per number per day. */
+    val recentsLayout: app.parley.common.calls.RecentsLayout = app.parley.common.calls.RecentsLayout.GROUPED,
 ) {
     companion object {
         val DEFAULT_QUICK_REPLIES = listOf(
