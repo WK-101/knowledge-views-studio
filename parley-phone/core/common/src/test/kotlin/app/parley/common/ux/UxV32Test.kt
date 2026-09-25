@@ -93,6 +93,24 @@ class UxV32Test {
         assertNull(Tips.visible(requested, requested.toSet(), null))
     }
 
+    // ---------------------------------------------------------------- U1 install source
+
+    @Test fun stores_are_not_sideloads_unknown_installers_are() {
+        assertFalse(InstallSource.isSideloaded("com.android.vending"))
+        assertFalse(InstallSource.isSideloaded("org.fdroid.fdroid"))
+        assertTrue(InstallSource.isSideloaded(null))
+        assertTrue(InstallSource.isSideloaded(""))
+        assertTrue(InstallSource.isSideloaded("com.google.android.packageinstaller"))
+        assertTrue(InstallSource.isSideloaded("com.example.filemanager"))
+    }
+
+    @Test fun restricted_settings_help_only_from_android_13() {
+        assertTrue(InstallSource.needsRestrictedSettingsHelp(null, 33))
+        assertTrue(InstallSource.needsRestrictedSettingsHelp("com.android.packageinstaller", 36))
+        assertFalse(InstallSource.needsRestrictedSettingsHelp(null, 32))
+        assertFalse(InstallSource.needsRestrictedSettingsHelp("com.android.vending", 35))
+    }
+
     // ---------------------------------------------------------------- U6 what's new
 
     @Test fun whats_new_once_per_update_never_on_a_fresh_install() {

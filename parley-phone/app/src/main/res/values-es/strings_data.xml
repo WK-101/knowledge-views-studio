@@ -1454,4 +1454,34 @@
         <item quantity="many">Tras %d días</item>
         <item quantity="other">Tras %d días</item>
     </plurals>
+    <!-- v3.2 U1: onboarding permissions page -->
+    <string name="ux_onb_next">Empezar</string>
+    <string name="ux_onb_dialer_title">Haz de Parley tu app de teléfono</string>
+    <string name="ux_onb_dialer_body">Puedes cambiarlo cuando quieras en Ajustes › Llamadas › App de teléfono predeterminada.</string>
+    <string name="ux_onb_restricted_title">¿Instalada desde un archivo?</string>
+    <string name="ux_onb_restricted_body">Desde Android 13, algunos ajustes están protegidos para apps que no vienen de una tienda. Si el siguiente paso dice «Ajuste restringido», Parley no tiene ningún problema.</string>
+    <string name="ux_onb_restricted_steps">Abre Información de la app, toca ⋮ (arriba a la derecha) › Permitir ajustes restringidos y confirma. Luego vuelve y toca de nuevo «Establecer como app de teléfono predeterminada».</string>
+    <string name="ux_onb_app_info">Abrir información de la app</string>
+    <string name="ux_perm_title">Qué puede usar Parley</string>
+    <string name="ux_perm_intro">Permite lo que te parezca bien. Todo se queda en tu teléfono y puedes cambiarlo luego en los ajustes de Android.</string>
+    <string name="ux_perm_allow_all">Permitir todo</string>
+    <string name="ux_perm_all_allowed">Todo permitido</string>
+    <string name="ux_perm_continue">Continuar</string>
+    <string name="ux_perm_without">Sin él: %1$s</string>
+    <string name="ux_perm_in_app_info">Android no volverá a preguntar. Puedes activarlo en Información de la app.</string>
+    <string name="ux_perm_contacts">Contactos</string>
+    <string name="ux_perm_contacts_why">Ver, añadir y editar tus contactos.</string>
+    <string name="ux_perm_contacts_without">puedes marcar números, pero Contactos y Favoritos quedan vacíos</string>
+    <string name="ux_perm_call_log">Historial de llamadas</string>
+    <string name="ux_perm_call_log_why">Mostrar Recientes, llamadas perdidas y quién llamó.</string>
+    <string name="ux_perm_call_log_without">puedes llamar, pero Recientes queda vacío</string>
+    <string name="ux_perm_phone">Teléfono</string>
+    <string name="ux_perm_phone_why">Hacer llamadas, elegir SIM y contestar.</string>
+    <string name="ux_perm_phone_without">las llamadas se abren en tu otra app de teléfono y sin elegir SIM</string>
+    <string name="ux_perm_notifications">Notificaciones</string>
+    <string name="ux_perm_notifications_why">Llamadas perdidas, cumpleaños y la llamada en curso.</string>
+    <string name="ux_perm_notifications_without">las llamadas suenan igual, pero no verás perdidas ni recordatorios</string>
+    <string name="ux_perm_nearby">Dispositivos cercanos</string>
+    <string name="ux_perm_nearby_why">Mostrar tus auriculares Bluetooth o el coche durante las llamadas.</string>
+    <string name="ux_perm_nearby_without">las llamadas usan Bluetooth igual, pero no se muestra el nombre del dispositivo</string>
 </resources>

@@ -1386,4 +1386,34 @@
         <item quantity="one">%d دن بعد</item>
         <item quantity="other">%d دن بعد</item>
     </plurals>
+    <!-- v3.2 U1: onboarding permissions page -->
+    <string name="ux_onb_next">شروع کریں</string>
+    <string name="ux_onb_dialer_title">Parley کو اپنی فون ایپ بنائیں</string>
+    <string name="ux_onb_dialer_body">آپ اسے کبھی بھی سیٹنگز › کالز › ڈیفالٹ فون ایپ میں بدل سکتے ہیں۔</string>
+    <string name="ux_onb_restricted_title">فائل سے انسٹال کیا؟</string>
+    <string name="ux_onb_restricted_body">Android 13 اور اس کے بعد، ایپ اسٹور سے نہ آنے والی ایپس کے لیے کچھ سیٹنگز محفوظ ہوتی ہیں۔ اگر اگلا مرحلہ “محدود سیٹنگ” کہے تو Parley میں کوئی خرابی نہیں ہے۔</string>
+    <string name="ux_onb_restricted_steps">ایپ کی معلومات کھولیں، ⋮ (اوپر دائیں) › محدود سیٹنگز کی اجازت دیں پر ٹیپ کر کے تصدیق کریں۔ پھر واپس آ کر “ڈیفالٹ فون ایپ بنائیں” دوبارہ ٹیپ کریں۔</string>
+    <string name="ux_onb_app_info">ایپ کی معلومات کھولیں</string>
+    <string name="ux_perm_title">Parley کیا استعمال کر سکتا ہے</string>
+    <string name="ux_perm_intro">جو آپ کو ٹھیک لگے اس کی اجازت دیں۔ سب کچھ آپ کے فون پر ہی رہتا ہے، اور آپ اسے بعد میں Android سیٹنگز میں بدل سکتے ہیں۔</string>
+    <string name="ux_perm_allow_all">سب کی اجازت دیں</string>
+    <string name="ux_perm_all_allowed">سب کی اجازت ہے</string>
+    <string name="ux_perm_continue">جاری رکھیں</string>
+    <string name="ux_perm_without">اس کے بغیر: %1$s</string>
+    <string name="ux_perm_in_app_info">Android دوبارہ نہیں پوچھے گا۔ آپ اسے ایپ کی معلومات میں آن کر سکتے ہیں۔</string>
+    <string name="ux_perm_contacts">رابطے</string>
+    <string name="ux_perm_contacts_why">اپنے رابطے دیکھیں، شامل کریں اور بدلیں۔</string>
+    <string name="ux_perm_contacts_without">آپ اب بھی نمبر ڈائل کر سکتے ہیں، مگر رابطے اور پسندیدہ خالی رہیں گے</string>
+    <string name="ux_perm_call_log">کال کی تاریخ</string>
+    <string name="ux_perm_call_log_why">حالیہ کالز، مسڈ کالز اور کس نے کال کی، دکھائیں۔</string>
+    <string name="ux_perm_call_log_without">آپ اب بھی کال کر سکتے ہیں، مگر حالیہ خالی رہے گا</string>
+    <string name="ux_perm_phone">فون</string>
+    <string name="ux_perm_phone_why">کال کریں، سم چنیں اور کال اٹھائیں۔</string>
+    <string name="ux_perm_phone_without">کالز آپ کی دوسری فون ایپ میں کھلیں گی اور سم نہیں چن سکیں گے</string>
+    <string name="ux_perm_notifications">اطلاعات</string>
+    <string name="ux_perm_notifications_why">مسڈ کالز، سالگرہ اور جاری کال۔</string>
+    <string name="ux_perm_notifications_without">کالز بجیں گی، مگر مسڈ کالز یا یاد دہانیاں نظر نہیں آئیں گی</string>
+    <string name="ux_perm_nearby">قریبی آلات</string>
+    <string name="ux_perm_nearby_why">کال کے دوران آپ کا بلوٹوتھ ہیڈسیٹ یا گاڑی دکھائیں۔</string>
+    <string name="ux_perm_nearby_without">کالز بلوٹوتھ پر چلیں گی، مگر آلے کا نام نظر نہیں آئے گا</string>
 </resources>

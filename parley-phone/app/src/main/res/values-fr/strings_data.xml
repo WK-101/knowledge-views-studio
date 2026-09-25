@@ -1454,4 +1454,34 @@
         <item quantity="many">Après %d jours</item>
         <item quantity="other">Après %d jours</item>
     </plurals>
+    <!-- v3.2 U1: onboarding permissions page -->
+    <string name="ux_onb_next">Commencer</string>
+    <string name="ux_onb_dialer_title">Faire de Parley votre appli Téléphone</string>
+    <string name="ux_onb_dialer_body">Vous pouvez le changer à tout moment dans Paramètres › Appels › Appli Téléphone par défaut.</string>
+    <string name="ux_onb_restricted_title">Installée depuis un fichier ?</string>
+    <string name="ux_onb_restricted_body">Depuis Android 13, certains paramètres sont protégés pour les applis qui ne viennent pas d\'une boutique. Si l\'étape suivante indique « Paramètre restreint », Parley n\'a aucun problème.</string>
+    <string name="ux_onb_restricted_steps">Ouvrez Infos sur l\'appli, touchez ⋮ (en haut à droite) › Autoriser les paramètres restreints et confirmez. Revenez ensuite et touchez de nouveau « Définir comme appli Téléphone par défaut ».</string>
+    <string name="ux_onb_app_info">Ouvrir Infos sur l\'appli</string>
+    <string name="ux_perm_title">Ce que Parley peut utiliser</string>
+    <string name="ux_perm_intro">Autorisez ce qui vous convient. Tout reste sur votre téléphone, et vous pourrez changer cela plus tard dans les paramètres Android.</string>
+    <string name="ux_perm_allow_all">Tout autoriser</string>
+    <string name="ux_perm_all_allowed">Tout est autorisé</string>
+    <string name="ux_perm_continue">Continuer</string>
+    <string name="ux_perm_without">Sans : %1$s</string>
+    <string name="ux_perm_in_app_info">Android ne redemandera pas. Vous pouvez l\'activer dans Infos sur l\'appli.</string>
+    <string name="ux_perm_contacts">Contacts</string>
+    <string name="ux_perm_contacts_why">Voir, ajouter et modifier vos contacts.</string>
+    <string name="ux_perm_contacts_without">vous pouvez toujours composer des numéros, mais Contacts et Favoris restent vides</string>
+    <string name="ux_perm_call_log">Historique des appels</string>
+    <string name="ux_perm_call_log_why">Afficher les Récents, les appels manqués et qui a appelé.</string>
+    <string name="ux_perm_call_log_without">vous pouvez toujours appeler, mais les Récents restent vides</string>
+    <string name="ux_perm_phone">Téléphone</string>
+    <string name="ux_perm_phone_why">Passer des appels, choisir une SIM et répondre.</string>
+    <string name="ux_perm_phone_without">les appels s\'ouvrent dans votre autre appli Téléphone, sans choix de SIM</string>
+    <string name="ux_perm_notifications">Notifications</string>
+    <string name="ux_perm_notifications_why">Appels manqués, anniversaires et l\'appel en cours.</string>
+    <string name="ux_perm_notifications_without">les appels sonnent toujours, mais vous ne verrez ni appels manqués ni rappels</string>
+    <string name="ux_perm_nearby">Appareils à proximité</string>
+    <string name="ux_perm_nearby_why">Afficher votre casque Bluetooth ou votre voiture pendant les appels.</string>
+    <string name="ux_perm_nearby_without">les appels utilisent toujours le Bluetooth, mais le nom de l\'appareil n\'apparaît pas</string>
 </resources>

@@ -101,7 +101,10 @@ fun ParleyRoot(vm: AppViewModel) {
         return
     }
 
-    if (!settings.onboardingDone && !skippedOnboarding && !(isDefault && hasContacts)) {
+    // U1: once started, onboarding runs to its permissions page even after the phone role grants contacts.
+    var onboardingStarted by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    if (!settings.onboardingDone && !skippedOnboarding && (onboardingStarted || !(isDefault && hasContacts))) {
+        androidx.compose.runtime.SideEffect { onboardingStarted = true }
         OnboardingScreen(vm, onDone = { skippedOnboarding = true })
         return
     }
