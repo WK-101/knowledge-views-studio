@@ -383,3 +383,36 @@ Call the phone from another phone in each state below. For each one, check that 
 - [ ] Install signed Parley 3.2.0 over 3.1.0: it updates in place and keeps its data; Android's App info shows 3.2.0.
 - [ ] Install signed Parley Lists 1.1.1 over 1.1.0: it updates in place, and Parley › Blocking › Spam lists still shows its packs (the signature permission is granted).
 - [ ] If Parley Lists is signed with a different key (for example a debug build next to a release Parley), Parley shows none of its packs and doesn't crash.
+
+### 15.3 Circle: interactions, "Log this?", kind reminders, dates (R1–R5, U4, G4–G6)
+
+**Circle tab and Favourites (R1, U6)**
+- [ ] Update from 3.1 with a customised bar (e.g. Keypad first, Favourites hidden): the bar is unchanged and the new Circle tab is *not* in it. Settings › Appearance › Navigation bar lists Circle, hidden. A fresh install also has it hidden.
+- [ ] With the tab hidden, Favourites starts with "Your circle" (only once someone is in it, or suggestions exist). Tap the header: it folds away and stays folded after a restart.
+- [ ] Empty Circle with call history: "Suggested from your calls" lists up to 10 most-called contacts with "N calls this year · Every N days"; Add puts them in the Circle (Undo on the snackbar removes them). Without call history: "Your circle is empty" and how to add someone.
+- [ ] Show the Circle tab: people are sorted Due, Soon, Fine, each with "Last in touch 12 days ago · call" (or met / message / video call), Call and Message buttons. Search "zz": "No one in your circle matches “zz”" (never "Your circle is empty").
+- [ ] Private (vault) contacts never appear in the Circle, the suggestions or the reminders, also with discreet mode off. Move a Circle contact into the vault: it leaves the Circle and its logged entries are gone.
+
+**Contact page and timeline (U4, R2)**
+- [ ] Order: header and action tiles, Stay in touch, Dates, numbers (e-mail, addresses, messengers, about), Timeline, call insights, pinned note, settings.
+- [ ] Not in the Circle: Stay in touch says "Add to your circle"; ⋮ has "Log interaction"; no FAB. In the Circle: the card shows the rhythm, last in touch and the next date within 60 days with a Due/Soon/Fine chip, and an extended FAB "Log interaction".
+- [ ] Log a meeting with a note; it appears in the Timeline under this month, with calls, call notes and birthdays of earlier months. Edit it (change only the note): its time stays. Change its day: the time of day stays. Delete: "Entry deleted" with Undo brings it back with the same time.
+- [ ] Merge the contact with a duplicate (Find & merge): the logged entries and the rhythm follow the merged contact.
+- [ ] Encrypted backup, restore on another phone (or after clearing data): Circle members, rhythms and entries come back, matched by number or name.
+
+**"Log this?" (R3)**
+- [ ] For a Circle contact, Message → WhatsApp (or Signal, Telegram, SMS, a video tile): nothing shows while you're in the other app; back in Parley a snackbar asks "Log as a message with Sam?" (video: "…a video call…"). Log → "Logged time with Sam" with Undo. Launching twice within 10 minutes records one entry.
+- [ ] A contact outside the Circle: no question. A normal phone call: never a question (calls come from the call log).
+- [ ] Settings › Contacts › Log messages you start: set WhatsApp to Always: back in Parley "Logged a message with Sam" with Undo; Never: nothing. Other channels keep asking.
+
+**Kind reminders (R4, G4, G5, G6)**
+- [ ] Default delivery is the weekly digest: set the device date to a Sunday (or wait) at the reminder hour: one notification "People you might like to hear from" with at most 3 lines (one due, one upcoming date, one quiet); tapping it opens the Circle. It never comes twice in a week; the next week's "quiet" person is someone else.
+- [ ] Settings › Contacts › How keep-in-touch reminders arrive › As they come due, At most per week 2: with 3 people due, 2 notifications this week ("Sam might enjoy hearing from you", last in touch line), no counters. "Not now" removes it and Sam isn't due again until a full gap later.
+- [ ] Log a video call (or answer a call) with someone due: they turn Fine and aren't in the next reminder (G6).
+- [ ] Rhythm › Natural rhythm on someone with 5+ days of calls: the card shows "Natural rhythm · about every N days" (at least 7); with little history "still learning".
+- [ ] Lock screen: every reminder shows only "Reminder" until unlocked (G4); nothing appears on a paired watch.
+
+**Dates (R5, G5)**
+- [ ] Settings › Contacts › Remind me before dates › Also 3 days before: a birthday 3 days away notifies "Sam has a birthday in 3 days" once (run the worker twice: still once), nothing the next two days, then "Sam has a birthday today".
+- [ ] "Mark as wished" on the lead notification: it disappears, a "message" entry appears in Sam's timeline and nothing fires on the day.
+- [ ] A contact with a birthday and an anniversary on the same day gets two notifications; contact 5's nudge and contact 10 005's birthday don't replace each other.

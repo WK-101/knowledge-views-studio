@@ -7,7 +7,8 @@ enum class ListDensity { COMFORTABLE, COMPACT }
 /** How an incoming call is answered. SWIPE protects against pocket answers; TAP is easiest to use. */
 enum class AnswerGesture { SWIPE, TAP }
 
-enum class StartTab { FAVORITES, RECENTS, CONTACTS, KEYPAD }
+/** Home tabs. New tabs are added at the end; [NavTabs] keeps them hidden until the user shows them (U6). */
+enum class StartTab { FAVORITES, RECENTS, CONTACTS, KEYPAD, CIRCLE }
 
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,

@@ -61,7 +61,7 @@ class DataContainer(context: Context) {
     val backup by lazy {
         app.parley.data.backup.BackupRepository(appContext, contacts, records, blocks, prefs, db, settings, vault, app.parley.data.backup.BackupPrefs(appContext))
             .apply { callHistory = history }
-            .also { it.extras = { listOf(people.backupExtras) } }
+            .also { it.extras = { listOf(people.backupExtras, circle.backupExtras) } }
     }
     val history: app.parley.data.history.CallHistory by lazy {
         app.parley.data.history.CallHistory(appContext, callLog, contacts, vault, scope).also { h ->
@@ -73,7 +73,15 @@ class DataContainer(context: Context) {
     val temporaries by lazy { app.parley.data.people.TemporaryContactStore(this) }
 
     /** Keeps notes, backgrounds, relation links and temporary flags attached when lookup keys change (F8). */
-    val contactKeys by lazy { app.parley.data.people.ContactKeys(contacts, meta) { people.backgrounds } }
+    val contactKeys by lazy { app.parley.data.people.ContactKeys(contacts, meta, { people.backgrounds }) { circle.interactions } }
+
+    /** R1–R5: the Circle (keep-in-touch rhythms, interactions, "Log this?", reminder bookkeeping). */
+    val circle by lazy {
+        app.parley.data.circle.CircleRepository(
+            appContext, meta, app.parley.data.circle.InteractionStore(db.interactionDao()),
+            index = { history.index }, contactsFlow = { contacts.contacts },
+        )
+    }
 
     @OptIn(kotlinx.coroutines.FlowPreview::class)
     private fun followKeyChanges() {

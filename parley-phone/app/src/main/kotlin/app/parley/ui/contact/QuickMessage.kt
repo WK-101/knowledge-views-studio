@@ -44,6 +44,7 @@ fun rememberQuickMessenger(vm: AppViewModel): Pair<QuickMessenger, @Composable (
                 val reach = Reach(
                     name = c.displayName, numbers = phones.map { it.number to Format.phoneType(res, it.type, it.label) },
                     defaultNumber = default, messengers = messengers, prefs = MessengerPrefs.decode(meta?.preferredMessenger).let { if (number != null) it.copy(number = null) else it },
+                    lookupKey = c.lookupKey, contactId = c.id,
                 )
                 val route = if (ask) MessageRoute.Ask else ContactMessaging.route(context, reach)
                 if (route == MessageRoute.Ask) pending = Pending(reach, c.lookupKey, c.id)

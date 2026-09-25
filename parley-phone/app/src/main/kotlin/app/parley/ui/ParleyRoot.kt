@@ -265,6 +265,8 @@ fun ParleyRoot(vm: AppViewModel) {
     // U10: a crash report kept from last time is offered once.
     app.parley.ui.people.CrashReportHost(vm)
     app.parley.messaging.ChatThenDecideHost(snackbar, openPrivate = { id -> nav.navigate(Routes.vault(id)) { launchSingleTop = true } }) { id -> nav.navigate(Routes.contact(id)) { launchSingleTop = true } }
+    // R3 "Log this?" and the Circle's Undo messages.
+    app.parley.ui.circle.CircleSnackHost(vm, snackbar)
     CallDialogs(vm)
     app.parley.ui.calltime.UssdDialog(vm)
     app.parley.ui.blocking.BlockingDialogHost(vm)

@@ -6,6 +6,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
@@ -142,7 +143,36 @@ data class ContactMetaEntity(
     val contactId: Long? = null,
     /** Relation name -> related contact's lookup key ([app.parley.common.people.RelationLinks], v4, F23). */
     val relationLinks: String? = null,
+    /** R4: Circle rhythm, JSON ([app.parley.common.circle.KeepRhythm]); null = every [reachOutDays] days (v5). */
+    val rhythm: String? = null,
 )
+
+/**
+ * R2: a contact that isn't a phone call (met, messaged, video call, other), keyed to the contact's lookup key like
+ * contact_meta (re-keyed by [app.parley.data.people.ContactKeys]). The note is sealed with the Keystore key Parley
+ * uses for small private records ([app.parley.data.circle.InteractionStore]); nothing personal is stored in clear.
+ * [dedupeKey] is unique, so a "Log this?" accepted twice or a restore run twice records one entry (v5).
+ */
+@Entity(tableName = "interactions", indices = [Index(value = ["dedupeKey"], unique = true), Index(value = ["lookupKey", "time"])])
+data class InteractionEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val lookupKey: String,
+    /** Last known contact id, like contact_meta.contactId. */
+    val contactId: Long? = null,
+    /** [app.parley.common.circle.InteractionType] name. */
+    val type: String,
+    /** [app.parley.common.circle.InteractionChannel] name when logged from a launch; null when added by hand. */
+    val channel: String? = null,
+    /** When it happened (edits keep it unless the user changes it). */
+    val time: Long,
+    /** Sealed note, or null. */
+    val noteBlob: ByteArray? = null,
+    val dedupeKey: String,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** Newest interaction per contact, for the Circle list. */
+data class LastInteractionRow(val lookupKey: String, val time: Long, val type: String)
 
 /** Private vault contact. All personal fields are AES-GCM encrypted by the app. */
 @Entity(tableName = "vault_contacts")
@@ -250,6 +280,59 @@ interface MetaDao {
 
     @Query("DELETE FROM call_notes WHERE id = :id")
     suspend fun deleteCallNote(id: Long)
+}
+
+@Dao
+interface InteractionDao {
+    @Query("SELECT * FROM interactions WHERE lookupKey = :key ORDER BY time DESC")
+    fun forKey(key: String): Flow<List<InteractionEntity>>
+
+    @Query("SELECT * FROM interactions WHERE lookupKey = :key ORDER BY time DESC")
+    suspend fun forKeyNow(key: String): List<InteractionEntity>
+
+    @Query("SELECT * FROM interactions ORDER BY time DESC")
+    suspend fun all(): List<InteractionEntity>
+
+    /**
+     * The newest interaction of each contact (SQLite returns the bare `type` of the row holding MAX(time)). Emits
+     * whenever any interaction changes, for lists that show "last in touch".
+     */
+    @Query("SELECT lookupKey, MAX(time) AS time, type FROM interactions GROUP BY lookupKey")
+    fun latestPerKey(): Flow<List<LastInteractionRow>>
+
+    @Query("SELECT lookupKey, time, type FROM interactions WHERE lookupKey = :key ORDER BY time DESC LIMIT 1")
+    suspend fun latestFor(key: String): LastInteractionRow?
+
+    @Query("SELECT time FROM interactions WHERE lookupKey = :key")
+    suspend fun timesFor(key: String): List<Long>
+
+    @Query("SELECT * FROM interactions WHERE id = :id")
+    suspend fun get(id: Long): InteractionEntity?
+
+    /** Returns -1 when the dedupe key already exists. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(e: InteractionEntity): Long
+
+    @androidx.room.Update
+    suspend fun update(e: InteractionEntity)
+
+    @Query("DELETE FROM interactions WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("DELETE FROM interactions WHERE dedupeKey = :key")
+    suspend fun deleteByDedupe(key: String)
+
+    @Query("SELECT DISTINCT lookupKey FROM interactions")
+    suspend fun keys(): List<String>
+
+    @Query("UPDATE interactions SET lookupKey = :to, contactId = COALESCE(:toId, contactId) WHERE lookupKey = :from")
+    suspend fun rekey(from: String, to: String, toId: Long?)
+
+    @Query("DELETE FROM interactions WHERE lookupKey = :key")
+    suspend fun deleteFor(key: String)
+
+    @Query("DELETE FROM interactions")
+    suspend fun clear()
 }
 
 @Dao
@@ -399,20 +482,23 @@ interface PrefsDao {
         BlockRuleEntity::class, BlockedCallEntity::class, SpeedDialEntity::class, NumberSimEntity::class,
         JournalEntity::class, TemporaryContactEntity::class, ContactMetaEntity::class,
         VaultContactEntity::class, VaultNumberEntity::class, PrivateCallEntity::class, CallNoteEntity::class,
-        CallRingEntity::class,
+        CallRingEntity::class, InteractionEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
     // v3: allow rules, schedules, SIM, hit counters, decision traces, ring lengths (blocking roadmap).
     // v4: temporary contacts remember their raw contact ids; contact metadata remembers the contact id and relation
     //     links (round-4 data-safety fixes F2, F8, F23). Added columns only, all nullable or defaulted.
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
+    // v5: interactions (R2) and the Circle rhythm column in contact metadata (R4). A new table and a nullable
+    //     column: nothing existing changes.
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5)],
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun blockDao(): BlockDao
     abstract fun prefsDao(): PrefsDao
     abstract fun metaDao(): MetaDao
     abstract fun vaultDao(): VaultDao
+    abstract fun interactionDao(): InteractionDao
 
     companion object {
         fun create(context: Context): AppDatabase =

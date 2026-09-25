@@ -68,8 +68,13 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "") {
     val frequents by vm.frequents.collectAsStateWithLifecycle()
     val ps by vm.people.settings.collectAsStateWithLifecycle()
     var reordering by remember { mutableStateOf(false) }
+    // R1: while the Circle tab is hidden, the Circle is a folding section at the top of Favourites.
+    val circleHere = !vm.settings.collectAsStateWithLifecycle().value.navTabs.isVisible(app.parley.common.StartTab.CIRCLE)
     if (favorites.isEmpty() && frequents.isEmpty()) {
-        EmptyState(Icons.Rounded.StarOutline, stringResource(R.string.fav_empty_title), stringResource(R.string.fav_empty_body))
+        Column(Modifier.fillMaxSize()) {
+            if (circleHere) Column(Modifier.padding(top = 12.dp)) { app.parley.ui.circle.CircleFavoritesSection(vm, open, query) }
+            EmptyState(Icons.Rounded.StarOutline, stringResource(R.string.fav_empty_title), stringResource(R.string.fav_empty_body))
+        }
         return
     }
     // Local copy while dragging; written back (by lookup key) when the drag ends.
@@ -109,6 +114,9 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "") {
             }
         },
     ) {
+        if (circleHere && !reordering) item(span = { GridItemSpan(maxLineSpan) }, key = "circle") {
+            app.parley.ui.circle.CircleFavoritesSection(vm, open, q)
+        }
         if (q.isNotEmpty() && shownFavorites.isEmpty() && shownFrequents.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             EmptyState(Icons.Rounded.StarOutline, stringResource(R.string.fav_no_match, q), modifier = Modifier.padding(top = 32.dp))
         }

@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Forum
+import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.LocationOn
@@ -123,6 +124,8 @@ import kotlinx.coroutines.withContext
  * A contact's page. U1: the photo and name dock into the top bar as you scroll ("last talked" shows there once
  * collapsed); U2: grouped sections; U3: labelled Call / Message / Video / Email tiles; M6/M7: "Message on…" with a
  * remembered choice per person; I1 handles, I3 default number or e-mail, I4 other fields, I5 relation types.
+ * U4 (v3.2): header, actions, Stay in touch, dates, numbers, timeline (R2), notes; "Log interaction" is the FAB for
+ * Circle contacts and a ⋮ item for everyone else.
  */
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -159,7 +162,14 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     LaunchedEffect(contactId, all) {
         messengers = withContext(Dispatchers.IO) { app.parley.data.Messengers.actions(context, contactId) }
     }
-    LaunchedEffect(details) { details?.lookupKey?.let { meta = vm.c.meta.meta(it) } }
+    // Re-read when any metadata changes (the Circle's rhythm is also set from its own dialog and from Undo).
+    val metaRows by vm.c.meta.allMeta().collectAsStateWithLifecycle(emptyList())
+    LaunchedEffect(details, metaRows) { details?.lookupKey?.let { meta = vm.c.meta.meta(it) } }
+    // R2: logged interactions for the timeline and the Stay in touch card.
+    val interactions by remember(details?.lookupKey) { details?.lookupKey?.takeIf { it.isNotEmpty() }?.let { vm.c.circle.interactions.interactions(it) } ?: kotlinx.coroutines.flow.flowOf(emptyList()) }
+        .collectAsStateWithLifecycle(emptyList())
+    var logDialog by remember { mutableStateOf(false) }
+    var editEntry by remember { mutableStateOf<app.parley.data.circle.Interaction?>(null) }
     fun saveMeta(f: (app.parley.data.db.ContactMetaEntity) -> app.parley.data.db.ContactMetaEntity) {
         val key = details?.lookupKey ?: return
         // The contact id is kept beside the key so the row can follow a key change (F8).
@@ -225,6 +235,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         defaultNumber = (dd.phones.firstOrNull { it.isPrimary } ?: dd.phones.firstOrNull())?.value,
         messengers = messengers,
         prefs = prefs,
+        lookupKey = dd.lookupKey,
+        contactId = contactId,
     )
     fun message(dd: ContactDetails, number: String? = null) {
         val r = reach(dd).let { if (number != null) it.copy(defaultNumber = number, prefs = it.prefs.copy(number = null)) else it }
@@ -258,6 +270,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         IconButton({ open(Routes.edit(id = contactId)) }) { Icon(Icons.Rounded.Edit, stringResource(R.string.main_edit)) }
                         IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more)) }
                         DropdownMenu(menu, { menu = false }) {
+                            // U4: "Log interaction" is the FAB for Circle contacts; for everyone else it's here.
+                            if (meta?.reachOutDays == null) DropdownMenuItem({ Text(stringResource(R.string.circle_log_interaction)) }, leadingIcon = { Icon(Icons.Rounded.Handshake, null) }, onClick = { menu = false; logDialog = true })
                             DropdownMenuItem({ Text(stringResource(R.string.detail_share_file)) }, leadingIcon = { Icon(Icons.Rounded.Share, null) }, onClick = {
                                 menu = false; Intents.shareVcard(context, vm.c.contacts.vcardUri(d.lookupKey), d.displayName)
                             })
@@ -304,6 +318,15 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                 },
             )
+        },
+        floatingActionButton = {
+            if (d != null && meta?.reachOutDays != null) {
+                androidx.compose.material3.ExtendedFloatingActionButton(
+                    onClick = { logDialog = true },
+                    icon = { Icon(Icons.Rounded.Handshake, null) },
+                    text = { Text(stringResource(R.string.circle_log_interaction)) },
+                )
+            }
         },
     ) { padding ->
         if (d == null) {
@@ -364,7 +387,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             ) {
                                 val only = r.videoRows.distinctBy { it.accountType }.singleOrNull()
                                 val target = preferredVideo ?: only
-                                if (target != null) ContactMessaging.start(context, target.intent(), target.appName)?.let { vm.toast(it) } else videoChooser = true
+                                if (target != null) ContactMessaging.startRow(context, r, target)?.let { vm.toast(it) } else videoChooser = true
                             }
                         }
                         ActionTile(Icons.Rounded.Email, stringResource(R.string.detail_email), d.emails.isNotEmpty()) {
@@ -373,17 +396,12 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                 }
             }
-            item(key = "note") {
-                val note = meta?.pinnedNote
-                SegmentedGroup {
-                    item {
-                        ListItem(
-                            modifier = Modifier.clickable { editNote = true },
-                            colors = groupRowColors(),
-                            leadingContent = { Icon(Icons.Rounded.PushPin, null, tint = if (note != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
-                            headlineContent = { Text(note ?: stringResource(R.string.detail_add_note)) },
-                            supportingContent = { Text(stringResource(if (note != null) R.string.detail_note_shown else R.string.detail_note_hint)) },
-                        )
+            // U4: Stay in touch right under the actions (R4: rhythm, last in touch, next date).
+            if (d.lookupKey.isNotEmpty()) item(key = "stay") { app.parley.ui.circle.StayInTouchCard(meta, d, history, interactions) { reachOut = true } }
+            if (d.events.isNotEmpty()) item(key = "dates") {
+                SegmentedGroup(stringResource(R.string.circle_dates)) {
+                    d.events.forEachIndexed { i, ev ->
+                        item { GroupDataRow(Icons.Rounded.Cake, i == 0, app.parley.ui.people.describeLifeEvent(resources, d, ev), app.parley.ui.people.eventLabel(resources, ev), onClick = {}) }
                     }
                 }
             }
@@ -442,7 +460,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             GroupDataRow(
                                 if (m.isVideo) Icons.Rounded.Videocam else if (m.isCall) Icons.Rounded.Call else Icons.AutoMirrored.Rounded.Chat,
                                 showIcon = true, text = m.label, label = if (preferred) resources.getString(R.string.detail_usual_choice, m.appName) else m.appName,
-                                onClick = { ContactMessaging.start(context, m.intent(), m.appName)?.let { vm.toast(it) } },
+                                onClick = { ContactMessaging.startRow(context, r, m)?.let { vm.toast(it) } },
                                 trailing = if (preferred) ({ Icon(Icons.Rounded.Star, stringResource(R.string.detail_usual), tint = MaterialTheme.colorScheme.primary) }) else null,
                                 menu = { close ->
                                     DropdownMenuItem(
@@ -465,11 +483,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                 }
             }
-            if (d.events.isNotEmpty() || d.websites.isNotEmpty() || d.note.isNotBlank() || d.relations.isNotEmpty()) item(key = "about") {
+            if (d.websites.isNotEmpty() || d.note.isNotBlank() || d.relations.isNotEmpty()) item(key = "about") {
                 SegmentedGroup(stringResource(R.string.detail_about, d.given.ifBlank { d.displayName })) {
-                    d.events.forEachIndexed { i, ev ->
-                        item { GroupDataRow(Icons.Rounded.Cake, i == 0, app.parley.ui.people.describeLifeEvent(resources, d, ev), app.parley.ui.people.eventLabel(resources, ev), onClick = {}) }
-                    }
                     d.websites.forEachIndexed { i, w -> item { GroupDataRow(Icons.Rounded.Language, i == 0, w.value, resources.getString(R.string.detail_website), onClick = { Intents.web(context, w.value) }) } }
                     d.relations.forEachIndexed { i, rel ->
                         item {
@@ -505,6 +520,30 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 }
                 GroupNote(stringResource(R.string.detail_other_fields_note))
             }
+            val keys = d.phones.map { PhoneNumbers.matchKey(it.value) }.toSet()
+            val notes = allNotes.filter { it.numberKey in keys }
+            // R2: calls, logged interactions, call notes and dates, by month.
+            item(key = "timeline") {
+                app.parley.ui.circle.ContactTimeline(
+                    vm, d, history, interactions, notes, onEdit = { editEntry = it },
+                    onAllCalls = primary?.takeIf { history.size > 5 }?.let { p -> { open(Routes.history(p.value)) } },
+                )
+            }
+            item(key = "insights") { OnGroupSurface { app.parley.ui.history.CallInsightsSection(vm, d.phones.map { it.value }) } }
+            item(key = "note") {
+                val note = meta?.pinnedNote
+                SegmentedGroup {
+                    item {
+                        ListItem(
+                            modifier = Modifier.clickable { editNote = true },
+                            colors = groupRowColors(),
+                            leadingContent = { Icon(Icons.Rounded.PushPin, null, tint = if (note != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
+                            headlineContent = { Text(note ?: stringResource(R.string.detail_add_note)) },
+                            supportingContent = { Text(stringResource(if (note != null) R.string.detail_note_shown else R.string.detail_note_hint)) },
+                        )
+                    }
+                }
+            }
             item(key = "settings") {
                 SegmentedGroup(stringResource(R.string.home_settings)) {
                     item {
@@ -513,16 +552,6 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             leadingContent = { Icon(Icons.Rounded.Voicemail, null) },
                             headlineContent = { Text(stringResource(R.string.detail_send_to_voicemail)) },
                             trailingContent = { Switch(d.sendToVoicemail, { v -> scope.launch { vm.c.contacts.setSendToVoicemail(contactId, v); reloads++ } }) },
-                        )
-                    }
-                    item {
-                        val every = meta?.reachOutDays
-                        ListItem(
-                            modifier = Modifier.clickable { reachOut = true },
-                            colors = groupRowColors(),
-                            leadingContent = { Icon(Icons.Rounded.NotificationsActive, null) },
-                            headlineContent = { Text(stringResource(R.string.detail_keep_in_touch)) },
-                            supportingContent = { Text(every?.let { pluralStringResource(R.plurals.detail_not_talked_days, it, it) } ?: stringResource(R.string.detail_off)) },
                         )
                     }
                     blended { app.parley.ui.calltime.ContactCallTimeRows(vm, d.lookupKey, d.displayName, d.starred) }
@@ -537,34 +566,6 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                     blended { app.parley.ui.people.ProvenanceRow(vm, contactId, d, open) }
                     blended { app.parley.ui.people.CallBackgroundInfoRow(vm, d) { open(Routes.edit(id = contactId)) } }
-                }
-            }
-            val keys = d.phones.map { PhoneNumbers.matchKey(it.value) }.toSet()
-            val notes = allNotes.filter { it.numberKey in keys }
-            if (notes.isNotEmpty()) item(key = "callnotes") {
-                SegmentedGroup(stringResource(R.string.detail_call_notes)) {
-                    notes.take(10).forEachIndexed { i, n ->
-                        item { GroupDataRow(Icons.AutoMirrored.Rounded.Notes, i == 0, n.text, Format.fullDate(context, n.callDate), onClick = {}, headline = { LinkifiedText(n.text) }) }
-                    }
-                }
-            }
-            item(key = "insights") { OnGroupSurface { app.parley.ui.history.CallInsightsSection(vm, d.phones.map { it.value }) } }
-            if (history.isNotEmpty()) item(key = "recent") {
-                SegmentedGroup(stringResource(R.string.detail_recent_calls)) {
-                    history.take(5).forEachIndexed { _, e ->
-                        item {
-                            val (icon, tint) = callTypeIcon(e.type)
-                            ListItem(
-                                colors = groupRowColors(),
-                                leadingContent = { Icon(icon, null, tint = tint) },
-                                headlineContent = { Text(Format.fullDate(context, e.date)) },
-                                supportingContent = { Text(listOf(Bidi.ltr(Format.number(e.number, vm.countryIso)), Format.duration(e.durationSec)).filter { it.isNotBlank() }.joinToString(stringResource(R.string.main_separator))) },
-                            )
-                        }
-                    }
-                }
-                if (history.size > 5 && primary != null) {
-                    TextButton({ open(Routes.history(primary.value)) }, Modifier.padding(start = 16.dp)) { Text(pluralStringResource(R.plurals.detail_see_all_calls, history.size, history.size)) }
                 }
             }
         }
@@ -591,24 +592,14 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 dismissButton = { TextButton({ editNote = false }) { Text(stringResource(R.string.main_cancel)) } },
             )
         }
-        if (reachOut) {
-            AlertDialog(
-                onDismissRequest = { reachOut = false },
-                title = { Text(stringResource(R.string.detail_keep_in_touch_title)) },
-                text = {
-                    Column {
-                        app.parley.ui.history.RhythmSuggestion(vm, d.phones.map { it.value }) { days -> reachOut = false; saveMeta { it.copy(reachOutDays = days, lastNudgedAt = null) } }
-                        listOf(
-                            null to stringResource(R.string.detail_off), 7 to stringResource(R.string.detail_every_week), 14 to stringResource(R.string.detail_every_2_weeks),
-                            30 to stringResource(R.string.detail_every_month), 90 to stringResource(R.string.detail_every_3_months), 180 to stringResource(R.string.detail_every_6_months),
-                        ).forEach { (days, label) ->
-                            ListItem(headlineContent = { Text(label) }, modifier = Modifier.clickable { reachOut = false; saveMeta { it.copy(reachOutDays = days, lastNudgedAt = null) } })
-                        }
-                    }
-                },
-                confirmButton = {},
-                dismissButton = { TextButton({ reachOut = false }) { Text(stringResource(R.string.main_cancel)) } },
-            )
+        if (reachOut) app.parley.ui.circle.RhythmDialog(vm, d, contactId, meta) { reachOut = false }
+        if (logDialog || editEntry != null) {
+            val initial = editEntry
+            app.parley.ui.circle.LogInteractionDialog(d.given.ifBlank { d.displayName }, initial, onDismiss = { logDialog = false; editEntry = null }) { type, note, time ->
+                logDialog = false
+                editEntry = null
+                scope.launch { app.parley.ui.circle.saveInteraction(vm, d, contactId, initial, type, note, time) }
+            }
         }
         if (pinDialog) {
             AlertDialog(

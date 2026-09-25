@@ -1,5 +1,6 @@
 package app.parley
 
+import app.parley.ui.circle.CircleUi
 import android.annotation.SuppressLint
 import android.Manifest
 import android.app.Application
@@ -221,6 +222,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Contacts-feature state: label and account filters, second line, favourites order. */
     val people = PeopleUi(c, viewModelScope, contacts, contactQuery, countryIso)
+
+    /** R1: the Circle (people with keep-in-touch set) and its suggestions. */
+    val circle = CircleUi(c, viewModelScope, contacts)
 
     val favorites: StateFlow<List<ContactSummary>> = contacts.map { it.orEmpty().filter { c -> c.starred } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())

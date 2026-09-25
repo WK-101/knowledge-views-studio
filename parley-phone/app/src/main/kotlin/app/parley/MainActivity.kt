@@ -126,6 +126,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             ACTION_OPEN_BLOCKING -> vm.navigate(NavEvent.Route(app.parley.ui.Routes.BLOCKING))
             ACTION_ADD_CALL -> vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
             ACTION_BULK_ADD -> vm.navigate(NavEvent.Route(app.parley.messaging.MessagingRoutes.BULK_ADD))
+            // R4: the keep-in-touch digest opens the Circle (as the bar's extra tab while it's hidden).
+            ACTION_SHOW_CIRCLE -> vm.navigate(NavEvent.Tab(StartTab.CIRCLE))
             ACTION_SHOW_MISSED -> {
                 vm.navigate(NavEvent.Tab(StartTab.RECENTS, missedOnly = true))
                 vm.markMissedSeen()
@@ -197,6 +199,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         const val QUICK_CONTACT_LEGACY = "com.android.contacts.action.QUICK_CONTACT"
         const val SHOW_OR_CREATE = "com.android.contacts.action.SHOW_OR_CREATE_CONTACT"
         const val ACTION_SHOW_MISSED = "app.parley.SHOW_MISSED"
+        const val ACTION_SHOW_CIRCLE = "app.parley.SHOW_CIRCLE"
         const val ACTION_SHOW_CALLER = "app.parley.SHOW_CALLER"
         const val ACTION_POST_CALL = "app.parley.POST_CALL"
         const val EXTRA_POST_CALL_ACTION = "post_call_action"

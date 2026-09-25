@@ -13,7 +13,7 @@ package app.parley.common
  */
 data class NavTabs(
     val order: List<StartTab> = DEFAULT_ORDER,
-    val hidden: Set<StartTab> = emptySet(),
+    val hidden: Set<StartTab> = HIDDEN_BY_DEFAULT,
 ) {
     /** Tabs shown in the bar, in order. Never empty. */
     val visible: List<StartTab> get() = order.filter { it !in hidden }.ifEmpty { listOf(order.first()) }
@@ -51,9 +51,15 @@ data class NavTabs(
     fun encode(): String = order.joinToString(",") { (if (it in hidden) "-" else "") + it.name }
 
     companion object {
-        val DEFAULT_ORDER = listOf(StartTab.FAVORITES, StartTab.RECENTS, StartTab.CONTACTS, StartTab.KEYPAD)
+        val DEFAULT_ORDER = listOf(StartTab.FAVORITES, StartTab.RECENTS, StartTab.CONTACTS, StartTab.KEYPAD, StartTab.CIRCLE)
 
-        /** Reads [encode]'s format; anything unreadable falls back to the default, missing tabs are appended. */
+        /** Optional tabs, off until shown in Settings › Navigation bar (R1: the Circle). */
+        val HIDDEN_BY_DEFAULT: Set<StartTab> = setOf(StartTab.CIRCLE)
+
+        /**
+         * Reads [encode]'s format; anything unreadable falls back to the default. U6 (layout promise): a tab missing
+         * from a saved value is one an update added, so it is appended *hidden*: an update never changes the bar.
+         */
         fun decode(value: String?): NavTabs {
             if (value.isNullOrBlank()) return NavTabs()
             val order = ArrayList<StartTab>()
@@ -65,7 +71,12 @@ data class NavTabs(
                 order += tab
                 if (off) hidden += tab
             }
-            StartTab.entries.forEach { if (it !in order) order += it }
+            StartTab.entries.forEach {
+                if (it !in order) {
+                    order += it
+                    hidden += it
+                }
+            }
             // Never hide everything: the first tab comes back.
             if (hidden.containsAll(order)) hidden -= order.first()
             return NavTabs(order, hidden)

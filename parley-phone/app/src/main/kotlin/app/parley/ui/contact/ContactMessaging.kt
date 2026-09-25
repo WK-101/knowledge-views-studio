@@ -54,6 +54,8 @@ import app.parley.common.people.HandleLink
 import app.parley.common.people.MessageRoute
 import app.parley.common.people.MessageRoutes
 import app.parley.common.people.MessengerPrefs
+import app.parley.common.circle.InteractionChannel
+import kotlinx.coroutines.launch
 import app.parley.container
 import app.parley.data.MessengerAction
 import app.parley.data.PhoneEnv
@@ -73,6 +75,9 @@ data class Reach(
     val prefs: MessengerPrefs,
     /** A private contact: nothing about them is written outside Parley's encrypted storage. */
     val isPrivate: Boolean = false,
+    /** R3: the saved contact this is (for "Log this?" when they're in the Circle); null for private contacts. */
+    val lookupKey: String? = null,
+    val contactId: Long? = null,
 ) {
     /** Account types of messengers with a chat row for this person. */
     val linked: Set<String> get() = messengers.filter { !it.isCall && !it.isVideo }.map { it.accountType }.toSet()
@@ -90,9 +95,10 @@ object ContactMessaging {
     fun open(context: Context, route: MessageRoute, r: Reach): String? = when (route) {
         is MessageRoute.Sms -> MessengerLauncher.open(context, MessengerLinks.sms(route.number, NumberText.toE164(route.number, PhoneEnv.countryIso(context)), null, MessengerLauncher.smsPackage(context)), null)
             .also { if (it == null) record(context, route.number, null, "SMS") }
+            .also { if (it == null) offerLog(context, r, InteractionChannel.SMS) }
         is MessageRoute.MessengerRow -> {
             val row = r.messengers.firstOrNull { it.accountType == route.accountType && !it.isCall && !it.isVideo }
-            if (row == null) context.getString(R.string.msg_app_lost_contact) else start(context, row.intent(), row.appName)
+            if (row == null) context.getString(R.string.msg_app_lost_contact) else start(context, row.intent(), row.appName).also { if (it == null) offerLog(context, r, InteractionChannel.forPackage(route.accountType)) }
         }
         is MessageRoute.MessengerLink -> {
             val e164 = NumberText.toE164(route.number, PhoneEnv.countryIso(context))
@@ -101,9 +107,26 @@ object ContactMessaging {
                 app.parley.messaging.MessagingText.unavailable(context.resources, e164)
             } else {
                 MessengerLauncher.open(context, link, route.app).also { if (it == null) record(context, route.number, route.app, route.app.label) }
+                    .also { if (it == null) offerLog(context, r, InteractionChannel.forMessenger(route.app.messenger)) }
             }
         }
         MessageRoute.Ask -> null
+    }
+
+    /**
+     * R3: Parley just opened [channel] for [r]. If they're in the Circle, "Log this?" is asked when you come back
+     * (or logged at once, per Settings). Calls are never logged here: the call log already has them.
+     */
+    fun offerLog(context: Context, r: Reach, channel: InteractionChannel) {
+        if (r.isPrivate) return
+        val key = r.lookupKey?.takeIf { it.isNotEmpty() } ?: return
+        val c = context.container
+        c.scope.launch { runCatching { c.circle.onLaunched(key, r.contactId, r.name, channel) } }
+    }
+
+    /** [start] for a messenger row of [r] (chat or video), then R3's "Log this?". */
+    fun startRow(context: Context, r: Reach, m: MessengerAction): String? = start(context, m.intent(), m.appName).also { err ->
+        if (err == null && !(m.isCall && !m.isVideo)) offerLog(context, r, if (m.isVideo) InteractionChannel.VIDEO else InteractionChannel.forPackage(m.accountType))
     }
 
     /** "Last messaged via…" for the number (private numbers are never recorded, see MessagingStore). */
@@ -190,7 +213,7 @@ fun ContactMessageSheet(r: Reach, onDismiss: () -> Unit, onRemember: (MessengerP
         }
         // Chat rows of other messengers (Threema, Wire, Element…) that registered this person.
         r.messengers.filter { !it.isCall && !it.isVideo && MessengerApp.forPackage(it.accountType) == null }.distinctBy { it.accountType }.forEach { m ->
-            add(SheetRow(m.accountType, m.appName, m.label.takeIf { it != m.appName }, true, launch = { ContactMessaging.start(context, m.intent(), m.appName) }, remember = { copy(message = m.accountType) }))
+            add(SheetRow(m.accountType, m.appName, m.label.takeIf { it != m.appName }, true, launch = { ContactMessaging.startRow(context, r, m) }, remember = { copy(message = m.accountType) }))
         }
     }
 
@@ -272,7 +295,7 @@ fun VideoChooser(r: Reach, onDismiss: () -> Unit, onRemember: (MessengerPrefs) -
                         leadingContent = { Icon(Icons.Rounded.Videocam, null) },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         modifier = Modifier.clickable {
-                            val err = ContactMessaging.start(context, m.intent(), m.appName)
+                            val err = ContactMessaging.startRow(context, r, m)
                             if (err != null) Toast.makeText(context, err, Toast.LENGTH_SHORT).show() else onRemember(r.prefs.copy(video = m.accountType))
                             onDismiss()
                         },

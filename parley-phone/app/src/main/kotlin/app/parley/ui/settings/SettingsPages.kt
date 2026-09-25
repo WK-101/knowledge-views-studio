@@ -342,6 +342,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
     }
     val tempSub = if (tempCount == 0) null else pluralStringResource(R.plurals.set_temporary_count, tempCount, tempCount)
     val reminderSub = stringResource(R.string.set_birthday_reminders_at, "${s.birthdayReminderHour}:00")
+    val circleCfg by vm.c.circle.config.collectAsStateWithLifecycle()
     SegmentedGroup(stringResource(R.string.set_group_organise)) {
         if (accounts.isNotEmpty()) {
             val current = accounts.indexOfFirst { it.type == s.defaultAccountType && it.name == s.defaultAccountName }.coerceAtLeast(0)
@@ -380,6 +381,8 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
             }
         }
         switchRow("nudges", s.reachOutNudges, Icons.Rounded.Handshake) { v -> set { it.copy(reachOutNudges = v) } }
+        // R3/R4/R5: the Circle's reminder and "Log this?" choices.
+        circleSettingRows(vm, circleCfg, s.birthdayReminders, s.reachOutNudges)
     }
 
     importAccounts?.let { (uri, accs) ->

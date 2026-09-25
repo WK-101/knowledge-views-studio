@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<!-- v3.2 Circle: R1–R5, U4 (tab, list, timeline, reminders, "Log this?", settings). -->
+<resources>
+    <string name="tab_circle">सर्कल</string>
+    <string name="circle_search">अपने सर्कल में खोजें</string>
+    <string name="circle_settings">सर्कल सेटिंग</string>
+    <string name="circle_section">आपका सर्कल</string>
+    <string name="circle_expand">अपना सर्कल दिखाएँ</string>
+    <string name="circle_collapse">अपना सर्कल समेटें</string>
+    <string name="circle_empty_title">आपका सर्कल अभी खाली है</string>
+    <string name="circle_empty_body">उन लोगों को जोड़ें जिनसे आप जुड़े रहना चाहते हैं। Parley आपको हल्के से याद दिलाता है, हफ़्ते में ज़्यादा से ज़्यादा एक बार।</string>
+    <string name="circle_how_to_add">किसी को जोड़ने के लिए उसका संपर्क खोलें और “जुड़े रहें” चुनें।</string>
+    <string name="circle_no_match">आपके सर्कल में “%1$s” से कोई मेल नहीं खाता</string>
+    <string name="circle_status_due">समय हो गया</string>
+    <string name="circle_status_soon">जल्द</string>
+    <string name="circle_status_fine">ठीक</string>
+    <string name="circle_kind_call">कॉल</string>
+    <string name="circle_kind_meet">मुलाक़ात</string>
+    <string name="circle_kind_message">मैसेज</string>
+    <string name="circle_kind_video">वीडियो कॉल</string>
+    <string name="circle_kind_other">अन्य</string>
+    <string name="circle_type_meet">मुलाक़ात</string>
+    <string name="circle_type_message">मैसेज</string>
+    <string name="circle_type_video">वीडियो कॉल</string>
+    <string name="circle_type_other">अन्य</string>
+    <string name="circle_channel_other_apps">अन्य चैट ऐप</string>
+    <string name="circle_channel_video">वीडियो कॉल</string>
+    <string name="circle_mode_always">हमेशा</string>
+    <string name="circle_mode_ask">पूछें</string>
+    <string name="circle_mode_never">कभी नहीं</string>
+    <string name="circle_never">अभी संपर्क नहीं हुआ</string>
+    <string name="circle_last_today">आज संपर्क हुआ · %1$s</string>
+    <string name="circle_suggested">आपकी कॉल के आधार पर सुझाव</string>
+    <string name="circle_add">जोड़ें</string>
+    <string name="circle_added">%1$s आपके सर्कल में है</string>
+    <string name="circle_removed">%1$s अब आपके सर्कल में नहीं है</string>
+    <string name="circle_suggest_dismiss">सुझाव छिपाएँ</string>
+    <string name="circle_call_who">%1$s को कॉल करें</string>
+    <string name="circle_message_who">%1$s को मैसेज करें</string>
+    <string name="circle_stay_in_touch">जुड़े रहें</string>
+    <string name="circle_add_to_circle">अपने सर्कल में जोड़ें</string>
+    <string name="circle_add_to_circle_body">जब काफ़ी समय हो जाए तो हल्की-सी याद</string>
+    <string name="circle_next_date_today">%1$s आज</string>
+    <string name="circle_dates">तारीख़ें</string>
+    <string name="circle_rhythm_natural">स्वाभाविक लय</string>
+    <string name="circle_rhythm_natural_body">सीखता है कि आप दोनों आम तौर पर कितनी बार बात करते हैं, और तभी याद दिलाता है जब अंतराल असामान्य हो। हर महीने दोबारा सीखता है।</string>
+    <string name="circle_remove">अपने सर्कल से हटाएँ</string>
+    <string name="circle_log_interaction">संपर्क दर्ज करें</string>
+    <string name="circle_log_with">%1$s के साथ संपर्क दर्ज करें</string>
+    <string name="circle_edit_entry">प्रविष्टि बदलें</string>
+    <string name="circle_note">नोट (वैकल्पिक)</string>
+    <string name="circle_when">कब</string>
+    <string name="circle_logged">%1$s के साथ संपर्क दर्ज हुआ</string>
+    <string name="circle_note_failed">नोट सेव नहीं हो सका। कृपया फिर से कोशिश करें।</string>
+    <string name="circle_entry_deleted">प्रविष्टि हटाई गई</string>
+    <string name="circle_timeline">टाइमलाइन</string>
+    <string name="circle_timeline_empty">अभी यहाँ कुछ नहीं है। कॉल, नोट और आपकी दर्ज की गई चीज़ें यहाँ दिखेंगी।</string>
+    <string name="circle_timeline_more">पहले का दिखाएँ</string>
+    <string name="circle_all_calls">सभी कॉल</string>
+    <string name="circle_call_note">कॉल नोट</string>
+    <string name="circle_log">दर्ज करें</string>
+    <string name="circle_log_question_message">%1$s के साथ मैसेज के रूप में दर्ज करें?</string>
+    <string name="circle_log_question_video">%1$s के साथ वीडियो कॉल के रूप में दर्ज करें?</string>
+    <string name="circle_logged_message">%1$s के साथ मैसेज दर्ज हुआ</string>
+    <string name="circle_logged_video">%1$s के साथ वीडियो कॉल दर्ज हुई</string>
+    <string name="circle_log_prompts_help">जब Parley आपके सर्कल में किसी के साथ चैट या वीडियो कॉल खोलता है, तो वह नोट कर सकता है कि आपका संपर्क हुआ। कॉल कभी दो बार दर्ज नहीं होतीं: वे आपके कॉल इतिहास से आती हैं।</string>
+    <string name="circle_mark_wished">बधाई दी गई मार्क करें</string>
+    <string name="circle_not_now">अभी नहीं</string>
+    <string name="circle_notif_public">रिमाइंडर</string>
+    <string name="circle_might_enjoy">%1$s को शायद आपसे बात करके अच्छा लगे</string>
+    <string name="circle_digest_title">वे लोग जिनसे आप शायद बात करना चाहें</string>
+    <string name="circle_digest_date">%1$s की कोई ख़ास तारीख़ आने वाली है</string>
+    <string name="circle_digest_quiet">आपको और %1$s को बात किए कुछ समय हो गया</string>
+    <string name="circle_lead_on_day">सिर्फ़ उसी दिन</string>
+    <string name="circle_delivery_digest">साप्ताहिक सार (रविवार)</string>
+    <string name="circle_delivery_as_due">जब समय हो</string>
+    <string name="set_date_lead_title">तारीख़ों से पहले याद दिलाएँ</string>
+    <string name="set_date_lead_summary">उसी दिन, या 1, 3 या 7 दिन पहले भी</string>
+    <string name="set_date_lead_kw">जन्मदिन, सालगिरह, पहले, दिन पहले</string>
+    <string name="set_circle_delivery_title">संपर्क रिमाइंडर कैसे आएँ</string>
+    <string name="set_circle_delivery_summary">रविवार को साप्ताहिक सार, या समय आने पर एक-एक करके</string>
+    <string name="set_circle_delivery_kw">सार, साप्ताहिक, रविवार, सर्कल, याद, संपर्क</string>
+    <string name="set_circle_weekly_cap_title">हफ़्ते में ज़्यादा से ज़्यादा</string>
+    <string name="set_circle_weekly_cap_summary">हफ़्ते में संपर्क रिमाइंडर, जब वे एक-एक करके आएँ</string>
+    <string name="set_circle_weekly_cap_kw">सीमा, कितने, सर्कल</string>
+    <string name="set_log_prompts_title">आपके शुरू किए मैसेज दर्ज करें</string>
+    <string name="set_log_prompts_summary">जब Parley आपके सर्कल में किसी के साथ चैट या वीडियो कॉल खोले</string>
+    <string name="set_log_prompts_kw">दर्ज, संपर्क, whatsapp, signal, telegram, sms, वीडियो, सर्कल, पूछें</string>
+    <plurals name="circle_last_days">
+        <item quantity="one">आख़िरी संपर्क %1$d दिन पहले · %2$s</item>
+        <item quantity="other">आख़िरी संपर्क %1$d दिन पहले · %2$s</item>
+    </plurals>
+    <plurals name="circle_every_days">
+        <item quantity="one">हर %d दिन</item>
+        <item quantity="other">हर %d दिन</item>
+    </plurals>
+    <plurals name="circle_natural_days">
+        <item quantity="one">स्वाभाविक लय · लगभग हर %d दिन</item>
+        <item quantity="other">स्वाभाविक लय · लगभग हर %d दिन</item>
+    </plurals>
+    <plurals name="circle_natural_learning">
+        <item quantity="one">स्वाभाविक लय · अभी सीख रहा है (फ़िलहाल हर %d दिन)</item>
+        <item quantity="other">स्वाभाविक लय · अभी सीख रहा है (फ़िलहाल हर %d दिन)</item>
+    </plurals>
+    <plurals name="circle_suggest_calls">
+        <item quantity="one">इस साल %d कॉल</item>
+        <item quantity="other">इस साल %d कॉल</item>
+    </plurals>
+    <plurals name="circle_next_date_days">
+        <item quantity="one">%2$s %1$d दिन में</item>
+        <item quantity="other">%2$s %1$d दिन में</item>
+    </plurals>
+    <plurals name="circle_birthday_in_days">
+        <item quantity="one">%2$s का जन्मदिन %1$d दिन में है</item>
+        <item quantity="other">%2$s का जन्मदिन %1$d दिन में है</item>
+    </plurals>
+    <plurals name="circle_anniversary_in_days">
+        <item quantity="one">%2$s: सालगिरह %1$d दिन में</item>
+        <item quantity="other">%2$s: सालगिरह %1$d दिन में</item>
+    </plurals>
+    <plurals name="circle_date_in_days">
+        <item quantity="one">%2$s: %3$s %1$d दिन में</item>
+        <item quantity="other">%2$s: %3$s %1$d दिन में</item>
+    </plurals>
+    <plurals name="circle_lead_days">
+        <item quantity="one">%d दिन पहले भी</item>
+        <item quantity="other">%d दिन पहले भी</item>
+    </plurals>
+</resources>
