@@ -812,4 +812,6 @@
     <string name="blk_place_no_permission">Permissão de telefone ausente</string>
     <string name="blk_place_failed">Não foi possível fazer a ligação</string>
     <string name="blk_place_voicemail">Correio de voz indisponível</string>
+    <!-- v3.2 phone (P2) -->
+    <string name="blk_note_block_decline">Bloqueado durante uma chamada</string>
 </resources>

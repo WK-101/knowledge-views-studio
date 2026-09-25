@@ -36,6 +36,10 @@ data class InCallAppearance(
     val density: ListDensity = ListDensity.COMFORTABLE,
     val answerGesture: AnswerGesture = AnswerGesture.SWIPE,
     val quickReplies: List<String> = emptyList(),
+    /** G3/P3: "Hide screen content" also covers the call screen (screenshots, recents thumbnail, casting). */
+    val secureScreen: Boolean = false,
+    /** False until the stored settings were read: the call screen stays secure until then. */
+    val loaded: Boolean = false,
 )
 
 /**
@@ -104,6 +108,21 @@ interface TelecomDependencies {
 
     /** V4: a name to suggest when saving an unknown number ("Caller from Lyon"). */
     fun suggestedName(number: String): String = number
+
+    /** P7: the buzz when a call connects (only with [callHaptics] on). */
+    fun connectHaptic(): Boolean = true
+
+    /**
+     * P2: writes a block rule for [number] before "Block & decline" declines the call. Returns the new rule's id (for
+     * Undo), 0 when the number was already blocked, or null when the rule couldn't be written.
+     */
+    suspend fun blockForDecline(number: String): Long? = null
+
+    /** P2: Undo on the call-ended screen: removes the rule [blockForDecline] wrote. */
+    suspend fun undoBlockForDecline(ruleId: Long) {}
+
+    /** P6: Retry on the failure banner. Returns what to tell the user when the call couldn't be placed, else null. */
+    suspend fun redial(number: String, accountId: String?): String? = null
 }
 
 /** Post-call card actions handled by the app (V4). */

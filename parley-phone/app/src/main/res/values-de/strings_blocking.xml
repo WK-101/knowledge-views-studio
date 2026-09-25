@@ -779,4 +779,6 @@
     <string name="blk_place_no_permission">Telefonberechtigung fehlt</string>
     <string name="blk_place_failed">Anruf konnte nicht gestartet werden</string>
     <string name="blk_place_voicemail">Mailbox nicht verfügbar</string>
+    <!-- v3.2 phone (P2) -->
+    <string name="blk_note_block_decline">Während eines Anrufs blockiert</string>
 </resources>

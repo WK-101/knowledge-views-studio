@@ -779,4 +779,6 @@
     <string name="blk_place_no_permission">فون کی اجازت موجود نہیں</string>
     <string name="blk_place_failed">کال نہیں ہو سکی</string>
     <string name="blk_place_voicemail">وائس میل دستیاب نہیں</string>
+    <!-- v3.2 phone (P2) -->
+    <string name="blk_note_block_decline">کال کے دوران بلاک کیا گیا</string>
 </resources>

@@ -171,4 +171,21 @@
     <string name="postcall_name">الاسم</string>
     <string name="postcall_save_explainer">يُحفظ في جهات اتصال Parley الخاصة، حيث لا تراه التطبيقات الأخرى، ويُحذف تلقائيًا مع سجل مكالماته بعد 7 أيام. يمكنك الاحتفاظ به من جهات الاتصال المؤقتة.</string>
     <string name="tc_private_label">خاص</string>
+    <!-- v3.2 phone (P1, P2, P6) -->
+    <string name="incall_unmute">إلغاء كتم الصوت</string>
+    <string name="incall_block_decline">حظر ورفض</string>
+    <string name="incall_incoming_more">خيارات أخرى لهذه المكالمة</string>
+    <string name="call_failed_title">تعذّر إجراء المكالمة</string>
+    <string name="call_failed_airplane">وضع الطيران مفعّل</string>
+    <string name="call_failed_no_sim">لم يتم اختيار شريحة SIM</string>
+    <string name="call_failed_generic">تعذّر على الشبكة توصيل المكالمة</string>
+    <string name="call_failed_retry">إعادة المحاولة</string>
+    <string name="call_failed_dismiss">إغلاق</string>
+    <string name="decline_title">تم الرفض</string>
+    <string name="decline_blocked_title">تم الحظر والرفض</string>
+    <string name="decline_blocked_body">سيتم رفض المكالمات من %1$s من الآن فصاعدًا.</string>
+    <string name="decline_block_already">هذا الرقم محظور بالفعل.</string>
+    <string name="decline_block_failed">تعذّر حظر الرقم. يمكنك حظره من «الأخيرة».</string>
+    <string name="decline_block_undone">تم إلغاء الحظر. يمكن لـ %1$s الاتصال بك مجددًا.</string>
+    <string name="tc_undo">تراجع</string>
 </resources>

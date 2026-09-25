@@ -3,6 +3,12 @@ package app.parley
 import android.content.Context
 import android.content.Intent
 import app.parley.common.Decision
+import app.parley.common.BlockRule
+import app.parley.common.RuleKind
+import app.parley.common.RuleTools
+import app.parley.common.RuleType
+import app.parley.data.PlaceResult
+import app.parley.blocking.DialText as PlaceFailureText
 import app.parley.common.people.CallerCard
 import app.parley.common.CallType
 import app.parley.common.PhoneNumbers
@@ -38,9 +44,10 @@ import kotlinx.coroutines.withContext
 
 class AppTelecomDependencies(private val app: Context, private val c: DataContainer) : TelecomDependencies {
 
-    override val appearance: StateFlow<InCallAppearance> = c.settings.settings
-        .map { s -> InCallAppearance(s.themeMode, s.amoledBlack, s.dynamicColor, s.density, s.answerGesture, s.quickReplies) }
-        .stateIn(c.scope, SharingStarted.Eagerly, InCallAppearance())
+    override val appearance: StateFlow<InCallAppearance> = kotlinx.coroutines.flow.combine(c.settings.settings, c.settings.loaded) { s, loaded ->
+        // G3/P3: "Hide screen content" reaches the call screen; it stays secure until the settings are read.
+        InCallAppearance(s.themeMode, s.amoledBlack, s.dynamicColor, s.density, s.answerGesture, s.quickReplies, secureScreen = s.secureScreen, loaded = loaded)
+    }.stateIn(c.scope, SharingStarted.Eagerly, InCallAppearance())
 
     override suspend fun callerInfo(number: String): CallerDisplay? = callerInfo(number, null)
 
@@ -120,6 +127,41 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     override suspend fun silenceOverQuota(number: String, accountId: String?): Boolean = planner.silenceIncoming(number, accountId)
 
     override fun callHaptics(): Boolean = c.calling.config.value.haptics
+
+    // ---- v3.2 phone (P2, P6, P7) ----
+
+    override fun connectHaptic(): Boolean = c.calling.config.value.connectHaptic
+
+    /** P2: the block rule is written before the call is declined; its id lets the call-ended screen undo it. */
+    override suspend fun blockForDecline(number: String): Long? = withContext(Dispatchers.IO) {
+        runCatching {
+            val pattern = RuleTools.check(number, RuleType.EXACT, PhoneEnv.countryIso(app)).pattern.trim()
+            val exists = c.blocks.allRules().any {
+                it.enabled && it.kind == RuleKind.BLOCK && it.type == RuleType.EXACT && it.pattern.trim() == pattern && it.simId == null && it.schedule == null
+            }
+            val id = if (exists) {
+                0L
+            } else {
+                c.blocks.saveRule(BlockRule(pattern = pattern, type = RuleType.EXACT, note = app.getString(R.string.blk_note_block_decline)))
+            }
+            c.blocks.enabledRules() // refreshes the in-memory rules the call path reads
+            id
+        }.getOrNull()
+    }
+
+    override suspend fun undoBlockForDecline(ruleId: Long) {
+        withContext(Dispatchers.IO) {
+            runCatching {
+                c.blocks.deleteRule(ruleId)
+                c.blocks.enabledRules()
+            }
+        }
+    }
+
+    /** P6: Retry places the call directly: the user already went through the checks for this number. */
+    override suspend fun redial(number: String, accountId: String?): String? = withContext(Dispatchers.IO) {
+        (c.placer.call(number, accountId) as? PlaceResult.Failed)?.let { PlaceFailureText.placeFailure(app, it.reason) }
+    }
 
     // Memory only (the call path runs on the main thread): settings, rules and label ringtones are warmed at app
     // start, and anything not read yet counts as "on".

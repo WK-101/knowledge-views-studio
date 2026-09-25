@@ -123,7 +123,10 @@ object CallClock {
                 continue
             }
             liveIds += c.id
-            if (c.state == CallState.ACTIVE && connected.add(c.id)) feedback?.haptic(CallHaptic.CONNECT)
+            // P7: the connect buzz is optional, and skipped for a call just answered here (it had the answer buzz).
+            if (c.state == CallState.ACTIVE && connected.add(c.id) && !CallManager.wasAnsweredByUser(c.id) &&
+                runCatching { TelecomGraph.dependencies.connectHaptic() }.getOrDefault(true)
+            ) feedback?.haptic(CallHaptic.CONNECT)
             val running = c.state == CallState.ACTIVE || c.state == CallState.HOLDING
             if (running) requestPlan(c.id, c.number, c.accountId, c.incoming, c.isEmergency)
             val plan = plans[c.id]

@@ -828,4 +828,6 @@
     <string name="blk_place_no_permission">Phone permission missing</string>
     <string name="blk_place_failed">Could not place call</string>
     <string name="blk_place_voicemail">Voicemail unavailable</string>
+    <!-- v3.2 phone (P2) -->
+    <string name="blk_note_block_decline">Blocked during a call</string>
 </resources>

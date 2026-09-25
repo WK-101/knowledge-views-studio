@@ -159,4 +159,21 @@
     <string name="postcall_name">نام</string>
     <string name="postcall_save_explainer">Parley کے نجی رابطوں میں رکھا جاتا ہے، جہاں دوسری ایپس اسے نہیں دیکھ سکتیں، اور 7 دن بعد اس کی کال ہسٹری سمیت خود بخود حذف ہو جاتا ہے۔ آپ اسے عارضی رابطوں سے رکھ سکتے ہیں۔</string>
     <string name="tc_private_label">نجی</string>
+    <!-- v3.2 phone (P1, P2, P6) -->
+    <string name="incall_unmute">آواز کھولیں</string>
+    <string name="incall_block_decline">بلاک کریں اور مسترد کریں</string>
+    <string name="incall_incoming_more">اس کال کے مزید اختیارات</string>
+    <string name="call_failed_title">کال نہیں مل سکی</string>
+    <string name="call_failed_airplane">ہوائی جہاز موڈ آن ہے</string>
+    <string name="call_failed_no_sim">کوئی سم منتخب نہیں کی گئی</string>
+    <string name="call_failed_generic">نیٹ ورک کال نہیں ملا سکا</string>
+    <string name="call_failed_retry">دوبارہ کوشش کریں</string>
+    <string name="call_failed_dismiss">بند کریں</string>
+    <string name="decline_title">مسترد کر دی گئی</string>
+    <string name="decline_blocked_title">بلاک اور مسترد کر دیا گیا</string>
+    <string name="decline_blocked_body">%1$s کی کالز اب سے مسترد کی جائیں گی۔</string>
+    <string name="decline_block_already">یہ نمبر پہلے سے بلاک تھا۔</string>
+    <string name="decline_block_failed">نمبر بلاک نہیں ہو سکا۔ آپ اسے حالیہ سے بلاک کر سکتے ہیں۔</string>
+    <string name="decline_block_undone">ان بلاک کر دیا گیا۔ %1$s آپ کو دوبارہ کال کر سکتے ہیں۔</string>
+    <string name="tc_undo">واپس کریں</string>
 </resources>
