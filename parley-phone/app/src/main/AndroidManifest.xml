@@ -375,6 +375,10 @@
         <receiver
             android:name=".MissedCallActionReceiver"
             android:exported="false" />
+        <!-- R4/R5: "Not now" and "Mark as wished" on reminder notifications. -->
+        <receiver
+            android:name=".work.CircleActionReceiver"
+            android:exported="false" />
         <!-- "Remind me of missed calls": an inexact alarm, so no exact-alarm permission (V3). -->
         <receiver
             android:name=".calls.MissedReAlertReceiver"

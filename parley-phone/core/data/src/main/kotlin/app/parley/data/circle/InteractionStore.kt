@@ -64,6 +64,11 @@ class InteractionStore(private val dao: InteractionDao) {
         rows.associate { it.lookupKey to (it.time to (InteractionType.entries.firstOrNull { t -> t.name == it.type } ?: InteractionType.OTHER)) }
     }
 
+    /** Time and kind of [lookupKey]'s newest interaction, without opening any note. */
+    suspend fun latestFor(lookupKey: String): Pair<Long, InteractionType>? = withContext(Dispatchers.IO) {
+        dao.latestFor(lookupKey)?.let { it.time to (InteractionType.entries.firstOrNull { t -> t.name == it.type } ?: InteractionType.OTHER) }
+    }
+
     /** Times of [lookupKey]'s interactions (for the natural rhythm). */
     suspend fun timesFor(lookupKey: String): List<Long> = withContext(Dispatchers.IO) { dao.timesFor(lookupKey) }
 

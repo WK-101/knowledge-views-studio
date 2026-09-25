@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<!-- v3.2 Circle: R1–R5, U4 (tab, list, timeline, reminders, "Log this?", settings). -->
+<resources>
+    <string name="tab_circle">حلقہ</string>
+    <string name="circle_search">اپنے حلقے میں تلاش کریں</string>
+    <string name="circle_settings">حلقے کی ترتیبات</string>
+    <string name="circle_section">آپ کا حلقہ</string>
+    <string name="circle_expand">اپنا حلقہ دکھائیں</string>
+    <string name="circle_collapse">اپنا حلقہ سمیٹیں</string>
+    <string name="circle_empty_title">آپ کا حلقہ ابھی خالی ہے</string>
+    <string name="circle_empty_body">ان لوگوں کو شامل کریں جن سے آپ جڑے رہنا چاہتے ہیں۔ Parley آپ کو نرمی سے یاد دلاتا ہے، ہفتے میں زیادہ سے زیادہ ایک بار۔</string>
+    <string name="circle_how_to_add">کسی کو شامل کرنے کے لیے اس کا رابطہ کھولیں اور “رابطے میں رہیں” چنیں۔</string>
+    <string name="circle_no_match">آپ کے حلقے میں “%1$s” سے کوئی میل نہیں کھاتا</string>
+    <string name="circle_status_due">وقت ہو گیا</string>
+    <string name="circle_status_soon">جلد</string>
+    <string name="circle_status_fine">ٹھیک</string>
+    <string name="circle_kind_call">کال</string>
+    <string name="circle_kind_meet">ملاقات</string>
+    <string name="circle_kind_message">پیغام</string>
+    <string name="circle_kind_video">ویڈیو کال</string>
+    <string name="circle_kind_other">دیگر</string>
+    <string name="circle_type_meet">ملاقات</string>
+    <string name="circle_type_message">پیغام</string>
+    <string name="circle_type_video">ویڈیو کال</string>
+    <string name="circle_type_other">دیگر</string>
+    <string name="circle_channel_other_apps">دیگر چیٹ ایپس</string>
+    <string name="circle_channel_video">ویڈیو کالز</string>
+    <string name="circle_mode_always">ہمیشہ</string>
+    <string name="circle_mode_ask">پوچھیں</string>
+    <string name="circle_mode_never">کبھی نہیں</string>
+    <string name="circle_never">ابھی رابطہ نہیں ہوا</string>
+    <string name="circle_last_today">آج رابطہ ہوا · %1$s</string>
+    <string name="circle_suggested">آپ کی کالز کی بنیاد پر تجاویز</string>
+    <string name="circle_add">شامل کریں</string>
+    <string name="circle_added">%1$s آپ کے حلقے میں ہے</string>
+    <string name="circle_removed">%1$s اب آپ کے حلقے میں نہیں ہے</string>
+    <string name="circle_suggest_dismiss">تجاویز چھپائیں</string>
+    <string name="circle_call_who">%1$s کو کال کریں</string>
+    <string name="circle_message_who">%1$s کو پیغام بھیجیں</string>
+    <string name="circle_stay_in_touch">رابطے میں رہیں</string>
+    <string name="circle_add_to_circle">اپنے حلقے میں شامل کریں</string>
+    <string name="circle_add_to_circle_body">جب کافی وقت ہو جائے تو ہلکی سی یاد دہانی</string>
+    <string name="circle_next_date_today">%1$s آج</string>
+    <string name="circle_dates">تاریخیں</string>
+    <string name="circle_rhythm_natural">قدرتی ردھم</string>
+    <string name="circle_rhythm_natural_body">سیکھتا ہے کہ آپ دونوں عام طور پر کتنی بار بات کرتے ہیں، اور صرف تب یاد دلاتا ہے جب وقفہ غیر معمولی ہو۔ ہر مہینے دوبارہ سیکھتا ہے۔</string>
+    <string name="circle_remove">اپنے حلقے سے ہٹائیں</string>
+    <string name="circle_log_interaction">رابطہ درج کریں</string>
+    <string name="circle_log_with">%1$s کے ساتھ رابطہ درج کریں</string>
+    <string name="circle_edit_entry">اندراج میں ترمیم</string>
+    <string name="circle_note">نوٹ (اختیاری)</string>
+    <string name="circle_when">کب</string>
+    <string name="circle_logged">%1$s کے ساتھ رابطہ درج ہو گیا</string>
+    <string name="circle_note_failed">نوٹ محفوظ نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔</string>
+    <string name="circle_entry_deleted">اندراج حذف ہو گیا</string>
+    <string name="circle_timeline">ٹائم لائن</string>
+    <string name="circle_timeline_empty">ابھی یہاں کچھ نہیں۔ کالز، نوٹس اور آپ کے اندراجات یہاں نظر آئیں گے۔</string>
+    <string name="circle_timeline_more">پہلے کا دکھائیں</string>
+    <string name="circle_all_calls">تمام کالز</string>
+    <string name="circle_call_note">کال نوٹ</string>
+    <string name="circle_log">درج کریں</string>
+    <string name="circle_log_question_message">%1$s کے ساتھ پیغام کے طور پر درج کریں؟</string>
+    <string name="circle_log_question_video">%1$s کے ساتھ ویڈیو کال کے طور پر درج کریں؟</string>
+    <string name="circle_logged_message">%1$s کے ساتھ پیغام درج ہو گیا</string>
+    <string name="circle_logged_video">%1$s کے ساتھ ویڈیو کال درج ہو گئی</string>
+    <string name="circle_log_prompts_help">جب Parley آپ کے حلقے میں کسی کے ساتھ چیٹ یا ویڈیو کال کھولتا ہے، تو وہ نوٹ کر سکتا ہے کہ آپ کا رابطہ ہوا۔ کالز کبھی دو بار درج نہیں ہوتیں: وہ آپ کی کال ہسٹری سے آتی ہیں۔</string>
+    <string name="circle_mark_wished">مبارکباد دی گئی نشان زد کریں</string>
+    <string name="circle_not_now">ابھی نہیں</string>
+    <string name="circle_notif_public">یاد دہانی</string>
+    <string name="circle_might_enjoy">%1$s کو شاید آپ سے بات کر کے اچھا لگے</string>
+    <string name="circle_digest_title">وہ لوگ جن سے آپ شاید بات کرنا چاہیں</string>
+    <string name="circle_digest_date">%1$s کی کوئی خاص تاریخ آنے والی ہے</string>
+    <string name="circle_digest_quiet">آپ اور %1$s کو بات کیے کچھ وقت ہو گیا</string>
+    <string name="circle_lead_on_day">صرف اسی دن</string>
+    <string name="circle_delivery_digest">ہفتہ وار خلاصہ (اتوار)</string>
+    <string name="circle_delivery_as_due">جب وقت ہو</string>
+    <string name="set_date_lead_title">تاریخوں سے پہلے یاد دلائیں</string>
+    <string name="set_date_lead_summary">اسی دن، یا 1، 3 یا 7 دن پہلے بھی</string>
+    <string name="set_date_lead_kw">سالگرہ، پہلے، دن پہلے</string>
+    <string name="set_circle_delivery_title">رابطے کی یاد دہانیاں کیسے آئیں</string>
+    <string name="set_circle_delivery_summary">اتوار کو ہفتہ وار خلاصہ، یا وقت آنے پر ایک ایک کر کے</string>
+    <string name="set_circle_delivery_kw">خلاصہ، ہفتہ وار، اتوار، حلقہ، یاد دہانی، رابطہ</string>
+    <string name="set_circle_weekly_cap_title">ہفتے میں زیادہ سے زیادہ</string>
+    <string name="set_circle_weekly_cap_summary">ہفتے میں رابطے کی یاد دہانیاں، جب وہ ایک ایک کر کے آئیں</string>
+    <string name="set_circle_weekly_cap_kw">حد، کتنے، حلقہ</string>
+    <string name="set_log_prompts_title">آپ کے شروع کیے گئے پیغامات درج کریں</string>
+    <string name="set_log_prompts_summary">جب Parley آپ کے حلقے میں کسی کے ساتھ چیٹ یا ویڈیو کال کھولے</string>
+    <string name="set_log_prompts_kw">درج، رابطہ، whatsapp، signal، telegram، sms، ویڈیو، حلقہ، پوچھیں</string>
+    <plurals name="circle_last_days">
+        <item quantity="one">آخری رابطہ %1$d دن پہلے · %2$s</item>
+        <item quantity="other">آخری رابطہ %1$d دن پہلے · %2$s</item>
+    </plurals>
+    <plurals name="circle_every_days">
+        <item quantity="one">ہر %d دن</item>
+        <item quantity="other">ہر %d دن</item>
+    </plurals>
+    <plurals name="circle_natural_days">
+        <item quantity="one">قدرتی ردھم · تقریباً ہر %d دن</item>
+        <item quantity="other">قدرتی ردھم · تقریباً ہر %d دن</item>
+    </plurals>
+    <plurals name="circle_natural_learning">
+        <item quantity="one">قدرتی ردھم · ابھی سیکھ رہا ہے (فی الحال ہر %d دن)</item>
+        <item quantity="other">قدرتی ردھم · ابھی سیکھ رہا ہے (فی الحال ہر %d دن)</item>
+    </plurals>
+    <plurals name="circle_suggest_calls">
+        <item quantity="one">اس سال %d کال</item>
+        <item quantity="other">اس سال %d کالیں</item>
+    </plurals>
+    <plurals name="circle_next_date_days">
+        <item quantity="one">%2$s %1$d دن میں</item>
+        <item quantity="other">%2$s %1$d دن میں</item>
+    </plurals>
+    <plurals name="circle_birthday_in_days">
+        <item quantity="one">%2$s کی سالگرہ %1$d دن میں ہے</item>
+        <item quantity="other">%2$s کی سالگرہ %1$d دن میں ہے</item>
+    </plurals>
+    <plurals name="circle_anniversary_in_days">
+        <item quantity="one">%2$s: سالگرہِ شادی %1$d دن میں</item>
+        <item quantity="other">%2$s: سالگرہِ شادی %1$d دن میں</item>
+    </plurals>
+    <plurals name="circle_date_in_days">
+        <item quantity="one">%2$s: %3$s %1$d دن میں</item>
+        <item quantity="other">%2$s: %3$s %1$d دن میں</item>
+    </plurals>
+    <plurals name="circle_lead_days">
+        <item quantity="one">%d دن پہلے بھی</item>
+        <item quantity="other">%d دن پہلے بھی</item>
+    </plurals>
+</resources>

@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<!-- v3.2 Circle: R1–R5, U4 (tab, list, timeline, reminders, "Log this?", settings). -->
+<resources>
+    <string name="tab_circle">Kreis</string>
+    <string name="circle_search">Deinen Kreis durchsuchen</string>
+    <string name="circle_settings">Kreis-Einstellungen</string>
+    <string name="circle_section">Dein Kreis</string>
+    <string name="circle_expand">Deinen Kreis zeigen</string>
+    <string name="circle_collapse">Deinen Kreis einklappen</string>
+    <string name="circle_empty_title">Dein Kreis ist noch leer</string>
+    <string name="circle_empty_body">Füge die Menschen hinzu, mit denen du in Kontakt bleiben möchtest. Parley erinnert dich sanft, höchstens einmal pro Woche.</string>
+    <string name="circle_how_to_add">Um jemanden hinzuzufügen, öffne den Kontakt und wähle „In Kontakt bleiben“.</string>
+    <string name="circle_no_match">Niemand in deinem Kreis passt zu „%1$s“</string>
+    <string name="circle_status_due">Fällig</string>
+    <string name="circle_status_soon">Bald</string>
+    <string name="circle_status_fine">Gut</string>
+    <string name="circle_kind_call">Anruf</string>
+    <string name="circle_kind_meet">getroffen</string>
+    <string name="circle_kind_message">Nachricht</string>
+    <string name="circle_kind_video">Videoanruf</string>
+    <string name="circle_kind_other">Sonstiges</string>
+    <string name="circle_type_meet">Getroffen</string>
+    <string name="circle_type_message">Nachricht</string>
+    <string name="circle_type_video">Videoanruf</string>
+    <string name="circle_type_other">Sonstiges</string>
+    <string name="circle_channel_other_apps">Andere Chat-Apps</string>
+    <string name="circle_channel_video">Videoanrufe</string>
+    <string name="circle_mode_always">Immer</string>
+    <string name="circle_mode_ask">Fragen</string>
+    <string name="circle_mode_never">Nie</string>
+    <string name="circle_never">Noch kein Kontakt</string>
+    <string name="circle_last_today">Heute in Kontakt · %1$s</string>
+    <string name="circle_suggested">Vorschläge aus deinen Anrufen</string>
+    <string name="circle_add">Hinzufügen</string>
+    <string name="circle_added">%1$s ist jetzt in deinem Kreis</string>
+    <string name="circle_removed">%1$s ist nicht mehr in deinem Kreis</string>
+    <string name="circle_suggest_dismiss">Vorschläge ausblenden</string>
+    <string name="circle_call_who">%1$s anrufen</string>
+    <string name="circle_message_who">%1$s schreiben</string>
+    <string name="circle_stay_in_touch">In Kontakt bleiben</string>
+    <string name="circle_add_to_circle">Zu deinem Kreis hinzufügen</string>
+    <string name="circle_add_to_circle_body">Eine sanfte Erinnerung, wenn es länger her ist</string>
+    <string name="circle_next_date_today">%1$s ist heute</string>
+    <string name="circle_dates">Daten</string>
+    <string name="circle_rhythm_natural">Natürlicher Rhythmus</string>
+    <string name="circle_rhythm_natural_body">Lernt, wie oft ihr normalerweise sprecht, und erinnert nur, wenn eine Pause für euch ungewöhnlich ist. Wird jeden Monat neu gelernt.</string>
+    <string name="circle_remove">Aus deinem Kreis entfernen</string>
+    <string name="circle_log_interaction">Kontakt eintragen</string>
+    <string name="circle_log_with">Kontakt mit %1$s eintragen</string>
+    <string name="circle_edit_entry">Eintrag bearbeiten</string>
+    <string name="circle_note">Notiz (optional)</string>
+    <string name="circle_when">Wann</string>
+    <string name="circle_logged">Kontakt mit %1$s eingetragen</string>
+    <string name="circle_note_failed">Die Notiz konnte nicht gespeichert werden. Bitte versuch es noch einmal.</string>
+    <string name="circle_entry_deleted">Eintrag gelöscht</string>
+    <string name="circle_timeline">Verlauf</string>
+    <string name="circle_timeline_empty">Noch nichts da. Anrufe, Notizen und Eingetragenes erscheinen hier.</string>
+    <string name="circle_timeline_more">Früheres zeigen</string>
+    <string name="circle_all_calls">Alle Anrufe</string>
+    <string name="circle_call_note">Anrufnotiz</string>
+    <string name="circle_log">Eintragen</string>
+    <string name="circle_log_question_message">Als Nachricht mit %1$s eintragen?</string>
+    <string name="circle_log_question_video">Als Videoanruf mit %1$s eintragen?</string>
+    <string name="circle_logged_message">Nachricht mit %1$s eingetragen</string>
+    <string name="circle_logged_video">Videoanruf mit %1$s eingetragen</string>
+    <string name="circle_log_prompts_help">Wenn Parley einen Chat oder Videoanruf mit jemandem aus deinem Kreis öffnet, kann es festhalten, dass ihr in Kontakt wart. Anrufe werden nie doppelt eingetragen: Sie kommen aus deiner Anrufliste.</string>
+    <string name="circle_mark_wished">Als gratuliert markieren</string>
+    <string name="circle_not_now">Nicht jetzt</string>
+    <string name="circle_notif_public">Erinnerung</string>
+    <string name="circle_might_enjoy">%1$s freut sich vielleicht, von dir zu hören</string>
+    <string name="circle_digest_title">Menschen, von denen du vielleicht hören möchtest</string>
+    <string name="circle_digest_date">Bei %1$s steht ein Datum an</string>
+    <string name="circle_digest_quiet">Du und %1$s habt schon eine Weile nicht gesprochen</string>
+    <string name="circle_lead_on_day">Nur am Tag selbst</string>
+    <string name="circle_delivery_digest">Wöchentliche Übersicht (Sonntag)</string>
+    <string name="circle_delivery_as_due">Wenn es so weit ist</string>
+    <string name="set_date_lead_title">Vor Daten erinnern</string>
+    <string name="set_date_lead_summary">Am Tag selbst, oder auch 1, 3 oder 7 Tage vorher</string>
+    <string name="set_date_lead_kw">Geburtstag, Jahrestag, Vorlauf, Tage vorher, früh</string>
+    <string name="set_circle_delivery_title">Wie Kontakt-Erinnerungen kommen</string>
+    <string name="set_circle_delivery_summary">Eine Wochenübersicht am Sonntag, oder einzeln, wenn es so weit ist</string>
+    <string name="set_circle_delivery_kw">Übersicht, wöchentlich, Sonntag, Kreis, erinnern, Kontakt</string>
+    <string name="set_circle_weekly_cap_title">Höchstens pro Woche</string>
+    <string name="set_circle_weekly_cap_summary">Kontakt-Erinnerungen pro Woche, wenn sie einzeln kommen</string>
+    <string name="set_circle_weekly_cap_kw">Grenze, Anzahl, wie viele, Kreis</string>
+    <string name="set_log_prompts_title">Begonnene Nachrichten eintragen</string>
+    <string name="set_log_prompts_summary">Wenn Parley einen Chat oder Videoanruf mit jemandem aus deinem Kreis öffnet</string>
+    <string name="set_log_prompts_kw">eintragen, Kontakt, WhatsApp, Signal, Telegram, SMS, Video, Kreis, fragen</string>
+    <plurals name="circle_last_days">
+        <item quantity="one">Zuletzt in Kontakt vor %1$d Tag · %2$s</item>
+        <item quantity="other">Zuletzt in Kontakt vor %1$d Tagen · %2$s</item>
+    </plurals>
+    <plurals name="circle_every_days">
+        <item quantity="one">Alle %d Tage</item>
+        <item quantity="other">Alle %d Tage</item>
+    </plurals>
+    <plurals name="circle_natural_days">
+        <item quantity="one">Natürlicher Rhythmus · etwa alle %d Tage</item>
+        <item quantity="other">Natürlicher Rhythmus · etwa alle %d Tage</item>
+    </plurals>
+    <plurals name="circle_natural_learning">
+        <item quantity="one">Natürlicher Rhythmus · lernt noch (vorerst alle %d Tage)</item>
+        <item quantity="other">Natürlicher Rhythmus · lernt noch (vorerst alle %d Tage)</item>
+    </plurals>
+    <plurals name="circle_suggest_calls">
+        <item quantity="one">%d Anruf dieses Jahr</item>
+        <item quantity="other">%d Anrufe dieses Jahr</item>
+    </plurals>
+    <plurals name="circle_next_date_days">
+        <item quantity="one">%2$s in %1$d Tag</item>
+        <item quantity="other">%2$s in %1$d Tagen</item>
+    </plurals>
+    <plurals name="circle_birthday_in_days">
+        <item quantity="one">%2$s hat in %1$d Tag Geburtstag</item>
+        <item quantity="other">%2$s hat in %1$d Tagen Geburtstag</item>
+    </plurals>
+    <plurals name="circle_anniversary_in_days">
+        <item quantity="one">%2$s: Jahrestag in %1$d Tag</item>
+        <item quantity="other">%2$s: Jahrestag in %1$d Tagen</item>
+    </plurals>
+    <plurals name="circle_date_in_days">
+        <item quantity="one">%2$s: %3$s in %1$d Tag</item>
+        <item quantity="other">%2$s: %3$s in %1$d Tagen</item>
+    </plurals>
+    <plurals name="circle_lead_days">
+        <item quantity="one">Auch %d Tag vorher</item>
+        <item quantity="other">Auch %d Tage vorher</item>
+    </plurals>
+</resources>

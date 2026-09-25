@@ -76,7 +76,7 @@ object SettingsCatalog {
         e("language", "Language", "The language Parley uses", A, "language", "locale", "translation", "app language", "english", "rtl"),
         e("density", "List density", "Comfortable or compact rows", A, "compact", "spacing", "row height", "size"),
         e("nav_tabs", "Navigation bar", "Show, hide and reorder Favorites, Recents, Contacts and Keypad", A,
-            "tabs", "bottom bar", "bottom navigation", "navigation rail", "reorder", "hide tab", "customise", "customize", "menu"),
+            "tabs", "circle", "bottom bar", "bottom navigation", "navigation rail", "reorder", "hide tab", "customise", "customize", "menu"),
         e("start_tab", "Open on", "The tab Parley opens on", A, "start tab", "default tab", "home screen", "launch", "first screen"),
         e("row_actions", "Call & message buttons on contacts", "Tapping a contact still opens it", A, "quick actions", "buttons", "sms", "row"),
         e("sort_names", "Sort and show names by", "First name or last name", A, "order", "alphabetical", "surname", "family name", "given name"),
@@ -147,6 +147,13 @@ object SettingsCatalog {
         e("birthday_reminders", "Birthday reminders", "A notification on the day", P, "notification", "remind", "birthday"),
         e("reminder_time", "Reminder time", "When birthday reminders arrive", P, "hour", "time", "birthday"),
         e("nudges", "Keep-in-touch nudges", "For contacts where you set a reminder", P, "reach out", "remind", "call back", "keep in touch"),
+        // R3–R5 (v3.2): the Circle.
+        e("date_lead", "Remind me before dates", "On the day, or also 1, 3 or 7 days before", P, "birthday", "anniversary", "lead time", "days before", "early", "advance"),
+        e("circle_delivery", "How keep-in-touch reminders arrive", "A weekly digest on Sunday, or one at a time as they come due", P,
+            "digest", "weekly", "sunday", "circle", "remind", "keep in touch", "nudge", "notification"),
+        e("circle_weekly_cap", "At most per week", "Keep-in-touch reminders a week, when they come as due", P, "limit", "cap", "how many", "circle", "nudge"),
+        e("log_prompts", "Log messages you start", "After Parley opens a chat or video call with someone in your circle", P,
+            "log", "interaction", "whatsapp", "signal", "telegram", "sms", "video", "circle", "ask", "snackbar"),
 
         // Recents & history
         e("archive", "Keep full call history", "Parley keeps its own encrypted copy, because Android may drop old calls", H, "archive", "call log", "history", "forever"),

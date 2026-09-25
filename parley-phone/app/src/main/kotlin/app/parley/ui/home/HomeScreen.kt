@@ -92,6 +92,7 @@ fun HomeScreen(
     var searching by rememberSaveable { mutableStateOf(false) }
     var favoriteQuery by rememberSaveable { mutableStateOf("") }
     var keypadQuery by rememberSaveable { mutableStateOf("") }
+    var circleQuery by rememberSaveable { mutableStateOf("") }
     val missed by vm.missedCount.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
@@ -102,6 +103,7 @@ fun HomeScreen(
         vm.recentQuery.value = ""
         favoriteQuery = ""
         keypadQuery = ""
+        circleQuery = ""
     }
 
     LaunchedEffect(tabRequest) {
@@ -138,6 +140,7 @@ fun HomeScreen(
                     StartTab.RECENTS -> vm.recentQuery.collectAsStateWithLifecycle().value
                     StartTab.FAVORITES -> favoriteQuery
                     StartTab.KEYPAD -> keypadQuery
+                    StartTab.CIRCLE -> circleQuery
                 }
                 HomeHeader(
                     title = tab.label,
@@ -148,6 +151,7 @@ fun HomeScreen(
                         StartTab.RECENTS -> stringResource(R.string.home_search_recents)
                         StartTab.CONTACTS -> stringResource(R.string.home_search_contacts)
                         StartTab.KEYPAD -> stringResource(R.string.home_search_keypad)
+                        StartTab.CIRCLE -> stringResource(R.string.circle_search)
                     },
                     onQuery = { q ->
                         when (tab) {
@@ -155,6 +159,7 @@ fun HomeScreen(
                             StartTab.RECENTS -> vm.recentQuery.value = q
                             StartTab.FAVORITES -> favoriteQuery = q
                             StartTab.KEYPAD -> keypadQuery = q
+                            StartTab.CIRCLE -> circleQuery = q
                         }
                     },
                     onSearch = { on -> if (on) searching = true else closeSearch() },
@@ -209,6 +214,7 @@ fun HomeScreen(
                         StartTab.RECENTS -> RecentsTab(vm, open)
                         StartTab.CONTACTS -> ContactsTab(vm, open)
                         StartTab.KEYPAD -> KeypadTab(vm, open, keypadQuery.takeIf { searching })
+                        StartTab.CIRCLE -> app.parley.ui.circle.CircleTab(vm, open, circleQuery)
                     }
                 }
             }
@@ -236,7 +242,7 @@ private fun TabActions(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: 
             if (appLock) IconButton({ app.parley.security.AppLock.lockNowByUser() }) { Icon(Icons.Rounded.Lock, stringResource(R.string.home_lock_now)) }
         }
         StartTab.KEYPAD -> IconButton({ open(Routes.SPEED_DIAL) }) { Icon(Icons.Rounded.Speed, stringResource(R.string.home_speed_dial)) }
-        StartTab.FAVORITES -> Unit
+        StartTab.FAVORITES, StartTab.CIRCLE -> Unit
     }
 }
 
@@ -268,6 +274,9 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
             MenuItem(stringResource(R.string.home_speed_dial), Icons.Rounded.Speed) { go(Routes.SPEED_DIAL) }
             MenuItem(stringResource(R.string.home_sims), Icons.Rounded.SimCard) { go(app.parley.ui.history.HistoryRoutes.SIMS) }
             MenuItem(stringResource(R.string.home_keypad_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.KEYPAD)) }
+        }
+        StartTab.CIRCLE -> {
+            MenuItem(stringResource(R.string.circle_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS, "circle_delivery")) }
         }
         StartTab.FAVORITES -> Unit
     }

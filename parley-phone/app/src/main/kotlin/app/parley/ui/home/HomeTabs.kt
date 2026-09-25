@@ -3,6 +3,7 @@ package app.parley.ui.home
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.Dialpad
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.runtime.Composable
@@ -22,6 +23,7 @@ val StartTab.labelRes: Int
         StartTab.RECENTS -> R.string.tab_recents
         StartTab.CONTACTS -> R.string.tab_contacts
         StartTab.KEYPAD -> R.string.tab_keypad
+        StartTab.CIRCLE -> R.string.tab_circle
     }
 
 val StartTab.icon: ImageVector
@@ -30,4 +32,5 @@ val StartTab.icon: ImageVector
         StartTab.RECENTS -> Icons.Rounded.AccessTime
         StartTab.CONTACTS -> Icons.Rounded.People
         StartTab.KEYPAD -> Icons.Rounded.Dialpad
+        StartTab.CIRCLE -> Icons.Rounded.Groups
     }

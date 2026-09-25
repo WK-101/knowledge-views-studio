@@ -300,6 +300,9 @@ interface InteractionDao {
     @Query("SELECT lookupKey, MAX(time) AS time, type FROM interactions GROUP BY lookupKey")
     fun latestPerKey(): Flow<List<LastInteractionRow>>
 
+    @Query("SELECT lookupKey, time, type FROM interactions WHERE lookupKey = :key ORDER BY time DESC LIMIT 1")
+    suspend fun latestFor(key: String): LastInteractionRow?
+
     @Query("SELECT time FROM interactions WHERE lookupKey = :key")
     suspend fun timesFor(key: String): List<Long>
 

@@ -112,8 +112,7 @@ class CircleRepository(
 
     /** G6: the latest time you were in touch: an answered call or any logged interaction. */
     suspend fun lastContact(lookupKey: String, idx: CallLogIndex? = index().value): LastContact? {
-        val last = interactions.interactionsFor(lookupKey).firstOrNull()
-        return Interactions.lastContact(lastAnsweredCall(lookupKey, idx), last?.let { it.time to it.type })
+        return Interactions.lastContact(lastAnsweredCall(lookupKey, idx), interactions.latestFor(lookupKey))
     }
 
     /** Days you were in touch (answered calls and interactions), for the natural rhythm. */
