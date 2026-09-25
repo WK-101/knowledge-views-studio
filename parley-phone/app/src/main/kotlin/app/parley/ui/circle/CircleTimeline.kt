@@ -63,7 +63,6 @@ import app.parley.data.db.CallNoteEntity
 import app.parley.ui.Bidi
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.common.Format
-import app.parley.ui.home.callTypeIcon
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -196,10 +195,9 @@ fun ContactTimeline(
                     item {
                         when (e) {
                             is TimelineEntry.Call -> {
-                                val (icon, tint) = callTypeIcon(e.call.type)
                                 ListItem(
                                     colors = clearRow,
-                                    leadingContent = { Icon(icon, null, tint = tint) },
+                                    leadingContent = { app.parley.ui.home.CallTypeIcon(e.call.type) },
                                     headlineContent = { Text(Format.fullDate(context, e.time)) },
                                     supportingContent = {
                                         Text(listOf(Bidi.ltr(Format.number(e.call.number, vm.countryIso)), Format.duration(e.call.durationSec)).filter { it.isNotBlank() }.joinToString(stringResource(R.string.main_separator)))

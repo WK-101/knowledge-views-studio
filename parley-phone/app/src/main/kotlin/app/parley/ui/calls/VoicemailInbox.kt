@@ -111,7 +111,18 @@ fun VoicemailInbox(vm: AppViewModel, query: String) {
     Column(Modifier.fillMaxWidth()) {
         VoicemailNote(vm, state)
         if (state.loaded && state.available && items.isEmpty()) {
-            EmptyState(Icons.Rounded.Voicemail, stringResource(if (query.isBlank()) R.string.vmi_empty else R.string.recents_nothing_here), modifier = Modifier.padding(top = 32.dp))
+            // U5: no match (clear the search) or no voicemail yet (call the mailbox).
+            if (query.isBlank()) {
+                EmptyState(
+                    Icons.Rounded.Voicemail, stringResource(R.string.vmi_empty), modifier = Modifier.padding(top = 32.dp),
+                    action = stringResource(R.string.ux_empty_call_voicemail), onAction = { vm.callVoicemail() },
+                )
+            } else {
+                EmptyState(
+                    Icons.Rounded.Voicemail, stringResource(R.string.ux_empty_voicemail_no_match, query), modifier = Modifier.padding(top = 32.dp),
+                    action = stringResource(R.string.ux_empty_clear_search), onAction = { vm.recentQuery.value = "" },
+                )
+            }
         }
         items.forEach { v ->
             VoicemailRow(

@@ -101,7 +101,10 @@ fun ParleyRoot(vm: AppViewModel) {
         return
     }
 
-    if (!settings.onboardingDone && !skippedOnboarding && !(isDefault && hasContacts)) {
+    // U1: once started, onboarding runs to its permissions page even after the phone role grants contacts.
+    var onboardingStarted by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    if (!settings.onboardingDone && !skippedOnboarding && (onboardingStarted || !(isDefault && hasContacts))) {
+        androidx.compose.runtime.SideEffect { onboardingStarted = true }
         OnboardingScreen(vm, onDone = { skippedOnboarding = true })
         return
     }
@@ -153,7 +156,9 @@ fun ParleyRoot(vm: AppViewModel) {
 
     // U6: avatar style for every list and page.
     val avatarStyle = vm.people.settings.collectAsStateWithLifecycle().value.avatarStyle
-    androidx.compose.runtime.CompositionLocalProvider(LocalAvatarStyle provides avatarStyle) {
+    // U2: one-time tips, one at a time.
+    val coachMarks = remember { app.parley.ui.common.CoachMarks(vm.c.ux) }
+    androidx.compose.runtime.CompositionLocalProvider(LocalAvatarStyle provides avatarStyle, app.parley.ui.common.LocalCoachMarks provides coachMarks) {
     Box(Modifier.fillMaxSize()) {
       androidx.compose.animation.SharedTransitionLayout {
        androidx.compose.runtime.CompositionLocalProvider(LocalSharedScope provides this) {

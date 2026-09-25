@@ -207,14 +207,18 @@ fun HomeScreen(
                     Spacer(Modifier.weight(1f))
                 }
             }
-            Box(Modifier.weight(1f).fillMaxSize()) {
-                AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
-                    when (t) {
-                        StartTab.FAVORITES -> FavoritesTab(vm, open, favoriteQuery)
-                        StartTab.RECENTS -> RecentsTab(vm, open)
-                        StartTab.CONTACTS -> ContactsTab(vm, open)
-                        StartTab.KEYPAD -> KeypadTab(vm, open, keypadQuery.takeIf { searching })
-                        StartTab.CIRCLE -> app.parley.ui.circle.CircleTab(vm, open, circleQuery)
+            Column(Modifier.weight(1f).fillMaxSize()) {
+                // U6: "What's new" once after an update, as a card above the tab (the layout itself never changes).
+                if (!searching && selection.isEmpty()) WhatsNewCard(vm, open)
+                Box(Modifier.weight(1f).fillMaxSize()) {
+                    AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
+                        when (t) {
+                            StartTab.FAVORITES -> FavoritesTab(vm, open, favoriteQuery, onClearQuery = { favoriteQuery = "" })
+                            StartTab.RECENTS -> RecentsTab(vm, open)
+                            StartTab.CONTACTS -> ContactsTab(vm, open)
+                            StartTab.KEYPAD -> KeypadTab(vm, open, keypadQuery.takeIf { searching })
+                            StartTab.CIRCLE -> app.parley.ui.circle.CircleTab(vm, open, circleQuery)
+                        }
                     }
                 }
             }

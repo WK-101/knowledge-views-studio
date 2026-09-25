@@ -139,9 +139,34 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
         }
         item(key = "archive-notes") { app.parley.ui.history.ArchiveNotices(vm, open) }
         val list = groups
+        // U2: swipe and long-press actions on calls, told once (only when there are calls to try them on).
+        if (!list.isNullOrEmpty()) item(key = "tip") {
+            app.parley.ui.common.CoachMark(
+                app.parley.common.ux.Tips.RECENTS_SWIPE,
+                stringResource(if (swipe.enabled) R.string.ux_tip_recents_swipe else R.string.ux_tip_recents_long_press),
+                action = if (swipe.enabled) null else stringResource(R.string.ux_tip_turn_on),
+                onAction = { open(Routes.settingsPage(app.parley.common.SettingsCategory.APPEARANCE, "swipe_actions")) },
+            )
+        }
         if (list != null && list.isEmpty()) {
             item(key = "empty") {
-                EmptyState(Icons.Rounded.AccessTime, stringResource(if (filter == RecentFilter.ALL) R.string.recents_empty else R.string.recents_nothing_here), modifier = Modifier.padding(top = 48.dp))
+                // U5: "no matches" (clear the search), a filter that shows nothing (show all), or no calls yet (keypad).
+                val activeSaved by vm.c.history.activeFilter.collectAsStateWithLifecycle()
+                when {
+                    query.isNotBlank() -> EmptyState(
+                        Icons.Rounded.AccessTime, stringResource(R.string.ux_empty_calls_no_match, query), modifier = Modifier.padding(top = 48.dp),
+                        action = stringResource(R.string.ux_empty_clear_search), onAction = { vm.recentQuery.value = "" },
+                    )
+                    filter != RecentFilter.ALL || !activeSaved.isEmpty -> EmptyState(
+                        Icons.Rounded.AccessTime, stringResource(R.string.recents_nothing_here), stringResource(R.string.ux_empty_calls_filter), Modifier.padding(top = 48.dp),
+                        action = stringResource(R.string.ux_empty_show_all_calls),
+                        onAction = { vm.recentFilter.value = RecentFilter.ALL; vm.c.history.activeFilter.value = app.parley.common.history.HistoryFilter() },
+                    )
+                    else -> EmptyState(
+                        Icons.Rounded.AccessTime, stringResource(R.string.recents_empty), stringResource(R.string.ux_empty_calls_none), Modifier.padding(top = 48.dp),
+                        action = stringResource(R.string.ux_empty_open_keypad), onAction = { vm.navigate(app.parley.NavEvent.Tab(app.parley.common.StartTab.KEYPAD)) },
+                    )
+                }
             }
         }
         var lastHeader: String? = null
@@ -204,7 +229,6 @@ fun RecentRow(
 ) {
     val context = LocalContext.current
     val e = g.latest
-    val (icon, tint) = callTypeIcon(e.type)
     val missed = e.type == CallType.MISSED || e.type == CallType.REJECTED
     ListItem(
         modifier = Modifier.combinedClickable(onClick = onOpen, onLongClick = onLongClick, onLongClickLabel = stringResource(R.string.main_more_actions))
@@ -223,7 +247,7 @@ fun RecentRow(
         supportingContent = {
           androidx.compose.foundation.layout.Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
+                CallTypeIcon(e.type, size = 20.dp)
                 Spacer(Modifier.width(6.dp))
                 val location = if (g.contact == null && g.vaultId == null && !g.hidden) remember(g.number) { app.parley.data.NumberInfo.location(g.number, countryIso) } else null
                 val parts = listOfNotNull(
@@ -266,15 +290,28 @@ private val RecentFilter.labelRes: Int
         RecentFilter.VOICEMAIL -> R.string.recents_filter_voicemail
     }
 
+/** U3: the icon of a call type, in its fixed call colour (never the wallpaper colours). */
 @Composable
-fun callTypeIcon(type: CallType): Pair<ImageVector, Color> = when (type) {
-    CallType.INCOMING, CallType.ANSWERED_EXTERNALLY -> Icons.AutoMirrored.Rounded.CallReceived to CallColors.Accept
-    CallType.OUTGOING -> Icons.AutoMirrored.Rounded.CallMade to MaterialTheme.colorScheme.primary
-    CallType.MISSED -> Icons.AutoMirrored.Rounded.CallMissed to CallColors.Decline
-    CallType.REJECTED -> Icons.Rounded.CallEnd to CallColors.Decline
-    CallType.BLOCKED -> Icons.Rounded.Block to MaterialTheme.colorScheme.onSurfaceVariant
-    CallType.VOICEMAIL -> Icons.Rounded.Voicemail to MaterialTheme.colorScheme.tertiary
-    CallType.UNKNOWN -> Icons.Rounded.Call to MaterialTheme.colorScheme.onSurfaceVariant
+fun callTypeIcon(type: CallType): Pair<ImageVector, Color> = callTypeVector(type) to app.parley.ui.CallTypeColors.of(app.parley.common.ux.CallHue.of(type))
+
+private fun callTypeVector(type: CallType): ImageVector = when (type) {
+    CallType.INCOMING, CallType.ANSWERED_EXTERNALLY -> Icons.AutoMirrored.Rounded.CallReceived
+    CallType.OUTGOING -> Icons.AutoMirrored.Rounded.CallMade
+    CallType.MISSED -> Icons.AutoMirrored.Rounded.CallMissed
+    CallType.REJECTED -> Icons.Rounded.CallEnd
+    CallType.BLOCKED -> Icons.Rounded.Block
+    CallType.VOICEMAIL -> Icons.Rounded.Voicemail
+    CallType.UNKNOWN -> Icons.Rounded.Call
+}
+
+/** U3: a call type's icon on its tinted circle, the same in Recents, history, the contact page and insights. */
+@Composable
+fun CallTypeIcon(type: CallType, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 32.dp, describe: Boolean = true) {
+    app.parley.ui.CallTypeBadge(
+        callTypeVector(type), app.parley.common.ux.CallHue.of(type), modifier, size,
+        // Rows that already say the type in words pass describe = false, so it isn't read twice.
+        contentDescription = if (describe) stringResource(app.parley.ui.history.HistoryText.callType(type)) else null,
+    )
 }
 
 

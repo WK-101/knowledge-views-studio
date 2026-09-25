@@ -54,7 +54,11 @@ fun JournalScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         TopAppBar(title = { Text(stringResource(R.string.jr_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
     }) { p ->
         if (entries.isEmpty()) {
-            EmptyState(Icons.Rounded.History, stringResource(R.string.jr_empty_title), stringResource(R.string.jr_empty_text), Modifier.padding(p))
+            // U5: nothing to undo yet; the daily snapshots are the other way back.
+            EmptyState(
+                Icons.Rounded.History, stringResource(R.string.jr_empty_title), stringResource(R.string.jr_empty_text), Modifier.padding(p),
+                action = stringResource(R.string.ux_empty_what_changed), onAction = { vm.navigate(app.parley.NavEvent.Route(app.parley.ui.Routes.CHANGES)) },
+            )
             return@Scaffold
         }
         LazyColumn(Modifier.padding(p)) {

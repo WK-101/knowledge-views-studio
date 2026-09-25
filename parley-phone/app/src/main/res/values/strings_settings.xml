@@ -675,4 +675,13 @@
     <string name="role_rescue_app_info">App info</string>
     <string name="role_rescue_default_apps">Default apps</string>
     <string name="role_rescue_close">Close</string>
+    <!-- v3.2 C3/U2 settings -->
+    <string name="set_backup_reminder_title">Remind me to back up</string>
+    <string name="set_backup_reminder_summary">A quiet reminder when there\'s been no backup for a while (at most one notification a month)</string>
+    <string name="set_backup_reminder_kw">reminder, overdue, backup, notification</string>
+    <string name="set_reset_tips_title">Reset tips</string>
+    <string name="set_reset_tips_summary">Show the one-time tips again (keypad, Recents, search)</string>
+    <string name="set_reset_tips_kw">tips, hints, coach marks, help, tutorial</string>
+    <string name="set_group_tips">Tips</string>
+    <string name="ux_tips_reset_done">Tips will show again</string>
 </resources>

@@ -103,7 +103,17 @@ fun PickerScreen(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     )
                 }
-                if (shown.isEmpty()) item { EmptyState(Icons.Rounded.Search, stringResource(R.string.picker_nothing)) }
+                // U5: a search with no result can be cleared; an empty list just says so.
+                if (shown.isEmpty()) item {
+                    if (query.isNotBlank()) {
+                        EmptyState(
+                            Icons.Rounded.Search, stringResource(R.string.ux_empty_no_match, query),
+                            action = stringResource(R.string.ux_empty_clear_search), onAction = { query = "" },
+                        )
+                    } else {
+                        EmptyState(Icons.Rounded.Search, stringResource(R.string.picker_nothing))
+                    }
+                }
                 items(shown, key = { it.uri.toString() }) { pick ->
                     val checked = pick in selected
                     ListItem(

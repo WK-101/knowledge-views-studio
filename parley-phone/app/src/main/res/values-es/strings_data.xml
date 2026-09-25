@@ -1432,4 +1432,56 @@
     <string name="privnames_dir_request_text">%1$s buscó a quien llama en el directorio de contactos de Parley. Si lo permites, %1$s podrá mostrar el nombre de un contacto privado cuando llame, un número cada vez; nunca recibe una lista. Esto es independiente de «Permitir que las apps muestren nombres privados».</string>
     <string name="pn_directory_apps">Apps de teléfono que usan el directorio</string>
     <string name="import_csv_column">Columna CSV «%1$s»</string>
+    <!-- v3.2 C2/C3: back up first, backup reminder -->
+    <string name="ux_backup_first_title">¿Hacer una copia antes?</string>
+    <string name="ux_backup_first_last">Esto cambia muchos contactos a la vez. Última copia: %1$s.</string>
+    <string name="ux_backup_first_never">Esto cambia muchos contactos a la vez y aún no hay ninguna copia.</string>
+    <string name="ux_backup_first_quick">Una copia cifrada rápida tarda un momento y así siempre podrás volver atrás.</string>
+    <string name="ux_backup_first_setup">Puedes configurar primero las copias cifradas o seguir: «Eliminados recientemente» guarda los cambios 30 días de todos modos.</string>
+    <string name="ux_backup_first_now">Hacer copia ahora</string>
+    <string name="ux_backup_set_up">Configurar copia</string>
+    <string name="ux_backup_first_skip">Continuar sin copia</string>
+    <string name="ux_backup_due_title">Última copia: %1$s</string>
+    <string name="ux_backup_due_never">Aún no hay copia</string>
+    <string name="ux_backup_due_body">Una copia cifrada reciente protege tus contactos si algo sale mal.</string>
+    <string name="ux_backup_due_body_setup">Las copias cifradas van a una carpeta que eliges. Nada sale del teléfono salvo que tú lo muevas.</string>
+    <string name="ux_not_now">Ahora no</string>
+    <string name="ux_backup_notify_title">¿Hacemos una copia?</string>
+    <string name="ux_backup_notify_text">Hace tiempo de tu última copia. Con un toque haces una nueva copia cifrada.</string>
+    <string name="ux_backup_notify_text_never">Tus contactos aún no tienen copia. Las copias cifradas se configuran en un minuto.</string>
+    <plurals name="ux_backup_after_days">
+        <item quantity="one">Tras %d día</item>
+        <item quantity="many">Tras %d días</item>
+        <item quantity="other">Tras %d días</item>
+    </plurals>
+    <!-- v3.2 U1: onboarding permissions page -->
+    <string name="ux_onb_next">Empezar</string>
+    <string name="ux_onb_dialer_title">Haz de Parley tu app de teléfono</string>
+    <string name="ux_onb_dialer_body">Puedes cambiarlo cuando quieras en Ajustes › Llamadas › App de teléfono predeterminada.</string>
+    <string name="ux_onb_restricted_title">¿Instalada desde un archivo?</string>
+    <string name="ux_onb_restricted_body">Desde Android 13, algunos ajustes están protegidos para apps que no vienen de una tienda. Si el siguiente paso dice «Ajuste restringido», Parley no tiene ningún problema.</string>
+    <string name="ux_onb_restricted_steps">Abre Información de la app, toca ⋮ (arriba a la derecha) › Permitir ajustes restringidos y confirma. Luego vuelve y toca de nuevo «Establecer como app de teléfono predeterminada».</string>
+    <string name="ux_onb_app_info">Abrir información de la app</string>
+    <string name="ux_perm_title">Qué puede usar Parley</string>
+    <string name="ux_perm_intro">Permite lo que te parezca bien. Todo se queda en tu teléfono y puedes cambiarlo luego en los ajustes de Android.</string>
+    <string name="ux_perm_allow_all">Permitir todo</string>
+    <string name="ux_perm_all_allowed">Todo permitido</string>
+    <string name="ux_perm_continue">Continuar</string>
+    <string name="ux_perm_without">Sin él: %1$s</string>
+    <string name="ux_perm_in_app_info">Android no volverá a preguntar. Puedes activarlo en Información de la app.</string>
+    <string name="ux_perm_contacts">Contactos</string>
+    <string name="ux_perm_contacts_why">Ver, añadir y editar tus contactos.</string>
+    <string name="ux_perm_contacts_without">puedes marcar números, pero Contactos y Favoritos quedan vacíos</string>
+    <string name="ux_perm_call_log">Historial de llamadas</string>
+    <string name="ux_perm_call_log_why">Mostrar Recientes, llamadas perdidas y quién llamó.</string>
+    <string name="ux_perm_call_log_without">puedes llamar, pero Recientes queda vacío</string>
+    <string name="ux_perm_phone">Teléfono</string>
+    <string name="ux_perm_phone_why">Hacer llamadas, elegir SIM y contestar.</string>
+    <string name="ux_perm_phone_without">las llamadas se abren en tu otra app de teléfono y sin elegir SIM</string>
+    <string name="ux_perm_notifications">Notificaciones</string>
+    <string name="ux_perm_notifications_why">Llamadas perdidas, cumpleaños y la llamada en curso.</string>
+    <string name="ux_perm_notifications_without">las llamadas suenan igual, pero no verás perdidas ni recordatorios</string>
+    <string name="ux_perm_nearby">Dispositivos cercanos</string>
+    <string name="ux_perm_nearby_why">Mostrar tus auriculares Bluetooth o el coche durante las llamadas.</string>
+    <string name="ux_perm_nearby_without">las llamadas usan Bluetooth igual, pero no se muestra el nombre del dispositivo</string>
 </resources>

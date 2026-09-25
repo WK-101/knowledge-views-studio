@@ -113,7 +113,6 @@ import app.parley.ui.SegmentedGroup
 import app.parley.ui.blended
 import app.parley.ui.common.Format
 import app.parley.ui.common.Intents
-import app.parley.ui.home.callTypeIcon
 import app.parley.ui.shared
 import app.parley.security.launchVault
 import kotlinx.coroutines.Dispatchers
@@ -405,6 +404,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                 }
             }
+            // C4: empty birthday / anniversary slots, saved straight to the system contact.
+            if (hasMissingDates(d)) item(key = "missing_dates") { MissingDateChips(vm, d, onSaved = { reloads++ }) }
             if (d.phones.isNotEmpty()) item(key = "phones") {
                 SegmentedGroup(stringResource(R.string.detail_phone)) {
                     d.phones.forEachIndexed { i, p ->

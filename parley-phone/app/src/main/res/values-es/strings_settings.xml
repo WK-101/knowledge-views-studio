@@ -682,4 +682,13 @@
     <string name="role_rescue_app_info">Info. de la app</string>
     <string name="role_rescue_default_apps">Apps predeterminadas</string>
     <string name="role_rescue_close">Cerrar</string>
+    <!-- v3.2 C3/U2 settings -->
+    <string name="set_backup_reminder_title">Recordarme hacer copia</string>
+    <string name="set_backup_reminder_summary">Un aviso discreto cuando hace tiempo que no hay copia (como mucho una notificación al mes)</string>
+    <string name="set_backup_reminder_kw">recordatorio, pendiente, copia, respaldo, notificación</string>
+    <string name="set_reset_tips_title">Restablecer consejos</string>
+    <string name="set_reset_tips_summary">Volver a mostrar los consejos de una vez (teclado, Recientes, búsqueda)</string>
+    <string name="set_reset_tips_kw">consejos, pistas, ayuda, tutorial</string>
+    <string name="set_group_tips">Consejos</string>
+    <string name="ux_tips_reset_done">Los consejos se mostrarán de nuevo</string>
 </resources>

@@ -815,4 +815,36 @@
     <string name="clear_history_delete">حذف کریں</string>
     <string name="clear_history_cancel">منسوخ کریں</string>
     <string name="clear_history_close">بند کریں</string>
+    <!-- v3.2 C4: birthday slots -->
+    <string name="ux_add_birthday">سالگرہ شامل کریں؟</string>
+    <string name="ux_add_anniversary">برسی شامل کریں؟</string>
+    <string name="ux_date_not_saved">تاریخ محفوظ نہیں ہو سکی۔ آپ اسے ترمیم سے شامل کر سکتے ہیں۔</string>
+    <!-- v3.2 U2/U6: tips and What's new -->
+    <string name="ux_tip_got_it">سمجھ گیا</string>
+    <string name="ux_tip_search">یہاں نام، نمبر، نوٹس اور کمپنیاں تلاش کریں۔</string>
+    <string name="ux_tip_speed_dial">تجویز: کسی کو ایک ٹچ میں کال کرنے کے لیے 2 سے 9 دبا کر رکھیں۔</string>
+    <string name="ux_tip_set_up">ترتیب دیں</string>
+    <string name="ux_tip_recents_swipe">فوری کاموں کے لیے کال کو سائیڈ پر سوائپ کریں، یا مزید کے لیے دبا کر رکھیں۔</string>
+    <string name="ux_tip_recents_long_press">مزید کاموں کے لیے کال کو دبا کر رکھیں۔ سوائپ کام بھی آن کیے جا سکتے ہیں۔</string>
+    <string name="ux_tip_turn_on">آن کریں</string>
+    <string name="ux_whats_new_title">Parley %1$s میں نیا کیا ہے</string>
+    <string name="ux_whats_new_body">آپ کے ٹیبز، شروع کا ٹیب اور کال کی فہرست ویسے ہی رہتے ہیں جیسے آپ نے رکھے تھے۔ نئی چیزیں بند حالت میں آتی ہیں، جب چاہیں آزمائیں۔</string>
+    <string name="ux_whats_new_try">آزمائیں</string>
+    <!-- v3.2 U5: empty states -->
+    <string name="ux_empty_clear_search">تلاش صاف کریں</string>
+    <string name="ux_empty_clear_filter">فلٹر ہٹائیں</string>
+    <string name="ux_empty_add_contact">رابطہ بنائیں</string>
+    <string name="ux_empty_add_private">نجی رابطہ شامل کریں</string>
+    <string name="ux_empty_choose_favorites">پسندیدہ چنیں</string>
+    <string name="ux_empty_calls_no_match">“%1$s” سے کوئی کال میل نہیں کھاتی</string>
+    <string name="ux_empty_calls_filter">آپ کی تاریخ میں اس قسم کی کوئی کال نہیں ہے۔</string>
+    <string name="ux_empty_show_all_calls">تمام کالز دکھائیں</string>
+    <string name="ux_empty_calls_none">آپ کی کی گئی اور آنے والی کالز یہاں نظر آئیں گی۔</string>
+    <string name="ux_empty_open_keypad">کی پیڈ کھولیں</string>
+    <string name="ux_empty_call_voicemail">وائس میل پر کال کریں</string>
+    <string name="ux_empty_voicemail_no_match">“%1$s” سے کوئی وائس میل میل نہیں کھاتی</string>
+    <string name="ux_empty_what_changed">دیکھیں کیا بدلا</string>
+    <string name="ux_empty_open_contacts">رابطے کھولیں</string>
+    <string name="ux_empty_back">واپس جائیں</string>
+    <string name="ux_empty_no_match">“%1$s” کے لیے کوئی نتیجہ نہیں</string>
 </resources>

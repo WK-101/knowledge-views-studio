@@ -900,4 +900,36 @@
     <string name="clear_history_delete">Delete</string>
     <string name="clear_history_cancel">Cancel</string>
     <string name="clear_history_close">Close</string>
+    <!-- v3.2 C4: birthday slots -->
+    <string name="ux_add_birthday">Add birthday?</string>
+    <string name="ux_add_anniversary">Add anniversary?</string>
+    <string name="ux_date_not_saved">Couldn\'t save the date. You can add it with Edit.</string>
+    <!-- v3.2 U2/U6: tips and What's new -->
+    <string name="ux_tip_got_it">Got it</string>
+    <string name="ux_tip_search">Search names, numbers, notes and companies here.</string>
+    <string name="ux_tip_speed_dial">Tip: long-press 2 to 9 to call someone with one touch.</string>
+    <string name="ux_tip_set_up">Set up</string>
+    <string name="ux_tip_recents_swipe">Swipe a call sideways for quick actions, or long-press it for more.</string>
+    <string name="ux_tip_recents_long_press">Long-press a call for more actions. Swipe actions can be turned on too.</string>
+    <string name="ux_tip_turn_on">Turn on</string>
+    <string name="ux_whats_new_title">What\'s new in Parley %1$s</string>
+    <string name="ux_whats_new_body">Your tabs, start tab and call list stay just as you set them. New things arrive switched off, so you can try them when you like.</string>
+    <string name="ux_whats_new_try">Try it</string>
+    <!-- v3.2 U5: empty states -->
+    <string name="ux_empty_clear_search">Clear search</string>
+    <string name="ux_empty_clear_filter">Clear filter</string>
+    <string name="ux_empty_add_contact">Create contact</string>
+    <string name="ux_empty_add_private">Add a private contact</string>
+    <string name="ux_empty_choose_favorites">Choose favorites</string>
+    <string name="ux_empty_calls_no_match">No calls match “%1$s”</string>
+    <string name="ux_empty_calls_filter">No calls of this kind in your history.</string>
+    <string name="ux_empty_show_all_calls">Show all calls</string>
+    <string name="ux_empty_calls_none">Calls you make and receive will show up here.</string>
+    <string name="ux_empty_open_keypad">Open keypad</string>
+    <string name="ux_empty_call_voicemail">Call voicemail</string>
+    <string name="ux_empty_voicemail_no_match">No voicemail matches “%1$s”</string>
+    <string name="ux_empty_what_changed">See what changed</string>
+    <string name="ux_empty_open_contacts">Open contacts</string>
+    <string name="ux_empty_back">Go back</string>
+    <string name="ux_empty_no_match">No matches for “%1$s”</string>
 </resources>

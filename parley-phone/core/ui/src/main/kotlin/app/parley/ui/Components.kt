@@ -31,8 +31,12 @@ fun rowPadding(): PaddingValues =
 @Composable
 fun avatarSize(): Dp = if (LocalDensityPref.current == ListDensity.COMPACT) 36.dp else 44.dp
 
+/**
+ * An empty list. U5: say whether nothing matches a search ("No matches for …") or nothing is there yet, and offer
+ * one clear way on ([action], [onAction]).
+ */
 @Composable
-fun EmptyState(icon: ImageVector, title: String, body: String? = null, modifier: Modifier = Modifier) {
+fun EmptyState(icon: ImageVector, title: String, body: String? = null, modifier: Modifier = Modifier, action: String? = null, onAction: (() -> Unit)? = null) {
     Column(
         modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.Center,
@@ -45,6 +49,9 @@ fun EmptyState(icon: ImageVector, title: String, body: String? = null, modifier:
                 body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp), textAlign = TextAlign.Center,
             )
+        }
+        if (action != null && onAction != null) {
+            androidx.compose.material3.FilledTonalButton(onAction, Modifier.padding(top = 16.dp)) { Text(action) }
         }
     }
 }

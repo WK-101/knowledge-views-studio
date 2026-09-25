@@ -36,6 +36,10 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
     var result by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(uri) { accounts = withContext(Dispatchers.IO) { vm.c.contacts.accounts() } }
     val res = LocalResources.current
+    // C2: a large file offers "Back up first?" before the import starts.
+    val backupFirst = app.parley.ui.backup.rememberBackupFirst(vm)
+    var count by remember { mutableStateOf(0) }
+    LaunchedEffect(uri) { count = vm.c.vcards.estimateCount(uri) }
 
     AlertDialog(
         onDismissRequest = { if (!running) onDone() },
@@ -52,15 +56,17 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                         ListItem(
                             headlineContent = { Text(vm.accountLabel(a)) },
                             modifier = Modifier.clickable {
-                                running = true
-                                scope.launch {
-                                    result = try {
-                                        val r = vm.c.vcards.importVCard(uri, a, { done, total -> progress = if (total > 0) done.toFloat() / total else 0f }, skipDuplicates = true)
-                                        res.getString(R.string.import_into_account, r.localizedSummary(res), a.displayLabel)
-                                    } catch (e: Exception) {
-                                        res.getString(R.string.import_failed, e.message.orEmpty())
+                                backupFirst.ask(count, app.parley.common.ux.BackupNudge.LARGE_IMPORT) {
+                                    running = true
+                                    scope.launch {
+                                        result = try {
+                                            val r = vm.c.vcards.importVCard(uri, a, { done, total -> progress = if (total > 0) done.toFloat() / total else 0f }, skipDuplicates = true)
+                                            res.getString(R.string.import_into_account, r.localizedSummary(res), a.displayLabel)
+                                        } catch (e: Exception) {
+                                            res.getString(R.string.import_failed, e.message.orEmpty())
+                                        }
+                                        running = false
                                     }
-                                    running = false
                                 }
                             },
                         )

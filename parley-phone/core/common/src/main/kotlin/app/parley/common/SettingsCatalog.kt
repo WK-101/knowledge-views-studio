@@ -85,6 +85,8 @@ object SettingsCatalog {
         e("swipe_actions", "Swipe actions", "Off by default. Swipe a contact or a call right to call, left to message", A,
             "swipe", "gesture", "slide", "left", "right", "quick actions"),
         e("avatar_style", "Avatars", "Colourful or grey letters; names that start with an emoji show it", A, "avatar", "monogram", "emoji", "picture", "letters", "grey", "gray"),
+        // U2
+        e("reset_tips", "Reset tips", "Show the one-time tips again (keypad, Recents, search)", A, "tips", "hints", "coach marks", "help", "tutorial", "onboarding"),
 
         // Calls
         e("default_dialer", "Default phone app", "Needed to show calls, manage blocking and the call log", C, "default dialer", "role", "phone app"),
@@ -195,6 +197,8 @@ object SettingsCatalog {
 
         // Backup & sync
         e("backup", "Backup & restore", "Encrypted backups to a folder you choose", U, "restore", "export", "encrypted", "new phone", "move", "transfer"),
+        // C3
+        e("backup_reminder", "Remind me to back up", "A quiet reminder when there's been no backup for a while", U, "reminder", "overdue", "backup", "notification", "nag"),
         e("sync", "Sync between your phones", "Through a Syncthing / Nextcloud folder, no server", U, "syncthing", "nextcloud", "folder", "second phone"),
         e("journal", "Recently deleted & changed", "Undo for 30 days", U, "undo", "trash", "restore", "deleted", "bin"),
         e("time_machine", "What changed (time machine)", "Daily snapshots for 6 months: see and undo changes", U, "snapshots", "history", "versions", "restore"),

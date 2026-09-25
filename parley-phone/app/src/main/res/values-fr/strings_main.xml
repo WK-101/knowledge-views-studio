@@ -864,4 +864,36 @@
     <string name="clear_history_delete">Supprimer</string>
     <string name="clear_history_cancel">Annuler</string>
     <string name="clear_history_close">Fermer</string>
+    <!-- v3.2 C4: birthday slots -->
+    <string name="ux_add_birthday">Ajouter l\'anniversaire ?</string>
+    <string name="ux_add_anniversary">Ajouter une date anniversaire ?</string>
+    <string name="ux_date_not_saved">Impossible d\'enregistrer la date. Vous pouvez l\'ajouter via Modifier.</string>
+    <!-- v3.2 U2/U6: tips and What's new -->
+    <string name="ux_tip_got_it">Compris</string>
+    <string name="ux_tip_search">Recherchez ici noms, numéros, notes et entreprises.</string>
+    <string name="ux_tip_speed_dial">Astuce : appuyez longuement de 2 à 9 pour appeler quelqu\'un d\'un geste.</string>
+    <string name="ux_tip_set_up">Configurer</string>
+    <string name="ux_tip_recents_swipe">Balayez un appel sur le côté pour les actions rapides, ou appuyez longuement pour plus.</string>
+    <string name="ux_tip_recents_long_press">Appuyez longuement sur un appel pour plus d\'actions. Les actions par balayage peuvent aussi être activées.</string>
+    <string name="ux_tip_turn_on">Activer</string>
+    <string name="ux_whats_new_title">Nouveautés de Parley %1$s</string>
+    <string name="ux_whats_new_body">Vos onglets, l\'onglet de départ et la liste d\'appels restent comme vous les avez réglés. Les nouveautés arrivent désactivées : essayez-les quand vous voulez.</string>
+    <string name="ux_whats_new_try">Essayer</string>
+    <!-- v3.2 U5: empty states -->
+    <string name="ux_empty_clear_search">Effacer la recherche</string>
+    <string name="ux_empty_clear_filter">Retirer le filtre</string>
+    <string name="ux_empty_add_contact">Créer un contact</string>
+    <string name="ux_empty_add_private">Ajouter un contact privé</string>
+    <string name="ux_empty_choose_favorites">Choisir des favoris</string>
+    <string name="ux_empty_calls_no_match">Aucun appel ne correspond à « %1$s »</string>
+    <string name="ux_empty_calls_filter">Aucun appel de ce type dans votre historique.</string>
+    <string name="ux_empty_show_all_calls">Afficher tous les appels</string>
+    <string name="ux_empty_calls_none">Les appels passés et reçus s\'afficheront ici.</string>
+    <string name="ux_empty_open_keypad">Ouvrir le clavier</string>
+    <string name="ux_empty_call_voicemail">Appeler la messagerie</string>
+    <string name="ux_empty_voicemail_no_match">Aucun message vocal ne correspond à « %1$s »</string>
+    <string name="ux_empty_what_changed">Voir ce qui a changé</string>
+    <string name="ux_empty_open_contacts">Ouvrir les contacts</string>
+    <string name="ux_empty_back">Retour</string>
+    <string name="ux_empty_no_match">Aucun résultat pour « %1$s »</string>
 </resources>

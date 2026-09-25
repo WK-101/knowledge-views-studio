@@ -42,7 +42,6 @@ import app.parley.common.history.NumberKeys
 import app.parley.common.history.TrendDirection
 import app.parley.ui.common.Format
 import app.parley.ui.contact.Section
-import app.parley.ui.home.callTypeIcon
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.format.TextStyle
@@ -77,9 +76,8 @@ fun CallInsightsSection(vm: AppViewModel, numbers: List<String>, title: String =
             Text(shown.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp))
         }
         ins.lastCall?.let { last ->
-            val (icon, tint) = callTypeIcon(last.type)
             ListItem(
-                leadingContent = { Icon(icon, null, tint = tint) },
+                leadingContent = { app.parley.ui.home.CallTypeIcon(last.type) },
                 headlineContent = { Text(stringResource(R.string.hist_last_call, android.text.format.DateUtils.getRelativeTimeSpanString(last.date, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS))) },
                 supportingContent = {
                     Text(

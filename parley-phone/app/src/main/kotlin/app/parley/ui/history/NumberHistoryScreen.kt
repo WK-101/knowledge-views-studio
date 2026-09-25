@@ -45,7 +45,6 @@ import app.parley.ui.Avatar
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
 import app.parley.ui.common.Intents
-import app.parley.ui.home.callTypeIcon
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import app.parley.R
@@ -146,9 +145,8 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
             }
             if (history.isNotEmpty()) item { app.parley.ui.contact.Section(stringResource(R.string.hist_calls_section)) }
             items(history, key = { it.id }) { e ->
-                val (icon, tint) = callTypeIcon(e.type)
                 ListItem(
-                    leadingContent = { Icon(icon, null, tint = tint) },
+                    leadingContent = { app.parley.ui.home.CallTypeIcon(e.type, describe = false) },
                     headlineContent = { Text(Format.fullDate(context, e.date)) },
                     supportingContent = {
                         Text(listOfNotNull(stringResource(HistoryText.callType(e.type)), Format.duration(e.durationSec).ifBlank { null }, e.accountId?.let { simLabels[it] }).joinToString(" · "))

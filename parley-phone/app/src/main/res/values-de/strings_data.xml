@@ -1365,4 +1365,55 @@
     <string name="privnames_dir_request_text">%1$s hat einen Anrufer in Parleys Kontaktverzeichnis gesucht. Wenn du es erlaubst, kann %1$s den Namen eines privaten Kontakts anzeigen, wenn er anruft, jeweils für eine Nummer; eine Liste bekommt die App nie. Das ist unabhängig von „Apps private Namen anzeigen lassen“.</string>
     <string name="pn_directory_apps">Telefon-Apps, die das Verzeichnis nutzen</string>
     <string name="import_csv_column">CSV-Spalte „%1$s“</string>
+    <!-- v3.2 C2/C3: back up first, backup reminder -->
+    <string name="ux_backup_first_title">Zuerst sichern?</string>
+    <string name="ux_backup_first_last">Dadurch ändern sich viele Kontakte auf einmal. Letzte Sicherung: %1$s.</string>
+    <string name="ux_backup_first_never">Dadurch ändern sich viele Kontakte auf einmal, und es gibt noch keine Sicherung.</string>
+    <string name="ux_backup_first_quick">Eine schnelle verschlüsselte Sicherung dauert nur einen Moment, dann kannst du jederzeit zurück.</string>
+    <string name="ux_backup_first_setup">Du kannst zuerst verschlüsselte Sicherungen einrichten oder einfach weitermachen: „Zuletzt gelöscht“ hebt Änderungen so oder so 30 Tage auf.</string>
+    <string name="ux_backup_first_now">Jetzt sichern</string>
+    <string name="ux_backup_set_up">Sicherung einrichten</string>
+    <string name="ux_backup_first_skip">Ohne fortfahren</string>
+    <string name="ux_backup_due_title">Letzte Sicherung: %1$s</string>
+    <string name="ux_backup_due_never">Noch keine Sicherung</string>
+    <string name="ux_backup_due_body">Eine frische verschlüsselte Sicherung schützt deine Kontakte, falls etwas schiefgeht.</string>
+    <string name="ux_backup_due_body_setup">Verschlüsselte Sicherungen landen in einem Ordner deiner Wahl. Nichts verlässt dein Telefon, außer du verschiebst es.</string>
+    <string name="ux_not_now">Nicht jetzt</string>
+    <string name="ux_backup_notify_title">Zeit für eine Sicherung?</string>
+    <string name="ux_backup_notify_text">Die letzte Sicherung ist eine Weile her. Ein Tipp erstellt eine frische verschlüsselte Kopie.</string>
+    <string name="ux_backup_notify_text_never">Deine Kontakte sind noch nicht gesichert. Verschlüsselte Sicherungen sind in einer Minute eingerichtet.</string>
+    <plurals name="ux_backup_after_days">
+        <item quantity="one">Nach %d Tag</item>
+        <item quantity="other">Nach %d Tagen</item>
+    </plurals>
+    <!-- v3.2 U1: onboarding permissions page -->
+    <string name="ux_onb_next">Los geht\'s</string>
+    <string name="ux_onb_dialer_title">Parley als Telefon-App festlegen</string>
+    <string name="ux_onb_dialer_body">Du kannst das jederzeit unter Einstellungen › Anrufe › Standard-Telefon-App ändern.</string>
+    <string name="ux_onb_restricted_title">Aus einer Datei installiert?</string>
+    <string name="ux_onb_restricted_body">Ab Android 13 sind manche Einstellungen für Apps geschützt, die nicht aus einem App-Store kommen. Wenn der nächste Schritt „Eingeschränkte Einstellung“ meldet, ist mit Parley alles in Ordnung.</string>
+    <string name="ux_onb_restricted_steps">Öffne App-Info, tippe auf ⋮ (oben rechts) › Eingeschränkte Einstellungen zulassen und bestätige. Komm dann zurück und tippe erneut auf „Als Standard-Telefon-App festlegen“.</string>
+    <string name="ux_onb_app_info">App-Info öffnen</string>
+    <string name="ux_perm_title">Worauf Parley zugreifen darf</string>
+    <string name="ux_perm_intro">Erlaube, was für dich passt. Alles bleibt auf deinem Telefon, und du kannst es später in den Android-Einstellungen ändern.</string>
+    <string name="ux_perm_allow_all">Alle erlauben</string>
+    <string name="ux_perm_all_allowed">Alles erlaubt</string>
+    <string name="ux_perm_continue">Weiter</string>
+    <string name="ux_perm_without">Ohne: %1$s</string>
+    <string name="ux_perm_in_app_info">Android fragt nicht noch einmal. Du kannst es in der App-Info einschalten.</string>
+    <string name="ux_perm_contacts">Kontakte</string>
+    <string name="ux_perm_contacts_why">Kontakte ansehen, hinzufügen und bearbeiten.</string>
+    <string name="ux_perm_contacts_without">Nummern wählen geht weiter, aber Kontakte und Favoriten bleiben leer</string>
+    <string name="ux_perm_call_log">Anrufliste</string>
+    <string name="ux_perm_call_log_why">Anrufliste, verpasste Anrufe und Anrufer anzeigen.</string>
+    <string name="ux_perm_call_log_without">Anrufen geht weiter, aber die Anrufliste bleibt leer</string>
+    <string name="ux_perm_phone">Telefon</string>
+    <string name="ux_perm_phone_why">Anrufe tätigen, SIM wählen und Anrufe annehmen.</string>
+    <string name="ux_perm_phone_without">Anrufe öffnen sich in deiner anderen Telefon-App, ohne SIM-Auswahl</string>
+    <string name="ux_perm_notifications">Benachrichtigungen</string>
+    <string name="ux_perm_notifications_why">Verpasste Anrufe, Geburtstage und der laufende Anruf.</string>
+    <string name="ux_perm_notifications_without">Anrufe klingeln weiter, aber du siehst keine verpassten Anrufe oder Erinnerungen</string>
+    <string name="ux_perm_nearby">Geräte in der Nähe</string>
+    <string name="ux_perm_nearby_why">Dein Bluetooth-Headset oder Auto während Anrufen anzeigen.</string>
+    <string name="ux_perm_nearby_without">Anrufe nutzen weiter Bluetooth, nur der Gerätename fehlt</string>
 </resources>

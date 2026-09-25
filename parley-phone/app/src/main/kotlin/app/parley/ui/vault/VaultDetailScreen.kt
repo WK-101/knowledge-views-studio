@@ -67,7 +67,6 @@ import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.PushPin
-import app.parley.ui.home.callTypeIcon
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import app.parley.R
@@ -278,10 +277,9 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                         mine.forEach { c ->
                             item {
                                 val type = app.parley.data.CallLogRepository.mapType(c.type)
-                                val (icon, tint) = callTypeIcon(type)
                                 ListItem(
                                     colors = app.parley.ui.contact.groupRowColors(),
-                                    leadingContent = { Icon(icon, null, tint = tint) },
+                                    leadingContent = { app.parley.ui.home.CallTypeIcon(type) },
                                     headlineContent = { Text(Format.fullDate(context, c.date)) },
                                     supportingContent = { Text(listOf(DataL10n.ltr(Format.number(c.number, vm.countryIso)), Format.duration(c.durationSec)).filter { it.isNotBlank() }.joinToString(" · ")) },
                                 )

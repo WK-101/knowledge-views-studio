@@ -233,7 +233,8 @@ fun ContactEditScreen(
                     // I6: the encrypted caller photo.
                     val picked = photo
                     if (picked != null) {
-                        val bytes = withContext(Dispatchers.IO) { runCatching { context.contentResolver.openInputStream(picked)?.use { it.readBytes() } }.getOrNull() }
+                        // C1: decoded reduced and upright from the picked file, never read whole.
+                        val bytes = withContext(Dispatchers.IO) { app.parley.data.ContactPhotoProcessor.process(context.contentResolver, picked) }
                         if (bytes == null || !vm.c.vault.setPhoto(id, bytes)) vm.toast(res.getString(R.string.edit_photo_failed))
                     } else if (removePhoto) {
                         vm.c.vault.removePhoto(id)

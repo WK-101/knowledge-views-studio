@@ -83,7 +83,10 @@ fun HomeHeader(
             TopAppBar(
                 title = { Text(title, style = MaterialTheme.typography.headlineSmall, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 actions = {
-                    IconButton({ onSearch(true) }) { Icon(Icons.Rounded.Search, searchHint) }
+                    // U2: a one-time tip under the search icon.
+                    app.parley.ui.common.CoachMarkAnchor(app.parley.common.ux.Tips.HEADER_SEARCH, stringResource(R.string.ux_tip_search)) {
+                        IconButton({ onSearch(true) }) { Icon(Icons.Rounded.Search, searchHint) }
+                    }
                     actions()
                     Box {
                         IconButton({ menuOpen = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.home_more_options)) }

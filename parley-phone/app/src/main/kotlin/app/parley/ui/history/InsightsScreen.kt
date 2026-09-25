@@ -212,8 +212,9 @@ internal fun PersonRow(vm: AppViewModel, person: Person, sub: String, open: (Str
 /** Stacked weekly bars: calls you made (primary) on top of calls you received (tertiary). No chart library. */
 @Composable
 private fun WeeklyBars(weeks: List<WeekBucket>, modifier: Modifier = Modifier) {
-    val outColor = MaterialTheme.colorScheme.primary
-    val inColor = MaterialTheme.colorScheme.tertiary
+    // U3: the fixed call colours, as on the call icons.
+    val outColor = app.parley.ui.CallTypeColors.of(app.parley.common.ux.CallHue.OUTGOING)
+    val inColor = app.parley.ui.CallTypeColors.of(app.parley.common.ux.CallHue.INCOMING)
     val grid = MaterialTheme.colorScheme.outlineVariant
     val max = weeks.maxOf { it.talkSec }.coerceAtLeast(60)
     val locale = Locale.getDefault()

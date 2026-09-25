@@ -108,6 +108,7 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
             list.size <= 1 -> EmptyState(
                 Icons.Rounded.History, stringResource(R.string.tm_no_versions),
                 app.parley.data.backup.TimeMachine.KEEP_DAYS.toInt().let { pluralStringResource(R.plurals.tm_no_versions_text, it, it) }, Modifier.padding(p),
+                action = stringResource(R.string.ux_empty_back), onAction = back,
             )
             else -> LazyColumn(Modifier.padding(p)) {
                 list.forEachIndexed { i, v ->

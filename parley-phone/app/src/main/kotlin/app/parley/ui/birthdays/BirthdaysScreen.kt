@@ -59,7 +59,11 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
     }) { p ->
         val items = list
         if (items != null && items.isEmpty()) {
-            EmptyState(Icons.Rounded.Cake, stringResource(R.string.bday_empty_title), stringResource(R.string.bday_empty_text), Modifier.padding(p))
+            // U5: dates live on contacts; the way on is the contact list.
+            EmptyState(
+                Icons.Rounded.Cake, stringResource(R.string.bday_empty_title), stringResource(R.string.bday_empty_text), Modifier.padding(p),
+                action = stringResource(R.string.ux_empty_open_contacts), onAction = { vm.navigate(app.parley.NavEvent.Tab(app.parley.common.StartTab.CONTACTS)) },
+            )
             return@Scaffold
         }
         val deceased = items.orEmpty().filter { app.parley.common.people.LifeEvents.isDeath(it.event.type, it.event.label) }.map { it.event.contactId }.toSet()

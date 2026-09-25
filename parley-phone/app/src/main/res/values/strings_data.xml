@@ -1364,4 +1364,55 @@
     <string name="privnames_dir_request_text">%1$s looked a caller up in Parley\'s contacts directory. If you allow it, %1$s can show a private contact\'s name when they call, one number at a time; it never gets a list. This is separate from “Let apps show private names”.</string>
     <string name="pn_directory_apps">Phone apps using the directory</string>
     <string name="import_csv_column">CSV column “%1$s”</string>
+    <!-- v3.2 C2/C3: back up first, backup reminder -->
+    <string name="ux_backup_first_title">Back up first?</string>
+    <string name="ux_backup_first_last">This changes many contacts at once. Your last backup was %1$s.</string>
+    <string name="ux_backup_first_never">This changes many contacts at once, and there\'s no backup yet.</string>
+    <string name="ux_backup_first_quick">A quick encrypted backup takes a moment, so you can always go back.</string>
+    <string name="ux_backup_first_setup">You can set up encrypted backups first, or carry on: Recently deleted keeps changes for 30 days either way.</string>
+    <string name="ux_backup_first_now">Back up now</string>
+    <string name="ux_backup_set_up">Set up backup</string>
+    <string name="ux_backup_first_skip">Continue without</string>
+    <string name="ux_backup_due_title">Your last backup was %1$s</string>
+    <string name="ux_backup_due_never">No backup yet</string>
+    <string name="ux_backup_due_body">A fresh encrypted backup keeps your contacts safe if something goes wrong.</string>
+    <string name="ux_backup_due_body_setup">Encrypted backups go to a folder you choose. Nothing leaves your phone unless you move it.</string>
+    <string name="ux_not_now">Not now</string>
+    <string name="ux_backup_notify_title">Time for a backup?</string>
+    <string name="ux_backup_notify_text">It\'s been a while since your last backup. One tap makes a fresh encrypted copy.</string>
+    <string name="ux_backup_notify_text_never">Your contacts aren\'t backed up yet. Encrypted backups take a minute to set up.</string>
+    <plurals name="ux_backup_after_days">
+        <item quantity="one">After %d day</item>
+        <item quantity="other">After %d days</item>
+    </plurals>
+    <!-- v3.2 U1: onboarding permissions page -->
+    <string name="ux_onb_next">Get started</string>
+    <string name="ux_onb_dialer_title">Make Parley your phone app</string>
+    <string name="ux_onb_dialer_body">You can change this any time in Settings › Calls › Default phone app.</string>
+    <string name="ux_onb_restricted_title">Installed from a file?</string>
+    <string name="ux_onb_restricted_body">Android 13 and later protect some settings for apps that didn\'t come from an app store. If the next step says “Restricted setting”, nothing is wrong with Parley.</string>
+    <string name="ux_onb_restricted_steps">Open App info, tap ⋮ (top right) › Allow restricted settings and confirm. Then come back and tap “Set as default phone app” again.</string>
+    <string name="ux_onb_app_info">Open App info</string>
+    <string name="ux_perm_title">What Parley can use</string>
+    <string name="ux_perm_intro">Allow what you\'re comfortable with. Everything stays on your phone, and you can change this later in Android\'s settings.</string>
+    <string name="ux_perm_allow_all">Allow all</string>
+    <string name="ux_perm_all_allowed">All allowed</string>
+    <string name="ux_perm_continue">Continue</string>
+    <string name="ux_perm_without">Without it: %1$s</string>
+    <string name="ux_perm_in_app_info">Android won\'t ask again. You can turn it on in App info.</string>
+    <string name="ux_perm_contacts">Contacts</string>
+    <string name="ux_perm_contacts_why">See, add and edit your contacts.</string>
+    <string name="ux_perm_contacts_without">you can still dial numbers, but Contacts and Favorites stay empty</string>
+    <string name="ux_perm_call_log">Call history</string>
+    <string name="ux_perm_call_log_why">Show Recents, missed calls and who called.</string>
+    <string name="ux_perm_call_log_without">you can still call, but Recents stays empty</string>
+    <string name="ux_perm_phone">Phone</string>
+    <string name="ux_perm_phone_why">Place calls, pick a SIM and answer calls.</string>
+    <string name="ux_perm_phone_without">calls open in your other phone app and there\'s no SIM choice</string>
+    <string name="ux_perm_notifications">Notifications</string>
+    <string name="ux_perm_notifications_why">Missed calls, birthdays and the call in progress.</string>
+    <string name="ux_perm_notifications_without">calls still ring, but you won\'t see missed calls or reminders</string>
+    <string name="ux_perm_nearby">Nearby devices</string>
+    <string name="ux_perm_nearby_why">Show your Bluetooth headset or car during calls.</string>
+    <string name="ux_perm_nearby_without">calls still use Bluetooth, but the device\'s name isn\'t shown</string>
 </resources>

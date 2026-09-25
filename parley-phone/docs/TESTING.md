@@ -416,3 +416,44 @@ Call the phone from another phone in each state below. For each one, check that 
 - [ ] Settings › Contacts › Remind me before dates › Also 3 days before: a birthday 3 days away notifies "Sam has a birthday in 3 days" once (run the worker twice: still once), nothing the next two days, then "Sam has a birthday today".
 - [ ] "Mark as wished" on the lead notification: it disappears, a "message" entry appears in Sam's timeline and nothing fires on the day.
 - [ ] A contact with a birthday and an anniversary on the same day gets two notifications; contact 5's nudge and contact 10 005's birthday don't replace each other.
+
+### 15.4 Layout, onboarding and backups (C1–C4, U1–U3, U5, U6)
+
+**Contact photos (C1, G2)**
+- [ ] Edit a contact › photo: pick a 50 MP camera photo, and a portrait one taken with the phone upright: no crash, the photo is upright and square, and the contact page shows it sharp (720 px display photo).
+- [ ] Pick a HEIC photo (Pixel/Samsung "High efficiency"): it is saved like a JPEG.
+- [ ] Import a .vcf that carries a large rotated photo: the contact gets an upright square photo. A private contact's photo (editor with "Private") is upright too.
+
+**Back up first? (C2)**
+- [ ] With no backup, or the last one older than 7 days: Settings › Contacts › Import a file with 20+ contacts, Contacts › select 5+ › Delete, select 2+ › Merge, Find & merge duplicates › Merge (asked once per visit), Tidy up › Delete all (5+ empty contacts) and opening a shared .vcf with 20+ cards each ask "Back up first?".
+- [ ] Backups set up (passphrase and folder): "Back up now" makes a backup (toast), then the change goes ahead. Not set up: "Set up backup" opens Backup and nothing changes. "Continue without" goes ahead. Dismissing (outside tap or back) changes nothing.
+- [ ] A backup made today: none of the above asks. A 3-contact import or a 4-contact delete never asks.
+
+**Backup reminder (C3)**
+- [ ] Settings › Backup & sync › Remind me to back up: 30 days (default) or 14 days; the same choice is in Backup. Settings search "backup reminder" finds it.
+- [ ] With the last backup older than the threshold (or none, and installed longer ago than that): a card shows at the top of Settings, Settings › Backup & sync and Backup. "Not now" hides it for 7 days (set the clock forward a week: it's back). "Back up now" backs up and the card goes.
+- [ ] Daily housekeeping run (or `adb shell cmd jobscheduler run -f app.parley <job id>`): one "Time for a backup?" notification, shown as "Backup" only on the lock screen and not mirrored to a watch; no second one within 30 days. Tapping it opens Backup. With notifications off nothing is sent (and the cards still show).
+
+**Birthday slots (C4)**
+- [ ] A contact without a birthday or anniversary shows "Add birthday?" / "Add anniversary?" chips above its About card. Pick a date (with or without year): the page shows the date, Google Contacts (or another contacts app) shows it, and Recently deleted has the edit to undo.
+- [ ] A contact that has both shows no chips.
+
+**Onboarding (U1)**
+- [ ] Fresh install (clear data): Welcome › Get started › "Make Parley your phone app" › "What Parley can use" with Contacts, Call history, Phone, Notifications (13+) and Nearby devices (12+): each row says why, and what still works without it.
+- [ ] "Allow all" asks for everything not yet granted in one go; a row's switch asks for that row only; a refused row then reads "Android won't ask again…" and its switch opens App info; a granted row's switch opens App info. Coming back from App info updates the switches.
+- [ ] Setting Parley as the phone app still ends on the permissions page.
+- [ ] Sideloaded (`adb install`, or opened from a file manager) on Android 13, 14, 15 and 16: the phone-app step shows "Installed from a file?" with the ⋮ › Allow restricted settings steps and "Open App info" before asking; if Android refuses, the card turns red. Installed from Play or F-Droid: no card.
+
+**Tips (U2)**
+- [ ] After onboarding: a bubble under the header search icon; "Got it" hides it for good. Keypad with nothing typed: a speed-dial tip with "Set up". Recents with calls: a long-press tip ("Turn on" opens Appearance › Swipe actions), or a swipe tip when swipe actions are on. Only one tip shows at a time.
+- [ ] Settings › Appearance › Reset tips: they all show again.
+
+**Call colours (U3)**
+- [ ] Recents, a number's history, a contact's recent calls, the contact's call insights and a private contact's calls show the call icon on a tinted circle: incoming green, outgoing blue, missed and declined red, blocked amber. Change the wallpaper (Wallpaper colours on): the call colours stay the same. Dark theme: lighter hues, still readable. The insights chart uses the same blue and green.
+
+**Empty states (U5)**
+- [ ] Contacts, private contacts, Favorites, Recents, Voicemail, Keypad search, Settings search and the contact picker: a search with no result says "No … match “xyz”" with "Clear search" (Keypad: "Create new contact"); with nothing there yet it says so, with one action (Create contact, Choose favorites, Open keypad, Call voicemail…). Recents › Missed with none: "Show all calls". Contacts with a label filter and no match: "Clear filter".
+- [ ] Birthdays, Recently deleted, Temporary contacts, Labels, Introduce, Duplicates, Tidy up, a contact's version history and the CSV mapping each show one button when empty.
+
+**What's new (U6)**
+- [ ] Update over an older build (`adb install -r` with a higher versionCode): home shows a "What's new in Parley …" card once; tabs, start tab and Recents look exactly as before. "Try it" opens Appearance › Navigation bar; "Got it" dismisses it. It doesn't come back until the next version. A fresh install never shows it.

@@ -1365,4 +1365,55 @@
     <string name="privnames_dir_request_text">%1$s ने Parley की संपर्क डायरेक्टरी में कॉल करने वाले को खोजा। अनुमति देने पर %1$s कॉल आने पर किसी निजी संपर्क का नाम दिखा सकता है, एक बार में एक नंबर; उसे कभी सूची नहीं मिलती। यह “ऐप्स को निजी नाम दिखाने दें” से अलग है।</string>
     <string name="pn_directory_apps">डायरेक्टरी इस्तेमाल करने वाले फ़ोन ऐप्स</string>
     <string name="import_csv_column">CSV कॉलम “%1$s”</string>
+    <!-- v3.2 C2/C3: back up first, backup reminder -->
+    <string name="ux_backup_first_title">पहले बैकअप लें?</string>
+    <string name="ux_backup_first_last">इससे एक साथ कई संपर्क बदलेंगे। पिछला बैकअप: %1$s।</string>
+    <string name="ux_backup_first_never">इससे एक साथ कई संपर्क बदलेंगे, और अभी कोई बैकअप नहीं है।</string>
+    <string name="ux_backup_first_quick">एक तेज़ एन्क्रिप्टेड बैकअप में बस एक पल लगता है, ताकि आप कभी भी वापस जा सकें।</string>
+    <string name="ux_backup_first_setup">आप पहले एन्क्रिप्टेड बैकअप सेट कर सकते हैं, या आगे बढ़ सकते हैं: “हाल में हटाए गए” बदलावों को वैसे भी 30 दिन रखता है।</string>
+    <string name="ux_backup_first_now">अभी बैकअप लें</string>
+    <string name="ux_backup_set_up">बैकअप सेट करें</string>
+    <string name="ux_backup_first_skip">इसके बिना जारी रखें</string>
+    <string name="ux_backup_due_title">पिछला बैकअप: %1$s</string>
+    <string name="ux_backup_due_never">अभी कोई बैकअप नहीं</string>
+    <string name="ux_backup_due_body">एक ताज़ा एन्क्रिप्टेड बैकअप कुछ गड़बड़ होने पर आपके संपर्कों को सुरक्षित रखता है।</string>
+    <string name="ux_backup_due_body_setup">एन्क्रिप्टेड बैकअप आपके चुने फ़ोल्डर में जाते हैं। आपके हटाए बिना कुछ भी फ़ोन से बाहर नहीं जाता।</string>
+    <string name="ux_not_now">अभी नहीं</string>
+    <string name="ux_backup_notify_title">बैकअप का समय?</string>
+    <string name="ux_backup_notify_text">पिछले बैकअप को कुछ समय हो गया है। एक टैप से नई एन्क्रिप्टेड कॉपी बनती है।</string>
+    <string name="ux_backup_notify_text_never">आपके संपर्कों का अभी बैकअप नहीं है। एन्क्रिप्टेड बैकअप एक मिनट में सेट हो जाता है।</string>
+    <plurals name="ux_backup_after_days">
+        <item quantity="one">%d दिन बाद</item>
+        <item quantity="other">%d दिन बाद</item>
+    </plurals>
+    <!-- v3.2 U1: onboarding permissions page -->
+    <string name="ux_onb_next">शुरू करें</string>
+    <string name="ux_onb_dialer_title">Parley को अपना फ़ोन ऐप बनाएँ</string>
+    <string name="ux_onb_dialer_body">आप इसे कभी भी सेटिंग › कॉल › डिफ़ॉल्ट फ़ोन ऐप में बदल सकते हैं।</string>
+    <string name="ux_onb_restricted_title">फ़ाइल से इंस्टॉल किया?</string>
+    <string name="ux_onb_restricted_body">Android 13 और उसके बाद, ऐप स्टोर से न आए ऐप्स के लिए कुछ सेटिंग सुरक्षित रहती हैं। अगर अगला चरण “प्रतिबंधित सेटिंग” कहे, तो Parley में कोई गड़बड़ी नहीं है।</string>
+    <string name="ux_onb_restricted_steps">ऐप की जानकारी खोलें, ⋮ (ऊपर दाएँ) › प्रतिबंधित सेटिंग की अनुमति दें पर टैप करके पुष्टि करें। फिर वापस आकर “डिफ़ॉल्ट फ़ोन ऐप बनाएँ” दोबारा टैप करें।</string>
+    <string name="ux_onb_app_info">ऐप की जानकारी खोलें</string>
+    <string name="ux_perm_title">Parley क्या इस्तेमाल कर सकता है</string>
+    <string name="ux_perm_intro">जो आपको ठीक लगे उसकी अनुमति दें। सब कुछ आपके फ़ोन पर ही रहता है, और आप इसे बाद में Android सेटिंग में बदल सकते हैं।</string>
+    <string name="ux_perm_allow_all">सभी की अनुमति दें</string>
+    <string name="ux_perm_all_allowed">सभी की अनुमति है</string>
+    <string name="ux_perm_continue">जारी रखें</string>
+    <string name="ux_perm_without">इसके बिना: %1$s</string>
+    <string name="ux_perm_in_app_info">Android दोबारा नहीं पूछेगा। आप इसे ऐप की जानकारी में चालू कर सकते हैं।</string>
+    <string name="ux_perm_contacts">संपर्क</string>
+    <string name="ux_perm_contacts_why">अपने संपर्क देखें, जोड़ें और बदलें।</string>
+    <string name="ux_perm_contacts_without">आप अब भी नंबर डायल कर सकते हैं, पर संपर्क और पसंदीदा खाली रहेंगे</string>
+    <string name="ux_perm_call_log">कॉल इतिहास</string>
+    <string name="ux_perm_call_log_why">हाल की कॉल, छूटी कॉल और किसने कॉल किया, दिखाएँ।</string>
+    <string name="ux_perm_call_log_without">आप अब भी कॉल कर सकते हैं, पर हाल की कॉल खाली रहेंगी</string>
+    <string name="ux_perm_phone">फ़ोन</string>
+    <string name="ux_perm_phone_why">कॉल करें, सिम चुनें और कॉल उठाएँ।</string>
+    <string name="ux_perm_phone_without">कॉल आपके दूसरे फ़ोन ऐप में खुलेंगी और सिम नहीं चुन पाएँगे</string>
+    <string name="ux_perm_notifications">सूचनाएँ</string>
+    <string name="ux_perm_notifications_why">छूटी कॉल, जन्मदिन और चल रही कॉल।</string>
+    <string name="ux_perm_notifications_without">कॉल बजेंगी, पर छूटी कॉल या याद दिलाने वाली सूचनाएँ नहीं दिखेंगी</string>
+    <string name="ux_perm_nearby">आस-पास के डिवाइस</string>
+    <string name="ux_perm_nearby_why">कॉल के दौरान आपका ब्लूटूथ हेडसेट या कार दिखाएँ।</string>
+    <string name="ux_perm_nearby_without">कॉल ब्लूटूथ पर चलेंगी, पर डिवाइस का नाम नहीं दिखेगा</string>
 </resources>

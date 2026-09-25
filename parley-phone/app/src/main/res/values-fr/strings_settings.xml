@@ -682,4 +682,13 @@
     <string name="role_rescue_app_info">Infos appli</string>
     <string name="role_rescue_default_apps">Applis par défaut</string>
     <string name="role_rescue_close">Fermer</string>
+    <!-- v3.2 C3/U2 settings -->
+    <string name="set_backup_reminder_title">Me rappeler de sauvegarder</string>
+    <string name="set_backup_reminder_summary">Un rappel discret quand il n\'y a pas eu de sauvegarde depuis un moment (au plus une notification par mois)</string>
+    <string name="set_backup_reminder_kw">rappel, en retard, sauvegarde, notification</string>
+    <string name="set_reset_tips_title">Réafficher les astuces</string>
+    <string name="set_reset_tips_summary">Réafficher les astuces uniques (clavier, Récents, recherche)</string>
+    <string name="set_reset_tips_kw">astuces, conseils, aide, tutoriel</string>
+    <string name="set_group_tips">Astuces</string>
+    <string name="ux_tips_reset_done">Les astuces s\'afficheront de nouveau</string>
 </resources>
