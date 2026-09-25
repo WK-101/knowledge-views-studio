@@ -1,0 +1,5 @@
+Première version : contacts, téléphone et écran d'appel dans une seule app.
+• Appels entrants en plein écran, mise en attente, permutation, fusion et conférence
+• Recherche au clavier, journal groupé, éditeur de contacts, import et export vCard, fusion des doublons, partage par QR, numérotation rapide
+• Règles de blocage des appels hors ligne
+• Pas d'autorisation internet : la compilation échoue si une apparaît

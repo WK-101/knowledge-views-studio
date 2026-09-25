@@ -1,0 +1,24 @@
+Parley é um app de contatos, discador e tela de chamada em um só, feito para a privacidade. Ele não tem acesso à internet.
+
+<b>O Parley <i>é</i> o seu app de telefone, então uma chamada bloqueada nem chega a tocar.</b> Ele nunca bloqueia um contato, mesmo com o telefone ocupado, e edita só o que você mudou.
+
+<b>Círculo (novo na 3.2)</b>: um lugar tranquilo para as pessoas com quem você quer manter contato. O Parley o preenche a partir das suas chamadas, e você registra uma visita, uma mensagem ou uma videochamada com um toque. Cada contato ganha uma linha do tempo. Os lembretes são gentis: por padrão, um resumo semanal, sem sequências, pontuações ou bolinhas vermelhas. Lembretes de aniversário podem chegar alguns dias antes, e "Parabéns dados" encerra os demais.
+
+<b>Chamadas</b>: chamadas recebidas em tela cheia, chamada em espera, reter, juntar e conferência, dois chips, caixa de correio de voz, um cartão pós-chamada para anotações, proteção contra ligações do bolso, limites de tempo de chamada e um teclado que pesquisa enquanto você digita.
+
+<b>Bloqueio</b>: regras offline (prefixos, números ocultos, não contatos, falsificação de números vizinhos), pacotes de regras prontos com teste prévio e listas de spam opcionais do app separado Parley Lists, para que o Parley nunca fique online.
+
+<b>Contatos</b>: marcadores que você combina como filtro, favoritos na sua ordem, aniversários e datas (inclusive data de falecimento, sem lembretes), usuários de mensageiros, aviso de duplicados enquanto você digita, cópia de e para o chip, contatos temporários e, em cada contato, uma nota dizendo quem o alterou por último.
+
+<b>Privacidade</b>: bloqueio do app, um cofre privado fora da agenda do sistema, notificações na tela de bloqueio que escondem nomes, uma página honesta mostrando quais apps podem ler seus contatos (o Parley não pode limitá-los e diz isso), backups criptografados, sincronização por pasta entre seus aparelhos sem servidor e uma máquina do tempo para cada alteração.
+
+<b>Idiomas</b>: inglês, alemão, espanhol, francês, português do Brasil, hindi, urdu e árabe, com uma configuração de idioma própria do app.
+
+<b>Permissões que o Parley não pede, e por quê</b>
+• Internet: nada é enviado para lugar nenhum. Sem internet, sem vazamentos.
+• Microfone: o Android não permite gravar chamadas em apps como o Parley.
+• Câmera, localização, SMS e armazenamento: não são necessários. As mensagens abrem no seu app de SMS; os arquivos passam pelo seletor de arquivos do Android.
+• Uma lista de todos os apps instalados: não é necessária.
+A compilação falha se qualquer uma dessas permissões aparecer, então isso não muda por acidente. Nenhuma permissão que ele não use.
+
+Livre e de código aberto (GPL-3.0). Sem anúncios, sem rastreadores, sem contas.

@@ -1,0 +1,5 @@
+• Bloqueio: modelos de pacotes de regras com teste prévio, compartilhamento assinado e listas de spam do novo app Parley Lists
+• Marcadores combináveis como filtro, favoritos na sua ordem, cópia para o chip, data de falecimento, quem alterou um contato por último
+• Tela de chamada em espera, limites de tempo de chamada e tela USSD
+• Arquivo criptografado do histórico de chamadas, estatísticas e exportação
+• Uma página que mostra quais apps podem ler seus contatos

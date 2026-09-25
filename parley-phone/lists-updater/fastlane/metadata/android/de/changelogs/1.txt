@@ -1,0 +1,4 @@
+Erste Version: die optionale Spam-Listen-App für Parley.
+• FTC-Do-Not-Call-Meldungen (USA), ARCEP-Nummernbereiche (Frankreich) und Community-Listen
+• Listen werden auf deinem Telefon erstellt und nur mit Parley geteilt
+• Nur Internetzugriff: keine Berechtigung für Kontakte, Anrufliste, Telefon oder SMS

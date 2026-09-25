@@ -1,0 +1,42 @@
+# D4: F-Droid build recipe for Parley (app.parley.phone).
+#
+# Not used by our build. To publish, copy it to metadata/app.parley.phone.yml in a fork of
+# https://gitlab.com/fdroid/fdroiddata, delete these comment lines, replace the commit with the full 40-character
+# hash that the v3.2.0 tag points to, run `fdroid rewritemeta app.parley.phone` and open a merge request.
+# docs/RELEASING.md has the whole procedure and the review pitfalls.
+#
+# - The app lives in the parley-phone/ folder of a larger repository, hence subdir: parley-phone/app.
+# - Reproducible build: F-Droid builds the tag unsigned, compares it with our signed APK from Binaries (%v is the
+#   versionName) and, if they match, ships our signature. AllowedAPKSigningKeys is the SHA-256 of our release
+#   certificate. This matters more than usual: Parley and Parley Lists share data through a signature permission,
+#   which only works when both carry the same signature.
+# - Tags: v<versionName> for Parley; the companion's lists-v<versionName> tags don't match ^v[0-9.]+$.
+
+Categories:
+  - Phone & SMS
+License: GPL-3.0-only
+AuthorName: WK-101
+SourceCode: https://github.com/WK-101/knowledge-views-studio/tree/HEAD/parley-phone
+IssueTracker: https://github.com/WK-101/knowledge-views-studio/issues
+Changelog: https://github.com/WK-101/knowledge-views-studio/releases
+
+AutoName: Parley
+
+RepoType: git
+Repo: https://github.com/WK-101/knowledge-views-studio.git
+Binaries: https://github.com/WK-101/knowledge-views-studio/releases/download/v%v/Parley-%v.apk
+
+Builds:
+  - versionName: 3.2.0
+    versionCode: 5
+    commit: v3.2.0
+    subdir: parley-phone/app
+    gradle:
+      - yes
+
+AllowedAPKSigningKeys: f5349c318536b08fdeb3315e336ca35136c02f58e2c08d554def75658104284a
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^v[0-9.]+$
+CurrentVersion: 3.2.0
+CurrentVersionCode: 5

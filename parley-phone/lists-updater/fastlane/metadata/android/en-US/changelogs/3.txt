@@ -1,0 +1,1 @@
+• Release builds now work on F-Droid's build servers. No other changes.

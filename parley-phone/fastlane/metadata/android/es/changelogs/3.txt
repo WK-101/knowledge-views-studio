@@ -1,0 +1,5 @@
+• Bloqueo: plantillas de paquetes de reglas con prueba previa, uso compartido firmado y listas de spam de la nueva app Parley Lists
+• Etiquetas combinables como filtro, favoritos en tu orden, copia a la SIM, fecha de fallecimiento, quién cambió un contacto por última vez
+• Vista de llamada en espera, límites de tiempo de llamada y vista USSD
+• Archivo cifrado del historial de llamadas, estadísticas y exportación
+• Una página que muestra qué apps pueden leer tus contactos

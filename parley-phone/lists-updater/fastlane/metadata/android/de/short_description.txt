@@ -1,0 +1,1 @@
+Optionale Spam-Listen für die Telefon-App Parley. Kein Zugriff auf Kontakte.

@@ -1,0 +1,1 @@
+Optional spam-list updater for the Parley phone app. No contacts access.

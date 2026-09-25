@@ -1,0 +1,7 @@
+• Sauvegardes chiffrées et planifiées, passage à un nouveau téléphone
+• Synchronisation par dossier entre appareils, sans serveur
+• Machine à remonter le temps et « Supprimés récemment » pendant 30 jours
+• Verrouillage de l'app, coffre privé et contacts temporaires
+• Anniversaires, rappels pour garder le contact, notes d'appel et relations
+• Import et export vCard 4.0 et CSV sans perte
+• Localisation de l'appelant hors ligne, actions de messagerie, widget d'appel direct, nouveau style

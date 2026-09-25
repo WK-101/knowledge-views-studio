@@ -1,0 +1,7 @@
+• Verschlüsselte Sicherung und Wiederherstellung, geplante Backups, Umzug auf ein neues Telefon
+• Ordner-Sync zwischen deinen Geräten, ohne Server
+• Zeitmaschine für Kontakte und 30 Tage „Kürzlich gelöscht“ mit Rückgängig
+• App-Sperre, privater Tresor und temporäre Kontakte
+• Geburtstage, Kontakt-Erinnerungen, Anrufnotizen und Beziehungen
+• Verlustfreier vCard-4.0- und CSV-Import und -Export
+• Offline-Anruferstandort, Messenger-Aktionen, Direktwahl-Widget, neues Design

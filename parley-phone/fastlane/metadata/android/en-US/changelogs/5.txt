@@ -1,0 +1,7 @@
+Circle: keep up with the people who matter, without the guilt.
+• An optional Circle tab showing who you might call, filled in from your calls
+• Log a visit, message or video call; a timeline on each contact
+• Kind reminders: a weekly digest by default, no streaks or red badges
+• Birthday reminders a few days ahead, and Mark as wished
+• Picture-in-picture during calls; Block & decline
+• Private lock-screen reminders, upright photos, and the call screen honours Hide screen content

@@ -1,0 +1,42 @@
+# D4: F-Droid build recipe for Parley Lists (app.parley.lists), the optional spam-list companion.
+#
+# Not used by our build. It is a separate app in fdroiddata (its own merge request, "New app: Parley Lists"). Copy it
+# to metadata/app.parley.lists.yml in a fork of https://gitlab.com/fdroid/fdroiddata, delete these comment lines,
+# replace the commit with the full hash that the lists-v1.1.1 tag points to and run
+# `fdroid rewritemeta app.parley.lists`. See docs/RELEASING.md.
+#
+# - Same repository as Parley; the module is parley-phone/lists-updater.
+# - Its tags are lists-v<versionName>, so they never match Parley's ^v[0-9.]+$ and vice versa.
+# - Same signing key as Parley (reproducible build with our signature): Parley reads the lists through a signature
+#   permission, so both apps must carry the same certificate.
+# - It needs INTERNET (that is its whole purpose) and downloads only public files, so no NonFreeNet anti-feature:
+#   the FTC and ARCEP data are public-sector open data, fetched without an account or key.
+
+Categories:
+  - Phone & SMS
+License: GPL-3.0-only
+AuthorName: WK-101
+SourceCode: https://github.com/WK-101/knowledge-views-studio/tree/HEAD/parley-phone/lists-updater
+IssueTracker: https://github.com/WK-101/knowledge-views-studio/issues
+Changelog: https://github.com/WK-101/knowledge-views-studio/releases
+
+AutoName: Parley Lists
+
+RepoType: git
+Repo: https://github.com/WK-101/knowledge-views-studio.git
+Binaries: https://github.com/WK-101/knowledge-views-studio/releases/download/lists-v%v/ParleyLists-%v.apk
+
+Builds:
+  - versionName: 1.1.1
+    versionCode: 3
+    commit: lists-v1.1.1
+    subdir: parley-phone/lists-updater
+    gradle:
+      - yes
+
+AllowedAPKSigningKeys: f5349c318536b08fdeb3315e336ca35136c02f58e2c08d554def75658104284a
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^lists-v[0-9.]+$
+CurrentVersion: 1.1.1
+CurrentVersionCode: 3

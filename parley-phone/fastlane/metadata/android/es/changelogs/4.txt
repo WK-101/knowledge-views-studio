@@ -1,0 +1,5 @@
+• Ahora en alemán, español, francés, portugués de Brasil, hindi, urdu y árabe, con un ajuste de idioma propio
+• Bandeja de buzón de voz, tarjeta tras la llamada, protección contra llamadas desde el bolsillo y avisos de llamadas perdidas más completos
+• Página de contacto y editor rediseñados, usuarios de mensajería, Mi tarjeta
+• Ajustes con búsqueda, barra de navegación personalizable, deslizar para actuar en Recientes
+• Muchas correcciones de seguridad de datos y privacidad

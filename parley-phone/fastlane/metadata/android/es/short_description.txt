@@ -1,0 +1,1 @@
+Contactos, marcador y pantalla de llamada en una app privada. Sin internet.

@@ -1,0 +1,1 @@
+• Les versions de publication se compilent désormais sur les serveurs de F-Droid. Aucun autre changement.

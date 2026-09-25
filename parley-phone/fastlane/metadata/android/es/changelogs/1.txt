@@ -1,0 +1,5 @@
+Primera versión: contactos, marcador y pantalla de llamada en una sola app.
+• Llamadas entrantes a pantalla completa, retener, alternar, unir y conferencia
+• Búsqueda desde el teclado, recientes agrupados, editor de contactos, importar y exportar vCard, unir duplicados, compartir por QR, marcación rápida
+• Reglas de bloqueo de llamadas sin conexión
+• Sin permiso de internet: la compilación falla si aparece uno

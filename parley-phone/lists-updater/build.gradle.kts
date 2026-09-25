@@ -19,6 +19,10 @@ val keystoreProps = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 
+// G1/D1: as in app/build.gradle.kts, only the block and the line F-Droid strips refer to the signing config, so its
+// build stays valid (and unsigned). Checked by tools/fdroid-strip-check.sh.
+val releaseStorePath: String? = keystoreProps.getProperty("storeFile") ?: System.getenv("PARLEY_KEYSTORE")
+
 android {
     namespace = "app.parley.lists"
     compileSdk = 36
@@ -27,17 +31,17 @@ android {
         applicationId = "app.parley.lists"
         minSdk = 29
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1.0"
+        // D4: plain literals only (F-Droid's update check reads them with a regex). Tag lists-v<versionName>.
+        versionCode = 3
+        versionName = "1.1.1"
         manifestPlaceholders["listsPermission"] = "app.parley.permission.READ_LISTS"
     }
 
     signingConfigs {
         create("release") {
-            val storePath = keystoreProps.getProperty("storeFile") ?: System.getenv("PARLEY_KEYSTORE")
-            if (storePath != null) {
+            if (releaseStorePath != null) {
                 // Resolved like Parley's (relative to app/), so one keystore.properties serves both apps.
-                storeFile = rootProject.file("app").resolve(storePath)
+                storeFile = rootProject.file("app").resolve(releaseStorePath)
                 storePassword = keystoreProps.getProperty("storePassword") ?: System.getenv("PARLEY_KEYSTORE_PASSWORD")
                 keyAlias = keystoreProps.getProperty("keyAlias") ?: System.getenv("PARLEY_KEY_ALIAS")
                 keyPassword = keystoreProps.getProperty("keyPassword") ?: System.getenv("PARLEY_KEY_PASSWORD")
@@ -50,8 +54,9 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            val release = signingConfigs.getByName("release")
-            if (release.storeFile != null) signingConfig = release
+            if (releaseStorePath != null) {
+                signingConfig = signingConfigs.findByName("release")
+            }
         }
         debug {
             // Mirrors Parley's debug build (app.parley.phone.debug), which looks for this package and permission.

@@ -1,0 +1,5 @@
+Erste Version: Kontakte, Telefon und Anrufbildschirm in einer App.
+• Vollbild bei eingehenden Anrufen, Halten, Wechseln, Zusammenführen und Konferenz
+• Suche über die Wähltastatur, gruppierter Verlauf, Kontakt-Editor, vCard-Import und -Export, Duplikate zusammenführen, Teilen per QR, Kurzwahl
+• Offline-Regeln zum Blockieren von Anrufen
+• Keine Internet-Berechtigung: Der Build schlägt fehl, wenn eine auftaucht

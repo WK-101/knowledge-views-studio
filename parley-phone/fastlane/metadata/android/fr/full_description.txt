@@ -1,0 +1,24 @@
+Parley réunit une app de contacts, un téléphone et un écran d'appel, conçus pour la vie privée. Parley n'a pas accès à internet.
+
+<b>Parley <i>est</i> votre app de téléphone : un appel bloqué ne peut donc même pas sonner.</b> Parley ne bloque jamais un contact, même quand la ligne est occupée, et ne modifie que ce que vous avez changé.
+
+<b>Cercle (nouveau dans 3.2)</b> : un endroit calme pour les personnes avec qui vous voulez garder le contact. Parley le remplit à partir de vos appels, et vous notez une visite, un message ou un appel vidéo d'un seul geste. Chaque contact a sa chronologie. Les rappels sont bienveillants : par défaut un résumé hebdomadaire, sans séries, scores ni pastilles rouges. Les rappels d'anniversaire peuvent arriver quelques jours avant, et « Souhaité » arrête les suivants.
+
+<b>Appels</b> : appels entrants en plein écran, double appel, mise en attente, fusion et conférence, double SIM, une messagerie vocale intégrée, une carte après l'appel pour prendre des notes, une protection contre les appels depuis la poche, des limites de durée d'appel et un clavier qui recherche pendant la saisie.
+
+<b>Blocage</b> : règles hors ligne (préfixes, numéros masqués, non-contacts, usurpation de numéros voisins), packs de règles prêts à l'emploi avec essai à blanc, et listes anti-spam facultatives fournies par l'app séparée Parley Lists, pour que Parley ne se connecte jamais.
+
+<b>Contacts</b> : libellés combinables en filtre, favoris dans votre ordre, anniversaires et dates (y compris une date de décès, sans rappels), identifiants de messagerie, alerte de doublon pendant la saisie, copie depuis et vers la SIM, contacts temporaires, et sur chaque contact une note indiquant qui l'a modifié en dernier.
+
+<b>Vie privée</b> : verrouillage de l'app, un coffre privé hors du carnet d'adresses du système, des notifications sur l'écran de verrouillage qui masquent les noms, une page honnête montrant quelles apps peuvent lire vos contacts (Parley ne peut pas les limiter, et le dit), des sauvegardes chiffrées, une synchronisation par dossier entre vos appareils sans serveur et une machine à remonter le temps pour chaque modification.
+
+<b>Langues</b> : anglais, allemand, espagnol, français, portugais du Brésil, hindi, ourdou et arabe, avec un réglage de langue propre à l'app.
+
+<b>Les autorisations que Parley ne demande pas, et pourquoi</b>
+• Internet : rien n'est envoyé nulle part. Pas d'internet, donc pas de fuite.
+• Micro : Android n'autorise pas l'enregistrement des appels pour des apps comme Parley.
+• Appareil photo, position, SMS et stockage : inutiles. Les messages s'ouvrent dans votre app de SMS ; les fichiers passent par le sélecteur de fichiers d'Android.
+• La liste de toutes les apps installées : inutile.
+La compilation échoue si l'une de ces autorisations apparaît, cela ne peut donc pas changer par accident. Aucune autorisation inutilisée.
+
+Libre et open source (GPL-3.0). Sans publicité, sans traqueurs, sans compte.

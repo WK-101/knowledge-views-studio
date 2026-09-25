@@ -1,0 +1,13 @@
+O Parley Lists é o complemento opcional do Parley, o app privado de contatos e telefone. O Parley não tem acesso à internet, então este pequeno app separado baixa para ele listas públicas de números de spam.
+
+<b>O que ele baixa</b>
+• Chamadas denunciadas à FTC dos EUA (Do Not Call): os arquivos públicos diários, transformados no seu telefone em uma lista dos últimos 7, 30 ou 90 dias
+• Faixas de numeração da ARCEP da França (incluídas)
+• Listas da comunidade: qualquer link HTTPS para um arquivo .parleylist assinado
+
+<b>O que ele nunca faz</b>
+Nunca envia um número de telefone para lugar nenhum e não tem acesso aos seus contatos, registro de chamadas, telefone ou SMS. A compilação falha se qualquer outra permissão aparecer.
+
+O Parley lê as listas por meio de uma permissão que só apps assinados com a mesma chave podem usar, então instale os dois da mesma fonte. Por padrão, a atualização é diária, em redes sem limite de dados e com o telefone ocioso.
+
+Livre e de código aberto (GPL-3.0). Sem anúncios, sem rastreadores, sem contas.

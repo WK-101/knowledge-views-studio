@@ -1,0 +1,5 @@
+Primeira versão: contatos, discador e tela de chamada em um só app.
+• Chamadas recebidas em tela cheia, reter, alternar, juntar e conferência
+• Pesquisa pelo teclado, recentes agrupados, editor de contatos, importação e exportação vCard, mesclagem de duplicados, compartilhamento por QR, discagem rápida
+• Regras offline de bloqueio de chamadas
+• Sem permissão de internet: a compilação falha se uma aparecer

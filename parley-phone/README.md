@@ -171,6 +171,7 @@ Updates run through WorkManager (by default daily, on unmetered networks, while 
 - [docs/RESEARCH.md](docs/RESEARCH.md): research brief
 - [docs/PLAN.md](docs/PLAN.md): product and technical plan
 - [docs/TESTING.md](docs/TESTING.md): device test checklist
+- [docs/RELEASING.md](docs/RELEASING.md): versions and tags, signing, reproducible builds and F-Droid submission for both apps
 - [docs/COMPETITIVE_ANALYSIS.md](docs/COMPETITIVE_ANALYSIS.md): full-code analysis of four open-source apps, and the roadmap
 - [docs/COMPETITIVE_ANALYSIS_2.md](docs/COMPETITIVE_ANALYSIS_2.md) to [_4](docs/COMPETITIVE_ANALYSIS_4.md): rounds 2–4 (dialers, blockers, contacts libraries, private phonebooks)
 - [docs/COMPETITIVE_ANALYSIS_5.md](docs/COMPETITIVE_ANALYSIS_5.md): round 5, Bondwidth and keep-in-touch apps; the v3.2 "Circle" roadmap
