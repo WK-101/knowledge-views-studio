@@ -112,7 +112,6 @@ import app.parley.ui.SegmentedGroup
 import app.parley.ui.blended
 import app.parley.ui.common.Format
 import app.parley.ui.common.Intents
-import app.parley.ui.home.callTypeIcon
 import app.parley.ui.shared
 import app.parley.security.launchVault
 import kotlinx.coroutines.Dispatchers
@@ -553,10 +552,9 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 SegmentedGroup(stringResource(R.string.detail_recent_calls)) {
                     history.take(5).forEachIndexed { _, e ->
                         item {
-                            val (icon, tint) = callTypeIcon(e.type)
                             ListItem(
                                 colors = groupRowColors(),
-                                leadingContent = { Icon(icon, null, tint = tint) },
+                                leadingContent = { app.parley.ui.home.CallTypeIcon(e.type) },
                                 headlineContent = { Text(Format.fullDate(context, e.date)) },
                                 supportingContent = { Text(listOf(Bidi.ltr(Format.number(e.number, vm.countryIso)), Format.duration(e.durationSec)).filter { it.isNotBlank() }.joinToString(stringResource(R.string.main_separator))) },
                             )
