@@ -1,0 +1,7 @@
+Círculo: mantenha contato com quem importa, sem culpa.
+• Uma aba Círculo opcional, preenchida a partir das suas chamadas
+• Registre visitas, mensagens ou videochamadas; uma linha do tempo em cada contato
+• Lembretes gentis: um resumo semanal por padrão, sem sequências nem bolinhas vermelhas
+• Lembretes de aniversário com dias de antecedência e "Parabéns dados"
+• Picture-in-picture durante chamadas; Bloquear e recusar
+• Lembretes privados na tela de bloqueio, fotos na orientação certa

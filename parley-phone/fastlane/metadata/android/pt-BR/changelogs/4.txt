@@ -1,0 +1,5 @@
+• Agora em alemão, espanhol, francês, português do Brasil, hindi, urdu e árabe, com configuração de idioma própria
+• Caixa de correio de voz, cartão pós-chamada, proteção contra ligações do bolso e notificações de chamadas perdidas mais completas
+• Página de contato e editor redesenhados, usuários de mensageiros, Meu cartão
+• Configurações com pesquisa, barra de navegação personalizável, gestos de deslizar em Recentes
+• Muitas correções de segurança de dados e privacidade

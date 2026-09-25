@@ -1,10 +1,18 @@
-Parley is a contacts app, phone dialer and in-call screen in one, built for privacy.
+Parley is a contacts app, phone dialer and in-call screen in one, built for privacy. It has no internet access.
 
 <b>Parley <i>is</i> your phone app, so a blocked call can't ring anyway.</b> It never blocks a contact, even when the phone is busy, and it edits only what you changed.
 
-<b>Contacts</b>: labels you can filter together, favourites in your own order, birthdays and dates (including a date of death, with no reminders), duplicate warnings as you type, copying to and from the SIM, and a note on each contact saying who changed it last.
+<b>Circle (new in 3.2)</b>: one calm place for the people you want to keep up with. Parley fills it in from your calls, and you can log a visit, a message or a video call with one tap. Each contact gets a timeline. Reminders are kind: by default one weekly digest, with no streaks, scores or red badges. Birthday reminders can come a few days early, and "Mark as wished" stops the rest.
 
-<b>Privacy</b>: private contacts kept out of the system address book, an honest page showing which apps can read your contacts (Parley can't limit them, and says so), encrypted backups and a time machine for every change.
+<b>Calls</b>: full-screen incoming calls, call waiting, hold, merge and conference, dual SIM, a voicemail inbox, a post-call card for notes, a pocket-dial guard, call time limits and a keypad that searches as you type.
+
+<b>Blocking</b>: offline rules (prefixes, hidden numbers, non-contacts, neighbour spoofing), ready-made rule packs with a dry run, and optional spam lists from the separate Parley Lists app, so Parley itself never goes online.
+
+<b>Contacts</b>: labels you can filter together, favourites in your own order, birthdays and dates (including a date of death, with no reminders), messenger handles, duplicate warnings as you type, copying to and from the SIM, temporary contacts, and a note on each contact saying who changed it last.
+
+<b>Privacy</b>: app lock, a private vault kept out of the system address book, lock-screen notifications that hide names, an honest page showing which apps can read your contacts (Parley can't limit them, and says so), encrypted backups, folder sync between your devices with no server, and a time machine for every change.
+
+<b>Languages</b>: English, German, Spanish, French, Brazilian Portuguese, Hindi, Urdu and Arabic, with a per-app language setting.
 
 <b>Permissions Parley doesn't ask for, and why</b>
 • Internet: nothing is sent anywhere. No internet, so no leaks.

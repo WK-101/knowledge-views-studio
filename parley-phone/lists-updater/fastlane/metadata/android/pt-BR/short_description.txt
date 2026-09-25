@@ -1,0 +1,1 @@
+Atualizador opcional de listas de spam para o Parley. Sem acesso a contatos.

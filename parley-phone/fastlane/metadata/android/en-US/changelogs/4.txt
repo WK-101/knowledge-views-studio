@@ -1,0 +1,5 @@
+• Now in German, Spanish, French, Brazilian Portuguese, Hindi, Urdu and Arabic, with a per-app language setting
+• Voicemail inbox, post-call card, pocket-dial guard and richer missed-call notifications
+• Redesigned contact page and editor, messenger handles, My card
+• Settings with search, a navigation bar you can arrange, swipe actions in Recents
+• Many data-safety and privacy fixes

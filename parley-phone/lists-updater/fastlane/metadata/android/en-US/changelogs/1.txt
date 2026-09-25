@@ -1,0 +1,4 @@
+First release: the optional spam-list companion for Parley.
+• US FTC Do Not Call reported calls, France ARCEP ranges and community lists
+• Lists are built on your phone and shared only with Parley
+• Internet access only: no contacts, call log, phone or SMS permission

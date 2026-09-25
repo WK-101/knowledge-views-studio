@@ -1,0 +1,24 @@
+Parley ist Kontakte-App, Telefon-App und Anrufbildschirm in einem, gebaut für Privatsphäre. Parley hat keinen Internetzugriff.
+
+<b>Parley <i>ist</i> deine Telefon-App, also kann ein blockierter Anruf gar nicht erst klingeln.</b> Kontakte werden nie blockiert, auch nicht, wenn das Telefon besetzt ist, und Parley ändert nur, was du geändert hast.
+
+<b>Kreis (neu in 3.2)</b>: ein ruhiger Ort für die Menschen, mit denen du in Kontakt bleiben möchtest. Parley füllt ihn aus deinen Anrufen, und ein Treffen, eine Nachricht oder einen Videoanruf trägst du mit einem Tipp ein. Jeder Kontakt bekommt eine Zeitleiste. Erinnerungen sind freundlich: standardmäßig eine Wochenübersicht, ohne Serien, Punkte oder rote Zähler. Geburtstagserinnerungen können ein paar Tage vorher kommen, und „Gratuliert“ beendet den Rest.
+
+<b>Anrufe</b>: Vollbild bei eingehenden Anrufen, Anklopfen, Halten, Zusammenführen und Konferenz, Dual-SIM, ein Mailbox-Posteingang, eine Karte nach dem Anruf für Notizen, ein Schutz vor versehentlichen Anrufen aus der Tasche, Gesprächszeit-Limits und eine Wähltastatur, die beim Tippen sucht.
+
+<b>Blockieren</b>: Offline-Regeln (Vorwahlen, unterdrückte Nummern, Nicht-Kontakte, Nachbar-Spoofing), fertige Regelpakete mit Probelauf und optionale Spam-Listen aus der separaten App Parley Lists, damit Parley selbst nie online geht.
+
+<b>Kontakte</b>: Labels, die sich kombiniert filtern lassen, Favoriten in eigener Reihenfolge, Geburtstage und Daten (auch ein Todestag, ohne Erinnerungen), Messenger-Namen, Duplikat-Warnungen beim Tippen, Kopieren von und auf die SIM, temporäre Kontakte und bei jedem Kontakt ein Hinweis, wer ihn zuletzt geändert hat.
+
+<b>Privatsphäre</b>: App-Sperre, ein privater Tresor außerhalb des System-Adressbuchs, Benachrichtigungen auf dem Sperrbildschirm ohne Namen, eine ehrliche Seite, welche Apps deine Kontakte lesen können (Parley kann sie nicht einschränken und sagt das auch), verschlüsselte Backups, Ordner-Sync zwischen deinen Geräten ohne Server und eine Zeitmaschine für jede Änderung.
+
+<b>Sprachen</b>: Englisch, Deutsch, Spanisch, Französisch, brasilianisches Portugiesisch, Hindi, Urdu und Arabisch, mit eigener Spracheinstellung für die App.
+
+<b>Berechtigungen, die Parley nicht verlangt, und warum</b>
+• Internet: Nichts wird irgendwohin gesendet. Kein Internet, also keine Lecks.
+• Mikrofon: Android erlaubt Apps wie Parley keine Anrufaufnahme.
+• Kamera, Standort, SMS und Speicher: nicht nötig. Nachrichten öffnen sich in deiner SMS-App; Dateien laufen über die Dateiauswahl von Android.
+• Eine Liste aller installierten Apps: nicht nötig.
+Der Build schlägt fehl, sobald eine dieser Berechtigungen auftaucht, also kann sich das nicht versehentlich ändern. Keine Berechtigung, die nicht genutzt wird.
+
+Freie und quelloffene Software (GPL-3.0). Keine Werbung, keine Tracker, keine Konten.

@@ -1,0 +1,5 @@
+• Blocking: rule-pack templates with a dry run, signed sharing, and spam lists from the new Parley Lists app
+• Labels you can filter together, favourites in your own order, SIM copy, date of death, who changed a contact last
+• Call waiting sheet, call time limits and a USSD sheet
+• Encrypted call history archive, insights and export
+• A page showing which apps can read your contacts

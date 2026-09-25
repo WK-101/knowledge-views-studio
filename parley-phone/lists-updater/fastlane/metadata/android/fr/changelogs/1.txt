@@ -1,0 +1,4 @@
+Première version : le compagnon facultatif de listes anti-spam pour Parley.
+• Signalements Do Not Call de la FTC (États-Unis), tranches de l'ARCEP (France) et listes de la communauté
+• Les listes sont créées sur votre téléphone et partagées uniquement avec Parley
+• Accès internet uniquement : aucune autorisation pour les contacts, le journal d'appels, le téléphone ou les SMS

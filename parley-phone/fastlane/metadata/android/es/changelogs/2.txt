@@ -1,0 +1,7 @@
+• Copias de seguridad cifradas y programadas, paso a un teléfono nuevo
+• Sincronización por carpeta entre dispositivos, sin servidor
+• Máquina del tiempo y «Eliminados recientemente» durante 30 días
+• Bloqueo de la app, bóveda privada y contactos temporales
+• Cumpleaños, recordatorios de contacto, notas de llamada y relaciones
+• Importación y exportación vCard 4.0 y CSV sin pérdidas
+• Ubicación del llamante sin conexión, acciones de mensajería, widget de marcación directa, nuevo diseño

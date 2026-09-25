@@ -1,0 +1,5 @@
+• Blocage : modèles de packs de règles avec essai à blanc, partage signé et listes anti-spam de la nouvelle app Parley Lists
+• Libellés combinables en filtre, favoris dans votre ordre, copie vers la SIM, date de décès, qui a modifié un contact en dernier
+• Vue du double appel, limites de durée d'appel et vue USSD
+• Archive chiffrée du journal d'appels, statistiques et export
+• Une page qui montre quelles apps peuvent lire vos contacts

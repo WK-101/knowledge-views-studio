@@ -1,0 +1,5 @@
+• Blockieren: Regelpaket-Vorlagen mit Probelauf, signiertes Teilen und Spam-Listen aus der neuen App Parley Lists
+• Kombinierbare Label-Filter, Favoriten in eigener Reihenfolge, SIM-Kopie, Todestag, wer einen Kontakt zuletzt geändert hat
+• Anklopfen-Ansicht, Gesprächszeit-Limits und USSD-Ansicht
+• Verschlüsseltes Anrufverlauf-Archiv, Auswertungen und Export
+• Eine Seite, die zeigt, welche Apps deine Kontakte lesen können

@@ -1,0 +1,7 @@
+• Encrypted backup and restore, scheduled backups, moving to a new phone
+• Folder sync between your devices, with no server
+• Contacts time machine and 30-day Recently deleted with undo
+• App lock, private vault and temporary contacts
+• Birthdays, keep-in-touch reminders, call notes and relations
+• Lossless vCard 4.0 and CSV import and export
+• Offline caller location, messenger actions, a direct-dial widget and a new Material 3 Expressive look

@@ -1,0 +1,5 @@
+• Désormais en allemand, espagnol, français, portugais du Brésil, hindi, ourdou et arabe, avec un réglage de langue propre à l'app
+• Messagerie vocale intégrée, carte après l'appel, anti-appel de poche, notifications d'appels manqués plus complètes
+• Fiche contact et éditeur repensés, identifiants de messagerie, Ma fiche
+• Réglages avec recherche, barre de navigation personnalisable, balayages dans le journal
+• De nombreux correctifs de sécurité des données et de vie privée

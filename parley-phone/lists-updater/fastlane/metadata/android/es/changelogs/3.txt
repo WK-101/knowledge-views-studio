@@ -1,0 +1,1 @@
+• Las compilaciones de versión ahora funcionan en los servidores de F-Droid. Sin otros cambios.

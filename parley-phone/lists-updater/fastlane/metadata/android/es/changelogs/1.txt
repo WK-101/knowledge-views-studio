@@ -1,0 +1,4 @@
+Primera versión: el complemento opcional de listas de spam para Parley.
+• Denuncias Do Not Call de la FTC (EE. UU.), rangos de la ARCEP (Francia) y listas de la comunidad
+• Las listas se crean en tu teléfono y solo se comparten con Parley
+• Solo acceso a internet: sin permiso de contactos, registro de llamadas, teléfono ni SMS

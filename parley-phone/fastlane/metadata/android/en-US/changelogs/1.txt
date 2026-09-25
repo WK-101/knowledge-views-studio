@@ -1,0 +1,5 @@
+First release: contacts, dialer and in-call screen in one app.
+• Full-screen incoming calls, hold, swap, merge and conference
+• Keypad search, grouped recents, contact editor, vCard import and export, duplicate merge, QR sharing, speed dial
+• Offline call blocking rules
+• No internet permission: the build fails if one appears

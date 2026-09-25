@@ -1,0 +1,13 @@
+Parley Lists is the optional companion to Parley, the private contacts and phone app. Parley has no internet access, so this small separate app downloads public spam-number lists for it.
+
+<b>What it downloads</b>
+• US FTC Do Not Call reported calls: the daily public files, turned on your phone into a list of the last 7, 30 or 90 days
+• France ARCEP number ranges (built in)
+• Community lists: any HTTPS link to a signed .parleylist file
+
+<b>What it never does</b>
+It never sends a phone number anywhere, and it has no access to your contacts, call log, phone or SMS. Its build fails if any other permission appears.
+
+Parley reads the lists through a permission that only apps signed with the same key can use, so install both from the same source. Updates run daily by default, on unmetered networks while the phone is idle.
+
+Free and open source (GPL-3.0). No ads, no trackers, no accounts.

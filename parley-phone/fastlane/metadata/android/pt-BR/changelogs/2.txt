@@ -1,0 +1,7 @@
+• Backups criptografados e agendados, mudança para um novo telefone
+• Sincronização por pasta entre aparelhos, sem servidor
+• Máquina do tempo e "Excluídos recentemente" por 30 dias
+• Bloqueio do app, cofre privado e contatos temporários
+• Aniversários, lembretes para manter contato, notas de chamada e relações
+• Importação e exportação vCard 4.0 e CSV sem perdas
+• Localização offline de quem liga, ações de mensageiros, widget de discagem direta, novo visual
