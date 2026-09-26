@@ -110,6 +110,11 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             SHOW_OR_CREATE -> showOrCreate(data)
             Intent.ACTION_DIAL, Intent.ACTION_VIEW -> when {
                 data?.scheme == "parley" && data.host == "qr" -> vm.navigate(NavEvent.SecureQr(data))
+                // X4: a simple-mode setup shared as a QR code.
+                data?.scheme == "parley" && data.host == "simple" -> {
+                    app.parley.ui.extras.SimpleInbox.qr.value = data
+                    vm.navigate(NavEvent.Route(app.parley.ui.extras.ExtrasRoutes.SIMPLE_IMPORT))
+                }
                 data?.scheme == "parley" && data.host == "template" -> {
                     app.parley.blocking.TemplateInbox.pending.value = data
                     vm.navigate(NavEvent.Route(app.parley.ui.blocking.BlockingRoutes.TEMPLATES))

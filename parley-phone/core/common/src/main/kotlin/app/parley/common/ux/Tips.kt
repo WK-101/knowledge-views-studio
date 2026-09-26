@@ -9,6 +9,9 @@ object Tips {
     const val RECENTS_SWIPE = "recents_swipe"
     const val HEADER_SEARCH = "header_search"
 
+    /** X4: "Leave" on the simple home needs a press and hold. */
+    const val SIMPLE_LEAVE = "simple_leave"
+
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")
 

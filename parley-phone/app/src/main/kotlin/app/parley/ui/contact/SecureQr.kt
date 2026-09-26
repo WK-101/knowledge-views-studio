@@ -8,6 +8,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -153,18 +156,44 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
             dismissButton = { TextButton(onDone) { Text(stringResource(R.string.main_cancel)) } },
         )
     } else {
+        // X5 handshake: where you met (a MEET entry, and optionally the note), and "Swap" shows your own card.
+        var place by remember { mutableStateOf("") }
+        var toNote by remember { mutableStateOf(false) }
+        val swap by vm.c.extras.handshakeSwap.collectAsStateWithLifecycle()
+        var showMine by remember { mutableStateOf(swap) }
+        val received = remember { System.currentTimeMillis() }
+        val nonce = remember { java.util.UUID.randomUUID().toString() }
+        fun withMet(): Pair<ContactDetails, String> {
+            val line = app.parley.ui.extras.HandshakeInbox.line(res, place, received)
+            return (if (toNote) r.copy(note = app.parley.common.extras.Handshake.appendToNote(r.note, line)) else r) to line
+        }
         AlertDialog(
             onDismissRequest = onDone,
             title = { Text(r.displayName.ifBlank { stringResource(R.string.sqr_contact) }) },
-            text = { Text(listOfNotNull(r.phones.firstOrNull()?.value?.let(Bidi::ltr), r.emails.firstOrNull()?.value).joinToString(stringResource(R.string.main_separator))) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    Text(listOfNotNull(r.phones.firstOrNull()?.value?.let(Bidi::ltr), r.emails.firstOrNull()?.value).joinToString(stringResource(R.string.main_separator)))
+                    app.parley.ui.extras.HandshakeFields(vm, place, { place = it }, toNote, { toNote = it })
+                    TextButton({ showMine = true }) { Text(stringResource(R.string.x_hs_show_mine)) }
+                }
+            },
             confirmButton = {
                 TextButton({
+                    val (details, _) = withMet()
                     scope.launchVault(context as? androidx.fragment.app.FragmentActivity, { e -> vm.toast(res.getString(R.string.edit_save_failed, e.message.orEmpty())) }) {
-                        val id = vm.c.vault.save(null, r); vm.toast(res.getString(R.string.sqr_saved_private)); onDone(); vm.navigate(app.parley.NavEvent.Vault(id))
+                        val id = vm.c.vault.save(null, details); vm.toast(res.getString(R.string.sqr_saved_private)); onDone(); vm.navigate(app.parley.NavEvent.Vault(id))
                     }
                 }) { Text(stringResource(R.string.sqr_save_privately)) }
             },
-            dismissButton = { TextButton({ onDone(); openEditor(r) }) { Text(stringResource(R.string.sqr_save_phone)) } },
+            dismissButton = {
+                TextButton({
+                    val (details, line) = withMet()
+                    // Logged in the Circle timeline once the editor has saved the contact.
+                    app.parley.ui.extras.HandshakeInbox.pending = app.parley.ui.extras.HandshakeInbox.Pending(line, received, nonce)
+                    onDone(); openEditor(details)
+                }) { Text(stringResource(R.string.sqr_save_phone)) }
+            },
         )
+        if (showMine) app.parley.ui.extras.MyCardQrDialog(vm) { showMine = false }
     }
 }

@@ -122,6 +122,8 @@ fun RhythmDialog(vm: AppViewModel, d: ContactDetails, contactId: Long, meta: Con
         title = { Text(stringResource(R.string.detail_keep_in_touch_title)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
+                // X3: a label's rhythm for people joining the Circle.
+                if (current == null) app.parley.ui.extras.LabelRhythmSuggestion(vm, contactId) { days -> set(days) }
                 app.parley.ui.history.RhythmSuggestion(vm, d.phones.map { it.value }) { days -> set(days) }
                 ListItem(
                     modifier = Modifier.clickable { set(current ?: CirclePlannerDefaults.DAYS, natural = true) },

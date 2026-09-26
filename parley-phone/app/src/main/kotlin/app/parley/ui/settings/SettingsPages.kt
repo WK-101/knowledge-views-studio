@@ -27,6 +27,8 @@ import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Cake
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Accessibility
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.DensityMedium
@@ -131,7 +133,7 @@ private fun android.content.Context.startSafely(intent: Intent) {
 // ---------------------------------------------------------------- Appearance
 
 @Composable
-internal fun AppearancePage(vm: AppViewModel) {
+internal fun AppearancePage(vm: AppViewModel, open: (String) -> Unit = {}) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
     val themes = listOf(stringResource(R.string.set_theme_system), stringResource(R.string.set_theme_light), stringResource(R.string.set_theme_dark))
@@ -176,6 +178,10 @@ internal fun AppearancePage(vm: AppViewModel) {
     }
     // U2: every one-time tip shows again.
     val tipsReset = stringResource(R.string.ux_tips_reset_done)
+    // X4: simple mode, set up here (for someone else, or for yourself).
+    SegmentedGroup {
+        linkRow("simple_mode", Icons.Rounded.Accessibility) { open(app.parley.ui.extras.ExtrasRoutes.SIMPLE_SETUP) }
+    }
     SegmentedGroup(stringResource(R.string.set_group_tips)) {
         linkRow("reset_tips", Icons.Rounded.Lightbulb) {
             vm.c.ux.resetTips()
@@ -577,6 +583,8 @@ internal fun BackupPage(vm: AppViewModel, open: (String) -> Unit) {
             Icons.Rounded.NotificationsActive,
         ) { i -> vm.c.ux.setBackupReminderDays(app.parley.common.ux.BackupNudge.REMINDER_DAYS[i]) }
         linkRow("sync", Icons.Rounded.Sync) { open(Routes.SYNC) }
+        // C5
+        linkRow("markdown_export", Icons.Rounded.Description) { open(Routes.SYNC) }
     }
     SegmentedGroup(stringResource(R.string.set_group_undo)) {
         linkRow("journal", Icons.Rounded.RestoreFromTrash) { open(Routes.JOURNAL) }
