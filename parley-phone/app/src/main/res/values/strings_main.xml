@@ -900,6 +900,7 @@
     <string name="clear_history_delete">Delete</string>
     <string name="clear_history_cancel">Cancel</string>
     <string name="clear_history_close">Close</string>
+    <string name="clear_history_unknown_needs_contacts">Needs access to your contacts, to tell which numbers are unknown</string>
     <!-- v3.2 C4: birthday slots -->
     <string name="ux_add_birthday">Add birthday?</string>
     <string name="ux_add_anniversary">Add anniversary?</string>

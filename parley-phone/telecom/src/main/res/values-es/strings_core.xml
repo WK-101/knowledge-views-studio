@@ -177,6 +177,8 @@
     <string name="decline_blocked_body">Las llamadas de %1$s se rechazarán a partir de ahora.</string>
     <string name="decline_block_already">Este número ya estaba bloqueado.</string>
     <string name="decline_block_failed">No se pudo bloquear el número. Puedes bloquearlo desde Recientes.</string>
+    <string name="decline_block_pending">Bloqueando este número…</string>
+    <string name="decline_blocked_answered">Las llamadas de %1$s se rechazarán a partir de ahora. Esta llamada se contestó.</string>
     <string name="decline_block_undone">Desbloqueado. %1$s puede volver a llamarte.</string>
     <string name="tc_undo">Deshacer</string>
 </resources>

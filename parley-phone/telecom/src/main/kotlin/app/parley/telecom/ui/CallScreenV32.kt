@@ -17,6 +17,7 @@ import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -84,9 +85,11 @@ internal fun FailureBanner(call: CallUi, onRetry: () -> Unit, onDismiss: () -> U
 internal fun DeclineBlockCard(block: DeclineBlock, onUndo: () -> Unit, onDone: () -> Unit) {
     val number = Bidi.ltr(block.number)
     val (title, body) = when {
+        block.pending -> stringResource(R.string.decline_title) to stringResource(R.string.decline_block_pending)
         block.undone -> stringResource(R.string.decline_title) to stringResource(R.string.decline_block_undone, number)
         block.ruleId == null -> stringResource(R.string.decline_title) to stringResource(R.string.decline_block_failed)
         block.ruleId == 0L -> stringResource(R.string.decline_title) to stringResource(R.string.decline_block_already)
+        block.answered -> stringResource(R.string.decline_blocked_title) to stringResource(R.string.decline_blocked_answered, number)
         else -> stringResource(R.string.decline_blocked_title) to stringResource(R.string.decline_blocked_body, number)
     }
     Surface(
@@ -102,10 +105,22 @@ internal fun DeclineBlockCard(block: DeclineBlock, onUndo: () -> Unit, onDone: (
             }
             Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             Row(Modifier.align(Alignment.End).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if ((block.ruleId ?: 0L) > 0L && !block.undone) TextButton(onUndo) { Text(stringResource(R.string.tc_undo)) }
+                if ((block.ruleId ?: 0L) > 0L && !block.undone && !block.pending) TextButton(onUndo) { Text(stringResource(R.string.tc_undo)) }
                 TextButton(onDone) { Text(stringResource(R.string.tc_done)) }
             }
         }
+    }
+}
+
+/** P2: in place of the answer controls while "Block & decline" writes the rule (a second or so at most). */
+@Composable
+internal fun BlockingDecline() {
+    Column(
+        Modifier.fillMaxWidth().padding(bottom = 64.dp).semantics { liveRegion = LiveRegionMode.Polite },
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        CircularProgressIndicator(Modifier.size(32.dp))
+        Text(stringResource(R.string.decline_block_pending), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
     }
 }
 

@@ -815,6 +815,7 @@
     <string name="clear_history_delete">حذف کریں</string>
     <string name="clear_history_cancel">منسوخ کریں</string>
     <string name="clear_history_close">بند کریں</string>
+    <string name="clear_history_unknown_needs_contacts">کون سے نمبر نامعلوم ہیں، یہ جاننے کے لیے آپ کے رابطوں تک رسائی درکار ہے</string>
     <!-- v3.2 C4: birthday slots -->
     <string name="ux_add_birthday">سالگرہ شامل کریں؟</string>
     <string name="ux_add_anniversary">برسی شامل کریں؟</string>

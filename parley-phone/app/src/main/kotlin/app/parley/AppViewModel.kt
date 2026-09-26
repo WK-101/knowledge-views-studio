@@ -473,10 +473,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** U4: deletes one Recents row's calls, offering Undo (the archive keeps them 30 days). */
-    fun deleteCallsWithUndo(entries: List<CallEntry>) {
+    /** [keepPrivate] (P5): leaves out calls with private contacts the vault hasn't moved out of the system log yet. */
+    fun deleteCallsWithUndo(entries: List<CallEntry>, keepPrivate: Boolean = false) {
         viewModelScope.launch {
-            val batch = c.history.delete(entries.filter { it.id > 0 })
-            val text = plural(R.plurals.vm_calls_deleted, entries.size, entries.size)
+            val privateNumbers = HashMap<String, Boolean>()
+            val kept = if (!keepPrivate) entries else entries.filter { e ->
+                e.number.isBlank() || !privateNumbers.getOrPut(e.number) { runCatching { c.vault.lookup(e.number, countryIso) != null }.getOrDefault(true) }
+            }
+            if (kept.isEmpty()) return@launch
+            val batch = c.history.delete(kept.filter { it.id > 0 })
+            val text = plural(R.plurals.vm_calls_deleted, kept.size, kept.size)
             if (batch != null) events.trySend(UiEvent.UndoCalls(text, batch)) else toast(text)
         }
     }

@@ -115,7 +115,7 @@ fun IncomingControls(
 
 /** X4: "Decline this call?" (simple mode). */
 @Composable
-private fun DeclineQuestion(onDecline: () -> Unit, onDismiss: () -> Unit) {
+internal fun DeclineQuestion(onDecline: () -> Unit, onDismiss: () -> Unit) {
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.x_incall_decline_q)) },

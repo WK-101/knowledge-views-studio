@@ -207,6 +207,8 @@
     <string name="decline_blocked_body">Calls from %1$s will be declined from now on.</string>
     <string name="decline_block_already">This number was already blocked.</string>
     <string name="decline_block_failed">The number couldn\'t be blocked. You can block it from Recents.</string>
+    <string name="decline_block_pending">Blocking this number…</string>
+    <string name="decline_blocked_answered">Calls from %1$s will be declined from now on. This call was answered.</string>
     <string name="decline_block_undone">Unblocked. %1$s can call you again.</string>
     <string name="tc_undo">Undo</string>
 </resources>

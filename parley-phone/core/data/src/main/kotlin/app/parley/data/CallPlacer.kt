@@ -7,6 +7,8 @@ import android.os.Bundle
 import android.telecom.TelecomManager
 import android.telephony.TelephonyManager
 import app.parley.common.PhoneNumbers
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 sealed interface PlaceResult {
     data object Placed : PlaceResult
@@ -23,16 +25,25 @@ sealed interface PlaceResult {
 class CallPlacer(private val context: Context, private val sims: SimRepository, private val prefs: PrefsRepository) {
     private val telecom = context.getSystemService(TelecomManager::class.java)
 
-    /** X3: the SIM a label asks for, used when the number has no remembered SIM (blocking; we're off the main thread). */
+    /** X3: the SIM a label asks for, used when the number has no remembered SIM. Blocking: only called on [Dispatchers.IO]. */
     @Volatile
     var fallbackSim: ((String) -> String?)? = null
 
-    suspend fun call(rawNumber: String, accountId: String? = null): PlaceResult {
+    /** The SIM for [number] without a choice of its own: the remembered one, else a label's (X3). Off the main thread. */
+    suspend fun resolveSim(number: String): String? = withContext(Dispatchers.IO) {
+        prefs.simFor(number) ?: runCatching { fallbackSim?.invoke(number) }.getOrNull()
+    }
+
+    /**
+     * Places a call to [rawNumber] on [accountId]. Without one, the remembered or label SIM is looked up (off the main
+     * thread) unless [simResolved] says the caller already did that and found none.
+     */
+    suspend fun call(rawNumber: String, accountId: String? = null, simResolved: Boolean = false): PlaceResult {
         val number = rawNumber.trim()
         if (number.isEmpty()) return PlaceResult.Failed("Empty number")
         if (handleSecretCode(number)) return PlaceResult.Handled
         val extras = Bundle()
-        val chosen = accountId ?: prefs.simFor(number) ?: runCatching { fallbackSim?.invoke(number) }.getOrNull()
+        val chosen = accountId ?: if (simResolved) null else resolveSim(number)
         sims.handle(chosen)?.let { extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
         return try {
             telecom.placeCall(Uri.fromParts("tel", number, null), extras)

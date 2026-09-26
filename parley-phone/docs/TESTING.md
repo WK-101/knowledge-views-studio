@@ -347,6 +347,9 @@ Call the phone from another phone in each state below. For each one, check that 
 - [ ] Incoming call from a number: ⋮ next to "Ignore" › Block & decline. The ringing stops at once, the call is declined, and the call-ended screen says "Blocked and declined" with Undo. Blocking & spam lists a rule for the number with the note "Blocked during a call"; a new call from it is declined.
 - [ ] Tap Undo: the card says "Unblocked…", the rule is gone, a new call rings.
 - [ ] A number that was already blocked with a silence rule: the card says it was already blocked, no Undo. Private numbers and emergency call-backs never offer ⋮. TalkBack: the caller's name offers "Block & decline" as an action.
+- [ ] Right after tapping Block & decline the answer controls are replaced by "Blocking this number…" and the notification goes; answering from the notification or the screen isn't possible. On a slow first write (just after boot) the card may say "Blocking this number…" and then "Blocked and declined" with Undo; it never says "couldn't be blocked" for a number that ends up blocked, and the next call from it is declined.
+- [ ] While dialling a second call, Block & decline the incoming one: the "Blocked · Undo" card shows above the call that goes on; Done hides it, Undo works.
+- [ ] Answer with a headset button during the write: the call connects, and the card later says the number is blocked and the call was answered (not "declined").
 
 **Default-dialer rescue (P4)**
 - [ ] On a phone where Parley isn't the phone app: Settings (banner) or Settings › Calls › Set default. Press Cancel on Android's dialog: no guide.
@@ -355,13 +358,17 @@ Call the phone from another phone in each state below. For each one, check that 
 
 **Clear call history (P5)**
 - [ ] Recents ⋮ › Clear call history…: choose "Calls from numbers not in your contacts" (counts shown), Next, Export first? › CSV file: the share sheet offers the CSV; then confirm Delete: only those calls go; the snackbar's Undo brings them back. Contacts' calls and private-contact calls stay.
+- [ ] Deny Contacts (or open Settings › Clear call history right after a cold start): "Calls from numbers not in your contacts" is greyed out with "Needs access to your contacts…"; nothing from contacts can be cleared that way.
+- [ ] Call a private contact, then at once Clear › All (or Missed): that call isn't cleared and later appears in the private contact's history, never in the ordinary Recently deleted.
 - [ ] With a Recents filter or search active, "What Recents shows now" is offered first and clears exactly those rows. "Encrypted backup" opens Backup & restore. Settings › Recents & history › Clear call history works the same (without "What Recents shows now").
 
 **Call failure banner (P6)**
 - [ ] Airplane mode on, call a number: the call screen keeps "Call didn't go through · Airplane mode is on" with Retry and Dismiss; it doesn't close by itself. The caller's name (a contact) stays on the screen.
-- [ ] Dual SIM with "Ask every time": let the SIM picker time out (or have the network refuse): "No SIM was chosen". Cancel on the picker yourself: no banner.
+- [ ] Dual SIM with "Ask every time": when the network refuses a call that was still at the SIM picker: "No SIM was chosen". Cancel on the picker yourself (or with the power button): no banner.
 - [ ] A number that fails on the network: the network's own reason, or "The network couldn't connect the call". Retry places the call again on the same SIM; Dismiss closes the screen. A busy line shows "Busy" with Retry. Hanging up yourself, or the other person declining, never shows the banner.
 - [ ] During a call, Add call to a number that fails: the banner shows above the call that goes on.
+- [ ] Dial and end the call with the power button ("Power button ends call"), a Bluetooth headset, a car kit or a watch before it's answered: no banner, the screen closes as usual.
+- [ ] After a failure, Dismiss (or leave with Home). Later a call comes in, or dial someone else: the ringing/dialling screen never shows the old banner or its Retry.
 
 **Haptics (P7)**
 - [ ] With Vibrate on call events on: answering buzzes short-then-longer, declining (button, slide, notification, Block & decline) one firm buzz; no extra connect buzz right after answering.
@@ -374,6 +381,12 @@ Call the phone from another phone in each state below. For each one, check that 
 - [ ] Keypad: `*#06#` shows the IMEI; `*100#` sends a USSD request; `**21*+4915112345678#` (paste it) keeps the `+` and `#` and goes to the network as a forwarding code; `#31#0612345678` calls with the number hidden.
 - [ ] Type `555` while a contact "+1 555 0100" is the top match: Call dials 555. Typing a name on a hardware keyboard calls the top match.
 - [ ] During a call, a second call rings with the call-waiting sheet (ringtone/tone, Answer, Hold & answer, End & answer).
+- [ ] Dial from the keypad and from Recents with a label SIM (X3) on a large contacts list: no stutter at the moment of dialling; StrictMode (developer build) reports no disk/content read on the main thread there; the call goes out on the label's SIM.
+
+**Simple mode checks (X4)**
+- [ ] "Speak caller name" on: a contact calls, the name is spoken; press volume-down or power: the ringer and the voice both stop.
+- [ ] During a call, a contact calls in (call waiting): the name is never spoken.
+- [ ] "Confirm before declining" on: Decline on the call-waiting sheet asks "Decline this call?" first. With the phone unlocked, tap Decline on the heads-up notification: the call screen opens with the same question (Keep ringing leaves the call ringing).
 
 ### 15.2 Distribution (D1–D4)
 - [ ] `tools/fdroid-strip-check.sh --static` passes. The full run builds `app-release-unsigned.apk` and `lists-updater-release-unsigned.apk` with the signing config stripped as F-Droid does.

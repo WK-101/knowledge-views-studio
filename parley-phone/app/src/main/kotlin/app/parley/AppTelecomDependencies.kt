@@ -168,21 +168,27 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override fun connectHaptic(): Boolean = c.calling.config.value.connectHaptic
 
-    /** P2: the block rule is written before the call is declined; its id lets the call-ended screen undo it. */
+    /**
+     * P2: the block rule is written before the call is declined; its id lets the call-ended screen undo it. The caller
+     * waits for this to finish (never cancels it), so what the card says is what's in the database. The in-memory
+     * rules the call path reads are refreshed whatever happened.
+     */
     override suspend fun blockForDecline(number: String): Long? = withContext(Dispatchers.IO) {
-        runCatching {
-            val pattern = RuleTools.check(number, RuleType.EXACT, PhoneEnv.countryIso(app)).pattern.trim()
-            val exists = c.blocks.allRules().any {
-                it.enabled && it.kind == RuleKind.BLOCK && it.type == RuleType.EXACT && it.pattern.trim() == pattern && it.simId == null && it.schedule == null
+        val pattern = runCatching { RuleTools.check(number, RuleType.EXACT, PhoneEnv.countryIso(app)).pattern.trim() }.getOrNull()
+            ?: return@withContext null
+        suspend fun existing() = c.blocks.allRules().any {
+            it.enabled && it.kind == RuleKind.BLOCK && it.type == RuleType.EXACT && it.pattern.trim() == pattern && it.simId == null && it.schedule == null
+        }
+        try {
+            runCatching {
+                if (existing()) 0L else c.blocks.saveRule(BlockRule(pattern = pattern, type = RuleType.EXACT, note = app.getString(R.string.blk_note_block_decline)))
+            }.getOrElse {
+                // The write reported an error: say "blocked" only when the rule is really there (no Undo then).
+                if (runCatching { existing() }.getOrDefault(false)) 0L else null
             }
-            val id = if (exists) {
-                0L
-            } else {
-                c.blocks.saveRule(BlockRule(pattern = pattern, type = RuleType.EXACT, note = app.getString(R.string.blk_note_block_decline)))
-            }
-            c.blocks.enabledRules() // refreshes the in-memory rules the call path reads
-            id
-        }.getOrNull()
+        } finally {
+            runCatching { c.blocks.enabledRules() } // refreshes the in-memory rules the call path reads
+        }
     }
 
     override suspend fun undoBlockForDecline(ruleId: Long) {

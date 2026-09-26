@@ -60,17 +60,32 @@ enum class ClearScope {
     SHOWN,
 }
 
-/** P5: picks the calls to clear. Private-contact calls (negative ids) live in the vault and are never cleared here. */
+/**
+ * P5: picks the calls to clear. Private-contact calls never are: the vault's own ones (negative ids), and a private
+ * contact's call still in the system log ([isPrivate]; the vault moves it out a little later, or never without
+ * WRITE_CALL_LOG).
+ */
 object ClearHistory {
-    fun select(calls: List<CallEntry>, scope: ClearScope, isKnown: (String) -> Boolean, shownIds: Set<Long> = emptySet()): List<CallEntry> =
-        calls.filter { e ->
-            e.id > 0 && when (scope) {
+    /**
+     * "Unknown numbers" needs the contacts: while they aren't loaded (or can't be read) every number would look
+     * unknown, so that scope then picks nothing and isn't offered.
+     */
+    fun available(scope: ClearScope, contactsReady: Boolean): Boolean = scope != ClearScope.UNKNOWN_NUMBERS || contactsReady
+
+    fun select(
+        calls: List<CallEntry>, scope: ClearScope, isKnown: (String) -> Boolean, shownIds: Set<Long> = emptySet(),
+        isPrivate: (String) -> Boolean = { false }, contactsReady: Boolean = true,
+    ): List<CallEntry> {
+        if (!available(scope, contactsReady)) return emptyList()
+        return calls.filter { e ->
+            e.id > 0 && (e.number.isBlank() || !isPrivate(e.number)) && when (scope) {
                 ClearScope.ALL -> true
                 ClearScope.UNKNOWN_NUMBERS -> e.presentationHidden || e.number.isBlank() || !isKnown(e.number)
                 ClearScope.MISSED -> e.type == CallType.MISSED || e.type == CallType.REJECTED
                 ClearScope.SHOWN -> e.id in shownIds
             }
         }
+    }
 }
 
 /** P6: Telecom's disconnect cause, without the Android types. */
@@ -95,23 +110,22 @@ data class EndFacts(
 
 /**
  * P6: an outgoing call that never connected and that the user didn't end gets a failure banner with the reason
- * and Retry. A call the other side declined or that was busy on purpose isn't a "failure" of the phone, except
- * BUSY, which is worth retrying.
+ * and Retry. Only a real error counts: a call the other side declined isn't a "failure" of the phone, and a LOCAL
+ * or CANCELED end is a hang-up from somewhere (the power button, a headset, a car kit, a watch), never a failure.
+ * BUSY is, since it's worth retrying.
  */
 object CallFailure {
     fun classify(f: EndFacts): FailureKind? {
         if (!f.outgoing || f.connected || f.emergency || !f.hasNumber || f.userEnded) return null
-        if (f.endedInSimPicker) return FailureKind.NO_SIM_SELECTED
-        val code = f.code ?: return null
-        if (code == EndCode.REMOTE || code == EndCode.REJECTED || code == EndCode.MISSED) return null
-        if (f.airplaneMode) return FailureKind.AIRPLANE_MODE
-        return when (code) {
+        val kind = when (f.code ?: return null) {
             EndCode.BUSY -> FailureKind.BUSY
-            EndCode.ERROR, EndCode.RESTRICTED, EndCode.CANCELED, EndCode.OTHER, EndCode.UNKNOWN -> FailureKind.OTHER
-            // Telecom ended it on this phone without the user asking (no network, no SIM, a carrier refusal).
-            EndCode.LOCAL -> FailureKind.OTHER
-            else -> null
+            EndCode.ERROR, EndCode.RESTRICTED, EndCode.OTHER, EndCode.UNKNOWN -> FailureKind.OTHER
+            // LOCAL, CANCELED: ended on this phone (any surface); REMOTE, REJECTED, MISSED: the other side.
+            else -> return null
         }
+        if (f.endedInSimPicker) return FailureKind.NO_SIM_SELECTED
+        if (f.airplaneMode) return FailureKind.AIRPLANE_MODE
+        return kind
     }
 }
 
