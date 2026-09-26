@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import app.parley.common.photo.PhotoMath
 import app.parley.common.qr.QrImageDecoder
+import app.parley.common.qr.QrPhotoFiles
 import app.parley.data.ContactPhotoProcessor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -63,8 +64,21 @@ object QrScanner {
         return f to FileProvider.getUriForFile(context, context.packageName + ".files", f)
     }
 
-    /** Deletes the camera photos (after decoding, and any left from an interrupted scan). */
-    fun clearPhotos(context: Context) {
-        runCatching { dir(context).listFiles()?.forEach { it.delete() } }
+    /** Deletes one camera photo, once it has been read (or the camera app gave up). */
+    fun deletePhoto(file: File) {
+        runCatching { file.delete() }
+    }
+
+    /**
+     * Deletes photos left by scans that were interrupted: only ones older than [QrPhotoFiles.STALE_MS], and never
+     * [pending], the photo the camera app may still be writing or that is being read right now.
+     */
+    fun clearStalePhotos(context: Context, pending: String?) {
+        val now = System.currentTimeMillis()
+        runCatching {
+            dir(context).listFiles()?.forEach { f ->
+                if (QrPhotoFiles.isStale(f.absolutePath, f.lastModified(), now, pending)) f.delete()
+            }
+        }
     }
 }

@@ -129,16 +129,21 @@ object MessengerQr {
         }
     }
 
-    /** https links of known hosts. */
+    /**
+     * https links of known hosts. The host is read by [WebUrl] as a browser reads it (`\` is a path separator, a
+     * `user@` part is dropped), and [QrPayload.Messenger.uri] is that normalised address: the one Parley opens.
+     */
     private fun web(url: String): QrPayload.Messenger? {
-        val mm = Regex("""^[A-Za-z]+://([^/?#]+)([^?#]*)(\?[^#]*)?(#.*)?$""").find(url) ?: return null
-        val host = mm.groupValues[1].substringAfterLast('@').substringBefore(':').lowercase().removePrefix("www.")
-        val path = mm.groupValues[2]
-        val query = QrText.query(mm.groupValues[3].removePrefix("?"))
-        val fragment = mm.groupValues[4].removePrefix("#")
+        val w = WebUrl.parse(url) ?: return null
+        // A user name in front of a messenger host is a trick, not a chat link: UrlSafety warns about it instead.
+        if (w.hadUserInfo) return null
+        val host = w.host.removePrefix("www.")
+        val path = w.path
+        val query = QrText.query(w.query)
+        val fragment = w.fragment.orEmpty()
         val segs = path.split('/').filter { it.isNotEmpty() }
         val first = segs.getOrNull(0)
-        val uri = if (url.startsWith("http://", ignoreCase = true)) "https://" + url.substring(7) else normalScheme(url)
+        val uri = w.copy(scheme = "https").href
         fun r(app: QrApp, kind: LinkKind, handle: String?, phone: String? = null) = m(url, app, kind, handle, phone, uri)
         return when (host) {
             "wa.me" -> when {

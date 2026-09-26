@@ -57,7 +57,9 @@ import app.parley.common.qr.QrPayload
 import app.parley.common.qr.QrText
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.settings.SettingsScaffold
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /** Q2: the "Scan QR" screen, reached from Contacts, the keypad, My card, Settings, the launcher and the tile. */
@@ -92,6 +94,9 @@ fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     var payload by remember { mutableStateOf<QrPayload?>(null) }
     // Survives the trip to the camera app (and the activity being recreated meanwhile).
     var photoPath by rememberSaveable { mutableStateOf<String?>(null) }
+    // The capture pending when this screen was (re)created, read before the launcher can deliver its result and
+    // clear photoPath: the stale-photo cleanup below must never delete it while it's being read.
+    val pendingAtStart = remember { photoPath }
 
     fun show(texts: List<String>) {
         state = if (texts.size > 1) ScanState.Several(texts) else ScanState.Idle
@@ -126,9 +131,9 @@ fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         val file = File(path)
         if (ok && file.length() > 0) {
             // The temporary photo is deleted as soon as it has been read.
-            scan(Uri.fromFile(file)) { QrScanner.clearPhotos(context) }
+            scan(Uri.fromFile(file)) { QrScanner.deletePhoto(file) }
         } else {
-            QrScanner.clearPhotos(context)
+            QrScanner.deletePhoto(file)
         }
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { scan(it) } }
@@ -142,7 +147,7 @@ fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         }
     }
     // Photos left behind by a scan that was interrupted.
-    LaunchedEffect(Unit) { if (photoPath == null) QrScanner.clearPhotos(context) }
+    LaunchedEffect(Unit) { withContext(Dispatchers.IO) { QrScanner.clearStalePhotos(context, pendingAtStart ?: photoPath) } }
 
     fun takePhoto() {
         val (file, uri) = runCatching { QrScanner.newPhoto(context) }.getOrNull() ?: return

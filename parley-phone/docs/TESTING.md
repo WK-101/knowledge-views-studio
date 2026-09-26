@@ -683,3 +683,15 @@ Settings › Appearance › Layout (search "combine", "keypad", "favourites", "m
 - [ ] "Open on" lists only the tabs in the bar.
 - [ ] Show only Recents and Keypad in the bar, then Combined: only one tab is left and the bottom bar (or rail) disappears; a missed-call notification or a Circle digest still opens its tab, with the bar back while it's open.
 - [ ] "Back to separate tabs" (shown while anything is combined): one tap restores the bar exactly as it was before combining; the Recents tap choice stays.
+
+### 16.4 Review fixes (QR, docked keypad, unreturned missed calls)
+- [ ] Paste `https://evil.com\@paypal.com/login`: the sheet says **evil.com**, the full address reads `https://evil.com/@paypal.com/login`, and "Open in browser" opens evil.com. `https://paypal.com@evil.com/` shows evil.com with the "hides its real destination" warning and opens `https://evil.com/` (no user name). `https://paypal.com%2F.evil.com/` shows as plain text.
+- [ ] Paste `https://evil.com\@t.me/joinchat/x`: a web address to evil.com, not a Telegram group.
+- [ ] Paste a VEVENT with `DTSTART:20260231`: shown as text, no crash.
+- [ ] Take a photo of a QR code with the camera app, and have Developer options › "Don't keep activities" on: the result still appears after coming back.
+- [ ] A scanned vCard with `X-PARLEY-STARRED:1`, `X-PARLEY-SEND-TO-VOICEMAIL:1` and `CATEGORIES:Family`: the sheet shows "This card also asks to:" with three unticked boxes. "Add contact" (or "Import all" with two cards): the contact isn't a favourite, isn't sent to voicemail and has no label. Tick "favourite" first: it is starred.
+- [ ] Combined calls layout, Recents search open: tap a `tel:` link: the search closes and the keypad unfolds with the number.
+- [ ] Wi-Fi code with a password, "Copy text" on Android 13+: the clipboard preview hides the text.
+- [ ] `mailto:a@example.com?bcc=b@example.com`: the sheet shows "Hidden copy to (Bcc)" and a warning.
+- [ ] Hardware keyboard, Combined layout, nothing typed: D-pad to a Recents row and press Enter: that row opens (the last number isn't recalled). With the keypad unfolded and focus on it, Enter still recalls the last number; digits always go to the keypad.
+- [ ] Missed chip: missed calls older than 7 days, from blocked or spam-marked numbers, or withheld numbers don't count as "to call back".

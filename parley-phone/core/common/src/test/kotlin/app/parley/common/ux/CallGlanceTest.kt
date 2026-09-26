@@ -72,13 +72,13 @@ class CallGlanceTest {
         val calls = listOf(
             call(5, "+33 6 12 34 56 78", 500, CallType.MISSED),
             call(4, "0612345678", 400, CallType.MISSED),
-            call(3, "222", 300, CallType.MISSED),
             call(2, "222", 350, CallType.OUTGOING, 0), // tried calling back (no answer): returned
+            call(3, "222", 300, CallType.MISSED),
             call(1, "333", 100, CallType.MISSED),
         )
         // Only the latest missed call per number; 222 was called back; 333 still waits.
-        assertEquals(setOf(5L, 1L), CallGlance.unreturnedMissed(calls, key))
-        assertEquals(2, CallGlance.unreturnedCount(calls, key))
+        assertEquals(setOf(5L, 1L), CallGlance.unreturnedMissed(calls, key, now = 1000))
+        assertEquals(2, CallGlance.unreturnedCount(calls, key, now = 1000))
     }
 
     @Test fun answered_call_from_them_returns_it_but_declined_or_hidden_do_not() {
@@ -89,7 +89,26 @@ class CallGlanceTest {
             call(1, "555", 200, CallType.MISSED),
             call(0, "", 100, CallType.MISSED, hidden = true),
         )
-        assertEquals(setOf(1L), CallGlance.unreturnedMissed(calls, key))
+        assertEquals(setOf(1L), CallGlance.unreturnedMissed(calls, key, now = 1000))
+    }
+
+    @Test fun old_blocked_spam_and_withheld_missed_calls_do_not_count() {
+        val day = 24 * 60 * 60 * 1000L
+        val now = 100 * day
+        val calls = listOf(
+            call(6, "666", now - day, CallType.MISSED),
+            call(5, "Private", now - day, CallType.MISSED),
+            call(4, "777", now - 2 * day, CallType.MISSED), // blocked since
+            call(3, "888", now - 6 * day, CallType.MISSED),
+            call(2, "999", now - 8 * day, CallType.MISSED), // over a week ago
+            call(1, "888", now - 9 * day, CallType.OUTGOING, 30),
+        )
+        val blocked = { n: String -> n == "777" }
+        assertEquals(setOf(6L, 3L), CallGlance.unreturnedMissed(calls, key, now, excluded = blocked))
+        assertEquals(7 * day, CallGlance.UNRETURNED_MAX_AGE_MS)
+        // An older missed call from a blocked number doesn't come back either.
+        val again = listOf(call(2, "777", now - day, CallType.MISSED), call(1, "777", now - 3 * day, CallType.MISSED))
+        assertTrue(CallGlance.unreturnedMissed(again, key, now, excluded = blocked).isEmpty())
     }
 
     @Test fun recents_style_is_a_searchable_setting() {

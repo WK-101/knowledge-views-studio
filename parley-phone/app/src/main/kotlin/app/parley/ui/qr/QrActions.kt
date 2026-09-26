@@ -142,10 +142,10 @@ object QrActions {
         val i = Intent(Intent.ACTION_INSERT, CalendarContract.Events.CONTENT_URI)
             .putExtra(CalendarContract.Events.TITLE, e.summary)
         e.start?.let { s ->
-            i.putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, s.toEpochMillis(zone))
+            s.toEpochMillis(zone)?.let { i.putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, it) }
             if (s.allDay) i.putExtra(CalendarContract.EXTRA_EVENT_ALL_DAY, true)
         }
-        e.end?.let { i.putExtra(CalendarContract.EXTRA_EVENT_END_TIME, it.toEpochMillis(zone)) }
+        e.end?.toEpochMillis(zone)?.let { i.putExtra(CalendarContract.EXTRA_EVENT_END_TIME, it) }
         e.location?.let { i.putExtra(CalendarContract.Events.EVENT_LOCATION, it) }
         listOfNotNull(e.description, e.url).joinToString("\n\n").takeIf { it.isNotEmpty() }?.let { i.putExtra(CalendarContract.Events.DESCRIPTION, it) }
         start(context, i, R.string.qs_no_calendar)

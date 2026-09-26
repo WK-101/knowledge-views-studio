@@ -119,6 +119,20 @@ class MessengerQrTest {
         assertTrue(QrParser.parse("05abc") is QrPayload.Text)
     }
 
+    @Test fun messenger_hosts_are_read_like_a_browser() {
+        // The browser goes to evil.com here: not a Telegram link, and UrlSafety shows evil.com.
+        val a = QrParser.parse("https://evil.com\\@t.me/joinchat/x")
+        assertTrue(a is QrPayload.Url)
+        assertEquals("evil.com", (a as QrPayload.Url).info.domain)
+        val b = QrParser.parse("https://t.me@evil.com/joinchat/x")
+        assertTrue(b is QrPayload.Url)
+        assertEquals("evil.com", (b as QrPayload.Url).info.domain)
+        // Backslashes in the path are slashes; the link opened is the normalised one.
+        assertEquals("https://t.me/joinchat/x", m("https://T.ME\\joinchat\\x").uri)
+        assertEquals(LinkKind.GROUP, m("https://T.ME\\joinchat\\x").kind)
+        assertEquals("https://t.me/durov", m("https://t.me.:443/durov").uri)
+    }
+
     @Test fun http_links_open_as_https() {
         assertEquals("https://t.me/durov", m("http://t.me/durov").uri)
     }

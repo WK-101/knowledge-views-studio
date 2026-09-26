@@ -219,6 +219,19 @@ class QrParserTest {
         assertEquals(java.time.Instant.parse("2025-07-01T07:00:00Z").toEpochMilli(), e.start!!.toEpochMillis(ZoneOffset.UTC))
     }
 
+    @Test fun vevent_with_a_date_that_does_not_exist_is_text() {
+        assertTrue(QrParser.parse("BEGIN:VEVENT\nSUMMARY:X\nDTSTART:20260231\nEND:VEVENT") is QrPayload.Text)
+        assertTrue(QrParser.parse("BEGIN:VEVENT\nSUMMARY:X\nDTSTART:20260431T090000\nEND:VEVENT") is QrPayload.Text)
+        assertTrue(QrParser.parse("BEGIN:VEVENT\nSUMMARY:X\nDTSTART:20250229\nEND:VEVENT") is QrPayload.Text)
+        assertTrue(QrParser.parse("BEGIN:VEVENT\nSUMMARY:X\nDTSTART:20260101\nDTEND:20260230\nEND:VEVENT") is QrPayload.Text)
+        assertNull(QrParser.icsTime("20261301"))
+        assertNull(QrParser.icsTime("20260100"))
+        assertEquals(IcsTime(2024, 2, 29), QrParser.icsTime("20240229"))
+        // Built by hand, a date that doesn't exist gives no time rather than a crash.
+        assertNull(IcsTime(2026, 2, 31).toEpochMillis(ZoneOffset.UTC))
+        assertNull(IcsTime(2026, 4, 31, 9).toEpochMillis(ZoneOffset.UTC))
+    }
+
     // ---------------------------------------------------------------- URLs and text
 
     @Test fun url() {

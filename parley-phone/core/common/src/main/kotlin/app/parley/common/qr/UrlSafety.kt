@@ -20,6 +20,8 @@ object UrlSafety {
         /** The part of the host that decides who owns it ("example.co.uk"), readable form. */
         val domain: String,
         val warnings: Set<Warning>,
+        /** The address to show in full and to open: [asciiHost], no user name, `\` read as `/`. */
+        val url: String,
     ) {
         val isRisky: Boolean get() = warnings.any { it != Warning.NOT_HTTPS && it != Warning.IDN }
     }
@@ -41,32 +43,22 @@ object UrlSafety {
     /** Second-level labels used under country codes ("co.uk", "com.au", "ne.jp"…). */
     private val SECOND_LEVEL = setOf("co", "com", "net", "org", "gov", "edu", "ac", "or", "ne", "go", "gob", "nic", "mil", "ltd", "plc", "sch")
 
-    private val IPV4 = Regex("""^\d{1,3}(\.\d{1,3}){3}$""")
-
-    /** Null when [url] isn't an http(s) address with a host. */
+    /**
+     * Null when [url] isn't an http(s) address with a clear host. The host is read by [WebUrl] exactly as a browser
+     * reads it, and [Info.url] is the address to open (and show): the same host, without any `user@` part.
+     */
     fun analyse(url: String): Info? {
-        val m = Regex("""^([A-Za-z][A-Za-z0-9+.-]*)://([^/?#]*)""").find(url) ?: return null
-        val scheme = m.groupValues[1].lowercase()
-        if (scheme != "http" && scheme != "https") return null
-        val authority = m.groupValues[2]
-        val hasUserInfo = '@' in authority
-        var hostPort = authority.substringAfterLast('@')
-        val host = if (hostPort.startsWith("[")) {
-            hostPort.substringBefore(']') + "]"
-        } else {
-            hostPort = hostPort.substringBefore(':')
-            hostPort
-        }.trimEnd('.').lowercase()
-        if (host.isEmpty()) return null
+        val w = WebUrl.parse(url) ?: return null
+        val scheme = w.scheme
+        val host = w.host
         val warnings = LinkedHashSet<Warning>()
         if (scheme == "http") warnings += Warning.NOT_HTTPS
-        if (hasUserInfo) warnings += Warning.USERINFO
-        val isIp = IPV4.matches(host) || host.startsWith("[")
-        if (isIp) {
+        if (w.hadUserInfo) warnings += Warning.USERINFO
+        if (w.isIp) {
             warnings += Warning.IP_ADDRESS
-            return Info(scheme, host, host, host, warnings)
+            return Info(scheme, host, host, host, warnings, w.href)
         }
-        val ascii = runCatching { IDN.toASCII(host, IDN.ALLOW_UNASSIGNED) }.getOrDefault(host).lowercase()
+        val ascii = host
         val unicode = runCatching { IDN.toUnicode(ascii, IDN.ALLOW_UNASSIGNED) }.getOrDefault(host).lowercase()
         if (ascii != unicode || ascii.split('.').any { it.startsWith("xn--") }) warnings += Warning.IDN
         if (unicode.split('.').any { mixedScripts(it) }) warnings += Warning.MIXED_SCRIPT
@@ -79,7 +71,7 @@ object UrlSafety {
         if (sub.isNotEmpty() && sub.split('.', '-').any { it in BRANDS } && owner !in BRANDS) warnings += Warning.LOOKALIKE
         // Letters swapped for digits or look-alikes of a well-known name in the owning label ("paypa1", "g00gle").
         if (owner !in BRANDS && deconfuse(owner) in BRANDS) warnings += Warning.LOOKALIKE
-        return Info(scheme, ascii, unicode, domain, warnings)
+        return Info(scheme, ascii, unicode, domain, warnings, w.href)
     }
 
     /** The registrable domain of [host]: the last two labels, or three under a country's second level ("co.uk"). */
