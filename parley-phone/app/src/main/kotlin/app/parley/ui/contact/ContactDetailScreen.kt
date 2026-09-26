@@ -619,6 +619,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             ContactMessageSheet(
                 r.copy(defaultNumber = n.ifEmpty { r.defaultNumber }),
                 onDismiss = { messageSheet = null },
+                onCall = { num -> callPeek(num, r.name) },
                 onRemember = { p -> savePrefs(p) },
             )
         }

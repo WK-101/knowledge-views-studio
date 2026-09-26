@@ -173,7 +173,12 @@ fun ParleyRoot(vm: AppViewModel) {
     val avatarStyle = vm.people.settings.collectAsStateWithLifecycle().value.avatarStyle
     // U2: one-time tips, one at a time.
     val coachMarks = remember { app.parley.ui.common.CoachMarks(vm.c.ux) }
-    androidx.compose.runtime.CompositionLocalProvider(LocalAvatarStyle provides avatarStyle, app.parley.ui.common.LocalCoachMarks provides coachMarks) {
+    // R4 (v3.3): Rich or Simple call rows everywhere calls are listed.
+    val recentsStyle = vm.settings.collectAsStateWithLifecycle().value.recentsStyle
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalAvatarStyle provides avatarStyle, app.parley.ui.common.LocalCoachMarks provides coachMarks,
+        app.parley.ui.home.LocalRecentsStyle provides recentsStyle,
+    ) {
     Box(Modifier.fillMaxSize()) {
       androidx.compose.animation.SharedTransitionLayout {
        androidx.compose.runtime.CompositionLocalProvider(LocalSharedScope provides this) {

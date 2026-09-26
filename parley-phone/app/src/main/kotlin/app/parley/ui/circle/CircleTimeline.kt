@@ -197,7 +197,8 @@ fun ContactTimeline(
                             is TimelineEntry.Call -> {
                                 ListItem(
                                     colors = clearRow,
-                                    leadingContent = { app.parley.ui.home.CallTypeIcon(e.call.type) },
+                                    leadingContent = { app.parley.ui.home.CallTypeIcon(e.call.type, durationSec = e.call.durationSec) },
+                                    trailingContent = { app.parley.ui.home.CallLengthGlance(e.call) },
                                     headlineContent = { Text(Format.fullDate(context, e.time)) },
                                     supportingContent = {
                                         Text(listOf(Bidi.ltr(Format.number(e.call.number, vm.countryIso)), Format.duration(e.call.durationSec)).filter { it.isNotBlank() }.joinToString(stringResource(R.string.main_separator)))

@@ -5,6 +5,9 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.AddCircle
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.RemoveCircle
 import androidx.compose.material.icons.rounded.Share
@@ -73,7 +77,11 @@ private fun MigrateMyDetails(vm: AppViewModel) {
     }
 }
 
-/** I2: "My card" at the top of Contacts. */
+/**
+ * I2: "My card" at the top of Contacts. Q3: a tap shows the QR code straight away (with Share and Edit in it); the
+ * editor is behind the row's Edit button or a long-press. An empty card opens the editor, as there is nothing to show.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
     MigrateMyDetails(vm)
@@ -82,8 +90,15 @@ fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
     val card = remember(own, profile) { MeCards.merge(own, profile) }
     val me = stringResource(R.string.me_short)
     val myCard = stringResource(R.string.me_title)
+    var showQr by remember { mutableStateOf(false) }
+    val edit = { open(PeopleRoutes.ME) }
     ListItem(
-        modifier = Modifier.clickable(onClickLabel = stringResource(R.string.me_open)) { open(PeopleRoutes.ME) },
+        modifier = Modifier.combinedClickable(
+            onClickLabel = stringResource(if (card.isEmpty) R.string.me_open else R.string.v33_me_show_qr),
+            onClick = { if (card.isEmpty) edit() else showQr = true },
+            onLongClickLabel = stringResource(R.string.v33_me_edit),
+            onLongClick = edit,
+        ),
         leadingContent = { Avatar(card.name.ifBlank { me }, null, app.parley.ui.avatarSize()) },
         headlineContent = { Text(card.name.ifBlank { myCard }) },
         supportingContent = {
@@ -92,8 +107,14 @@ fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
-        trailingContent = { Icon(Icons.Rounded.QrCode2, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (!card.isEmpty) Icon(Icons.Rounded.QrCode2, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                IconButton(edit) { Icon(Icons.Rounded.Edit, stringResource(R.string.v33_me_edit), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+        },
     )
+    if (showQr) MeQrDialog(card, onDismiss = { showQr = false }, onEdit = { showQr = false; edit() })
 }
 
 /**
@@ -178,7 +199,7 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit) {
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 32.dp),
         )
     }
-    if (showQr) MeQrDialog(merged) { showQr = false }
+    if (showQr) MeQrDialog(merged, onDismiss = { showQr = false })
 }
 
 @Composable
@@ -226,9 +247,9 @@ private fun shareVcard(context: android.content.Context, card: MeCard, parts: Se
     }.onFailure { android.widget.Toast.makeText(context, context.getString(R.string.me_share_failed), android.widget.Toast.LENGTH_SHORT).show() }
 }
 
-/** The card as a QR code (made on the phone), with the parts to include. */
+/** The card as a QR code (made on the phone), with the parts to include. [onEdit]: Q3, an Edit button to the editor. */
 @Composable
-internal fun MeQrDialog(card: MeCard, onDismiss: () -> Unit) {
+internal fun MeQrDialog(card: MeCard, onDismiss: () -> Unit, onEdit: (() -> Unit)? = null) {
     val context = LocalContext.current
     val parts = remember { mutableStateListOf(MeCards.Part.NAME, MeCards.Part.PHONES) }
     val available = MeCards.Part.entries.filter { p ->
@@ -247,7 +268,7 @@ internal fun MeQrDialog(card: MeCard, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.me_title)) },
         text = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                 bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.me_qr_desc), Modifier.size(240.dp).background(Color.White).padding(8.dp)) }
                 Text(stringResource(R.string.me_scan), modifier = Modifier.padding(vertical = 8.dp))
                 available.forEach { p ->
@@ -268,7 +289,12 @@ internal fun MeQrDialog(card: MeCard, onDismiss: () -> Unit) {
             }
         },
         confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_done)) } },
-        dismissButton = { TextButton({ shareVcard(context, card, parts.toSet()) }) { Text(stringResource(R.string.me_share_file)) } },
+        dismissButton = {
+            Row {
+                if (onEdit != null) TextButton(onEdit) { Text(stringResource(R.string.v33_me_edit_short)) }
+                TextButton({ shareVcard(context, card, parts.toSet()) }) { Text(stringResource(R.string.me_share_file)) }
+            }
+        },
     )
 }
 

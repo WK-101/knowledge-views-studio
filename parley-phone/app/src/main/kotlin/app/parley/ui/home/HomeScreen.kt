@@ -266,6 +266,8 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
             // P8, P5: call-list layout (quick toggle) and clear call history.
             app.parley.ui.history.RecentsLayoutMenuItem(vm, close)
             app.parley.ui.history.ClearHistoryMenuItem(close)
+            // R4 (v3.3): what the call shapes and colours mean.
+            RecentsLegendMenuItem(close)
             MenuItem(stringResource(R.string.home_messaged_numbers), Icons.AutoMirrored.Rounded.Chat) { go(app.parley.messaging.MessagingRoutes.MESSAGED) }
             MenuItem(stringResource(R.string.home_history_settings), Icons.Rounded.ManageHistory) { go(Routes.settingsPage(SettingsCategory.HISTORY)) }
         }

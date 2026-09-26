@@ -1,5 +1,6 @@
 package app.parley
 
+import app.parley.common.ux.CallGlance
 import app.parley.ui.circle.CircleUi
 import android.annotation.SuppressLint
 import android.Manifest
@@ -261,6 +262,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val recentGroups: StateFlow<List<RecentGroup>?> = combine(callsAndLayout, numberIndex, recentFilter, recentQuery.debounce(80), vaultByKey) { (calls, layout), index, filter, q, vaults ->
         calls?.let { group(it, index, filter, q, layout).map { g -> if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneNumbers.lineKey(g.number, countryIso)]) else g } }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /**
+     * R4 (v3.3): ids of missed calls not returned yet, over every call (whatever the filters show), for the Recents
+     * tint, the Call back pill and the Missed chip's count.
+     */
+    val unreturnedMissed: StateFlow<Set<Long>> = allCalls.map { calls ->
+        calls?.let { CallGlance.unreturnedMissed(it, PhoneNumbers::matchKey) } ?: emptySet()
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     private fun group(
         calls: List<CallEntry>, index: Map<String, ContactSummary>, filter: RecentFilter, q: String,

@@ -63,7 +63,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     val history = calls.orEmpty().filter { PhoneNumbers.same(it.number, number, vm.countryIso) }
     var blocked by remember { mutableStateOf(false) }
     var messageOn by remember { mutableStateOf(false) }
-    if (messageOn) app.parley.messaging.MessageOnSheet(number, onDismiss = { messageOn = false })
+    if (messageOn) app.parley.messaging.MessageOnSheet(number, onDismiss = { messageOn = false }, onCall = { n -> vm.requestCall(n, contact?.displayName) })
     val notes by vm.c.meta.callNotes(PhoneNumbers.matchKey(number)).collectAsStateWithLifecycle(emptyList())
     LaunchedEffect(number) { blocked = vm.c.blocks.isSystemBlocked(number) }
     val simLabels = sims.associate { it.id to it.label }.takeIf { sims.size > 1 }.orEmpty()
@@ -146,11 +146,14 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
             if (history.isNotEmpty()) item { app.parley.ui.contact.Section(stringResource(R.string.hist_calls_section)) }
             items(history, key = { it.id }) { e ->
                 ListItem(
-                    leadingContent = { app.parley.ui.home.CallTypeIcon(e.type, describe = false) },
+                    leadingContent = { app.parley.ui.home.CallTypeIcon(e.type, describe = false, durationSec = e.durationSec) },
                     headlineContent = { Text(Format.fullDate(context, e.date)) },
                     supportingContent = {
-                        Text(listOfNotNull(stringResource(HistoryText.callType(e.type)), Format.duration(e.durationSec).ifBlank { null }, e.accountId?.let { simLabels[it] }).joinToString(" · "))
+                        // R4 (v3.3): the rich style names the call class ("No answer" for an outgoing call nobody took).
+                        val typeText = if (app.parley.ui.home.richCalls()) app.parley.ui.home.callClassLabel(app.parley.common.ux.CallClass.of(e)) else HistoryText.callType(e.type)
+                        Text(listOfNotNull(stringResource(typeText), Format.duration(e.durationSec).ifBlank { null }, e.accountId?.let { simLabels[it] }).joinToString(" · "))
                     },
+                    trailingContent = { app.parley.ui.home.CallLengthGlance(e) },
                 )
             }
         }

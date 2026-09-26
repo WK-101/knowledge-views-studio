@@ -175,11 +175,12 @@ private data class SheetRow(val key: String, val label: String, val sub: String?
 /**
  * M6: "Message on…" for a saved or private contact: pick the number, then an installed messenger (opened directly
  * by number, or by the app's own row when it has linked the person), another messenger's row, or SMS. The choice is
- * remembered for this person when "Always use this" stays ticked ([onRemember]).
+ * remembered for this person when "Always use this" stays ticked ([onRemember]). C2: [onCall] adds a direct Call of
+ * the chosen number, shown first.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ContactMessageSheet(r: Reach, onDismiss: () -> Unit, onRemember: (MessengerPrefs) -> Unit) {
+fun ContactMessageSheet(r: Reach, onDismiss: () -> Unit, onCall: ((String) -> Unit)? = null, onRemember: (MessengerPrefs) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val installed = remember { MessengerLauncher.installed(context) }
@@ -228,6 +229,11 @@ fun ContactMessageSheet(r: Reach, onDismiss: () -> Unit, onRemember: (MessengerP
                 }
             } else if (number != null) {
                 Text(Bidi.ltr(e164?.let(NumberText::formatInternational) ?: number.orEmpty()), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
+            }
+            // C2: calling the chosen number is the first, primary action.
+            val callNumber = number
+            if (onCall != null && callNumber != null) {
+                app.parley.messaging.CallFirstButton(callNumber) { onDismiss(); onCall(callNumber) }
             }
             if (installed.isEmpty() && rows.isEmpty()) {
                 Text(

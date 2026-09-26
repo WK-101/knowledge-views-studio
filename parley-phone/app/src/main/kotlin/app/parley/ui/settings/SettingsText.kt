@@ -88,6 +88,7 @@ object SettingsText {
         "retention" to Triple(R.string.set_retention_title, R.string.set_retention_summary, R.string.set_retention_kw),
         "sim_labels" to Triple(R.string.set_sim_labels_title, R.string.set_sim_labels_summary, R.string.set_sim_labels_kw),
         "recents_layout" to Triple(R.string.set_recents_layout_title, R.string.set_recents_layout_summary, R.string.set_recents_layout_kw),
+        "recents_style" to Triple(R.string.v33_set_recents_style_title, R.string.v33_set_recents_style_summary, R.string.v33_set_recents_style_kw),
         "clear_history" to Triple(R.string.set_clear_history_title, R.string.set_clear_history_summary, R.string.set_clear_history_kw),
         "insights" to Triple(R.string.set_insights_title, R.string.set_insights_summary, R.string.set_insights_kw),
         "import_calls" to Triple(R.string.set_import_calls_title, R.string.set_import_calls_summary, R.string.set_import_calls_kw),

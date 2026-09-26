@@ -111,6 +111,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             contactRowActions = this[K.rowActions] ?: d.contactRowActions,
             navTabs = app.parley.common.NavTabs.decode(this[K.navTabs]),
             recentsLayout = enumOr(this[K.recentsLayout], d.recentsLayout),
+            recentsStyle = enumOr(this[K.recentsStyle], d.recentsStyle),
         )
     }
 
@@ -150,6 +151,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         this[K.rowActions] = s.contactRowActions
         this[K.navTabs] = s.navTabs.encode()
         this[K.recentsLayout] = s.recentsLayout.name
+        this[K.recentsStyle] = s.recentsStyle.name
     }
 
     private inline fun <reified E : Enum<E>> enumOr(value: String?, default: E): E =
@@ -191,6 +193,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val rowActions = booleanPreferencesKey("contact_row_actions")
         val navTabs = stringPreferencesKey("nav_tabs")
         val recentsLayout = stringPreferencesKey("recents_layout")
+        val recentsStyle = stringPreferencesKey("recents_style")
     }
 
     private companion object {

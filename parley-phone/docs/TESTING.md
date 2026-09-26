@@ -560,3 +560,38 @@ Call the phone from another phone in each state below. For each one, check that 
 - [ ] Do Not Disturb (X3): turn it on for "Work" and "Family"; someone in both stays starred when "Work" is turned off and is unstarred when "Family" is too. Remove someone from "Work", then turn it off: they are unstarred too. Delete a label with it on (or merge it into a label without it): its members are unstarred. A contact you starred yourself is never unstarred. Restore a backup: turning it off afterwards still unstars the right people.
 - [ ] Handshake (X5): receive a card, tap "Save to phone", and before saving open "Add to contacts" from another app; save that one: no "Met at…" entry on it. Save the first editor: the entry lands on the received contact.
 - [ ] Opening a 2,000-card .vcf from a file manager: the account rows show a progress bar and can't be tapped until the cards are counted; then "Back up first?" appears.
+
+## 16. v3.3
+
+### 16.1 Corrections
+
+**Keypad keys never move while typing (C1)**
+- [ ] Portrait, on-screen keypad: put a finger over the 5 key and type a number digit by digit (up to 15 digits, with and without a match in contacts). The Message / Add contact / Temporary / Add to existing chips appear at the foot of the results list, above the keypad panel; the digit keys, the number field, the backspace and the Call button stay exactly where they were (compare a screenshot before the first digit and after the tenth).
+- [ ] Type a service code (`*#06#`, `*100#`) and letters from a hardware keyboard: the chips hide and nothing in the panel moves either. Long numbers switch the number to the smaller size without changing the field's height.
+- [ ] Two SIMs: the single Call button becomes two SIM buttons on the first digit; the row keeps its height (no jump). A SIM near its plan limit (badge dot) doesn't change it either.
+- [ ] Landscape and a large font size (200 %): keys stay put while typing; the chips shrink with the results area and never push the keypad. With a hardware keypad or keyboard (keypad hidden), typing doesn't move the number field or the Call button.
+- [ ] The chips scroll sideways when they don't fit; the list's last result can still be scrolled above them.
+
+**Call wherever Parley offers "Message on…" (C2)**
+- [ ] Keypad: type an unsaved number › Message (chip or the "Message on…" result): a green **Call** button is first in the sheet. Tap it: the sheet closes and the call goes through the usual checks (dial guard warnings for a premium number, "Confirm before calling", the SIM question with two SIMs and no default).
+- [ ] The same Call button is first in: Recents long-press › Message on…; number history › Message on…; a contact's (and a private contact's) "Message on…" sheet (calls the number chosen in the chips; a contact with pre-call peek on shows the peek first); the Recents swipe "Message on…" for an unsaved number.
+- [ ] Missed-call notification › Message on… (Parley in the background or closed): the sheet over the current app has Call first; it places the call without opening Parley. Post-call screen › Message on…: Call is there once the call has ended; opened from the in-call caller card during a call, Call is left out.
+- [ ] Select a number in any app › "Call / Message with Parley" (and Share text with a number to Parley): Call is the large green button above "Message on…"; after "Message on…", the messenger sheet has Call first too.
+- [ ] Quick Settings tile / launcher shortcut "Message a number": type a number; Call appears with the messengers (and on its own for a short or service number messengers can't open). It works with Parley not in the foreground. Without the phone permission it opens Parley's keypad with the number.
+- [ ] Recents ⋮ › Messaged numbers: each number has a green call button beside delete. Add several numbers › review: each found number has a call button (the checkbox still toggles on a row tap).
+
+**My card opens its QR code (Q3)**
+- [ ] Contacts › My card (filled in): one tap shows the QR code with the part checkboxes, **Edit**, **Share file** and Done. Edit opens the editor. The row's pencil button and a long-press on the row open the editor directly. TalkBack says "Show my QR code" for the tap and "Edit my card" for the long-press.
+- [ ] With an empty card, a tap opens the editor (there's nothing to show yet).
+
+**Recents at a glance (R4)**
+- [ ] Settings › Recents & history › Recents style: Rich (default) and Simple. Settings search finds it by "recents style", "legend", "colour blind". Simple brings back the previous rows everywhere.
+- [ ] Rich: each call class has its own badge shape: missed = solid circle, declined = solid square, incoming = soft circle, answered on another device = dashed circle with a devices icon, voicemail = soft square, outgoing = outlined circle, outgoing nobody answered = dashed circle with the "missed outgoing" arrow and "No answer" in the row, blocked = crossed square outline. Check in grey scale (Developer options › Simulate colour space › Monochromacy) that every class is still told apart, in light and dark theme and with a dynamic colour wallpaper.
+- [ ] A thin bar in the call's colour runs along the row's leading edge (on the right in Arabic/Urdu).
+- [ ] A missed call you haven't returned: row lightly tinted, name in bold, and a **Call back** pill instead of the call icon. Call that number (answered or not), or take a call from it: the tint and the pill go on every older row of that number. A missed call from a private number never gets the pill. Declined calls don't ask to be returned.
+- [ ] The Missed chip shows how many people are still to call back (TalkBack: "Missed, 3 people to call back"); no number when there are none.
+- [ ] A grouped row with several calls: a "3×" chip in the colour of the latest call, and up to 4 small marks in order, oldest first (squares for declined/blocked, rings for calls you made). TalkBack reads "3 calls, latest: missed call, missed call, outgoing call".
+- [ ] Talked calls show a short bar sized by length (log scale: 20 s is a sliver, 5 min about half, an hour full); TalkBack reads the length.
+- [ ] Recents ⋮ › "What do the colours mean?": the legend lists each badge with a line of explanation.
+- [ ] Number history, the contact's Circle timeline, a private contact's calls and Call insights use the same badges (and the length bar / "No answer" in history and timeline rows).
+- [ ] TalkBack on a Recents row reads the call type in words ("Missed call · not called back yet"), then the rest of the row.

@@ -279,7 +279,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                                 val type = app.parley.data.CallLogRepository.mapType(c.type)
                                 ListItem(
                                     colors = app.parley.ui.contact.groupRowColors(),
-                                    leadingContent = { app.parley.ui.home.CallTypeIcon(type) },
+                                    leadingContent = { app.parley.ui.home.CallTypeIcon(type, durationSec = c.durationSec) },
                                     headlineContent = { Text(Format.fullDate(context, c.date)) },
                                     supportingContent = { Text(listOf(DataL10n.ltr(Format.number(c.number, vm.countryIso)), Format.duration(c.durationSec)).filter { it.isNotBlank() }.joinToString(" · ")) },
                                 )
@@ -293,7 +293,11 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
 
     messageSheet?.let { n ->
         val r = reach()
-        app.parley.ui.contact.ContactMessageSheet(r.copy(defaultNumber = n.ifEmpty { r.defaultNumber }), onDismiss = { messageSheet = null }) { p -> savePrefs(p) }
+        app.parley.ui.contact.ContactMessageSheet(
+            r.copy(defaultNumber = n.ifEmpty { r.defaultNumber }),
+            onDismiss = { messageSheet = null },
+            onCall = { num -> vm.requestCall(num, summary?.name ?: r.name) },
+        ) { p -> savePrefs(p) }
     }
     webLink?.let { l -> app.parley.ui.contact.ConfirmWebLink(l) { webLink = null } }
     if (shareQr) details?.let { app.parley.ui.contact.SecureQrDialog(it) { shareQr = false } }

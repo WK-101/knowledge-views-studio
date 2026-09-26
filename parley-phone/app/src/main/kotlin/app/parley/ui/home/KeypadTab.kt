@@ -26,6 +26,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -152,6 +153,12 @@ private const val KEY_TONE_MS = 150
 
 /** `*#06#`: Android only shows the IMEI to the system, so Parley explains where to find it (K5). */
 private const val IMEI_CODE = "*#06#"
+
+/** C1: height of the typed number's action chips at the foot of the results (outside the keypad panel). */
+private val NUMBER_ACTIONS_HEIGHT = 56.dp
+
+/** C1: the Call row keeps one height whether it holds one Call button or a button per SIM. */
+private val CALL_ROW_HEIGHT = 64.dp
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -295,6 +302,10 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     val rootFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
 
+    // Actions for the typed number: message it (M2), or save it (as a contact, into one, or for a while).
+    val typedNumber = input.trim()
+    val showNumberActions = typedNumber.isNotEmpty() && !isTextSearch() && !PhoneNumbers.isServiceCode(typedNumber)
+
     Column(Modifier.fillMaxSize().focusRequester(rootFocus).onPreviewKeyEvent(::onKey).focusable()) {
         // Results
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -314,7 +325,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                     )
                 }
             } else {
-                LazyColumn(Modifier.fillMaxSize()) {
+                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = if (showNumberActions) NUMBER_ACTIONS_HEIGHT else 0.dp)) {
                     items(results, key = { (it.contact?.id?.toString() ?: "n") + it.number }) { r ->
                         DialResultRow(
                             r, vm.countryIso,
@@ -342,6 +353,23 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                                 modifier = Modifier.clickable { messageOn = input },
                             )
                         }
+                    }
+                }
+            }
+            // C1: the number's actions sit at the foot of the results, above the keypad panel, never inside it: the
+            // panel is anchored to the bottom, so anything appearing in it while typing would push the keys up under
+            // the user's finger. The panel's height now never changes while typing (portrait, landscape, hardware keys).
+            if (showNumberActions) {
+                val known = results.any { it.contact != null && PhoneNumbers.same(it.number, typedNumber, vm.countryIso) }
+                Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(NUMBER_ACTIONS_HEIGHT)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        NumberActionChips(
+                            canSave = !known && typedNumber.count { it.isDigit() } >= 3,
+                            onMessage = { messageOn = typedNumber },
+                            onAdd = { open(Routes.edit(phone = typedNumber)) },
+                            onTemporary = { saveTemporary = typedNumber },
+                            onAddToExisting = { open(Routes.pick(typedNumber)) },
+                        )
                     }
                 }
             }
@@ -395,20 +423,8 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                     }
                 } }
                 Spacer(Modifier.height(8.dp))
-                // Actions for the typed number: message it (M2), or save it (as a contact, into one, or for a while).
-                val typedNumber = input.trim()
-                if (typedNumber.isNotEmpty() && !isTextSearch() && !PhoneNumbers.isServiceCode(typedNumber)) {
-                    val known = results.any { it.contact != null && PhoneNumbers.same(it.number, typedNumber, vm.countryIso) }
-                    NumberActionChips(
-                        canSave = !known && typedNumber.count { it.isDigit() } >= 3,
-                        onMessage = { messageOn = typedNumber },
-                        onAdd = { open(Routes.edit(phone = typedNumber)) },
-                        onTemporary = { saveTemporary = typedNumber },
-                        onAddToExisting = { open(Routes.pick(typedNumber)) },
-                    )
-                    Spacer(Modifier.height(8.dp))
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // C1: a fixed-height row, so one Call button or two SIM buttons never change the panel's height.
+                Row(Modifier.height(CALL_ROW_HEIGHT), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (sims.size >= 2 && input.isNotEmpty()) {
                         sims.take(2).forEach { sim -> app.parley.ui.history.SimPlanBadge(vm, sim.id) { CallButton(label = sim.label) { callWithSim(sim.id) } } }
                     } else {
@@ -428,7 +444,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
             dismissButton = { TextButton({ unassigned = null }) { Text(stringResource(R.string.main_cancel)) } },
         )
     }
-    messageOn?.let { n -> MessageOnSheet(n, onDismiss = { messageOn = null }) }
+    messageOn?.let { n -> MessageOnSheet(n, onDismiss = { messageOn = null }, onCall = { num -> vm.requestCall(num) }) }
     saveTemporary?.let { n ->
         app.parley.ui.temporary.SaveTemporaryDialog(
             number = Format.number(n, vm.countryIso),
