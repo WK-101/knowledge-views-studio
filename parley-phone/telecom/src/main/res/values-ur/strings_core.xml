@@ -174,6 +174,8 @@
     <string name="decline_blocked_body">%1$s کی کالز اب سے مسترد کی جائیں گی۔</string>
     <string name="decline_block_already">یہ نمبر پہلے سے بلاک تھا۔</string>
     <string name="decline_block_failed">نمبر بلاک نہیں ہو سکا۔ آپ اسے حالیہ سے بلاک کر سکتے ہیں۔</string>
+    <string name="decline_block_pending">یہ نمبر بلاک ہو رہا ہے…</string>
+    <string name="decline_blocked_answered">اب سے %1$s کی کالیں مسترد کی جائیں گی۔ یہ کال اٹھا لی گئی تھی۔</string>
     <string name="decline_block_undone">ان بلاک کر دیا گیا۔ %1$s آپ کو دوبارہ کال کر سکتے ہیں۔</string>
     <string name="tc_undo">واپس کریں</string>
 </resources>

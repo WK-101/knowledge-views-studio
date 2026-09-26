@@ -126,6 +126,9 @@ fun InCallScreen(
     /** X4 simple mode: large buttons and (optionally) a question before declining. */
     simple: Boolean = false,
     confirmDecline: Boolean = false,
+    /** X4: a call declined from the notification while "Confirm before declining" is on: ask first. */
+    askDeclineFor: String? = null,
+    onAskDeclineDone: () -> Unit = {},
 ) {
     val live = calls.filter { it.isLive }
     // A1/P9: which call is in front and whether a second one is waiting (pure logic in core:common).
@@ -169,19 +172,24 @@ fun InCallScreen(
             if (twoPane) {
                 Row(insets.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f), content = top)
-                    Box(Modifier.weight(1f)) { CallWaitingSheet(primary, current, held.size) { replyFor = primary.id } }
+                    Box(Modifier.weight(1f)) { CallWaitingSheet(primary, current, held.size, confirmDecline) { replyFor = primary.id } }
                 }
             } else {
                 Column(Modifier.fillMaxSize().statusBarsPadding()) {
                     Column(Modifier.padding(horizontal = 24.dp, vertical = 16.dp), content = top)
                     Spacer(Modifier.weight(1f))
-                    CallWaitingSheet(primary, current, held.size) { replyFor = primary.id }
+                    CallWaitingSheet(primary, current, held.size, confirmDecline) { replyFor = primary.id }
                 }
             }
         } else {
             val header: @Composable ColumnScope.(Dp) -> Unit = { avatar ->
                 // P6: a second call that didn't go through ("Add call"), shown above the call that goes on.
                 if (primary != null && failed != null) FailureBanner(failed, { onRetry(failed) }, { onDismissFailure(failed) }, Modifier.padding(top = 12.dp))
+                // P2: a call just declined with "Block & decline" while another call goes on: Undo stays at hand.
+                if (primary != null && declineBlock != null) {
+                    Spacer(Modifier.height(12.dp))
+                    DeclineBlockCard(declineBlock, onUndo = onUndoBlock, onDone = { CallManager.dismissDeclineBlock() })
+                }
                 others.forEach { other ->
                     if (other.state == CallState.HOLDING) OnHoldStrip(other, primary)
                     else OtherCallBanner(other, onSwap = { primary?.let { CallManager.swap(it.id) } })
@@ -223,6 +231,8 @@ fun InCallScreen(
                             failed == null && ended != null && ended.memoryCard -> MemoryCard(ended, onChoice = onPostCall)
                         }
                     }
+                    // P2: "Block & decline" is under way: nothing left to answer.
+                    primary.state == CallState.RINGING && primary.blockingDecline -> BlockingDecline()
                     primary.state == CallState.RINGING -> IncomingControls(
                         call = primary,
                         gesture = answerGesture,
@@ -311,6 +321,14 @@ fun InCallScreen(
             onNote = { noteFor = primary.id },
             onOpenContact = if (primary.hidden) null else ({ onOpenContact(primary) }),
         )
+    }
+
+    // X4: Decline tapped in the notification, with "Confirm before declining" on.
+    val askCall = live.firstOrNull { it.id == askDeclineFor && it.state == CallState.RINGING }
+    if (askCall != null) {
+        DeclineQuestion(onDecline = { CallManager.reject(askCall.id); onAskDeclineDone() }, onDismiss = onAskDeclineDone)
+    } else if (askDeclineFor != null) {
+        DisposableEffect(askDeclineFor) { onAskDeclineDone(); onDispose { } }
     }
 
     val replyCall = live.firstOrNull { it.id == replyFor && it.state == CallState.RINGING }

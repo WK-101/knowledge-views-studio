@@ -31,7 +31,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
@@ -97,8 +99,12 @@ internal fun CurrentCallCard(call: CallUi, canHold: Boolean, modifier: Modifier 
  * swiped away: the call keeps ringing until one of the choices is made.
  */
 @Composable
-internal fun CallWaitingSheet(ringing: CallUi, current: CallUi?, heldCount: Int, onReply: () -> Unit) {
+internal fun CallWaitingSheet(ringing: CallUi, current: CallUi?, heldCount: Int, confirmDecline: Boolean = false, onReply: () -> Unit) {
     val active = current?.takeIf { it.state == CallState.ACTIVE }
+    // X4: with "Confirm before declining" on, Decline asks first here too, like the incoming screen.
+    var askDecline by remember { mutableStateOf(false) }
+    val decline = { if (confirmDecline) askDecline = true else CallManager.reject(ringing.id) }
+    if (askDecline) DeclineQuestion(onDecline = { askDecline = false; CallManager.reject(ringing.id) }, onDismiss = { askDecline = false })
     val canHoldAnswer = active != null && active.canHold && heldCount == 0
     val canReply = !ringing.hidden && !ringing.number.isNullOrBlank()
     val visible = remember { MutableTransitionState(false).apply { targetState = true } }
@@ -127,7 +133,7 @@ internal fun CallWaitingSheet(ringing: CallUi, current: CallUi?, heldCount: Int,
                             if (canHoldAnswer) add(CustomAccessibilityAction(res.getString(R.string.incall_hold_and_answer)) { CallManager.holdAndAnswer(ringing.id); true })
                             if (active != null) add(CustomAccessibilityAction(res.getString(R.string.incall_end_and_answer)) { CallManager.endAndAnswer(ringing.id); true })
                             if (active == null) add(CustomAccessibilityAction(res.getString(R.string.incall_answer)) { CallManager.answer(ringing.id); true })
-                            add(CustomAccessibilityAction(res.getString(R.string.incall_decline)) { CallManager.reject(ringing.id); true })
+                            add(CustomAccessibilityAction(res.getString(R.string.incall_decline)) { decline(); true })
                             if (canReply) add(CustomAccessibilityAction(res.getString(R.string.incall_reply_a11y)) { onReply(); true })
                         }
                     },
@@ -150,7 +156,7 @@ internal fun CallWaitingSheet(ringing: CallUi, current: CallUi?, heldCount: Int,
                     if (active != null) {
                         WaitingAction(Icons.Rounded.PhoneInTalk, stringResource(R.string.incall_end_answer_short), stringResource(R.string.incall_end_and_answer), MaterialTheme.colorScheme.tertiary) { CallManager.endAndAnswer(ringing.id) }
                     }
-                    WaitingAction(Icons.Rounded.CallEnd, stringResource(R.string.incall_decline), stringResource(R.string.incall_decline), CallColors.Decline) { CallManager.reject(ringing.id) }
+                    WaitingAction(Icons.Rounded.CallEnd, stringResource(R.string.incall_decline), stringResource(R.string.incall_decline), CallColors.Decline, onClick = decline)
                     if (canReply) {
                         WaitingAction(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.incall_reply), stringResource(R.string.incall_reply_a11y), MaterialTheme.colorScheme.secondary, onReply)
                     }

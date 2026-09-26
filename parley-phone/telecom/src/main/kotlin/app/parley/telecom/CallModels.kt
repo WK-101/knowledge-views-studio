@@ -62,6 +62,10 @@ data class CallUi(
     val memory: CallerMemory? = null,
     /** R8: "Anything to remember?" is offered once the call ends. */
     val memoryPrompt: Boolean = false,
+    /** X4: the user silenced the ringer with a hardware key (volume, power) while this call rang. */
+    val systemSilenced: Boolean = false,
+    /** P2: "Block & decline" is writing the rule; the call can't be answered from Parley meanwhile. */
+    val blockingDecline: Boolean = false,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING
@@ -72,7 +76,7 @@ data class CallUi(
 
     /** P2: "Block & decline" is offered for a ringing call with a number (never an emergency call-back). */
     val canBlockAndDecline: Boolean
-        get() = state == CallState.RINGING && !hidden && !isEmergency && !number.isNullOrBlank()
+        get() = state == CallState.RINGING && !hidden && !isEmergency && !number.isNullOrBlank() && !blockingDecline
 
     /** R8: after a call that connected with a contact, "Anything to remember?" (opt-in). */
     val memoryCard: Boolean
@@ -115,4 +119,8 @@ data class DeclineBlock(
     /** The rule written (Undo removes it), 0 when the number was already blocked, null when it couldn't be blocked. */
     val ruleId: Long?,
     val undone: Boolean = false,
+    /** The rule is still being written (it took longer than the call may keep ringing): [ruleId] follows. */
+    val pending: Boolean = false,
+    /** The call was answered elsewhere (a headset) while the rule was written: blocked, but not declined. */
+    val answered: Boolean = false,
 )

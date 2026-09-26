@@ -186,6 +186,8 @@
     <string name="decline_blocked_body">سيتم رفض المكالمات من %1$s من الآن فصاعدًا.</string>
     <string name="decline_block_already">هذا الرقم محظور بالفعل.</string>
     <string name="decline_block_failed">تعذّر حظر الرقم. يمكنك حظره من «الأخيرة».</string>
+    <string name="decline_block_pending">جارٍ حظر هذا الرقم…</string>
+    <string name="decline_blocked_answered">سيتم رفض المكالمات من %1$s من الآن فصاعدًا. تم الرد على هذه المكالمة.</string>
     <string name="decline_block_undone">تم إلغاء الحظر. يمكن لـ %1$s الاتصال بك مجددًا.</string>
     <string name="tc_undo">تراجع</string>
 </resources>

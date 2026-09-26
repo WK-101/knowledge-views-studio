@@ -72,6 +72,9 @@ class CallNotifier(private val context: Context) {
         if (ringing == null) {
             cancel(INCOMING_ID)
             dismissedIncoming = null
+        } else if (ringing.blockingDecline) {
+            // P2: "Block & decline" is under way: nothing to answer or decline any more.
+            cancel(INCOMING_ID)
         } else if (ringing.id == dismissedIncoming) {
             // The user swiped this call's ringing/"Ringing silently" notification away: it stays away.
         } else if (ringing.silenced) {
@@ -126,7 +129,7 @@ class CallNotifier(private val context: Context) {
     private fun post(id: Int, call: CallUi, variant: String, build: () -> android.app.Notification) {
         val photo = call.photoUri
         val photoReady = photo != null && PhotoCache.peek("$photo@256") != null
-        val signature = listOf(variant, call.id, call.state, call.title, call.label, call.number, call.accountLabel, call.connectTimeMillis, photoReady).joinToString("|")
+        val signature = listOf(variant, call.id, call.state, call.title, call.label, call.number, call.accountLabel, call.connectTimeMillis, photoReady, confirmDecline()).joinToString("|")
         if (lastPosted[id] == signature) return
         lastPosted[id] = signature
         val nmc = NotificationManagerCompat.from(context)
@@ -163,7 +166,7 @@ class CallNotifier(private val context: Context) {
             .setOnlyAlertOnce(true)
             .setContentIntent(contentIntent())
             .apply { if (ringing) setFullScreenIntent(contentIntent(), true) }
-            .addAction(0, context.getString(if (ringing) R.string.notif_decline else R.string.notif_hang_up), action(if (ringing) CallActionReceiver.ACTION_DECLINE else CallActionReceiver.ACTION_HANGUP, call.id, 9))
+            .addAction(0, context.getString(if (ringing) R.string.notif_decline else R.string.notif_hang_up), if (ringing) declineIntent(call.id, 9) else action(CallActionReceiver.ACTION_HANGUP, call.id, 9))
             .setDeleteIntent(dismissIntent(if (ringing) INCOMING_ID else ONGOING_ID, call.id))
             .build()
     }
@@ -212,6 +215,24 @@ class CallNotifier(private val context: Context) {
         call.accountLabel,
     ).joinToString(context.getString(R.string.tc_separator))
 
+    /** X4: "Confirm before declining" (simple mode) covers the notification's Decline too. */
+    private fun confirmDecline(): Boolean = runCatching { TelecomGraph.dependencies.appearance.value.confirmDecline }.getOrDefault(false)
+
+    /**
+     * Decline in a call notification: straight away, or, with "Confirm before declining" on, the call screen asking
+     * "Decline this call?" (a stray tap on a heads-up notification never sends a call away).
+     */
+    private fun declineIntent(id: String, req: Int): PendingIntent =
+        if (!confirmDecline()) {
+            action(CallActionReceiver.ACTION_DECLINE, id, req)
+        } else {
+            PendingIntent.getActivity(
+                context, 30 + req,
+                InCallActivity.intent(context, false).setAction(InCallActivity.ACTION_ASK_DECLINE).putExtra(CallActionReceiver.EXTRA_ID, id),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+        }
+
     private fun answerIntent(call: CallUi): PendingIntent = PendingIntent.getActivity(
         context, 2,
         InCallActivity.intent(context, false).setAction(InCallActivity.ACTION_ANSWER).putExtra(CallActionReceiver.EXTRA_ID, call.id),
@@ -241,7 +262,7 @@ class CallNotifier(private val context: Context) {
             .setPublicVersion(publicVersion(call, CH_INCOMING, context.getString(R.string.notif_incoming_call)))
             .setContentIntent(contentIntent())
             .setFullScreenIntent(contentIntent(), true)
-            .setStyle(NotificationCompat.CallStyle.forIncomingCall(person(call), action(CallActionReceiver.ACTION_DECLINE, call.id, 3), answer))
+            .setStyle(NotificationCompat.CallStyle.forIncomingCall(person(call), declineIntent(call.id, 3), answer))
             .addAction(0, context.getString(R.string.notif_ignore), action(CallActionReceiver.ACTION_IGNORE, call.id, 10))
             .setDeleteIntent(dismissIntent(INCOMING_ID, call.id))
             .build()
@@ -255,7 +276,7 @@ class CallNotifier(private val context: Context) {
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setOngoing(true)
             .setContentIntent(contentIntent())
-            .addAction(0, context.getString(R.string.notif_decline), action(CallActionReceiver.ACTION_DECLINE, call.id, 4))
+            .addAction(0, context.getString(R.string.notif_decline), declineIntent(call.id, 4))
             .addAction(0, context.getString(R.string.notif_answer), answerIntent(call))
             .setDeleteIntent(dismissIntent(INCOMING_ID, call.id))
             .build()

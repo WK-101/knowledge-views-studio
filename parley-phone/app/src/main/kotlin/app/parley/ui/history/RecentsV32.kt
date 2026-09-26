@@ -22,12 +22,14 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -128,13 +130,14 @@ private fun RecentsLayoutDialog(vm: AppViewModel, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun ChoiceItem(title: String, sub: String?, selected: Boolean, onClick: () -> Unit) {
+private fun ChoiceItem(title: String, sub: String?, selected: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
     ListItem(
         headlineContent = { Text(title) },
         supportingContent = sub?.let { { Text(it) } },
-        leadingContent = { RadioButton(selected, onClick = null) },
+        leadingContent = { RadioButton(selected, onClick = null, enabled = enabled) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = Modifier.fillMaxWidth().selectable(selected, role = Role.RadioButton, onClick = onClick),
+        modifier = Modifier.fillMaxWidth().selectable(selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
+            .then(if (enabled) Modifier else Modifier.alpha(0.6f)),
     )
 }
 
@@ -162,9 +165,17 @@ fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (String)
     val scope = rememberCoroutineScope()
     val all by vm.c.history.calls.collectAsStateWithLifecycle()
     val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()
+    val contacts by vm.contacts.collectAsStateWithLifecycle()
+    val contactsAllowed by vm.hasContactsPermission.collectAsStateWithLifecycle()
     val iso = vm.countryIso
     val vaultKeys = remember(vault) { vault.flatMap { v -> v.numbers.map { PhoneNumbers.lineKey(it, iso) } }.toHashSet() }
-    val isKnown = { n: String -> vm.contactFor(n) != null || PhoneNumbers.lineKey(n, iso) in vaultKeys }
+    // "Unknown numbers" only once the contacts are really there: before they load, or without the permission, every
+    // number would look unknown (and calls with family and friends would go).
+    val contactsReady = contactsAllowed && !contacts.isNullOrEmpty()
+    val knownKeys = remember(contacts) { contacts.orEmpty().flatMap { ct -> ct.phones.map { PhoneNumbers.matchKey(it.number) } }.filter { it.length >= 3 }.toHashSet() }
+    val isKnown = { n: String -> PhoneNumbers.matchKey(n) in knownKeys }
+    // Private contacts' calls are never cleared here, not even before the vault has moved them out of the system log.
+    val isPrivate = { n: String -> PhoneNumbers.lineKey(n, iso) in vaultKeys }
     val shownIds = remember(shown) { shown?.map { it.id }?.toSet().orEmpty() }
     val scopes = buildList {
         // "What Recents shows now" only when filters or a search narrow it down.
@@ -173,12 +184,20 @@ fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (String)
         add(ClearScope.MISSED)
         add(ClearScope.ALL)
     }
-    val counts = remember(all, shownIds, vaultKeys) { ClearScope.entries.associateWith { ClearHistory.select(all.orEmpty(), it, isKnown, shownIds).size } }
-    var picked by remember { mutableStateOf(scopes.first()) }
+    val counts = remember(all, shownIds, vaultKeys, knownKeys, contactsReady) {
+        ClearScope.entries.associateWith { ClearHistory.select(all.orEmpty(), it, isKnown, shownIds, isPrivate, contactsReady).size }
+    }
+    var picked by remember { mutableStateOf(scopes.first { ClearHistory.available(it, contactsReady) }) }
     var step by remember { mutableStateOf(ClearStep.SCOPE) }
+    // The contacts went away while the dialog was open: "Unknown numbers" can't be picked any more.
+    LaunchedEffect(contactsReady) {
+        if (!ClearHistory.available(picked, contactsReady)) picked = scopes.first { ClearHistory.available(it, contactsReady) }
+    }
     var busy by remember { mutableStateOf(false) }
-    fun selected() = ClearHistory.select(all.orEmpty(), picked, isKnown, shownIds)
-    val count = counts[picked] ?: 0
+    // P5: the calls are fixed when the user moves on from the scope, so what's exported is what's deleted.
+    var chosen by remember { mutableStateOf<List<CallEntry>>(emptyList()) }
+    fun selected() = ClearHistory.select(all.orEmpty(), picked, isKnown, shownIds, isPrivate, contactsReady)
+    val count = if (step == ClearStep.SCOPE) counts[picked] ?: 0 else chosen.size
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
@@ -198,7 +217,11 @@ fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (String)
                         if (all == null) LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp))
                         scopes.forEach { sc ->
                             val n = counts[sc] ?: 0
-                            ChoiceItem(scopeLabel(sc), pluralStringResource(R.plurals.clear_history_calls, n, n), picked == sc) { picked = sc }
+                            if (ClearHistory.available(sc, contactsReady)) {
+                                ChoiceItem(scopeLabel(sc), pluralStringResource(R.plurals.clear_history_calls, n, n), picked == sc) { picked = sc }
+                            } else {
+                                ChoiceItem(scopeLabel(sc), stringResource(R.string.clear_history_unknown_needs_contacts), selected = false, enabled = false) {}
+                            }
                         }
                     }
                     ClearStep.EXPORT -> {
@@ -212,7 +235,7 @@ fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (String)
                                 busy = true
                                 scope.launch {
                                     try {
-                                        val list = selected()
+                                        val list = chosen
                                         val rows = ExportFiles.rows(context, list) { e -> ExportFiles.nameFor(e) { n -> vm.contactFor(n)?.displayName } }
                                         ExportFiles.share(context, ExportFiles.write(context, rows, null, ExportFormat.CSV), ExportFormat.CSV)
                                         step = ClearStep.CONFIRM
@@ -240,10 +263,13 @@ fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (String)
         },
         confirmButton = {
             when (step) {
-                ClearStep.SCOPE -> TextButton({ step = ClearStep.EXPORT }, enabled = count > 0) { Text(stringResource(R.string.clear_history_next)) }
+                ClearStep.SCOPE -> TextButton({
+                    chosen = selected()
+                    step = ClearStep.EXPORT
+                }, enabled = count > 0) { Text(stringResource(R.string.clear_history_next)) }
                 ClearStep.EXPORT -> TextButton({ step = ClearStep.CONFIRM }, enabled = !busy) { Text(stringResource(R.string.clear_history_skip_export)) }
                 ClearStep.CONFIRM -> TextButton({
-                    vm.deleteCallsWithUndo(selected())
+                    vm.deleteCallsWithUndo(chosen, keepPrivate = true)
                     onDismiss()
                 }, enabled = count > 0) { Text(stringResource(R.string.clear_history_delete), color = MaterialTheme.colorScheme.error) }
             }

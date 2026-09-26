@@ -864,6 +864,7 @@
     <string name="clear_history_delete">Supprimer</string>
     <string name="clear_history_cancel">Annuler</string>
     <string name="clear_history_close">Fermer</string>
+    <string name="clear_history_unknown_needs_contacts">Nécessite l\'accès à vos contacts pour savoir quels numéros sont inconnus</string>
     <!-- v3.2 C4: birthday slots -->
     <string name="ux_add_birthday">Ajouter l\'anniversaire ?</string>
     <string name="ux_add_anniversary">Ajouter une date anniversaire ?</string>

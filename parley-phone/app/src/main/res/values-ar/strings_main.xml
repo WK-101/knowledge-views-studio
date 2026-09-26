@@ -1011,6 +1011,7 @@
     <string name="clear_history_delete">حذف</string>
     <string name="clear_history_cancel">إلغاء</string>
     <string name="clear_history_close">إغلاق</string>
+    <string name="clear_history_unknown_needs_contacts">يحتاج إلى الوصول إلى جهات اتصالك لمعرفة الأرقام غير المعروفة</string>
     <!-- v3.2 C4: birthday slots -->
     <string name="ux_add_birthday">إضافة عيد الميلاد؟</string>
     <string name="ux_add_anniversary">إضافة ذكرى سنوية؟</string>

@@ -15,7 +15,8 @@ import app.parley.telecom.R
 /**
  * X4: says "<name> is calling" a few times while a call rings. Android's on-device text-to-speech: nothing is
  * recorded and no microphone is involved. Only for contacts ([name] non-null), and only when the ringer is on and
- * Do Not Disturb isn't silencing calls, so a silent phone stays silent. Stops as soon as the call stops ringing.
+ * Do Not Disturb isn't silencing calls, so a silent phone stays silent. Stops as soon as the call stops ringing or
+ * the ringer is silenced (the caller passes a null [callId] then).
  */
 @Composable
 fun SpeakCallerName(callId: String?, name: String?) {
@@ -26,7 +27,9 @@ fun SpeakCallerName(callId: String?, name: String?) {
         val app = context.applicationContext
         val audio = app.getSystemService(AudioManager::class.java)
         val nm = app.getSystemService(NotificationManager::class.java)
+        // Never over a call that's going (a waiting call only gets the call-waiting tone).
         val allowed = audio?.ringerMode == AudioManager.RINGER_MODE_NORMAL &&
+            audio.mode != AudioManager.MODE_IN_CALL && audio.mode != AudioManager.MODE_IN_COMMUNICATION &&
             (nm == null || nm.currentInterruptionFilter == NotificationManager.INTERRUPTION_FILTER_ALL || nm.currentInterruptionFilter == NotificationManager.INTERRUPTION_FILTER_UNKNOWN)
         val handler = Handler(Looper.getMainLooper())
         var tts: TextToSpeech? = null
